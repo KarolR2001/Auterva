@@ -258,11 +258,11 @@ To struktura planowana. Rzeczywistych istniejących plików instrukcji nie nadpi
 
 ## 9. Auth, zaproszenia i MFA
 
-- Better Auth odpowiada za hasła, sesje, reset i MFA. Auterva dodaje role, kontekst firmy, politykę zaproszeń i archiwizacji; bez własnej kryptografii haseł.
+- Better Auth odpowiada za hasła, sesje, reset i MFA. Auterva dodaje role, kontekst firmy, politykę zaproszeń i archiwizacji; bez własnej kryptografii haseł. MVP ma dokładnie jednego superadmina.
 - Nie ma publicznego signup ani rejestracji superadmina. Konta powstają wyłącznie przez kontrolowane utworzenie operatora lub zaproszenie firmy.
 - Cookies: `Secure`, `HttpOnly`, właściwe `SameSite`, bez współdzielenia szerokim `Domain`; rozdzielone obszary sesji. Origin i CSRF sprawdzane także między siostrzanymi subdomenami. [Cookies Better Auth](https://better-auth.com/docs/concepts/cookies), [bezpieczeństwo Better Auth](https://better-auth.com/docs/reference/security).
 - Rola, firma, obszar sesji i potwierdzenie MFA są polami kontrolowanymi wyłącznie przez serwer; endpointy aktualizacji profilu/sesji nie przyjmują ich od klienta. Cache sesji nie może przywrócić cofniętych praw.
-- MFA obowiązuje w obu panelach. Proponowany składnik: TOTP i kody odzyskania; przed pełnym dostępem trzeba przejść enrolment/weryfikację. Wyłączenie MFA nie może pozostawić działającej pełnej sesji.
+- MFA obowiązuje w obu panelach: TOTP i jednorazowe kody odzyskania; przed pełnym dostępem trzeba przejść enrolment/weryfikację. Wyłączenie MFA nie może pozostawić działającej pełnej sesji. Pierwsze konto superadmina tworzy jednorazowa interaktywna komenda administracyjna tylko przy pustej bazie; hasło i kody nie są argumentami procesu, logiem ani wartością w repozytorium. Odzyskanie po utracie MFA wymaga ręcznej procedury właściciela, unieważnienia sesji i audytu.
 - Zaproszenie: losowy token, hash w bazie, właściwa firma/adresat/host, 7 dni, jednorazowe użycie. GET i skaner poczty nie aktywują konta.
 - Zakończenie rejestracji w transakcji: zużycie ważnego tokenu → aktywacja właściwego konta → jednorazowy `firstAdminRegisteredAt` → start przyznanego trialu → zdarzenie publikacji → audyt.
 - Zapis tokenu, konta i daty pierwszej rejestracji jest atomowy także przy dwóch równoczesnych aktywacjach; DB pilnuje globalnego e-maila i jednego administratora. Obowiązuje tylko skuteczne zatwierdzenie transakcji.
@@ -342,7 +342,7 @@ Prefiksy wyznaczają dozwolony obszar hosta; poniższe URI są projektem technic
 
 - Upload inicjowany po autoryzacji firmy i zasobu; krótkotrwały dostęp wyłącznie do losowego klucza tej operacji. Sam prefiks storage nie jest zabezpieczeniem.
 - Serwer weryfikuje sygnaturę rzeczywistego JPEG/PNG/WebP, rozmiar pliku, wymiary i możliwość dekodowania; usuwa zbędne metadane, tworzy warianty i zapisuje wynik przetwarzania.
-- HEIC tylko po rzeczywistej implementacji konwersji. Limity liczby zdjęć i MB są nadal nieustalone; makietowe 12 zdjęć to fixture, nie limit produktu.
+- HEIC tylko po rzeczywistej implementacji konwersji. Limity mediów są ustalone: maksymalnie 30 zdjęć pojazdu, 10 MB na plik i 12 000 × 12 000 px. Makietowe 12 zdjęć nie jest limitem produktu.
 - Galeria zachowuje udane pliki po błędzie pojedynczego uploadu; retry dotyczy właściwego pliku, a porządkowanie ma alternatywę klawiaturową.
 - Oryginały i szkice pozostają prywatne. Publiczne warianty udostępnia kontrolowany endpoint po sprawdzeniu aktualnej firmy/pojazdu; nie wystawiać trwałego publicznego bucket URL omijającego wygaśnięcie.
 - Endpoint mediów i warstwa optymalizacji muszą respektować ukrycie, archiwizację i koniec okresu. Domyślny cache optymalizatora obrazów nie może obejść tej kontroli.
@@ -364,7 +364,7 @@ Prefiksy wyznaczają dozwolony obszar hosta; poniższe URI są projektem technic
 - Logout usuwa lokalne szkice i zamyka socket. Utrata sieci zachowuje treść w otwartej aplikacji; nie obiecuje trwałego offline ani dostarczenia po zamknięciu.
 - Wiele procesów WebSocket wymaga dystrybucji zdarzeń między instancjami; na start PostgreSQL notification/outbox z identyfikatorem zdarzenia, bez pełnej treści w powiadomieniu. Historia jest źródłem odtworzenia po utracie zdarzenia.
 - Po przerwaniu i wznowieniu połączenia procesu z PostgreSQL `LISTEN` trzeba zsynchronizować zaległe zdarzenia z trwałego outboxu/kursorów, również dla nadal otwartych socketów klientów. Sam reconnect przeglądarki nie naprawia tej luki; `NOTIFY` jest sygnałem, nie trwałą kolejką. [PostgreSQL NOTIFY](https://www.postgresql.org/docs/18/sql-notify.html).
-- Maksymalny rozmiar tekstu, liczba połączeń i tempo zdarzeń to jawne parametry techniczne. Brak handlowych limitów planów.
+- Maksymalny rozmiar wiadomości czatu to 4 000 znaków, a tempo wysyłania to 30 wiadomości/minutę na konto z burstem 10. Publiczne zapytanie dostępności obejmuje najwyżej 365 dni. Bazowe limity ruchu: logowanie/MFA 5 nieudanych prób na konto/15 min i 20/IP/15 min; reset, zaproszenie i resend 3/konto/godzinę i 20/IP/godzinę; uwierzytelnione odczyty API 120/min/konto+firma, mutacje 60/min; publiczna dostępność 60/min/IP. Przekroczenie zwraca `429 RATE_LIMITED` z `Retry-After`; wartości pozostają konfigurowalne po teście obciążenia.
 
 ## 15. Zadania, poczta i integracje
 
@@ -449,7 +449,7 @@ Prefiksy wyznaczają dozwolony obszar hosta; poniższe URI są projektem technic
 
 ## 20. Kolejność realizacji
 
-1. Stosować uporządkowane źródła MVP 3.1; ustalić macierz pól edytowalnych przez firmę, limity mediów, parametry obciążenia i hosting.
+1. Stosować uporządkowane źródła MVP 3.1; macierz pól D-01, publikacja D-02, limity D-04 i bootstrap D-05 są rozstrzygnięte 23.10.2026. Parametry obciążenia i hosting pozostają do ustalenia.
 2. Zamknąć ADR-0002 testem zgodności; odtwarzalny scaffold i lockfile, PostgreSQL, cztery hosty, auth/MFA, tenant context i testy A/B.
 3. Firma, okres, domeny, zaproszenie i rejestracja; potwierdzone 336 h i publikacja pustej oferty; testy wygaśnięcia wszystkich publicznych adresów.
 4. Flota, media, publikacja i dostępność; constraints, równoległe zapisy, DTO oraz aktualność publicznego wyniku.
@@ -459,13 +459,15 @@ Prefiksy wyznaczają dozwolony obszar hosta; poniższe URI są projektem technic
 
 ## 21. Konkretne otwarte decyzje
 
-- **Edycja publicznych pól:** REQ-MVP-23/TEST-MVP-47 rezerwują publiczne logo/dane/treści/zdjęcia dla superadmina; §6.2, §9.2, §10.3 oraz ADM-11–14 zachowują częściową edycję kontaktu/SEO/treści przez firmę. Przed mutacjami `SiteSettings` trzeba zatwierdzić allowlistę pól według roli. Nie rozstrzygać konfliktu ukrywaniem przycisku ani duplicowaniem tych samych danych.
+- **Edycja publicznych pól — rozstrzygnięte 23.10.2026:** superadmin zapisuje dane kontaktowe i ofertowe firmy, SEO, treści prawne, logo, hero, publiczne zdjęcia i branding. Administrator firmy ma odczyt tych pól, a zapisuje wyłącznie flotę, zdjęcia pojazdów i blokady własnej firmy. Mutacje `SiteSettings` wymagają serwerowej allowlisty według tej macierzy.
+- **Publikacja pojazdu — rozstrzygnięte 23.10.2026:** oprócz dotychczasowej kompletności wymagany jest pełny niepusty opis; w przeciwnym razie zapis pozostaje szkicem.
+- **Limity i konta — rozstrzygnięte 23.10.2026:** obowiązują wartości z sekcji limitów i jeden superadmin z jednorazowym bootstrapem interaktywnym.
 - **Sprzeczne starsze akapity wewnątrz 3.1:** aktywny trial publiczny według Q-03B/U3; typing/read według Q-08A; stałe kolory według U4/DEC-014. Te rozstrzygnięcia są już potwierdzone i nie są ponownymi pytaniami.
-- **Parametry produkcyjne:** liczba firm i współbieżnych użytkowników, limit zdjęć/MB/wiadomości/zakresu dat, finalne kategorie, prezentacja cen, dokumenty prawne, mapa/adres i priorytet kalendarza floty.
-- **Integracje i operacje:** domeny produkcyjne, dostawcy hostingu/DB/storage/poczty, liczba kont superadmina, procedura odzyskania MFA oraz dokładna godzina i retry przypomnień usługi.
+- **Parametry produkcyjne:** liczba firm i współbieżnych użytkowników, docelowy profil obciążenia, finalne kategorie, prezentacja cen, dokumenty prawne, mapa/adres i priorytet kalendarza floty. Limity zdjęć, wiadomości i zakresu dat są już ustalone D-04.
+- **Integracje i operacje:** domeny produkcyjne, dostawcy hostingu/DB/storage/poczty oraz dokładna godzina i retry przypomnień usługi. Liczba kont superadmina, bootstrap i odzyskanie MFA są ustalone D-05.
 - **Wersje:** zgodność Next/React/TypeScript/Prisma/Better Auth/Serwist i lockfile nadal wymaga rzeczywistego builda i integracji. Potwierdzenie istnienia wydania nie zamyka ADR-0002.
 
-- **Publikacja i okresy:** pełny opis jako warunek publikacji ma sprzeczny status w B1; nakładający się trial/opłata wymaga jednoznacznych reguł KPI i przypomnień. Otwarty rejestr D-01–D-15 i rekomendacje produktu: [wymagania](WYMAGANIA_AUTERVA.md). Typ serwisowej blokady to `MAINTENANCE`; makietowe `SERVICE` mapować na ten typ, nie rozszerzać enumu.
+- **Publikacja i okresy:** pełny niepusty opis jest warunkiem publikacji zgodnie z decyzją D-02. Nakładający się trial/opłata nadal wymaga reguł KPI i przypomnień D-14. Typ serwisowej blokady to `MAINTENANCE`; makietowe `SERVICE` mapować na ten typ, nie rozszerzać enumu.
 
 ## 22. Co warto dodać po podstawowym wdrożeniu
 

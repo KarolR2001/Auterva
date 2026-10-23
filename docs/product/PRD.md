@@ -335,7 +335,7 @@ Wersja 3.1 nie jest zatwierdzeniem kolejnych triali ani dodatkowych funkcji hand
 
 **P [U2/U4]:** jedna firma ma dokładnie jedno aktywne konto administratora po zakończeniu rejestracji; w prerejestracji konto może oczekiwać na aktywację. Nie ma dodatkowych kont, zespołów ani przełącznika firm. Druga firma wymaga osobnego uruchomienia jako nowy klient i innego, globalnie unikalnego adresu e-mail administratora.
 
-Liczba kont superadmina nie została określona. Nie wyprowadzać jej z reguły „jeden admin na firmę”.
+Decyzja właściciela z 23.10.2026: MVP ma dokładnie jednego superadmina. Pierwsze konto tworzy jednorazowa interaktywna komenda administracyjna tylko przy pustej bazie; hasło nie jest przekazywane w argumentach, logowane ani przechowywane w repozytorium. TOTP i kody odzyskania są obowiązkowe, a utrata MFA wymaga ręcznej procedury właściciela, unieważnienia sesji i audytu.
 
 ### 6.2. Macierz uprawnień
 
@@ -343,7 +343,8 @@ Liczba kont superadmina nie została określona. Nie wyprowadzać jej z reguły 
 |---|---|---|---|
 | Utwórz nową firmę | Tak P, po uzgodnieniu wyglądu | Nie | Nie |
 | Edytuj metadane firmy na platformie | Tak P | Nie | Nie |
-| Edytuj dane kontaktowe i ofertowe firmy | Tak P, w kontekście wybranej firmy | Tak P/B, tylko własnej | Nie |
+| Edytuj dane kontaktowe, publiczne, SEO i prawne firmy | Tak P, w kontekście wybranej firmy | Nie — odczyt | Nie |
+| Edytuj ofertę pojazdu i flotę firmy | Tak P, w kontekście wybranej firmy | Tak P/B, tylko własnej | Nie |
 | Wgraj/zmień publiczne logo, dane, treści i zdjęcia | Tak P | Nie; kontakt przez czat | Nie |
 | Zmień indywidualny font, ikony lub motyw panelu firmy | Nie jest funkcją tego MVP | Nie | Nie |
 | Ustaw/przedłuż okres publicznej widoczności | Tak P | Nie | Nie |
@@ -583,7 +584,7 @@ Poniższe szczegółowe pola i układ to R realizujące potwierdzone operacje. N
 |---|---|---|
 | Nazwa firmy | Superadmin | Rozpoznawalna nazwa klienta Autervy; nie wymuszać automatycznej zmiany sluga |
 | Nazwa publiczna | Superadmin / później firma B | Można użyć dotychczasowego pola; nie budować trzech nazw, gdy klient nie potrzebuje rozróżnienia |
-| Telefon kontaktowy | Superadmin / firma B | Kanał uzgodnień i publiczny telefon, z rozróżnieniem przeznaczenia, jeśli są różne |
+| Telefon kontaktowy | Wyłącznie superadmin | Kanał uzgodnień i publiczny telefon, z rozróżnieniem przeznaczenia, jeśli są różne |
 | E-mail zaproszenia | Superadmin | Adres administratora firmy; nie jest automatycznie publicznym kontaktem |
 | Slug panelu | Superadmin | Składa zatwierdzony host firmy; unikalny w platformie; wykluczone nazwy techniczne |
 | Host panelu | Wyliczany | Pole podglądu np. `alfa.sites.auterva.example`; nie dowolny URL |
@@ -595,7 +596,7 @@ Poniższe szczegółowe pola i układ to R realizujące potwierdzone operacje. N
 | Rodzaj dostępu | Superadmin | Opłacony / trial 14 dni |
 | Okres | Superadmin / reguła trialu | Opłacono do wskazanego dnia włącznie. Trial startuje po pierwszej rejestracji i kończy się dokładnie po 336 godzinach. |
 | Stan publicznej strony | Wyliczany/systemowy | Automatyczna pierwsza publikacja po rejestracji; koniec trialu/opłaty wyłącza wszystkie publiczne adresy. Wznowienie jest automatyczne przy poprawnej domenie i braku archiwizacji; po przywróceniu z archiwum odblokowuje superadmin. |
-| Dane firmy dla oferty | Firma B oraz superadmin P | Istniejące pola opisu, adresu, godzin, kontaktu i treści prawnych. Superadmin edytuje je w zagnieżdżonym kontekście firmy. |
+| Dane firmy dla oferty | Wyłącznie superadmin | Istniejące pola opisu, adresu, godzin, kontaktu i treści prawnych. Superadmin edytuje je w zagnieżdżonym kontekście firmy; administrator firmy ma odczyt. |
 | Notatka operatora | Opcjonalna R | Nie jest treścią czatu; brak dostępu klienta; nie przechowywać sekretów |
 
 **Nie dodawać automatycznie:** ceny planu, VAT, numeru faktury, danych karty, numeru konta bankowego, salda, automatycznego MRR ani terminów księgowych. Są poza potwierdzonym zakresem.
@@ -1535,4 +1536,13 @@ Przed zmianą konkretnej makiety ustalić jej rzeczywisty identyfikator w `desig
 
 ---
 
-**Koniec wersji 3.1. Odpowiedzi i zatwierdzone rekomendacje właściciela włączono do całego PRD.**
+### 24.6. Decyzje właściciela z 23.10.2026
+
+Poniższe decyzje doprecyzowują wcześniejsze rozbieżności i mają pierwszeństwo przy implementacji MVP:
+
+- **D-01:** administrator firmy ma odczyt danych kontaktowych, publicznych, SEO i prawnych, ale nie może ich zapisywać. Superadmin zapisuje te pola oraz logo, hero, publiczne zdjęcia i branding. Administrator i superadmin mogą zarządzać pojazdami, zdjęciami pojazdów i blokadami w kontekście firmy.
+- **D-02:** publikacja pojazdu wymaga dotychczasowej kompletności oraz pełnego, niepustego opisu. W przeciwnym razie pojazd pozostaje szkicem.
+- **D-04:** pojazd ma maksymalnie 30 zdjęć; jedno zdjęcie ma maksymalnie 10 MB i 12 000 × 12 000 px; wiadomość czatu ma maksymalnie 4 000 znaków; zapytanie dostępności obejmuje maksymalnie 365 dni. Bazowe limity ruchu są opisane w `docs/WYMAGANIA_AUTERVA.md` i podlegają strojeniu po teście obciążenia.
+- **D-05:** MVP ma dokładnie jednego superadmina. Pierwsze konto tworzy jednorazowa interaktywna komenda administracyjna tylko przy pustej bazie. TOTP i jednorazowe kody odzyskania są obowiązkowe; odzyskanie dostępu wymaga ręcznej procedury właściciela, unieważnienia sesji i audytu.
+
+**Koniec wersji 3.1. Odpowiedzi i zatwierdzone decyzje właściciela włączono do całego PRD.**

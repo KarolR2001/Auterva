@@ -107,11 +107,11 @@ Stan analizy: **22.10.2026**. Obowiązuje **PRD 3.1 z superadminem i wieloma fir
 - **C-F078 [P]** Po przywróceniu z archiwum i opłaceniu widoczność publiczną odblokowuje superadmin. Źródło: §5.2A Q-10A, §9.5.
 - **C-F079 [P]** Samo włączenie filtra archiwum nie przywraca firmy ani nie zmienia okresu lub publikacji. Źródło: §9.5, TEST-MVP-52.
 - **C-F080 [P]** MVP nie uruchamia automatycznego trwałego kasowania danych po archiwizacji, wygaśnięciu opłaty ani końcu trialu. Źródło: §5.2B Q-10B, §18.8, DEC-017.
-- **C-F081 [P]** Wyłącznie superadmin zmienia publiczne logo i materiały white-label; dokładna granica pól danych/treści versus samoobsługowe ustawienia wymaga doprecyzowania z powodu sprzeczności źródła. Źródło: REQ-MVP-23, §6.2, §10.3, TEST-MVP-47.
+- **C-F081 [P]** Wyłącznie superadmin zmienia publiczne logo, dane firmy, treści, SEO, treści prawne i materiały white-label. Administrator firmy nie edytuje tych pól; może zarządzać własną flotą i operacyjną ofertą pojazdów. Źródło: decyzja właściciela 23.10.2026, REQ-MVP-23, §6.2, §10.3, TEST-MVP-47.
 - **C-F082 [P]** Publiczne materiały firmy nie zmieniają kolorów, fontów, ikon, loginu ani wyglądu panelu. Źródło: §5.2B Q-05A, §16.1, DEC-014.
 - **C-F083 [P]** Administrator widzi logo tylko do odczytu i zgłasza jego zmianę przez czat. Źródło: §10.3, §13.2 ADM-11.
 - **C-F084 [P]** Administrator nie zmienia okresu, trialu ani hosta panelu. Źródło: §10.3.
-- **C-F085 [P/B]** Zachować dozwolone dane firmy, telefon, kanały kontaktu, SEO i treści prawne; zakres uprawnień do konkretnych pól jest kolizją źródeł. Źródło: §6.2, §9.2, §13.2 ADM-11–14.
+- **C-F085 [P/B]** Zachować dane firmy, telefon, kanały kontaktu, SEO i treści prawne; w MVP wszystkie te pola zapisuje wyłącznie superadmin. Administrator firmy ma odczyt, a operacyjnie zmienia flotę, pojazdy, zdjęcia pojazdów i blokady własnej firmy. Źródło: decyzja właściciela 23.10.2026, §6.2, §9.2, §13.2 ADM-11–14.
 - **C-F086 [P]** Brak własnej domeny nie blokuje startu: oferta używa `{slug}.{publicDomainAutervy}`, oddzielnie od hosta panelu. Źródło: REQ-MVP-24, §3.1, DEC-015.
 - **C-F087 [P]** Klient kupuje własną domenę; Auterva przekazuje instrukcję DNS i weryfikuje routing oraz TLS. Źródło: §5.2B Q-06A/B, DEC-015.
 - **C-F088 [P]** Po aktywacji własnej domeny dotychczasowy publiczny adres Autervy przekierowuje na nią. Źródło: §5.2B Q-06A/B, DEC-015.
@@ -125,7 +125,7 @@ Stan analizy: **22.10.2026**. Obowiązuje **PRD 3.1 z superadminem i wieloma fir
 - **C-F093 [B]** Szczegóły pojazdu zachowują galerię, parametry, kalendarz oraz wynik dostępności. Źródło: §13.1 PUB-03.
 - **C-F094 [P/B]** Dostępność jest informacyjna i wymaga potwierdzenia przez firmę. Źródło: §2.2.
 - **C-F095 [B]** Niekompletny pojazd można zapisać jako szkic. Źródło: §2.2.
-- **C-F096 [B]** Publikacja pojazdu wymaga dotychczasowych warunków kompletności, niezależnie od stanu całej firmy. Źródło: §2.2, §13.3 OVR-09.
+- **C-F096 [B/P]** Publikacja pojazdu wymaga dotychczasowych warunków kompletności oraz niepustego pełnego opisu. Niekompletny pojazd pozostaje szkicem, niezależnie od stanu całej firmy. Źródło: decyzja właściciela 23.10.2026, §2.2, §13.3 OVR-09.
 - **C-F097 [B]** Zachować dodawanie, edycję, ukrywanie i archiwizację pojazdu. Źródło: §13.2 ADM-06/07.
 - **C-F098 [B]** Zachować dodawanie i zarządzanie zdjęciami oraz ochronę zdjęcia głównego przy usuwaniu. Źródło: §13.2 ADM-07, §13.3 OVR-12.
 - **C-F099 [B]** Zachować chroniony podgląd publicznej prezentacji pojazdu, także po końcu okresu firmy. Źródło: §8.1, §13.2 ADM-08.
@@ -239,8 +239,8 @@ Stan analizy: **22.10.2026**. Obowiązuje **PRD 3.1 z superadminem i wieloma fir
 - **FR-ADM-033 — MUST:** zapis niekompletnego szkicu; publikacja dopiero po walidacji.
 - **FR-ADM-034 — SHOULD:** chroniony preview szkicu; w 3.1 dostępny też po końcu okresu, bez upublicznienia danych.
 - **FR-ADM-035:** slug generowany z nazwy i edytowalny; po publikacji przekierowanie starego slugu albo świadome potwierdzenie skutku. Automatyczne redirecty są SHOULD; w 3.1 unikalność w firmie.
-- **FR-ADM-040 — MUST:** upload wielu zdjęć naraz.
-- **FR-ADM-041 — MUST:** JPEG/PNG/WebP; HEIC tylko opcjonalnie z konwersją; odrzucanie fałszywego typu, zbyt dużych/niebezpiecznych plików.
+- **FR-ADM-040 — MUST:** upload wielu zdjęć naraz, do maksymalnie 30 zdjęć przypisanych do jednego pojazdu.
+- **FR-ADM-041 — MUST:** JPEG/PNG/WebP; HEIC tylko opcjonalnie z konwersją; odrzucanie fałszywego typu, zbyt dużych/niebezpiecznych plików. Maksymalny rozmiar jednego pliku to 10 MB, a maksymalne wymiary to 12 000 × 12 000 px.
 - **FR-ADM-042 — MUST:** zoptymalizowane warianty zdjęć; zachowywanie oryginału opcjonalne.
 - **FR-ADM-043 — MUST:** dokładnie jedno zdjęcie główne, w kontekście istniejących zdjęć/publikacji; szkic bez zdjęć jest dozwolony.
 - **FR-ADM-044 — MUST:** zmiana kolejności zdjęć.
@@ -286,7 +286,8 @@ Stan analizy: **22.10.2026**. Obowiązuje **PRD 3.1 z superadminem i wieloma fir
 - Ograniczenia: `startDate <= endDate`, `availableFrom <= availableTo`, relacja zdjęcie/blokada → właściwy pojazd tej samej firmy, unikalne pary wyposażenia, transakcyjne główne zdjęcie, indeksy statusu/kolejności/featured/dat/audytu. W 3.1 slugi i przekierowania unikalne per firma.
 - Publiczny kontrakt: lista z filtrami, szczegóły po slugu, kalendarz od/do, zakres dla jednego/wielu aut, publiczny settings DTO. Każda administracyjna operacja ma serwerową autoryzację i Zod; Server Actions albo Route Handlers nie zmieniają reguł domeny.
 - Stabilne błędy: `VALIDATION_ERROR`, `UNAUTHENTICATED`, `FORBIDDEN`, `VEHICLE_NOT_FOUND`, `VEHICLE_NOT_PUBLISHED`, `AVAILABILITY_CONFLICT`, `INVALID_DATE_RANGE`, `DATE_OUTSIDE_VEHICLE_WINDOW`, `IMAGE_UPLOAD_FAILED`, `PUBLISHING_REQUIREMENTS_NOT_MET`, `RATE_LIMITED`, `INTERNAL_ERROR`; bez stack trace, z requestId i fieldErrors.
-- Techniczne limity dostępności: żądania per źródło, długość zakresu, liczba pojazdów/batch; konkretne wartości niewskazane. Nie mylić z handlowymi limitami pakietów wycofanymi z 3.1.
+- Techniczne limity dostępności: maksymalny zakres zapytania to 365 dni; limity ruchu są per źródło, aktora i operację. Nie mylić z handlowymi limitami pakietów wycofanymi z 3.1.
+- Bazowe limity ruchu MVP: logowanie/MFA 5 nieudanych prób na konto i 15 minut oraz 20 prób na adres IP i 15 minut; reset hasła, zaproszenie i resend 3 żądania na konto i godzinę oraz 20 na adres IP i godzinę; uwierzytelnione odczyty API 120/minutę na konto i firmę, mutacje 60/minutę; publiczna dostępność 60/minutę na adres IP; wysyłanie wiadomości czatu 30/minutę na konto z krótkim burstem 10. Przekroczenie zwraca `429 RATE_LIMITED` z `Retry-After`; wartości są konfigurowalne i podlegają weryfikacji w teście obciążenia.
 - Ochrona edycji równoczesnej admin/superadmin: kontrolowana wersja rekordu i konflikt, bez cichego nadpisania (3.1 §6.4/TEST-MVP-51).
 
 ### Dziesięć bazowych przypadków użycia
@@ -346,7 +347,7 @@ Stan analizy: **22.10.2026**. Obowiązuje **PRD 3.1 z superadminem i wieloma fir
 - **C-N035 [T]** Media publiczne i robocze/prywatne mają odpowiednią odrębną politykę dostępu; prefiks z ID firmy nie jest zabezpieczeniem. Źródło: §18.6.
 - **C-N036 [T]** Opisy i czat nie wykonują HTML/skryptów. Źródło: §11.5, §18.6, TEST-MVP-32.
 - **C-N037 [T]** Nie kopiować pełnej korespondencji do logów aplikacji ani szczegółów audytu. Źródło: §11.5, §13.3 OVR-18.
-- **C-N038 [T]** Limity techniczne długości i ruchu czatu muszą być jawnie konfigurowane; PRD nie podaje wartości liczbowych. Źródło: §11.5.
+- **C-N038 [T/P]** Limity techniczne długości i ruchu czatu muszą być jawnie konfigurowane. Maksymalna wiadomość ma 4 000 znaków, a bazowy limit wysyłania to 30 wiadomości/minutę na konto z burstem 10. Źródło: decyzja właściciela 23.10.2026, §11.5.
 - **C-N039 [B/T]** Audyt zapisuje tworzenie/archiwizację firmy, zmiany okresu, domeny, materiałów publicznych, zaproszeń, praw i operacji floty. Źródło: §18.7.
 - **C-N040 [B/T]** Audyt wskazuje faktycznego aktora, rolę, docelową firmę, działanie, czas i bezpieczne poprzednie/nowe wartości. Źródło: §8.5, §17.2, §18.7.
 - **C-N041 [B/T]** Backupy, test odtworzenia i separacja staging/production pozostają wymagane. Źródło: §18.8.
@@ -570,14 +571,15 @@ Historyczne scenariusze v2 (15): UC-SAS-01 assisted startup; 02 multi-company; 0
 - Brak indywidualnych kolorów wynika z U4/DEC-014; §16.3 nie rozszerza white-labelu o motyw.
 - MFA jest obowiązkowe dla obu ról; wcześniejsze P1 oraz stary router auth nie wyznaczają aktualnego priorytetu.
 - Konto firmy pozostaje jedno; starsza otwarta decyzja o wielu administratorach z handoffu została rozstrzygnięta przez V31.
+- Decyzje właściciela z 23.10.2026 rozstrzygają D-01, D-02, D-04 i D-05. Szczegóły macierzy, publikacji, limitów i bootstrapu są kanoniczne dla implementacji MVP 3.1.
 
 ### Do ustalenia przed implementacją danego obszaru
 
-- **D-01 — uprawnienia do ustawień:** dokładna macierz pól kontaktu, danych publicznych, SEO i treści prawnych. V31 §6.2/9.2/10.3 zachowuje edycję przez firmę, a REQ-MVP-23/TEST-MVP-47 szeroko ogranicza publiczne dane do superadmina. Pewne: logo/hero/branding tylko superadmin; flota i zdjęcia pojazdów administrator oraz superadmin. Do wyjaśnienia sporne mutacje mają być odmawiane na serwerze; nie rozszerzać uprawnień domysłem.
-- **D-02 — publikacja auta:** B1 FR-ADM-032 nie wymienia pełnego opisu jako warunku, lecz §17.3 go wymaga. Ustalić jeden kontrakt walidacji.
+- **D-01 — rozstrzygnięte 23.10.2026:** administrator firmy ma odczyt danych kontaktowych, publicznych, SEO i prawnych, lecz nie może ich zapisywać. Superadmin zapisuje te pola oraz logo, hero, publiczne zdjęcia i branding. Administrator i superadmin mogą zarządzać pojazdami, ich zdjęciami oraz blokadami w kontekście firmy; serwer odmawia pozostałych mutacji niezależnie od UI.
+- **D-02 — rozstrzygnięte 23.10.2026:** publikacja pojazdu wymaga dotychczasowych pól kompletności oraz pełnego, niepustego opisu. Pojazd niespełniający walidacji pozostaje szkicem.
 - **D-03 — dane oferty:** finalne kategorie, pokazywanie cen, główny kontakt, publiczny adres/mapa, treści prawne, hero i rzeczywiste materiały.
-- **D-04 — limity techniczne:** maks. liczba/MB/wymiary zdjęć, długość wiadomości, rate limiting i maks. zakres zapytania dostępności; nie są to limity handlowe planu. 12 zdjęć w handoffie jest fixture, nie zatwierdzonym maksimum.
-- **D-05 — konta:** liczba superadminów, bezpieczny start pierwszego konta, mechanizm/enrollment/odzyskanie MFA. Sam ekran sześciu cyfr nie dowodzi pełnego wdrożenia MFA.
+- **D-04 — rozstrzygnięte 23.10.2026:** pojazd ma maksymalnie 30 zdjęć; jedno zdjęcie maksymalnie 10 MB i 12 000 × 12 000 px; wiadomość czatu maksymalnie 4 000 znaków; zakres dostępności maksymalnie 365 dni. Bazowe limity ruchu opisano przy C-N038 i są konfigurowalne po teście obciążenia; nie są limitami handlowymi.
+- **D-05 — rozstrzygnięte 23.10.2026:** MVP ma dokładnie jednego superadmina. Pierwsze konto tworzy jednorazowa interaktywna komenda administracyjna uruchamiana tylko przy pustej bazie; hasło nie trafia do argumentów ani repozytorium, konto wymaga enrolmentu TOTP i jednorazowych kodów odzyskania. Odzyskanie dostępu wymaga ręcznej procedury właściciela, unieważnienia sesji i pełnego audytu.
 - **D-06 — statystyki:** czy firma zarchiwizowana z przyszłą datą opłaty trafia do KPI; jak uniknąć podwójnego liczenia płatności i trialu. Dwa typy KPI są już ustalone.
 - **D-07 — przypomnienia:** godzina wysyłki, przypomnienia trialu przy dokładnej godzinie końca i DST, zmiana harmonogramu po przedłużeniu/skróceniu oraz polityka nadrabiania. Kanały i odstępy 7/1/0 są zatwierdzone.
 - **D-08 — szkice czatu:** trwałość po zamknięciu karty/przeglądarki, czyszczenie po wylogowaniu, długość sygnału typing, szczegółowa definicja read i docelowe opóźnienie realtime. To nie upoważnia do wysyłki offline.
@@ -603,6 +605,6 @@ Historyczne scenariusze v2 (15): UC-SAS-01 assisted startup; 02 multi-company; 0
 
 - Analiza źródłowa objęła pięć plików PRD, z czterema różnymi treściami. Repozytorium zachowuje kanoniczny V31 i BASELINE_FLEET; historia V2/V30 nie jest zależnością implementacji. Zachowane i wycofane wymagania są rozliczone w tym dokumencie.
 - Katalog zachowuje 71 identyfikatorów bazowych FR, 10 UC, 4 NFR-PERF oraz odniesienia do 31 REQ-MVP i 55 scenariuszy TEST-MVP z V31 §20. Scenariusze testowe są planem odbioru, nie wynikami testów.
-- Pełne pokrycie katalogu nie oznacza gotowości wszystkich kontraktów do implementacji: szczególnie D-01, D-02 i D-14 wymagają rozstrzygnięcia przed wdrożeniem zależnej logiki.
+- Pełne pokrycie katalogu nie oznacza gotowości wszystkich kontraktów do implementacji: D-03, D-06–D-14 pozostają decyzjami zależnymi od konkretnych obszarów. D-01, D-02, D-04 i D-05 mają rozstrzygnięcie z 23.10.2026.
 - Dla każdego wdrażanego przekroju uzupełnić mapowanie wymaganie → board Penpota → kod → trwały test w `design/traceability.json`. Aktualny dokument nie dopisuje fikcyjnych ścieżek kodu ani zaliczonych testów.
 - Odbiór aplikacji wymaga [quality gates](quality-gates.md), w tym rzeczywistego PostgreSQL, izolacji firm, współbieżności, MFA, poczty, WebSocket, hostów i PWA production build.
