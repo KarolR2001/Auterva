@@ -11,6 +11,7 @@ body:
         Opisz fakt, nie niezweryfikowaną przyczynę. Fixture, bez tokenów i danych prawdziwych firm.
         Dla dokumentacji/makiety podaj plik/board i datę odczytu zamiast fikcyjnej wersji aplikacji.
         Agent QA zapisuje nieudany odbiór w otwartym zadaniu i przesuwa je do Re-open, zachowując Role oraz agenta wykonawczego. Osobny bug służy niezależnej usterce lub regresji zamkniętego zakresu.
+        Poprawka przechodzi Review z needs:cr na PR/issue → CR głównego orkiestratora → Ready to test → QA. Orkiestrator zamyka zadanie po odbiorze i integracji; nowy commit wymaga ponownego CR/QA.
   - type: input
     id: environment
     attributes:

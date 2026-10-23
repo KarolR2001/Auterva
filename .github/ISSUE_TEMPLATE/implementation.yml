@@ -1,5 +1,5 @@
 name: Zadanie agenta Frontend lub Backend z odbiorem QA
-description: Jeden rezultat Autervy, wymagania, zależności i dowody odbioru.
+description: Jeden rezultat Autervy, wymagania, zależności, CR orkiestratora i odbiór QA.
 title: "[Zadanie] "
 labels: ["type:task"]
 projects: ["KarolR2001/1"]
@@ -9,7 +9,8 @@ body:
     attributes:
       value: |
         MVP 3.1 z superadminem i wieloma firmami; zasady w docs/development/WORKFLOW.md.
-        Frontend, Backend i QA to osobne agenty Codex na jednym koncie GitHub. Role/statusy rozdzielają kolejki; assignees pozostają puste. Podaj faktyczne źródła, bez sekretów i danych produkcyjnych.
+        Główny orkiestrator koordynuje Frontend, Backend i QA; osobne sesje korzystają z jednego konta GitHub. Role/statusy rozdzielają kolejki, assignees pozostają puste. Podaj źródła, bez sekretów i danych produkcyjnych.
+        Gotowy PR i issue otrzymują needs:cr, issue trafia do Review. Orkiestrator wykonuje CR i przekazuje Ready to test do QA. Done dopiero po QA oraz integracji przez orkiestratora.
   - type: dropdown
     id: role
     attributes:
@@ -67,7 +68,7 @@ body:
     id: test_cases
     attributes:
       label: Scenariusze testera i oczekiwane wyniki
-      description: Konkretne kroki → oczekiwany rezultat, także błędy i uprawnienia. Ready to test → Test; fail → Re-open do agenta wykonawczego; pass → Done.
+      description: Konkretne kroki → oczekiwany rezultat, także błędy i uprawnienia. Po CR orkiestratora Ready to test → Test; fail → Re-open do wykonawcy. QA PASS → integracja i Done przez orkiestratora.
       placeholder: |
         1. Warunki i akcja → oczekiwany wynik.
         2. Przypadek błędny → oczekiwany wynik.

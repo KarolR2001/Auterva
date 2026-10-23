@@ -2,7 +2,7 @@
 
 [Tablica projektu](https://github.com/users/KarolR2001/projects/1) · [Zasady pracy](WORKFLOW.md)
 
-Stan przygotowania: 23.10.2026. **64 obowiązkowe zadania w To do, 15 pozycji Candidates.** To plan realizacji, nie raport działającej aplikacji. Pracują trzy osobne agenty Codex: Frontend, Backend i QA, na jednym komputerze i koncie GitHub. Role oraz statusy rozdzielają kolejki; assignees pozostają puste. QA odbiera te same issue, bez osobnych zadań testera.
+Stan przygotowania: 23.10.2026. **64 obowiązkowe zadania w To do, 15 pozycji Candidates.** To plan realizacji, nie raport działającej aplikacji. Główny orkiestrator koordynuje Frontend, Backend i QA na jednym komputerze i koncie GitHub. Wykonuje CR każdego PR i przegląd całego kodu po etapach/przed wydaniem; QA testuje po CR. Role/statusy rozdzielają kolejki, assignees pozostają puste. CR i QA dotyczą tych samych issue. Done następuje po odbiorze i integracji przez orkiestratora.
 
 ## Kolejność
 

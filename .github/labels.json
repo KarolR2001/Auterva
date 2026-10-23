@@ -25,6 +25,7 @@
   {"name": "area:infra", "color": "4B5563", "description": "Baza, hosting, obserwowalność i operacje"},
   {"name": "area:design-system", "color": "DB61A2", "description": "Tokeny, komponenty i zgodność z Penpotem"},
   {"name": "blocked", "color": "B60205", "description": "Praca zatrzymana przez konkretną zależność"},
+  {"name": "needs:cr", "color": "FBCA04", "description": "Gotowy PR/issue czeka na code review głównego orkiestratora"},
   {"name": "needs:decision", "color": "D876E3", "description": "Wymaga rozstrzygnięcia produktu lub architektury"},
   {"name": "needs:penpot", "color": "E99695", "description": "Wymaga aktualnego odczytu lub uzupełnienia Penpota"}
 ]

@@ -22,6 +22,9 @@ Brak aplikacji produkcyjnej, manifestu i lockfile nie jest zaliczonym testem. Po
 
 ## Odbiór i CI
 
+- Każdy PR: CR głównego orkiestratora obejmuje diff i powiązany kod, zgodność z PRD/architekturą oraz adekwatność testów. Raport wskazuje head/base SHA, zakres, uwagi i dowody. CR: PASS poprzedza niezależny odbiór QA; nowy commit wymaga ponownego CR/QA.
+- Done: aktualne CR: PASS i QA: PASS, spełnione kryteria, merge oraz wymagane kontrole integracji. Zamyka orkiestrator; dla decyzji bez PR sprawdza zatwierdzony rezultat, bez fikcyjnego builda.
+- Po każdym Stage oraz przed #62/#64: orkiestrator wykonuje SYSTEM REVIEW całego aktualnego kodu i konfiguracji. Raport z commitem, zakresem, lukami i poprawkami trafia do issue zamykającego etap lub wydanie. Nierozwiązany bloker wstrzymuje zależne prace/wydanie.
 - PR aplikacji: lint, typecheck, unit, build, integracja zmienionych modułów i smoke E2E. Auth/hosty/DB/cache zawsze obejmują izolację i prywatność.
 - Przed wydaniem: TEST-MVP-01–55 i UC-01–10 w zakresie wydania; Chromium/Firefox/WebKit, reprezentatywne szerokości 320–1920, PWA i odtworzenie kopii.
 - Cele wydajności: `WYMAGANIA_AUTERVA.md`; wynik lab nie dowodzi p75 realnych wizyt. Brak uzgodnionego obciążenia wielu firm raportuj jawnie.

@@ -9,7 +9,7 @@ Stan: 23.10.2026. Konto: `KarolR2001`. Prywatne [repozytorium Auterva](https://g
 | Issues | GitHub MCP: utworzone rzeczywiste zadania #1–79; odczyt i zapis działają |
 | Project | GitHub CLI/GraphQL: osiem statusów, pola, widoki, elementy i zależności; MCP GitHub nie udostępnia operacji Projects |
 | Repozytorium | Konto ma uprawnienia admin/push/triage; Git lokalny śledzi origin/main |
-| Agenty | Frontend, Backend i QA to osobne sesje Codex na jednym komputerze, korzystające z konta KarolR2001. Kolejki wynikają z ról/statusów; osobne konta i assignees nie są potrzebne |
+| Agenty | Główny orkiestrator oraz Frontend, Backend i QA to osobne sesje Codex na jednym komputerze i koncie KarolR2001. Review/needs:cr wskazuje CR orkiestratora; Ready to test/Test kolejkę QA. Osobne konta i assignees nie są potrzebne |
 | Penpot | Odczyt live MCP: plik Nowy plik 2, 7 stron i 175 komponentów; rzeczywiste boardy użyte w zadaniach frontendowych |
 
 Uprawnienie nie dowodzi wykonania każdej możliwej operacji. Nie wykonano wdrożenia aplikacji ani niezależnego review własnych zmian. Szczegóły [backlogu](BACKLOG.md) i [workflow](WORKFLOW.md) opisują dalszą realizację.

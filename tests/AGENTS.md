@@ -1,7 +1,7 @@
 # Testy i odbiór Autervy — MVP 3.1
 
-- Agent QA jest osobną sesją Codex na tym samym koncie GitHub co Frontend/Backend. Korzysta z widoku QA: odbiera Ready to test → Test, a gdy nie ma gotowego odbioru, może przejrzeć Review. Nie tworzy własnych issue ani nie zmienia Role zadania.
-- Testuj przekazany commit w osobnym worktree, z odrębnymi portami/danymi testowymi. Wynik podpisz rolą i sesją; nie przedstawiaj komentarza jako formalnego Approve własnego konta. Fail → Re-open do właściciela implementacji; pass i komplet dowodów → Done.
+- Agent QA jest osobną sesją Codex na tym samym koncie GitHub co pozostali agenci. Korzysta z widoku QA: Ready to test z aktualnym CR: PASS orkiestratora → Test. Review należy do orkiestratora. Nie tworzy własnych issue ani nie zmienia Role zadania.
+- Testuj przekazany commit w osobnym worktree, z odrębnymi portami/danymi. Raport QA: PASS/FAIL/BLOCKED podpisz rolą, sesją i SHA; uwzględnij scenariusze, wyniki i dowody. Fail → Re-open do wykonawcy. PASS pozostaje w Test do integracji; orkiestrator po merge i kontrolach ustawia Done. Zmiana commita wymaga ponownego CR i QA. Raport nie jest formalnym Approve własnego konta.
 
 - Źródła: `docs/WYMAGANIA_AUTERVA.md`, `docs/ARCHITEKTURA_AUTERVA.md`, `docs/development/WORKFLOW.md`, `docs/quality-gates.md`. TEST-MVP-01–55 rozszerzają UC-01–10; lista scenariuszy nie jest raportem wykonania.
 - Testy aplikacji powstają wraz z implementacją. Brak manifestu, runtime, bazy lub komendy oznacza niewykonany test; kontrola dokumentacji nie zastępuje integracji.

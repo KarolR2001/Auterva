@@ -15,7 +15,7 @@ Przygotować i opublikować w GitHub Issues pełny, uporządkowany backlog od sc
 
 ## Warunki
 
-Produkt obejmuje superadmina i wiele firm. Otwarte decyzje są zakresem zadań przygotowawczych, bez domyślnego zatwierdzania wariantów. Wdrożenie jest elementem planu; bieżące zadanie nie wdraża aplikacji. Frontend, Backend i QA to osobne agenty Codex na jednym komputerze i koncie GitHub. Role/statusy rozdzielają kolejki; agent wykonawczy zachowuje odpowiedzialność za poprawki po `Re-open`.
+Produkt obejmuje superadmina i wiele firm. Otwarte decyzje są zakresem zadań przygotowawczych, bez domyślnego zatwierdzania wariantów. Wdrożenie jest elementem planu; bieżące zadanie nie wdraża aplikacji. Główny orkiestrator koordynuje osobne sesje Frontend, Backend i QA na jednym komputerze i koncie GitHub. Role/statusy rozdzielają kolejki; wykonawca odpowiada za poprawki po `Re-open`.
 
 ## Wynik i weryfikacja
 
@@ -29,3 +29,10 @@ Produkt obejmuje superadmina i wiele firm. Otwarte decyzje są zakresem zadań p
 - Ujednolicono instrukcje, szablony i 79 opisów issue: role Frontend/Backend oraz odbiór QA, bez osobnych kont i assignees.
 - Opisano osobne worktree, przejęcie sesji i przegląd na wspólnym koncie; widok osobisty zastąpiono Active, a QA uzupełniono o Review.
 - Ponowny odczyt potwierdził opisy, filtry oraz zachowanie kolejności/statusów/ról. YAML i diff poprawne. Pierwsze nieblokowane zadania to #1–4 oraz #6–7; kodowanie zależne od decyzji pozostaje w backlogu.
+
+## Główny orkiestrator i code review
+
+- Dodano orkiestratora nadzorującego trzy role wykonawcze: CR każdego PR, integracja i przegląd całego kodu po etapach oraz przed wydaniem.
+- Ujednolicono instrukcje, quality gates, szablony i 79 issue: implementacja → CR → QA → integracja → Done; poprawki wracają do wykonawcy. #62/#64 wymagają raportu SYSTEM REVIEW.
+- Utworzono [widok CR](https://github.com/users/KarolR2001/projects/1/views/11) i needs:cr; QA obejmuje Ready to test/Test. Odczyt API potwierdził 11 widoków, 79 opisów, zachowane role/statusy/kolejność oraz 188 zależności.
+- YAML, JSON, lokalne linki i git diff --check poprawne. To konfiguracja pracy; nie wykonano przyszłego CR ani testów nieistniejącej aplikacji. Statusy/etykiety nie uruchamiają sesji automatycznie.
