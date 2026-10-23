@@ -8,8 +8,8 @@
       "path": "docs/product/PRD.md",
       "role": "canonical-product",
       "originalSha256": "9d05874ede3275826c15c6fd217d221cb267a87df12fb3d5574f412a899dc775",
-      "sha256": "620383617356245f009352ff6a569cc127aaf728fa309f8c6e2537d1ede3646f",
-      "transformation": "Dodano wyłącznie preambułę pierwszeństwa U3/U4, aktualnych ścieżek i znanych rozbieżności; całe źródło 3.1 pozostaje niezmienionym sufiksem pliku."
+      "sha256": "f05a8e639af3f9c92fac9716fc71c38a27bcfbe09ced7da7e6f882cbe7a56d5c",
+      "transformation": "Dodano wyłącznie preambułę pierwszeństwa U3/U4 i decyzji D-01/D-02, aktualnych ścieżek i znanych rozbieżności; całe źródło 3.1 pozostaje niezmienionym sufiksem pliku."
     },
     {
       "originalName": "PRD_system_wynajmu_pojazdow(2).md",
@@ -17,7 +17,7 @@
       "path": "docs/product/BASELINE_FLEET.md",
       "role": "archived-fleet-baseline",
       "originalSha256": "c119c3c96b994b8b543306f380395da2bd21529211b5d4a80e2d4f5e1b7701a7",
-      "sha256": "06ccd181788552c5ae58d1b15dac0c52c545288a9bae4a6eaafa38acac405980",
+      "sha256": "60da83bee22e06ebf965adcb199b29b931a1543b8d64e8328d352713d46da732",
       "transformation": "Dodano preambułę archiwalnego kontraktu FR/UC podległego 3.1; oryginalna treść 1.0 zachowana bez zmian."
     },
     {
@@ -32,11 +32,11 @@
   "derivedDocuments": [
     {
       "path": "docs/WYMAGANIA_AUTERVA.md",
-      "sha256": "335a4554f95cd9afff15c5243427988b3993b9c213805b4c3859893f03b68bdc"
+      "sha256": "2db100591ac47ea047e6e93a43d3dc89c2805277a88d964f9cd72467f44e88e4"
     },
     {
       "path": "docs/ARCHITEKTURA_AUTERVA.md",
-      "sha256": "ebffc9e49c09502bea9cbaa4c621b46dde767903f1710b49c311ea1820d581d6"
+      "sha256": "8dbebe8c0b72892c886a12f6fca8be7a51b844d2827890daa04e363a815de50d"
     },
     {
       "path": "docs/adr/0001-penpot.md",
@@ -45,6 +45,10 @@
     {
       "path": "docs/adr/0002-version-validation.md",
       "sha256": "e9b827ff77a977750e5d6815e66192508ab57fb901d033e2ae233b5f5ca5ff65"
+    },
+    {
+      "path": "docs/contracts/company-settings-and-vehicle-publication.md",
+      "sha256": "67050b6c8eb931c662c7bc1505155b35deaf075f371aa2ed2727ecfa8e4ae39e"
     }
   ],
   "historicalSourcesOutsideRepository": [

@@ -107,11 +107,11 @@ Stan analizy: **22.10.2026**. Obowiązuje **PRD 3.1 z superadminem i wieloma fir
 - **C-F078 [P]** Po przywróceniu z archiwum i opłaceniu widoczność publiczną odblokowuje superadmin. Źródło: §5.2A Q-10A, §9.5.
 - **C-F079 [P]** Samo włączenie filtra archiwum nie przywraca firmy ani nie zmienia okresu lub publikacji. Źródło: §9.5, TEST-MVP-52.
 - **C-F080 [P]** MVP nie uruchamia automatycznego trwałego kasowania danych po archiwizacji, wygaśnięciu opłaty ani końcu trialu. Źródło: §5.2B Q-10B, §18.8, DEC-017.
-- **C-F081 [P]** Wyłącznie superadmin zmienia publiczne logo, dane firmy, treści, SEO, treści prawne i materiały white-label. Administrator firmy nie edytuje tych pól; może zarządzać własną flotą i operacyjną ofertą pojazdów. Źródło: decyzja właściciela 23.10.2026, REQ-MVP-23, §6.2, §10.3, TEST-MVP-47.
+- **C-F081 [P]** Wyłącznie superadmin zmienia publiczne logo, dane firmy, treści, SEO, treści prawne i materiały white-label. Administrator firmy nie edytuje tych pól; może zarządzać własną flotą i operacyjną ofertą pojazdów. [Macierz D-01](contracts/company-settings-and-vehicle-publication.md) obowiązuje także bezpośrednie API. Źródło: decyzja właściciela 23.10.2026, REQ-MVP-23, §6.2, §10.3, TEST-MVP-47.
 - **C-F082 [P]** Publiczne materiały firmy nie zmieniają kolorów, fontów, ikon, loginu ani wyglądu panelu. Źródło: §5.2B Q-05A, §16.1, DEC-014.
 - **C-F083 [P]** Administrator widzi logo tylko do odczytu i zgłasza jego zmianę przez czat. Źródło: §10.3, §13.2 ADM-11.
 - **C-F084 [P]** Administrator nie zmienia okresu, trialu ani hosta panelu. Źródło: §10.3.
-- **C-F085 [P/B]** Zachować dane firmy, telefon, kanały kontaktu, SEO i treści prawne; w MVP wszystkie te pola zapisuje wyłącznie superadmin. Administrator firmy ma odczyt, a operacyjnie zmienia flotę, pojazdy, zdjęcia pojazdów i blokady własnej firmy. Źródło: decyzja właściciela 23.10.2026, §6.2, §9.2, §13.2 ADM-11–14.
+- **C-F085 [P/B]** Zachować dane firmy, telefon, kanały kontaktu, SEO i treści prawne; w MVP wszystkie te pola zapisuje wyłącznie superadmin. Administrator firmy ma odczyt, a operacyjnie zmienia flotę, pojazdy, zdjęcia pojazdów i blokady własnej firmy. [Macierz pól](contracts/company-settings-and-vehicle-publication.md) rozstrzyga historyczne uprawnienia FR-ADM-060–063. Źródło: decyzja właściciela 23.10.2026, §6.2, §9.2, §13.2 ADM-11–14.
 - **C-F086 [P]** Brak własnej domeny nie blokuje startu: oferta używa `{slug}.{publicDomainAutervy}`, oddzielnie od hosta panelu. Źródło: REQ-MVP-24, §3.1, DEC-015.
 - **C-F087 [P]** Klient kupuje własną domenę; Auterva przekazuje instrukcję DNS i weryfikuje routing oraz TLS. Źródło: §5.2B Q-06A/B, DEC-015.
 - **C-F088 [P]** Po aktywacji własnej domeny dotychczasowy publiczny adres Autervy przekierowuje na nią. Źródło: §5.2B Q-06A/B, DEC-015.
@@ -235,7 +235,7 @@ Stan analizy: **22.10.2026**. Obowiązuje **PRD 3.1 z superadminem i wieloma fir
 
 - **FR-ADM-030 — MUST CRUD:** nazwa, marka, model, wariant, kategoria, rok, krótki/pełny opis, miejsca/drzwi, skrzynia, paliwo, kolor, bagaż, wyposażenie, opcjonalna cena/jednostka, `availableFrom`, opcjonalne `availableTo`, kolejność, wyróżnienie, publikacja.
 - **FR-ADM-031 — MUST:** `DRAFT`, `PUBLISHED`, `UNPUBLISHED`, `ARCHIVED`; pojazd z historią archiwizowany zamiast trwałego kasowania. To osobny cykl od archiwizacji firmy.
-- **FR-ADM-032 — MUST:** walidacja klient/serwer; publikacja wymaga nazwy, unikalnego slugu, kategorii, krótkiego opisu, ≥1 zdjęcia, głównego zdjęcia, miejsc jeśli stosowne i poprawnej aktywności. **Konflikt bazy:** pełny opis pominięty tutaj, lecz tabela `Vehicle.description` §17.3 oznacza go jako wymagany do publikacji.
+- **FR-ADM-032 — MUST:** walidacja klient/serwer; publikacja wymaga nazwy, slugu unikalnego w firmie, kategorii, krótkiego **i pełnego niepustego opisu**, ≥1 gotowego zdjęcia, dokładnie jednego głównego zdjęcia, miejsc jeśli stosowne i poprawnej aktywności. Kolizję bazowej listy z `Vehicle.description` §17.3 rozstrzyga D-02. [Tabela walidacji i przykłady](contracts/company-settings-and-vehicle-publication.md).
 - **FR-ADM-033 — MUST:** zapis niekompletnego szkicu; publikacja dopiero po walidacji.
 - **FR-ADM-034 — SHOULD:** chroniony preview szkicu; w 3.1 dostępny też po końcu okresu, bez upublicznienia danych.
 - **FR-ADM-035:** slug generowany z nazwy i edytowalny; po publikacji przekierowanie starego slugu albo świadome potwierdzenie skutku. Automatyczne redirecty są SHOULD; w 3.1 unikalność w firmie.
@@ -258,10 +258,10 @@ Stan analizy: **22.10.2026**. Obowiązuje **PRD 3.1 z superadminem i wieloma fir
 - **FR-ADM-056:** szybka blokada mobile: auto → daty → typ → zapis, bez rozbudowanego procesu.
 - **FR-ADM-057 — SHOULD:** zbiorczy kalendarz floty firmy: pojazdy × dni/tygodnie; mobile może stosować listę. 3.1 jawnie utrzymuje SHOULD, bez globalnej floty wszystkich firm.
 - **FR-ADM-058 — MUST:** po każdej mutacji blokady nowy publiczny odczyt jest aktualny, cache unieważniony.
-- **FR-ADM-060:** nazwa firmy, logo, opis, adres, obszar, godziny. 3.1 logo/branding wyłącznie superadmin; dokładna granica danych/treści edytowalnych przez firmę pozostaje konfliktem zapisów 3.1.
-- **FR-ADM-061:** kontakt telefon/e-mail/WhatsApp; 3.1 §6.2 i ADM-11/12 zachowują firmową edycję, lecz szeroki TEST-MVP-47 wyłącza bezpośrednie mutacje publicznych danych przez admina — potrzebny jawny podział pól.
-- **FR-ADM-062:** SEO title/description, liczba wyróżnionych, ceny on/off, domyślny kontakt, disclaimer; nie przenosić z tego prawa zmiany palety/fontów/ikon.
-- **FR-ADM-063:** treści/linki prywatności i regulaminu; odrębne od dokumentów Autervy.
+- **FR-ADM-060:** nazwa firmy, publiczne logo, opis, adres, obszar i godziny pozostają do odczytu dla administratora firmy; zapisuje je wyłącznie superadmin w kontekście tej firmy. Obowiązuje [macierz D-01](contracts/company-settings-and-vehicle-publication.md), także dla bezpośredniego API.
+- **FR-ADM-061:** publiczny telefon, e-mail i WhatsApp pozostają do odczytu dla administratora firmy; zapisuje je wyłącznie superadmin. Historyczna sugestia edycji w ADM-11/12 nie nadaje prawa do mutacji.
+- **FR-ADM-062:** tytuł/opis SEO, liczba wyróżnionych, firmowy przełącznik widoczności cen, domyślny kontakt i zastrzeżenie dostępności pozostają do odczytu dla administratora firmy; zapisuje je wyłącznie superadmin. Paleta, fonty i ikony nie są ustawieniami firmy.
+- **FR-ADM-063:** treści/linki polityki prywatności i regulaminu firmy pozostają do odczytu dla administratora firmy; zapisuje je wyłącznie superadmin. Dokumenty prawne Autervy są odrębne.
 - **FR-ADM-070 — minimum audytu MUST; pełny ekran SHOULD:** login/logout, utworzenie/zmiana auta, publikacja/ukrycie/archiwizacja, CRUD blokady, ustawienia kontaktu, hasło, sesje. 3.1 dodaje tworzenie/archiwizację firmy, okresy, domeny, branding, zaproszenia i działania superadmina z prawdziwym aktorem.
 - **FR-ADM-071:** UTC, aktor, akcja, typ/ID obiektu, bezpieczne podsumowanie; IP wyłącznie uzasadnione z retencją; bez haseł/tokenów. Audyt dopisywany, nieedytowalny w zwykłym panelu.
 - **FR-ADM-080:** zmiana hasła z aktualnym hasłem lub ponownym uwierzytelnieniem.
@@ -576,8 +576,8 @@ Historyczne scenariusze v2 (15): UC-SAS-01 assisted startup; 02 multi-company; 0
 
 ### Do ustalenia przed implementacją danego obszaru
 
-- **D-01 — rozstrzygnięte 23.10.2026:** administrator firmy ma odczyt danych kontaktowych, publicznych, SEO i prawnych, lecz nie może ich zapisywać. Superadmin zapisuje te pola oraz logo, hero, publiczne zdjęcia i branding. Administrator i superadmin mogą zarządzać pojazdami, ich zdjęciami oraz blokadami w kontekście firmy; serwer odmawia pozostałych mutacji niezależnie od UI.
-- **D-02 — rozstrzygnięte 23.10.2026:** publikacja pojazdu wymaga dotychczasowych pól kompletności oraz pełnego, niepustego opisu. Pojazd niespełniający walidacji pozostaje szkicem.
+- **D-01 — rozstrzygnięte 23.10.2026:** administrator firmy ma odczyt danych kontaktowych, publicznych, SEO i prawnych, lecz nie może ich zapisywać. Superadmin zapisuje te pola oraz logo, hero, publiczne zdjęcia i branding. Administrator i superadmin mogą zarządzać pojazdami, ich zdjęciami oraz blokadami w kontekście firmy; serwer odmawia pozostałych mutacji niezależnie od UI. [Macierz pól i bezpośredniego API](contracts/company-settings-and-vehicle-publication.md).
+- **D-02 — rozstrzygnięte 23.10.2026:** publikacja pojazdu wymaga dotychczasowych pól kompletności oraz pełnego, niepustego opisu. Pojazd niespełniający walidacji pozostaje szkicem. [Tabela walidacji klient/serwer i fixture](contracts/company-settings-and-vehicle-publication.md).
 - **D-03 — rozstrzygnięte 23.10.2026:** kategorie definiuje superadmin. Cena pojazdu jest opcjonalna, a superadmin ma osobny dla każdej firmy przełącznik pokazywania/ukrywania cen. Publiczny kontakt obejmuje telefon, WhatsApp i e-mail. Adres jest pełny i ma mapę. Treści prawne Autervy i firmy są osobnymi treściami. Hero obsługuje wiele obrazów, logo i tekst.
 - **D-04 — rozstrzygnięte 23.10.2026:** pojazd ma maksymalnie 30 zdjęć; jedno zdjęcie maksymalnie 10 MB i 12 000 × 12 000 px; wiadomość czatu maksymalnie 4 000 znaków; zakres dostępności maksymalnie 365 dni. Bazowe limity ruchu opisano przy C-N038 i są konfigurowalne po teście obciążenia; nie są limitami handlowymi.
 - **D-05 — rozstrzygnięte 23.10.2026:** MVP ma dokładnie jednego superadmina. Pierwsze konto tworzy jednorazowa interaktywna komenda administracyjna uruchamiana tylko przy pustej bazie; hasło nie trafia do argumentów ani repozytorium, konto wymaga enrolmentu TOTP i jednorazowych kodów odzyskania. Odzyskanie dostępu wymaga ręcznej procedury właściciela, unieważnienia sesji i pełnego audytu.

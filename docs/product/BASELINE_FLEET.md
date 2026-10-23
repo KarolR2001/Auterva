@@ -5,7 +5,7 @@
 - Obowiązujące źródło produktu: [PRD.md](PRD.md), zwłaszcza zatwierdzone U3/U4. Bazowe FR, UC, reguły dat, zdjęć, dostępności i jakości obowiązują tylko w niesprzecznej części i z pierwotnym priorytetem MUST/SHOULD/P1.
 - Historyczne dwa obszary, single-tenant, kilka kont administratorów i opcjonalne MFA zostały zastąpione modelem czterech obszarów, superadminem, jedną firmą na konto i obowiązkowym MFA.
 - Aktualna interpretacja wszystkich odziedziczonych wymagań: [WYMAGANIA_AUTERVA.md](../WYMAGANIA_AUTERVA.md). Źródło wyglądu: [SPEC](../design/SPEC.md). Stos i wersje są projektem do walidacji, nie stanem instalacji.
-- Historyczne oznaczenie „Gotowy do implementacji” poniżej nie zamyka bieżących decyzji i ADR. Pełny opis przy publikacji pozostaje jawną kolizją FR-ADM-032 z §17.3.
+- Historyczne oznaczenie „Gotowy do implementacji” poniżej nie zamyka bieżących decyzji i ADR. Kolizję FR-ADM-032 z §17.3 w sprawie pełnego opisu rozstrzyga D-02: opis jest wymagany do publikacji. Bieżący [kontrakt D-01/D-02](../contracts/company-settings-and-vehicle-publication.md) ma pierwszeństwo przed historyczną listą i uprawnieniami ustawień.
 - Oryginalna treść i numeracja pozostają niezmienione; źródłowy hash oraz hash pliku z preambułą są zapisane w [source-provenance.json](../source-provenance.json).
 
 ---
