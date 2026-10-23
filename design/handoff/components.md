@@ -2551,6 +2551,7 @@ type AdminBottomNavigationProps = {
 ```
 
 - Cztery cele mają stałe etykiety: Start (`/admin`), Pojazdy (`/admin/pojazdy`), Czat (`/admin/czat`) i Więcej (otwarcie menu, nie link). Kalendarz konkretnego pojazdu jest dostępny przez akcję na liście; ADM-10 pozostaje SHOULD poza nawigacją MVP.
+- W ośmiu wariantach Penpota są dokładnie cztery widoczne itemy; etykiety są wyśrodkowane pod ikonami także po rozszerzeniu komórki do 97,5 px w `ADM-04` mobile.
 - Active jest oznaczony wagą tekstu i ikoną; dot na Czat nie jest jedynym nośnikiem informacji o nowych wiadomościach i ma nazwę dostępną.
 - Komponent respektuje dolny safe area i nie zasłania ostatniego elementu formularza.
 
@@ -4204,7 +4205,7 @@ type AdminMoreMenuProps = {
 - Mobile używa modalnego dialogu/sheetu z nazwą „Więcej — menu administratora”, przyciskiem Zamknij i bezpiecznym dolnym insetem. Desktop jest menu/dropdownem zakotwiczonym w triggerze topbara. Escape i kliknięcie poza zamykają oba tryby, a fokus wraca do triggera.
 - Każda pozycja ma ikonę Lucide i tekst. Stan active używa jednocześnie `surface.selected`, obramowania `border.strong`, semibold oraz `aria-current="page"`; kolor nie jest jedynym sygnałem.
 - Mobile ma 390×408 px i reflow przy 320/430 px; wiersze mają 55–56 px. Desktop ma 320×313 px i wszystkie cele 48 px. Rooty korzystają z `surface.default`, `border.subtle` i `shadow.md`.
-- `OVR-17 User menu / Więcej` używa mobilnej instancji tego komponentu na stronie prototypów (`9425204d-c5c4-807f-8008-b6ccfd8c33f6`) i ma status `created`. Nie oznacza to działającego focus trapu ani gotowego wylogowania.
+- Mobilne `OVR-17 User menu / Więcej` używa instancji `89433e5c-4f5c-80ad-8008-d5edfc7920c7` na stronie panelu firmy. Cel „Więcej” w `ADM-04` otwiera ją interakcją `open-overlay`; linki do statusu usługi, ustawień i konta prowadzą do istniejących boardów mobilnych, a Zamknij zamyka overlay. Stary identyfikator `9425204d-c5c4-807f-8008-b6ccfd8c33f6` nie występuje live. Instalacja PWA i wylogowanie wymagają akcji runtime; makieta nie dowodzi działania focus trapu ani unieważnienia sesji.
 
 ## DS-NAV-011 — UserMenu
 
@@ -4233,8 +4234,8 @@ type UserMenuProps = {
 - Wyloguj jest przyciskiem, nie linkiem. Po sukcesie unieważnia bieżącą sesję i prowadzi do `/admin/login`; sam komponent nie wykonuje logiki serwerowej.
 - Mobile jest modalnym dialogiem/sheetem z przyciskiem Zamknij i safe area. Desktop jest menu/dropdownem zakotwiczonym w triggerze. Escape i kliknięcie poza zamykają menu, a fokus wraca do triggera.
 - Status sesji używa ikony Lucide i tekstu, więc kolor nie jest jedynym sygnałem. Wiersze mobile mają 55–56 px, desktop 48 px.
-- Mobile ma 390×376 px i został sprawdzony również jako świeże instancje 320 i 430 px. Desktop ma 320×257 px. Rooty korzystają z `surface.default`, `border.subtle` i `shadow.md`; teksty i ikony mają semantyczne bindingi.
-- Desktopowy `OVR-17 User menu / Więcej` jest instancją tego wariantu na stronie prototypów (`9425204d-c5c4-807f-8008-b6ccfd9712a5`) i ma status `created`. Statyczny Penpot nie dowodzi focus trapu, Escape, kliknięcia poza, zwrotu fokusu ani unieważnienia sesji.
+- Mobile po usunięciu wejścia do przeglądu sesji ma 390×320 px, desktop 320×209 px; reflow 320/430 px wymaga ponownego odbioru po tej korekcie. Rooty korzystają z `surface.default`, `border.subtle` i `shadow.md`; teksty i ikony mają semantyczne bindingi.
+- Historyczna desktopowa instancja `OVR-17` o ID `9425204d-c5c4-807f-8008-b6ccfd9712a5` nie występuje live; osobny board desktopowego overlayu pozostaje niepotwierdzony. Statyczny Penpot nie dowodzi focus trapu, Escape, kliknięcia poza, zwrotu fokusu ani unieważnienia sesji.
 
 ## DS-NAV-013 — SegmentedControl
 

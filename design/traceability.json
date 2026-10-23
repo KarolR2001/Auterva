@@ -161,7 +161,7 @@
         "obsoleteBoardId": "1e066793-8858-8051-8008-cf43e509c242"
       }
     ],
-    "resolution": "OVR-14/15/17 zachowują wymagania, ale nie mają boardów o historycznych ID ani nowych boardów o tych nazwach. Istnieją ekran ADM-19 i źródła komponentowe DS-FBK-020, DS-PWA-001, DS-NAV-011; decyzja o osobnych overlayach i odbiór designu pozostają otwarte.",
+    "resolution": "Historyczne ID boardów OVR-14/15/17 pozostają nieobecne. OVR-17 mobile otrzymał nową instancję DS-NAV-010 na stronie panelu firmy; desktopowy board OVR-17 pozostaje niepotwierdzony. OVR-14/15 nie zostały rozwiązane w #94.",
     "emptyInteractionTargets": {
       "count": 52,
       "mobileScenarioPage": 28,
@@ -782,6 +782,14 @@
           "mobile": "a4abf4c9-2e1f-80fd-8008-afc9717d55df",
           "desktop": "a4abf4c9-2e1f-80fd-8008-afc9717d55df"
         }
+      },
+      "navigationContract": {
+        "issue": 94,
+        "mobileMoreOverlayId": "89433e5c-4f5c-80ad-8008-d5edfc7920c7",
+        "mobileChatBoardId": "1e066793-8858-8051-8008-cf3e9d8915b2",
+        "desktopChatBoardId": "269b07ba-69e5-8066-8008-c84b98452b8c",
+        "vehicleCalendarPath": "/admin/pojazdy/[id]/kalendarz",
+        "fleetCalendarScope": "SHOULD; bez wejścia w MVP"
       },
       "prototypeIds": [
         "A-01",
@@ -6072,7 +6080,7 @@
         "section": "6.2. Nawigacja"
       },
       "originalPriority": "UNSPECIFIED",
-      "variantsSpec": "4 główne + „Więcej”",
+      "variantsSpec": "Start, Pojazdy, Czat, Więcej",
       "statesSpec": "active, notification dot",
       "penpot": {
         "pageId": "a4abf4c9-2e1f-80fd-8008-afc9717972ba",
@@ -7315,9 +7323,13 @@
       "statesSpec": "Wywołanie: avatar / bottom nav",
       "penpot": {
         "targetPageId": "a4abf4c9-2e1f-80fd-8008-afc9717d55df",
-        "sourceComponentItemId": "DS-NAV-011",
+        "sourceComponentItemIds": ["DS-NAV-010", "DS-NAV-011"],
         "sourceComponentPageId": "a4abf4c9-2e1f-80fd-8008-afc9717972ba",
-        "componentId": "9425204d-c5c4-807f-8008-b597a3e742ba"
+        "mobileComponentId": "9425204d-c5c4-807f-8008-b5942c34f856",
+        "desktopComponentId": "9425204d-c5c4-807f-8008-b597a3eb96c9",
+        "boardIds": {
+          "mobile": "89433e5c-4f5c-80ad-8008-d5edfc7920c7"
+        }
       },
       "prototypeIds": [
         "A-01",
@@ -7325,7 +7337,7 @@
         "A-03",
         "A-04"
       ],
-      "mappingState": "missing_overlay_boards"
+      "mappingState": "mobile_overlay_created_desktop_missing"
     },
     {
       "id": "OVR-18",

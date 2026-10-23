@@ -552,7 +552,7 @@ Zmiana breakpointu może zmienić układ i komponent prezentacyjny, ale nie moż
 - dodawania i edycji blokady,
 - filtrowania i wyszukiwania,
 - publikacji, ukrycia i archiwizacji,
-- dostępu do ustawień, konta, sesji i logów,
+- dostępu do ustawień i konta (sesje i ekran logów dopiero po wdrożeniu odpowiednich funkcji SHOULD),
 - informacji o błędzie, konflikcie i stanie offline.
 
 ### 5.2. Safe area dla PWA
@@ -604,8 +604,8 @@ Każdy komponent musi mieć wariant mobilny i desktopowy, jeżeli sposób prezen
 | `DS-NAV-006` | `Breadcrumbs` | public, admin, collapsed | pierwszy + bieżący | pełna ścieżka | overflow, current page |
 | `DS-NAV-007` | `AdminSidebar` | expanded, collapsed | nie występuje | 240/72 px | active, hover, badge, disabled |
 | `DS-NAV-008` | `AdminTopbar` | with search, with status | tytuł + user/menu | breadcrumbs + user menu | online/offline/update |
-| `DS-NAV-009` | `AdminBottomNavigation` | 4 główne + „Więcej” | stała | nie występuje | active, notification dot |
-| `DS-NAV-010` | `AdminMoreMenu` | sheet/drawer | pełna lista modułów | dropdown/user menu | open, active |
+| `DS-NAV-009` | `AdminBottomNavigation` | Start, Pojazdy, Czat, Więcej | stała | nie występuje | active, notification dot |
+| `DS-NAV-010` | `AdminMoreMenu` | sheet/drawer | status usługi, ustawienia, konto, warunkowa instalacja PWA, wylogowanie | dropdown/user menu | open, active |
 | `DS-NAV-011` | `UserMenu` | profile, account, logout | sheet | dropdown | current session, logout |
 | `DS-NAV-012` | `Tabs` | underline, contained, scrollable | przewijane poziomo | pełne | default, active, disabled, badge |
 | `DS-NAV-013` | `SegmentedControl` | 2–4 opcje | fill width | hug content | selected, focus |
@@ -1142,14 +1142,14 @@ Nie pokazuje komunikatu sukcesu dla niezapisanej operacji i nie tworzy kolejki z
 | `ADM-07` | `/admin/pojazdy/[id]` | Edycja pojazdu | MUST | lista, dashboard, kalendarz | podgląd, kalendarz, publikacja, lista |
 | `ADM-08` | chroniony preview | Podgląd szkicu / pojazdu | SHOULD | formularz pojazdu | powrót do edycji, publikacja |
 | `ADM-09` | `/admin/pojazdy/[id]/kalendarz` | Kalendarz pojazdu | MUST | lista, edycja, dashboard | dodaj/edytuj blokadę, pojazd |
-| `ADM-10` | `/admin/kalendarz` | Kalendarz całej floty | SHOULD | nav, dashboard | pojazd, jego kalendarz, szybka blokada |
+| `ADM-10` | `/admin/kalendarz` | Kalendarz całej floty | SHOULD | przyszłe wejście po #65/#66 | pojazd, jego kalendarz, szybka blokada |
 | `ADM-11` | `/admin/ustawienia` | Ustawienia — dane firmy | MUST | nav | kontakt, prezentacja/SEO, prawne |
 | `ADM-12` | `/admin/ustawienia?sekcja=kontakt` | Ustawienia — kanały kontaktu | MUST | ustawienia | zapis, publiczny kontakt |
 | `ADM-13` | `/admin/ustawienia?sekcja=prezentacja` | Ustawienia — prezentacja i SEO | MUST | ustawienia | zapis, podgląd publiczny |
 | `ADM-14` | `/admin/ustawienia?sekcja=prawne` | Ustawienia — treści prawne | MUST/CONDITIONAL | ustawienia | podgląd polityki/regulaminu |
-| `ADM-15` | `/admin/konto` | Konto i zmiana hasła | MUST | menu użytkownika/nav | aktywne sesje, wylogowanie |
-| `ADM-16` | `/admin/konto?sekcja=sesje` | Aktywne sesje | SHOULD | konto | zakończenie sesji, konto |
-| `ADM-17` | `/admin/logi` | Dziennik zmian | SHOULD | nav/menu | szczegóły wpisu, encja źródłowa |
+| `ADM-15` | `/admin/konto` | Konto i zmiana hasła | MUST | menu użytkownika/nav | wylogowanie; sesje po wdrożeniu SHOULD |
+| `ADM-16` | `/admin/konto?sekcja=sesje` | Aktywne sesje | SHOULD | przyszłe wejście po #72/#73 | zakończenie sesji, konto |
+| `ADM-17` | `/admin/logi` | Dziennik zmian | SHOULD | przyszłe wejście po #74/#75 | szczegóły wpisu, encja źródłowa |
 | `ADM-18` | `/admin/offline` | Ekran offline PWA | MUST | brak sieci, start PWA | ponów, cached shell |
 | `ADM-19` | global | Brak uprawnień / sesja wygasła | MUST | nieuprawnione wejście, wygaśnięcie sesji | logowanie, bezpieczny powrót |
 | `ADM-20` | global | Nie znaleziono strony panelu | MUST | błędna trasa admin | dashboard, poprzednia strona |
@@ -1847,7 +1847,7 @@ flowchart TD
     DASH -->|Pojazdy| VEHICLES
     DASH -->|Dodaj pojazd| NEW
     DASH -->|Dodaj blokadę| BLOCK_CREATE
-    DASH -->|Kalendarz| FCAL
+    DASH -->|Kalendarz wskazanego pojazdu| VCAL
 
     VEHICLES -->|Nowy| NEW
     VEHICLES -->|Edytuj| EDIT
@@ -1865,7 +1865,7 @@ flowchart TD
 
     VCAL -->|Dodaj zakres| BLOCK_CREATE
     VCAL -->|Wybierz blokadę| BLOCK_EDIT
-    VCAL -->|Flota| FCAL
+    VCAL -. przyszłe SHOULD: flota .-> FCAL
     FCAL -->|Pojazd| VCAL
     FCAL -->|Szybka blokada| BLOCK_CREATE
     BLOCK_CREATE -->|Konflikt| CONFLICT
@@ -1875,8 +1875,8 @@ flowchart TD
 
     DASH --> SETTINGS
     DASH --> ACCOUNT
-    DASH --> LOGS
-    ACCOUNT --> SESSIONS
+    DASH -. przyszłe SHOULD .-> LOGS
+    ACCOUNT -. przyszłe SHOULD .-> SESSIONS
     LOGS -->|Encja pojazdu| EDIT
     LOGS -->|Encja blokady| VCAL
 
