@@ -3,6 +3,35 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 11,
+      "scope": "Podstawowe komponenty pierwszych ekranów na wspólnym scaffoldzie.",
+      "relatedRequirementIds": [
+        "C-N047",
+        "C-N049",
+        "C-N050",
+        "DS-N12",
+        "DS-N13",
+        "DS-N14",
+        "DS-N15",
+        "DS-N20",
+        "DS-N21"
+      ],
+      "referenceScreenIds": ["ADM-01", "ACC-07", "ADM-19"],
+      "components": [
+        { "itemId": "DS-ACT-001", "codePath": "src/components/ui/button.tsx" },
+        { "itemId": "DS-FRM-001", "codePath": "src/components/ui/form-field.tsx" },
+        { "itemId": "DS-FRM-002", "codePath": "src/components/ui/text-input.tsx" },
+        { "itemId": "DS-FRM-004", "codePath": "src/components/ui/password-input.tsx" },
+        { "itemId": "DS-FBK-001", "codePath": "src/components/ui/alert.tsx" },
+        { "itemId": "DS-FBK-014", "codePath": "src/components/ui/dialog.tsx" },
+        { "itemId": "DS-FBK-021", "codePath": "src/components/ui/announcement-region.tsx" },
+        { "itemId": "DS-NAV-001", "codePath": "src/components/ui/skip-link.tsx" }
+      ],
+      "stylePath": "src/components/ui/ui.module.css",
+      "testPath": "tests/unit/ui-foundations.test.tsx",
+      "fixturePath": "tests/fixtures/ui-check.tsx"
+    },
+    {
       "issue": 5,
       "scope": "Lokalna próba stosu i minimalne fixture; nie pełne moduły produktu.",
       "relatedRequirementIds": ["D-12", "C-R001", "C-N060"],
