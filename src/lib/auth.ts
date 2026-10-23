@@ -15,6 +15,8 @@ export function createAuth(client: PrismaClient, allowFixtureSignup = false) {
     emailAndPassword: {
       enabled: true,
       disableSignUp: !allowFixtureSignup,
+      minPasswordLength: 12,
+      maxPasswordLength: 256,
       revokeSessionsOnPasswordReset: true,
     },
     plugins: [twoFactor()],
