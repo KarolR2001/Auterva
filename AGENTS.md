@@ -51,6 +51,7 @@
 - Bez resetów, force push, destrukcyjnych migracji, produkcyjnych zapisów i wdrożeń bez jawnego polecenia.
 - QA i implementujący agenci czytają Penpota. Zmianę projektu wykonuje jeden wyznaczony agent w osobnym zadaniu; nie zmieniaj makiety, aby ukryć rozbieżność aplikacji.
 - Główny orkiestrator koordynuje trzy role wykonawcze: Frontend, Backend i QA. Osobne sesje Codex pracują na jednym komputerze i koncie GitHub; role/statusy rozdzielają kolejki, assignees nie są wymagane.
+- Projektowe role Codexa są zdefiniowane w `.codex/agents/`: `auterva_backend`, `auterva_frontend`, `auterva_reviewer` i `auterva_qa`. Uruchamia je wyłącznie główny orkiestrator po konkretnym przydziale issue; subagenci nie delegują dalszej pracy.
 - Orkiestrator wykonuje CR każdego PR i powiązanego kodu oraz przegląd całego kodu po każdym Stage i przed wydaniem. Pilnuje kontraktów, architektury, zależności i integracji; wyniki zapisuje z zakresem, SHA i dowodami. Nie zatwierdza sam własnej implementacji.
 - Gotowy PR i jego issue otrzymują needs:cr, a issue status Review. Orkiestrator bierze kolejkę CR — Orchestrator; tylko po CR: PASS przekazuje Ready to test. QA odbiera Ready to test → Test. Dopiero orkiestrator po QA: PASS, merge i kontrolach integracji ustawia Done. Nowy commit unieważnia wcześniejsze CR/QA.
 - Każdy wykonawca ma osobny branch/worktree; orkiestrator i QA sprawdzają wskazany commit we własnych worktree. Nie przełączaj gałęzi ani nie resetuj plików/usług innego agenta. Przejęcie zapisuj z rolą i sesją według workflow.

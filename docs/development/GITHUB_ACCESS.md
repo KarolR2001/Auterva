@@ -24,4 +24,10 @@ Linki w issue otwierają stronę Penpota; dokładna nazwa i board ID wskazują e
 
 CLI ma zakresy repo/workflow/project. W razie utraty dostępu Projects użyj `gh auth refresh -h github.com -s project` i zatwierdź w przeglądarce. Nie zapisuj tokenów w repo, issue ani udostępnianych konfiguracjach.
 
+## Ochrona `main` i polityka bootstrapu
+
+Sprawdzono 23.10.2026: odczyt ochrony gałęzi oraz rulesets dla prywatnego repozytorium zwraca z GitHub `403` z informacją o wymaganym GitHub Pro lub repozytorium publicznym. Do czasu zmiany planu lub widoczności repo nie można technicznie wymusić reguł ochrony `main`.
+
+Nie tworzyć pozornych required checks przed zadaniem [#10](https://github.com/KarolR2001/Auterva/issues/10), ponieważ aplikacja i CI jeszcze nie istnieją. Dla zadań bootstrapu #1–#10 obowiązuje rzeczywisty CR orkiestratora, QA adekwatne do rodzaju rezultatu, lokalne kontrole, jawne ograniczenia oraz zakaz uznawania niewykonanego builda lub testu za zaliczony. Po integracji #10 należy ponownie ocenić ochronę gałęzi i włączyć dostępne wymagane checks.
+
 [Dokumentacja Projects API](https://docs.github.com/en/issues/planning-and-tracking-with-projects/automating-your-project/using-the-api-to-manage-projects) · [GitHub CLI](https://cli.github.com/manual/gh_project)

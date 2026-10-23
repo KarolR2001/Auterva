@@ -13,7 +13,7 @@ build/
 .env.*
 !.env.example
 !.env.*.example
-.codex/config.toml
+# Projectowa konfiguracja Codexa jest śledzona wyłącznie bez sekretów.
 .codex/auth.json
 .mcp.json
 mcp_config.json
