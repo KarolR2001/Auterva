@@ -2,13 +2,13 @@
 
 [Tablica projektu](https://github.com/users/KarolR2001/projects/1) · [Zasady pracy](WORKFLOW.md)
 
-Stan przygotowania: 23.10.2026. **64 obowiązkowe zadania w To do, 15 pozycji Candidates.** To plan realizacji, nie raport działającej aplikacji. Główny orkiestrator koordynuje Frontend, Backend i QA na jednym komputerze i koncie GitHub. Wykonuje CR każdego PR i przegląd całego kodu po etapach/przed wydaniem; QA testuje po CR. Role/statusy rozdzielają kolejki, assignees pozostają puste. CR i QA dotyczą tych samych issue. Done następuje po odbiorze i integracji przez orkiestratora.
+Stan przygotowania: 23.10.2026. **65 obowiązkowych zadań w planie, 15 pozycji Candidates.** To plan realizacji, nie raport działającej aplikacji. Główny orkiestrator koordynuje Frontend, Backend i QA na jednym komputerze i koncie GitHub. Wykonuje CR każdego PR i przegląd całego kodu po etapach/przed wydaniem; QA testuje po CR. Role/statusy rozdzielają kolejki, assignees pozostają puste. CR i QA dotyczą tych samych issue. Done następuje po odbiorze i integracji przez orkiestratora.
 
 ## Kolejność
 
-Bierz pierwsze nieblokowane To do swojej roli według Order, z pierwszeństwem własnych Re-open. Każda zależność ma wcześniejszy numer i relację blocked by. Wszystkie obowiązkowe zadania prowadzą przez zależności do [#64](https://github.com/KarolR2001/Auterva/issues/64). Pełny zakres wyjaśnia opis issue; tabela służy nawigacji i kontroli pokrycia.
+Bierz pierwsze nieblokowane To do swojej roli według Order, z pierwszeństwem własnych Re-open. Każda zależność ma wcześniejszy Order i relację blocked by. Wszystkie obowiązkowe zadania prowadzą przez zależności do [#64](https://github.com/KarolR2001/Auterva/issues/64). Pełny zakres wyjaśnia opis issue; tabela służy nawigacji i kontroli pokrycia.
 
-Pierwsze zadania backendu: decyzje [#1](https://github.com/KarolR2001/Auterva/issues/1)–[#4](https://github.com/KarolR2001/Auterva/issues/4), potem walidacja/scaffold [#5](https://github.com/KarolR2001/Auterva/issues/5). Frontend może równolegle rozpocząć treści [#6](https://github.com/KarolR2001/Auterva/issues/6) i mapowanie Penpota [#7](https://github.com/KarolR2001/Auterva/issues/7), a następnie bazowe komponenty [#11](https://github.com/KarolR2001/Auterva/issues/11) po spełnieniu zależności.
+Pierwsze zadania backendu: decyzje [#1](https://github.com/KarolR2001/Auterva/issues/1)–[#4](https://github.com/KarolR2001/Auterva/issues/4), potem walidacja/scaffold [#5](https://github.com/KarolR2001/Auterva/issues/5). Frontend może przygotować matrycę treści [#6](https://github.com/KarolR2001/Auterva/issues/6), ale jej finalizacja wymaga pakietu materiałów produkcyjnych [#81](https://github.com/KarolR2001/Auterva/issues/81) (Order 005.5, blocked by). Niezależnie może mapować Penpota [#7](https://github.com/KarolR2001/Auterva/issues/7), a następnie podjąć bazowe komponenty [#11](https://github.com/KarolR2001/Auterva/issues/11) po spełnieniu zależności.
 
 ## Zadania obowiązkowe
 
@@ -19,6 +19,7 @@ Pierwsze zadania backendu: decyzje [#1](https://github.com/KarolR2001/Auterva/is
 | [#3](https://github.com/KarolR2001/Auterva/issues/3) | Backend | Ustalić środowiska, domeny, dostawców i parametry eksploatacji | D-09 D-10 C-N020 C-N041 C-N046 C-N058 C-N059 |
 | [#4](https://github.com/KarolR2001/Auterva/issues/4) | Backend | Ustalić limity techniczne i bezpieczne uruchamianie kont MFA | D-04 D-05 C-F040 C-N015 C-N018 C-N038 |
 | [#5](https://github.com/KarolR2001/Auterva/issues/5) | Backend | Zweryfikować stos i uruchomić odtwarzalny scaffold aplikacji | D-12 C-R001 C-N060 |
+| 005.5 / [#81](https://github.com/KarolR2001/Auterva/issues/81) | Frontend | Przygotować dwa rozdzielone pakiety materiałów produkcyjnych Autervy i pierwszej firmy: treści, dane kontaktowe/SEO/prawne, media, prawa użycia i zewnętrzne akceptacje; brak wejść blokuje finalizację #6 | D-03 C-F019–023 C-F106 C-F112 C-F138–142 DS-N23 |
 | [#6](https://github.com/KarolR2001/Auterva/issues/6) | Frontend | Zebrać finalne treści, dane oferty i dokumenty do publikacji | D-03 C-F019–021 C-F106 C-F112 C-F138–142 DS-N23 |
 | [#7](https://github.com/KarolR2001/Auterva/issues/7) | Frontend | Uzupełnić prawdziwe referencje Penpota i mapę wymaganie–ekran | D-13 C-N063–065 |
 | [#8](https://github.com/KarolR2001/Auterva/issues/8) | Backend | Wdrożyć schemat danych i migracje z izolacją firm | C-F009–012 C-N021–027 C-R021 |
