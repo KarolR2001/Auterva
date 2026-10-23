@@ -8,7 +8,7 @@ Zadania implementacyjne prowadź w GitHub Issues według [workflow](docs/develop
 - Zakres plików i jedna rola wykonawcza: frontend albo backend; orkiestrator wykonuje CR, QA odbiera to samo issue.
 - Zależności, kontrakt API/danych, rzeczywiste file/page/board ID Penpota przy zmianie UI.
 - Kroki realizacji i sprawdzenia z `docs/quality-gates.md`.
-- Otwarte decyzje, warunki CR/QA i integracji przed Done. Raporty wskazują sesję, SHA i dowody. Brak makiety lub komendy oznacz jawnie.
+- Otwarte decyzje, warunki CR/QA i integracji przed Done. Raporty zawierają dowody i jeden punkt synchronizacji aktualnego SHA; sesję podają tylko, gdy wyjaśnia niezależność. Brak makiety lub komendy oznacz jawnie.
 
 Krótki plan zapisz w issue. Dłuższy plan przechowuj w `docs/plans/<numer-issue>-<temat>.md` i podlinkuj z issue. Po wykonaniu podaj wyniki, PR i pozostałe ryzyka; usuń nieaktualne założenia.
 
