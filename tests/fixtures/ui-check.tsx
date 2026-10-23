@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Check } from "lucide-react";
 
 import { Alert } from "../../src/components/ui/alert";
 import { AnnouncementRegion } from "../../src/components/ui/announcement-region";
@@ -14,6 +15,9 @@ import { TextInput } from "../../src/components/ui/text-input";
 export function UiCheckFixture() {
   const [visibility, setVisibility] = useState<"hidden" | "shown">("hidden");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogWithoutSecondaryOpen, setDialogWithoutSecondaryOpen] =
+    useState(false);
+  const [buttonLoading, setButtonLoading] = useState(false);
 
   return (
     <>
@@ -32,13 +36,44 @@ export function UiCheckFixture() {
         <h1>Kontrola komponentów</h1>
         <section
           aria-label="Akcje"
-          style={{ display: "flex", flexWrap: "wrap", gap: 12 }}
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "flex-start",
+            gap: 12,
+          }}
         >
           <Button>Sprawdź dostępność</Button>
           <Button variant="secondary">Zobacz szczegóły</Button>
           <Button variant="destructive">Usuń pojazd testowy</Button>
           <Button loading loadingLabel="Ładowanie">
             Sprawdź dostępność
+          </Button>
+          <Button size="sm" data-testid="small-button">
+            Mały przycisk
+          </Button>
+          <Button
+            icon={<Check size={16} />}
+            loading={buttonLoading}
+            loadingLabel="Zapisz"
+            data-testid="icon-loading-button"
+            onClick={() => setButtonLoading((value) => !value)}
+          >
+            Zapisz
+          </Button>
+        </section>
+        <section
+          aria-label="Długa etykieta"
+          style={{ width: "100%", maxWidth: 280 }}
+        >
+          <Button
+            width="fill"
+            icon={<Check size={16} />}
+            loading
+            loadingLabel="Zapisywanie dłuższej nazwy pojazdu"
+            data-testid="long-loading-button"
+          >
+            Zapisz
           </Button>
         </section>
         <section aria-label="Pola" style={{ display: "grid", gap: 16 }}>
@@ -72,6 +107,12 @@ export function UiCheckFixture() {
         <Button variant="secondary" onClick={() => setDialogOpen(true)}>
           Otwórz dialog
         </Button>
+        <Button
+          variant="secondary"
+          onClick={() => setDialogWithoutSecondaryOpen(true)}
+        >
+          Otwórz dialog bez akcji drugorzędnej
+        </Button>
         <Dialog
           open={dialogOpen}
           onOpenChange={setDialogOpen}
@@ -85,6 +126,16 @@ export function UiCheckFixture() {
           secondaryAction={{
             label: "Anuluj",
             onClick: () => setDialogOpen(false),
+          }}
+        />
+        <Dialog
+          open={dialogWithoutSecondaryOpen}
+          onOpenChange={setDialogWithoutSecondaryOpen}
+          type="destructive"
+          title="Usunąć pojazd testowy bez akcji drugorzędnej?"
+          primaryAction={{
+            label: "Usuń pojazd testowy",
+            onClick: () => setDialogWithoutSecondaryOpen(false),
           }}
         />
       </main>

@@ -183,6 +183,37 @@ describe("wspólne komponenty", () => {
     expect(trigger).toHaveFocus();
   });
 
+  it("daje bezpieczne anulowanie i początkowy fokus bez secondaryAction", async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
+    function Example() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button onClick={() => setOpen(true)}>Otwórz</button>
+          <Dialog
+            open={open}
+            onOpenChange={setOpen}
+            title="Usuń pojazd?"
+            type="destructive"
+            primaryAction={{ label: "Usuń", onClick: onDelete }}
+          />
+        </>
+      );
+    }
+    render(<Example />);
+    const trigger = screen.getByRole("button", { name: "Otwórz" });
+    await user.click(trigger);
+    const cancel = within(screen.getByRole("dialog")).getByRole("button", {
+      name: "Anuluj",
+    });
+    await waitFor(() => expect(cancel).toHaveFocus());
+    await user.click(cancel);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+
   it("ogłasza wynik zapisu bez przenoszenia fokusu", () => {
     render(
       <>

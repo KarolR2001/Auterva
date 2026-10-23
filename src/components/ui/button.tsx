@@ -37,6 +37,7 @@ export function Button({
         styles.button,
         styles[`button_${variant}`],
         styles[`button_${size}`],
+        loading && styles.button_loading,
         width === "fill" && styles.button_fill,
         className,
       ]
@@ -45,14 +46,26 @@ export function Button({
     >
       {loading ? (
         <>
-          <span className={styles.buttonOriginal}>{children}</span>
+          <span className={styles.buttonOriginal}>
+            {icon && iconPosition === "leading" && (
+              <span aria-hidden="true" className={styles.buttonIcon}>
+                {icon}
+              </span>
+            )}
+            <span className={styles.buttonLabel}>{children}</span>
+            {icon && iconPosition === "trailing" && (
+              <span aria-hidden="true" className={styles.buttonIcon}>
+                {icon}
+              </span>
+            )}
+          </span>
           <span className={styles.buttonLoading}>
             <LoaderCircle
               aria-hidden="true"
               size={16}
               className={styles.spinner}
             />
-            {loadingLabel}
+            <span className={styles.buttonLoadingText}>{loadingLabel}</span>
           </span>
         </>
       ) : (

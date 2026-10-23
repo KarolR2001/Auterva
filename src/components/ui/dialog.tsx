@@ -30,7 +30,13 @@ export function Dialog({
   secondaryAction,
 }: DialogProps) {
   const previousFocus = useRef<HTMLElement | null>(null);
+  const actionsRef = useRef<HTMLDivElement | null>(null);
   const descriptionId = useId();
+  const cancelAction =
+    secondaryAction ??
+    (type === "destructive"
+      ? { label: "Anuluj", onClick: () => onOpenChange(false) }
+      : undefined);
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
@@ -38,11 +44,18 @@ export function Dialog({
         <DialogPrimitive.Content
           className={styles.dialogContent}
           aria-describedby={description ? descriptionId : undefined}
-          onOpenAutoFocus={() => {
+          onOpenAutoFocus={(event) => {
             previousFocus.current =
               document.activeElement instanceof HTMLElement
                 ? document.activeElement
                 : null;
+            if (type === "destructive") {
+              const cancelButton = actionsRef.current?.querySelector("button");
+              if (cancelButton) {
+                event.preventDefault();
+                cancelButton.focus();
+              }
+            }
           }}
           onCloseAutoFocus={(event) => {
             if (previousFocus.current) {
@@ -63,10 +76,10 @@ export function Dialog({
             </DialogPrimitive.Description>
           )}
           {children && <div className={styles.dialogBody}>{children}</div>}
-          <div className={styles.dialogActions}>
-            {secondaryAction && (
-              <Button variant="secondary" onClick={secondaryAction.onClick}>
-                {secondaryAction.label}
+          <div ref={actionsRef} className={styles.dialogActions}>
+            {cancelAction && (
+              <Button variant="secondary" onClick={cancelAction.onClick}>
+                {cancelAction.label}
               </Button>
             )}
             <Button
