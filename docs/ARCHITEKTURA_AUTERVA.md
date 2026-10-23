@@ -432,6 +432,7 @@ Prefiksy wyznaczają dozwolony obszar hosta; poniższe URI są projektem technic
 
 ## 19. Wdrożenie i utrzymanie
 
+- [Kontrakt środowisk, hostów i operacji D-09/D-10](contracts/environments-hosts-operations.md) uszczegóławia separację, głębszy poziom TLS, ograniczenia darmowego preview, 30-dniowe kopie obok PITR i mierzalny odbiór restore. Pozostaje planem, a nie dowodem provisioningu lub testu.
 - Rekomendacja etapowa: darmowy Render tylko dla krótkotrwałych preview (usypianie, efemeryczny dysk i brak produkcyjnych backupów), Cloudflare DNS/TLS oraz Cloudflare R2 dla mediów. Produkcja używa zarządzanego hostingu kontenerowego Node dla WWW/WebSocket/workera, zarządzanego PostgreSQL z backupami/PITR i poczty transakcyjnej; wybór płatnego planu następuje przed pierwszym klientem. Faktyczna domena produkcyjna nie jest jeszcze podana.
 - Wariant Vercel jest dopuszczalny po sprawdzeniu runtime. Aktualna dokumentacja potwierdza WebSocket w Functions; połączenia mają ograniczony czas życia i nie gwarantują tej samej instancji po reconnect. Nie opierać projektu na historycznym twierdzeniu o całkowitym braku WebSocketów. [Vercel WebSockets](https://vercel.com/docs/functions/websockets).
 - Środowiska development/preview/staging/production z osobnymi bazami, bucketami, sekretami, domenami i odbiorcami testowej poczty. Brak używania danych prawdziwych firm w fixture.
@@ -440,7 +441,7 @@ Prefiksy wyznaczają dozwolony obszar hosta; poniższe URI są projektem technic
 - Wdrożenie: testy → artefakt z przypiętymi wersjami → migracja kompatybilna z bieżącą wersją → rollout → smoke czterech obszarów i zależności. Destrukcyjne migracje wymagają osobnej decyzji.
 - Migracje testować na pustej oraz zasiedlonej bazie; bez `db push/reset` na staging/produkcji. Constraints/RLS utrzymywać w przeglądanych migracjach SQL.
 - Rollback aplikacji tylko do wersji zgodnej ze schematem i izolacją firm. Nie wracać do kodu, który widzi wszystkie rekordy jak jedną firmę.
-- SLO dostępności ≥ 99,9% miesięcznie. Liveness i readiness rozdzielone, bez publicznego ujawniania konfiguracji.
+- Cel produktu: miesięczna dostępność ≥ 99,9%, bez deklarowania osiągniętego SLA przed pomiarem. Liveness i readiness rozdzielone, bez publicznego ujawniania konfiguracji.
 - Logi strukturalne: UTC, środowisko, request/operation ID, bezpieczny actor/organization ID, działanie, wynik i kod błędu. Bez tokenów, haseł, prywatnych notatek i treści rozmów.
 - Metryki: latency/5xx, odmowy auth/tenant, konflikty zapisu, lag/retry zadań, skuteczność poczty, zdrowie WebSocket, upload, baza i storage. To monitoring techniczny, nie dodatkowe KPI biznesowe PLT.
 - Alerty: niedostępność, 5xx, brak bazy/storage, niewykonane backupy/migracje, kolejka zadań, TLS i wzrost błędnych logowań.
