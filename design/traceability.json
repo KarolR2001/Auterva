@@ -4,7 +4,7 @@
   "implementationRefs": [
     {
       "issue": 11,
-      "scope": "Podstawowe komponenty pierwszych ekranów; integracja aplikacji pozostaje zależna od #5.",
+      "scope": "Podstawowe komponenty pierwszych ekranów na wspólnym scaffoldzie.",
       "relatedRequirementIds": [
         "C-N047",
         "C-N049",
@@ -30,6 +30,30 @@
       "stylePath": "src/components/ui/ui.module.css",
       "testPath": "tests/unit/ui-foundations.test.tsx",
       "fixturePath": "tests/fixtures/ui-check.tsx"
+    },
+    {
+      "issue": 5,
+      "scope": "Lokalna próba stosu i minimalne fixture; nie pełne moduły produktu.",
+      "relatedRequirementIds": ["D-12", "C-R001", "C-N060"],
+      "codePaths": [
+        "package.json",
+        "prisma/schema.prisma",
+        "src/app/api/auth/[...all]/route.ts",
+        "src/app/sw.ts",
+        "src/modules/chat/resolve-tenant.ts",
+        "src/server/realtime.ts",
+        "src/server/worker.ts"
+      ],
+      "testPaths": [
+        "tests/unit/env.test.ts",
+        "tests/integration/auth.test.ts",
+        "tests/integration/database.test.ts",
+        "tests/integration/invitation.test.ts",
+        "tests/integration/realtime.test.ts",
+        "tests/integration/tenancy.test.ts",
+        "tests/e2e/auth-host.spec.ts",
+        "tests/e2e/pwa.spec.ts"
+      ]
     }
   ],
   "sources": [
