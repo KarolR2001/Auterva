@@ -104,6 +104,21 @@
         "tests/e2e/auth-host.spec.ts",
         "tests/e2e/auth-production.spec.ts"
       ]
+    },
+    {
+      "issue": 14,
+      "scope": "Prezentacyjne stany dostępu i błędów oraz ochrona niezapisanych zmian; bez integracji routingu i autoryzacji #13.",
+      "relatedRequirementIds": ["C-F018", "C-F147", "C-F148", "C-F149", "C-F150", "DS-N07", "DS-N08", "DS-N14"],
+      "referenceScreenIds": ["ADM-19", "ADM-20", "ADM-21", "OVR-13"],
+      "codePaths": [
+        "src/components/panel/panel-states.tsx",
+        "src/components/panel/unsaved-changes-dialog.tsx"
+      ],
+      "stylePath": "src/components/panel/panel.module.css",
+      "testPaths": [
+        "tests/unit/panel-states.test.tsx",
+        "tests/unit/unsaved-changes-dialog.test.tsx"
+      ]
     }
   ],
   "sources": [
