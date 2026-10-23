@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Organization {
+  id       String        @id @default(uuid()) @db.Uuid
+  slug     String        @unique
+  vehicles Vehicle[]
+  messages ChatMessage[]
+  users    User[]
+}
+
+model Vehicle {
+  id             String              @id @default(uuid()) @db.Uuid
+  organizationId String              @db.Uuid
+  organization   Organization        @relation(fields: [organizationId], references: [id])
+  blocks         AvailabilityBlock[]
+
+  @@unique([organizationId, id])
+}
+
+model AvailabilityBlock {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  vehicleId      String   @db.Uuid
+  from           DateTime @db.Date
+  to             DateTime @db.Date
+  vehicle        Vehicle  @relation(fields: [organizationId, vehicleId], references: [organizationId, id])
+
+  @@index([organizationId, vehicleId])
+}
+
+model ChatMessage {
+  id              String       @id @default(uuid()) @db.Uuid
+  organizationId  String       @db.Uuid
+  clientMessageId String       @db.Uuid
+  body            String
+  createdAt       DateTime     @default(now()) @db.Timestamptz(6)
+  organization    Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, clientMessageId])
+  @@index([organizationId, createdAt])
+}
+
+model User {
+  id               String      @id
+  name             String
+  email            String
+  emailVerified    Boolean     @default(false)
+  image            String?
+  createdAt        DateTime    @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime    @updatedAt @db.Timestamptz(6)
+  twoFactorEnabled Boolean?    @default(false)
+  organizationId   String?      @db.Uuid
+  organization     Organization? @relation(fields: [organizationId], references: [id])
+  sessions         Session[]
+  accounts         Account[]
+  twofactors       TwoFactor[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime @db.Timestamptz(6)
+  token     String
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime? @db.Timestamptz(6)
+  refreshTokenExpiresAt DateTime? @db.Timestamptz(6)
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime  @updatedAt @db.Timestamptz(6)
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime @db.Timestamptz(6)
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model TwoFactor {
+  id                      String    @id
+  secret                  String
+  backupCodes             String
+  userId                  String
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verified                Boolean?  @default(true)
+  failedVerificationCount Int?      @default(0)
+  lockedUntil             DateTime? @db.Timestamptz(6)
+
+  @@index([secret])
+  @@index([userId])
+  @@map("twoFactor")
+}
