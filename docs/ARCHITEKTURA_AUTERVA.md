@@ -212,8 +212,8 @@ To struktura planowana. Rzeczywistych istniejących plików instrukcji nie nadpi
 | `VehicleFeature` | Wyposażenie pojazdu; unikalna para pojazd–cecha; słownik zgodny z zatwierdzonymi kategoriami |
 | `VehicleImage` | Firma i pojazd, losowy klucz storage, MIME, rozmiary, bajty, alt, kolejność, `isCover`, stan przetwarzania, warianty |
 | `AvailabilityPeriod` | Firma i pojazd, `startDate/endDate: DATE`, typ RESERVED/MAINTENANCE/BLOCKED/OTHER, źródło MANUAL, prywatne reference/notatka, aktorzy, wersja |
-| `SiteSettings` | Jeden rekord na firmę; typowane kontakty, adres/godziny, prezentacja/ceny, metadane SEO i dokumenty; bez globalnego singletonu |
-| `PublicContent` | Publiczne logo, hero, treści i zdjęcia firmy kontrolowane przez superadmina; może być częścią typowanego `SiteSettings`, bez duplikowania pól |
+| `SiteSettings` | Jeden rekord na firmę; typowane kontakty (telefon/WhatsApp/e-mail), pełny adres z mapą, godziny, globalny przełącznik widoczności cen, metadane SEO i dokumenty prawne firmy; bez globalnego singletonu |
+| `PublicContent` | Publiczne logo, wiele obrazów hero, tekst hero, treści firmy i zdjęcia kontrolowane przez superadmina; treści prawne Autervy są przechowywane osobno; może być częścią typowanego `SiteSettings`, bez duplikowania pól |
 | `SlugRedirect` | Firma, stary slug, docelowy pojazd; brak kolizji z aktywnym slugiem i brak pętli |
 | `Conversation` | Jedna trwała rozmowa na firmę |
 | `Message` | Firma, rozmowa, nadawca, tekst, kolejność, UTC, `clientMessageId`; trwałe potwierdzenie wysyłki |
@@ -276,15 +276,15 @@ To struktura planowana. Rzeczywistych istniejących plików instrukcji nie nadpi
 
 - Widoczność firmy jest obliczana na serwerze przy odczycie: konto pierwszy raz zarejestrowane, firma niezarchiwizowana, poprawny publiczny host, brak blokady po przywróceniu oraz ważny okres płatny lub trial.
 - `paidThrough` obejmuje cały dzień w Europe/Warsaw. Techniczna granica to początek następnego lokalnego dnia; nie stałe dodanie 24 h do timestampu UTC.
-- Proponowana reguła efektywnej widoczności: ważna opłata LUB ważny trial. Wygaśnięcie samego trialu nie może wyłączyć nadal opłaconej firmy. Dla KPI i przypomnień proponowane pierwszeństwo aktywnej opłaty wymaga domknięcia D-14 z katalogu wymagań; nie liczyć firmy podwójnie.
+- Efektywna widoczność: ważna opłata LUB ważny trial. Wygaśnięcie samego trialu nie może wyłączyć nadal opłaconej firmy. Przy obu okresach główny stan pokazuje „opłacono do”, firma jest liczona najwyżej raz, a przypomnienia dotyczą okresu wyznaczającego faktyczną datę wygaśnięcia.
 - Trial = `trialStartedAt + 336 godzin`; dokładnie jeden na firmę. Zmiana czasu nie zmienia długości. W trakcie trialu oferta jest publiczna zgodnie z Q-03B/U3.
 - Sam zapis firmy/wysyłka e-maila nie publikuje. Pierwsza skuteczna rejestracja uruchamia widoczność przy spełnionych warunkach; pusta flota pokazuje zapowiedź.
 - Nie ma przyszłego startu płatnego okresu. Po zwykłym przedłużeniu po przerwie oferta wraca automatycznie, jeśli domena jest poprawna i nie ma archiwizacji/blokady po przywróceniu.
 - Koniec okresu odcina wszystkie publiczne strony, API, sitemapę z ofertą i publiczne media firmy; neutralny ekran nie ujawnia zaległości. Panel, edycja, preview i czat pozostają czynne.
 - Archiwizacja zachowuje dane, wyłącza stronę, blokuje login i unieważnia aktywne uprawnienia firmy. Przywrócenie odblokowuje login, ale strona czeka na opłacenie i jawne odblokowanie przez superadmina.
 - Osobne stany rejestracji, okresu, widoczności, archiwizacji i bezpieczeństwa. Jeden enum `ACTIVE/INACTIVE` nie oddaje tych reguł.
-- Przypomnienia w panelu i e-mailem: 7 dni, 1 dzień i dzień wygaśnięcia; zadanie związane z wersją okresu, ponownie sprawdza aktualny termin przed wysyłką.
-- Dokładna godzina przypomnienia w dniu końca płatnego okresu oraz zachowanie przy skróceniu okresu po minięciu progu wymagają technicznego kontraktu. Nie mylić końca opłaconego dnia z natychmiastowym końcem trialu.
+- Przypomnienia w panelu i e-mailem są wysyłane o 09:00 `Europe/Warsaw`: 7 dni, 1 dzień i dzień wygaśnięcia. Zadanie jest związane z wersją okresu, po przedłużeniu/skróceniu harmonogram jest przeliczany od nowa, a po awarii worker nadrabia zaległe zdarzenie najwyżej raz.
+- Archiwizowana firma nie zwiększa dwóch głównych KPI, nawet z przyszłą datą opłaty; może być pokazywana osobno w danych operacyjnych.
 
 ## 11. Flota, daty i współbieżność
 
@@ -463,11 +463,11 @@ Prefiksy wyznaczają dozwolony obszar hosta; poniższe URI są projektem technic
 - **Publikacja pojazdu — rozstrzygnięte 23.10.2026:** oprócz dotychczasowej kompletności wymagany jest pełny niepusty opis; w przeciwnym razie zapis pozostaje szkicem.
 - **Limity i konta — rozstrzygnięte 23.10.2026:** obowiązują wartości z sekcji limitów i jeden superadmin z jednorazowym bootstrapem interaktywnym.
 - **Sprzeczne starsze akapity wewnątrz 3.1:** aktywny trial publiczny według Q-03B/U3; typing/read według Q-08A; stałe kolory według U4/DEC-014. Te rozstrzygnięcia są już potwierdzone i nie są ponownymi pytaniami.
-- **Parametry produkcyjne:** liczba firm i współbieżnych użytkowników, docelowy profil obciążenia, finalne kategorie, prezentacja cen, dokumenty prawne, mapa/adres i priorytet kalendarza floty. Limity zdjęć, wiadomości i zakresu dat są już ustalone D-04.
-- **Integracje i operacje:** domeny produkcyjne, dostawcy hostingu/DB/storage/poczty oraz dokładna godzina i retry przypomnień usługi. Liczba kont superadmina, bootstrap i odzyskanie MFA są ustalone D-05.
+- **Parametry produkcyjne:** liczba firm i współbieżnych użytkowników, docelowy profil obciążenia i priorytet kalendarza floty. Kategorie, przełącznik cen, dokumenty prawne, pełny adres/mapa, hero i kanały kontaktu są ustalone D-03. Limity zdjęć, wiadomości i zakresu dat są ustalone D-04.
+- **Integracje i operacje:** domeny produkcyjne i dostawcy hostingu/DB/storage/poczty. Godzina oraz retry przypomnień są ustalone D-07; liczba kont superadmina, bootstrap i odzyskanie MFA są ustalone D-05.
 - **Wersje:** zgodność Next/React/TypeScript/Prisma/Better Auth/Serwist i lockfile nadal wymaga rzeczywistego builda i integracji. Potwierdzenie istnienia wydania nie zamyka ADR-0002.
 
-- **Publikacja i okresy:** pełny niepusty opis jest warunkiem publikacji zgodnie z decyzją D-02. Nakładający się trial/opłata nadal wymaga reguł KPI i przypomnień D-14. Typ serwisowej blokady to `MAINTENANCE`; makietowe `SERVICE` mapować na ten typ, nie rozszerzać enumu.
+- **Publikacja i okresy:** pełny niepusty opis jest warunkiem publikacji zgodnie z decyzją D-02. Widoczność, KPI i przypomnienia przy nakładającym się trialu/opłacie są rozstrzygnięte w D-14. Typ serwisowej blokady to `MAINTENANCE`; makietowe `SERVICE` mapować na ten typ, nie rozszerzać enumu.
 
 ## 22. Co warto dodać po podstawowym wdrożeniu
 

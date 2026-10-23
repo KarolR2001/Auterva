@@ -42,7 +42,7 @@ Stan analizy: **22.10.2026**. Obowiązuje **PRD 3.1 z superadminem i wieloma fir
 - **C-F020 [P]** Auterva przedstawia wygląd publicznej strony przed prerejestracją firmy. Źródło: REQ-MVP-09, §7.1.
 - **C-F021 [P]** Akceptacja materiałów odbywa się poza aplikacją, przed prerejestracją. Źródło: §5.2B Q-05A, §7.2, DEC-014.
 - **C-F022 [P]** Superadmin przygotowuje firmę, jedno konto administratora, adres panelu i adres oferty. Źródło: §7.1, §7.3.
-- **C-F023 [P]** Superadmin przygotowuje publiczne logo, dane, treści i zdjęcia firmy. Źródło: REQ-MVP-10, §7.1.
+- **C-F023 [P]** Superadmin przygotowuje publiczne logo, dane, treści, osobne treści prawne firmy i Autervy, wiele materiałów hero oraz zdjęcia firmy. Źródło: decyzja właściciela 23.10.2026, REQ-MVP-10, §7.1.
 - **C-F024 [P]** Superadmin przyznaje opłacony okres lub jednorazowy trial. Źródło: REQ-MVP-13/15, §7.1.
 - **C-F025 [P]** Superadmin wysyła administratorowi firmy zaproszenie e-mailem. Źródło: REQ-MVP-11, §7.1.
 - **C-F026 [P]** Zaproszenie prowadzi do panelu właściwej firmy i właściwego adresata. Źródło: §3.3, §7.4.
@@ -89,7 +89,7 @@ Stan analizy: **22.10.2026**. Obowiązuje **PRD 3.1 z superadminem i wieloma fir
 - **C-F064 [P]** Trial nie jest oznaczany jako opłacona usługa; konkretnej daty nie zastępuje sam licznik pozostałych dni. Źródło: §8.1; V30 §8.1.
 - **C-F065 [P]** Po wygaśnięciu panel pokazuje zauważalny nieblokujący komunikat o wyłączeniu strony i wejście do czatu. Źródło: REQ-MVP-19, §8.3, §15.8.
 - **C-F066 [P/B]** Banner nie zasłania formularza, nie usuwa wprowadzonych danych i nie podszywa się pod wygaśnięcie sesji. Źródło: §8.3, §13.3 OVR-13/14.
-- **C-F067 [P]** Administrator otrzymuje przypomnienia o końcu trialu/opłaty w panelu i e-mailem 7 dni wcześniej, 1 dzień wcześniej i w dniu wygaśnięcia. Źródło: REQ-MVP-31, §5.2B Q-15, DEC-019.
+- **C-F067 [P]** Administrator otrzymuje przypomnienia o końcu efektywnego trialu/opłaty w panelu i e-mailem o 09:00 `Europe/Warsaw` 7 dni wcześniej, 1 dzień wcześniej i w dniu wygaśnięcia. Po zmianie okresu harmonogram jest przeliczany, a zadanie po awarii nadrabiane najwyżej raz. Źródło: decyzja właściciela 23.10.2026, REQ-MVP-31, §5.2B Q-15, DEC-019.
 
 ### Lista firm, archiwum i publiczna konfiguracja
 
@@ -97,7 +97,7 @@ Stan analizy: **22.10.2026**. Obowiązuje **PRD 3.1 z superadminem i wieloma fir
 - **C-F069 [P]** Filtr „Pokaż zarchiwizowane” dołącza archiwum do listy. Źródło: §9.4–9.5.
 - **C-F070 [P]** Wyszukiwanie działa zarówno bez archiwum, jak i z archiwum. Źródło: §9.4.
 - **C-F071 [P]** Stan archiwizacji jest odrębny od rejestracji, opłacenia/trialu i widoczności strony. Źródło: §8.7, §9.4.
-- **C-F072 [P]** Dashboard superadmina pokazuje dokładnie dwa główne KPI: firmy z aktywnym opłaconym okresem i firmy w trialu. Źródło: §5.2A Q-11, §15.4.
+- **C-F072 [P]** Dashboard superadmina pokazuje dokładnie dwa główne KPI: niezarchiwizowane firmy z aktywnym opłaconym okresem i niezarchiwizowane firmy w trialu. Firma jest liczona najwyżej raz; archiwum z przyszłą opłatą jest dostępne osobno, ale nie zwiększa tych KPI. Źródło: decyzja właściciela 23.10.2026, §5.2A Q-11, §15.4.
 - **C-F073 [P]** Superadmin archiwizuje firmę; panel nie udostępnia trwałego usuwania firmy. Źródło: REQ-MVP-28, §9.5, DEC-017.
 - **C-F074 [P]** Archiwizacja zachowuje firmę, flotę, blokady, zdjęcia i historię rozmowy. Źródło: §9.5, §18.8.
 - **C-F075 [P]** Archiwizacja blokuje logowanie administratora firmy i wyłącza wszystkie jej publiczne adresy. Źródło: §5.2A Q-10A, §9.5.
@@ -203,13 +203,13 @@ Stan analizy: **22.10.2026**. Obowiązuje **PRD 3.1 z superadminem i wieloma fir
 - **FR-PUB-015:** dla około 100 pojazdów dopuszczalna pełna przefiltrowana lista; kontrakt danych gotowy na paginację.
 - **FR-PUB-020 — MUST:** galeria: główne i pozostałe zdjęcia, dotyk, klawiatura, alt, bez ładowania wszystkich dużych obrazów naraz.
 - **FR-PUB-021:** szczegóły: marka/model/nazwa, podany rok, kategoria, miejsca, opcjonalne drzwi, skrzynia, paliwo/napęd, bagaż, wyposażenie, pełny opis i opcjonalne warunki.
-- **FR-PUB-022 — opcjonalne ceny:** informacyjna cena „od”, wycena indywidualna lub brak ceny; brak pustej sekcji i „0 zł”, gdy ceny nie podano/wyłączono. Brak wyliczenia i rozliczania wynajmu.
+- **FR-PUB-022 — opcjonalne ceny:** superadmin przełącza globalnie, czy firma może prezentować ceny. Przy włączonej opcji cena pojazdu jest opcjonalna i może oznaczać cenę „od”, wycenę indywidualną albo brak ceny; przy wyłączonej opcji ceny nie są publiczne. Brak pustej sekcji i „0 zł”. Brak wyliczenia i rozliczania wynajmu.
 - **FR-PUB-023 — MUST:** kalendarz co najmniej bieżącego i następnego miesiąca, kolejne miesiące, legenda, stany z tekstem/symbolem, bez dat przeszłych i bez typu/powodu blokady; czytelność mobile.
 - **FR-PUB-024 — MUST:** walidacja dat; koniec ≥ początek; cały zakres w aktywności auta; brak choćby jednego dnia kolizji.
 - **FR-PUB-025 — MUST:** wynik dostępny: pojazd, daty, zastrzeżenie informacyjności/wymaganego potwierdzenia i kontakt.
 - **FR-PUB-026 — MUST:** wynik niedostępny: brak dostępności w całym zakresie, zmiana dat, powrót do aut dostępnych w tych datach, opcjonalny kontakt; bez ujawnienia przyczyny.
-- **FR-PUB-030:** kontakt konfigurowalny. 3.1 Q-12 potwierdza telefon, WhatsApp i e-mail; Messenger/inny kanał z bazy pozostaje opcjonalnym rozszerzeniem.
-- **FR-PUB-031 — MUST:** przycisk kontaktu otwiera dostępne kanały; mobilnie wygodny telefon/WhatsApp, na desktopie także e-mail/kopiowanie.
+- **FR-PUB-030:** publiczny kontakt obejmuje telefon, WhatsApp i e-mail. Wszystkie trzy kanały są dostępne, jeśli firma podała dane; Messenger/inny kanał pozostaje poza MVP.
+- **FR-PUB-031 — MUST:** przycisk kontaktu otwiera telefon, WhatsApp i e-mail; mobilnie wygodne są wszystkie kanały, na desktopie także kopiowanie danych.
 - **FR-PUB-032 — MUST:** wiadomość kontaktowa zawiera wybrany pojazd i termin.
 - **FR-PUB-033 — MUST:** użycie kontaktu nie tworzy klienta, rezerwacji ani blokady; formularz zapisujący leady poza MVP.
 - **FR-PUB-040:** kontakt: dane firmy, godziny, kanały, opcjonalnie mapa/adres.
@@ -577,18 +577,18 @@ Historyczne scenariusze v2 (15): UC-SAS-01 assisted startup; 02 multi-company; 0
 
 - **D-01 — rozstrzygnięte 23.10.2026:** administrator firmy ma odczyt danych kontaktowych, publicznych, SEO i prawnych, lecz nie może ich zapisywać. Superadmin zapisuje te pola oraz logo, hero, publiczne zdjęcia i branding. Administrator i superadmin mogą zarządzać pojazdami, ich zdjęciami oraz blokadami w kontekście firmy; serwer odmawia pozostałych mutacji niezależnie od UI.
 - **D-02 — rozstrzygnięte 23.10.2026:** publikacja pojazdu wymaga dotychczasowych pól kompletności oraz pełnego, niepustego opisu. Pojazd niespełniający walidacji pozostaje szkicem.
-- **D-03 — dane oferty:** finalne kategorie, pokazywanie cen, główny kontakt, publiczny adres/mapa, treści prawne, hero i rzeczywiste materiały.
+- **D-03 — rozstrzygnięte 23.10.2026:** kategorie definiuje superadmin. Cena pojazdu jest opcjonalna, ale superadmin ma przełącznik globalnego pokazywania/ukrywania cen. Publiczny kontakt obejmuje telefon, WhatsApp i e-mail. Adres jest pełny i ma mapę. Treści prawne Autervy i firmy są osobnymi treściami. Hero obsługuje wiele obrazów, logo i tekst.
 - **D-04 — rozstrzygnięte 23.10.2026:** pojazd ma maksymalnie 30 zdjęć; jedno zdjęcie maksymalnie 10 MB i 12 000 × 12 000 px; wiadomość czatu maksymalnie 4 000 znaków; zakres dostępności maksymalnie 365 dni. Bazowe limity ruchu opisano przy C-N038 i są konfigurowalne po teście obciążenia; nie są limitami handlowymi.
 - **D-05 — rozstrzygnięte 23.10.2026:** MVP ma dokładnie jednego superadmina. Pierwsze konto tworzy jednorazowa interaktywna komenda administracyjna uruchamiana tylko przy pustej bazie; hasło nie trafia do argumentów ani repozytorium, konto wymaga enrolmentu TOTP i jednorazowych kodów odzyskania. Odzyskanie dostępu wymaga ręcznej procedury właściciela, unieważnienia sesji i pełnego audytu.
-- **D-06 — statystyki:** czy firma zarchiwizowana z przyszłą datą opłaty trafia do KPI; jak uniknąć podwójnego liczenia płatności i trialu. Dwa typy KPI są już ustalone.
-- **D-07 — przypomnienia:** godzina wysyłki, przypomnienia trialu przy dokładnej godzinie końca i DST, zmiana harmonogramu po przedłużeniu/skróceniu oraz polityka nadrabiania. Kanały i odstępy 7/1/0 są zatwierdzone.
+- **D-06 — rozstrzygnięte 23.10.2026:** archiwizowana firma nie wchodzi do dwóch głównych KPI, nawet z przyszłą datą opłaty; może być pokazana osobno. Firma jest liczona najwyżej raz, a przy trialu i opłacie jednocześnie KPI traktuje ją zgodnie z efektywnym okresem.
+- **D-07 — rozstrzygnięte 23.10.2026:** przypomnienia są wysyłane o 09:00 `Europe/Warsaw` w terminach 7 dni, 1 dzień i dzień wygaśnięcia. Po przedłużeniu lub skróceniu harmonogram przelicza się od nowa; po awarii worker nadrabia zaległe zdarzenie najwyżej raz. DST jest liczone w strefie produktu.
 - **D-08 — szkice czatu:** trwałość po zamknięciu karty/przeglądarki, czyszczenie po wylogowaniu, długość sygnału typing, szczegółowa definicja read i docelowe opóźnienie realtime. To nie upoważnia do wysyłki offline.
 - **D-09 — domeny i hosting:** rzeczywiste adresy, publicDomainAutervy, dostawcy DNS/TLS/bazy/storage/poczty i docelowy profil obciążenia wielu firm. Domeny `.example` są wyłącznie przykładami.
 - **D-10 — eksploatacja:** finalne RPO/RTO, retencja logów/backupów i procedury prawne; bazowe cele i rekomendacje nie są umową SLA. Ustalić odpowiedzialność za odzyskiwanie dostępu/firmy.
 - **D-11 — aktywacja po końcu opłaty:** poprawna rejestracja nie może błędnie potwierdzać działającej oferty; przygotować copy i stan zakończenia dla wygasłego uprzednio okresu.
 - **D-12 — projekt a kod:** brak scaffoldingu aplikacji, manifestu zależności, lockfile, testów integracji stosu i ostatecznej macierzy wersji. Repozytorium jest bazą dokumentacji i kontraktów implementacyjnych; demonstrator usunięto przy porządkowaniu. [ADR-0002](adr/0002-version-validation.md) pozostaje otwarte.
 - **D-13 — mapowanie Penpota:** 7 nieodnalezionych odwołań do boardów OVR-14/15/17 oraz 52 puste cele interakcji; dokładny wykaz w załączniku A architektury. Nie oznacza to usunięcia tych funkcji z wymagań.
-- **D-14 — opłata podczas trialu:** ustalić pierwszeństwo etykiety okresu, KPI i przypomnień, gdy firma ma równocześnie ważny trial i wpisaną opłatę. Wygaśnięcie trialu nie może odciąć ważnej opłaty; architektura proponuje widoczność przy dowolnym ważnym okresie i pierwszeństwo opłaty w prezentacji, bez podwójnego liczenia.
+- **D-14 — rozstrzygnięte 23.10.2026:** firma jest publiczna, jeśli ma ważny trial lub ważny okres opłacony. Przy obu okresach główny stan pokazuje „opłacono do”; firma jest liczona tylko raz w KPI, a przypomnienia dotyczą okresu wyznaczającego faktyczną datę wygaśnięcia. Wygaśnięcie trialu nie odcina ważnej opłaty.
 - **D-15 — nazwa typu blokady:** B1, komponenty i traceability używają `MAINTENANCE`, natomiast `SERVICE` było rozbieżną etykietą historycznego scenariusza makiety (dawny handoff ekranów, usunięty z repozytorium). Kanoniczny typ domenowy to `MAINTENANCE`, etykieta UI „Serwis”; nie dodawać drugiego typu tylko z powodu makiety.
 
 ## 10. Co warto dodać — propozycje, poza obowiązkowym zakresem

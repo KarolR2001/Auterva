@@ -1542,7 +1542,11 @@ Poniższe decyzje doprecyzowują wcześniejsze rozbieżności i mają pierwszeń
 
 - **D-01:** administrator firmy ma odczyt danych kontaktowych, publicznych, SEO i prawnych, ale nie może ich zapisywać. Superadmin zapisuje te pola oraz logo, hero, publiczne zdjęcia i branding. Administrator i superadmin mogą zarządzać pojazdami, zdjęciami pojazdów i blokadami w kontekście firmy.
 - **D-02:** publikacja pojazdu wymaga dotychczasowej kompletności oraz pełnego, niepustego opisu. W przeciwnym razie pojazd pozostaje szkicem.
+- **D-03:** kategorie definiuje superadmin. Cena pojazdu jest opcjonalna, a superadmin ma globalny przełącznik jej publicznej widoczności. Publiczny kontakt obejmuje telefon, WhatsApp i e-mail; adres jest pełny i ma mapę. Treści prawne Autervy i firmy są osobne. Hero obsługuje wiele obrazów, logo i tekst.
 - **D-04:** pojazd ma maksymalnie 30 zdjęć; jedno zdjęcie ma maksymalnie 10 MB i 12 000 × 12 000 px; wiadomość czatu ma maksymalnie 4 000 znaków; zapytanie dostępności obejmuje maksymalnie 365 dni. Bazowe limity ruchu są opisane w `docs/WYMAGANIA_AUTERVA.md` i podlegają strojeniu po teście obciążenia.
 - **D-05:** MVP ma dokładnie jednego superadmina. Pierwsze konto tworzy jednorazowa interaktywna komenda administracyjna tylko przy pustej bazie. TOTP i jednorazowe kody odzyskania są obowiązkowe; odzyskanie dostępu wymaga ręcznej procedury właściciela, unieważnienia sesji i audytu.
+- **D-06:** zarchiwizowana firma nie zwiększa dwóch głównych KPI, nawet z przyszłą datą opłaty; może być pokazana osobno. Firma jest liczona najwyżej raz.
+- **D-07:** przypomnienia są wysyłane o 09:00 `Europe/Warsaw` 7 dni wcześniej, 1 dzień wcześniej i w dniu wygaśnięcia. Po zmianie okresu harmonogram przelicza się od nowa, a worker po awarii nadrabia zdarzenie najwyżej raz.
+- **D-14:** firma jest publiczna przy ważnym trialu lub ważnym okresie opłaconym. Przy obu okresach główny stan pokazuje „opłacono do”; przypomnienia dotyczą okresu wyznaczającego faktyczną datę wygaśnięcia, bez podwójnego liczenia.
 
 **Koniec wersji 3.1. Odpowiedzi i zatwierdzone decyzje właściciela włączono do całego PRD.**
