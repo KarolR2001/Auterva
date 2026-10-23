@@ -44,7 +44,7 @@
     },
     {
       "path": "docs/adr/0002-version-validation.md",
-      "sha256": "26d9d39eda686fdd62e77cab00b1ad81f9252e3047d98e49bb12d72424f5862a"
+      "sha256": "2ebf0dc346dee1cca95e495e1d2a34fabbc6b2f987ffe5d96c29dcd635daffe3"
     },
     {
       "path": "docs/contracts/company-settings-and-vehicle-publication.md",
