@@ -1,5 +1,9 @@
 # Dependencies and builds
 node_modules/
+src/generated/
+public/sw.js
+public/sw.js.map
+.local/
 .next/
 out/
 dist/
