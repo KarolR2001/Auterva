@@ -36,7 +36,7 @@
     },
     {
       "path": "docs/ARCHITEKTURA_AUTERVA.md",
-      "sha256": "8dbebe8c0b72892c886a12f6fca8be7a51b844d2827890daa04e363a815de50d"
+      "sha256": "e386340f476bf5aa3665d12a52637acdbc821f73aa225fc39b427989fa29e381"
     },
     {
       "path": "docs/adr/0001-penpot.md",

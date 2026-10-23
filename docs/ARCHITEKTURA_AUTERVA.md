@@ -487,19 +487,19 @@ Poniższe punkty są propozycjami do osobnego backlogu, nie obowiązkami MVP:
 
 - Analiza źródłowa objęła wszystkie wersje PRD i niezależny przegląd wymagań oraz architektury, w tym 31 REQ-MVP i 55 TEST-MVP. W repozytorium pozostają kanoniczny PRD 3.1 oraz archiwalny kontrakt BASELINE_FLEET.
 - Odczyt MCP z 22.10.2026 objął strony, boardy, bibliotekę, tokeny i interakcje. Załącznik A zachowuje 584 różne UUID, w tym jawnie oznaczone nieaktualne mapowania. Nie wykonano wtedy nowego pełnego przeglądu renderów ani testów klikania.
-- Siedem odwołań do boardów i 52 puste cele interakcji pozostają ograniczeniami źródłowego designu. Porządkowanie repozytorium nie naprawia prototypu i nie zmienia braków w zaliczone testy.
+- Odczyt live z 23.10.2026 ponownie nie znalazł siedmiu historycznych boardów OVR-14/15/17; na stronach scenariuszy 14/15 potwierdził 52 puste cele wśród 506 interakcji. Szczegóły, bieżące źródła komponentowe, boardy MFA M/D i warunki odbioru zapisano w [audycie issue #7](design/PENPOT_AUDIT_ISSUE_7.md). Porządkowanie repozytorium nie naprawia prototypu i nie zmienia braków w zaliczone testy.
 - Dawne eksporty, logi QA i demonstrator nie są częścią bazy implementacyjnej. Nie przenosi się ich historycznych wyników testów na przyszłą aplikację.
 - Hashe oryginalnych źródeł i bieżących dokumentów: [source-provenance.json](source-provenance.json). Testy aplikacji, zgodności stosu, poczty, DNS/TLS i infrastruktury wymagają stworzenia runtime.
 
 ## Załącznik A. Dokładne ścieżki w Penpocie
 
-Odczyt MCP: 22.10.2026. Plik `Nowy plik 2`, ID `b564c72c-f31f-81ec-8008-af198a313438`. Ścieżka oznacza rzeczywistą nazwę strony i boardu, nie proponowany URL aplikacji. ID pozwala odszukać obiekt mimo późniejszej zmiany nazwy.
+Odczyt MCP: 22.10.2026; ponowny audyt wybranych referencji i interakcji: 23.10.2026. Plik `Nowy plik 2`, ID `b564c72c-f31f-81ec-8008-af198a313438`. Ścieżka oznacza rzeczywistą nazwę strony i boardu, nie proponowany URL aplikacji. ID pozwala odszukać obiekt mimo późniejszej zmiany nazwy.
 
 - Potwierdzono 7 stron, 175 komponentów biblioteki, 15 stylów kolorów i 17 stylów typografii.
 - Tokeny: `Primitives` — 94, `Semantic/Light` — 56, `Component` — 24; razem 174 tokeny natywne. Lokalny manifest ma 175; `font.family.sans` jest udokumentowanym wyjątkiem API.
 - Biblioteczne style tekstu nadal wskazują `Inter Tight`; kontrakt implementacyjny wymaga `Inter Variable`. Nie kopiować fallbacku biblioteki do aplikacji.
-- Spośród 155 odwołań do boardów z katalogu ekranów/overlayów i platformy potwierdzono 148. Siedem nieaktualnych odwołań wymieniono poniżej.
-- Odczyt 1284 interakcji wykazał 52 puste cele: 28 na stronie 14, 24 na stronie 15. Przykład: `PLT-03 / Company details / Mobile / state=active > Company detail / Mobile body > Instance / CompanySetupForm / Edit company mobile > Form actions > Actions row > Button / Anuluj` ma `open-overlay` z pustym ID celu. Jest to kontrola struktury, bez testu kliknięć i przeglądu wizualnego całego pliku.
+- Historyczny katalog ekranów/overlayów i platformy miał 155 odwołań do boardów: 148 potwierdzonych i siedem nieaktualnych, wymienionych poniżej. Bieżąca mapa `design/traceability.json` zachowuje stare UUID wyłącznie jako jawne braki, nie jako aktywne boardy.
+- Historyczny odczyt 1284 interakcji dotyczył pełnego pliku. Ponowny odczyt live stron 14/15 objął 506 interakcji i potwierdził 52 puste cele: 28 na stronie 14, 24 na stronie 15. Przykład: `PLT-03 / Company details / Mobile / state=active > Company detail / Mobile body > Instance / CompanySetupForm / Edit company mobile > Form actions > Actions row > Button / Anuluj` ma `open-overlay` z pustym ID celu. Jest to kontrola struktury, bez testu kliknięć i przeglądu wizualnego całego pliku.
 - Odbiór z 21.10 dotyczy statycznych makiet. Prototypy i runtime są odłożone; wpis `verified` nie dowodzi działającej aplikacji.
 - Strona 16 zawiera 52 plansze opisowe. Nie są dodatkowymi ekranami ani trasami produktu.
 
@@ -711,7 +711,7 @@ W obrębie każdej sekcji pełna ścieżka to **nazwa strony → ścieżka board
 | `OVR-17` | mobile | `1e066793-8858-8051-8008-cf43e509c241` |
 | `OVR-17` | desktop | `1e066793-8858-8051-8008-cf43e509c242` |
 
-Zachować wymagania wygasłej sesji, instalacji PWA i menu użytkownika. Na stronie `01 — System projektu` istnieją źródła `Catalog / DS-FBK-020 / SessionExpiredDialog`, `DS-PWA-001 / InstallPrompt` i `DS-NAV-011 / UserMenu`; ekran `ADM-19` istnieje na stronie 03. Przed implementacją nakładek ustalić aktualne instancje i poprawić ich mapowanie, bez uznawania starego ID za działający cel.
+Zachować wymagania wygasłej sesji, instalacji PWA i menu użytkownika. Na stronie `01 — System projektu` istnieją źródła `Catalog / DS-FBK-020 / SessionExpiredDialog`, `DS-PWA-001 / InstallPrompt` i `DS-NAV-011 / UserMenu`; ekran `ADM-19` istnieje na stronie 03. Nie potwierdzono żadnego nowego boardu OVR-14/15/17. Właściciel designu musi rozstrzygnąć osobne boardy M/D albo użycie istniejących źródeł, z rzeczywistymi ID i stanami. Pełna macierz źródeł i braków: [audyt issue #7](design/PENPOT_AUDIT_ISSUE_7.md).
 
 ### A.4. Pełne scenariusze — lokalizacja poszczególnych stanów
 

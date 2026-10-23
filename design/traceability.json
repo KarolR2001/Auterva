@@ -70,49 +70,51 @@
     ]
   },
   "knownGaps": {
+    "liveAuditDate": "2026-10-23",
+    "auditPath": "docs/design/PENPOT_AUDIT_ISSUE_7.md",
     "missingBoardReferences": [
       {
         "itemId": "OVR-14",
         "viewport": "mobile",
-        "boardId": "1e066793-8858-8051-8008-cf43e509c246"
+        "obsoleteBoardId": "1e066793-8858-8051-8008-cf43e509c246"
       },
       {
         "itemId": "OVR-14",
         "viewport": "desktop",
-        "boardId": "1e066793-8858-8051-8008-cf43e509c247"
+        "obsoleteBoardId": "1e066793-8858-8051-8008-cf43e509c247"
       },
       {
         "itemId": "OVR-15",
         "viewport": "mobile",
-        "boardId": "1e066793-8858-8051-8008-cf43e509c243"
+        "obsoleteBoardId": "1e066793-8858-8051-8008-cf43e509c243"
       },
       {
         "itemId": "OVR-15",
         "viewport": "desktop",
-        "boardId": "1e066793-8858-8051-8008-cf43e509c245"
+        "obsoleteBoardId": "1e066793-8858-8051-8008-cf43e509c245"
       },
       {
         "itemId": "OVR-15",
         "viewport": "variants",
-        "boardId": "1e066793-8858-8051-8008-cf43e509c244"
+        "obsoleteBoardId": "1e066793-8858-8051-8008-cf43e509c244"
       },
       {
         "itemId": "OVR-17",
         "viewport": "mobile",
-        "boardId": "1e066793-8858-8051-8008-cf43e509c241"
+        "obsoleteBoardId": "1e066793-8858-8051-8008-cf43e509c241"
       },
       {
         "itemId": "OVR-17",
         "viewport": "desktop",
-        "boardId": "1e066793-8858-8051-8008-cf43e509c242"
+        "obsoleteBoardId": "1e066793-8858-8051-8008-cf43e509c242"
       }
     ],
-    "resolution": "OVR-14/15/17 zachowują wymagania. Odczytać bieżące instancje przed implementacją. Źródła DS-FBK-020, DS-PWA-001 i DS-NAV-011 istnieją w Systemie; ADM-19 na stronie Panelu.",
+    "resolution": "OVR-14/15/17 zachowują wymagania, ale nie mają boardów o historycznych ID ani nowych boardów o tych nazwach. Istnieją ekran ADM-19 i źródła komponentowe DS-FBK-020, DS-PWA-001, DS-NAV-011; decyzja o osobnych overlayach i odbiór designu pozostają otwarte.",
     "emptyInteractionTargets": {
       "count": 52,
       "mobileScenarioPage": 28,
       "desktopScenarioPage": 24,
-      "scope": "Odczyt struktury 1284 interakcji; bez nowego testu kliknięć."
+      "scope": "Live odczyt 506 interakcji na stronach scenariuszy 14/15; 52 bez destination.id. Historyczne 1284 dotyczyło całego pliku. Bez testu kliknięć."
     }
   },
   "prototypes": [
@@ -263,6 +265,22 @@
           "desktop": [
             "269b07ba-69e5-8066-8008-c7a8b4386e15"
           ]
+        },
+        "scenarioStateBoards": {
+          "mobilePageId": "fb4e1683-f05f-8095-8008-c755dff0027c",
+          "desktopPageId": "fb4e1683-f05f-8095-8008-c755dff4dae6",
+          "enrollment": {
+            "mobile": "4e2ad814-13be-80ec-8008-cc98e7641a9a",
+            "desktop": "4e2ad814-13be-80ec-8008-cc95e2b4b5f4"
+          },
+          "recovery": {
+            "mobile": "4e2ad814-13be-80ec-8008-cc98f6937664",
+            "desktop": "4e2ad814-13be-80ec-8008-cc96bbba80bb"
+          },
+          "sharedMfa": {
+            "mobile": "4e2ad814-13be-80ec-8008-cc9fbbe9363e",
+            "desktop": "4e2ad814-13be-80ec-8008-cc9f9f862e0d"
+          }
         }
       },
       {
@@ -7172,14 +7190,13 @@
       "originalPriority": "UNSPECIFIED",
       "statesSpec": "Wywołanie: odpowiedź 401 / timeout",
       "penpot": {
-        "pageId": "a4abf4c9-2e1f-80fd-8008-afc9717d55df",
-        "boardIds": {
-          "mobile": "1e066793-8858-8051-8008-cf43e509c246",
-          "desktop": "1e066793-8858-8051-8008-cf43e509c247"
-        },
-        "componentId": "9425204d-c5c4-807f-8008-b56729df460e"
+        "targetPageId": "a4abf4c9-2e1f-80fd-8008-afc9717d55df",
+        "sourceComponentItemId": "DS-FBK-020",
+        "sourceComponentPageId": "a4abf4c9-2e1f-80fd-8008-afc9717972ba",
+        "componentId": "368ee0a4-28c8-80cb-8008-b81e20a7f64a",
+        "referenceScreenItemId": "ADM-19"
       },
-      "mappingState": "contains_missing_board_references"
+      "mappingState": "missing_overlay_boards"
     },
     {
       "id": "OVR-15",
@@ -7197,14 +7214,9 @@
       "originalPriority": "UNSPECIFIED",
       "statesSpec": "Wywołanie: możliwość instalacji/menu",
       "penpot": {
-        "pageId": "a4abf4c9-2e1f-80fd-8008-afc9717d55df",
-        "boardIds": {
-          "mobile": "1e066793-8858-8051-8008-cf43e509c243",
-          "desktop": "1e066793-8858-8051-8008-cf43e509c245",
-          "variants": [
-            "1e066793-8858-8051-8008-cf43e509c244"
-          ]
-        },
+        "targetPageId": "a4abf4c9-2e1f-80fd-8008-afc9717d55df",
+        "sourceComponentItemId": "DS-PWA-001",
+        "sourceComponentPageId": "a4abf4c9-2e1f-80fd-8008-afc9717972ba",
         "componentId": "9425204d-c5c4-807f-8008-b5a8ff3225e6"
       },
       "prototypeIds": [
@@ -7213,7 +7225,7 @@
         "A-03",
         "A-04"
       ],
-      "mappingState": "contains_missing_board_references"
+      "mappingState": "missing_overlay_boards"
     },
     {
       "id": "OVR-16",
@@ -7250,11 +7262,10 @@
       "originalPriority": "UNSPECIFIED",
       "statesSpec": "Wywołanie: avatar / bottom nav",
       "penpot": {
-        "pageId": "a4abf4c9-2e1f-80fd-8008-afc9717d55df",
-        "boardIds": {
-          "mobile": "1e066793-8858-8051-8008-cf43e509c241",
-          "desktop": "1e066793-8858-8051-8008-cf43e509c242"
-        }
+        "targetPageId": "a4abf4c9-2e1f-80fd-8008-afc9717d55df",
+        "sourceComponentItemId": "DS-NAV-011",
+        "sourceComponentPageId": "a4abf4c9-2e1f-80fd-8008-afc9717972ba",
+        "componentId": "9425204d-c5c4-807f-8008-b597a3e742ba"
       },
       "prototypeIds": [
         "A-01",
@@ -7262,7 +7273,7 @@
         "A-03",
         "A-04"
       ],
-      "mappingState": "contains_missing_board_references"
+      "mappingState": "missing_overlay_boards"
     },
     {
       "id": "OVR-18",
