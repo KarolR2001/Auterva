@@ -11,7 +11,7 @@ Sprawdzenie: 2026-10-23. Konto: `KarolR2001`. Repozytorium: [KarolR2001/Auterva]
 | Zakresy CLI | `repo`, `workflow`, `project`, `read:org`, `gist`; wartości tokenów nie są zapisane w repozytorium |
 | Repozytorium | REST potwierdził `private: true` i prawa `admin`, `maintain`, `push`, `triage`, `pull` |
 | Issues | GitHub MCP `list_issues`: odczyt poprawny, lista pusta |
-| Projects | Zapytanie GraphQL `viewer.projectsV2` po autoryzacji zakończone poprawnie; lista projektów pusta w chwili sprawdzenia |
+| Projects | Utworzono prywatny [Auterva — MVP 3.1](https://github.com/users/KarolR2001/projects/1), połączony z repozytorium; odczyt i zapis przez GraphQL potwierdzone |
 | Penpot MCP | Ostatnia próba odczytu: brak połączonej instancji Penpota. Zachowany wcześniejszy inwentarz nie potwierdza bieżącego połączenia |
 
 Pierwsza próba CLI w sandboxie była blokowana przez sieć. Po wykonaniu zapytań poza sandboxem logowanie działało. Brak zakresu `project` został następnie usunięty przez autoryzację użytkownika w przeglądarce.
@@ -27,9 +27,9 @@ Pierwsza próba CLI w sandboxie była blokowana przez sieć. Po wykonaniu zapyta
 | Commity i branche | Lokalny Git / GitHub MCP `push_files`, `create_branch` | Wykonano pierwszy commit `4fba484` i push do `main`; lokalny branch śledzi `origin/main` |
 | Pull request | GitHub MCP `create_pull_request`, `update_pull_request` | Prawo zapisu potwierdzone; utworzenie PR wymaga rzeczywistej różnicy branchy, nie wykonywano tej mutacji |
 | Review kodu | Lokalny przegląd diff + GitHub MCP `pull_request_review_write` i komentarze do linii | Prawo zapisu i narzędzia dostępne; review API jeszcze nie wykonano. Własnego PR nie przedstawiaj jako niezależnego zatwierdzenia |
-| Tworzenie/edycja Projects | GitHub CLI `gh project` / GraphQL | Odczyt potwierdzony; zakres `project` nadany. Wtyczka MCP GitHub w tej sesji nie udostępnia operacji Projects |
+| Tworzenie/edycja Projects | GitHub CLI `gh project` / GraphQL | Utworzono projekt nr 1, osiem statusów, pola Priority/Role/Stage/Size i siedem widoków; zakres `project` nadany. Wtyczka MCP GitHub w tej sesji nie udostępnia operacji Projects |
 
-Dostępne narzędzie i zakres tokenu nie są dowodem wykonania każdej mutacji. Nie utworzono sztucznych issue, PR ani komentarzy wyłącznie do testowania uprawnień. Pierwsze rzeczywiste operacje trzeba potwierdzić odpowiedzią API i odczytem wyniku. Etykiety ról nie przypisują automatycznie kont agentów GitHub.
+Dostępne narzędzie i zakres tokenu nie są dowodem wykonania każdej mutacji. Nie utworzono sztucznych issue, PR ani komentarzy wyłącznie do testowania uprawnień. Pierwsze rzeczywiste operacje trzeba potwierdzić odpowiedzią API i odczytem wyniku. Etykiety ról nie przypisują automatycznie kont agentów GitHub. Projekt ma widoki `All items`, `Workflow`, `Triage`, `Development`, `QA`, `Bugs` i `My work`; szczegóły procesu opisuje [workflow](WORKFLOW.md).
 
 ## Warunek pracy QA z Penpotem
 

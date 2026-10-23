@@ -1,6 +1,9 @@
 name: Błąd lub niezgodność z wymaganiem
 description: Odtwarzalny objaw, środowisko, wymaganie i dowody.
 title: "[Błąd] "
+labels: ["type:bug"]
+projects: ["KarolR2001/1"]
+assignees: []
 body:
   - type: markdown
     attributes:

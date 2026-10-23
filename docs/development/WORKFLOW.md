@@ -1,6 +1,6 @@
 # Praca nad Autervą przez GitHub Issues
 
-Zakres: MVP 3.1 z superadminem i wieloma firmami. Źródła: [wymagania](../WYMAGANIA_AUTERVA.md), [architektura](../ARCHITEKTURA_AUTERVA.md), [quality gates](../quality-gates.md), `design/traceability.json` i bieżący Penpot. Ten dokument opisuje proces; lokalne szablony nie tworzą zdalnego Project, issue, etykiet ani kont agentów. Wynik konfiguracji dostępu jest raportowany oddzielnie.
+Zakres: MVP 3.1 z superadminem i wieloma firmami. Źródła: [wymagania](../WYMAGANIA_AUTERVA.md), [architektura](../ARCHITEKTURA_AUTERVA.md), [quality gates](../quality-gates.md), `design/traceability.json` i bieżący Penpot. Pracę śledzi prywatny [GitHub Project Auterva — MVP 3.1](https://github.com/users/KarolR2001/projects/1).
 
 ## Role i własność
 
@@ -26,19 +26,22 @@ Zakres: MVP 3.1 z superadminem i wieloma firmami. Źródła: [wymagania](../WYMA
 
 ## Statusy i Project
 
-Proponowane pola: `Status`, `Role`, `Priority`, `Stage` i linki do issue/PR. Role: Frontend/Backend/QA; bez domyślnej osoby. Priority: P0/P1/P2/P3 ustalane w triage; to nie MUST/SHOULD źródłowego PRD.
+Pola projektu: `Status`, `Priority`, `Role`, `Stage`, `Size`, assignee, etykiety i powiązane PR. Role: Frontend/Backend/QA; bez domyślnej osoby. Priority: P0/P1/P2/P3 ustalane w triage; to nie MUST/SHOULD źródłowego PRD. Stage odpowiada sześciu etapom opisanym niżej, a Size używa XS/S/M/L/XL.
 
 | Status | Warunek |
 |---|---|
-| Backlog | Opis istnieje, zakres/zależności mogą wymagać dopracowania |
-| Ready | Kryteria Ready spełnione |
-| In Progress | Jeden właściciel pracuje; aktualny branch/PR wskazany, gdy istnieje |
+| Candidates | Nowy pomysł lub zgłoszenie oczekuje na triage, priorytet i decyzję o zakresie |
+| To do | Kryteria Ready spełnione; zadanie może zostać podjęte |
+| Re-open | Odbiór lub regresja wykazały, że zadanie wymaga ponownej pracy |
+| In progress | Jeden właściciel pracuje; aktualny branch/PR wskazany, gdy istnieje |
 | Review | Zmiana gotowa do przeglądu, podano rzeczywiste wyniki kontroli |
-| QA | Dostępny commit/build i fixture do odbioru zachowania/UI |
-| Blocked | Konkretna przeszkoda i warunek odblokowania; niezależne prace trwają |
+| Ready to test | Dostępny commit/build, fixture i instrukcja przekazania do QA |
+| Test | QA wykonuje odbiór zachowania, integracji i UI |
 | Done | Kryteria Done spełnione, dowody zapisane |
 
-Status jest polem single-select Project. Issue pozostaje otwarte do odbioru; PR ma własny stan draft/open/merged/closed. Merge nie potwierdza odbioru całej funkcji. Etykiety nie duplikują statusów. [GitHub: single-select](https://docs.github.com/en/issues/planning-and-tracking-with-projects/understanding-fields/about-single-select-fields).
+Status jest polem single-select Project. Issue pozostaje otwarte do odbioru; PR ma własny stan draft/open/merged/closed. Merge nie potwierdza odbioru całej funkcji. Etykiety nie duplikują statusów. Blokadę oznacz etykietą `blocked`, pozostawiając status etapu, na którym wystąpiła, i wpisując warunek odblokowania. [GitHub: single-select](https://docs.github.com/en/issues/planning-and-tracking-with-projects/understanding-fields/about-single-select-fields).
+
+Widoki projektu: `Workflow` (tablica statusów), `Triage` (Candidates i Re-open), `Development` (To do, In progress i Review), `QA` (Ready to test i Test), `Bugs`, `My work` oraz pełna tabela `All items`.
 
 ## Ready
 
@@ -72,7 +75,8 @@ QA uczestniczy w każdym etapie. Numer etapu nie tworzy sztywnej zależności ni
 
 ## Szablony i kontrole
 
-- `.github/ISSUE_TEMPLATE/implementation.yml`, `bug.yml`, `.github/PULL_REQUEST_TEMPLATE.md` przygotowują opis; nie publikują zasobów. Formularze nie mają domyślnych assignees, Project ani etykiet wymagających istnienia na serwerze. [GitHub: issue forms](https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/syntax-for-issue-forms).
-- `.github/labels.json` to katalog proponowanych etykiet, bez automatycznej synchronizacji lub usuwania zdalnych etykiet.
+- `.github/ISSUE_TEMPLATE/implementation.yml` dodaje `type:task`, a `bug.yml` dodaje `type:bug`; oba formularze dodają issue do projektu i nie przypisują osoby. W triage ustaw Status, Priority, Role, Stage, Size i właściwy `area:*`. [GitHub: issue forms](https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/syntax-for-issue-forms).
+- `.github/labels.json` odwzorowuje własne etykiety skonfigurowane w repozytorium. Typy: task/feature/bug/spike/docs/decision; role: frontend/backend/QA; priorytety: P0–P3; obszary odpowiadają architekturze. `needs:decision`, `needs:penpot` i `blocked` opisują wyjątki wymagające działania.
+- GitHub nie udostępnia przez publiczne API konfiguracji wbudowanego workflow „Item added to project”. Nowo dodane issue bez Status przypisz w triage do `Candidates`; nie traktuj pustego statusu jako `To do`.
 - CI i testy aplikacji powstają w zadaniu scaffoldingu. Uprawnienia workflow ogranicz do niezbędnych operacji, domyślnie `contents: read`. [GitHub: permissions](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#permissions).
 - Required checks i ochrona gałęzi wymagają osobnej konfiguracji repozytorium po uruchomieniu właściwych testów.

@@ -1,6 +1,9 @@
 name: Zadanie implementacyjne lub QA
 description: Jeden rezultat Autervy, wymagania, zależności i dowody odbioru.
 title: "[Zadanie] "
+labels: ["type:task"]
+projects: ["KarolR2001/1"]
+assignees: []
 body:
   - type: markdown
     attributes:
