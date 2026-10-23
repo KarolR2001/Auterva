@@ -5693,3 +5693,11 @@ Poniższe pięć pozycji jest częścią istniejącej biblioteki; component ID z
 | `DS-COM-001 ChatMessage` | Zwykły tekst, właściwy nadawca, czas i status wysłania/odczytu. Wiadomość staje się wysłana po potwierdzonym zapisie; retry nie tworzy duplikatu. Bez HTML i załączników. |
 | `DS-COM-002 ConversationItem` | Nazwa firmy, skrót ostatniej wiadomości, nieprzeczytane i oznaczenie lokalnego szkicu. Wybór odbiorcy pochodzi z autoryzowanej rozmowy. Loading, empty, filtered-empty i error są różnymi stanami listy. |
 | `DS-COM-003 MessageComposer` | Szkic lokalny osobno dla rozmowy, zachowany przy przejściu do innej rozmowy bez dialogu. Stan wysyłania/błędu/retry, typing i informacja o nowych wiadomościach; offline blokuje wysyłkę i nie tworzy kolejki. Po końcu opłaty czat nadal działa, po archiwizacji dostęp ustaje. |
+
+### Nawigacja platformy
+
+`PLT-01-02` łączy wejścia `/` i `/firmy`: oba pokazują listę firm z KPI opłaconych okresów i triali nad listą. Kanoniczne wzorce na stronach scenariuszy mobile (`fb4e1683-f05f-8095-8008-c7595a575f33`) i desktop (`fb4e1683-f05f-8095-8008-c759e3b05202`) nie tworzą osobnej trasy Pulpit ani `/ustawienia` platformy. Widoczne główne pozycje to Firmy i Wiadomości; docelowa korekta #102 dodaje mobile trigger „Więcej” i zmienia desktopowe Konto w trigger profilu. Te interakcje nie są jeszcze potwierdzone w Penpocie. Historyczne ukryte warstwy nie są pozycjami runtime.
+
+Menu profilu superadmina korzysta z anatomii `DS-NAV-011 UserMenu`, ale ma osobny kontekst aktora i cele: Konto → `/konto`, Wyloguj → serwerowe unieważnienie sesji, potem `/login`. Nie używa menu firmy ani `/admin/konto`. Penpot nie ma jeszcze boardu `/konto` platformy — #103 dostarczy cel i odbiór tego ekranu przed #19; nie podpinaj w prototypie obcego boardu MFA ani pozornego URL. Akcja wylogowania w makiecie nie dowodzi unieważnienia sesji. W implementacji menu ma nazwę, `aria-haspopup`, obsługę Escape/kliknięcia poza i zwrot fokusu do triggera.
+
+Na PLT-03 i zagnieżdżonych ADM zachowaj identyfikację wybranej firmy oraz „Wróć do karty firmy”; globalne Firmy/Wiadomości nie zmieniają tożsamości superadmina. Powielone boardy scenariuszy wymagają osobnego odbioru nawigacji przed użyciem ich jako golden dla późniejszych przepływów.

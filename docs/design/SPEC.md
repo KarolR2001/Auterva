@@ -1059,6 +1059,14 @@ Dolna nawigacja:
 
 „Więcej” otwiera ustawienia, dziennik, konto, instalację PWA i wylogowanie. Główna akcja kontekstowa „Dodaj pojazd” lub „Dodaj blokadę” jest umieszczona w nagłówku albo jako dostępny FAB, ale nie może zasłaniać treści.
 
+### 7.11A. Nawigacja superadmina
+
+Główną nawigację platformy tworzą „Firmy” (`/firmy`) i „Wiadomości” (`/wiadomosci`). Wejście `/` pokazuje ten sam widok listy firm z dwoma KPI — firmy z aktywnym opłaconym okresem i firmy w trialu — nad listą. „Pulpit” nie jest osobnym modułem ani pozycją menu. Nie istnieje moduł ani trasa ustawień platformy.
+
+Docelowo na mobile dolna nawigacja udostępnia „Firmy”, „Wiadomości” i „Więcej”; na desktopie sidebar udostępnia dwie główne sekcje i wyraźny trigger menu profilu. Menu profilu superadmina zawiera „Konto” (`/konto`) i akcję „Wyloguj”, odrębną od nawigacji panelu firmy. Prototypowy cel ekranu `/konto` uzupełnia #103; brak jego boardu nie oznacza zatwierdzonej nowej trasy. Wylogowanie musi unieważnić sesję po stronie serwera przed przejściem do logowania.
+
+W zagnieżdżonej obsłudze firmy nawigacja platformy pozostaje dostępna, lecz ekran pokazuje nazwę wybranej firmy i „Wróć do karty firmy”. Link nie zmienia aktora na administratora klienta i nie prowadzi do globalnej floty.
+
 ### 7.12. `DS-CNT-002 ContactSheet`
 
 - otwiera się po „Skontaktuj się”,
