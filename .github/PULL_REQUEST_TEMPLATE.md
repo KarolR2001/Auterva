@@ -1,6 +1,6 @@
 ## Rezultat
 
-Problem i zmiana zachowania. Powiązane issue i ID wymagań. `Closes #…` tylko dla odebranego zakresu; nadrzędna funkcja i QA mogą pozostać otwarte.
+Problem i zmiana zachowania. Powiązane issue i ID wymagań. `Closes #…` tylko gdy tester odebrał zakres przed merge; w pozostałych przypadkach `Refs #…`, a issue pozostaje otwarte do odbioru.
 
 ## Zakres i kontrakty
 
@@ -19,6 +19,8 @@ UI: porównanie z Penpotem i klawiatura/fokus. Backend: izolacja firm, uprawnien
 ## Ryzyka i przekazanie
 
 Niewykonane testy i powód, usterki, zależności, uruchomienie dla QA; dla migracji rollout/odtworzenie. Bez sekretów i danych produkcyjnych.
+
+Tester odbiera to samo issue: Ready to test → Test → Done albo Re-open. Assignee pozostaje programistą odpowiedzialnym za poprawki.
 
 - [ ] Kryteria zakresu spełnione lub pozostała praca w otwartym issue.
 - [ ] Mapowanie wymaganie → ekran/kod/test i dokumentacja kontraktu aktualne.

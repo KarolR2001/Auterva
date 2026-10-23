@@ -10,6 +10,7 @@ body:
       value: |
         Opisz fakt, nie niezweryfikowaną przyczynę. Fixture, bez tokenów i danych prawdziwych firm.
         Dla dokumentacji/makiety podaj plik/board i datę odczytu zamiast fikcyjnej wersji aplikacji.
+        Nieudany odbiór otwartego zadania zapisz w tym zadaniu i przesuń je do Re-open, zachowując programistę. Osobny bug służy niezależnej usterce lub regresji zamkniętego zakresu.
   - type: input
     id: environment
     attributes:

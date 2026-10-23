@@ -1,4 +1,4 @@
-name: Zadanie implementacyjne lub QA
+name: Zadanie programisty z odbiorem testera
 description: Jeden rezultat Autervy, wymagania, zależności i dowody odbioru.
 title: "[Zadanie] "
 labels: ["type:task"]
@@ -17,7 +17,6 @@ body:
       options:
         - Backend
         - Frontend
-        - QA
     validations:
       required: true
   - type: textarea
@@ -38,7 +37,7 @@ body:
     id: design
     attributes:
       label: Referencja Penpota i stany UI
-      description: File/page/board/component ID, stan, fixture, viewport; dla zadania bez UI wpisz „nie dotyczy” z powodem.
+      description: Link do strony Penpota oraz dokładna nazwa/ID boardu M/D. Nie przepisuj wyglądu komponentów; dla zadania bez UI wpisz „nie dotyczy”.
     validations:
       required: true
   - type: textarea
@@ -60,7 +59,17 @@ body:
   - type: textarea
     id: verification
     attributes:
-      label: Plan weryfikacji i przekazania do QA
-      description: Testy/komendy, role/fixture, build/środowisko, porównanie Penpot i artefakty. Plan nie jest wynikiem testu.
+      label: Założenia i przekazanie dla testera
+      description: Commit/build, środowisko, hosty/role, fixture, spełnione zależności i wyniki kontroli programisty. Tester odbiera to samo issue; assignee pozostaje programistą.
+    validations:
+      required: true
+  - type: textarea
+    id: test_cases
+    attributes:
+      label: Scenariusze testera i oczekiwane wyniki
+      description: Konkretne kroki → oczekiwany rezultat, także błędy i uprawnienia. Ready to test → Test; fail → Re-open do tego samego programisty; pass → Done.
+      placeholder: |
+        1. Warunki i akcja → oczekiwany wynik.
+        2. Przypadek błędny → oczekiwany wynik.
     validations:
       required: true
