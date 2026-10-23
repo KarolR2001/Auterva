@@ -15,7 +15,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run tests/unit",
-    "test:integration": "vitest run tests/integration --maxWorkers=1",
+    "test:integration": "tsx scripts/run-bootstrap-test.ts && vitest run tests/integration --maxWorkers=1",
     "test:e2e": "playwright test",
     "test": "pnpm test:unit && pnpm test:integration",
     "db:generate": "prisma generate",

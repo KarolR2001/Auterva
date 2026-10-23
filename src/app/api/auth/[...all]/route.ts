@@ -1,5 +1,5 @@
 import { toNextJsHandler } from "better-auth/next-js";
-import { createHmac, randomUUID } from "node:crypto";
+import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { auth, createAuth } from "@/lib/auth";
 import { getServerEnv } from "@/lib/env";
 import { recordVerifiedMfaSession } from "@/lib/mfa-session";
@@ -12,6 +12,7 @@ export const runtime = "nodejs";
 const allowed = new Set([
   "/api/auth/get-session", "/api/auth/sign-in/email", "/api/auth/two-factor/enable",
   "/api/auth/two-factor/verify-totp", "/api/auth/two-factor/verify-backup-code", "/api/auth/sign-out",
+  "/api/auth/mfa/reauth", "/api/auth/mfa/rotate-backup-codes",
 ]);
 const refusal = () => new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
 const neutral = () => Response.json({ code: "INVALID_CREDENTIALS" }, { status: 401, headers: { "Cache-Control": "no-store" } });
@@ -43,6 +44,74 @@ async function matchingMfaAccount(userId: string, scope: NonNullable<Awaited<Ret
   return user.role === "ADMIN_FIRMY" && user.organizationId === scope.organizationId && !user.organization?.archivedAt ? user : null;
 }
 
+async function handleMfaManagement(request: Request, pathname: string, instance: typeof auth, scope: NonNullable<Awaited<ReturnType<typeof resolveAuthHost>>>, sourceIp: string) {
+  const actor = await requireAuthorizedActor(prisma, instance, request.headers, scope);
+  if (!actor) return neutral();
+  const body = await request.clone().json().catch(() => null) as { method?: unknown; code?: unknown; proof?: unknown; password?: unknown } | null;
+  if (pathname.endsWith("/reauth")) {
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: actor.userId }, select: { email: true } });
+    const limit = await reserveAuthAttempt(prisma, user.email, sourceIp);
+    if (!limit.allowed) return Response.json({ code: "RATE_LIMITED" }, { status: 429, headers: { "Retry-After": String(limit.retryAfter), "Cache-Control": "no-store" } });
+    if (!body || (body.method !== "totp" && body.method !== "recovery") || typeof body.code !== "string" || body.code.length > 32) {
+      await completeAuthAttempt(prisma, limit.reservationId, true);
+      return neutral();
+    }
+    let valid = false;
+    try {
+      if (body.method === "totp" && /^\d{6}$/.test(body.code)) {
+        await instance.api.verifyTOTP({ body: { code: body.code, trustDevice: false }, headers: request.headers });
+        valid = true;
+      } else if (body.method === "recovery") {
+        await instance.api.verifyBackupCode({ body: { code: body.code, trustDevice: false }, headers: request.headers });
+        valid = true;
+      }
+    } catch {
+      valid = false;
+    }
+    await completeAuthAttempt(prisma, limit.reservationId, !valid);
+    if (!valid) return neutral();
+    if (body.method === "recovery") await prisma.auditLog.create({ data: {
+      actorId: actor.userId, actorRole: actor.role, organizationId: actor.organizationId,
+      action: "MFA_RECOVERY_CODE_USED", entityType: "User", entityId: actor.userId, requestId: randomUUID(),
+      safeChanges: { purpose: "rotate-backup-codes", result: "accepted" },
+    } });
+    const proof = randomBytes(32).toString("hex");
+    await prisma.verification.create({ data: {
+      id: randomUUID(), identifier: challengeKey(`reauth:${proof}`),
+      value: JSON.stringify({ userId: actor.userId, sessionId: actor.sessionId, purpose: "rotate-backup-codes" }),
+      expiresAt: new Date(Date.now() + 5 * 60_000),
+    } });
+    return Response.json({ proof }, { headers: { "Cache-Control": "no-store" } });
+  }
+  if (!body || typeof body.proof !== "string" || !/^[a-f0-9]{64}$/.test(body.proof)
+    || typeof body.password !== "string" || body.password.length > 256) return neutral();
+  const identifier = challengeKey(`reauth:${body.proof}`);
+  const proof = await prisma.verification.findFirst({ where: { identifier, expiresAt: { gt: new Date() } } });
+  if (!proof || proof.value !== JSON.stringify({ userId: actor.userId, sessionId: actor.sessionId, purpose: "rotate-backup-codes" })) return neutral();
+  const used = await prisma.verification.deleteMany({ where: { id: proof.id, identifier, value: proof.value, expiresAt: { gt: new Date() } } });
+  if (used.count !== 1) return neutral();
+  // Existing sessions lose access before any factor material changes. An invalid
+  // password can cause an extra logout, but cannot leave stale sessions active.
+  const revoked = await prisma.session.deleteMany({ where: { userId: actor.userId, id: { not: actor.sessionId } } });
+  await prisma.auditLog.create({ data: {
+    actorId: actor.userId, actorRole: actor.role, organizationId: actor.organizationId,
+    action: "AUTH_OTHER_SESSIONS_REVOKED", entityType: "User", entityId: actor.userId, requestId: randomUUID(),
+    safeChanges: { count: revoked.count, purpose: "rotate-backup-codes" },
+  } });
+  let rotated: Awaited<ReturnType<typeof instance.api.generateBackupCodes>>;
+  try {
+    rotated = await instance.api.generateBackupCodes({ body: { password: body.password }, headers: request.headers });
+  } catch {
+    return neutral();
+  }
+  await prisma.verification.deleteMany({ where: { identifier: { startsWith: "auterva:mfa:" }, value: { contains: `"userId":"${actor.userId}"` } } });
+  await prisma.auditLog.create({ data: {
+    actorId: actor.userId, actorRole: actor.role, organizationId: actor.organizationId,
+    action: "MFA_BACKUP_CODES_ROTATED", entityType: "User", entityId: actor.userId, requestId: randomUUID(),
+  } });
+  return Response.json({ status: true, backupCodes: rotated.backupCodes }, { headers: { "Cache-Control": "no-store" } });
+}
+
 async function revokeIssuedSession(instance: typeof auth, response: Response) {
   const issued = response.headers.getSetCookie().map((entry) => entry.split(";", 1)[0]).filter((entry) => entry.split("=", 1)[0].endsWith(".session_token"));
   if (!issued.length) return;
@@ -51,11 +120,17 @@ async function revokeIssuedSession(instance: typeof auth, response: Response) {
 }
 
 async function guarded(request: Request, method: "GET" | "POST") {
-  const pathname = new URL(request.url).pathname.replace(/\/$/, "");
+  const externalUrl = new URL(request.url);
+  const pathname = externalUrl.pathname.replace(/\/$/, "");
+  const requestHost = request.headers.get("host");
+  if (requestHost && /^[a-z0-9.-]+(?::[0-9]{1,5})?$/i.test(requestHost)) externalUrl.host = requestHost;
   const configuredHost = new URL(getServerEnv().BETTER_AUTH_URL).host;
-  const probe = process.env.NODE_ENV !== "production" && process.env.AUTERVA_AUTH_PROBE === "1" && request.headers.get("host") === configuredHost;
+  const probe = process.env.NODE_ENV === "test" && process.env.AUTERVA_AUTH_PROBE === "1"
+    && ["127.0.0.1", "localhost"].includes(new URL(getServerEnv().BETTER_AUTH_URL).hostname)
+    && request.headers.get("host") === configuredHost;
   const scope = probe ? null : await resolveAuthHost(prisma, request.headers.get("host"), request.url);
   if ((!probe && !scope) || !allowed.has(pathname)) return refusal();
+  if (method === "POST" && request.headers.get("origin") !== externalUrl.origin) return new Response(null, { status: 403, headers: { "Cache-Control": "no-store" } });
   if (method === "GET" && pathname !== "/api/auth/get-session") return new Response(null, { status: 405 });
   if (method === "POST" && pathname === "/api/auth/get-session") return new Response(null, { status: 405 });
   let sourceIp: string;
@@ -65,23 +140,33 @@ async function guarded(request: Request, method: "GET" | "POST") {
   } catch {
     return new Response(null, { status: 503, headers: { "Cache-Control": "no-store" } });
   }
-  const instance = probe ? auth : createAuth(prisma, false, new URL(request.url).origin);
+  const instance = probe ? auth : createAuth(prisma, false, externalUrl.origin);
   const handlers = toNextJsHandler(instance);
+  if (pathname.startsWith("/api/auth/mfa/")) {
+    if (!scope || method !== "POST") return refusal();
+    return handleMfaManagement(request, pathname, instance, scope, sourceIp);
+  }
   const enrollmentActor = pathname === "/api/auth/two-factor/verify-totp" && scope
     ? await requireScopedActor(prisma, instance, request.headers, scope) : null;
-  if (pathname === "/api/auth/two-factor/enable" && scope && !(await requireScopedActor(prisma, instance, request.headers, scope))) return neutral();
+  const enableActor = pathname === "/api/auth/two-factor/enable" && scope
+    ? await requireScopedActor(prisma, instance, request.headers, scope) : null;
+  if (pathname === "/api/auth/two-factor/enable" && scope && !enableActor) return neutral();
+  let invalidEnable = false;
+  if (pathname === "/api/auth/two-factor/enable") {
+    const body = await request.clone().json().catch(() => null) as { method?: unknown; password?: unknown } | null;
+    invalidEnable = !body || body.method !== "totp" || typeof body.password !== "string";
+  }
   const mfaPath = pathname === "/api/auth/two-factor/verify-totp" || pathname === "/api/auth/two-factor/verify-backup-code";
+  let invalidMfa = false;
   if (mfaPath) {
     const body = await request.clone().json().catch(() => null) as { code?: unknown; trustDevice?: unknown; disableSession?: unknown } | null;
-    if (!body || typeof body.code !== "string" || (pathname.endsWith("verify-totp") && !/^\d{6}$/.test(body.code))
-      || body.trustDevice === true || body.disableSession === true) {
-      return Response.json({ code: "INVALID_MFA_PROBE" }, { status: 400, headers: { "Cache-Control": "no-store" } });
-    }
+    invalidMfa = !body || typeof body.code !== "string" || (pathname.endsWith("verify-totp") && !/^\d{6}$/.test(body.code))
+      || body.trustDevice === true || body.disableSession === true;
   }
   const rawChallenge = mfaPath && !enrollmentActor ? challengeCookie(request.headers.get("cookie")) : null;
   const challenge = rawChallenge ? await prisma.verification.findFirst({ where: { identifier: challengeKey(rawChallenge), expiresAt: { gt: new Date() } } }) : null;
   const challengeData = challenge ? JSON.parse(challenge.value) as { userId: string; hostname: string } : null;
-  const challengeUser = scope && challengeData?.hostname === new URL(request.url).hostname
+  const challengeUser = scope && challengeData?.hostname === externalUrl.hostname
     ? await matchingMfaAccount(challengeData.userId, scope) : null;
   if (mfaPath && scope && !enrollmentActor && !challengeUser) {
     const ipLimit = await takeRateLimit(prisma, [{ key: `auth:ip:${sourceIp}`, limit: 20, windowMs: 15 * 60_000 }]);
@@ -89,13 +174,20 @@ async function guarded(request: Request, method: "GET" | "POST") {
     return neutral();
   }
   // Next redirects to trailing-slash URLs for the PWA scope; Better Auth matches paths without it.
-  const normalized = new URL(request.url);
+  const normalized = new URL(externalUrl);
   normalized.pathname = pathname;
   const email = pathname === "/api/auth/sign-in/email" ? await loginEmail(request) : null;
-  const mfaEmail = challengeUser?.email ?? (enrollmentActor ? (await prisma.user.findUnique({ where: { id: enrollmentActor.userId }, select: { email: true } }))?.email : null);
+  const scopedUser = enrollmentActor ?? enableActor;
+  const mfaEmail = challengeUser?.email ?? (scopedUser ? (await prisma.user.findUnique({ where: { id: scopedUser.userId }, select: { email: true } }))?.email : null);
   const reservation = email === null && !mfaEmail ? null : await reserveAuthAttempt(prisma, email ?? mfaEmail ?? "", sourceIp);
   if (reservation && !reservation.allowed) {
     return Response.json({ code: "RATE_LIMITED" }, { status: 429, headers: { "Cache-Control": "no-store", "Retry-After": String(reservation.retryAfter) } });
+  }
+  if (invalidEnable || invalidMfa) {
+    if (reservation?.allowed) await completeAuthAttempt(prisma, reservation.reservationId, true);
+    return invalidMfa
+      ? Response.json({ code: "INVALID_MFA_PROBE" }, { status: 400, headers: { "Cache-Control": "no-store" } })
+      : neutral();
   }
   let response: Response;
   try {
@@ -110,26 +202,39 @@ async function guarded(request: Request, method: "GET" | "POST") {
       return neutral();
     }
     if (scope) {
-      const user = await prisma.user.findFirst({ where: { email: { equals: email.trim(), mode: "insensitive" } }, select: { id: true, role: true, organizationId: true, disabledAt: true, organization: { select: { archivedAt: true } } } });
+      const user = await prisma.user.findFirst({ where: { email: { equals: email.trim(), mode: "insensitive" } }, select: { id: true, role: true, organizationId: true, disabledAt: true, emailVerified: true, twoFactorEnabled: true, organization: { select: { archivedAt: true } } } });
       const expectedRole = scope.area === "PLATFORM" ? "SUPERADMIN_AUTERVA" : "ADMIN_FIRMY";
-      if (!user || user.role !== expectedRole || user.organizationId !== scope.organizationId || user.disabledAt || user.organization?.archivedAt) {
+      if (!user || user.role !== expectedRole || user.organizationId !== scope.organizationId || !user.emailVerified || user.disabledAt || user.organization?.archivedAt) {
         await revokeIssuedSession(instance, response);
         if (reservation?.allowed) await completeAuthAttempt(prisma, reservation.reservationId, true);
         return neutral();
       }
       const result = await response.clone().json().catch(() => null) as { twoFactorRedirect?: boolean } | null;
+      if (user.twoFactorEnabled && !result?.twoFactorRedirect) {
+        await revokeIssuedSession(instance, response);
+        if (reservation?.allowed) await completeAuthAttempt(prisma, reservation.reservationId, true);
+        return neutral();
+      }
       if (result?.twoFactorRedirect) {
         const issued = challengeCookie(response.headers.getSetCookie().map((item) => item.split(";", 1)[0]).join("; "));
         if (!issued) throw new Error("MFA challenge cookie missing");
         await prisma.verification.create({ data: {
-          id: randomUUID(), identifier: challengeKey(issued), value: JSON.stringify({ userId: user.id, hostname: new URL(request.url).hostname }),
+          id: randomUUID(), identifier: challengeKey(issued), value: JSON.stringify({ userId: user.id, hostname: externalUrl.hostname }),
           expiresAt: new Date(Date.now() + 10 * 60_000),
         } });
       }
     }
     if (reservation?.allowed) await completeAuthAttempt(prisma, reservation.reservationId, false);
   }
-  if (mfaPath && reservation?.allowed) await completeAuthAttempt(prisma, reservation.reservationId, !response.ok);
+  if (email !== null && response.ok) {
+    const result = await response.clone().json().catch(() => null) as { twoFactorRedirect?: boolean } | null;
+    response = Response.json(result?.twoFactorRedirect ? { twoFactorRedirect: true } : { enrollmentRequired: true },
+      { status: response.status, headers: response.headers });
+  }
+  if ((mfaPath || pathname === "/api/auth/two-factor/enable") && reservation?.allowed) {
+    await completeAuthAttempt(prisma, reservation.reservationId, !response.ok);
+  }
+  if (pathname === "/api/auth/two-factor/enable" && !response.ok) return neutral();
   if (pathname === "/api/auth/two-factor/enable" && response.ok) {
     const body = await response.json() as { method?: string; totpURI?: string };
     response = Response.json({ method: body.method, totpURI: body.totpURI }, { status: response.status, headers: response.headers });
@@ -144,7 +249,18 @@ async function guarded(request: Request, method: "GET" | "POST") {
       response = Response.json({ status: true }, { status: response.status, headers: response.headers });
     }
   }
-  if (pathname === "/api/auth/get-session" && scope && !(await requireAuthorizedActor(prisma, instance, request.headers, scope))) return neutral();
+  if (pathname === "/api/auth/get-session" && scope) {
+    const actor = await requireAuthorizedActor(prisma, instance, request.headers, scope);
+    if (!actor) return neutral();
+    const [user, session] = await Promise.all([
+      prisma.user.findUniqueOrThrow({ where: { id: actor.userId }, select: { name: true, email: true } }),
+      prisma.session.findUniqueOrThrow({ where: { id: actor.sessionId }, select: { expiresAt: true } }),
+    ]);
+    response = Response.json({
+      session: { id: actor.sessionId, expiresAt: session.expiresAt },
+      user: { id: actor.userId, name: user.name, email: user.email, role: actor.role, organizationId: actor.organizationId },
+    }, { status: response.status, headers: response.headers });
+  }
   response.headers.set("Cache-Control", "no-store");
   return response;
 }
