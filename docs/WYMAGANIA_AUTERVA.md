@@ -326,7 +326,7 @@ Stan analizy: **22.10.2026**. Obowiązuje **PRD 3.1 z superadminem i wieloma fir
 - **C-N017 [T]** Tokeny nie trafiają do logów, referrera ani zbędnej analityki. Źródło: §18.4; V30 §7.4.
 - **C-N018 [P/T]** Superadmin nie ustawia znanego sobie hasła klienta i nie odczytuje jego hasła. Źródło: §7.3.
 - **C-N019 [T]** Pełna rola superadmina nie zapewnia odczytu sekretów, dowolnego SQL, superużytkownika PostgreSQL lub kasowania audytu. Źródło: §6.2, §18.7.
-- **C-N020 [T]** Sekrety bazy, poczty i domen pozostają poza repozytorium, przeglądarką i makietami. Źródło: §18.7.
+- **C-N020 [T]** Sekrety bazy, poczty i domen pozostają poza repozytorium, przeglądarką i makietami; środowiska mają odrębne poświadczenia. [Macierz środowisk](contracts/environments-hosts-operations.md). Źródło: §18.7.
 
 ### Dane, cache i trwałość
 
@@ -350,12 +350,12 @@ Stan analizy: **22.10.2026**. Obowiązuje **PRD 3.1 z superadminem i wieloma fir
 - **C-N038 [T/P]** Limity techniczne długości i ruchu czatu muszą być jawnie konfigurowane. Maksymalna wiadomość ma 4 000 znaków, a bazowy limit wysyłania to 30 wiadomości/minutę na konto z burstem 10. Sposób liczenia, odmowa i fixture: [kontrakt D-04/D-05](contracts/technical-limits-and-mfa-bootstrap.md). Źródło: decyzja właściciela 23.10.2026, §11.5.
 - **C-N039 [B/T]** Audyt zapisuje tworzenie/archiwizację firmy, zmiany okresu, domeny, materiałów publicznych, zaproszeń, praw i operacji floty. Źródło: §18.7.
 - **C-N040 [B/T]** Audyt wskazuje faktycznego aktora, rolę, docelową firmę, działanie, czas i bezpieczne poprzednie/nowe wartości. Źródło: §8.5, §17.2, §18.7.
-- **C-N041 [B/T]** Backupy, test odtworzenia i separacja staging/production pozostają wymagane. Źródło: §18.8.
+- **C-N041 [B/T]** Backupy, test odtworzenia i separacja staging/production pozostają wymagane. [Plan backupu i restore](contracts/environments-hosts-operations.md). Źródło: §18.8.
 - **C-N042 [B/T]** Odtworzenie jednej firmy nie nadpisuje danych innych firm. Źródło: §18.8, TEST-MVP-39.
 - **C-N043 [R/T]** Migracja istniejących danych wymaga potwierdzonego przypisania do firm, kopii i sprawdzonego odtworzenia. Źródło: §17.5.
 - **C-N044 [R/T]** Obsługa drugiej realnej firmy może ruszyć dopiero po objęciu izolacją schematu, odczytów, mutacji, storage/cache i po testach A/B. Źródło: §17.5, §22.1.
 - **C-N045 [R/T]** Rollback nie może wrócić do wersji traktującej dane wszystkich firm jako jednej firmy. Źródło: §17.5.
-- **C-N046 [P]** Brak automatycznego purge nie oznacza nieskończonej retencji backupów; wyjątkowe obowiązki prawne pozostają procedurą poza panelem. Źródło: §5.2B Q-10B, §18.8.
+- **C-N046 [P]** Brak automatycznego purge nie oznacza nieskończonej retencji backupów; wyjątkowe obowiązki prawne pozostają procedurą poza panelem. [Retencja kopii](contracts/environments-hosts-operations.md). Źródło: §5.2B Q-10B, §18.8.
 
 ### Interfejs, dostępność i jakość
 
@@ -370,8 +370,8 @@ Stan analizy: **22.10.2026**. Obowiązuje **PRD 3.1 z superadminem i wieloma fir
 - **C-N055 [B]** Zachować ruch 120/180/240 ms i `prefers-reduced-motion`. Źródło: §16.4.
 - **C-N056 [B/R]** Stosowne widoki obsługują loading, empty, error/retry, saving, walidację, unauthorized i offline. Źródło: §15.1.
 - **C-N057 [B/T]** Błędy publiczne nie ujawniają stack trace, prywatnych danych operatora, danych innej firmy lub przyczyny finansowej wyłączenia. Źródło: §8.3, §13.1 PUB-08, §15.11.
-- **C-N058 [T]** Gotowość domeny wymaga rzeczywistego routingu i TLS, z certyfikatem obejmującym odpowiedni poziom subdomeny. Źródło: §3.4, §7.3.
-- **C-N059 [B/T]** Transport rozmów i danych prywatnych jest szyfrowany; historyczny V30 §11.5 wprost wskazuje HTTPS. Źródło: V30 §11.5; V31 §18.2/18.6.
+- **C-N058 [T]** Gotowość domeny wymaga rzeczywistego routingu i TLS, z certyfikatem obejmującym odpowiedni poziom subdomeny. [Kontrakt hostów](contracts/environments-hosts-operations.md). Źródło: §3.4, §7.3.
+- **C-N059 [B/T]** Transport rozmów i danych prywatnych jest szyfrowany; historyczny V30 §11.5 wprost wskazuje HTTPS. [Plan TLS i WSS](contracts/environments-hosts-operations.md). Źródło: V30 §11.5; V31 §18.2/18.6.
 - **C-N060 [B/T]** Zachować bazowe wymagania wydajności, SEO, dostępności cyfrowej, PWA i bezpieczeństwa; 3.1 nie zastępuje ich parametrami SaaS. Źródło: §1.3, §2.2, §20.
 - **C-N061 [B/T]** Plan 55 scenariuszy TEST-MVP-01–55 rozszerza regresję floty i dostępności z bazowego PRD §29. Źródło: §20.
 - **C-N062 [T]** Testy rzeczywistego runtime muszą objąć izolację A/B, granice czasu/DST, pocztę, DNS/TLS, MFA i WebSocket. Źródło: §20, §22.2–22.3.
@@ -584,8 +584,8 @@ Historyczne scenariusze v2 (15): UC-SAS-01 assisted startup; 02 multi-company; 0
 - **D-06 — rozstrzygnięte 23.10.2026:** archiwizowana firma nie wchodzi do dwóch głównych KPI, nawet z przyszłą datą opłaty; może być pokazana osobno. Firma jest liczona najwyżej raz, a przy trialu i opłacie jednocześnie KPI traktuje ją zgodnie z efektywnym okresem. [Tabela stanów i KPI](contracts/service-periods-kpi-reminders.md).
 - **D-07 — rozstrzygnięte 23.10.2026:** przypomnienia są wysyłane o 09:00 `Europe/Warsaw` w terminach 7 dni, 1 dzień i dzień wygaśnięcia. Po przedłużeniu lub skróceniu harmonogram przelicza się od nowa; po awarii worker nadrabia zaległe zdarzenie najwyżej raz. DST jest liczone w strefie produktu. [Kontrakt harmonogramu i retry](contracts/service-periods-kpi-reminders.md).
 - **D-08 — rozstrzygnięte 23.10.2026:** szkic czatu jest trwały w lokalnym storage przeglądarki, osobno dla `(accountId, conversationId)`, przetrwa restart karty/przeglądarki i jest usuwany przy wylogowaniu. Nie ma wysyłki offline. `typing` wygasa po 3 s i jest wysyłany najwyżej raz na sekundę. `read` zapisuje się po widoczności wiadomości przez około 500 ms. Docelowe p95 dostarczenia realtime wynosi maksymalnie 2 s.
-- **D-09 — rozstrzygnięte dla etapu startowego 23.10.2026:** development/preview używa hostów dostawcy, bez zakupu domeny. Darmowy [Render](https://render.com/docs/free) może służyć wyłącznie do krótkotrwałych preview; darmowa baza Render nie jest produkcyjna (usypianie usługi, efemeryczny dysk, baza wygasa po 30 dniach i nie ma backupów). Media przechowuje się w [Cloudflare R2](https://developers.cloudflare.com/r2/pricing/), a DNS/TLS obsługuje Cloudflare. Produkcja przechodzi na zarządzany kontener Node, zarządzany PostgreSQL z backupami/PITR i pocztę transakcyjną, gdy preview ma zostać użyte przez klientów. Faktyczna domena produkcyjna pozostaje do wpisania przez właściciela; nie używać domen `.example` jako konfiguracji.
-- **D-10 — rozstrzygnięte 23.10.2026:** RPO 24 h, RTO 4 h, backup DB/mediów codziennie z retencją 30 dni, logi bezpieczeństwa/audyt 365 dni, zwykłe logi aplikacyjne 30 dni. Właściciel/operator odpowiada za procedurę restore i jej okresowy test.
+- **D-09 — rozstrzygnięte dla etapu startowego 23.10.2026:** development/preview używa hostów dostawcy, bez zakupu domeny. Darmowy [Render](https://render.com/docs/free) może służyć wyłącznie do krótkotrwałych preview; darmowa baza Render nie jest produkcyjna (usypianie usługi, efemeryczny dysk, baza wygasa po 30 dniach i nie ma backupów). Media przechowuje się w [Cloudflare R2](https://developers.cloudflare.com/r2/pricing/), a DNS/TLS obsługuje Cloudflare. Produkcja przechodzi na zarządzany kontener Node, zarządzany PostgreSQL z backupami/PITR i pocztę transakcyjną, gdy preview ma zostać użyte przez klientów. Faktyczna domena produkcyjna pozostaje do wpisania przez właściciela; nie używać domen `.example` jako konfiguracji. [Macierz i bramki wyceny](contracts/environments-hosts-operations.md) doprecyzowują wykonanie, nie zatwierdzają płatnego planu.
+- **D-10 — rozstrzygnięte 23.10.2026:** RPO 24 h, RTO 4 h, backup DB/mediów codziennie z retencją 30 dni, logi bezpieczeństwa/audyt 365 dni, zwykłe logi aplikacyjne 30 dni. Właściciel/operator odpowiada za procedurę restore i jej okresowy test. [Runbook odbioru](contracts/environments-hosts-operations.md) rozróżnia wymagany cel od faktycznie zmierzonego odtworzenia.
 - **D-11 — rozstrzygnięte 23.10.2026:** po wygaśnięciu usługi konto i panel pozostają aktywne, a panel pokazuje: „Konto aktywne. Publiczna oferta jest obecnie wyłączona. Skontaktuj się z Autervą w sprawie uruchomienia okresu usługi.” Flota i czat pozostają dostępne. [Przykład aktywacji po opłacie](contracts/service-periods-kpi-reminders.md).
 - **D-12 — projekt a kod:** brak scaffoldingu aplikacji, manifestu zależności, lockfile, testów integracji stosu i ostatecznej macierzy wersji. Repozytorium jest bazą dokumentacji i kontraktów implementacyjnych; demonstrator usunięto przy porządkowaniu. [ADR-0002](adr/0002-version-validation.md) pozostaje otwarte.
 - **D-13 — mapowanie Penpota:** 7 nieodnalezionych odwołań do boardów OVR-14/15/17 oraz 52 puste cele interakcji; dokładny wykaz w załączniku A architektury. Nie oznacza to usunięcia tych funkcji z wymagań.

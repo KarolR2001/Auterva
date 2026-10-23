@@ -32,11 +32,11 @@
   "derivedDocuments": [
     {
       "path": "docs/WYMAGANIA_AUTERVA.md",
-      "sha256": "98a8125dcb1ff3f8486b65b2af59e3941b1c43156b52ac40ace8dd14b022dff7"
+      "sha256": "d051ec5cfe6d175419d90de4615755f2724d42f5d051e6f4dc0616376870e861"
     },
     {
       "path": "docs/ARCHITEKTURA_AUTERVA.md",
-      "sha256": "5223e04568bba58eea091656a790cef31067fcd11c10556bbd1a35b00e1cbb9e"
+      "sha256": "107d9adc60da542ae88a9ba58eba7506474eb4e1f4886d0740b3a7cb48517bd4"
     },
     {
       "path": "docs/adr/0001-penpot.md",
@@ -53,6 +53,10 @@
     {
       "path": "docs/contracts/service-periods-kpi-reminders.md",
       "sha256": "8c6d3a7510012350bc090c005bda39834c32d42f94b6655e7348fa6f11026187"
+    },
+    {
+      "path": "docs/contracts/environments-hosts-operations.md",
+      "sha256": "9e0579ff084489f3ec934021be2e26d6dd0a02546df3502a2c602adacc8968a1"
     },
     {
       "path": "docs/contracts/technical-limits-and-mfa-bootstrap.md",
