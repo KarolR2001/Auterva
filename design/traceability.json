@@ -54,7 +54,7 @@
     },
     {
       "issue": 11,
-      "scope": "Podstawowe komponenty pierwszych ekranów; integracja aplikacji pozostaje zależna od #5.",
+      "scope": "Podstawowe komponenty pierwszych ekranów na wspólnym scaffoldzie.",
       "relatedRequirementIds": [
         "C-N047",
         "C-N049",

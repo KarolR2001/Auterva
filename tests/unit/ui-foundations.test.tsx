@@ -33,12 +33,61 @@ describe("wspólne komponenty", () => {
       </Button>,
     );
 
-    const button = screen.getByRole("button", { name: /zapisz/i });
+    const button = screen.getByRole("button", { name: "Zapisywanie" });
     expect(button).toBeDisabled();
     expect(button).toHaveAttribute("aria-busy", "true");
     expect(button).toHaveTextContent("Zapisywanie");
     await user.click(button);
     expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it("zachowuje jawną nazwę dostępną w zwykłym stanie, także bez tekstu", () => {
+    const { rerender } = render(
+      <>
+        <Button aria-label="Usuń pojazd" loadingLabel="Usuwanie pojazdu">
+          Usuń
+        </Button>
+        <Button
+          aria-label="Otwórz menu"
+          icon={<span aria-hidden="true">⋯</span>}
+        />
+      </>,
+    );
+
+    expect(screen.getByRole("button", { name: "Usuń pojazd" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Otwórz menu" })).toBeVisible();
+
+    rerender(
+      <>
+        <Button
+          aria-label="Usuń pojazd"
+          loading
+          loadingLabel="Usuwanie pojazdu"
+        >
+          Usuń
+        </Button>
+        <Button
+          aria-label="Otwórz menu"
+          icon={<span aria-hidden="true">⋯</span>}
+        />
+      </>,
+    );
+    expect(
+      screen.getByRole("button", { name: "Usuwanie pojazdu" }),
+    ).toBeDisabled();
+
+    rerender(
+      <>
+        <Button aria-label="Usuń pojazd" loadingLabel="Usuwanie pojazdu">
+          Usuń
+        </Button>
+        <Button
+          aria-label="Otwórz menu"
+          icon={<span aria-hidden="true">⋯</span>}
+        />
+      </>,
+    );
+    expect(screen.getByRole("button", { name: "Usuń pojazd" })).toBeEnabled();
   });
 
   it("wiąże etykietę i błąd z polem bez utraty wpisanej wartości", () => {
@@ -172,6 +221,7 @@ describe("wspólne komponenty", () => {
     const trigger = screen.getByRole("button", { name: "Otwórz" });
     await user.click(trigger);
     const dialog = screen.getByRole("dialog", { name: "Potwierdź usunięcie" });
+    expect(dialog).toHaveAttribute("aria-modal", "true");
     expect(dialog).toHaveTextContent("Usunąć pojazd testowy?");
     await waitFor(() =>
       expect(dialog.contains(document.activeElement)).toBe(true),
