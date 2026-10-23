@@ -25,6 +25,19 @@
         "tests/e2e/auth-host.spec.ts",
         "tests/e2e/pwa.spec.ts"
       ]
+    },
+    {
+      "issue": 8,
+      "scope": "Model domenowy i migracje PostgreSQL z izolacją firm; bez endpointów produktu.",
+      "relatedRequirementIds": ["C-F009", "C-F010", "C-N006", "C-N021", "C-N022", "C-N023", "C-N024", "C-N025", "C-N026", "C-N027", "C-R021"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261023220500_domain_schema_issue_8/migration.sql",
+        "prisma/migrations/20261023221100_trial_immutable_issue_8/migration.sql",
+        "prisma/migrations/20261023221400_first_registration_immutable_issue_8/migration.sql",
+        "prisma/migrations/20261023222000_schema_boundaries_issue_8/migration.sql"
+      ],
+      "testPaths": ["tests/integration/schema-contract.test.ts"]
     }
   ],
   "sources": [

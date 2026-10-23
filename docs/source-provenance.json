@@ -61,6 +61,10 @@
     {
       "path": "docs/contracts/technical-limits-and-mfa-bootstrap.md",
       "sha256": "0f7fc1711e52b92fbc1ea9323e48f7499b4d1597a0a89880660a5523f9a108c9"
+    },
+    {
+      "path": "docs/contracts/data-model-and-migrations.md",
+      "sha256": "3df3a9f1632d7c13ee9456165cc4ac2c45f06c1abeb79006e30deed117a01b1a"
     }
   ],
   "historicalSourcesOutsideRepository": [
