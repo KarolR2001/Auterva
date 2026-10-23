@@ -26,6 +26,14 @@ test("public auth entrypoint is disabled without explicit fixture flag", async (
   }
 });
 
+test("credential password policy requires at least 12 characters", async () => {
+  const email = `short-${crypto.randomUUID()}@example.test`;
+  fixtureEmails.push(email);
+  await expect(auth.api.signUpEmail({ body: {
+    name: "Short password", email, password: "ElevenChars",
+  } })).rejects.toThrow();
+});
+
 function cookie(headers: Headers) {
   return headers.getSetCookie().map((value) => value.split(";", 1)[0]).join("; ");
 }
@@ -47,6 +55,9 @@ test("real PostgreSQL credential login requires a verified TOTP before session",
   });
   expect(enabled.method).toBe("totp");
   if (enabled.method !== "totp") throw new Error("Expected TOTP enrollment");
+  const stored = await client.twoFactor.findFirst({ where: { userId: registration.response.user.id }, select: { backupCodes: true } });
+  expect(stored?.backupCodes).toBeDefined();
+  for (const code of enabled.backupCodes) expect(stored?.backupCodes).not.toContain(code);
   const totp = OTPAuth.URI.parse(enabled.totpURI);
   if (!(totp instanceof OTPAuth.TOTP)) throw new Error("Expected TOTP URI");
   const verified = await auth.api.verifyTOTP({

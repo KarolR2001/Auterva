@@ -39,6 +39,21 @@ export async function startRealtimeServer(db: PrismaClient, resolveTenant: Resol
   });
 
   sockets.on("connection", (connection: WebSocket, context: { organizationId: string; headers: Headers; expectedHost: string }) => {
+    let checking = false;
+    const revalidate = async () => {
+      if (checking || connection.readyState !== connection.OPEN) return;
+      checking = true;
+      try {
+        if (await resolveTenant(context.headers, context.expectedHost) !== context.organizationId) connection.close(4401);
+      } catch {
+        connection.close(4401);
+      } finally {
+        checking = false;
+      }
+    };
+    const checkTimer = setInterval(() => { void revalidate(); }, 1_000);
+    checkTimer.unref();
+    connection.once("close", () => clearInterval(checkTimer));
     connection.on("message", (raw) => {
       void (async () => {
         if (await resolveTenant(context.headers, context.expectedHost) !== context.organizationId) { connection.close(4401); return; }
@@ -52,6 +67,7 @@ export async function startRealtimeServer(db: PrismaClient, resolveTenant: Resol
             orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 100,
             select: { id: true, clientMessageId: true, body: true, createdAt: true },
           });
+          if (await resolveTenant(context.headers, context.expectedHost) !== context.organizationId) { connection.close(4401); return; }
           connection.send(JSON.stringify({ type: "history", messages: last.reverse() }));
           return;
         }
@@ -61,6 +77,7 @@ export async function startRealtimeServer(db: PrismaClient, resolveTenant: Resol
           update: {},
           select: { id: true, clientMessageId: true, body: true, createdAt: true },
         });
+        if (await resolveTenant(context.headers, context.expectedHost) !== context.organizationId) { connection.close(4401); return; }
         connection.send(JSON.stringify({ type: "sent", message: saved }));
       })().catch(() => connection.send(JSON.stringify({ type: "error", code: "PERSISTENCE_FAILED" })));
     });
