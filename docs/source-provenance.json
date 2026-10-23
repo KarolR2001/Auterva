@@ -32,11 +32,11 @@
   "derivedDocuments": [
     {
       "path": "docs/WYMAGANIA_AUTERVA.md",
-      "sha256": "d051ec5cfe6d175419d90de4615755f2724d42f5d051e6f4dc0616376870e861"
+      "sha256": "a21297690aca55d505c0c8f015274040dc5fd8496c9b6ec46ef9c1e528614091"
     },
     {
       "path": "docs/ARCHITEKTURA_AUTERVA.md",
-      "sha256": "107d9adc60da542ae88a9ba58eba7506474eb4e1f4886d0740b3a7cb48517bd4"
+      "sha256": "d39c1551eaf606742b42f333334505ea19bfb4539dc77a79db3b84b4209bf3a6"
     },
     {
       "path": "docs/adr/0001-penpot.md",
@@ -44,7 +44,7 @@
     },
     {
       "path": "docs/adr/0002-version-validation.md",
-      "sha256": "e9b827ff77a977750e5d6815e66192508ab57fb901d033e2ae233b5f5ca5ff65"
+      "sha256": "26d9d39eda686fdd62e77cab00b1ad81f9252e3047d98e49bb12d72424f5862a"
     },
     {
       "path": "docs/contracts/company-settings-and-vehicle-publication.md",

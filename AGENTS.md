@@ -57,3 +57,13 @@
 - Każdy wykonawca ma osobny branch/worktree; orkiestrator i QA sprawdzają wskazany commit we własnych worktree. Nie przełączaj gałęzi ani nie resetuj plików/usług innego agenta. Przejęcie zapisuj z rolą i branchem według workflow; lokalną ścieżkę worktree zachowaj tylko w lokalnym checkpoincie.
 - Commity, opisy issue/PR i raporty zaczynaj od wyniku lub problemu. W GitHubie wskazuj pliki ścieżką repozytorium lub linkiem; nie publikuj bezwzględnych ścieżek lokalnych, nazwy komputera ani zbędnych dat i identyfikatorów sesji. SHA/build i sprawdzoną bazę zapisuj raz, gdy są potrzebne do CR/QA lub checkpointu; dalsze przekazania linkują ten zapis. Zachowaj merytoryczne daty i rzeczywiste dowody kontroli.
 - Właścicielem implementacji jest Frontend albo Backend; CR/QA dotyczą tego samego issue bez zmiany Role. Najwyżej jedno issue danej roli pozostaje w aktywnej implementacji lub poprawce. Po Re-open poprawia ten sam agent albo jawnie przejmująca kontekst sesja tej samej roli; gdy Re-open przerwie inne zadanie, najpierw zapisz jego checkpoint i przenieś je do To do. Raporty CR/QA na wspólnym koncie nie są formalnym Approve własnego PR. Statusy i etykiety nie uruchamiają automatycznie agentów.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
