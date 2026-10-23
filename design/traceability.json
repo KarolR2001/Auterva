@@ -38,6 +38,19 @@
         "prisma/migrations/20261023222000_schema_boundaries_issue_8/migration.sql"
       ],
       "testPaths": ["tests/integration/schema-contract.test.ts"]
+    },
+    {
+      "issue": 9,
+      "scope": "Izolowane usługi lokalne i deterministyczna fixture A/B; pełne przepływy produktu należą do kolejnych modułów.",
+      "relatedRequirementIds": ["C-N061", "C-N062"],
+      "codePaths": [
+        "scripts/local-fixture.sh",
+        "scripts/fixture-safety.ts",
+        "scripts/fixture-ids.ts",
+        "scripts/seed-local-fixture.ts",
+        "scripts/seed-local-access.ts"
+      ],
+      "testPaths": ["tests/unit/local-fixture.test.ts", "tests/integration/local-fixture.test.ts"]
     }
   ],
   "sources": [
