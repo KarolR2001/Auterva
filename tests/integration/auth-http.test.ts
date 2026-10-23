@@ -40,7 +40,7 @@ afterAll(async () => {
   await db.verification.deleteMany({ where: { OR: [
     { value: fixtureUserId }, { value: { contains: `"userId":"${fixtureUserId}"` } },
   ] } });
-  await db.auditLog.deleteMany({ where: { organizationId } });
+  await db.auditLog.deleteMany({ where: { organizationId: { in: [organizationId, otherOrganizationId] } } });
   await db.user.deleteMany({ where: { email: { in: [email, otherEmail] } } });
   await db.hostMapping.deleteMany({ where: { hostname: { in: [hostname, otherHostname, publicHost, platformHost] } } });
   await db.organization.deleteMany({ where: { id: { in: [organizationId, otherOrganizationId] } } });
@@ -163,15 +163,22 @@ test("MFA enrollment session is limited to the user's own admin host", async () 
   expect(reauth.status).toBe(200);
   const { proof } = await reauth.json() as { proof: string };
   expect(proof).toMatch(/^[a-f0-9]{64}$/);
+  const secondReauth = await POST(request(hostname, "mfa/reauth", { method: "totp", code: totp.generate() }, completeCookie));
+  expect(secondReauth.status).toBe(200);
+  const secondProof = (await secondReauth.json() as { proof: string }).proof;
   expect((await POST(request(hostname, "mfa/rotate-backup-codes", { password, proof }, otherCookie))).status).toBe(401);
-  const [rotated, replay] = await Promise.all([
+  const outcomes = await Promise.all([
     POST(request(hostname, "mfa/rotate-backup-codes", { password, proof }, completeCookie)),
-    POST(request(hostname, "mfa/rotate-backup-codes", { password, proof }, completeCookie)),
+    POST(request(hostname, "mfa/rotate-backup-codes", { password, proof: secondProof }, completeCookie)),
   ]);
-  expect(rotated.status).toBe(200);
-  expect(replay.status).toBe(401);
-  expect((await rotated.json() as { backupCodes: string[] }).backupCodes).toHaveLength(10);
+  expect(outcomes.map((response) => response.status).sort()).toEqual([200, 401]);
+  const rotated = outcomes.find((response) => response.status === 200);
+  if (!rotated) throw new Error("Missing successful rotation");
+  const currentCodes = (await rotated.json() as { backupCodes: string[] }).backupCodes;
+  expect(currentCodes).toHaveLength(10);
   expect((await POST(request(hostname, "mfa/rotate-backup-codes", { password, proof }, completeCookie))).status).toBe(401);
+  expect((await POST(request(hostname, "mfa/rotate-backup-codes", { password, proof: secondProof }, completeCookie))).status).toBe(401);
+  expect((await POST(request(hostname, "mfa/reauth", { method: "recovery", code: currentCodes[0] }, completeCookie))).status).toBe(200);
   expect((await GET(request(hostname, "get-session", undefined, otherCookie))).status).toBe(401);
   const untouchedOldCode = result.backupCodes?.[1];
   if (!untouchedOldCode) throw new Error("Missing second recovery code");
@@ -222,4 +229,66 @@ test("malformed MFA and failed enrollment passwords consume the shared account b
   const blocked = await POST(request(otherHostname, "two-factor/enable", { method: "totp", password }, otherCookie));
   expect(blocked.status).toBe(429);
   expect(Number(blocked.headers.get("Retry-After"))).toBeGreaterThan(0);
+});
+
+test("login with a recovery code revokes earlier sessions and requires new TOTP enrollment", async () => {
+  await db.rateLimitEvent.deleteMany();
+  const login = await POST(request(otherHostname, "sign-in/email", { email: otherEmail, password }));
+  expect(login.status).toBe(200);
+  const initialCookie = login.headers.getSetCookie().map((item) => item.split(";", 1)[0]).join("; ");
+  const setup = await POST(request(otherHostname, "two-factor/enable", { method: "totp", password }, initialCookie));
+  expect(setup.status).toBe(200);
+  const initialTotp = OTPAuth.URI.parse((await setup.json() as { totpURI: string }).totpURI);
+  if (!(initialTotp instanceof OTPAuth.TOTP)) throw new Error("Missing initial TOTP");
+  const confirmed = await POST(request(otherHostname, "two-factor/verify-totp", { code: initialTotp.generate() }, initialCookie));
+  expect(confirmed.status).toBe(200);
+  const recoveryCode = (await confirmed.json() as { backupCodes: string[] }).backupCodes[0];
+  const earlierCookie = confirmed.headers.getSetCookie().map((item) => item.split(";", 1)[0]).join("; ");
+  expect((await GET(request(otherHostname, "get-session", undefined, earlierCookie))).status).toBe(200);
+
+  const challenge = await POST(request(otherHostname, "sign-in/email", { email: otherEmail, password }));
+  expect((await challenge.clone().json() as { twoFactorRedirect?: boolean }).twoFactorRedirect).toBe(true);
+  const challengeCookies = challenge.headers.getSetCookie().map((item) => item.split(";", 1)[0]).join("; ");
+  const recovered = await POST(request(otherHostname, "two-factor/verify-backup-code", { code: recoveryCode }, challengeCookies));
+  expect(recovered.status).toBe(200);
+  const recoveryCookie = recovered.headers.getSetCookie().map((item) => item.split(";", 1)[0]).join("; ");
+  expect((await recovered.json() as { enrollmentRequired?: boolean }).enrollmentRequired).toBe(true);
+  expect((await GET(request(otherHostname, "get-session", undefined, earlierCookie))).status).toBe(401);
+  expect((await GET(request(otherHostname, "get-session", undefined, recoveryCookie))).status).toBe(401);
+  expect((await POST(request(otherHostname, "two-factor/verify-totp", { code: initialTotp.generate() }, challengeCookies))).status).toBe(401);
+  expect(await db.auditLog.count({ where: { actorId: (await db.user.findUniqueOrThrow({ where: { email: otherEmail } })).id, action: "MFA_RECOVERY_STARTED" } })).toBe(1);
+
+  const reenrollment = await POST(request(otherHostname, "two-factor/enable", { method: "totp", password }, recoveryCookie));
+  expect(reenrollment.status).toBe(200);
+  const newTotp = OTPAuth.URI.parse((await reenrollment.json() as { totpURI: string }).totpURI);
+  if (!(newTotp instanceof OTPAuth.TOTP)) throw new Error("Missing replacement TOTP");
+  const completed = await POST(request(otherHostname, "two-factor/verify-totp", { code: newTotp.generate() }, recoveryCookie));
+  expect(completed.status).toBe(200);
+  expect((await GET(request(otherHostname, "get-session", undefined, completed.headers.getSetCookie().map((item) => item.split(";", 1)[0]).join("; ")))).status).toBe(200);
+
+  const pendingLogin = await POST(request(otherHostname, "sign-in/email", { email: otherEmail, password }));
+  const pendingCookie = pendingLogin.headers.getSetCookie().map((item) => item.split(";", 1)[0]).join("; ");
+  let signalLocked!: () => void;
+  let releaseLock!: () => void;
+  const locked = new Promise<void>((resolve) => { signalLocked = resolve; });
+  const release = new Promise<void>((resolve) => { releaseLock = resolve; });
+  const resetFactor = db.$transaction(async (tx) => {
+    const user = await tx.user.findUniqueOrThrow({ where: { email: otherEmail } });
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`auterva:mfa-factor:${user.id}`}, 0))`;
+    signalLocked();
+    await release;
+    await tx.twoFactor.deleteMany({ where: { userId: user.id } });
+    await tx.user.update({ where: { id: user.id }, data: { twoFactorEnabled: false } });
+    await tx.verification.deleteMany({ where: { identifier: { startsWith: "auterva:mfa:" }, value: { contains: `"userId":"${user.id}"` } } });
+  });
+  await locked;
+  const staleTotp = POST(request(otherHostname, "two-factor/verify-totp", { code: newTotp.generate() }, pendingCookie));
+  const completedBeforeReset = await Promise.race([
+    staleTotp.then(() => true),
+    new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 250)),
+  ]);
+  releaseLock();
+  await resetFactor;
+  expect(completedBeforeReset).toBe(false);
+  expect((await staleTotp).status).toBe(401);
 });

@@ -2,9 +2,10 @@ import { toNextJsHandler } from "better-auth/next-js";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { auth, createAuth } from "@/lib/auth";
 import { getServerEnv } from "@/lib/env";
-import { recordVerifiedMfaSession } from "@/lib/mfa-session";
+import { recordVerifiedMfaSession, sessionFromResponse } from "@/lib/mfa-session";
 import { prisma } from "@/lib/prisma";
 import { requireAuthorizedActor, requireScopedActor, resolveAuthHost } from "@/modules/auth/authorization";
+import { withMfaFactorLock } from "@/modules/auth/mfa-factor-lock";
 import { completeAuthAttempt, reserveAuthAttempt, takeRateLimit } from "@/modules/auth/rate-limit";
 import { trustedClientAddress } from "@/modules/auth/trusted-address";
 
@@ -47,69 +48,76 @@ async function matchingMfaAccount(userId: string, scope: NonNullable<Awaited<Ret
 async function handleMfaManagement(request: Request, pathname: string, instance: typeof auth, scope: NonNullable<Awaited<ReturnType<typeof resolveAuthHost>>>, sourceIp: string) {
   const actor = await requireAuthorizedActor(prisma, instance, request.headers, scope);
   if (!actor) return neutral();
-  const body = await request.clone().json().catch(() => null) as { method?: unknown; code?: unknown; proof?: unknown; password?: unknown } | null;
-  if (pathname.endsWith("/reauth")) {
-    const user = await prisma.user.findUniqueOrThrow({ where: { id: actor.userId }, select: { email: true } });
-    const limit = await reserveAuthAttempt(prisma, user.email, sourceIp);
-    if (!limit.allowed) return Response.json({ code: "RATE_LIMITED" }, { status: 429, headers: { "Retry-After": String(limit.retryAfter), "Cache-Control": "no-store" } });
-    if (!body || (body.method !== "totp" && body.method !== "recovery") || typeof body.code !== "string" || body.code.length > 32) {
-      await completeAuthAttempt(prisma, limit.reservationId, true);
+  return withMfaFactorLock(prisma, actor.userId, async () => {
+    const currentActor = await requireAuthorizedActor(prisma, instance, request.headers, scope);
+    if (currentActor?.sessionId !== actor.sessionId) return neutral();
+    const body = await request.clone().json().catch(() => null) as { method?: unknown; code?: unknown; proof?: unknown; password?: unknown } | null;
+    if (pathname.endsWith("/reauth")) {
+      const user = await prisma.user.findUniqueOrThrow({ where: { id: actor.userId }, select: { email: true } });
+      const limit = await reserveAuthAttempt(prisma, user.email, sourceIp);
+      if (!limit.allowed) return Response.json({ code: "RATE_LIMITED" }, { status: 429, headers: { "Retry-After": String(limit.retryAfter), "Cache-Control": "no-store" } });
+      if (!body || (body.method !== "totp" && body.method !== "recovery") || typeof body.code !== "string" || body.code.length > 32) {
+        await completeAuthAttempt(prisma, limit.reservationId, true);
+        return neutral();
+      }
+      let valid = false;
+      try {
+        if (body.method === "totp" && /^\d{6}$/.test(body.code)) {
+          await instance.api.verifyTOTP({ body: { code: body.code, trustDevice: false }, headers: request.headers });
+          valid = true;
+        } else if (body.method === "recovery") {
+          await instance.api.verifyBackupCode({ body: { code: body.code, trustDevice: false }, headers: request.headers });
+          valid = true;
+        }
+      } catch {
+        valid = false;
+      }
+      await completeAuthAttempt(prisma, limit.reservationId, !valid);
+      if (!valid) return neutral();
+      if (body.method === "recovery") await prisma.auditLog.create({ data: {
+        actorId: actor.userId, actorRole: actor.role, organizationId: actor.organizationId,
+        action: "MFA_RECOVERY_CODE_USED", entityType: "User", entityId: actor.userId, requestId: randomUUID(),
+        safeChanges: { purpose: "rotate-backup-codes", result: "accepted" },
+      } });
+      const proof = randomBytes(32).toString("hex");
+      await prisma.verification.create({ data: {
+        id: randomUUID(), identifier: challengeKey(`reauth:${proof}`),
+        value: JSON.stringify({ userId: actor.userId, sessionId: actor.sessionId, purpose: "rotate-backup-codes" }),
+        expiresAt: new Date(Date.now() + 5 * 60_000),
+      } });
+      return Response.json({ proof }, { headers: { "Cache-Control": "no-store" } });
+    }
+    if (!body || typeof body.proof !== "string" || !/^[a-f0-9]{64}$/.test(body.proof)
+      || typeof body.password !== "string" || body.password.length > 256) return neutral();
+    const identifier = challengeKey(`reauth:${body.proof}`);
+    const expectedValue = JSON.stringify({ userId: actor.userId, sessionId: actor.sessionId, purpose: "rotate-backup-codes" });
+    const consumed = await prisma.$transaction(async (tx) => {
+      const proof = await tx.verification.findFirst({ where: { identifier, value: expectedValue, expiresAt: { gt: new Date() } } });
+      if (!proof) return false;
+      await tx.verification.deleteMany({ where: { identifier: { startsWith: "auterva:mfa:" }, value: { contains: `"userId":"${actor.userId}"` } } });
+      return true;
+    });
+    if (!consumed) return neutral();
+    // Existing sessions lose access before any factor material changes. An invalid
+    // password can cause an extra logout, but cannot leave stale sessions active.
+    const revoked = await prisma.session.deleteMany({ where: { userId: actor.userId, id: { not: actor.sessionId } } });
+    await prisma.auditLog.create({ data: {
+      actorId: actor.userId, actorRole: actor.role, organizationId: actor.organizationId,
+      action: "AUTH_OTHER_SESSIONS_REVOKED", entityType: "User", entityId: actor.userId, requestId: randomUUID(),
+      safeChanges: { count: revoked.count, purpose: "rotate-backup-codes" },
+    } });
+    let rotated: Awaited<ReturnType<typeof instance.api.generateBackupCodes>>;
+    try {
+      rotated = await instance.api.generateBackupCodes({ body: { password: body.password }, headers: request.headers });
+    } catch {
       return neutral();
     }
-    let valid = false;
-    try {
-      if (body.method === "totp" && /^\d{6}$/.test(body.code)) {
-        await instance.api.verifyTOTP({ body: { code: body.code, trustDevice: false }, headers: request.headers });
-        valid = true;
-      } else if (body.method === "recovery") {
-        await instance.api.verifyBackupCode({ body: { code: body.code, trustDevice: false }, headers: request.headers });
-        valid = true;
-      }
-    } catch {
-      valid = false;
-    }
-    await completeAuthAttempt(prisma, limit.reservationId, !valid);
-    if (!valid) return neutral();
-    if (body.method === "recovery") await prisma.auditLog.create({ data: {
+    await prisma.auditLog.create({ data: {
       actorId: actor.userId, actorRole: actor.role, organizationId: actor.organizationId,
-      action: "MFA_RECOVERY_CODE_USED", entityType: "User", entityId: actor.userId, requestId: randomUUID(),
-      safeChanges: { purpose: "rotate-backup-codes", result: "accepted" },
+      action: "MFA_BACKUP_CODES_ROTATED", entityType: "User", entityId: actor.userId, requestId: randomUUID(),
     } });
-    const proof = randomBytes(32).toString("hex");
-    await prisma.verification.create({ data: {
-      id: randomUUID(), identifier: challengeKey(`reauth:${proof}`),
-      value: JSON.stringify({ userId: actor.userId, sessionId: actor.sessionId, purpose: "rotate-backup-codes" }),
-      expiresAt: new Date(Date.now() + 5 * 60_000),
-    } });
-    return Response.json({ proof }, { headers: { "Cache-Control": "no-store" } });
-  }
-  if (!body || typeof body.proof !== "string" || !/^[a-f0-9]{64}$/.test(body.proof)
-    || typeof body.password !== "string" || body.password.length > 256) return neutral();
-  const identifier = challengeKey(`reauth:${body.proof}`);
-  const proof = await prisma.verification.findFirst({ where: { identifier, expiresAt: { gt: new Date() } } });
-  if (!proof || proof.value !== JSON.stringify({ userId: actor.userId, sessionId: actor.sessionId, purpose: "rotate-backup-codes" })) return neutral();
-  const used = await prisma.verification.deleteMany({ where: { id: proof.id, identifier, value: proof.value, expiresAt: { gt: new Date() } } });
-  if (used.count !== 1) return neutral();
-  // Existing sessions lose access before any factor material changes. An invalid
-  // password can cause an extra logout, but cannot leave stale sessions active.
-  const revoked = await prisma.session.deleteMany({ where: { userId: actor.userId, id: { not: actor.sessionId } } });
-  await prisma.auditLog.create({ data: {
-    actorId: actor.userId, actorRole: actor.role, organizationId: actor.organizationId,
-    action: "AUTH_OTHER_SESSIONS_REVOKED", entityType: "User", entityId: actor.userId, requestId: randomUUID(),
-    safeChanges: { count: revoked.count, purpose: "rotate-backup-codes" },
-  } });
-  let rotated: Awaited<ReturnType<typeof instance.api.generateBackupCodes>>;
-  try {
-    rotated = await instance.api.generateBackupCodes({ body: { password: body.password }, headers: request.headers });
-  } catch {
-    return neutral();
-  }
-  await prisma.verification.deleteMany({ where: { identifier: { startsWith: "auterva:mfa:" }, value: { contains: `"userId":"${actor.userId}"` } } });
-  await prisma.auditLog.create({ data: {
-    actorId: actor.userId, actorRole: actor.role, organizationId: actor.organizationId,
-    action: "MFA_BACKUP_CODES_ROTATED", entityType: "User", entityId: actor.userId, requestId: randomUUID(),
-  } });
-  return Response.json({ status: true, backupCodes: rotated.backupCodes }, { headers: { "Cache-Control": "no-store" } });
+    return Response.json({ status: true, backupCodes: rotated.backupCodes }, { headers: { "Cache-Control": "no-store" } });
+  });
 }
 
 async function revokeIssuedSession(instance: typeof auth, response: Response) {
@@ -191,10 +199,56 @@ async function guarded(request: Request, method: "GET" | "POST") {
   }
   let response: Response;
   try {
-    response = await handlers[method](new Request(normalized, request));
+    if (pathname === "/api/auth/two-factor/verify-backup-code" && challengeUser) {
+      response = await withMfaFactorLock(prisma, challengeUser.id, async (tx) => {
+        const current = await tx.user.findUnique({ where: { id: challengeUser.id }, select: { twoFactorEnabled: true } });
+        const activeChallenge = challenge && await tx.verification.findFirst({ where: { id: challenge.id, expiresAt: { gt: new Date() } } });
+        if (!current?.twoFactorEnabled || !activeChallenge) return neutral();
+        const verified = await handlers[method](new Request(normalized, request));
+        if (!verified.ok) return verified;
+        const session = await sessionFromResponse(instance, request, verified);
+        if (!session || session.user.id !== challengeUser.id) throw new Error("Recovery session mismatch");
+        const revoked = await tx.session.deleteMany({ where: { userId: challengeUser.id, id: { not: session.session.id } } });
+        await tx.twoFactor.deleteMany({ where: { userId: challengeUser.id } });
+        await tx.user.update({ where: { id: challengeUser.id }, data: { twoFactorEnabled: false } });
+        await tx.verification.deleteMany({ where: { identifier: { startsWith: "auterva:mfa:" }, value: { contains: `"userId":"${challengeUser.id}"` } } });
+        await tx.auditLog.create({ data: {
+          actorId: challengeUser.id, actorRole: scope?.area === "PLATFORM" ? "SUPERADMIN_AUTERVA" : "ADMIN_FIRMY", organizationId: challengeUser.organizationId,
+          action: "MFA_RECOVERY_STARTED", entityType: "User", entityId: challengeUser.id, requestId: randomUUID(),
+          safeChanges: { revokedSessions: revoked.count, next: "totp-enrollment" },
+        } });
+        return Response.json({ enrollmentRequired: true }, { status: verified.status, headers: verified.headers });
+      });
+    } else if (pathname === "/api/auth/two-factor/verify-totp" && (challengeUser || enrollmentActor)) {
+      response = await withMfaFactorLock(prisma, challengeUser?.id ?? enrollmentActor!.userId, async (tx) => {
+        if (challengeUser) {
+          const current = await tx.user.findUnique({ where: { id: challengeUser.id }, select: { twoFactorEnabled: true } });
+          const activeChallenge = challenge && await tx.verification.findFirst({ where: { id: challenge.id, expiresAt: { gt: new Date() } } });
+          if (!current?.twoFactorEnabled || !activeChallenge || !await matchingMfaAccount(challengeUser.id, scope!)) return neutral();
+        }
+        if (enrollmentActor) {
+          const current = await requireScopedActor(prisma, instance, request.headers, scope!);
+          if (current?.sessionId !== enrollmentActor.sessionId || current.twoFactorEnabled !== enrollmentActor.twoFactorEnabled) return neutral();
+        }
+        const verified = await handlers[method](new Request(normalized, request));
+        await recordVerifiedMfaSession(prisma, instance, request, verified);
+        if (verified.ok && challenge) await tx.verification.deleteMany({ where: { id: challenge.id } });
+        if (verified.ok && enrollmentActor && !enrollmentActor.twoFactorEnabled) {
+          const codes = await instance.api.viewBackupCodes({ body: { userId: enrollmentActor.userId } });
+          return Response.json({ status: true, backupCodes: codes.backupCodes }, { status: verified.status, headers: verified.headers });
+        }
+        return verified.ok ? Response.json({ status: true }, { status: verified.status, headers: verified.headers }) : verified;
+      });
+    } else {
+      response = await handlers[method](new Request(normalized, request));
+    }
   } catch (error) {
     if (reservation?.allowed) await completeAuthAttempt(prisma, reservation.reservationId, true);
     throw error;
+  }
+  if (probe && pathname === "/api/auth/two-factor/verify-totp") {
+    await recordVerifiedMfaSession(prisma, instance, request, response);
+    if (response.ok) response = Response.json({ status: true }, { status: response.status, headers: response.headers });
   }
   if (email !== null) {
     if (!response.ok) {
@@ -238,16 +292,6 @@ async function guarded(request: Request, method: "GET" | "POST") {
   if (pathname === "/api/auth/two-factor/enable" && response.ok) {
     const body = await response.json() as { method?: string; totpURI?: string };
     response = Response.json({ method: body.method, totpURI: body.totpURI }, { status: response.status, headers: response.headers });
-  }
-  if (mfaPath) {
-    await recordVerifiedMfaSession(prisma, instance, request, response);
-    if (response.ok && challenge) await prisma.verification.deleteMany({ where: { id: challenge.id } });
-    if (response.ok && pathname.endsWith("verify-totp") && enrollmentActor && !enrollmentActor.twoFactorEnabled) {
-      const codes = await instance.api.viewBackupCodes({ body: { userId: enrollmentActor.userId } });
-      response = Response.json({ status: true, backupCodes: codes.backupCodes }, { status: response.status, headers: response.headers });
-    } else if (response.ok) {
-      response = Response.json({ status: true }, { status: response.status, headers: response.headers });
-    }
   }
   if (pathname === "/api/auth/get-session" && scope) {
     const actor = await requireAuthorizedActor(prisma, instance, request.headers, scope);

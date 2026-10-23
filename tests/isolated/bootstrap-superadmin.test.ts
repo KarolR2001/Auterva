@@ -5,6 +5,7 @@ import { createAuth } from "../../src/lib/auth";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { GET, POST } from "../../src/app/api/auth/[...all]/route";
 import { bootstrapSuperadmin } from "../../scripts/bootstrap-superadmin";
+import { recoverMfaByOperator } from "../../scripts/recover-mfa";
 
 const db = createPrismaClient(process.env.DATABASE_URL ?? "");
 const email = `bootstrap-${randomUUID()}@example.test`;
@@ -60,4 +61,27 @@ test("bootstrap refuses nonempty token storage and concurrent runs create exactl
   expect((await confirmation.json() as { backupCodes?: string[] }).backupCodes).toHaveLength(10);
   const fullCookie = confirmation.headers.getSetCookie().map((item) => item.split(";", 1)[0]).join("; ");
   expect((await GET(request("get-session", undefined, fullCookie))).status).toBe(200);
+
+  const recovery = { targetEmail: email, operatorId: "owner-fixture", verifiedChannel: "agreed offline phone", evidenceReference: "local-fixture-1", identityConfirmed: true };
+  await expect(recoverMfaByOperator(db, { ...recovery, identityConfirmed: false })).rejects.toThrow();
+  expect((await GET(request("get-session", undefined, fullCookie))).status).toBe(200);
+  const result = await recoverMfaByOperator(db, recovery);
+  expect(result.userId).toBe(user.id);
+  expect(result.revokedSessions).toBeGreaterThan(0);
+  expect(await db.user.count({ where: { role: "SUPERADMIN_AUTERVA" } })).toBe(1);
+  expect((await db.user.findUnique({ where: { id: user.id } }))?.twoFactorEnabled).toBe(false);
+  expect(await db.twoFactor.count({ where: { userId: user.id } })).toBe(0);
+  expect((await GET(request("get-session", undefined, fullCookie))).status).toBe(401);
+  expect(await db.auditLog.count({ where: { entityId: user.id, action: "MFA_OPERATOR_RECOVERY" } })).toBe(1);
+  const restarted = await POST(request("sign-in/email", { email, password }));
+  expect((await restarted.json() as { enrollmentRequired?: boolean }).enrollmentRequired).toBe(true);
+  const restartCookie = restarted.headers.getSetCookie().map((item) => item.split(";", 1)[0]).join("; ");
+  const newSetup = await POST(request("two-factor/enable", { method: "totp", password }, restartCookie));
+  expect(newSetup.status).toBe(200);
+  const replacement = OTPAuth.URI.parse((await newSetup.json() as { totpURI: string }).totpURI);
+  if (!(replacement instanceof OTPAuth.TOTP)) throw new Error("Missing replacement TOTP");
+  const newlyConfirmed = await POST(request("two-factor/verify-totp", { code: replacement.generate() }, restartCookie));
+  expect(newlyConfirmed.status).toBe(200);
+  const newCookie = newlyConfirmed.headers.getSetCookie().map((item) => item.split(";", 1)[0]).join("; ");
+  expect((await GET(request("get-session", undefined, newCookie))).status).toBe(200);
 });

@@ -75,6 +75,7 @@ export function readHiddenLine(input: Readable & { isTTY?: boolean; setRawMode?:
 
 async function runInteractiveBootstrap() {
   if (process.argv.length !== 2 || !process.stdin.isTTY || !process.stdout.isTTY) throw new Error("Interactive TTY without arguments is required");
+  loadEnv({ path: ".env.local", quiet: true });
   loadEnv({ path: ".env", quiet: true });
   const prompt = createInterface({ input: process.stdin, output: process.stdout });
   let name: string;

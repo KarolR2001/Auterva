@@ -58,8 +58,10 @@
       "relatedRequirementIds": ["C-F008", "C-F009", "C-F010", "C-F011", "C-F013", "C-F014", "C-F040", "C-F044", "C-N009", "C-N010", "C-N011", "C-N018"],
       "codePaths": [
         "scripts/bootstrap-superadmin.ts",
+        "scripts/recover-mfa.ts",
         "src/app/api/auth/[...all]/route.ts",
         "src/modules/auth/authorization.ts",
+        "src/modules/auth/mfa-factor-lock.ts",
         "src/modules/auth/rate-limit.ts",
         "src/modules/chat/resolve-tenant.ts",
         "src/modules/chat/realtime.ts",
