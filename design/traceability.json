@@ -34,7 +34,8 @@
         "prisma/schema.prisma",
         "prisma/migrations/20261023220500_domain_schema_issue_8/migration.sql",
         "prisma/migrations/20261023221100_trial_immutable_issue_8/migration.sql",
-        "prisma/migrations/20261023221400_first_registration_immutable_issue_8/migration.sql"
+        "prisma/migrations/20261023221400_first_registration_immutable_issue_8/migration.sql",
+        "prisma/migrations/20261023222000_schema_boundaries_issue_8/migration.sql"
       ],
       "testPaths": ["tests/integration/schema-contract.test.ts"]
     }
