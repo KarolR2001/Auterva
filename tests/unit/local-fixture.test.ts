@@ -8,6 +8,9 @@ test("fixture writes require explicit marker, loopback and exact database", () =
   for (const env of [
     { AUTERVA_FIXTURE: "1", DATABASE_URL: "postgresql://fixture@db.example.com:15450/auterva_fixture_9" },
     { AUTERVA_FIXTURE: "1", DATABASE_URL: "postgresql://fixture@127.0.0.1:15450/auterva_production" },
+    { AUTERVA_FIXTURE: "1", DATABASE_URL: `${fixtureUrl}?host=db.example.test` },
+    { AUTERVA_FIXTURE: "1", DATABASE_URL: `${fixtureUrl}?host=/var/run/postgresql&port=5432` },
+    { AUTERVA_FIXTURE: "1", DATABASE_URL: `${fixtureUrl}?port=5432` },
     { AUTERVA_FIXTURE: "0", DATABASE_URL: fixtureUrl },
     { AUTERVA_FIXTURE: "1", DATABASE_URL: fixtureUrl, NODE_ENV: "production" },
   ]) expect(() => assertLocalFixtureTarget(env)).toThrow(/local fixture/);

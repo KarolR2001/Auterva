@@ -19,12 +19,53 @@ const vehicleRows = [
   [FIXTURE.vehicles[5], 1, "archiwalne-b", "Archiwalne B", id(31), "ARCHIVED", "390.00", "DAY", "2026-10-23", null],
 ] as const;
 
+// Every deterministic ID that reset deletes (or reuses with ON CONFLICT) must
+// still belong to the fixture. Checking only Organization/User leaves child IDs
+// free to collide with a different tenant's valid rows.
+const fixtureIdentities: ReadonlyArray<{
+  table: string;
+  id: string;
+  fields: Record<string, string | null>;
+}> = [
+  ...vehicleRows.map(([vehicleId, companyIndex, slug]) => ({
+    table: "Vehicle", id: vehicleId, fields: { organizationId: FIXTURE.organizations[companyIndex], slug },
+  })),
+  { table: "VehicleCategory", id: id(31), fields: { code: "fixture-bus" } },
+  { table: "VehicleCategory", id: id(32), fields: { code: "fixture-auto" } },
+  { table: "AvailabilityBlock", id: id(41), fields: { organizationId: FIXTURE.organizations[0], vehicleId: FIXTURE.vehicles[1] } },
+  { table: "AvailabilityBlock", id: id(42), fields: { organizationId: FIXTURE.organizations[0], vehicleId: FIXTURE.vehicles[0] } },
+  { table: "AvailabilityBlock", id: id(43), fields: { organizationId: FIXTURE.organizations[1], vehicleId: FIXTURE.vehicles[3] } },
+  { table: "VehicleImage", id: id(51), fields: { organizationId: FIXTURE.organizations[0], vehicleId: FIXTURE.vehicles[0], storageKey: `fixtures/${FIXTURE.vehicles[0]}/cover.webp` } },
+  { table: "VehicleImage", id: id(52), fields: { organizationId: FIXTURE.organizations[0], vehicleId: FIXTURE.vehicles[1], storageKey: `fixtures/${FIXTURE.vehicles[1]}/cover.webp` } },
+  { table: "VehicleImage", id: id(54), fields: { organizationId: FIXTURE.organizations[1], vehicleId: FIXTURE.vehicles[3], storageKey: `fixtures/${FIXTURE.vehicles[3]}/cover.webp` } },
+  { table: "Conversation", id: FIXTURE.conversations[0], fields: { organizationId: FIXTURE.organizations[0] } },
+  { table: "Conversation", id: FIXTURE.conversations[1], fields: { organizationId: FIXTURE.organizations[1] } },
+  { table: "ChatMessage", id: id(71), fields: { organizationId: FIXTURE.organizations[0], conversationId: FIXTURE.conversations[0], senderId: FIXTURE.users[0] } },
+  { table: "ChatMessage", id: id(72), fields: { organizationId: FIXTURE.organizations[1], conversationId: FIXTURE.conversations[1], senderId: FIXTURE.users[1] } },
+  { table: "AuditLog", id: id(91), fields: { organizationId: FIXTURE.organizations[1], actorId: FIXTURE.users[2], action: "COMPANY_ARCHIVED", entityId: FIXTURE.organizations[1] } },
+  { table: "AuditLog", id: id(92), fields: { organizationId: FIXTURE.organizations[1], actorId: FIXTURE.users[2], action: "COMPANY_RESTORED", entityId: FIXTURE.organizations[1] } },
+  { table: "HostMapping", id: id(81), fields: { organizationId: FIXTURE.organizations[0], hostname: "company-a.localhost", area: "COMPANY_PUBLIC" } },
+  { table: "HostMapping", id: id(82), fields: { organizationId: FIXTURE.organizations[0], hostname: "admin.company-a.localhost", area: "COMPANY_ADMIN" } },
+  { table: "HostMapping", id: id(83), fields: { organizationId: FIXTURE.organizations[1], hostname: "company-b.localhost", area: "COMPANY_PUBLIC" } },
+  { table: "HostMapping", id: id(84), fields: { organizationId: FIXTURE.organizations[1], hostname: "admin.company-b.localhost", area: "COMPANY_ADMIN" } },
+];
+
+async function assertFixtureIdentities(db: Client) {
+  for (const { table, id: rowId, fields } of fixtureIdentities) {
+    // The table names above are source constants, never input from a caller.
+    const result = await db.query(`SELECT * FROM "${table}" WHERE id = $1 FOR UPDATE`, [rowId]);
+    if (result.rows[0] && Object.entries(fields).some(([field, expected]) => result.rows[0][field] !== expected)) {
+      throw new Error(`Fixture identity collision in ${table}; refusing to overwrite data`);
+    }
+  }
+}
+
 export async function seedLocalFixture(db: Client, env: Record<string, string | undefined>, reset: boolean) {
   assertLocalFixtureTarget(env);
   await db.query("BEGIN");
   try {
     // Existing fixture IDs must still refer to the expected companies. A mixed database is refused.
-    const existing = await db.query('SELECT id, slug FROM "Organization" WHERE id = ANY($1::uuid[]) OR slug IN ($2, $3)', [FIXTURE.organizations, "fixture-a", "fixture-b"]);
+    const existing = await db.query('SELECT id, slug FROM "Organization" WHERE id = ANY($1::uuid[]) OR slug IN ($2, $3) FOR UPDATE', [FIXTURE.organizations, "fixture-a", "fixture-b"]);
     for (const row of existing.rows) {
       if (!organizationRows.some(([expectedId, slug]) => row.id === expectedId && row.slug === slug)) {
         throw new Error("Fixture identity collision; refusing to overwrite data");
@@ -35,12 +76,13 @@ export async function seedLocalFixture(db: Client, env: Record<string, string | 
       [FIXTURE.users[1], "admin-b@example.test", FIXTURE.organizations[1], "ADMIN_FIRMY"],
       [FIXTURE.users[2], "superadmin@example.test", null, "SUPERADMIN_AUTERVA"],
     ] as const;
-    const existingUsers = await db.query('SELECT id, email, "organizationId", role FROM "user" WHERE id = ANY($1::text[]) OR email = ANY($2::text[])', [FIXTURE.users, knownUsers.map((row) => row[1])]);
+    const existingUsers = await db.query('SELECT id, email, "organizationId", role FROM "user" WHERE id = ANY($1::text[]) OR email = ANY($2::text[]) FOR UPDATE', [FIXTURE.users, knownUsers.map((row) => row[1])]);
     for (const row of existingUsers.rows) {
       if (!knownUsers.some(([userId, email, orgId, role]) => row.id === userId && row.email === email && row.organizationId === orgId && row.role === role)) {
         throw new Error("Fixture user identity collision; refusing to overwrite data");
       }
     }
+    await assertFixtureIdentities(db);
     if (reset) {
       const orgs = [...FIXTURE.organizations];
       // Delete only IDs created by this seed. Unexpected dependants make the transaction fail.

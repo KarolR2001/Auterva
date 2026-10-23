@@ -7,7 +7,7 @@ export function assertLocalFixtureTarget(env: Record<string, string | undefined>
   }
   if (env.NODE_ENV === "production" || env.AUTERVA_FIXTURE !== "1"
     || url.protocol !== "postgresql:" || url.hostname !== "127.0.0.1"
-    || url.pathname !== "/auterva_fixture_9" || !url.port) {
+    || url.pathname !== "/auterva_fixture_9" || !url.port || url.search || url.hash) {
     throw new Error("Refusing to write outside the local fixture database");
   }
   return url.toString();

@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import * as OTPAuth from "otpauth";
 import { expect, test } from "vitest";
 import { seedLocalFixture, FIXTURE } from "../../scripts/seed-local-fixture";
+import { fixtureId } from "../../scripts/fixture-ids";
 import { seedLocalAccess } from "../../scripts/seed-local-access";
 import { createAuth } from "../../src/lib/auth";
 import { createPrismaClient } from "../../src/lib/prisma";
@@ -92,6 +93,50 @@ test("reset rolls back when an unmarked row was added inside a fixture company",
     expect((await db.query('SELECT count(*)::int AS total FROM "Vehicle" WHERE "organizationId" = $1', [FIXTURE.organizations[0]])).rows[0].total).toBe(4);
   } finally {
     await db.query('DELETE FROM "Vehicle" WHERE id = $1', [foreignVehicle]);
+    await db.end();
+  }
+});
+
+test("reset refuses a fixture block ID reassigned to an unrelated tenant", async () => {
+  const db = new Client({ connectionString: process.env.DATABASE_URL });
+  await db.connect();
+  const foreignOrg = randomUUID();
+  const foreignVehicle = randomUUID();
+  const blockId = fixtureId(41);
+  try {
+    await seedLocalFixture(db, { ...process.env, AUTERVA_FIXTURE: "1" }, true);
+    await db.query('INSERT INTO "Organization" (id, slug) VALUES ($1,$2)', [foreignOrg, `foreign-${foreignOrg}`]);
+    await db.query('INSERT INTO "Vehicle" (id, "organizationId", name) VALUES ($1,$2,$3)', [foreignVehicle, foreignOrg, "Foreign vehicle"]);
+    await db.query('UPDATE "AvailabilityBlock" SET "organizationId" = $1, "vehicleId" = $2 WHERE id = $3', [foreignOrg, foreignVehicle, blockId]);
+    await expect(seedLocalFixture(db, { ...process.env, AUTERVA_FIXTURE: "1" }, true)).rejects.toThrow(/collision/);
+    expect((await db.query('SELECT count(*)::int AS total FROM "AvailabilityBlock" WHERE id = $1 AND "organizationId" = $2', [blockId, foreignOrg])).rows[0].total).toBe(1);
+    expect((await db.query('SELECT count(*)::int AS total FROM "Vehicle" WHERE "organizationId" = $1', [FIXTURE.organizations[0]])).rows[0].total).toBe(3);
+  } finally {
+    await db.query('UPDATE "AvailabilityBlock" SET "organizationId" = $1, "vehicleId" = $2 WHERE id = $3', [FIXTURE.organizations[0], FIXTURE.vehicles[1], blockId]);
+    await db.query('DELETE FROM "Vehicle" WHERE id = $1', [foreignVehicle]);
+    await db.query('DELETE FROM "Organization" WHERE id = $1', [foreignOrg]);
+    await db.end();
+  }
+});
+
+test("reset refuses a fixture image ID reassigned to an unrelated tenant", async () => {
+  const db = new Client({ connectionString: process.env.DATABASE_URL });
+  await db.connect();
+  const foreignOrg = randomUUID();
+  const foreignVehicle = randomUUID();
+  const imageId = fixtureId(51);
+  try {
+    await seedLocalFixture(db, { ...process.env, AUTERVA_FIXTURE: "1" }, true);
+    await db.query('INSERT INTO "Organization" (id, slug) VALUES ($1,$2)', [foreignOrg, `foreign-${foreignOrg}`]);
+    await db.query('INSERT INTO "Vehicle" (id, "organizationId", name) VALUES ($1,$2,$3)', [foreignVehicle, foreignOrg, "Foreign vehicle"]);
+    await db.query('UPDATE "VehicleImage" SET "organizationId" = $1, "vehicleId" = $2 WHERE id = $3', [foreignOrg, foreignVehicle, imageId]);
+    await expect(seedLocalFixture(db, { ...process.env, AUTERVA_FIXTURE: "1" }, true)).rejects.toThrow(/collision/);
+    expect((await db.query('SELECT count(*)::int AS total FROM "VehicleImage" WHERE id = $1 AND "organizationId" = $2', [imageId, foreignOrg])).rows[0].total).toBe(1);
+    expect((await db.query('SELECT count(*)::int AS total FROM "Vehicle" WHERE "organizationId" = $1', [FIXTURE.organizations[0]])).rows[0].total).toBe(3);
+  } finally {
+    await db.query('UPDATE "VehicleImage" SET "organizationId" = $1, "vehicleId" = $2 WHERE id = $3', [FIXTURE.organizations[0], FIXTURE.vehicles[0], imageId]);
+    await db.query('DELETE FROM "Vehicle" WHERE id = $1', [foreignVehicle]);
+    await db.query('DELETE FROM "Organization" WHERE id = $1', [foreignOrg]);
     await db.end();
   }
 });
