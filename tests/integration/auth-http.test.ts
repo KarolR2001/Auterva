@@ -291,4 +291,46 @@ test("login with a recovery code revokes earlier sessions and requires new TOTP 
   await resetFactor;
   expect(completedBeforeReset).toBe(false);
   expect((await staleTotp).status).toBe(401);
+
+  await db.rateLimitEvent.deleteMany();
+  const newLogin = await POST(request(otherHostname, "sign-in/email", { email: otherEmail, password }));
+  const newCookie = newLogin.headers.getSetCookie().map((item) => item.split(";", 1)[0]).join("; ");
+  const firstEnable = await POST(request(otherHostname, "two-factor/enable", { method: "totp", password }, newCookie));
+  expect(firstEnable.status).toBe(200);
+  const firstTotp = OTPAuth.URI.parse((await firstEnable.json() as { totpURI: string }).totpURI);
+  if (!(firstTotp instanceof OTPAuth.TOTP)) throw new Error("Missing first pending TOTP");
+
+  let signalEnableLock!: () => void;
+  let releaseEnableLock!: () => void;
+  const enableLocked = new Promise<void>((resolve) => { signalEnableLock = resolve; });
+  const allowVerified = new Promise<void>((resolve) => { releaseEnableLock = resolve; });
+  const completeFactor = db.$transaction(async (tx) => {
+    const user = await tx.user.findUniqueOrThrow({ where: { email: otherEmail } });
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`auterva:mfa-factor:${user.id}`}, 0))`;
+    signalEnableLock();
+    await allowVerified;
+    await tx.twoFactor.updateMany({ where: { userId: user.id }, data: { verified: true } });
+    await tx.user.update({ where: { id: user.id }, data: { twoFactorEnabled: true } });
+  });
+  await enableLocked;
+  const racingEnable = POST(request(otherHostname, "two-factor/enable", { method: "totp", password }, newCookie));
+  const enableFinishedBeforeVerification = await Promise.race([
+    racingEnable.then(() => true),
+    new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 250)),
+  ]);
+  const racingVerify = POST(request(otherHostname, "two-factor/verify-totp", { code: firstTotp.generate() }, newCookie));
+  releaseEnableLock();
+  await completeFactor;
+  expect(enableFinishedBeforeVerification).toBe(false);
+  expect((await racingEnable).status).toBe(401);
+  expect((await db.twoFactor.findFirst({ where: { user: { email: otherEmail } } }))?.verified).toBe(true);
+  const oldFactorCompletion = await racingVerify;
+  expect(oldFactorCompletion.status).toBe(200);
+  const mergedCookies = new Map(newCookie.split("; ").map((item) => [item.split("=", 1)[0], item]));
+  for (const item of oldFactorCompletion.headers.getSetCookie()) {
+    const entry = item.split(";", 1)[0];
+    mergedCookies.set(entry.split("=", 1)[0], entry);
+  }
+  const verifiedCookie = [...mergedCookies.values()].join("; ");
+  expect((await GET(request(otherHostname, "get-session", undefined, verifiedCookie))).status).toBe(200);
 });

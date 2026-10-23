@@ -199,7 +199,15 @@ async function guarded(request: Request, method: "GET" | "POST") {
   }
   let response: Response;
   try {
-    if (pathname === "/api/auth/two-factor/verify-backup-code" && challengeUser) {
+    if (pathname === "/api/auth/two-factor/enable" && enableActor) {
+      response = await withMfaFactorLock(prisma, enableActor.userId, async (tx) => {
+        const current = await requireScopedActor(prisma, instance, request.headers, scope!);
+        if (current?.sessionId !== enableActor.sessionId || current.twoFactorEnabled) return neutral();
+        const factor = await tx.twoFactor.findFirst({ where: { userId: enableActor.userId }, select: { verified: true } });
+        if (factor?.verified) return neutral();
+        return handlers[method](new Request(normalized, request));
+      });
+    } else if (pathname === "/api/auth/two-factor/verify-backup-code" && challengeUser) {
       response = await withMfaFactorLock(prisma, challengeUser.id, async (tx) => {
         const current = await tx.user.findUnique({ where: { id: challengeUser.id }, select: { twoFactorEnabled: true } });
         const activeChallenge = challenge && await tx.verification.findFirst({ where: { id: challenge.id, expiresAt: { gt: new Date() } } });
