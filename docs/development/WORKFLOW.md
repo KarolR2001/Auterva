@@ -14,7 +14,7 @@ Zakres: MVP 3.1 z superadminem i wieloma firmami. [Projekt](https://github.com/u
 
 - Główny orkiestrator i agenty **Frontend, Backend, QA** pracują w osobnych sesjach Codex na jednym komputerze i koncie GitHub użytkownika. Nie wymagamy osobnych kont ani assignees; przypisania pozostają puste.
 - Pole Role i etykieta role:frontend/role:backend wskazują właściciela implementacji. Orkiestrator i QA odbierają to samo issue według statusu, bez zmiany Role i bez osobnych zadań odbioru.
-- Przy podjęciu issue agent zapisuje w komentarzu rolę, nazwę sesji/wątku, branch i ścieżkę worktree, następnie ustawia In progress. Jeden aktywny wykonawca issue; ponownie odczytaj status przed rozpoczęciem.
+- Przy podjęciu issue agent zapisuje w komentarzu rolę, branch i krótki plan, następnie ustawia In progress. Ścieżkę worktree i identyfikator sesji zachowuje w lokalnym checkpoincie. Jeden aktywny wykonawca issue; ponownie odczytaj status przed rozpoczęciem.
 - Po Re-open poprawia ten sam agent wykonawczy. Jeśli sesja zakończyła się, nowa sesja tej samej roli jawnie przejmuje istniejący branch i kontekst; nie rozpoczyna drugiej implementacji.
 - Każdy agent implementujący pracuje w osobnym worktree i branchu, np. codex/backend/issue-8 lub codex/frontend/issue-11. Nie przełączaj branchy ani nie zmieniaj cudzych plików we współdzielonym katalogu. Wspólne manifesty, migracje i kontrakty mają jednego edytora; uzgodnione zmiany integruj przez PR.
 - Orkiestrator i QA używają własnych worktree i sprawdzają dokładny commit/build przekazany w issue. Lokalne serwery mają różne porty i testowe bazy/schematy; bez resetowania usług innego agenta. QA czyta Penpota; nie zmienia wzorca, aby ukryć błąd.
@@ -26,13 +26,19 @@ Zakres: MVP 3.1 z superadminem i wieloma firmami. [Projekt](https://github.com/u
 2. Następnie weź **pierwsze od góry nieblokowane To do** swojej roli. Order i numer w tytule określają kolejność; ręczny porządek tablicy jest taki sam.
 3. Sprawdź blocked by, decyzje i kontrakty. Orkiestrator po zweryfikowaniu spełnienia zależności usuwa blocked; GitHub nie usuwa jej automatycznie.
 4. Zapisz przejęcie przez agenta i ustaw In progress. Jedno aktywne zadanie implementacyjne na rolę; podczas blokady można podjąć następne gotowe, odnotowując przerwę i jej powód.
-5. Orkiestrator otwiera [CR — Orchestrator](https://github.com/users/KarolR2001/projects/1/views/11), bierze pierwsze Review według Order i zapisuje rozpoczęcie CR z sesją oraz commitem. Sprawdza też [otwarte PR z needs:cr](https://github.com/KarolR2001/Auterva/pulls?q=is%3Apr+is%3Aopen+label%3Aneeds%3Acr), aby wykryć brak statusu lub powiązania z issue.
+5. Orkiestrator otwiera [CR — Orchestrator](https://github.com/users/KarolR2001/projects/1/views/11), bierze pierwsze Review według Order i zapisuje rozpoczęcie CR z odnośnikiem do checkpointu aktualnego commita. Sprawdza też [otwarte PR z needs:cr](https://github.com/KarolR2001/Auterva/pulls?q=is%3Apr+is%3Aopen+label%3Aneeds%3Acr), aby wykryć brak statusu lub powiązania z issue.
 6. Agent QA otwiera **QA**, bierze pierwsze Ready to test z aktualnym CR: PASS, zapisuje rozpoczęcie i przesuwa do Test. Nie przejmuje Review. Przy pustej kolejce może przygotować scenariusze przyszłego zakresu, bez deklarowania odbioru.
 7. Orkiestrator sprawdza również Test z raportem QA: PASS, integruje zaakceptowane zmiany i odblokowuje następne zadania.
 
 **To do zawiera cały obowiązkowy plan**, także przyszłe zadania oczekujące na zależności. Sam status nie oznacza gotowości rozpoczęcia. Widok Ready pokazuje To do/Re-open bez blocked. FE może uzgodnić kontrakt lub pracować na fixture wcześniej, lecz nie zamyka integracji na mockach.
 
 Candidates zawiera odziedziczone SHOULD i propozycje rozwoju. Triage ustala zakres, priorytet, kolejność i makiety przed przeniesieniem do To do. Numer Candidates nie zobowiązuje do realizacji przed produkcją.
+
+## Czytelny zapis i synchronizacja
+
+- Commit opisuje zmianę, a opis issue/PR, CR, QA i komentarz zaczyna się od wyniku lub problemu. Podaj istotne kontrole, uwagi i ograniczenia; nie powielaj metadanych w każdym akapicie ani wierszu tabeli.
+- W GitHubie używaj ścieżek względem repozytorium lub linków. Nie publikuj bezwzględnych ścieżek lokalnych, nazw komputerów, zbędnych dat ani identyfikatorów sesji. Merytoryczne daty, np. granice okresu lub wynik testu czasu, zostają, gdy wyjaśniają zmianę.
+- W jednym checkpoincie przekazania lub raporcie CR/QA zapisz zwięzłe dane synchronizacji: dokładny head SHA, sprawdzony base SHA i build/środowisko, jeśli mają znaczenie. Rola lub identyfikator sesji trafia tam tylko, gdy wyjaśnia niezależność odbioru na wspólnym koncie. Dalsze komentarze linkują ten zapis; po nowym commicie powstaje nowy punkt synchronizacji. Lokalizacja worktree pozostaje w lokalnym checkpoincie.
 
 ## Przepływ
 
@@ -42,7 +48,7 @@ Candidates zawiera odziedziczone SHOULD i propozycje rozwoju. Triage ustala zakr
 | To do | Orkiestrator: zaplanowany zakres wykonawcy; rozpoczęcie po spełnieniu zależności |
 | Re-open | Orkiestrator po CR lub QA po testach: uwagi, dowód i oczekiwany wynik; wykonawca zostaje |
 | In progress | Frontend/Backend rozpoczyna implementację lub poprawkę |
-| Review | Wykonawca: PR gotowy do CR, issue, commit, wyniki kontroli; needs:cr na issue i PR |
+| Review | Wykonawca: PR gotowy do CR, issue, checkpoint aktualnego commita i wyniki kontroli; needs:cr na issue i PR |
 | Ready to test | Wyłącznie orkiestrator: CR: PASS dla aktualnego commita, dostępny build, fixture i instrukcja; usuwa needs:cr |
 | Test | QA wykonuje scenariusze i regresję, zapisuje wynik dla konkretnego builda/commita |
 | Done | Orkiestrator: aktualne CR i QA: PASS, spełnione kryteria, merge oraz kontrole integracji; zamyka issue |
@@ -64,20 +70,20 @@ Dla decyzji lub zadania bez zmian kodu CR obejmuje dokument/kontrakt, a QA spraw
 - Orkiestrator kieruje poprawki do wykonawcy. Nie implementuje poprawki, którą następnie sam odbiera. Jeśli jest autorem części zmiany, tę część przegląda inna sesja z odpowiednią kompetencją, wskazana w raporcie; nie deklaruj niezależności własnej oceny.
 - CR: PASS wymaga braku otwartych uwag blokujących i dowodów adekwatnych quality gates. Nie zastępuje niezależnego odbioru QA.
 
-Raport CR w PR, z linkiem w issue:
+Raport CR w PR, z linkiem w issue; dane synchronizacji podaj raz:
 
 ```text
 CR: PASS | CHANGES_REQUESTED | BLOCKED
-Rola: Orkiestrator; sesja: …; issue: #…
-Head SHA: …; base SHA: …
+Problem / wynik: …
 Przejrzany zakres i powiązany kod: …
 Uwagi blokujące / sugestie: plik:wiersz — wpływ — oczekiwanie
 Kontrole i dowody: komenda/scenariusz — wynik — link
 Ograniczenia / niesprawdzone obszary: …
 Przekazanie: Ready to test | Re-open | Review + blocked
+Synchronizacja: issue #…; PR #…; head SHA …; sprawdzony base SHA …; rola/recenzent …; build … (jeśli dotyczy)
 ```
 
-Wspólne konto nie pozwala zatwierdzić własnego PR przyciskiem Approve ([GitHub](https://docs.github.com/en/pull-requests/how-tos/review-pull-requests/approving-a-pull-request-with-required-reviews)). Orkiestrator zapisuje raport jako komentarz lub review typu COMMENT z sesją i SHA; QA osobno zapisuje odbiór. Nie przedstawiaj ich jako formalnej akceptacji innego konta. W [#10](https://github.com/KarolR2001/Auterva/issues/10) skonfiguruj rzeczywiste wymagane checks; nie wymagaj fikcyjnego drugiego użytkownika i nie obchodź zabezpieczeń. needs:cr jest sygnałem do pracy, nie dowodem zaliczonego CR ani techniczną blokadą merge.
+Wspólne konto nie pozwala zatwierdzić własnego PR przyciskiem Approve ([GitHub](https://docs.github.com/en/pull-requests/how-tos/review-pull-requests/approving-a-pull-request-with-required-reviews)). Orkiestrator zapisuje raport jako komentarz lub review typu COMMENT z jednym punktem synchronizacji; QA osobno zapisuje odbiór. Nie przedstawiaj ich jako formalnej akceptacji innego konta. W [#10](https://github.com/KarolR2001/Auterva/issues/10) skonfiguruj rzeczywiste wymagane checks; nie wymagaj fikcyjnego drugiego użytkownika i nie obchodź zabezpieczeń. needs:cr jest sygnałem do pracy, nie dowodem zaliczonego CR ani techniczną blokadą merge.
 
 ## Przegląd całego kodu i spójności
 
@@ -111,12 +117,12 @@ Backend może rozpocząć decyzje #1–4; scaffold #5 czeka na #3 i #4. Frontend
 - Jeden rezultat, źródła C-*/FR-*/TEST-MVP/UC, zakres, rola, prawdziwe relacje blocked by, testowalne kryteria i otwarte decyzje.
 - Frontend: link do aktualnej strony Penpota, dokładna nazwa/ID boardu i stan. Design system jest źródłem wyglądu; nie kopiujemy specyfikacji komponentów.
 - Dla testera: commit/build, URL, hosty/role, fixture A/B i zależności; każdy scenariusz ma **akcję → oczekiwany rezultat**.
-- Wykonawca przekazuje PR, SHA, wyniki quality gates i ograniczenia. QA zapisuje `QA: PASS/FAIL/BLOCKED`, rolę/sesję, commit/build, środowisko, datę oraz scenariusze z pass/fail/blocked/not-run, dowodami i usterkami. Obowiązkowy blocked/not-run wyklucza QA: PASS.
+- Wykonawca przekazuje PR, checkpoint aktualnego SHA, wyniki quality gates i ograniczenia. QA zapisuje `QA: PASS/FAIL/BLOCKED`, scenariusze z pass/fail/blocked/not-run, dowody, usterki i ograniczenia oraz jedną sekcję synchronizacji z testowanym SHA/buildem i środowiskiem. Identyfikator sesji lub data pojawia się tylko, gdy jest potrzebna do ustalenia niezależności albo znaczenia wyniku. Obowiązkowy blocked/not-run wyklucza QA: PASS.
 - UI porównujemy z aktualnym Penpotem na identycznych danych/stanie/viewport; referencje 390/1440 i dodatkowe szerokości według ryzyka. Klawiatura, czytnik, API i WS wymagają testów zachowania.
 - Brak live Penpota, dostępnego builda lub obowiązkowego testu pozostaje jawnym brakiem. Makieta nie dowodzi działania aplikacji.
 - Aktualizujemy wymaganie → ekran → kod → test w design/traceability.json. Artefakty w PR/CI, bez wielkiego dziennika w repo.
 - Decyzja kończy się zatwierdzonym kontraktem, a zadanie produkcji rzeczywistym wdrożeniem po jawnej zgodzie właściciela. Ukończony plan nie oznacza gotowej aplikacji.
-- Przed zakończeniem sesji zapisz stan, branch/SHA, następny krok, blokery i przekazanie. Nie zmieniaj In progress na gotowe tylko dlatego, że sesja się kończy.
+- Przed zakończeniem sesji zapisz stan, branch/SHA, następny krok, blokery i przekazanie. Lokalny checkpoint może zawierać ścieżkę worktree; publiczny komentarz linkuje aktualny punkt synchronizacji. Nie zmieniaj In progress na gotowe tylko dlatego, że sesja się kończy.
 
 ## Bugi i nowe zgłoszenia
 

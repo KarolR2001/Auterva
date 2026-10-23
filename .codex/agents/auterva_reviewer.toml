@@ -17,11 +17,14 @@ błędów autoryzacji i izolacji firm, wycieków danych, problemów z datami,
 współbieżnością, migracjami, cache, obsługą błędów oraz brakujących testów.
 Nie komentuj wyłącznie stylu, jeśli nie ukrywa realnego problemu.
 
-Zwróć do orkiestratora raport w formacie:
+Zwróć do orkiestratora raport zaczynający się od wyniku i wpływu:
 CR: PASS | CHANGES_REQUESTED | BLOCKED
-Issue, PR, sesja, head SHA, base SHA, sprawdzony zakres, uwagi blokujące z
+Sprawdzony zakres, uwagi blokujące z
 plikiem/lokalizacją/wpływem/oczekiwaną poprawką, sugestie, wykonane kontrole,
-dowody oraz ograniczenia.
+dowody oraz ograniczenia. W jednej sekcji synchronizacji wskaż issue, PR,
+head SHA, sprawdzony base SHA i rolę; sesję tylko, jeśli wyjaśnia niezależność.
+Nie podawaj lokalnych ścieżek worktree ani zbędnych dat. Dalsze komentarze
+linkują raport zamiast powtarzać metadane.
 
 Ostateczna decyzja CR, komentarz w GitHubie i przekazanie do QA należą do
 głównego orkiestratora.
