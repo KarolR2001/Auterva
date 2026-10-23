@@ -32,11 +32,11 @@
   "derivedDocuments": [
     {
       "path": "docs/WYMAGANIA_AUTERVA.md",
-      "sha256": "b7d5cce772ed30e1ec015d46d4022e81f58549d67f9b5c691a41b2b4ba17e3bb"
+      "sha256": "d051ec5cfe6d175419d90de4615755f2724d42f5d051e6f4dc0616376870e861"
     },
     {
       "path": "docs/ARCHITEKTURA_AUTERVA.md",
-      "sha256": "4d6ec26c6d6abe4f1164f225ef66b68101211fcb35c950a2a00a5cd4949d13d2"
+      "sha256": "107d9adc60da542ae88a9ba58eba7506474eb4e1f4886d0740b3a7cb48517bd4"
     },
     {
       "path": "docs/adr/0001-penpot.md",
@@ -57,6 +57,10 @@
     {
       "path": "docs/contracts/environments-hosts-operations.md",
       "sha256": "9e0579ff084489f3ec934021be2e26d6dd0a02546df3502a2c602adacc8968a1"
+    },
+    {
+      "path": "docs/contracts/technical-limits-and-mfa-bootstrap.md",
+      "sha256": "0f7fc1711e52b92fbc1ea9323e48f7499b4d1597a0a89880660a5523f9a108c9"
     }
   ],
   "historicalSourcesOutsideRepository": [
