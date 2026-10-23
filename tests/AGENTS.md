@@ -1,7 +1,7 @@
 # Testy i odbiór Autervy — MVP 3.1
 
 - Agent QA jest osobną sesją Codex na tym samym koncie GitHub co pozostali agenci. Korzysta z widoku QA: Ready to test z aktualnym CR: PASS orkiestratora → Test. Review należy do orkiestratora. Nie tworzy własnych issue ani nie zmienia Role zadania.
-- Testuj przekazany commit w osobnym worktree, z odrębnymi portami/danymi. Raport QA: PASS/FAIL/BLOCKED podpisz rolą, sesją i SHA; uwzględnij scenariusze, wyniki i dowody. Fail → Re-open do wykonawcy. PASS pozostaje w Test do integracji; orkiestrator po merge i kontrolach ustawia Done. Zmiana commita wymaga ponownego CR i QA. Raport nie jest formalnym Approve własnego konta.
+- Testuj przekazany commit w osobnym worktree, z odrębnymi portami/danymi. Raport QA: PASS/FAIL/BLOCKED zaczyna się od wyniku, scenariuszy i dowodów; rolę oraz testowany SHA/build zapisz raz w sekcji synchronizacji. Sesję podaj tylko, gdy wyjaśnia niezależność odbioru. Fail → Re-open do wykonawcy. PASS pozostaje w Test do integracji; orkiestrator po merge i kontrolach ustawia Done. Zmiana commita wymaga ponownego CR i QA. Raport nie jest formalnym Approve własnego konta.
 
 - Źródła: `docs/WYMAGANIA_AUTERVA.md`, `docs/ARCHITEKTURA_AUTERVA.md`, `docs/development/WORKFLOW.md`, `docs/quality-gates.md`. TEST-MVP-01–55 rozszerzają UC-01–10; lista scenariuszy nie jest raportem wykonania.
 - Testy aplikacji powstają wraz z implementacją. Brak manifestu, runtime, bazy lub komendy oznacza niewykonany test; kontrola dokumentacji nie zastępuje integracji.
@@ -15,7 +15,7 @@
 - Testing Library: role/etykiety, klawiatura, focus, komunikaty i właściwe loading/empty/error/validation/saving/conflict/offline.
 - Trwałe testy w repo; interaktywne `playwright-cli` nie zastępuje suite CI. Stabilne locatory, bez stałych sleepów; zegar i fixture zamrożone.
 - QA czyta Penpot bez zmieniania stron, komponentów, tokenów, interakcji i wzorca. Bieżący board ID sprawdź w pliku; brak zgłoś z ID/wymaganiem.
-- Porównanie: commit/build, data, realne file/page/board ID, stan/fixture, viewport, screenshot aplikacji, eksport wzorca i różnice. Obraz nie potwierdza zapisu, auth, WebSocket ani dostępności.
+- Porównanie: realne file/page/board ID, stan/fixture, viewport, screenshot aplikacji, eksport wzorca i różnice; testowany commit/build odczytaj z sekcji synchronizacji raportu. Datę odczytu Penpota podaj, gdy jest potrzebna do oceny aktualności zmiennego wzorca. Obraz nie potwierdza zapisu, auth, WebSocket ani dostępności.
 - Chromium, Firefox, WebKit; 390/1440 jako referencje, 320/430/768/1024/1920 według ryzyka. Automat + ręczna klawiatura/fokus/czytnik, kontrast, zoom i reduced motion.
 - PWA na produkcyjnym buildzie: host firmy, start_url/scope `/admin/`, offline bez zapisu/prywatnego cache, logout, update z dirty form. Instalacja na prawdziwym iOS/Android; emulacja WebKit nie jest dowodem instalacji.
 - Dowody wyłącznie na fixture, bez sekretów/sesji/produkcji. Nie zmieniaj golden screenshotów/asercji, by ukryć regresję. Raportuj pass/fail/blocked/not-run z komendą i rzeczywistym wynikiem.

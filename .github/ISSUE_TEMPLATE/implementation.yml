@@ -61,7 +61,7 @@ body:
     id: verification
     attributes:
       label: Założenia i przekazanie dla testera
-      description: Commit/build, środowisko, hosty/role, fixture, spełnione zależności i wyniki kontroli. Agent QA odbiera to samo issue; Role pozostaje Frontend/Backend, a sesję wykonawczą zapisuje komentarz przejęcia.
+      description: Środowisko, hosty/role, fixture, spełnione zależności i wyniki kontroli. Po implementacji aktualny commit/build wskaż raz w punkcie synchronizacji i linkuj go w przekazaniu. Agent QA odbiera to samo issue; Role pozostaje Frontend/Backend.
     validations:
       required: true
   - type: textarea
