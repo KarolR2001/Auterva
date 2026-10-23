@@ -1,0 +1,52 @@
+# Limity techniczne i uruchomienie kont z MFA — kontrakt #4
+
+Obowiązuje [PRD 3.1](../product/PRD.md), [wymagania](../WYMAGANIA_AUTERVA.md) i zatwierdzone decyzje D-04/D-05 w [issue #4](https://github.com/KarolR2001/Auterva/issues/4). Ten dokument ustala sposób egzekwowania tych decyzji. Limity są ochroną techniczną, nie planami handlowymi. Projekt stosu to Better Auth z adapterem Prisma; konkretne API i wersje potwierdza ADR-0002 podczas scaffoldingu. Nie ma jeszcze aplikacji ani wdrożonego mechanizmu.
+
+## Granice danych — D-04
+
+| Wejście | Dopuszczalna granica | Odmowa |
+|---|---|---|
+| Zdjęcia jednego pojazdu | Maksymalnie 30 przypisanych zdjęć, wliczając szkice i przetwarzane uploady z zarezerwowanym miejscem. | `409 IMAGE_LIMIT_REACHED` przy 31.; odpowiedź podaje aktualną dozwoloną liczbę, bez ujawniania cudzych zasobów. |
+| Pojedynczy obraz | JPEG, PNG lub WebP rozpoznany z zawartości; najwyżej 10 MB = 10 000 000 bajtów wejścia oraz szerokość i wysokość każda najwyżej 12 000 px. HEIC jest odrzucany, dopóki nie działa bezpieczna konwersja. | `413 FILE_TOO_LARGE` albo `415 UNSUPPORTED_MEDIA_TYPE`, `422 INVALID_IMAGE` dla uszkodzonego/dekodowania lub przekroczonych wymiarów. |
+| Wiadomość czatu | 4 000 znaków tekstu po normalizacji NFC, liczonych jako punkty kodowe Unicode; 4 001 jest odrzucane. Identyczna reguła liczenia w UI i na serwerze, również dla emoji i znaków złożonych. | `422 MESSAGE_TOO_LONG`; nie zapisuj ani nie emituj wiadomości. |
+| Zakres jednego zapytania dostępności | Od 1 do 365 lokalnych dat włącznie: `daysBetween(from, to) + 1 <= 365`, gdzie oba końce są `LocalDate`, bez konwersji do stałych 24 h. | `400 INVALID_DATE_RANGE` dla odwrotnego lub 366-dniowego zakresu. |
+
+Limity sprawdza autoryzowany serwer także po bezpośrednim wywołaniu endpointu, nie wyłącznie formularz. Upload używa maksymalnego rozmiaru wejścia przed dekodowaniem, magic bytes, limitu pracy dekodera i izolowanego przetwarzania. Same wymiary 12 000 × 12 000 nie gwarantują bezpiecznej pamięci; kontroluj również limit rozpakowanego obrazu, timeout i zasoby procesu. Krótkotrwały podpis do storage nie finalizuje zdjęcia: serwer weryfikuje obiekt po przesłaniu. Atomowa rezerwacja miejsca pod `(organizationId, vehicleId)` lub równoważny DB lock zapobiega temu, aby dwa równoległe uploady przy 29 zdjęciach utrwaliły 31. Nieudany upload zwalnia rezerwację i usuwa obiekt tymczasowy; udane pliki w tej samej partii pozostają. Ponowienie tego samego pliku nie zużywa kolejnego miejsca. Niezależny limit techniczny wielkości żądania/partii może być skonfigurowany po pomiarze; D-04 nie ustanawia liczby pojazdów na plan ani komercyjnego limitu batch.
+
+## Ruch — D-04
+
+| Operacja i klucz | Granica okna | Zasada |
+|---|---:|---|
+| Logowanie i MFA: nieudane próby na znormalizowane konto | 5 / ruchome 15 min | Kolejna próba odmówiona do wygaśnięcia okna; nie resetuj licznika niepowodzeń zmianą hosta. |
+| Logowanie i MFA: wszystkie próby ze źródłowego IP | 20 / ruchome 15 min | Wspólna ochrona przed zgadywaniem wielu kont, niezależnie od licznika konta. |
+| Reset hasła oraz wydanie zaproszenia/resend: docelowe konto/adres | 3 / ruchoma godzina na rodzaj operacji | Zaproszenie i jego resend dzielą licznik wydania, aby zmiana ścieżki nie omijała limitu; reset ma własny licznik. Retry idempotentny nie tworzy drugiego tokenu. |
+| Reset hasła oraz wydanie zaproszenia/resend: źródłowe IP | 20 / ruchoma godzina na rodzaj operacji | Dodatkowy limit wejścia; zaproszenie i resend dzielą licznik. Zaproszenie inicjowane przez superadmina wymaga także jego sesji i uprawnień. |
+| Uwierzytelnione odczyty API | 120 / ruchoma minuta / konto + firma | Własny klucz platformy dla superadmina bez firmy; operacje w kontekście firmy mają jej ID. |
+| Uwierzytelnione mutacje API | 60 / ruchoma minuta / konto + firma | Wlicz bezpośrednie API i równoważne Server Actions; odrębnie od limitu odczytu. |
+| Publiczna dostępność | 60 / ruchoma minuta / IP | Ochrona właściwego publicznego endpointu; host/tenant nadal ustala uprawnione dane. |
+| Wiadomości czatu | 30 / ruchoma minuta / konto, burst 10 | Limit po autoryzacji wysłania, wspólny dla połączeń WS danego konta. Retransmisja tego samego `clientMessageId` zwraca wcześniejszy wynik bez nowego zapisu i bez drugiego obciążenia licznika. |
+
+Przy jednoczesnym przekroczeniu któregokolwiek obowiązującego klucza odmawiaj atomowo `429` z kodem `RATE_LIMITED` i nagłówkiem `Retry-After` w sekundach zaokrąglonych w górę, co najmniej `1`. Sukces logowania nie usuwa poprzednich nieudanych prób/IP; neutralne komunikaty nie ujawniają istnienia konta, a próbę pod nieistniejącym adresem także ogranicza licznik adresu i IP. Identyfikator IP pochodzi tylko z zaufanego proxy, nie z dowolnego `X-Forwarded-For` klienta. Liczniki są współdzielone i atomowe dla wszystkich instancji, w tym auth, API i WS; awaria licznika nie może otworzyć nieograniczonego logowania/MFA. Endpointy biblioteki auth wywoływane wewnętrznie również przechodzą przez tę politykę, niezależnie od wbudowanego limitera Better Auth. Wartości są konfigurowalne i mogą być zmienione po teście obciążenia, z jednym źródłem konfiguracji dla komunikatów UI i serwera. Zmiana konfiguracji nie usuwa izolacji firm ani obowiązkowego MFA.
+
+## Jedyny superadmin, enrolment i odzyskanie — D-05
+
+1. Jednorazowe narzędzie administracyjne działa wyłącznie interaktywnie na zaufanym środowisku operatorskim z dostępem do właściwej bazy. Po migracjach sprawdza pustkę danych aplikacyjnych, w tym kont, firm, sesji i tokenów; transakcja i trwały constraint/singleton nie dopuszczają dwóch superadminów nawet przy dwóch równoczesnych uruchomieniach. Po utworzeniu konta kolejne uruchomienie kończy się odmową, nigdy rotacją konta przez ponowny bootstrap. Brak publicznego signup/HTTP bootstrap.
+2. Operator wpisuje hasło do ukrytego interaktywnego wejścia i potwierdza je; nie przekazuje go przez argv, env, plik, log lub issue. Hasło klienta powstaje samodzielnie przy zaproszeniu i nie jest widoczne dla operatora. Haszowanie haseł prowadzi zweryfikowana biblioteka auth, bez własnej kryptografii. Polityka z wymagań: co najmniej 12 znaków albo zatwierdzona kontrola siły; wklejanie i menedżer haseł są dozwolone.
+3. Konto po bootstrapie lub przyjęciu zaproszenia ma tylko ograniczoną sesję enrolmentu. Użytkownik konfiguruje TOTP, potwierdza poprawnym kodem i otrzymuje jednorazowe kody odzyskania wyświetlone tylko przy wydaniu. Pełne uprawnienia panelu otrzymuje dopiero po tym kroku. Odmowa dotyczy również bezpośredniego API, Server Actions, RSC i WS; nie wystarczy ukrycie przycisków. Start trialu firmy pozostaje związany z pierwszą rejestracją, a nie datą potwierdzenia MFA.
+4. Każdy późniejszy login wymaga hasła oraz poprawnego TOTP albo jednego niewykorzystanego kodu odzyskania. Kod odzyskania zużywa się atomowo; dwa równoczesne użycia tego samego kodu dają najwyżej jedną pełną sesję. Sekrety TOTP i kody są chronione w storage biblioteki i nigdy nie wracają do zwykłego odczytu API, logu, trace ani analityki. Kody można wymienić dopiero po ponownej weryfikacji świeżym składnikiem; nowe unieważniają stare. Bezpośrednie ścieżki `viewBackupCodes`, `disableTwoFactor`, zaufane urządzenie omijające 2FA lub alternatywny login nie mogą obchodzić polityki, nawet jeśli plugin je oferuje. Sprawdź faktyczne nazwy/ochronę endpointów w przypiętej wersji.
+5. Operacje zmiany hasła, TOTP/kodów, adresu konta i cofania sesji wymagają świeżego uwierzytelnienia, a rotacja czynnika lub odzyskanie unieważnia pozostałe sesje i WS. Utrata urządzenia przy posiadanym kodzie oznacza zwykłe jednorazowe użycie kodu, po którym należy ponownie skonfigurować TOTP i kody. Gdy nie ma urządzenia ani kodów, nie ma samodzielnego obejścia: właściciel ręcznie potwierdza tożsamość poza aplikacją uprzednio uzgodnionym kanałem, zapisuje osobę, podstawę i wynik w audycie, cofa sesje/kody/stary czynnik, po czym umożliwia wyłącznie ograniczony ponowny enrolment. Jeśli tożsamości nie da się potwierdzić, dostęp pozostaje zablokowany. Procedura nie ujawnia starego hasła, sekretu ani kodów i nie tworzy drugiego superadmina.
+
+Są to warunki serwerowe także dla superadmina, który działa własną tożsamością w kontekście firmy. Archiwizacja firmy blokuje login i sesję admina; wygaśnięcie okresu usługi tego nie robi. Audyt zmiany czynnika, odzyskania i cofnięcia sesji zawiera aktora, cel, czas i wynik bez sekretów. W [Better Auth 2FA](https://better-auth.com/docs/plugins/2fa) istnieją ścieżki backup codes, trusted devices i disable, więc przy integracji trzeba jawnie ograniczyć je zgodnie z powyższą polityką. [Limity Better Auth](https://better-auth.com/docs/concepts/rate-limit) nie zastępują wspólnej polityki serwera; [opcje sesji](https://better-auth.com/docs/reference/options) wymagają sprawdzenia unieważnienia po resecie hasła.
+
+## Fixture i odbiór przyszłej implementacji
+
+| Próba | Oczekiwany wynik |
+|---|---|
+| 29 zdjęć, dwa równoległe poprawne uploady do tego samego pojazdu; ponowienie pierwszego | Dokładnie 30, jeden upload odrzucony `IMAGE_LIMIT_REACHED`, retry nie tworzy 31. ani nie usuwa udanego. |
+| JPEG 10 000 000 bajtów i 12 000 px szerokości vs 10 000 001 bajtów, 12 001 px, uszkodzony plik/HEIC | Pierwszy może przejść po pełnym bezpiecznym dekodowaniu; pozostałe właściwie odrzucone bez publicznego obiektu. |
+| Tekst 4 000 i 4 001 punktów kodowych; złożone emoji | Równa reguła UI/serwer; pierwsza długość dozwolona, druga odrzucona. |
+| `LocalDate` 1 stycznia–31 grudnia roku nieprzestępnego (365), 1 stycznia–1 stycznia następnego (366); dzień zmiany DST | 365 przyjęte, 366 odrzucone; DST nie zmienia liczby dni. |
+| 5 błędnych MFA/konto, 20 prób/IP, 3 reset/konto, 20 reset/IP, 120 odczytów, 60 mutacji, 60 public availability, 30 chat/min i burst 10 | Graniczna próba według każdej polityki działa, kolejna `429 RATE_LIMITED` z `Retry-After`; różne instancje nie resetują licznika. |
+| Dwa równoległe bootstrappy; login bez TOTP; dwukrotne użycie kodu; bezpośrednie disable/view/trust; utrata wszystkich czynników | Jeden superadmin; brak pełnego dostępu bez MFA; kod działa raz; obejścia odmówione; odzyskanie tylko po ręcznej weryfikacji właściciela, audycie i unieważnieniu sesji. |
+
+W tym PR fixture są specyfikacją testów, **nie wynikiem uruchomienia**. Rzeczywiste testy auth, PostgreSQL, obrazów, WS oraz kilku instancji należą do implementacji i quality gates tych modułów.
