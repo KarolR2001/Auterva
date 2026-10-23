@@ -54,6 +54,12 @@ export function UiCheckFixture() {
             Mały przycisk
           </Button>
           <Button
+            size="sm"
+            aria-label="Mała akcja z ikoną"
+            icon={<Check size={16} />}
+            data-testid="small-icon-button"
+          />
+          <Button
             loading={plainButtonLoading}
             loadingLabel="Zapisywanie dłuższej nazwy pojazdu"
             data-testid="plain-loading-button"

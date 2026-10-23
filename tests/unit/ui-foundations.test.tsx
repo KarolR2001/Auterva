@@ -221,6 +221,7 @@ describe("wspólne komponenty", () => {
     const trigger = screen.getByRole("button", { name: "Otwórz" });
     await user.click(trigger);
     const dialog = screen.getByRole("dialog", { name: "Potwierdź usunięcie" });
+    expect(dialog).toHaveAttribute("aria-modal", "true");
     expect(dialog).toHaveTextContent("Usunąć pojazd testowy?");
     await waitFor(() =>
       expect(dialog.contains(document.activeElement)).toBe(true),
