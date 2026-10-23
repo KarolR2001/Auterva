@@ -12,9 +12,9 @@ Zakres: MVP 3.1 z superadminem i wieloma firmami. [Projekt](https://github.com/u
 | QA | Niezależne testy tego samego issue po CR, porównanie z Penpotem, dowody i regresja poprawki |
 | Właściciel produktu — użytkownik | Decyzje wymagające akceptacji, zmiany zakresu i zgoda na wdrożenie produkcyjne |
 
-- Główny orkiestrator i agenty **Frontend, Backend, QA** pracują w osobnych sesjach Codex na jednym komputerze i koncie GitHub użytkownika. Nie wymagamy osobnych kont ani assignees; przypisania pozostają puste.
+- Główny orkiestrator i agenty **Frontend, Backend, QA** pracują w osobnych sesjach Codex na jednym komputerze i koncie GitHub użytkownika. Nie wymagamy osobnych kont ani assignees; przypisania pozostają puste. Orkiestrator uruchamia role dla zatwierdzonej kolejki, a Frontend i Backend po przekazaniu PR samodzielnie podejmują następne gotowe issue swojej roli.
 - Pole Role i etykieta role:frontend/role:backend wskazują właściciela implementacji. Orkiestrator i QA odbierają to samo issue według statusu, bez zmiany Role i bez osobnych zadań odbioru.
-- Przy podjęciu issue agent zapisuje w komentarzu rolę, branch i krótki plan, następnie ustawia In progress. Ścieżkę worktree i identyfikator sesji zachowuje w lokalnym checkpoincie. Jeden aktywny wykonawca issue; ponownie odczytaj status przed rozpoczęciem.
+- Przy podjęciu issue agent zapisuje w komentarzu rolę, branch i krótki plan, następnie ustawia In progress. Ścieżkę worktree i identyfikator sesji zachowuje w lokalnym checkpoincie. Jeden aktywny wykonawca issue i najwyżej jedno In progress na rolę; ponownie odczytaj status przed rozpoczęciem.
 - Po Re-open poprawia ten sam agent wykonawczy. Jeśli sesja zakończyła się, nowa sesja tej samej roli jawnie przejmuje istniejący branch i kontekst; nie rozpoczyna drugiej implementacji.
 - Każdy agent implementujący pracuje w osobnym worktree i branchu, np. codex/backend/issue-8 lub codex/frontend/issue-11. Nie przełączaj branchy ani nie zmieniaj cudzych plików we współdzielonym katalogu. Wspólne manifesty, migracje i kontrakty mają jednego edytora; uzgodnione zmiany integruj przez PR.
 - Orkiestrator i QA używają własnych worktree i sprawdzają dokładny commit/build przekazany w issue. Lokalne serwery mają różne porty i testowe bazy/schematy; bez resetowania usług innego agenta. QA czyta Penpota; nie zmienia wzorca, aby ukryć błąd.
@@ -22,15 +22,15 @@ Zakres: MVP 3.1 z superadminem i wieloma firmami. [Projekt](https://github.com/u
 
 ## Skąd brać zadania
 
-1. Otwórz widok Frontend albo Backend. Najpierw obsłuż własne Re-open.
+1. Na starcie roli, po przekazaniu PR do Review oraz przed kolejnym issue odśwież zdalny stan i otwórz widok Frontend albo Backend. Review/Ready to test/Test czekają w kolejce CR/QA i nie zajmują miejsca na implementację. Najpierw obsłuż własne Re-open.
 2. Następnie weź **pierwsze od góry nieblokowane To do** swojej roli. Order i numer w tytule określają kolejność; ręczny porządek tablicy jest taki sam.
-3. Sprawdź blocked by, decyzje i kontrakty. Orkiestrator po zweryfikowaniu spełnienia zależności usuwa blocked; GitHub nie usuwa jej automatycznie.
-4. Zapisz przejęcie przez agenta i ustaw In progress. Jedno aktywne zadanie implementacyjne na rolę; podczas blokady można podjąć następne gotowe, odnotowując przerwę i jej powód.
+3. Sprawdź świeży status, blocked by, decyzje i kontrakty. Orkiestrator po zweryfikowaniu spełnienia zależności usuwa blocked; GitHub nie usuwa jej automatycznie. Nie zaczynaj niezatwierdzonego zakresu, gdy gotowych zadań brak — zgłoś konkretne blokery.
+4. Dla nowego issue utwórz osobny branch/worktree od aktualnego `origin/main`, jeśli nie są przygotowane. Zapisz przejęcie i ustaw In progress. Jeśli własne Re-open pojawi się podczas implementacji, zapisz checkpoint bieżącego issue i przenieś je do To do przed podjęciem poprawki; nie edytuj dwóch issue równolegle.
 5. Orkiestrator otwiera [CR — Orchestrator](https://github.com/users/KarolR2001/projects/1/views/11), bierze pierwsze Review według Order i zapisuje rozpoczęcie CR z odnośnikiem do checkpointu aktualnego commita. Sprawdza też [otwarte PR z needs:cr](https://github.com/KarolR2001/Auterva/pulls?q=is%3Apr+is%3Aopen+label%3Aneeds%3Acr), aby wykryć brak statusu lub powiązania z issue.
 6. Agent QA otwiera **QA**, bierze pierwsze Ready to test z aktualnym CR: PASS, zapisuje rozpoczęcie i przesuwa do Test. Nie przejmuje Review. Przy pustej kolejce może przygotować scenariusze przyszłego zakresu, bez deklarowania odbioru.
 7. Orkiestrator sprawdza również Test z raportem QA: PASS, integruje zaakceptowane zmiany i odblokowuje następne zadania.
 
-**To do zawiera cały obowiązkowy plan**, także przyszłe zadania oczekujące na zależności. Sam status nie oznacza gotowości rozpoczęcia. Widok Ready pokazuje To do/Re-open bez blocked. FE może uzgodnić kontrakt lub pracować na fixture wcześniej, lecz nie zamyka integracji na mockach.
+**To do zawiera cały obowiązkowy plan**, także przyszłe zadania oczekujące na zależności. Sam status nie oznacza gotowości rozpoczęcia. Widok Ready pokazuje To do/Re-open bez blocked. W zatwierdzonym zadaniu FE może uzgodnić kontrakt lub pracować na fixture wcześniej, lecz nie zamyka integracji na mockach.
 
 Candidates zawiera odziedziczone SHOULD i propozycje rozwoju. Triage ustala zakres, priorytet, kolejność i makiety przed przeniesieniem do To do. Numer Candidates nie zobowiązuje do realizacji przed produkcją.
 
@@ -47,8 +47,8 @@ Candidates zawiera odziedziczone SHOULD i propozycje rozwoju. Triage ustala zakr
 | Candidates | Właściciel produktu/triage: opcjonalny zakres lub nowa propozycja |
 | To do | Orkiestrator: zaplanowany zakres wykonawcy; rozpoczęcie po spełnieniu zależności |
 | Re-open | Orkiestrator po CR lub QA po testach: uwagi, dowód i oczekiwany wynik; wykonawca zostaje |
-| In progress | Frontend/Backend rozpoczyna implementację lub poprawkę |
-| Review | Wykonawca: PR gotowy do CR, issue, checkpoint aktualnego commita i wyniki kontroli; needs:cr na issue i PR |
+| In progress | Frontend/Backend rozpoczyna implementację lub poprawkę; najwyżej jedno issue na rolę |
+| Review | Wykonawca: PR gotowy do CR, issue, checkpoint aktualnego commita i wyniki kontroli; needs:cr na issue i PR; może podjąć następne gotowe issue |
 | Ready to test | Wyłącznie orkiestrator: CR: PASS dla aktualnego commita, dostępny build, fixture i instrukcja; usuwa needs:cr |
 | Test | QA wykonuje scenariusze i regresję, zapisuje wynik dla konkretnego builda/commita |
 | Done | Orkiestrator: aktualne CR i QA: PASS, spełnione kryteria, merge oraz kontrole integracji; zamyka issue |
@@ -58,6 +58,8 @@ Poprawka wraca Re-open → In progress → Review → Ready to test → Test. Od
 QA: PASS pozostaje w Test do integracji przez orkiestratora. Przed merge orkiestrator sprawdza aktualne SHA, wymagane checks, zgodność z main i raporty CR/QA. Po integracji potwierdza wynik wymaganych kontroli na main; dopiero wtedy ustawia Done i zamyka issue. Nie scala PR z niewykonanym lub nieudanym obowiązkowym sprawdzeniem. PR używa **Refs #numer**; zamknięcie issue jest jawną czynnością po odbiorze i integracji.
 
 Zmiana head SHA po CR unieważnia poprzednie CR i QA. Wykonawca po zakończeniu zmian przywraca Review i needs:cr na issue/PR; orkiestrator przegląda zmianę, QA ponawia testy dotkniętych zachowań i regresję. Zmiana main od sprawdzonego base SHA wymaga ponownej oceny integracji i adekwatnych kontroli przed merge. Nie przenoś automatycznie starego PASS na nowy kod.
+
+Orkiestrator wykonuje `git fetch origin` na początku cyklu oraz przed przydziałem, CR, merge i kontrolą integracji; porównuje aktualne `origin/main` i head PR z zapisanym punktem synchronizacji. Fetch nie oznacza automatycznego pull, resetu ani zmiany worktree innej osoby. Nowy branch startuje z aktualnego `origin/main`, a własny branch integruje zmiany świadomie.
 
 Dla decyzji lub zadania bez zmian kodu CR obejmuje dokument/kontrakt, a QA sprawdzalne kryteria tego rezultatu. Merge jest wtedy wymagany tylko, jeśli powstał PR; nie wymyślaj builda ani testów runtime. Wdrożenie produkcyjne nadal wymaga jawnej zgody użytkownika.
 
@@ -108,9 +110,9 @@ Projekt zawiera issue; powiązany PR otrzymuje needs:cr i link Refs #numer. Nie 
 
 ## Start agentów
 
-W osobnych sesjach nadaj role: „Jesteś głównym orkiestratorem Autervy”, „Jesteś agentem Frontend”, „Jesteś agentem Backend” albo „Jesteś agentem QA”. Każdy zaczyna od AGENTS.md, tego workflow, swojego widoku i opisu issue. Rola jest zakresem sesji, nie nowym kontem ani uprawnieniem. GitHub przechowuje stan pracy; orkiestrator koordynuje uruchomione sesje i przekazuje konkretne issue. Etykieta nie uruchamia automatycznie agenta.
+W osobnych sesjach nadaj role: „Jesteś głównym orkiestratorem Autervy”, „Jesteś agentem Frontend”, „Jesteś agentem Backend” albo „Jesteś agentem QA”. Każdy zaczyna od AGENTS.md, tego workflow, swojego widoku i opisu issue. Rola jest zakresem sesji, nie nowym kontem ani uprawnieniem. GitHub przechowuje stan pracy; orkiestrator uruchamia role i koordynuje zatwierdzone kolejki. Etykieta nie uruchamia automatycznie agenta.
 
-Backend może rozpocząć decyzje #1–4; scaffold #5 czeka na #3 i #4. Frontend może pracować nad #6 (treści) i #7 (mapowanie Penpota), po jednym zadaniu naraz. Orkiestrator zaczyna od zależności i kontraktów, następnie odbiera Review. QA zaczyna odbiór po Ready to test. Decyzji wymagających akceptacji użytkownika agent nie zatwierdza sam. Gotowy backlog nie oznacza rozstrzygniętych D-xx, działającej aplikacji, CI ani infrastruktury.
+Frontend i Backend po starcie roli kontynuują zatwierdzoną kolejkę bez nowego promptu na każde issue, z pierwszeństwem Re-open i limitem jednego In progress na rolę. Orkiestrator koordynuje zależności i kontrakty oraz odbiera Review; QA zaczyna odbiór po Ready to test. Decyzji wymagających akceptacji użytkownika agent nie zatwierdza sam. Gotowy backlog nie oznacza rozstrzygniętych D-xx, działającej aplikacji, CI ani infrastruktury.
 
 ## Issue i odbiór
 
@@ -126,8 +128,8 @@ Backend może rozpocząć decyzje #1–4; scaffold #5 czeka na #3 i #4. Frontend
 
 ## Bugi i nowe zgłoszenia
 
-Nieudany CR lub odbiór bieżącego zadania opisz w tym issue i skieruj do Re-open. Osobny bug dotyczy niezależnej usterki lub regresji zamkniętego zakresu; linkuje pierwotne issue oraz podaje rolę, wpływ, reprodukcję i oczekiwanie.
+Nieudany CR lub odbiór bieżącego zadania opisz w tym issue i skieruj do Re-open. Osobny bug dotyczy niezależnej usterki lub regresji zamkniętego zakresu; linkuje pierwotne issue oraz podaje rolę, wpływ, reprodukcję i oczekiwanie. Gdy ujawni się brakujący element zależny, najpierw wyszukaj istniejące issue i uzupełnij je; jeśli go nie ma, utwórz konkretne issue w zatwierdzonym zakresie z rolą i kryteriami odbioru. Ustaw zadanie zależne jako `blocked by` to issue i umieść brak przed nim w Order. Zrealizuj brak, gdy stanie się potrzebny, zamiast odkładać go na koniec projektu. Nowy zakres produktu, wydatek i wdrożenie produkcyjne nadal wymagają właściwej zgody.
 
-Szablony implementation.yml i bug.yml dodają projekt, ale nie przypisują osoby. Nowe zgłoszenie bez Status ustaw w triage na Candidates; uzupełnij pola i etykiety. Publiczne API Projects nie udostępnia konfiguracji automatycznego statusu po dodaniu. Obecny workflow wymaga jawnych zmian statusu.
+Szablony implementation.yml i bug.yml dodają projekt, ale nie przypisują osoby. Niezbędny brak w zatwierdzonym zakresie ustaw w To do z właściwą Role, Order i zależnością; nową propozycję zakresu skieruj do Candidates na triage. Uzupełnij pola i etykiety. Publiczne API Projects nie udostępnia konfiguracji automatycznego statusu po dodaniu. Obecny workflow wymaga jawnych zmian statusu.
 
 Kontrole aplikacji, ochrona gałęzi i środowisk powstają w zadaniach backlogu. Tablica nie oznacza działającego CI lub runtime.
