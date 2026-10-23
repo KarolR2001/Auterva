@@ -6,4 +6,4 @@
 
 Publiczny frontend docelowo używa mediów przypisanych do właściwej firmy zgodnie z architekturą. Obrazów demo nie seeduj jako opublikowanej floty produkcyjnej. W testach wizualnych używaj stałych fixture i kontrolowanych fontów.
 
-Ciężkie PNG, arkusze QA i skrypty przygotowywania makiet usunięto z repozytorium. Kopia sprzed porządkowania istnieje lokalnie poza repo; nie jest zdalnym magazynem ani zasobem wymaganym przez CI. Odzyskanie źródłowych PNG wymaga tej kopii. Zachowane warianty nie potrzebują regeneracji do porównania z makietami.
+Ciężkie PNG, arkusze QA i skrypty przygotowywania makiet usunięto z repozytorium. Źródłowe PNG nie są dystrybuowane z projektem; ich odzyskanie wymaga osobnej kopii, jeśli jest dostępna. Zachowane warianty nie potrzebują regeneracji do porównania z makietami.

@@ -24,7 +24,7 @@ Pierwsza próba CLI w sandboxie była blokowana przez sieć. Po wykonaniu zapyta
 | Tworzenie/edycja issue | GitHub MCP `issue_write` | Prawo admin/push/triage i zakres `repo` potwierdzone; mutacji issue jeszcze nie wykonywano |
 | Komentarze | GitHub MCP `add_issue_comment`, `update_issue_comment` | Prawo zapisu potwierdzone; mutacji komentarza jeszcze nie wykonywano |
 | Repozytorium | GitHub MCP `create_repository` | Utworzono przez MCP; prywatność i uprawnienia potwierdzone odczytem REST |
-| Commity i branche | Lokalny Git / GitHub MCP `push_files`, `create_branch` | Prawo push potwierdzone dla prywatnego repozytorium; Git używa lokalnej tożsamości autora i uwierzytelnienia CLI |
+| Commity i branche | Lokalny Git / GitHub MCP `push_files`, `create_branch` | Wykonano pierwszy commit `4fba484` i push do `main`; lokalny branch śledzi `origin/main` |
 | Pull request | GitHub MCP `create_pull_request`, `update_pull_request` | Prawo zapisu potwierdzone; utworzenie PR wymaga rzeczywistej różnicy branchy, nie wykonywano tej mutacji |
 | Review kodu | Lokalny przegląd diff + GitHub MCP `pull_request_review_write` i komentarze do linii | Prawo zapisu i narzędzia dostępne; review API jeszcze nie wykonano. Własnego PR nie przedstawiaj jako niezależnego zatwierdzenia |
 | Tworzenie/edycja Projects | GitHub CLI `gh project` / GraphQL | Odczyt potwierdzony; zakres `project` nadany. Wtyczka MCP GitHub w tej sesji nie udostępnia operacji Projects |
