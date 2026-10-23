@@ -20,7 +20,7 @@ UI: porównanie z Penpotem i klawiatura/fokus. Backend: izolacja firm, uprawnien
 
 Niewykonane testy i powód, usterki, zależności, uruchomienie dla QA; dla migracji rollout/odtworzenie. Bez sekretów i danych produkcyjnych.
 
-Tester odbiera to samo issue: Ready to test → Test → Done albo Re-open. Assignee pozostaje programistą odpowiedzialnym za poprawki.
+Agent QA odbiera to samo issue: Ready to test → Test → Done albo Re-open. Role pozostaje Frontend/Backend; właściciela sesji wskazuje komentarz przejęcia, bez osobnych kont GitHub. Raport QA podaje rolę/sesję i commit; wspólne konto nie zatwierdza własnego PR przyciskiem Approve.
 
 - [ ] Kryteria zakresu spełnione lub pozostała praca w otwartym issue.
 - [ ] Mapowanie wymaganie → ekran/kod/test i dokumentacja kontraktu aktualne.

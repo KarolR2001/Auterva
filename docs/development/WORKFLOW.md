@@ -2,27 +2,28 @@
 
 Zakres: MVP 3.1 z superadminem i wieloma firmami. [Projekt](https://github.com/users/KarolR2001/projects/1), [backlog i kolejność](BACKLOG.md), [wymagania](../WYMAGANIA_AUTERVA.md), [architektura](../ARCHITEKTURA_AUTERVA.md), [quality gates](../quality-gates.md).
 
-## Trzy osoby, jeden właściciel zadania
+## Trzy agenty Codex, jedno konto GitHub
 
 | Rola | Odpowiedzialność |
 |---|---|
 | Backend | Dane, API/DTO, auth/MFA, izolacja, czas, media, jobs/WS, infrastruktura i wydanie |
 | Frontend | Cztery obszary UI, integracja API, Penpot, formularze, mobile, dostępność i PWA |
-| Tester | Niezależny odbiór tego samego issue, scenariusze, dowody i regresja poprawki |
+| QA | Niezależny przegląd i odbiór tego samego issue, scenariusze, dowody i regresja poprawki |
 
-- Właścicielem issue jest **Frontend albo Backend**. Nie tworzymy osobnych zadań testera. Założenia, kroki i oczekiwane wyniki testów znajdują się w zadaniu programisty.
-- Role i role:frontend/role:backend określają kolejkę, nie konto GitHub. Nie wskazano kont trzech członków zespołu; assignees pozostają puste.
-- Podejmując pracę, programista przypisuje siebie. Zachowuje przypisanie podczas Review, Ready to test, Test i Re-open. Tester zapisuje swój login w komentarzu rozpoczęcia odbioru.
-- Po Re-open poprawia **ten sam programista**. Zmiana właściciela wymaga jawnego przekazania, nie automatycznego przypisania testera.
-- Jeden edytor kontraktu/pliku; niezależne prace mogą korzystać z branchy/worktrees. QA i implementacja czytają Penpota; zmiana designu ma osobny uzgodniony zakres.
+- Pracują trzy osobne agenty/sesje Codex: **Frontend, Backend i QA**, na jednym komputerze i koncie GitHub użytkownika. Nie wymagamy osobnych kont ani assignees; przypisania pozostają puste.
+- Pole Role i etykieta role:frontend/role:backend wskazują właściciela implementacji i nie zmieniają się podczas odbioru QA. Agent QA bierze zadania według statusu, niezależnie od ich Role. Nie tworzymy osobnych issue testera.
+- Przy podjęciu issue agent zapisuje w komentarzu rolę, nazwę sesji/wątku, branch i ścieżkę worktree, następnie ustawia In progress. Jeden aktywny wykonawca issue; ponownie odczytaj status przed rozpoczęciem.
+- Po Re-open poprawia ten sam agent wykonawczy. Jeśli sesja zakończyła się, nowa sesja tej samej roli jawnie przejmuje istniejący branch i kontekst; nie rozpoczyna drugiej implementacji.
+- Każdy agent implementujący pracuje w osobnym worktree i branchu, np. codex/backend/issue-8 lub codex/frontend/issue-11. Nie przełączaj branchy ani nie zmieniaj cudzych plików we współdzielonym katalogu. Wspólne manifesty, migracje i kontrakty mają jednego edytora; uzgodnione zmiany integruj przez PR.
+- QA używa osobnego worktree i sprawdza dokładny commit/build przekazany w issue. Lokalne serwery mają różne porty i testowe bazy/schematy; bez resetowania usług innego agenta. QA czyta Penpota; nie zmienia wzorca, aby ukryć błąd.
 
 ## Skąd brać zadania
 
 1. Otwórz widok Frontend albo Backend. Najpierw obsłuż własne Re-open.
 2. Następnie weź **pierwsze od góry nieblokowane To do** swojej roli. Order i numer w tytule określają kolejność; ręczny porządek tablicy jest taki sam.
 3. Sprawdź blocked by, decyzje i kontrakty. Po spełnieniu zależności usuń etykietę blocked; GitHub nie usuwa jej automatycznie.
-4. Ustaw assignee i In progress. Zalecany limit: jedno aktywne zadanie na programistę; podczas blokady można podjąć następne gotowe swojej roli.
-5. Tester otwiera QA, bierze pierwsze Ready to test, zapisuje rozpoczęcie odbioru i przesuwa do Test.
+4. Zapisz przejęcie przez agenta i ustaw In progress. Jedno aktywne zadanie implementacyjne na rolę; podczas blokady można podjąć następne gotowe, odnotowując przerwę i jej powód.
+5. Agent QA otwiera QA, bierze pierwsze Ready to test, zapisuje rozpoczęcie i przesuwa do Test. Jeżeli nie ma takich zadań, może przejrzeć pierwsze Review; po poprawnym przeglądzie i udostępnieniu builda ustawia Ready to test. Z pustej kolejki nie tworzy dodatkowych zadań QA.
 
 **To do zawiera cały obowiązkowy plan**, także przyszłe zadania oczekujące na zależności. Sam status nie oznacza gotowości rozpoczęcia. Widok Ready pokazuje To do/Re-open bez blocked. FE może uzgodnić kontrakt lub pracować na fixture wcześniej, lecz nie zamyka integracji na mockach.
 
@@ -34,9 +35,9 @@ Candidates zawiera odziedziczone SHOULD i propozycje rozwoju. Triage ustala zakr
 |---|---|
 | Candidates | Właściciel produktu/triage: opcjonalny zakres lub nowa propozycja |
 | To do | Zaplanowany zakres programisty; rozpoczęcie po spełnieniu zależności |
-| Re-open | Tester/reviewer: nieudany odbiór, kroki i oczekiwany wynik; dotychczasowy assignee zostaje |
+| Re-open | Agent QA/reviewer: nieudany odbiór, kroki i oczekiwany wynik; właściciel implementacji zostaje |
 | In progress | Programista rozpoczyna implementację lub poprawkę |
-| Review | Programista przekazuje PR i rzeczywiste wyniki kontroli; przegląda inna osoba |
+| Review | Agent implementujący przekazuje PR i rzeczywiste wyniki kontroli; przegląda inny agent |
 | Ready to test | Po review istnieją dostępny build, fixture, instrukcja i spełnione zależności |
 | Test | Tester wykonuje scenariusze z opisu i regresję |
 | Done | Tester potwierdził kryteria i dowody; issue zostaje zamknięte |
@@ -45,15 +46,23 @@ Poprawka wraca Re-open → In progress → Review → Ready to test → Test. Bl
 
 Merge nie zastępuje testów. PR używa Refs #numer do czasu odbioru; Closes #numer wyłącznie gdy odbiór nastąpił przed merge. Nie zamykaj zadania z pominięciem testera.
 
+Wspólne konto nie pozwala zatwierdzić własnego PR przyciskiem Approve ([GitHub](https://docs.github.com/en/pull-requests/how-tos/review-pull-requests/approving-a-pull-request-with-required-reviews)). Oddzielny agent QA zapisuje przegląd i wynik w komentarzu z rolą/sesją oraz commitem. Nie przedstawiaj tego jako zatwierdzenia przez inne konto. W zadaniu CI skonfiguruj rzeczywiste wymagane checks; nie wymagaj fikcyjnego drugiego użytkownika i nie obchodź istniejących zabezpieczeń. Zmiana commita po odbiorze wymaga ponownego sprawdzenia.
+
 ## Pola i widoki
 
 - **Order:** kolejność zależności od przygotowania do produkcji. Nowe zadanie umieść przed zależnymi; zsynchronizuj Order, prefiks i ręczny porządek.
-- **Role:** Frontend/Backend dla implementacji. Historyczna opcja QA nie jest używana do odrębnych zadań.
+- **Role:** Frontend/Backend to właściciel implementacji. Agent QA korzysta ze statusów Review/Ready to test/Test; nie przestawiaj Role na QA i nie dodawaj osobnych zadań QA.
 - **Priority:** P0 krytyczne, P1 wysokie, P2 normalne, P3 niskie. Pole i priority:p* muszą być zgodne; priorytet nie zastępuje zależności.
 - **Stage:** 0 fundament, 1 dostęp/hosty, 2 uruchomienie firmy, 3 flota/dostępność, 4 obsługa usługi, 5 odbiór i wydanie produkcyjne. Nie blokuje niezależnej pracy.
 - **Size:** względna złożoność XS/S/M/L/XL, bez deklaracji czasu.
 - **Labels:** type:task/feature/bug/spike/docs/decision, area:*, role:*, priority:*, blocked, needs:decision, needs:penpot. Definicje w .github/labels.json.
-- **Workflow:** pełna tablica. **Frontend/Backend:** kolejki roli. **Ready:** nieblokowane To do/Re-open. **QA:** Ready to test/Test. **Triage:** Candidates. **Bugs:** aktywne usterki. **My work:** assignee:@me. **Development/All items:** przekrój pracy.
+- **Workflow:** pełna tablica. **Frontend/Backend:** kolejki agentów. **Ready:** nieblokowane To do/Re-open. **QA:** Review/Ready to test/Test. **Triage:** Candidates. **Bugs:** aktywne usterki. **Active:** In progress/Review/Ready to test/Test, bez filtrowania po koncie. **Development/All items:** przekrój pracy.
+
+## Start agentów
+
+W osobnych sesjach nadaj role: „Jesteś agentem Frontend”, „Jesteś agentem Backend” albo „Jesteś agentem QA”. Każdy zaczyna od AGENTS.md, tego workflow, swojego widoku i opisu issue. Rola jest zakresem sesji, nie nowym kontem ani uprawnieniem.
+
+Backend może rozpocząć decyzje #1–4; scaffold #5 czeka na #3 i #4. Frontend może równolegle pracować nad #6 (treści) i #7 (mapowanie Penpota), po jednym zadaniu naraz. QA zaczyna odbiór po pojawieniu się Review/Ready to test. Decyzji produktowych wymagających akceptacji użytkownika agent nie zatwierdza sam. Gotowy backlog nie oznacza rozstrzygniętych D-xx, działającej aplikacji, CI ani infrastruktury.
 
 ## Issue i odbiór
 

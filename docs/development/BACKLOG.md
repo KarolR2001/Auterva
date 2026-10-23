@@ -2,7 +2,7 @@
 
 [Tablica projektu](https://github.com/users/KarolR2001/projects/1) · [Zasady pracy](WORKFLOW.md)
 
-Stan przygotowania: 23.10.2026. **64 obowiązkowe zadania w To do, 15 pozycji Candidates.** To plan realizacji, nie raport działającej aplikacji. Role zastępują przypisanie osób do czasu podania kont GitHub. Tester odbiera każde issue programisty; nie ma osobnych zadań QA.
+Stan przygotowania: 23.10.2026. **64 obowiązkowe zadania w To do, 15 pozycji Candidates.** To plan realizacji, nie raport działającej aplikacji. Pracują trzy osobne agenty Codex: Frontend, Backend i QA, na jednym komputerze i koncie GitHub. Role oraz statusy rozdzielają kolejki; assignees pozostają puste. QA odbiera te same issue, bez osobnych zadań testera.
 
 ## Kolejność
 

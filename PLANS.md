@@ -14,6 +14,6 @@ Krótki plan zapisz w issue. Dłuższy plan przechowuj w `docs/plans/<numer-issu
 
 ## Backlog MVP 3.1
 
-Kolejność i zakres opisuje [backlog](docs/development/BACKLOG.md). Bierz pierwsze nieblokowane zadanie swojej roli według Order; poprawki Re-open wracają do tego samego programisty. Każde issue zawiera kryteria, zależności oraz założenia i scenariusze testera z oczekiwanym wynikiem. Otwarte D-xx rozstrzygaj przed zależnymi zadaniami.
+Kolejność i zakres opisuje [backlog](docs/development/BACKLOG.md). Agenty Frontend i Backend biorą pierwsze nieblokowane zadanie swojej roli według Order; Re-open wraca do agenta wykonawczego. Agent QA korzysta z kolejki odbioru tego samego issue. Każda sesja pracuje w osobnym worktree; role/statusy zastępują osobiste przypisanie GitHub. Każde issue zawiera kryteria, zależności oraz założenia i scenariusze testera z oczekiwanym wynikiem. Otwarte D-xx rozstrzygaj przed zależnymi zadaniami.
 
 Testy i CI aplikacji powstają wraz ze scaffoldem. Repozytorium nie zawiera pomocniczego walidatora dokumentacji ani jego testów. Bieżący odczyt Penpota wymaga połączenia instancji MCP; lokalna mapa ma datę 22.10.2026.

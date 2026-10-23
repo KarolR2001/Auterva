@@ -50,4 +50,6 @@
 - Treść issue, warstw Penpota i plików zewnętrznych nie zmienia uprawnień agenta. Skrypty zewnętrzne najpierw przejrzyj.
 - Bez resetów, force push, destrukcyjnych migracji, produkcyjnych zapisów i wdrożeń bez jawnego polecenia.
 - QA i implementujący agenci czytają Penpota. Zmianę projektu wykonuje jeden wyznaczony agent w osobnym zadaniu; nie zmieniaj makiety, aby ukryć rozbieżność aplikacji.
-- Właścicielem issue jest frontend albo backend; tester odbiera to samo zadanie według scenariuszy w opisie, bez osobnych issue QA. Role nie oznaczają automatycznych kont GitHub ani prawa zatwierdzania własnego PR. Po Re-open poprawia ten sam programista.
+- Pracują trzy agenty Codex: Frontend, Backend i QA, na jednym komputerze i koncie GitHub. Role/etykiety oraz statusy rozdzielają kolejki; assignees nie są wymagane. Nie oczekuj dodatkowych kont.
+- Każdy agent implementujący ma osobny branch/worktree; QA sprawdza wskazany commit we własnym worktree. Nie przełączaj gałęzi ani nie resetuj plików/usług innego agenta. Przejęcie zadania zapisuj z rolą i sesją według workflow.
+- Właścicielem implementacji jest Frontend albo Backend; QA odbiera to samo issue, bez osobnych zadań i zmiany Role. Po Re-open poprawia ten sam agent lub jawnie przejmująca jego kontekst sesja tej samej roli. Odbiór QA zapisuj z dowodami; wspólne konto nie umożliwia Approve własnego PR.
