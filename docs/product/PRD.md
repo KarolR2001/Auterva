@@ -153,7 +153,7 @@ Wielu klientów biznesowych nie oznacza od razu marketplace’u, edytora stron, 
 | REQ-MVP-26 | Czat firma–Auterva jest tekstowy, bez załączników i bez e-mailowych powiadomień o wiadomościach. Nowe wiadomości są sygnalizowane wewnątrz panelu, np. kropką przy sekcji czatu. |
 | REQ-MVP-27 | Superadmin może przeglądać, dodawać, edytować i wykonywać dozwolone operacje usuwania danych operacyjnych każdej firmy. Dostęp jest zagnieżdżony pod kartą wybranej firmy; nie rozbudowuje głównego menu o flotę wszystkich klientów. Archiwizacja firmy, ochrona sekretów i audyt nadal obowiązują. |
 | REQ-MVP-28 | Firmy nie są trwale usuwane przez panel. Archiwizacja zachowuje ich dane, a superadmin domyślnie widzi firmy niezarchiwizowane; opcja „Pokaż zarchiwizowane” ujawnia również archiwum. |
-| REQ-MVP-29 | Niewysłany szkic czatu jest przechowywany lokalnie osobno dla każdej rozmowy, zachowuje się przy przełączaniu firmy i nie wymaga dialogu blokującego. |
+| REQ-MVP-29 | Niewysłany szkic czatu jest przechowywany trwale w lokalnym storage przeglądarki osobno dla `(accountId, conversationId)`, zachowuje się przy przełączaniu firmy oraz po restarcie karty/przeglądarki i nie wymaga dialogu blokującego. Wylogowanie usuwa szkice konta; brak wysyłki offline. |
 | REQ-MVP-30 | Zaproszenie administratora jest jednorazowe i ważne 7 dni. Ponowne wysłanie unieważnia poprzedni niewykorzystany link. MFA jest obowiązkowe dla superadmina i administratora firmy. |
 | REQ-MVP-31 | Administrator firmy otrzymuje przypomnienia o końcu trialu lub opłaconego okresu w panelu i e-mailem 7 dni wcześniej, 1 dzień wcześniej oraz w dniu wygaśnięcia. |
 
@@ -1542,11 +1542,15 @@ Poniższe decyzje doprecyzowują wcześniejsze rozbieżności i mają pierwszeń
 
 - **D-01:** administrator firmy ma odczyt danych kontaktowych, publicznych, SEO i prawnych, ale nie może ich zapisywać. Superadmin zapisuje te pola oraz logo, hero, publiczne zdjęcia i branding. Administrator i superadmin mogą zarządzać pojazdami, zdjęciami pojazdów i blokadami w kontekście firmy.
 - **D-02:** publikacja pojazdu wymaga dotychczasowej kompletności oraz pełnego, niepustego opisu. W przeciwnym razie pojazd pozostaje szkicem.
-- **D-03:** kategorie definiuje superadmin. Cena pojazdu jest opcjonalna, a superadmin ma globalny przełącznik jej publicznej widoczności. Publiczny kontakt obejmuje telefon, WhatsApp i e-mail; adres jest pełny i ma mapę. Treści prawne Autervy i firmy są osobne. Hero obsługuje wiele obrazów, logo i tekst.
+- **D-03:** kategorie definiuje superadmin. Cena pojazdu jest opcjonalna, a superadmin ma osobny dla każdej firmy przełącznik jej publicznej widoczności. Publiczny kontakt obejmuje telefon, WhatsApp i e-mail; adres jest pełny i ma mapę. Treści prawne Autervy i firmy są osobne. Hero obsługuje wiele obrazów, logo i tekst.
 - **D-04:** pojazd ma maksymalnie 30 zdjęć; jedno zdjęcie ma maksymalnie 10 MB i 12 000 × 12 000 px; wiadomość czatu ma maksymalnie 4 000 znaków; zapytanie dostępności obejmuje maksymalnie 365 dni. Bazowe limity ruchu są opisane w `docs/WYMAGANIA_AUTERVA.md` i podlegają strojeniu po teście obciążenia.
 - **D-05:** MVP ma dokładnie jednego superadmina. Pierwsze konto tworzy jednorazowa interaktywna komenda administracyjna tylko przy pustej bazie. TOTP i jednorazowe kody odzyskania są obowiązkowe; odzyskanie dostępu wymaga ręcznej procedury właściciela, unieważnienia sesji i audytu.
 - **D-06:** zarchiwizowana firma nie zwiększa dwóch głównych KPI, nawet z przyszłą datą opłaty; może być pokazana osobno. Firma jest liczona najwyżej raz.
 - **D-07:** przypomnienia są wysyłane o 09:00 `Europe/Warsaw` 7 dni wcześniej, 1 dzień wcześniej i w dniu wygaśnięcia. Po zmianie okresu harmonogram przelicza się od nowa, a worker po awarii nadrabia zdarzenie najwyżej raz.
 - **D-14:** firma jest publiczna przy ważnym trialu lub ważnym okresie opłaconym. Przy obu okresach główny stan pokazuje „opłacono do”; przypomnienia dotyczą okresu wyznaczającego faktyczną datę wygaśnięcia, bez podwójnego liczenia.
+- **D-08:** szkic czatu jest trwały lokalnie dla `(accountId, conversationId)`, przetrwa restart przeglądarki i zostanie usunięty przy wylogowaniu. `typing` wygasa po 3 s i jest ograniczony do jednego sygnału na sekundę; `read` następuje po około 500 ms widoczności wiadomości; cel realtime to p95 ≤2 s. Nie ma wysyłki offline.
+- **D-09:** darmowy Render służy wyłącznie do krótkotrwałych preview; Cloudflare zapewnia DNS/TLS i R2 dla mediów. Produkcja użyje zarządzanego kontenera Node, PostgreSQL z backupami/PITR i poczty transakcyjnej. Domena produkcyjna pozostaje do wpisania przez właściciela.
+- **D-10:** RPO wynosi 24 h, RTO 4 h; backup DB/mediów jest codzienny z retencją 30 dni, logi bezpieczeństwa/audytowe są przechowywane 365 dni, a zwykłe logi aplikacyjne 30 dni. Właściciel/operator odpowiada za procedurę restore i jej test.
+- **D-11:** po wygaśnięciu usługi konto, flota i czat pozostają dostępne, a panel pokazuje: „Konto aktywne. Publiczna oferta jest obecnie wyłączona. Skontaktuj się z Autervą w sprawie uruchomienia okresu usługi.”
 
 **Koniec wersji 3.1. Odpowiedzi i zatwierdzone decyzje właściciela włączono do całego PRD.**

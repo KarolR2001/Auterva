@@ -212,7 +212,7 @@ To struktura planowana. Rzeczywistych istniejących plików instrukcji nie nadpi
 | `VehicleFeature` | Wyposażenie pojazdu; unikalna para pojazd–cecha; słownik zgodny z zatwierdzonymi kategoriami |
 | `VehicleImage` | Firma i pojazd, losowy klucz storage, MIME, rozmiary, bajty, alt, kolejność, `isCover`, stan przetwarzania, warianty |
 | `AvailabilityPeriod` | Firma i pojazd, `startDate/endDate: DATE`, typ RESERVED/MAINTENANCE/BLOCKED/OTHER, źródło MANUAL, prywatne reference/notatka, aktorzy, wersja |
-| `SiteSettings` | Jeden rekord na firmę; typowane kontakty (telefon/WhatsApp/e-mail), pełny adres z mapą, godziny, globalny przełącznik widoczności cen, metadane SEO i dokumenty prawne firmy; bez globalnego singletonu |
+| `SiteSettings` | Jeden rekord na firmę; typowane kontakty (telefon/WhatsApp/e-mail), pełny adres z mapą, godziny, osobny dla firmy przełącznik widoczności cen, metadane SEO i dokumenty prawne firmy; bez globalnego singletonu |
 | `PublicContent` | Publiczne logo, wiele obrazów hero, tekst hero, treści firmy i zdjęcia kontrolowane przez superadmina; treści prawne Autervy są przechowywane osobno; może być częścią typowanego `SiteSettings`, bez duplikowania pól |
 | `SlugRedirect` | Firma, stary slug, docelowy pojazd; brak kolizji z aktywnym slugiem i brak pętli |
 | `Conversation` | Jedna trwała rozmowa na firmę |
@@ -360,8 +360,8 @@ Prefiksy wyznaczają dozwolony obszar hosta; poniższe URI są projektem technic
 - `clientMessageId` pozostaje ten sam po timeout/retry; serwer zwraca istniejącą wiadomość. Nie tworzyć duplikatu przy ponowieniu przez inną instancję aplikacji.
 - `typing` jest krótkotrwałym zdarzeniem, z wygasaniem i ograniczeniem częstotliwości. `read` wynika z faktycznego pokazania wiadomości; nie z preloadu/dashboardu.
 - Potwierdzone Q-08A wymaga typing/read mimo starszych sprzecznych akapitów §11.2/15.9. Brak „online”, reakcji, botów i audio/wideo.
-- Propozycja minimalnej trwałości szkicu (do potwierdzenia w D-08): przechowywać w pamięci sesji UI osobno pod `(accountId, conversationId)`; po zmianie rozmowy pozostaje przypisany do pierwotnej. Nie przechowywać w service workerze ani wysyłać automatycznie po odzyskaniu sieci.
-- Logout usuwa lokalne szkice i zamyka socket. Utrata sieci zachowuje treść w otwartej aplikacji; nie obiecuje trwałego offline ani dostarczenia po zamknięciu.
+- Szkic przechowywać w trwałym lokalnym storage przeglądarki osobno pod `(accountId, conversationId)`; po zmianie rozmowy pozostaje przypisany do pierwotnej, a po restarcie karty/przeglądarki wraca bez dialogu. Wylogowanie usuwa szkice tego konta. Nie przechowywać w service workerze ani wysyłać automatycznie po odzyskaniu sieci.
+- `typing` wygasa po 3 s i jest emitowany najwyżej raz na sekundę. `read` zapisuje się po widoczności wiadomości przez około 500 ms. Docelowe p95 dostarczenia realtime wynosi maksymalnie 2 s przy normalnym obciążeniu.
 - Wiele procesów WebSocket wymaga dystrybucji zdarzeń między instancjami; na start PostgreSQL notification/outbox z identyfikatorem zdarzenia, bez pełnej treści w powiadomieniu. Historia jest źródłem odtworzenia po utracie zdarzenia.
 - Po przerwaniu i wznowieniu połączenia procesu z PostgreSQL `LISTEN` trzeba zsynchronizować zaległe zdarzenia z trwałego outboxu/kursorów, również dla nadal otwartych socketów klientów. Sam reconnect przeglądarki nie naprawia tej luki; `NOTIFY` jest sygnałem, nie trwałą kolejką. [PostgreSQL NOTIFY](https://www.postgresql.org/docs/18/sql-notify.html).
 - Maksymalny rozmiar wiadomości czatu to 4 000 znaków, a tempo wysyłania to 30 wiadomości/minutę na konto z burstem 10. Publiczne zapytanie dostępności obejmuje najwyżej 365 dni. Bazowe limity ruchu: logowanie/MFA 5 nieudanych prób na konto/15 min i 20/IP/15 min; reset, zaproszenie i resend 3/konto/godzinę i 20/IP/godzinę; uwierzytelnione odczyty API 120/min/konto+firma, mutacje 60/min; publiczna dostępność 60/min/IP. Przekroczenie zwraca `429 RATE_LIMITED` z `Retry-After`; wartości pozostają konfigurowalne po teście obciążenia.
@@ -375,7 +375,7 @@ Prefiksy wyznaczają dozwolony obszar hosta; poniższe URI są projektem technic
 - Dostarczenie e-maila raportuje się osobno od zapisu i przyjęcia przez dostawcę. Trwały błąd pozostaje widoczny w karcie firmy i monitoringu.
 - Kolejka gwarantuje ponawianie, nie matematycznie jednokrotne doręczenie e-maila: wykorzystywać idempotencję dostawcy, a przy niepewnym wyniku zachować to samo wydanie zaproszenia zamiast tworzyć nowe tokeny.
 - Token resetu/zaproszenia nie trafia w jawnym payloadzie logów. Jeśli oczekuje w kolejce pocztowej, wymaga ograniczonego dostępu, szyfrowania i usunięcia po wykonaniu.
-- Dostawca poczty: techniczny adapter API/SMTP, konfiguracja nadawcy i SPF/DKIM/DMARC, test dostarczalności na staging. Nie wybrano dostawcy ani domeny produkcyjnej.
+- Dostawca poczty: techniczny adapter API/SMTP, konfiguracja nadawcy i SPF/DKIM/DMARC, test dostarczalności na staging. Na preview można użyć darmowego planu dostawcy transakcyjnego; produkcja wymaga zweryfikowanego nadawcy i limitu odpowiedniego do ruchu.
 - DNS/TLS: ręcznie inicjowana przez superadmina konfiguracja z automatyczną kontrolą stanu; aktywacja dopiero po poprawnym routingu/certyfikacie. Bez zakupu domen w aplikacji.
 - Kontrakt techniczny domen: dowód przypisania konkretnej domeny do firmy, np. losowy rekord DNS TXT, ponowna weryfikacja po zmianie właściciela/przypisania; globalna unikalność hosta. Nie przyjmować wildcardów, IP, localhost ani dowolnych URL do pobrania; walidacja DNS/TLS nie może odpytywać prywatnej sieci.
 - Brak cyklicznego purge firm i czatów. Sprzątanie nieudanych tymczasowych uploadów jest osobną operacją techniczną, która nie usuwa przypisanych danych firmy.
@@ -432,7 +432,7 @@ Prefiksy wyznaczają dozwolony obszar hosta; poniższe URI są projektem technic
 
 ## 19. Wdrożenie i utrzymanie
 
-- Rekomendacja początkowa: zarządzany hosting kontenerowy Node dla WWW/WebSocket/workera, zarządzany PostgreSQL, storage S3 i poczta transakcyjna. Dostawca pozostaje decyzją wdrożeniową.
+- Rekomendacja etapowa: darmowy Render tylko dla krótkotrwałych preview (usypianie, efemeryczny dysk i brak produkcyjnych backupów), Cloudflare DNS/TLS oraz Cloudflare R2 dla mediów. Produkcja używa zarządzanego hostingu kontenerowego Node dla WWW/WebSocket/workera, zarządzanego PostgreSQL z backupami/PITR i poczty transakcyjnej; wybór płatnego planu następuje przed pierwszym klientem. Faktyczna domena produkcyjna nie jest jeszcze podana.
 - Wariant Vercel jest dopuszczalny po sprawdzeniu runtime. Aktualna dokumentacja potwierdza WebSocket w Functions; połączenia mają ograniczony czas życia i nie gwarantują tej samej instancji po reconnect. Nie opierać projektu na historycznym twierdzeniu o całkowitym braku WebSocketów. [Vercel WebSockets](https://vercel.com/docs/functions/websockets).
 - Środowiska development/preview/staging/production z osobnymi bazami, bucketami, sekretami, domenami i odbiorcami testowej poczty. Brak używania danych prawdziwych firm w fixture.
 - Tajne wartości wyłącznie w magazynie sekretów; `.env.example` dokumentuje nazwy bez wartości. Publiczne zmienne nie zawierają danych dostępowych.
@@ -444,12 +444,13 @@ Prefiksy wyznaczają dozwolony obszar hosta; poniższe URI są projektem technic
 - Logi strukturalne: UTC, środowisko, request/operation ID, bezpieczny actor/organization ID, działanie, wynik i kod błędu. Bez tokenów, haseł, prywatnych notatek i treści rozmów.
 - Metryki: latency/5xx, odmowy auth/tenant, konflikty zapisu, lag/retry zadań, skuteczność poczty, zdrowie WebSocket, upload, baza i storage. To monitoring techniczny, nie dodatkowe KPI biznesowe PLT.
 - Alerty: niedostępność, 5xx, brak bazy/storage, niewykonane backupy/migracje, kolejka zadań, TLS i wzrost błędnych logowań.
-- Backup bazy przynajmniej codziennie, preferowane PITR; robocza retencja 14–30 dni, RPO ≤ 24 h i RTO do kilku godzin z bazowego PRD. Potwierdzić i zmierzyć odtworzeniem.
+- Backup bazy i mediów codziennie, z retencją 30 dni; dla bazy preferowane PITR. Cel RPO wynosi 24 h, a RTO 4 h. Właściciel/operator utrzymuje procedurę restore, testuje ją okresowo i potwierdza odtworzenie jednej firmy bez nadpisywania innych.
+- Logi bezpieczeństwa i audytowe przechowywać 365 dni, a zwykłe logi aplikacyjne 30 dni. Retencja i restore nie są automatycznym purge danych firmy.
 - Media z wersjonowaniem/ochroną usunięcia; restore jednej firmy wykonywać najpierw do odrębnego środowiska, aby nie nadpisać innych firm. Archiwizacja nie jest backupem.
 
 ## 20. Kolejność realizacji
 
-1. Stosować uporządkowane źródła MVP 3.1; macierz pól D-01, publikacja D-02, limity D-04 i bootstrap D-05 są rozstrzygnięte 23.10.2026. Parametry obciążenia i hosting pozostają do ustalenia.
+1. Stosować uporządkowane źródła MVP 3.1; macierz pól D-01, publikacja D-02, limity D-04, bootstrap D-05, etapowy hosting D-09 i operacje D-10 są rozstrzygnięte 23.10.2026. Przed wdrożeniem pozostają do wpisania domena produkcyjna oraz zmierzony profil obciążenia.
 2. Zamknąć ADR-0002 testem zgodności; odtwarzalny scaffold i lockfile, PostgreSQL, cztery hosty, auth/MFA, tenant context i testy A/B.
 3. Firma, okres, domeny, zaproszenie i rejestracja; potwierdzone 336 h i publikacja pustej oferty; testy wygaśnięcia wszystkich publicznych adresów.
 4. Flota, media, publikacja i dostępność; constraints, równoległe zapisy, DTO oraz aktualność publicznego wyniku.
@@ -459,15 +460,17 @@ Prefiksy wyznaczają dozwolony obszar hosta; poniższe URI są projektem technic
 
 ## 21. Konkretne otwarte decyzje
 
-- **Edycja publicznych pól — rozstrzygnięte 23.10.2026:** superadmin zapisuje dane kontaktowe i ofertowe firmy, SEO, treści prawne, logo, hero, publiczne zdjęcia i branding. Administrator firmy ma odczyt tych pól, a zapisuje wyłącznie flotę, zdjęcia pojazdów i blokady własnej firmy. Mutacje `SiteSettings` wymagają serwerowej allowlisty według tej macierzy.
+- **Edycja publicznych pól — rozstrzygnięte 23.10.2026:** superadmin zapisuje dane kontaktowe i ofertowe firmy, SEO, treści prawne, logo, hero, publiczne zdjęcia, branding oraz osobny dla każdej firmy przełącznik cen. Administrator firmy ma odczyt tych pól, a zapisuje wyłącznie flotę, zdjęcia pojazdów i blokady własnej firmy. Mutacje `SiteSettings` wymagają serwerowej allowlisty według tej macierzy.
 - **Publikacja pojazdu — rozstrzygnięte 23.10.2026:** oprócz dotychczasowej kompletności wymagany jest pełny niepusty opis; w przeciwnym razie zapis pozostaje szkicem.
 - **Limity i konta — rozstrzygnięte 23.10.2026:** obowiązują wartości z sekcji limitów i jeden superadmin z jednorazowym bootstrapem interaktywnym.
 - **Sprzeczne starsze akapity wewnątrz 3.1:** aktywny trial publiczny według Q-03B/U3; typing/read według Q-08A; stałe kolory według U4/DEC-014. Te rozstrzygnięcia są już potwierdzone i nie są ponownymi pytaniami.
-- **Parametry produkcyjne:** liczba firm i współbieżnych użytkowników, docelowy profil obciążenia i priorytet kalendarza floty. Kategorie, przełącznik cen, dokumenty prawne, pełny adres/mapa, hero i kanały kontaktu są ustalone D-03. Limity zdjęć, wiadomości i zakresu dat są ustalone D-04.
-- **Integracje i operacje:** domeny produkcyjne i dostawcy hostingu/DB/storage/poczty. Godzina oraz retry przypomnień są ustalone D-07; liczba kont superadmina, bootstrap i odzyskanie MFA są ustalone D-05.
+- **Parametry produkcyjne:** liczba firm i współbieżnych użytkowników, docelowy profil obciążenia i priorytet kalendarza floty. Kategorie, osobny dla firmy przełącznik cen, dokumenty prawne, pełny adres/mapa, hero i kanały kontaktu są ustalone D-03. Limity zdjęć, wiadomości i zakresu dat są ustalone D-04.
+- **Integracje i operacje:** etapowy hosting, backupy i retencja są ustalone D-09/D-10; faktyczna domena produkcyjna i jej rekordy DNS pozostają do wpisania przed wdrożeniem. Godzina oraz retry przypomnień są ustalone D-07; liczba kont superadmina, bootstrap i odzyskanie MFA są ustalone D-05.
 - **Wersje:** zgodność Next/React/TypeScript/Prisma/Better Auth/Serwist i lockfile nadal wymaga rzeczywistego builda i integracji. Potwierdzenie istnienia wydania nie zamyka ADR-0002.
 
 - **Publikacja i okresy:** pełny niepusty opis jest warunkiem publikacji zgodnie z decyzją D-02. Widoczność, KPI i przypomnienia przy nakładającym się trialu/opłacie są rozstrzygnięte w D-14. Typ serwisowej blokady to `MAINTENANCE`; makietowe `SERVICE` mapować na ten typ, nie rozszerzać enumu.
+- **Czat i szkice — rozstrzygnięte 23.10.2026:** lokalny storage przetrwa restart przeglądarki, jest izolowany parą `(accountId, conversationId)` i czyszczony przy wylogowaniu; `typing` wygasa po 3 s, `read` po około 500 ms widoczności, a realtime ma cel p95 ≤2 s.
+- **Kopie i logi — rozstrzygnięte 23.10.2026:** RPO 24 h, RTO 4 h, backup DB/mediów codziennie przez 30 dni, audyt/bezpieczeństwo 365 dni, zwykłe logi 30 dni; właściciel/operator wykonuje i testuje restore.
 
 ## 22. Co warto dodać po podstawowym wdrożeniu
 

@@ -77,8 +77,8 @@ Stan analizy: **22.10.2026**. Obowiązuje **PRD 3.1 z superadminem i wieloma fir
 - **C-F052 [P]** Trial nie zaczyna się w momencie utworzenia firmy, wysłania zaproszenia, GET linku, nieudanej aktywacji lub logowania. Źródło: §5.2 Q-03, §7.4.
 - **C-F053 [P]** Refresh, resend, retry i ponowne logowanie nie resetują i nie przedłużają trialu. Źródło: §8.6, TEST-MVP-23/44.
 - **C-F054 [P]** Publiczna witryna działa w trakcie jednorazowego trialu. Źródło: §5.2A Q-03B, §5.2B Q-03A; stary zapis §8.6 jest sprzeczny.
-- **C-F055 [P]** Koniec trialu wyłącza całą publiczną stronę przy braku ważnej opłaty, zachowując pełny panel i czat niearchiwizowanego administratora. Nakładanie okresów wymaga szczegółowego kontraktu D-14. Źródło: §5.2A Q-01A, §8.7.
-- **C-F056 [P]** Gdy firma nie ma już ważnego okresu publicznego działania, wyłączona jest cała witryna i oferta, a nie wyłącznie lista pojazdów. Historyczne zdarzenie wygaśnięcia nie może unieważnić późniejszego przedłużenia; nakładanie trialu/opłaty opisuje D-14. Źródło: REQ-MVP-19, §8.3, §12.3.
+- **C-F055 [P]** Koniec trialu wyłącza całą publiczną stronę przy braku ważnej opłaty, zachowując pełny panel i czat niearchiwizowanego administratora. Jeśli opłata pozostaje ważna, wygaśnięcie trialu nie zmienia widoczności. Źródło: §5.2A Q-01A, §8.7, D-14.
+- **C-F056 [P]** Gdy firma nie ma już ważnego okresu publicznego działania, wyłączona jest cała witryna i oferta, a nie wyłącznie lista pojazdów. Historyczne zdarzenie wygaśnięcia nie może unieważnić późniejszego przedłużenia; przy nakładaniu okresów obowiązuje efektywna data z D-14. Źródło: REQ-MVP-19, §8.3, §12.3.
 - **C-F057 [P/T]** Wyłączenie obejmuje home, listę, szczegóły, kontakt, kalendarz, API oferty i wszystkie własne/testowe adresy. Źródło: §8.3, §12.3, TEST-MVP-42.
 - **C-F058 [P]** Po końcu okresu administrator nadal dodaje i edytuje flotę, media, blokady i dozwolone dane oraz korzysta z chronionego podglądu i czatu. Źródło: §8.1, TEST-MVP-41.
 - **C-F059 [P]** Wygaśnięcie okresu nie przełącza panelu na read-only, nie unieważnia sesji i nie przerywa poprawnego zapisu. Źródło: §6.3, §8.1, TEST-MVP-25/43.
@@ -87,7 +87,7 @@ Stan analizy: **22.10.2026**. Obowiązuje **PRD 3.1 z superadminem i wieloma fir
 - **C-F062 [P]** Przedłużenie po przerwie automatycznie przywraca publiczną stronę przy poprawnej domenie i niezarchiwizowanej firmie; wyjątek stanowi przywrócenie z archiwum. Źródło: §5.2A Q-07B, §8.5.
 - **C-F063 [P]** Administrator widzi osobno rodzaj okresu, datę końcową, rzeczywisty stan okresu, publiczny adres i widoczność witryny. Źródło: REQ-MVP-14, §8.1.
 - **C-F064 [P]** Trial nie jest oznaczany jako opłacona usługa; konkretnej daty nie zastępuje sam licznik pozostałych dni. Źródło: §8.1; V30 §8.1.
-- **C-F065 [P]** Po wygaśnięciu panel pokazuje zauważalny nieblokujący komunikat o wyłączeniu strony i wejście do czatu. Źródło: REQ-MVP-19, §8.3, §15.8.
+- **C-F065 [P]** Po wygaśnięciu panel pokazuje zauważalny nieblokujący komunikat: „Konto aktywne. Publiczna oferta jest obecnie wyłączona. Skontaktuj się z Autervą w sprawie uruchomienia okresu usługi.” oraz wejście do czatu. Źródło: REQ-MVP-19, §8.3, §15.8, D-11.
 - **C-F066 [P/B]** Banner nie zasłania formularza, nie usuwa wprowadzonych danych i nie podszywa się pod wygaśnięcie sesji. Źródło: §8.3, §13.3 OVR-13/14.
 - **C-F067 [P]** Administrator otrzymuje przypomnienia o końcu efektywnego trialu/opłaty w panelu i e-mailem o 09:00 `Europe/Warsaw` 7 dni wcześniej, 1 dzień wcześniej i w dniu wygaśnięcia. Po zmianie okresu harmonogram jest przeliczany, a zadanie po awarii nadrabiane najwyżej raz. Źródło: decyzja właściciela 23.10.2026, REQ-MVP-31, §5.2B Q-15, DEC-019.
 
@@ -152,14 +152,14 @@ Stan analizy: **22.10.2026**. Obowiązuje **PRD 3.1 z superadminem i wieloma fir
 - **C-F117 [P]** Nowe wiadomości czatu nie generują powiadomień e-mail. Źródło: REQ-MVP-26, §11.1/11.5.
 - **C-F118 [P]** Nowe wiadomości mają widoczny wskaźnik w panelu, również gdy czat jest schowany pod „Więcej”. Źródło: §10.2, §11.3, TEST-MVP-48.
 - **C-F119 [P]** Rozmowy aktualizują się w czasie rzeczywistym przez WebSocket. Źródło: §5.2A Q-08A, §11.5.
-- **C-F120 [P]** Czat pokazuje stan pisania. Źródło: §5.2A Q-08A, §11.5; sprzeczny fragment §11.2 jest historyczny.
+- **C-F120 [P]** Czat pokazuje stan pisania; zdarzenie wygasa po 3 sekundach i jest ograniczone do jednego na sekundę. Źródło: §5.2A Q-08A, §11.5; sprzeczny fragment §11.2 jest historyczny.
 - **C-F121 [P]** Czat pokazuje status wysłania i odczytania. Źródło: §5.2A Q-08A, §11.5; sprzeczny §15.9 nie zmienia zatwierdzenia.
-- **C-F122 [P]** Szkic wiadomości jest lokalny i przypisany do konkretnej rozmowy. Źródło: REQ-MVP-29, §5.2B Q-08A, DEC-016.
-- **C-F123 [P]** Zmiana firmy zachowuje jej szkic bez dialogu blokującego; powrót odtwarza treść. Źródło: §11.4, DEC-016.
+- **C-F122 [P]** Szkic wiadomości jest trwale przechowywany lokalnie i przypisany do pary `(accountId, conversationId)`; przetrwa zamknięcie karty i ponowne uruchomienie przeglądarki. Źródło: REQ-MVP-29, §5.2B Q-08A, DEC-016.
+- **C-F123 [P]** Zmiana firmy zachowuje jej szkic bez dialogu blokującego; powrót odtwarza treść. Wylogowanie usuwa wszystkie szkice tego konta. Źródło: §11.4, DEC-016.
 - **C-F124 [P]** Szkic nigdy nie przechodzi ani nie zostaje wysłany do innej firmy po zmianie rozmowy. Źródło: §11.4, TEST-MVP-31.
 - **C-F125 [P]** Administrator czyta i wysyła wiadomości także po końcu trialu i opłaty. Źródło: §11.1, §15.9.
 - **C-F126 [P]** Archiwizacja zachowuje historię czatu, a blokada logowania uniemożliwia dostęp administratora do czasu przywrócenia. Źródło: §11.1/11.4.
-- **C-F127 [P/R/T]** Znacznik nowych wiadomości znika po faktycznym pokazaniu wiadomości w rozmowie, a nie po preloadzie lub wejściu na dashboard. Źródło: §11.3.
+- **C-F127 [P/R/T]** Znacznik nowych wiadomości znika po faktycznym pokazaniu wiadomości w rozmowie przez około 500 ms, a nie po preloadzie lub wejściu na dashboard. Źródło: §11.3.
 - **C-F128 [P/R/T]** Nowa wiadomość nie przewija siłą użytkownika czytającego historię; interfejs udostępnia akcję „Nowe wiadomości”. Źródło: §11.3.
 - **C-F129 [R/B]** Historia pokazuje nadawcę i czas wiadomości. Źródło: §11.3.
 - **C-F130 [R/T]** „Wysłano” oznacza trwały zapis wiadomości potwierdzony przez serwer. Źródło: §11.5.
@@ -203,7 +203,7 @@ Stan analizy: **22.10.2026**. Obowiązuje **PRD 3.1 z superadminem i wieloma fir
 - **FR-PUB-015:** dla około 100 pojazdów dopuszczalna pełna przefiltrowana lista; kontrakt danych gotowy na paginację.
 - **FR-PUB-020 — MUST:** galeria: główne i pozostałe zdjęcia, dotyk, klawiatura, alt, bez ładowania wszystkich dużych obrazów naraz.
 - **FR-PUB-021:** szczegóły: marka/model/nazwa, podany rok, kategoria, miejsca, opcjonalne drzwi, skrzynia, paliwo/napęd, bagaż, wyposażenie, pełny opis i opcjonalne warunki.
-- **FR-PUB-022 — opcjonalne ceny:** superadmin przełącza globalnie, czy firma może prezentować ceny. Przy włączonej opcji cena pojazdu jest opcjonalna i może oznaczać cenę „od”, wycenę indywidualną albo brak ceny; przy wyłączonej opcji ceny nie są publiczne. Brak pustej sekcji i „0 zł”. Brak wyliczenia i rozliczania wynajmu.
+- **FR-PUB-022 — opcjonalne ceny:** superadmin przełącza osobno dla każdej firmy, czy ta firma może prezentować ceny. Przy włączonej opcji cena pojazdu jest opcjonalna i może oznaczać cenę „od”, wycenę indywidualną albo brak ceny; przy wyłączonej opcji ceny nie są publiczne. Brak pustej sekcji i „0 zł”. Brak wyliczenia i rozliczania wynajmu.
 - **FR-PUB-023 — MUST:** kalendarz co najmniej bieżącego i następnego miesiąca, kolejne miesiące, legenda, stany z tekstem/symbolem, bez dat przeszłych i bez typu/powodu blokady; czytelność mobile.
 - **FR-PUB-024 — MUST:** walidacja dat; koniec ≥ początek; cały zakres w aktywności auta; brak choćby jednego dnia kolizji.
 - **FR-PUB-025 — MUST:** wynik dostępny: pojazd, daty, zastrzeżenie informacyjności/wymaganego potwierdzenia i kontakt.
@@ -378,6 +378,7 @@ Stan analizy: **22.10.2026**. Obowiązuje **PRD 3.1 z superadminem i wieloma fir
 - **C-N063 [P/B]** Penpot jest źródłem mapowania ekranów; realne page/board/component ID należy odczytać, a brak odnotować bez fikcyjnych identyfikatorów. Źródło: §21.1.
 - **C-N064 [B]** Zachować edytowalne natywne komponenty, instancje i tokeny; nie zastępować biblioteki screenshotami. Źródło: §21.4.
 - **C-N065 [B/T]** Wynik statycznej makiety nie jest dowodem działania backendu, autoryzacji, poczty, DNS/TLS, WebSocket ani backupu. Źródło: §22.3, §24.5.
+- **C-N066 [B/T]** Dostarczenie zdarzeń czatu w czasie rzeczywistym ma docelowo p95 ≤2 s przy normalnym obciążeniu; test obejmuje reconnect i wiele instancji procesu.
 
 ## 5. Mierzalne wymagania jakościowe i eksploatacyjne z B1
 
@@ -391,9 +392,9 @@ Stan analizy: **22.10.2026**. Obowiązuje **PRD 3.1 z superadminem i wieloma fir
 - **§21.3:** miesięczna dostępność ≥99,9% jako cel produktu, kontrolowany błąd/offline, retry odczytu, brak utraty danych wskutek awarii jednego procesu. Nie jest podpisanym SLA.
 - **§27:** logi strukturalne: poziom/czas/środowisko/requestId/operacja/wynik/bezpieczne ID; w 3.1 również firma i aktor/obszar. Monitoring wyjątków, API, renderu, SW, uploadu, DB/storage.
 - Alerty: niedostępność, wzrost 5xx, DB, nieudane kopie, nieudane loginy, limit storage, migracje; healthcheck rozróżnia proces i zależności, bez ujawnienia konfiguracji/sekretów.
-- Backup DB co najmniej codziennie; PITR preferowane; rekomendowana retencja 14–30 dni, kopie logicznie oddzielone i szyfrowane. Zdjęcia: wersjonowanie/ochrona usunięcia, karencja i możliwość restore.
-- Okresowy rzeczywisty test odtworzenia na środowisku nieprodukcyjnym. Bazowe wstępne RPO ≤24 h i RTO „do kilku godzin”; nie ma zatwierdzonej jednej liczby RTO. 3.1 dodatkowo restore jednej firmy bez nadpisywania innych.
-- Retencja logów bezpieczeństwa 90–365 dni podana jako przykład, wymaga finalnej polityki. Archiwizacja firm 3.1 nie oznacza bezterminowych backupów, nie uruchamia purge.
+- Backup DB i mediów co najmniej codziennie, z retencją 30 dni; kopie są logicznie oddzielone i szyfrowane. Cel RPO wynosi 24 h, a RTO 4 h. Zdjęcia mają wersjonowanie/ochronę usunięcia i możliwość restore.
+- Okresowy rzeczywisty test odtworzenia wykonuje się na środowisku nieprodukcyjnym; procedura obejmuje odtworzenie jednej firmy bez nadpisywania innych. Właściciel/operator odpowiada za procedurę i jej test.
+- Logi bezpieczeństwa i audytowe przechowuje się 365 dni, zwykłe logi aplikacyjne 30 dni. Archiwizacja firm 3.1 nie oznacza bezterminowych backupów i nie uruchamia purge.
 
 ### Dostępność, UX, zgodność — PRD 1.0 §21.4–21.9/25
 
@@ -577,15 +578,15 @@ Historyczne scenariusze v2 (15): UC-SAS-01 assisted startup; 02 multi-company; 0
 
 - **D-01 — rozstrzygnięte 23.10.2026:** administrator firmy ma odczyt danych kontaktowych, publicznych, SEO i prawnych, lecz nie może ich zapisywać. Superadmin zapisuje te pola oraz logo, hero, publiczne zdjęcia i branding. Administrator i superadmin mogą zarządzać pojazdami, ich zdjęciami oraz blokadami w kontekście firmy; serwer odmawia pozostałych mutacji niezależnie od UI.
 - **D-02 — rozstrzygnięte 23.10.2026:** publikacja pojazdu wymaga dotychczasowych pól kompletności oraz pełnego, niepustego opisu. Pojazd niespełniający walidacji pozostaje szkicem.
-- **D-03 — rozstrzygnięte 23.10.2026:** kategorie definiuje superadmin. Cena pojazdu jest opcjonalna, ale superadmin ma przełącznik globalnego pokazywania/ukrywania cen. Publiczny kontakt obejmuje telefon, WhatsApp i e-mail. Adres jest pełny i ma mapę. Treści prawne Autervy i firmy są osobnymi treściami. Hero obsługuje wiele obrazów, logo i tekst.
+- **D-03 — rozstrzygnięte 23.10.2026:** kategorie definiuje superadmin. Cena pojazdu jest opcjonalna, a superadmin ma osobny dla każdej firmy przełącznik pokazywania/ukrywania cen. Publiczny kontakt obejmuje telefon, WhatsApp i e-mail. Adres jest pełny i ma mapę. Treści prawne Autervy i firmy są osobnymi treściami. Hero obsługuje wiele obrazów, logo i tekst.
 - **D-04 — rozstrzygnięte 23.10.2026:** pojazd ma maksymalnie 30 zdjęć; jedno zdjęcie maksymalnie 10 MB i 12 000 × 12 000 px; wiadomość czatu maksymalnie 4 000 znaków; zakres dostępności maksymalnie 365 dni. Bazowe limity ruchu opisano przy C-N038 i są konfigurowalne po teście obciążenia; nie są limitami handlowymi.
 - **D-05 — rozstrzygnięte 23.10.2026:** MVP ma dokładnie jednego superadmina. Pierwsze konto tworzy jednorazowa interaktywna komenda administracyjna uruchamiana tylko przy pustej bazie; hasło nie trafia do argumentów ani repozytorium, konto wymaga enrolmentu TOTP i jednorazowych kodów odzyskania. Odzyskanie dostępu wymaga ręcznej procedury właściciela, unieważnienia sesji i pełnego audytu.
 - **D-06 — rozstrzygnięte 23.10.2026:** archiwizowana firma nie wchodzi do dwóch głównych KPI, nawet z przyszłą datą opłaty; może być pokazana osobno. Firma jest liczona najwyżej raz, a przy trialu i opłacie jednocześnie KPI traktuje ją zgodnie z efektywnym okresem.
 - **D-07 — rozstrzygnięte 23.10.2026:** przypomnienia są wysyłane o 09:00 `Europe/Warsaw` w terminach 7 dni, 1 dzień i dzień wygaśnięcia. Po przedłużeniu lub skróceniu harmonogram przelicza się od nowa; po awarii worker nadrabia zaległe zdarzenie najwyżej raz. DST jest liczone w strefie produktu.
-- **D-08 — szkice czatu:** trwałość po zamknięciu karty/przeglądarki, czyszczenie po wylogowaniu, długość sygnału typing, szczegółowa definicja read i docelowe opóźnienie realtime. To nie upoważnia do wysyłki offline.
-- **D-09 — domeny i hosting:** rzeczywiste adresy, publicDomainAutervy, dostawcy DNS/TLS/bazy/storage/poczty i docelowy profil obciążenia wielu firm. Domeny `.example` są wyłącznie przykładami.
-- **D-10 — eksploatacja:** finalne RPO/RTO, retencja logów/backupów i procedury prawne; bazowe cele i rekomendacje nie są umową SLA. Ustalić odpowiedzialność za odzyskiwanie dostępu/firmy.
-- **D-11 — aktywacja po końcu opłaty:** poprawna rejestracja nie może błędnie potwierdzać działającej oferty; przygotować copy i stan zakończenia dla wygasłego uprzednio okresu.
+- **D-08 — rozstrzygnięte 23.10.2026:** szkic czatu jest trwały w lokalnym storage przeglądarki, osobno dla `(accountId, conversationId)`, przetrwa restart karty/przeglądarki i jest usuwany przy wylogowaniu. Nie ma wysyłki offline. `typing` wygasa po 3 s i jest wysyłany najwyżej raz na sekundę. `read` zapisuje się po widoczności wiadomości przez około 500 ms. Docelowe p95 dostarczenia realtime wynosi maksymalnie 2 s.
+- **D-09 — rozstrzygnięte dla etapu startowego 23.10.2026:** development/preview używa hostów dostawcy, bez zakupu domeny. Darmowy [Render](https://render.com/docs/free) może służyć wyłącznie do krótkotrwałych preview; darmowa baza Render nie jest produkcyjna (usypianie usługi, efemeryczny dysk, baza wygasa po 30 dniach i nie ma backupów). Media przechowuje się w [Cloudflare R2](https://developers.cloudflare.com/r2/pricing/), a DNS/TLS obsługuje Cloudflare. Produkcja przechodzi na zarządzany kontener Node, zarządzany PostgreSQL z backupami/PITR i pocztę transakcyjną, gdy preview ma zostać użyte przez klientów. Faktyczna domena produkcyjna pozostaje do wpisania przez właściciela; nie używać domen `.example` jako konfiguracji.
+- **D-10 — rozstrzygnięte 23.10.2026:** RPO 24 h, RTO 4 h, backup DB/mediów codziennie z retencją 30 dni, logi bezpieczeństwa/audyt 365 dni, zwykłe logi aplikacyjne 30 dni. Właściciel/operator odpowiada za procedurę restore i jej okresowy test.
+- **D-11 — rozstrzygnięte 23.10.2026:** po wygaśnięciu usługi konto i panel pozostają aktywne, a panel pokazuje: „Konto aktywne. Publiczna oferta jest obecnie wyłączona. Skontaktuj się z Autervą w sprawie uruchomienia okresu usługi.” Flota i czat pozostają dostępne.
 - **D-12 — projekt a kod:** brak scaffoldingu aplikacji, manifestu zależności, lockfile, testów integracji stosu i ostatecznej macierzy wersji. Repozytorium jest bazą dokumentacji i kontraktów implementacyjnych; demonstrator usunięto przy porządkowaniu. [ADR-0002](adr/0002-version-validation.md) pozostaje otwarte.
 - **D-13 — mapowanie Penpota:** 7 nieodnalezionych odwołań do boardów OVR-14/15/17 oraz 52 puste cele interakcji; dokładny wykaz w załączniku A architektury. Nie oznacza to usunięcia tych funkcji z wymagań.
 - **D-14 — rozstrzygnięte 23.10.2026:** firma jest publiczna, jeśli ma ważny trial lub ważny okres opłacony. Przy obu okresach główny stan pokazuje „opłacono do”; firma jest liczona tylko raz w KPI, a przypomnienia dotyczą okresu wyznaczającego faktyczną datę wygaśnięcia. Wygaśnięcie trialu nie odcina ważnej opłaty.
