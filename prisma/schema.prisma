@@ -178,6 +178,17 @@ model Verification {
   @@map("verification")
 }
 
+model RateLimitEvent {
+  id         String   @id @default(uuid()) @db.Uuid
+  keyHash    String   @db.VarChar(64)
+  occurredAt DateTime @db.Timestamptz(6)
+  expiresAt  DateTime @db.Timestamptz(6)
+  state      String   @default("COMMITTED")
+
+  @@index([keyHash, occurredAt])
+  @@index([expiresAt])
+}
+
 model TwoFactor {
   id                      String    @id
   secret                  String
