@@ -8,7 +8,7 @@ const incoming = z.discriminatedUnion("type", [
   z.object({ type: z.literal("resume") }),
 ]);
 
-type ResolveTenant = (headers: Headers) => Promise<string | null>;
+type ResolveTenant = (headers: Headers, expectedHost: string) => Promise<string | null>;
 
 export async function startRealtimeServer(db: PrismaClient, resolveTenant: ResolveTenant, port = 0) {
   const server: HttpServer = createServer((_request, response) => {
@@ -18,26 +18,30 @@ export async function startRealtimeServer(db: PrismaClient, resolveTenant: Resol
   const sockets = new WebSocketServer({ noServer: true, maxPayload: 8_192 });
 
   server.on("upgrade", (request, socket, head) => {
+    const address = server.address();
+    if (!address || typeof address === "string") { socket.destroy(); return; }
+    const expectedHost = `127.0.0.1:${address.port}`;
     const organizationId = new URL(request.url ?? "/", "http://localhost").searchParams.get("organizationId");
-    if (!organizationId || !z.uuid().safeParse(organizationId).success || request.url?.split("?", 1)[0] !== "/ws") {
+    if (request.headers.host !== expectedHost || !organizationId || !z.uuid().safeParse(organizationId).success || request.url?.split("?", 1)[0] !== "/ws") {
       socket.destroy();
       return;
     }
     const headers = new Headers();
     if (request.headers.cookie) headers.set("cookie", request.headers.cookie);
     if (request.headers.origin) headers.set("origin", request.headers.origin);
-    void resolveTenant(headers).then((tenant) => {
+    headers.set("host", request.headers.host);
+    void resolveTenant(headers, expectedHost).then((tenant) => {
       if (tenant !== organizationId) { socket.destroy(); return; }
       sockets.handleUpgrade(request, socket, head, (connection) => {
-        sockets.emit("connection", connection, { organizationId, headers });
+        sockets.emit("connection", connection, { organizationId, headers, expectedHost });
       });
     }).catch(() => socket.destroy());
   });
 
-  sockets.on("connection", (connection: WebSocket, context: { organizationId: string; headers: Headers }) => {
+  sockets.on("connection", (connection: WebSocket, context: { organizationId: string; headers: Headers; expectedHost: string }) => {
     connection.on("message", (raw) => {
       void (async () => {
-        if (await resolveTenant(context.headers) !== context.organizationId) { connection.close(4401); return; }
+        if (await resolveTenant(context.headers, context.expectedHost) !== context.organizationId) { connection.close(4401); return; }
         let parsed: unknown;
         try { parsed = JSON.parse(raw.toString()); } catch { connection.send(JSON.stringify({ type: "error", code: "INVALID_MESSAGE" })); return; }
         const message = incoming.safeParse(parsed);

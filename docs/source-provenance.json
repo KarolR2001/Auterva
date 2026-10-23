@@ -32,11 +32,11 @@
   "derivedDocuments": [
     {
       "path": "docs/WYMAGANIA_AUTERVA.md",
-      "sha256": "d051ec5cfe6d175419d90de4615755f2724d42f5d051e6f4dc0616376870e861"
+      "sha256": "a21297690aca55d505c0c8f015274040dc5fd8496c9b6ec46ef9c1e528614091"
     },
     {
       "path": "docs/ARCHITEKTURA_AUTERVA.md",
-      "sha256": "107d9adc60da542ae88a9ba58eba7506474eb4e1f4886d0740b3a7cb48517bd4"
+      "sha256": "d39c1551eaf606742b42f333334505ea19bfb4539dc77a79db3b84b4209bf3a6"
     },
     {
       "path": "docs/adr/0001-penpot.md",
@@ -44,7 +44,7 @@
     },
     {
       "path": "docs/adr/0002-version-validation.md",
-      "sha256": "e9b827ff77a977750e5d6815e66192508ab57fb901d033e2ae233b5f5ca5ff65"
+      "sha256": "2ebf0dc346dee1cca95e495e1d2a34fabbc6b2f987ffe5d96c29dcd635daffe3"
     },
     {
       "path": "docs/contracts/company-settings-and-vehicle-publication.md",
@@ -61,6 +61,10 @@
     {
       "path": "docs/contracts/technical-limits-and-mfa-bootstrap.md",
       "sha256": "0f7fc1711e52b92fbc1ea9323e48f7499b4d1597a0a89880660a5523f9a108c9"
+    },
+    {
+      "path": "docs/contracts/data-model-and-migrations.md",
+      "sha256": "3df3a9f1632d7c13ee9456165cc4ac2c45f06c1abeb79006e30deed117a01b1a"
     }
   ],
   "historicalSourcesOutsideRepository": [

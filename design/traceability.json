@@ -3,6 +3,56 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 5,
+      "scope": "Lokalna próba stosu i minimalne fixture; nie pełne moduły produktu.",
+      "relatedRequirementIds": ["D-12", "C-R001", "C-N060"],
+      "codePaths": [
+        "package.json",
+        "prisma/schema.prisma",
+        "src/app/api/auth/[...all]/route.ts",
+        "src/app/sw.ts",
+        "src/modules/chat/resolve-tenant.ts",
+        "src/server/realtime.ts",
+        "src/server/worker.ts"
+      ],
+      "testPaths": [
+        "tests/unit/env.test.ts",
+        "tests/integration/auth.test.ts",
+        "tests/integration/database.test.ts",
+        "tests/integration/invitation.test.ts",
+        "tests/integration/realtime.test.ts",
+        "tests/integration/tenancy.test.ts",
+        "tests/e2e/auth-host.spec.ts",
+        "tests/e2e/pwa.spec.ts"
+      ]
+    },
+    {
+      "issue": 8,
+      "scope": "Model domenowy i migracje PostgreSQL z izolacją firm; bez endpointów produktu.",
+      "relatedRequirementIds": ["C-F009", "C-F010", "C-N006", "C-N021", "C-N022", "C-N023", "C-N024", "C-N025", "C-N026", "C-N027", "C-R021"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261023220500_domain_schema_issue_8/migration.sql",
+        "prisma/migrations/20261023221100_trial_immutable_issue_8/migration.sql",
+        "prisma/migrations/20261023221400_first_registration_immutable_issue_8/migration.sql",
+        "prisma/migrations/20261023222000_schema_boundaries_issue_8/migration.sql"
+      ],
+      "testPaths": ["tests/integration/schema-contract.test.ts"]
+    },
+    {
+      "issue": 9,
+      "scope": "Izolowane usługi lokalne i deterministyczna fixture A/B; pełne przepływy produktu należą do kolejnych modułów.",
+      "relatedRequirementIds": ["C-N061", "C-N062"],
+      "codePaths": [
+        "scripts/local-fixture.sh",
+        "scripts/fixture-safety.ts",
+        "scripts/fixture-ids.ts",
+        "scripts/seed-local-fixture.ts",
+        "scripts/seed-local-access.ts"
+      ],
+      "testPaths": ["tests/unit/local-fixture.test.ts", "tests/integration/local-fixture.test.ts"]
+    },
+    {
       "issue": 11,
       "scope": "Podstawowe komponenty pierwszych ekranów; integracja aplikacji pozostaje zależna od #5.",
       "relatedRequirementIds": [
