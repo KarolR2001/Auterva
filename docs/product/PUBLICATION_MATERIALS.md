@@ -24,6 +24,7 @@ Stan inwentaryzacji: 23.10.2026. Ten rejestr oddziela zatwierdzone **reguły pro
 | Telefon, WhatsApp, e-mail Autervy | WYMAGA | — | — | — | — | Właściciel podaje prawdziwe kanały i preferowany kontakt; sprawdzić działanie odnośników. |
 | Logo Autervy | WYMAGA | — | — | — | — | Potwierdzić autorstwo, prawo do użycia i finalny wariant. |
 | Polityka prywatności Autervy | WYMAGA w stopce/odnośniku | — | — | — | — | Finalna, zatwierdzona treść właściwa operatorowi Autervy; wskazać datę i dane kontaktowe. |
+| Meta title/description Autervy i alt użytych mediów | WYMAGA | — | — | — | — | Właściciel zatwierdza teksty zgodne z rzeczywistą ofertą i finalnymi obrazami. |
 | Nazwa, opis, hero: tekst i wiele obrazów firmy | — | WYMAGA | — | możliwy obraz | — | Konkretna firma: finalne brzmienie, pliki, autorstwo/licencja, zgoda na publiczne użycie; superadmin wprowadza. |
 | Logo firmy | — | WYMAGA | WYMAGA w kontekście oferty | WYMAGA | — | Konkretna firma: plik i prawo do publicznego użycia; superadmin wprowadza. |
 | Kategorie i dane pojazdów | — | WARUNKOWO: wyróżnione | WARUNKOWO: opublikowane pojazdy | — | — | Superadmin zatwierdza słownik kategorii; rzeczywiste dane/zdjęcia każdej firmy. Pusta aktywna oferta pokazuje zapowiedź, nie fikcyjne auta. |
@@ -32,6 +33,7 @@ Stan inwentaryzacji: 23.10.2026. Ten rejestr oddziela zatwierdzone **reguły pro
 | Pełny adres i mapa firmy | — | WARUNKOWO w sekcji kontaktowej | — | WYMAGA | — | Konkretna firma potwierdza adres i poprawny punkt/odnośnik mapy. Nie wskazywać fikcyjnej lokalizacji. |
 | Polityka prywatności firmy | — | odnośnik | odnośnik, jeśli obecny | odnośnik | WYMAGA: PUB-05 | Treść prawna zatwierdzona dla tej wypożyczalni, z datą i właściwym administratorem danych. |
 | Regulamin / zasady najmu firmy | — | WARUNKOWO: odnośnik | WARUNKOWO: odnośnik | WARUNKOWO: odnośnik | WARUNKOWO: PUB-06 | Decyzja firmy o wariancie; zatwierdzona treść lub URL. Jeśli brak, nie renderować pozornego dokumentu. |
+| Meta title/description firmy i alt użytych mediów | — | WYMAGA | WYMAGA dla opublikowanych pojazdów | WYMAGA dla zdjęć | — | Finalny tekst przypisany do firmy i rzeczywistych zdjęć; superadmin wprowadza dane SEO. |
 
 Zgodnie z D-01 superadmin zapisuje publiczne dane, SEO i treści prawne firmy; administrator firmy ma do nich odczyt. Ten rejestr opisuje źródła materiałów, a nie zmienia uprawnień lub walidacji z #1.
 
@@ -61,7 +63,7 @@ Poniższe krótkie teksty są propozycjami redakcyjnymi opartymi na PRD, nie zat
 
 ## Checkpoint i blokada publikacji
 
-Stan `BRAK`: finalna lista kategorii, dane oferty i zasady cen dla firm, decyzje o widoczności cen, prawdziwe kanały/adresy/mapy, zatwierdzone copy Autervy i firm, produkcyjne logo/hero/zdjęcia z prawami, obie polityki prywatności oraz wariant regulaminu firmy. Nie ma dowodu przedstawienia i akceptacji materiałów konkretnej firmy poza aplikacją. D-03 określa **strukturę** tych danych i nie wymaga ponownej decyzji o ogólnych zasadach.
+Stan `BRAK`: finalna lista kategorii, dane oferty i zasady cen dla firm, decyzje o widoczności cen, prawdziwe kanały/adresy/mapy, zatwierdzone copy i SEO Autervy i firm, produkcyjne logo/hero/zdjęcia z prawami, obie polityki prywatności oraz wariant regulaminu firmy. Nie ma dowodu przedstawienia i akceptacji materiałów konkretnej firmy poza aplikacją. Szczegółowy pakiet wejściowy i dowody akceptacji prowadzi [#81](https://github.com/KarolR2001/Auterva/issues/81); po jego dostarczeniu #6 może zweryfikować i odwzorować faktyczne materiały. D-03 określa **strukturę** tych danych i nie wymaga ponownej decyzji o ogólnych zasadach.
 
 Warunek odblokowania danego obszaru: dostarczono przypisany materiał i źródło, potwierdzono prawo/zgodę oraz finalny tekst; treść prawna ma rzeczywiste zatwierdzenie dla właściwej działalności. Dla firmy potwierdzono także zewnętrzną akceptację wyglądu przed prerejestracją. Nie trzeba tworzyć fikcyjnej firmy do zamknięcia dokumentacji, ale bez jej materiałów nie wolno ogłaszać gotowości jej strony do publikacji.
 
