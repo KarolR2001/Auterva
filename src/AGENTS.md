@@ -1,0 +1,20 @@
+# Implementacja Autervy — MVP 3.1
+
+- Źródła: `docs/WYMAGANIA_AUTERVA.md`, `docs/ARCHITEKTURA_AUTERVA.md`, aktualny PRD 3.1 wskazany w tych dokumentach oraz `docs/development/WORKFLOW.md`. Starsze założenie jednej firmy nie obowiązuje.
+- To miejsce przyszłej aplikacji. Brak manifestu, lockfile, modułu lub działającego API zgłaszaj jako brak; instrukcja i makieta nie są implementacją. Przed scaffoldem wykonaj sprawdzenia ADR-0002.
+- Pracuj na jednym uzgodnionym issue i zakresie plików; nie nadpisuj równoległych zmian. Wiąż wymaganie, ekran, kod i test w `design/traceability.json` bez fikcyjnych dowodów.
+- Jeden modularny monolit: prezentacja/transport → use cases → domena → infrastruktura. Moduły: tenancy, auth, organizations, invitations, service-access, domains, fleet, availability, media, settings, chat, audit.
+- Cztery obszary: marketing Autervy, panel `SUPERADMIN_AUTERVA`, panel `ADMIN_FIRMY`, publiczna oferta firmy. Host wskazuje obszar i firmę; każda operacja serwerowa sprawdza też sesję, rolę i zgodność zasobu z firmą.
+- Jedna firma ma jednego aktywnego admina; konto obsługuje jedną firmę, e-mail jest globalnie unikalny. Superadmin obsługuje firmę pod własną tożsamością w widokach zagnieżdżonych pod jej kartą.
+- Bez kont najemców, rezerwacji online, płatności, pakietów, zespołów, przełączania organizacji i impersonation. Kontakt nie tworzy klienta ani rezerwacji.
+- Publiczną treść renderuj na serwerze; Client Components ogranicz do interakcji. Prisma, sekrety, prywatne rekordy i decyzje autoryzacyjne pozostają na serwerze.
+- Wejścia waliduj Zod i allowlistą pól. Mutacje realizują use cases; zapis domenowy, audyt i wymagany outbox mają spójną transakcję. Publiczne DTO nie zawierają typu blokady, `internalNote`, `reference`, operatorów, czatu i okresów usługi.
+- Koniec opłaty/trialu odcina wszystkie publiczne odczyty firmy, lecz pozostawia panel i czat. Archiwizacja zachowuje dane, blokuje dostęp admina firmy i publiczną ofertę. Przywrócenie loginu i odblokowanie publikacji to osobne operacje.
+- Trial trwa 336 godzin od pierwszej skutecznej rejestracji; opłacony dzień kończy się w Europe/Warsaw. GET, resend i retry nie rozpoczynają nowego trialu. Nakładanie okresów rozstrzygnij według D-14 przed implementacją tego wariantu.
+- Zapis ma stabilne kody błędów, ochronę przed podwójnym wysłaniem i bezpieczne retry. Konflikt wersji admin–superadmin nie może cicho nadpisywać danych; formularz zachowuje wartości.
+- Media: rzeczywisty typ, limity i własność; losowe klucze, warianty, alt i wymiary. Publiczny URL/cache nie może obchodzić ukrycia pojazdu ani wygaśnięcia firmy. Spornych uprawnień do ustawień z D-01 nie rozszerzaj domysłem.
+- Cache rozróżnia firmę, obszar i parametry. Nie cache'uj publicznie auth, panelu, czatu ani starego pozytywnego wyniku dostępności. Aktualność sprawdzaj w oddzielnym publicznym kontekście po zapisie.
+- Czat: tekstowy WebSocket, typing/read, unread i szkic per rozmowa; bez załączników i e-maili czatu. Potwierdzenie wysyłki dopiero po trwałym zapisie. Zaproszenia/reset/przypomnienia usługi są osobną pocztą transakcyjną.
+- PWA: `/admin` na hoście firmy, bez prywatnych cache, kolejki offline i fałszywego zapisu. Aktualizacja nie gubi formularza. Serwist dobierz do bundlera; nie kopiuj bez oceny `defaultCache` ani `skipWaiting: true`.
+- Stos i wersje potwierdzaj w manifeście, lockfile oraz dokumentacji zainstalowanych pakietów; dla Next.js najpierw `node_modules/next/dist/docs/`. Nie aktualizuj major wyłącznie na podstawie skilla.
+- Uruchom bramki z `docs/quality-gates.md` odpowiednie do zmiany. Testów izolacji i współbieżności nie zastępuj mockiem, SQLite ani recenzją subagenta.

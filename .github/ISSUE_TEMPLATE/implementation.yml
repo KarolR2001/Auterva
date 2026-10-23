@@ -1,0 +1,63 @@
+name: Zadanie implementacyjne lub QA
+description: Jeden rezultat Autervy, wymagania, zależności i dowody odbioru.
+title: "[Zadanie] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        MVP 3.1 z superadminem i wieloma firmami; zasady w docs/development/WORKFLOW.md.
+        Rola nie przypisuje konta GitHub. Podaj faktyczne źródła, bez sekretów i danych produkcyjnych.
+  - type: dropdown
+    id: role
+    attributes:
+      label: Rola wiodąca
+      options:
+        - Backend
+        - Frontend
+        - QA
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Oczekiwany rezultat i zakres
+      description: Co uzyska użytkownik/system; host, rola, moduł, pliki i granice zadania.
+    validations:
+      required: true
+  - type: textarea
+    id: requirements
+    attributes:
+      label: Wymagania i źródła
+      description: ID C-*, REQ-MVP-*, FR-*, UC/TEST-MVP oraz konkretne dokumenty/decyzje.
+    validations:
+      required: true
+  - type: textarea
+    id: design
+    attributes:
+      label: Referencja Penpota i stany UI
+      description: File/page/board/component ID, stan, fixture, viewport; dla zadania bez UI wpisz „nie dotyczy” z powodem.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Zależności, kontrakty i decyzje
+      description: Istniejące issue/PR, kontrakt BE/FE, D-xx; jeśli brak, wpisz „brak”. Relację blocked by ustaw osobno.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Kryteria akceptacji
+      description: Sprawdzalne zachowania, błędy, uprawnienia i izolacja firm odpowiednio do zakresu.
+      placeholder: |
+        - [ ] ...
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Plan weryfikacji i przekazania do QA
+      description: Testy/komendy, role/fixture, build/środowisko, porównanie Penpot i artefakty. Plan nie jest wynikiem testu.
+    validations:
+      required: true

@@ -1,0 +1,7 @@
+[
+  {"name": "role:frontend", "color": "1D76DB", "description": "Wiodący zakres: interfejs i integracja widoków"},
+  {"name": "role:backend", "color": "5319E7", "description": "Wiodący zakres: domena, API, baza i integracje"},
+  {"name": "role:qa", "color": "0E8A16", "description": "Wiodący zakres: testy, odbiór i porównanie Penpot"},
+  {"name": "type:implementation", "color": "C5DEF5", "description": "Ograniczone zadanie implementacji lub weryfikacji"},
+  {"name": "type:bug", "color": "D73A4A", "description": "Odtwarzalna niezgodność działania lub wyglądu"}
+]

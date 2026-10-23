@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 122 48" fill="none">
+  <title>Auterva</title>
+  <path
+    fill="currentColor"
+    fill-rule="evenodd"
+    d="M4.5 34 12.6 14h3.8l8.1 20h-4.6l-1.8-4.5h-7.2L9.1 34H4.5Zm10-13.9-2.1 5.7h4.2l-2.1-5.7Z"
+  />
+  <text
+    x="30.5"
+    y="34"
+    fill="currentColor"
+    font-family="Inter Tight, Inter, sans-serif"
+    font-size="18"
+    font-weight="700"
+    letter-spacing="0.6"
+    textLength="86.421875"
+    lengthAdjust="spacingAndGlyphs"
+  >AUTERVA</text>
+</svg>

@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 2,
+  "updatedAt": "2026-10-23",
+  "note": "Repozytorium dokumentacji i kontraktów MVP 3.1. Źródłowe treści PRD zachowano dosłownie pod jawnymi preambułami. Dokumenty syntezy i SPEC zaktualizowano jawnie; historyczne materiały V2/V30 i artefakty designu nie są zależnościami implementacji.",
+  "sources": [
+    {
+      "originalName": "Auterva_PRD_MVP_Uproszczony_v3_1.md",
+      "path": "docs/product/PRD.md",
+      "role": "canonical-product",
+      "originalSha256": "9d05874ede3275826c15c6fd217d221cb267a87df12fb3d5574f412a899dc775",
+      "sha256": "620383617356245f009352ff6a569cc127aaf728fa309f8c6e2537d1ede3646f",
+      "transformation": "Dodano wyłącznie preambułę pierwszeństwa U3/U4, aktualnych ścieżek i znanych rozbieżności; całe źródło 3.1 pozostaje niezmienionym sufiksem pliku."
+    },
+    {
+      "originalName": "PRD_system_wynajmu_pojazdow(2).md",
+      "previousPath": "docs/product/PRD.md",
+      "path": "docs/product/BASELINE_FLEET.md",
+      "role": "archived-fleet-baseline",
+      "originalSha256": "c119c3c96b994b8b543306f380395da2bd21529211b5d4a80e2d4f5e1b7701a7",
+      "sha256": "06ccd181788552c5ae58d1b15dac0c52c545288a9bae4a6eaafa38acac405980",
+      "transformation": "Dodano preambułę archiwalnego kontraktu FR/UC podległego 3.1; oryginalna treść 1.0 zachowana bez zmian."
+    },
+    {
+      "originalName": "Auterva_specyfikacja_makiet_i_design_system(1).md",
+      "path": "docs/design/SPEC.md",
+      "role": "current-design-contract",
+      "originalSha256": "57f6591f985e33c7ea225f84b9fa2ac298ff852c2843fb1c54994991608b2027",
+      "sha256": "31444bc54e09d40aa217b2f3894799be852aa1bdff6b52335b891a5ad1428ad7",
+      "transformation": "Dodano nadrzędny kontrakt 3.1 i DEC-013–020, aktualne strony Penpota, obowiązkowe MFA, granice ustawień i status prototypów; zachowano fundamenty/komponenty i przeniesiono reguły motion/copy bez historycznych wyników QA."
+    }
+  ],
+  "derivedDocuments": [
+    {
+      "path": "docs/WYMAGANIA_AUTERVA.md",
+      "sha256": "335a4554f95cd9afff15c5243427988b3993b9c213805b4c3859893f03b68bdc"
+    },
+    {
+      "path": "docs/ARCHITEKTURA_AUTERVA.md",
+      "sha256": "ebffc9e49c09502bea9cbaa4c621b46dde767903f1710b49c311ea1820d581d6"
+    },
+    {
+      "path": "docs/adr/0001-penpot.md",
+      "sha256": "2ff49b03001c5ebf76997549d49e0cf4b1921341a5888dbbeca034604f2862f4"
+    },
+    {
+      "path": "docs/adr/0002-version-validation.md",
+      "sha256": "e9b827ff77a977750e5d6815e66192508ab57fb901d033e2ae233b5f5ca5ff65"
+    }
+  ],
+  "historicalSourcesOutsideRepository": [
+    {
+      "originalName": "Auterva_PRD_MVP_Uproszczony_v3_ROBOCZY.md",
+      "role": "superseded-draft",
+      "sha256": "0a620ac7bf0ff2a7baeb1a9e636373f0a7f1b6ed05874cf3c9f69e59f92ec679"
+    },
+    {
+      "originalName": "Auterva_PRD_SaaS_Multi_Tenant_v2.md",
+      "role": "superseded-saas-scope",
+      "sha256": "d58c225ba6391e7196781e70dd608988fac9709cd5372557dcfdd85c8fcd6435"
+    }
+  ]
+}

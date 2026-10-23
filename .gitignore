@@ -1,0 +1,43 @@
+# Dependencies and builds
+node_modules/
+.next/
+out/
+dist/
+build/
+.turbo/
+.cache/
+*.tsbuildinfo
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+!.env.*.example
+.codex/config.toml
+.codex/auth.json
+.mcp.json
+mcp_config.json
+*.pem
+*.key
+
+# Generated verification artifacts
+coverage/
+playwright-report/
+test-results/
+.playwright-cli/
+__pycache__/
+*.py[cod]
+*.log
+tmp/
+.DS_Store
+.idea/
+.vscode/
+
+# Local database and backups
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.bak
+
+# Project skills and skills-lock.json are intentionally tracked.

@@ -1,0 +1,55 @@
+name: Błąd lub niezgodność z wymaganiem
+description: Odtwarzalny objaw, środowisko, wymaganie i dowody.
+title: "[Błąd] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Opisz fakt, nie niezweryfikowaną przyczynę. Fixture, bez tokenów i danych prawdziwych firm.
+        Dla dokumentacji/makiety podaj plik/board i datę odczytu zamiast fikcyjnej wersji aplikacji.
+  - type: input
+    id: environment
+    attributes:
+      label: Commit/build lub wersja źródła i środowisko
+      description: Dokładny commit/build, środowisko, host/obszar, rola, przeglądarka/system; dla UI również viewport.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Kroki i dane do odtworzenia
+      description: Warunki początkowe, fixture, akcje i częstotliwość.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Wynik rzeczywisty i wpływ
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Wynik oczekiwany i źródło
+      description: ID wymagania, link/ścieżka; przy rozbieżności wizualnej realny board ID Penpota.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Dowody i zakres sprawdzenia
+      description: Test, requestId, zrzut/trace bez sekretów; dla UI render i wzorzec. Oznacz niesprawdzone przypadki.
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Zaobserwowany wpływ
+      description: Priorytet i rola wykonania są ustalane w triage, bez automatycznego przypisania.
+      options:
+        - Utrata lub ujawnienie danych albo obejście uprawnień
+        - Kluczowy proces jest zablokowany
+        - Błąd funkcji z możliwym obejściem
+        - Niezgodność wizualna lub treści
+    validations:
+      required: true

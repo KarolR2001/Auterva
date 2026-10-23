@@ -1,0 +1,2638 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-13T08:15:29.274Z",
+  "notice": "Syntetyczne materiały demonstracyjne do implementacji i testów wizualnych, nie rzeczywista flota. Pliki wskazane przez archivedOriginal.archivedPath są poza repozytorium. Zachowano pochodzenie i hashe; samo to nie stanowi odrębnej licencji. Warianty z variants.path istnieją w repozytorium.",
+  "counts": {
+    "fleetVehicles": 8,
+    "fleetImages": 32,
+    "heroImages": 2,
+    "publicMarketingImages": 3,
+    "totalVariants": 152,
+    "archivedOriginals": 37
+  },
+  "assets": [
+    {
+      "id": "hero-desktop",
+      "usage": [
+        "homepage-hero-desktop"
+      ],
+      "focalPointPercent": {
+        "x": 72,
+        "y": 56
+      },
+      "alt": "Szampańsko-szary samochód demonstracyjny na tarasie z panoramą miasta.",
+      "variants": [
+        {
+          "path": "design/assets/generated/hero/hero-desktop-768w.avif",
+          "format": "avif",
+          "width": 768,
+          "height": 432,
+          "bytes": 24019,
+          "sha256": "6953ae6cccb13b3638250d7da0082b6a259f16c13acb4ac7aab8642beda7f7bb"
+        },
+        {
+          "path": "design/assets/generated/hero/hero-desktop-768w.webp",
+          "format": "webp",
+          "width": 768,
+          "height": 433,
+          "bytes": 31342,
+          "sha256": "4abc853d1634596f255349d8d6e599dac08f43965e2c11ebd50bf4492da752c4"
+        },
+        {
+          "path": "design/assets/generated/hero/hero-desktop-1280w.avif",
+          "format": "avif",
+          "width": 1280,
+          "height": 720,
+          "bytes": 55786,
+          "sha256": "04497f3da1bd0f7a96d50149ebc3eb4d6cf4b27b681a4c7a4de4651d6a089328"
+        },
+        {
+          "path": "design/assets/generated/hero/hero-desktop-1280w.webp",
+          "format": "webp",
+          "width": 1280,
+          "height": 721,
+          "bytes": 68644,
+          "sha256": "eec94cb283cd71004866c2db5aef9f012f34b8271bc605c36229653e3f722827"
+        },
+        {
+          "path": "design/assets/generated/hero/hero-desktop-1672w.avif",
+          "format": "avif",
+          "width": 1672,
+          "height": 942,
+          "bytes": 81754,
+          "sha256": "4e2cec98b502e5c493f7899e71ef0ff2e1ff30d6d3aaea397648e1dae74f43c9"
+        },
+        {
+          "path": "design/assets/generated/hero/hero-desktop-1672w.webp",
+          "format": "webp",
+          "width": 1672,
+          "height": 941,
+          "bytes": 118356,
+          "sha256": "e4c1e30ac8bba8e6ba0d94aa179617632ab1d3170cf4a09da82ba9f78631c9ab"
+        }
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "recorded",
+        "prompt": "Create a desktop 16:9 website hero featuring the exact fictional unbranded champagne-grey premium fastback; car in the right 48%, calm mid-dark copy-safe area in the left 42%, restrained architectural terrace, warm late-afternoon light and distant old-town skyline; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [
+          "demo-v05-front-3q"
+        ],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1672,
+        "height": 941,
+        "aspectRatio": "1672:941",
+        "bytes": 2109988,
+        "sha256": "4a08fccbf0cde3ac9e017b4eff58a8e3db7d39cae29923ebbb2edb893a476880",
+        "archivedPath": "design/assets/originals/hero/hero-desktop.png"
+      }
+    },
+    {
+      "id": "hero-mobile",
+      "usage": [
+        "homepage-hero-mobile"
+      ],
+      "focalPointPercent": {
+        "x": 53,
+        "y": 72
+      },
+      "alt": "Szampańsko-szary samochód demonstracyjny pod wieczornym niebem, kadr mobilny.",
+      "variants": [
+        {
+          "path": "design/assets/generated/hero/hero-mobile-390w.avif",
+          "format": "avif",
+          "width": 390,
+          "height": 694,
+          "bytes": 19369,
+          "sha256": "33ac812c0026792b8d7dc89651ec342867a1c58a8ec1372761d685d789b4c148"
+        },
+        {
+          "path": "design/assets/generated/hero/hero-mobile-390w.webp",
+          "format": "webp",
+          "width": 390,
+          "height": 694,
+          "bytes": 24612,
+          "sha256": "29d4fd4e56f3296bcd424d25946355d765db21e57010fd09ae94baca5654623a"
+        },
+        {
+          "path": "design/assets/generated/hero/hero-mobile-780w.avif",
+          "format": "avif",
+          "width": 780,
+          "height": 1388,
+          "bytes": 57440,
+          "sha256": "1d6204f817c5f70d055ced83cba524980d584218e976be6b1f1640a31208d384"
+        },
+        {
+          "path": "design/assets/generated/hero/hero-mobile-780w.webp",
+          "format": "webp",
+          "width": 780,
+          "height": 1388,
+          "bytes": 68982,
+          "sha256": "62678a786f1e06a18033c847dc098abc67de9bfe9f61b2eddc0e926faa71f1d9"
+        },
+        {
+          "path": "design/assets/generated/hero/hero-mobile-940w.avif",
+          "format": "avif",
+          "width": 940,
+          "height": 1672,
+          "bytes": 74088,
+          "sha256": "7df3f43ee953aead676ab8de82cec9ecda8cff1006e5aa61d67bcd0ad19e1bb1"
+        },
+        {
+          "path": "design/assets/generated/hero/hero-mobile-940w.webp",
+          "format": "webp",
+          "width": 940,
+          "height": 1672,
+          "bytes": 104136,
+          "sha256": "66e28f84a69b59f146e2432901a8a466601f83a4d105af21a68642accabf225f"
+        }
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "recorded",
+        "prompt": "Create a dedicated portrait 9:16 mobile hero, not a crop, matching the same fictional unbranded champagne-grey fastback, terrace and old-town atmosphere; car fully visible in the lower 44%, upper 42% calm and dark enough for centered white copy; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [
+          "demo-v05-front-3q"
+        ],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 940,
+        "height": 1672,
+        "aspectRatio": "940:1672",
+        "bytes": 1931973,
+        "sha256": "8b5dfdc3c2f8c25e46ad5d73b77b347361049a4afc7a475687835dd8d694a74f",
+        "archivedPath": "design/assets/originals/hero/hero-mobile.png"
+      }
+    },
+    {
+      "id": "public-hero-camper-lakeside",
+      "usage": [
+        "public-company-home-hero",
+        "public-company-contact-editorial"
+      ],
+      "focalPointPercent": {
+        "x": 70,
+        "y": 58
+      },
+      "alt": "Srebrny kamper demonstracyjny nad spokojnym jeziorem o poranku.",
+      "variants": [
+        {
+          "path": "design/assets/generated/generated-2026-10-13/public-hero-camper-lakeside-768w.avif",
+          "format": "avif",
+          "width": 768,
+          "height": 384,
+          "bytes": 43480,
+          "sha256": "a28e6b70c612edf398891c9978c4d825128269deb202867910c60a369576c558"
+        },
+        {
+          "path": "design/assets/generated/generated-2026-10-13/public-hero-camper-lakeside-768w.webp",
+          "format": "webp",
+          "width": 768,
+          "height": 384,
+          "bytes": 46948,
+          "sha256": "0cd26b9f73a3d78667ae2b3813be38c66dbb4c5f43738f8b95ef20de93cedb34"
+        },
+        {
+          "path": "design/assets/generated/generated-2026-10-13/public-hero-camper-lakeside-1536w.avif",
+          "format": "avif",
+          "width": 1536,
+          "height": 768,
+          "bytes": 136507,
+          "sha256": "97694a98c261880f491b4cf2d91e08265cef31c09955ec4683d8a6e2cca5933c"
+        },
+        {
+          "path": "design/assets/generated/generated-2026-10-13/public-hero-camper-lakeside-1536w.webp",
+          "format": "webp",
+          "width": 1536,
+          "height": 768,
+          "bytes": 147616,
+          "sha256": "0305c82e88b8bb6f371172b2c6ffb6bd81645641065436274c91ee2f2a059869"
+        }
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-10-13",
+        "promptRecord": "recorded",
+        "prompt": "Use case: photorealistic-natural. High-resolution public vehicle-rental website hero with one realistic unbranded silver-gray camper van at a lakeside pull-off in Poland, three-quarter front view, clean negative space on the left, soft early-morning light, no people, readable plate, logo, text or watermark.",
+        "identityReferences": [],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1774,
+        "height": 887,
+        "aspectRatio": "1774:887",
+        "bytes": 2730440,
+        "sha256": "02e7d8c933b8543230da4aa392c7df0047489e8c14782068460d6987a6358127",
+        "archivedPath": "design/assets/originals/generated-2026-10-13/public-hero-camper-lakeside.png"
+      }
+    },
+    {
+      "id": "public-editorial-camper-interior",
+      "usage": [
+        "public-company-home-editorial",
+        "vehicle-gallery-demo"
+      ],
+      "focalPointPercent": {
+        "x": 52,
+        "y": 50
+      },
+      "alt": "Jasne, funkcjonalne wnętrze kampera demonstracyjnego z kuchnią i częścią wypoczynkową.",
+      "variants": [
+        {
+          "path": "design/assets/generated/generated-2026-10-13/public-editorial-camper-interior-768w.avif",
+          "format": "avif",
+          "width": 768,
+          "height": 512,
+          "bytes": 45333,
+          "sha256": "0190c1f500c352067f9ace39fe98c5c615a2a5f9616c3a24d293b62f83f34c81"
+        },
+        {
+          "path": "design/assets/generated/generated-2026-10-13/public-editorial-camper-interior-768w.webp",
+          "format": "webp",
+          "width": 768,
+          "height": 512,
+          "bytes": 58334,
+          "sha256": "83f72ee80b13c65eb8c9b7443ea67688430cabf193f9160aafd26fab62314191"
+        },
+        {
+          "path": "design/assets/generated/generated-2026-10-13/public-editorial-camper-interior-1536w.avif",
+          "format": "avif",
+          "width": 1536,
+          "height": 1024,
+          "bytes": 130361,
+          "sha256": "68bfe8761b331b56bfbe60aedce563437478098b5e34fa75518501c5f4d633ae"
+        },
+        {
+          "path": "design/assets/generated/generated-2026-10-13/public-editorial-camper-interior-1536w.webp",
+          "format": "webp",
+          "width": 1536,
+          "height": 1024,
+          "bytes": 182330,
+          "sha256": "8745cc6a0a5aff697f18313b51a17aa26c68946fb0e37e522f64dca6573de20d"
+        }
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-10-13",
+        "promptRecord": "recorded",
+        "prompt": "Use case: photorealistic-natural. High-resolution editorial image of a believable modern compact camper interior with table, kitchenette, storage and a view to quiet nature, soft daylight, warm wood and muted gray materials, no people, text, logos or watermark.",
+        "identityReferences": [],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2665262,
+        "sha256": "f965e6fb02057091302fca81acf19601a00d3e285d24af1300300a3c22dc131e",
+        "archivedPath": "design/assets/originals/generated-2026-10-13/public-editorial-camper-interior.png"
+      }
+    },
+    {
+      "id": "public-fleet-depot",
+      "usage": [
+        "public-company-home-fleet",
+        "auterva-marketing-editorial"
+      ],
+      "focalPointPercent": {
+        "x": 54,
+        "y": 58
+      },
+      "alt": "Trzy demonstracyjne pojazdy wypożyczalni przed nowoczesną bazą floty.",
+      "variants": [
+        {
+          "path": "design/assets/generated/generated-2026-10-13/public-fleet-depot-768w.avif",
+          "format": "avif",
+          "width": 768,
+          "height": 512,
+          "bytes": 73407,
+          "sha256": "6f8f467188e85237d6e4568ff6814ce9ce13d07f74b6adf801dfd28a61358baf"
+        },
+        {
+          "path": "design/assets/generated/generated-2026-10-13/public-fleet-depot-768w.webp",
+          "format": "webp",
+          "width": 768,
+          "height": 512,
+          "bytes": 88620,
+          "sha256": "b87e227131a25df8eec428fb15c4378a12af2cb900d97ffa5468ac3249ac9567"
+        },
+        {
+          "path": "design/assets/generated/generated-2026-10-13/public-fleet-depot-1536w.avif",
+          "format": "avif",
+          "width": 1536,
+          "height": 1024,
+          "bytes": 245462,
+          "sha256": "e990a67764cac4abc8edafa1e76086694c4346a8698437f991cbd1840787ea63"
+        },
+        {
+          "path": "design/assets/generated/generated-2026-10-13/public-fleet-depot-1536w.webp",
+          "format": "webp",
+          "width": 1536,
+          "height": 1024,
+          "bytes": 306902,
+          "sha256": "da938a137e69d753f674596a448cc2253b04f788252ea481507abc43fc9a2ad0"
+        }
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-10-13",
+        "promptRecord": "recorded",
+        "prompt": "Use case: photorealistic-natural. High-resolution fleet section image with three distinct unbranded vehicles at a contemporary Polish depot: compact car, family van and camper van, soft daylight after rain, no people, readable plates, logos, text or watermark.",
+        "identityReferences": [],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 3113408,
+        "sha256": "a47d21d5d7b6734518f3c5a316eef9ebc23eb96af4861d8052f655e40b46f46f",
+        "archivedPath": "design/assets/originals/generated-2026-10-13/public-fleet-depot.png"
+      }
+    },
+    {
+      "id": "demo-v01-front-3q",
+      "vehicleId": "demo-v01",
+      "vehicleName": "Miejski hatchback",
+      "category": "Miejski",
+      "view": "front-3q",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v01/demo-v01-front-3q-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 15977,
+          "sha256": "d5e681ef3d542e83a5a990ef235bf1a7de7d779ad8dac16e31a974999f7a4966"
+        },
+        {
+          "path": "design/assets/generated/demo-v01/demo-v01-front-3q-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 19130,
+          "sha256": "5a025eec6556951a5697341d6f29b0a5fd6ad286d9300c437218700cc8f9b336"
+        },
+        {
+          "path": "design/assets/generated/demo-v01/demo-v01-front-3q-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 47243,
+          "sha256": "efb758740267f9cbd0be000c993e4b8677219e156867053f95e2d60215d07a96"
+        },
+        {
+          "path": "design/assets/generated/demo-v01/demo-v01-front-3q-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 56638,
+          "sha256": "2132385df5b599dca826ff9bff5d76221c0c7b0fc175661298084b591b9972ea"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 54,
+        "y": 55
+      },
+      "alt": "Pojazd demonstracyjny miejski hatchback w kolorze ciepły srebrny, widok z przodu pod kątem.",
+      "usage": [
+        "vehicle-card",
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "reconstructed-from-session-brief",
+        "prompt": "Photorealistic premium rental-fleet catalogue series of one exact fictional unbranded ciepły srebrny miejski hatchback; distinct widok z przodu pod kątem photograph; preserve vehicle identity, geometry, wheels and trim across the set; contemporary restrained architectural location, soft natural light, clean commercial composition; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2392501,
+        "sha256": "25afbe71319e1d3d16f1ef5e6c0354aa733e772756d7199d25145b834d2798b9",
+        "archivedPath": "design/assets/originals/demo-v01/demo-v01-front-3q.png"
+      }
+    },
+    {
+      "id": "demo-v01-interior",
+      "vehicleId": "demo-v01",
+      "vehicleName": "Miejski hatchback",
+      "category": "Miejski",
+      "view": "interior",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v01/demo-v01-interior-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 14749,
+          "sha256": "4287450b05d4647d0d7ebd1fcc3202f8c350b857e6808d16c1dc37116ec77eed"
+        },
+        {
+          "path": "design/assets/generated/demo-v01/demo-v01-interior-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 16302,
+          "sha256": "8daa83c330089e4726156dcbe9bd0bfcf747f275aa6bf2c9eb20d32d8f21026e"
+        },
+        {
+          "path": "design/assets/generated/demo-v01/demo-v01-interior-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 41040,
+          "sha256": "1bbca337b8447cee70be59be66063f769c8bde0f5980de08c2ee329e76e24724"
+        },
+        {
+          "path": "design/assets/generated/demo-v01/demo-v01-interior-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 47670,
+          "sha256": "91f42bb607a95421c9db54a4c3a8246b83bbe353987ab1a658644ac712f7f043"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 52,
+        "y": 48
+      },
+      "alt": "Wnętrze pojazdu demonstracyjnego miejski hatchback, miejski.",
+      "usage": [
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "reconstructed-from-session-brief",
+        "prompt": "Photorealistic premium rental-fleet catalogue series of one exact fictional unbranded ciepły srebrny miejski hatchback; distinct wnętrze photograph; preserve vehicle identity, geometry, wheels and trim across the set; contemporary restrained architectural location, soft natural light, clean commercial composition; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [
+          "demo-v01-front-3q"
+        ],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2464227,
+        "sha256": "e4dac0c23769862d32651d443d8f386e2358aa9e054998593d451685d8acb7c5",
+        "archivedPath": "design/assets/originals/demo-v01/demo-v01-interior.png"
+      }
+    },
+    {
+      "id": "demo-v01-rear-3q",
+      "vehicleId": "demo-v01",
+      "vehicleName": "Miejski hatchback",
+      "category": "Miejski",
+      "view": "rear-3q",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v01/demo-v01-rear-3q-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 15823,
+          "sha256": "38a741fa93a306d0ca563000ca6d538542918805fcfcef69fe5759465dabc1f9"
+        },
+        {
+          "path": "design/assets/generated/demo-v01/demo-v01-rear-3q-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 18902,
+          "sha256": "61ef391381a00969e55653ce0b84c29cb6979c8c25b1bbc01285f68b96dadf4d"
+        },
+        {
+          "path": "design/assets/generated/demo-v01/demo-v01-rear-3q-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 44172,
+          "sha256": "3a893531cd6fce58cf96c87b9252196ed143a463b87e9a70a38875c0d1c8a86a"
+        },
+        {
+          "path": "design/assets/generated/demo-v01/demo-v01-rear-3q-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 53638,
+          "sha256": "c6d5f973eea6da3f7e83909981f1a8740cb7ad58eda1aa71d69656c38b694af8"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 50,
+        "y": 54
+      },
+      "alt": "Pojazd demonstracyjny miejski hatchback w kolorze ciepły srebrny, widok z tyłu pod kątem.",
+      "usage": [
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "reconstructed-from-session-brief",
+        "prompt": "Photorealistic premium rental-fleet catalogue series of one exact fictional unbranded ciepły srebrny miejski hatchback; distinct widok z tyłu pod kątem photograph; preserve vehicle identity, geometry, wheels and trim across the set; contemporary restrained architectural location, soft natural light, clean commercial composition; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [
+          "demo-v01-front-3q"
+        ],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2216100,
+        "sha256": "fa654f4c26c2715496ada7e6d2f5e4ec92421a9fa3e4838e92d40f6f8368e5fe",
+        "archivedPath": "design/assets/originals/demo-v01/demo-v01-rear-3q.png"
+      }
+    },
+    {
+      "id": "demo-v01-side",
+      "vehicleId": "demo-v01",
+      "vehicleName": "Miejski hatchback",
+      "category": "Miejski",
+      "view": "side",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v01/demo-v01-side-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 15836,
+          "sha256": "0521dd3fc10ea0bbc6f4a9ca602db50d65f27a886fc70f87b36a7ab47cc5923f"
+        },
+        {
+          "path": "design/assets/generated/demo-v01/demo-v01-side-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 18778,
+          "sha256": "37e7a2ca769fd32025140b8b710b8a4d03723c63bb9fa0658bead4a4ce7bc872"
+        },
+        {
+          "path": "design/assets/generated/demo-v01/demo-v01-side-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 45254,
+          "sha256": "c12e36b37a0e8e7994e4eb41e6bd70d7f30193c0844979ae2ebc90469c127104"
+        },
+        {
+          "path": "design/assets/generated/demo-v01/demo-v01-side-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 54736,
+          "sha256": "75badda95520fa99b39079078f4b185b806c6f8eda7192e90b0ff643987bdcbd"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 50,
+        "y": 53
+      },
+      "alt": "Pojazd demonstracyjny miejski hatchback w kolorze ciepły srebrny, profil boczny.",
+      "usage": [
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "reconstructed-from-session-brief",
+        "prompt": "Photorealistic premium rental-fleet catalogue series of one exact fictional unbranded ciepły srebrny miejski hatchback; distinct profil boczny photograph; preserve vehicle identity, geometry, wheels and trim across the set; contemporary restrained architectural location, soft natural light, clean commercial composition; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [
+          "demo-v01-front-3q"
+        ],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2295430,
+        "sha256": "c97a4dee3c2093dd4f63e72c25ebd1c1b0b2240c9b35104396388f4001d9a3d6",
+        "archivedPath": "design/assets/originals/demo-v01/demo-v01-side.png"
+      }
+    },
+    {
+      "id": "demo-v02-front-3q",
+      "vehicleId": "demo-v02",
+      "vehicleName": "Sedan biznesowy",
+      "category": "Sedan",
+      "view": "front-3q",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v02/demo-v02-front-3q-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 16882,
+          "sha256": "6b4fec6d5ea575e033ff653a72b12280ccc1dab5fdcfebccdf0cc003880f3e39"
+        },
+        {
+          "path": "design/assets/generated/demo-v02/demo-v02-front-3q-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 20054,
+          "sha256": "02794cf01046ff3f44d036129ee19d86ffaf48f0766ce8a45ec61cb3ff550ff7"
+        },
+        {
+          "path": "design/assets/generated/demo-v02/demo-v02-front-3q-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 47626,
+          "sha256": "4d37973a86f937b22e4f046d09c65e1f493af05a22c823544f8b9e870e873a02"
+        },
+        {
+          "path": "design/assets/generated/demo-v02/demo-v02-front-3q-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 59060,
+          "sha256": "768292cbb508b03e52b3d6dd5db7a816c0b54915d3353a65a6b1673042aaef50"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 54,
+        "y": 55
+      },
+      "alt": "Pojazd demonstracyjny sedan biznesowy w kolorze grafitowy, widok z przodu pod kątem.",
+      "usage": [
+        "vehicle-card",
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "reconstructed-from-session-brief",
+        "prompt": "Photorealistic premium rental-fleet catalogue series of one exact fictional unbranded grafitowy sedan biznesowy; distinct widok z przodu pod kątem photograph; preserve vehicle identity, geometry, wheels and trim across the set; contemporary restrained architectural location, soft natural light, clean commercial composition; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2323524,
+        "sha256": "24c08f358307200f5386d9e7696fb87cb165cb0c607116b575cb87f4e555e6ed",
+        "archivedPath": "design/assets/originals/demo-v02/demo-v02-front-3q.png"
+      }
+    },
+    {
+      "id": "demo-v02-interior",
+      "vehicleId": "demo-v02",
+      "vehicleName": "Sedan biznesowy",
+      "category": "Sedan",
+      "view": "interior",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v02/demo-v02-interior-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 16391,
+          "sha256": "890cfc1c9c0c9fd01d3ceb4c91780251d584c30c9af117d4ba5ddb2020f3dd42"
+        },
+        {
+          "path": "design/assets/generated/demo-v02/demo-v02-interior-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 18586,
+          "sha256": "248593ec1c6b367190ff99b22f4d9460194d69c7ec440460425d086327601ebd"
+        },
+        {
+          "path": "design/assets/generated/demo-v02/demo-v02-interior-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 47848,
+          "sha256": "e6530e8767a0dbde5860f5a16d75726e7eeffbb54a9d06b3fbc2272fbd5eaf5e"
+        },
+        {
+          "path": "design/assets/generated/demo-v02/demo-v02-interior-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 53876,
+          "sha256": "38ff3ae224d1fd5a075cf88b9e78a7fce0369460c29b173e087ad00effc9ac72"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 52,
+        "y": 48
+      },
+      "alt": "Wnętrze pojazdu demonstracyjnego sedan biznesowy, sedan.",
+      "usage": [
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "reconstructed-from-session-brief",
+        "prompt": "Photorealistic premium rental-fleet catalogue series of one exact fictional unbranded grafitowy sedan biznesowy; distinct wnętrze photograph; preserve vehicle identity, geometry, wheels and trim across the set; contemporary restrained architectural location, soft natural light, clean commercial composition; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [
+          "demo-v02-front-3q"
+        ],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2538002,
+        "sha256": "541cf1af27e3c2ee6bc07f1fe3d0532f555ef3703063de907695710572c5fba8",
+        "archivedPath": "design/assets/originals/demo-v02/demo-v02-interior.png"
+      }
+    },
+    {
+      "id": "demo-v02-rear-3q",
+      "vehicleId": "demo-v02",
+      "vehicleName": "Sedan biznesowy",
+      "category": "Sedan",
+      "view": "rear-3q",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v02/demo-v02-rear-3q-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 15955,
+          "sha256": "76d27cf0863bb772aed61049f5e8c54f6e8dc9109a9f322e527ebe9b2eb90215"
+        },
+        {
+          "path": "design/assets/generated/demo-v02/demo-v02-rear-3q-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 19082,
+          "sha256": "d1c3e0fc434202fd72ea7969e81846e55e8ebe521f03222346a1eb841533a706"
+        },
+        {
+          "path": "design/assets/generated/demo-v02/demo-v02-rear-3q-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 42915,
+          "sha256": "b5e1b648b291abeee8b8efe93683ce60e4e296df539f25f643c721ace091d0b1"
+        },
+        {
+          "path": "design/assets/generated/demo-v02/demo-v02-rear-3q-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 53920,
+          "sha256": "fe1fc0fef99c1e3e76bfd8c40accdf7963a62381aabf40e95f568755a4c4439f"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 50,
+        "y": 54
+      },
+      "alt": "Pojazd demonstracyjny sedan biznesowy w kolorze grafitowy, widok z tyłu pod kątem.",
+      "usage": [
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "reconstructed-from-session-brief",
+        "prompt": "Photorealistic premium rental-fleet catalogue series of one exact fictional unbranded grafitowy sedan biznesowy; distinct widok z tyłu pod kątem photograph; preserve vehicle identity, geometry, wheels and trim across the set; contemporary restrained architectural location, soft natural light, clean commercial composition; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [
+          "demo-v02-front-3q"
+        ],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2215636,
+        "sha256": "be0d198eb43f4b86c844fd0253fc3000de320297327eee5d7e40c335f3c5fb85",
+        "archivedPath": "design/assets/originals/demo-v02/demo-v02-rear-3q.png"
+      }
+    },
+    {
+      "id": "demo-v02-side",
+      "vehicleId": "demo-v02",
+      "vehicleName": "Sedan biznesowy",
+      "category": "Sedan",
+      "view": "side",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v02/demo-v02-side-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 16048,
+          "sha256": "7566fb7d42f04870d010c63e99d1d7cda34f34b987e4b136486d353156fabd9b"
+        },
+        {
+          "path": "design/assets/generated/demo-v02/demo-v02-side-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 19364,
+          "sha256": "f5611f6d54193078a56241f06d9da9563c046e150282eaa1ff4658ba2feb0cd7"
+        },
+        {
+          "path": "design/assets/generated/demo-v02/demo-v02-side-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 43580,
+          "sha256": "f27952b0b4c589184c805d2492d353d4ecdba8416a13fd6daddfe1ac432a9ad5"
+        },
+        {
+          "path": "design/assets/generated/demo-v02/demo-v02-side-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 55006,
+          "sha256": "e56d476343c255a4820b9a3dab4ac0956e01624f70b873ecca56a931e00f492b"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 50,
+        "y": 53
+      },
+      "alt": "Pojazd demonstracyjny sedan biznesowy w kolorze grafitowy, profil boczny.",
+      "usage": [
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "reconstructed-from-session-brief",
+        "prompt": "Photorealistic premium rental-fleet catalogue series of one exact fictional unbranded grafitowy sedan biznesowy; distinct profil boczny photograph; preserve vehicle identity, geometry, wheels and trim across the set; contemporary restrained architectural location, soft natural light, clean commercial composition; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [
+          "demo-v02-front-3q"
+        ],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2224115,
+        "sha256": "def012debc02f6b9299a786cc4c54f5c862c9b7164c20610704048d5588ce585",
+        "archivedPath": "design/assets/originals/demo-v02/demo-v02-side.png"
+      }
+    },
+    {
+      "id": "demo-v03-cargo",
+      "vehicleId": "demo-v03",
+      "vehicleName": "Kombi rodzinne",
+      "category": "Kombi",
+      "view": "cargo",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v03/demo-v03-cargo-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 17349,
+          "sha256": "e33b537972b0da09191cd8bc4f1ced3b477602b46f27f801e5ff55513937e764"
+        },
+        {
+          "path": "design/assets/generated/demo-v03/demo-v03-cargo-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 20760,
+          "sha256": "f043c3d39f27dc9d9c025d080f9428790aa282afde9194dc53c92c27a2b2d87f"
+        },
+        {
+          "path": "design/assets/generated/demo-v03/demo-v03-cargo-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 45954,
+          "sha256": "f1a8db2e1b034b3916faf71fae1ac3b485fe899c13cb126d2f7ff886693ebbd5"
+        },
+        {
+          "path": "design/assets/generated/demo-v03/demo-v03-cargo-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 55580,
+          "sha256": "39817a64ad9c3561ea5448eccab494c1c4a320adf2d3efcb589f3f5a6b35e110"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 50,
+        "y": 50
+      },
+      "alt": "Pusta przestrzeń bagażowa pojazdu demonstracyjnego kombi rodzinne.",
+      "usage": [
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "reconstructed-from-session-brief",
+        "prompt": "Photorealistic premium rental-fleet catalogue series of one exact fictional unbranded granatowy kombi rodzinne; distinct przestrzeń bagażowa photograph; preserve vehicle identity, geometry, wheels and trim across the set; contemporary restrained architectural location, soft natural light, clean commercial composition; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [
+          "demo-v03-front-3q"
+        ],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2340207,
+        "sha256": "3d2a9748dddc50e3b0fc8fe41d8bbc9e2f75d902106680d3ea41039ee6e8cd88",
+        "archivedPath": "design/assets/originals/demo-v03/demo-v03-cargo.png"
+      }
+    },
+    {
+      "id": "demo-v03-front-3q",
+      "vehicleId": "demo-v03",
+      "vehicleName": "Kombi rodzinne",
+      "category": "Kombi",
+      "view": "front-3q",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v03/demo-v03-front-3q-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 22470,
+          "sha256": "4fe8ccc600777b0406821032ec67113d584183c48a3aaf6dda8556c9809d55d9"
+        },
+        {
+          "path": "design/assets/generated/demo-v03/demo-v03-front-3q-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 25940,
+          "sha256": "2b1dec959d6fc6b40f477051cd4fffa6707f4bf90f5019a0058121769d50c32a"
+        },
+        {
+          "path": "design/assets/generated/demo-v03/demo-v03-front-3q-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 60559,
+          "sha256": "a6f2890bdcf4f0bf00cd925b457831f0fbd41335e4199e47c7c364bef1979c36"
+        },
+        {
+          "path": "design/assets/generated/demo-v03/demo-v03-front-3q-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 72656,
+          "sha256": "58fe70f710bddaf143a81fcdb27bee29a4ebe05c8b14480934361a0597100eab"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 54,
+        "y": 55
+      },
+      "alt": "Pojazd demonstracyjny kombi rodzinne w kolorze granatowy, widok z przodu pod kątem.",
+      "usage": [
+        "vehicle-card",
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "reconstructed-from-session-brief",
+        "prompt": "Photorealistic premium rental-fleet catalogue series of one exact fictional unbranded granatowy kombi rodzinne; distinct widok z przodu pod kątem photograph; preserve vehicle identity, geometry, wheels and trim across the set; contemporary restrained architectural location, soft natural light, clean commercial composition; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2408122,
+        "sha256": "93b471c1acec457cd73c74b89c1b8c18bc37d2340e7edc28ba1a8e65ba511363",
+        "archivedPath": "design/assets/originals/demo-v03/demo-v03-front-3q.png"
+      }
+    },
+    {
+      "id": "demo-v03-rear-3q",
+      "vehicleId": "demo-v03",
+      "vehicleName": "Kombi rodzinne",
+      "category": "Kombi",
+      "view": "rear-3q",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v03/demo-v03-rear-3q-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 21700,
+          "sha256": "d1895277dcbf5b566edbd87b2e3c1cb8b26a0eea2988f1ab934cf9b1bba5ebac"
+        },
+        {
+          "path": "design/assets/generated/demo-v03/demo-v03-rear-3q-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 25206,
+          "sha256": "04a143ce93c7b1b4ad041250eb85a4a1a7e761b9d4e18687b8360afe9217b37a"
+        },
+        {
+          "path": "design/assets/generated/demo-v03/demo-v03-rear-3q-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 57239,
+          "sha256": "c2ef76fe99f595108852aeb450918ffa722c932c92b70fd0c9e0847572a5a34d"
+        },
+        {
+          "path": "design/assets/generated/demo-v03/demo-v03-rear-3q-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 68988,
+          "sha256": "3eb3acd5f26ae7ae498f37f40bd4a99f035016111bf2801047ca607e28272093"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 50,
+        "y": 54
+      },
+      "alt": "Pojazd demonstracyjny kombi rodzinne w kolorze granatowy, widok z tyłu pod kątem.",
+      "usage": [
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "reconstructed-from-session-brief",
+        "prompt": "Photorealistic premium rental-fleet catalogue series of one exact fictional unbranded granatowy kombi rodzinne; distinct widok z tyłu pod kątem photograph; preserve vehicle identity, geometry, wheels and trim across the set; contemporary restrained architectural location, soft natural light, clean commercial composition; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [
+          "demo-v03-front-3q"
+        ],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2280390,
+        "sha256": "ce16fc6133c9a6162c5f82109b7248bb1fb31faf8c16e49457140a19d9d5d7bf",
+        "archivedPath": "design/assets/originals/demo-v03/demo-v03-rear-3q.png"
+      }
+    },
+    {
+      "id": "demo-v03-side",
+      "vehicleId": "demo-v03",
+      "vehicleName": "Kombi rodzinne",
+      "category": "Kombi",
+      "view": "side",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v03/demo-v03-side-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 21386,
+          "sha256": "92e5242b4339af5dd6a62b40c45c88e03a694010d1ed3944d0ad80044d59cecb"
+        },
+        {
+          "path": "design/assets/generated/demo-v03/demo-v03-side-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 25006,
+          "sha256": "8a11d4f386e05c00cfdf2ca35722cb94c7d4d7117d34818f6ae6095d54ad117a"
+        },
+        {
+          "path": "design/assets/generated/demo-v03/demo-v03-side-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 56811,
+          "sha256": "3a9c3c5e4a6339f2b7935f275c92d3e99a567494ec4680c875edb0dec4d1edf2"
+        },
+        {
+          "path": "design/assets/generated/demo-v03/demo-v03-side-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 70518,
+          "sha256": "3c1239c56bc32c83d1ce44fbd000deb2b351cdc5a5c701794f63f5c3e52a2d64"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 50,
+        "y": 53
+      },
+      "alt": "Pojazd demonstracyjny kombi rodzinne w kolorze granatowy, profil boczny.",
+      "usage": [
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "reconstructed-from-session-brief",
+        "prompt": "Photorealistic premium rental-fleet catalogue series of one exact fictional unbranded granatowy kombi rodzinne; distinct profil boczny photograph; preserve vehicle identity, geometry, wheels and trim across the set; contemporary restrained architectural location, soft natural light, clean commercial composition; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [
+          "demo-v03-front-3q"
+        ],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2292646,
+        "sha256": "8c61a47764b588b8ff4fb034482f8afd60feb401cc574805c88dffdc933bd4a1",
+        "archivedPath": "design/assets/originals/demo-v03/demo-v03-side.png"
+      }
+    },
+    {
+      "id": "demo-v04-front-3q",
+      "vehicleId": "demo-v04",
+      "vehicleName": "SUV klasy średniej",
+      "category": "SUV",
+      "view": "front-3q",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v04/demo-v04-front-3q-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 22476,
+          "sha256": "5bf88bac0d9ec1e35533c8e04cfcea46befb7c280e3bafac76d1f1d9677045de"
+        },
+        {
+          "path": "design/assets/generated/demo-v04/demo-v04-front-3q-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 26456,
+          "sha256": "fe4cd8aa65976bada62e08d6f1ed54dbeee2e0793bc4c0c8470333e71eb3d05e"
+        },
+        {
+          "path": "design/assets/generated/demo-v04/demo-v04-front-3q-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 62701,
+          "sha256": "ff5eb9ad65667c75febf3f6504cdcb3e45a939b50d648f171da1ee4c128829b5"
+        },
+        {
+          "path": "design/assets/generated/demo-v04/demo-v04-front-3q-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 76360,
+          "sha256": "f50870f8e46575ee5a23844da87482a5e9c6cb737acaa2c23332cd3170716abf"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 54,
+        "y": 55
+      },
+      "alt": "Pojazd demonstracyjny suv klasy średniej w kolorze leśna zieleń, widok z przodu pod kątem.",
+      "usage": [
+        "vehicle-card",
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "reconstructed-from-session-brief",
+        "prompt": "Photorealistic premium rental-fleet catalogue series of one exact fictional unbranded leśna zieleń suv klasy średniej; distinct widok z przodu pod kątem photograph; preserve vehicle identity, geometry, wheels and trim across the set; contemporary restrained architectural location, soft natural light, clean commercial composition; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2473909,
+        "sha256": "3fffcb0b2a49c075894b938859657f0679d1d1809c3b777cc07e8af9262cbcd6",
+        "archivedPath": "design/assets/originals/demo-v04/demo-v04-front-3q.png"
+      }
+    },
+    {
+      "id": "demo-v04-interior",
+      "vehicleId": "demo-v04",
+      "vehicleName": "SUV klasy średniej",
+      "category": "SUV",
+      "view": "interior",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v04/demo-v04-interior-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 17692,
+          "sha256": "76380cb980dfa5d8d015980a271b284f13daf3903f01939e1684a3fd3e849c9f"
+        },
+        {
+          "path": "design/assets/generated/demo-v04/demo-v04-interior-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 19956,
+          "sha256": "af9f03f2798a6d12e445b47beefd8624c355f66b081f2e575e32fd364145c69f"
+        },
+        {
+          "path": "design/assets/generated/demo-v04/demo-v04-interior-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 50270,
+          "sha256": "915b52dc329922ccff43929cb5b58a35c7f150507088b7d00f4eee3040190cd8"
+        },
+        {
+          "path": "design/assets/generated/demo-v04/demo-v04-interior-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 58140,
+          "sha256": "4732aec3722e99b2dbbf754f0545a5a03751e0ce81685f581eba257562c9202a"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 52,
+        "y": 48
+      },
+      "alt": "Wnętrze pojazdu demonstracyjnego suv klasy średniej, suv.",
+      "usage": [
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "reconstructed-from-session-brief",
+        "prompt": "Photorealistic premium rental-fleet catalogue series of one exact fictional unbranded leśna zieleń suv klasy średniej; distinct wnętrze photograph; preserve vehicle identity, geometry, wheels and trim across the set; contemporary restrained architectural location, soft natural light, clean commercial composition; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [
+          "demo-v04-front-3q"
+        ],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2544913,
+        "sha256": "38035b3bcc852241b70e09ea449f47b873a22c083771ff11d24db403a9f1f839",
+        "archivedPath": "design/assets/originals/demo-v04/demo-v04-interior.png"
+      }
+    },
+    {
+      "id": "demo-v04-rear-3q",
+      "vehicleId": "demo-v04",
+      "vehicleName": "SUV klasy średniej",
+      "category": "SUV",
+      "view": "rear-3q",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v04/demo-v04-rear-3q-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 20715,
+          "sha256": "5aec3d98cc5f7b2c83ae6f6503db1433e89836fb2fdcc8cd538d31fdb1d26d9f"
+        },
+        {
+          "path": "design/assets/generated/demo-v04/demo-v04-rear-3q-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 24682,
+          "sha256": "224006c1f84cd45bbaf6ec9e875cd96b839c6abe9b0ddf87893ddb46e8849996"
+        },
+        {
+          "path": "design/assets/generated/demo-v04/demo-v04-rear-3q-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 56896,
+          "sha256": "a260ea057f6b1cddd2b160db37784bcac7fa36d4c6b94ad178acc3be30ff5fce"
+        },
+        {
+          "path": "design/assets/generated/demo-v04/demo-v04-rear-3q-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 69574,
+          "sha256": "471cab96273db3148b8f486f75736fb1cbe0ef957c16b4eb4575fd3f194ae8b4"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 50,
+        "y": 54
+      },
+      "alt": "Pojazd demonstracyjny suv klasy średniej w kolorze leśna zieleń, widok z tyłu pod kątem.",
+      "usage": [
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "reconstructed-from-session-brief",
+        "prompt": "Photorealistic premium rental-fleet catalogue series of one exact fictional unbranded leśna zieleń suv klasy średniej; distinct widok z tyłu pod kątem photograph; preserve vehicle identity, geometry, wheels and trim across the set; contemporary restrained architectural location, soft natural light, clean commercial composition; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [
+          "demo-v04-front-3q"
+        ],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2331695,
+        "sha256": "d299e1bb71dea261b6cb1fc78530d6971fac2cc2e5d2d28d1072b84fdb2573b8",
+        "archivedPath": "design/assets/originals/demo-v04/demo-v04-rear-3q.png"
+      }
+    },
+    {
+      "id": "demo-v04-side",
+      "vehicleId": "demo-v04",
+      "vehicleName": "SUV klasy średniej",
+      "category": "SUV",
+      "view": "side",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v04/demo-v04-side-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 19899,
+          "sha256": "e4bbfae00ec71fecb3fbdc3b3847a16290c53a568ee48c7bf26770206f288890"
+        },
+        {
+          "path": "design/assets/generated/demo-v04/demo-v04-side-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 23794,
+          "sha256": "d50c0f8a3dbe7636d5aa1fdd8c88e022b472596cf93dfb5bacaa44bab8fbf213"
+        },
+        {
+          "path": "design/assets/generated/demo-v04/demo-v04-side-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 54494,
+          "sha256": "72603442799befc78e50b297c2ee9abb0bc8c2d619622ababa571b163673830d"
+        },
+        {
+          "path": "design/assets/generated/demo-v04/demo-v04-side-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 68250,
+          "sha256": "cb6cb21081fe53aa6dd509142be52d9738720a839b7f52d156436e5faf93c85a"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 50,
+        "y": 53
+      },
+      "alt": "Pojazd demonstracyjny suv klasy średniej w kolorze leśna zieleń, profil boczny.",
+      "usage": [
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "reconstructed-from-session-brief",
+        "prompt": "Photorealistic premium rental-fleet catalogue series of one exact fictional unbranded leśna zieleń suv klasy średniej; distinct profil boczny photograph; preserve vehicle identity, geometry, wheels and trim across the set; contemporary restrained architectural location, soft natural light, clean commercial composition; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [
+          "demo-v04-front-3q"
+        ],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2315016,
+        "sha256": "d081ba58579f371543a6649666d4e265a1faf88adb4007891f33993f1904ac34",
+        "archivedPath": "design/assets/originals/demo-v04/demo-v04-side.png"
+      }
+    },
+    {
+      "id": "demo-v05-front-3q",
+      "vehicleId": "demo-v05",
+      "vehicleName": "Fastback premium",
+      "category": "Premium",
+      "view": "front-3q",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v05/demo-v05-front-3q-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 14850,
+          "sha256": "5c816c00129345ed141e3844f57d2950887d0958990d8e650df2ac8565dd65b0"
+        },
+        {
+          "path": "design/assets/generated/demo-v05/demo-v05-front-3q-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 18038,
+          "sha256": "b3b855d719bcbc0248f8def205ca2d67ea2b59af24dc683c8ef39f33aba74fc4"
+        },
+        {
+          "path": "design/assets/generated/demo-v05/demo-v05-front-3q-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 46596,
+          "sha256": "3021e96ce8de9e62bc642a4f547386795056ca9bcfddb29eb5286f67b0ad4e24"
+        },
+        {
+          "path": "design/assets/generated/demo-v05/demo-v05-front-3q-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 56438,
+          "sha256": "151efdf9e2bd3bded2fc40b35ed526c4f99d12a447f9b752e11ee8d22d88cfa7"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 54,
+        "y": 55
+      },
+      "alt": "Pojazd demonstracyjny fastback premium w kolorze szampański szary, widok z przodu pod kątem.",
+      "usage": [
+        "vehicle-card",
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "reconstructed-from-session-brief",
+        "prompt": "Photorealistic premium rental-fleet catalogue series of one exact fictional unbranded szampański szary fastback premium; distinct widok z przodu pod kątem photograph; preserve vehicle identity, geometry, wheels and trim across the set; contemporary restrained architectural location, soft natural light, clean commercial composition; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2309437,
+        "sha256": "9740ed465e02be2ea93b2052d6ab097d76e00fcc2cdb3ea87a008785beefb629",
+        "archivedPath": "design/assets/originals/demo-v05/demo-v05-front-3q.png"
+      }
+    },
+    {
+      "id": "demo-v05-interior",
+      "vehicleId": "demo-v05",
+      "vehicleName": "Fastback premium",
+      "category": "Premium",
+      "view": "interior",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v05/demo-v05-interior-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 16997,
+          "sha256": "7e310ba8bf9fee83812d57748ddcd097dbb2c7eb6bbc3363ca7c7852537458eb"
+        },
+        {
+          "path": "design/assets/generated/demo-v05/demo-v05-interior-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 19748,
+          "sha256": "9b9a34b4af7ffb4b528a00f50af4d7666b1fed44db6c02624f2795477bde60e6"
+        },
+        {
+          "path": "design/assets/generated/demo-v05/demo-v05-interior-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 47251,
+          "sha256": "47d324c45482e03b9184c4648a0d02db74774dbaf51799a713f15806fcbeb445"
+        },
+        {
+          "path": "design/assets/generated/demo-v05/demo-v05-interior-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 56936,
+          "sha256": "77335879957a1530a18844b5f1ad35a88237b2046a7e4aa77eaff634304a6de8"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 52,
+        "y": 48
+      },
+      "alt": "Wnętrze pojazdu demonstracyjnego fastback premium, premium.",
+      "usage": [
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "reconstructed-from-session-brief",
+        "prompt": "Photorealistic premium rental-fleet catalogue series of one exact fictional unbranded szampański szary fastback premium; distinct wnętrze photograph; preserve vehicle identity, geometry, wheels and trim across the set; contemporary restrained architectural location, soft natural light, clean commercial composition; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [
+          "demo-v05-front-3q"
+        ],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2437951,
+        "sha256": "878d044baa5108655ac1a1b4d35f7827fa692c5923d1cbc2b39ac79048c92e73",
+        "archivedPath": "design/assets/originals/demo-v05/demo-v05-interior.png"
+      }
+    },
+    {
+      "id": "demo-v05-rear-3q",
+      "vehicleId": "demo-v05",
+      "vehicleName": "Fastback premium",
+      "category": "Premium",
+      "view": "rear-3q",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v05/demo-v05-rear-3q-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 14783,
+          "sha256": "5b4c444d40220168eb490556a385594dcefc2ac21747de8f5568ed91c5bab484"
+        },
+        {
+          "path": "design/assets/generated/demo-v05/demo-v05-rear-3q-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 18004,
+          "sha256": "08f2f6266236b93cbdd3f7e04b8d9d509be9256eff9c89047e3c2cc311c5f6e4"
+        },
+        {
+          "path": "design/assets/generated/demo-v05/demo-v05-rear-3q-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 44741,
+          "sha256": "6bbfb801b93c28e2c6eadc4155e8654d37263d2c852e321c63ffa70f812735e9"
+        },
+        {
+          "path": "design/assets/generated/demo-v05/demo-v05-rear-3q-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 55128,
+          "sha256": "c250790b9ee9fdff199634799b57086ada2ede1c3c3921e6441caaaf1d88cc18"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 50,
+        "y": 54
+      },
+      "alt": "Pojazd demonstracyjny fastback premium w kolorze szampański szary, widok z tyłu pod kątem.",
+      "usage": [
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "reconstructed-from-session-brief",
+        "prompt": "Photorealistic premium rental-fleet catalogue series of one exact fictional unbranded szampański szary fastback premium; distinct widok z tyłu pod kątem photograph; preserve vehicle identity, geometry, wheels and trim across the set; contemporary restrained architectural location, soft natural light, clean commercial composition; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [
+          "demo-v05-front-3q"
+        ],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2161437,
+        "sha256": "25df33a0db77970d8d9805da0a9163335db38dc8c060ffc3f5a222d1845f95d9",
+        "archivedPath": "design/assets/originals/demo-v05/demo-v05-rear-3q.png"
+      }
+    },
+    {
+      "id": "demo-v05-side",
+      "vehicleId": "demo-v05",
+      "vehicleName": "Fastback premium",
+      "category": "Premium",
+      "view": "side",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v05/demo-v05-side-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 15249,
+          "sha256": "3541a653ffcf809fb6d5d19e4428a9a0b419f106a2e5f1df5d845accf3364144"
+        },
+        {
+          "path": "design/assets/generated/demo-v05/demo-v05-side-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 18490,
+          "sha256": "8a9e834c7b82cc26057f13163dd0940c78c4ba0f49cf3206fa4c5ef34acb8fa6"
+        },
+        {
+          "path": "design/assets/generated/demo-v05/demo-v05-side-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 46433,
+          "sha256": "403ce0345f7bc6366b35dbd77c7575bfe63971736b5fd4650cc6e8c1f47cd3fc"
+        },
+        {
+          "path": "design/assets/generated/demo-v05/demo-v05-side-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 57062,
+          "sha256": "11388ac70957dc86763a1ff32c97abc4ff19f38d04219bba8fc8d35b858e5cc7"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 50,
+        "y": 53
+      },
+      "alt": "Pojazd demonstracyjny fastback premium w kolorze szampański szary, profil boczny.",
+      "usage": [
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "reconstructed-from-session-brief",
+        "prompt": "Photorealistic premium rental-fleet catalogue series of one exact fictional unbranded szampański szary fastback premium; distinct profil boczny photograph; preserve vehicle identity, geometry, wheels and trim across the set; contemporary restrained architectural location, soft natural light, clean commercial composition; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [
+          "demo-v05-front-3q"
+        ],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2259435,
+        "sha256": "60eb5ca38deafa2a877bf7fd5c3e9af36e664e8b2c4b2fe340297fa52c1dc76d",
+        "archivedPath": "design/assets/originals/demo-v05/demo-v05-side.png"
+      }
+    },
+    {
+      "id": "demo-v06-front-3q",
+      "vehicleId": "demo-v06",
+      "vehicleName": "Rodzinny MPV",
+      "category": "MPV · 7 miejsc",
+      "view": "front-3q",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v06/demo-v06-front-3q-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 19982,
+          "sha256": "5d07f762f3a7d71f2551e21f1b8c3200eed5c3dbe5ae5e7a990983744f705943"
+        },
+        {
+          "path": "design/assets/generated/demo-v06/demo-v06-front-3q-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 24130,
+          "sha256": "082dc6687e33cf30504a907081b9a33925ca62e3bd30abb511d73cba1a5b9de4"
+        },
+        {
+          "path": "design/assets/generated/demo-v06/demo-v06-front-3q-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 54212,
+          "sha256": "59f0ac78869678812d8241bf518cbea3bffb3c94627dd6a2bc4512b33de29e82"
+        },
+        {
+          "path": "design/assets/generated/demo-v06/demo-v06-front-3q-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 66794,
+          "sha256": "d6650dd7e2b9f37e8f064fcb3872d2b88d743a693b4b4d4b75b99eade4c156de"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 54,
+        "y": 55
+      },
+      "alt": "Pojazd demonstracyjny rodzinny mpv w kolorze bordowy, widok z przodu pod kątem.",
+      "usage": [
+        "vehicle-card",
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "recorded",
+        "prompt": "Photorealistic catalogue series of one exact fictional unbranded burgundy seven-seat family MPV at a contemporary timber-and-brick rental office; distinct front-left three-quarter, rear-right three-quarter, perpendicular side profile and interior views; preserve identity, proportions, wheels, trim and three-row seven-seat layout; soft overcast daylight; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2412506,
+        "sha256": "36de9cf5494a03ee814566ff4da5eeb04a103e5776b4354c402e63cb16c32609",
+        "archivedPath": "design/assets/originals/demo-v06/demo-v06-front-3q.png"
+      }
+    },
+    {
+      "id": "demo-v06-interior",
+      "vehicleId": "demo-v06",
+      "vehicleName": "Rodzinny MPV",
+      "category": "MPV · 7 miejsc",
+      "view": "interior",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v06/demo-v06-interior-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 16880,
+          "sha256": "a8833b3b120f9786b6a55b32d46d5138b4f4696c79a4d91140e6e4ed0d1283ff"
+        },
+        {
+          "path": "design/assets/generated/demo-v06/demo-v06-interior-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 20120,
+          "sha256": "8aece12b053e39db7a83f05e79d6cef847a6c64759b62efbab4dfb58a8f7065b"
+        },
+        {
+          "path": "design/assets/generated/demo-v06/demo-v06-interior-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 46968,
+          "sha256": "8ece354d7d753363e710af5cc3b2ead3fab28c10d64975911eb5aacbc8c7c72e"
+        },
+        {
+          "path": "design/assets/generated/demo-v06/demo-v06-interior-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 56452,
+          "sha256": "283e20a4b5ecb90361ecbc7acb4040b488826110376296fce4bbc76db931bc3e"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 52,
+        "y": 48
+      },
+      "alt": "Wnętrze pojazdu demonstracyjnego rodzinny mpv, mpv · 7 miejsc.",
+      "usage": [
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "recorded",
+        "prompt": "Photorealistic catalogue series of one exact fictional unbranded burgundy seven-seat family MPV at a contemporary timber-and-brick rental office; distinct front-left three-quarter, rear-right three-quarter, perpendicular side profile and interior views; preserve identity, proportions, wheels, trim and three-row seven-seat layout; soft overcast daylight; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [
+          "demo-v06-front-3q"
+        ],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2568805,
+        "sha256": "ec661e466a7c52b34c41051b647d9991c966805685732903920f4c7ac76540bf",
+        "archivedPath": "design/assets/originals/demo-v06/demo-v06-interior.png"
+      }
+    },
+    {
+      "id": "demo-v06-rear-3q",
+      "vehicleId": "demo-v06",
+      "vehicleName": "Rodzinny MPV",
+      "category": "MPV · 7 miejsc",
+      "view": "rear-3q",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v06/demo-v06-rear-3q-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 18890,
+          "sha256": "07310e3e5e4146e1ddd7cc26df86251a018551ca817ac3130a35899979977443"
+        },
+        {
+          "path": "design/assets/generated/demo-v06/demo-v06-rear-3q-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 23576,
+          "sha256": "35c8bc9476fcd462d2c4cf302b67de89a58da128b2e47e88e4f08f62342219ca"
+        },
+        {
+          "path": "design/assets/generated/demo-v06/demo-v06-rear-3q-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 49263,
+          "sha256": "6d5fd9272b66feb7d1c9f2591f1ae02dad47b0fee1ff9fbf9b2541a97d624a40"
+        },
+        {
+          "path": "design/assets/generated/demo-v06/demo-v06-rear-3q-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 62770,
+          "sha256": "2a610ead6794ccd755483dfa36407d9743d7a82b75adc843a17d1dfc27fd8b0e"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 50,
+        "y": 54
+      },
+      "alt": "Pojazd demonstracyjny rodzinny mpv w kolorze bordowy, widok z tyłu pod kątem.",
+      "usage": [
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "recorded",
+        "prompt": "Photorealistic catalogue series of one exact fictional unbranded burgundy seven-seat family MPV at a contemporary timber-and-brick rental office; distinct front-left three-quarter, rear-right three-quarter, perpendicular side profile and interior views; preserve identity, proportions, wheels, trim and three-row seven-seat layout; soft overcast daylight; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [
+          "demo-v06-front-3q"
+        ],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2229955,
+        "sha256": "f0afccc7ea53ee185de941530f22e1ef543b4e446a0bf1d0a0ab505fce65c611",
+        "archivedPath": "design/assets/originals/demo-v06/demo-v06-rear-3q.png"
+      }
+    },
+    {
+      "id": "demo-v06-side",
+      "vehicleId": "demo-v06",
+      "vehicleName": "Rodzinny MPV",
+      "category": "MPV · 7 miejsc",
+      "view": "side",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v06/demo-v06-side-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 19978,
+          "sha256": "8abdfbf26bb461b6534d08171071492aa508ab6d1e1ad7a84e0fc40b846dc4e7"
+        },
+        {
+          "path": "design/assets/generated/demo-v06/demo-v06-side-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 24432,
+          "sha256": "54b29786fb0b52108e3f1db82a542fc4dd37649c7633d712fad23c202299a354"
+        },
+        {
+          "path": "design/assets/generated/demo-v06/demo-v06-side-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 54531,
+          "sha256": "4984741f30284f6d77b0bce36bfc22b86109d9104200378df65ec8de39fdd3fa"
+        },
+        {
+          "path": "design/assets/generated/demo-v06/demo-v06-side-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 68068,
+          "sha256": "c23eaea7a83e5b3ba6eb28d10e2de39d4b1435c0634a73d5a9fd0e6a62620af8"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 50,
+        "y": 53
+      },
+      "alt": "Pojazd demonstracyjny rodzinny mpv w kolorze bordowy, profil boczny.",
+      "usage": [
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "recorded",
+        "prompt": "Photorealistic catalogue series of one exact fictional unbranded burgundy seven-seat family MPV at a contemporary timber-and-brick rental office; distinct front-left three-quarter, rear-right three-quarter, perpendicular side profile and interior views; preserve identity, proportions, wheels, trim and three-row seven-seat layout; soft overcast daylight; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [
+          "demo-v06-front-3q"
+        ],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2300422,
+        "sha256": "13a5747b647f236034a2598879af514444c6c363d17836597ae0e0df5fc272d1",
+        "archivedPath": "design/assets/originals/demo-v06/demo-v06-side.png"
+      }
+    },
+    {
+      "id": "demo-v07-front-3q",
+      "vehicleId": "demo-v07",
+      "vehicleName": "Minibus pasażerski",
+      "category": "Minibus · 9 miejsc",
+      "view": "front-3q",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v07/demo-v07-front-3q-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 22064,
+          "sha256": "454b41e31f4dabe839b4abe700f1e7110351beb2ee76411fb8babc2fc8c08c88"
+        },
+        {
+          "path": "design/assets/generated/demo-v07/demo-v07-front-3q-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 26030,
+          "sha256": "5ed348192b384b61dfdf3e71636c4ce99b57d8d60d812f7e92f9623df2194c2c"
+        },
+        {
+          "path": "design/assets/generated/demo-v07/demo-v07-front-3q-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 66089,
+          "sha256": "a25f60846c749e5ffaf18d917fcacfebc88399fd907772fd954422fcb6b837a8"
+        },
+        {
+          "path": "design/assets/generated/demo-v07/demo-v07-front-3q-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 79270,
+          "sha256": "bb7943799adf9b130029e18f8c83af371e1f0408af2d2668ebf7e80667b513cc"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 54,
+        "y": 55
+      },
+      "alt": "Pojazd demonstracyjny minibus pasażerski w kolorze jasny srebrny, widok z przodu pod kątem.",
+      "usage": [
+        "vehicle-card",
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "recorded",
+        "prompt": "Photorealistic catalogue series of one exact fictional unbranded light-silver long-wheelbase high-roof nine-seat passenger minibus at a contemporary timber-and-brick rental office; distinct front-left three-quarter, rear-right three-quarter, perpendicular side profile and interior views; preserve identity, windows, trim and 2+2+2+3 seating; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2430853,
+        "sha256": "8a10aa519271de1905603b05bcfa34cac798dc73ecd091c61f6b9c4920f1001f",
+        "archivedPath": "design/assets/originals/demo-v07/demo-v07-front-3q.png"
+      }
+    },
+    {
+      "id": "demo-v07-interior",
+      "vehicleId": "demo-v07",
+      "vehicleName": "Minibus pasażerski",
+      "category": "Minibus · 9 miejsc",
+      "view": "interior",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v07/demo-v07-interior-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 20500,
+          "sha256": "337cdce1a4c640671ac5f8b45f6ac1df36fef3b126071dcd07c4db4d1b41b251"
+        },
+        {
+          "path": "design/assets/generated/demo-v07/demo-v07-interior-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 23924,
+          "sha256": "dec75a726434be8d166eb5f6abfb430d11def7edf261ea46f1575083403a38e3"
+        },
+        {
+          "path": "design/assets/generated/demo-v07/demo-v07-interior-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 66419,
+          "sha256": "7f4d056b2df4a6b4586be2f4cc56f166c36850c02ce74636e0bed40e734788cf"
+        },
+        {
+          "path": "design/assets/generated/demo-v07/demo-v07-interior-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 78640,
+          "sha256": "ec7118ccbf18fca1fdcc62cc10d6fd9d97c0b602102aed2fb33cc769df4811c1"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 52,
+        "y": 48
+      },
+      "alt": "Wnętrze pojazdu demonstracyjnego minibus pasażerski, minibus · 9 miejsc.",
+      "usage": [
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "recorded",
+        "prompt": "Photorealistic catalogue series of one exact fictional unbranded light-silver long-wheelbase high-roof nine-seat passenger minibus at a contemporary timber-and-brick rental office; distinct front-left three-quarter, rear-right three-quarter, perpendicular side profile and interior views; preserve identity, windows, trim and 2+2+2+3 seating; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [
+          "demo-v07-front-3q"
+        ],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2822988,
+        "sha256": "c7a87a5704d1d5827590d5bb5b62f6a9b6e51ca97076e673f4dab2968ecd0c02",
+        "archivedPath": "design/assets/originals/demo-v07/demo-v07-interior.png"
+      }
+    },
+    {
+      "id": "demo-v07-rear-3q",
+      "vehicleId": "demo-v07",
+      "vehicleName": "Minibus pasażerski",
+      "category": "Minibus · 9 miejsc",
+      "view": "rear-3q",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v07/demo-v07-rear-3q-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 21427,
+          "sha256": "a31c0885dd0b44f279967f29581f1f6ccca33daf1131aa7d7c9ceba8437faf83"
+        },
+        {
+          "path": "design/assets/generated/demo-v07/demo-v07-rear-3q-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 25528,
+          "sha256": "456b41908deb610bdd76369401d4e23a767d04cbba807902eda22eca6e8cfbdd"
+        },
+        {
+          "path": "design/assets/generated/demo-v07/demo-v07-rear-3q-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 61131,
+          "sha256": "78436613967d4fd7d8b7e1c694b7d3588bddc74a27d556b9e3792ac8c3140a28"
+        },
+        {
+          "path": "design/assets/generated/demo-v07/demo-v07-rear-3q-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 75778,
+          "sha256": "236b78ff136fc428fcf570379dc8d1981055130125e179f13a7db37816d65e29"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 50,
+        "y": 54
+      },
+      "alt": "Pojazd demonstracyjny minibus pasażerski w kolorze jasny srebrny, widok z tyłu pod kątem.",
+      "usage": [
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "recorded",
+        "prompt": "Photorealistic catalogue series of one exact fictional unbranded light-silver long-wheelbase high-roof nine-seat passenger minibus at a contemporary timber-and-brick rental office; distinct front-left three-quarter, rear-right three-quarter, perpendicular side profile and interior views; preserve identity, windows, trim and 2+2+2+3 seating; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [
+          "demo-v07-front-3q"
+        ],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2305143,
+        "sha256": "3a9ec862a00867f80928d52c920cda1f2fe480d2a5da30024d6be2c96c0e5b25",
+        "archivedPath": "design/assets/originals/demo-v07/demo-v07-rear-3q.png"
+      }
+    },
+    {
+      "id": "demo-v07-side",
+      "vehicleId": "demo-v07",
+      "vehicleName": "Minibus pasażerski",
+      "category": "Minibus · 9 miejsc",
+      "view": "side",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v07/demo-v07-side-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 21528,
+          "sha256": "92c9b45753bae91b56297cb19c0ec0c00e9becd817b72e0a60fd128093f62d12"
+        },
+        {
+          "path": "design/assets/generated/demo-v07/demo-v07-side-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 25850,
+          "sha256": "eca846ed5657a09cb3b9013c2cd174468704dd36ff96835dbdbf53c73237ca4b"
+        },
+        {
+          "path": "design/assets/generated/demo-v07/demo-v07-side-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 67144,
+          "sha256": "767bee5efc8fb7712681f01dded87c2398cc1fafbf906554b77d1326f06d6341"
+        },
+        {
+          "path": "design/assets/generated/demo-v07/demo-v07-side-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 79866,
+          "sha256": "6e87cf7f8c3609dfb530344b73d03394ecf5c061a4994628d2e8955453d34ddd"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 50,
+        "y": 53
+      },
+      "alt": "Pojazd demonstracyjny minibus pasażerski w kolorze jasny srebrny, profil boczny.",
+      "usage": [
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "recorded",
+        "prompt": "Photorealistic catalogue series of one exact fictional unbranded light-silver long-wheelbase high-roof nine-seat passenger minibus at a contemporary timber-and-brick rental office; distinct front-left three-quarter, rear-right three-quarter, perpendicular side profile and interior views; preserve identity, windows, trim and 2+2+2+3 seating; no people, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [
+          "demo-v07-front-3q"
+        ],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2375585,
+        "sha256": "6b60fb7782cbacf786bb0ce80f8e8ed225aabc580c8cbdd0c35d6bce4d9a868a",
+        "archivedPath": "design/assets/originals/demo-v07/demo-v07-side.png"
+      }
+    },
+    {
+      "id": "demo-v08-cargo",
+      "vehicleId": "demo-v08",
+      "vehicleName": "Furgon cargo",
+      "category": "Dostawczy",
+      "view": "cargo",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v08/demo-v08-cargo-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 18398,
+          "sha256": "793d49055c98c4bfd17a6b18b442f439078a6ba0b500cb10dd8025f2cb3dcae5"
+        },
+        {
+          "path": "design/assets/generated/demo-v08/demo-v08-cargo-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 21456,
+          "sha256": "8f54bc86de88a94ff6b566367b8e7e2bf1b1e43b9924670001eb7e5a075a466c"
+        },
+        {
+          "path": "design/assets/generated/demo-v08/demo-v08-cargo-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 53826,
+          "sha256": "7ecaab681f0938344cb80b7ee122fc8872a6cd7326e344f3d147679a514492c4"
+        },
+        {
+          "path": "design/assets/generated/demo-v08/demo-v08-cargo-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 62456,
+          "sha256": "5b5bc84de2daba11b10d705cc8eee65a3aa21d37bb37cd389792a1f818fae926"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 50,
+        "y": 50
+      },
+      "alt": "Pusta przestrzeń bagażowa pojazdu demonstracyjnego furgon cargo.",
+      "usage": [
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "recorded",
+        "prompt": "Photorealistic catalogue series of one exact fictional unbranded white medium-wheelbase high-roof cargo panel van at a contemporary timber-and-brick rental office; distinct front-left three-quarter, rear-right three-quarter, perpendicular side profile and empty cargo-bay views; preserve opaque panels, dark trim and steel wheels; no people, cargo, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [
+          "demo-v08-front-3q"
+        ],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2237218,
+        "sha256": "dc8db48b1cacf3fa24b650e52a77f31d219eeb62540728e186b58ebe659a1fd7",
+        "archivedPath": "design/assets/originals/demo-v08/demo-v08-cargo.png"
+      }
+    },
+    {
+      "id": "demo-v08-front-3q",
+      "vehicleId": "demo-v08",
+      "vehicleName": "Furgon cargo",
+      "category": "Dostawczy",
+      "view": "front-3q",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v08/demo-v08-front-3q-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 18657,
+          "sha256": "cbba8c8572e9988260ac30f696204f41b143e3366428fd76eb3b1b709fa04ac0"
+        },
+        {
+          "path": "design/assets/generated/demo-v08/demo-v08-front-3q-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 22540,
+          "sha256": "d25fabdf093bf262a1362691ec632ceaa04516db85bd193047f233deaed4ca18"
+        },
+        {
+          "path": "design/assets/generated/demo-v08/demo-v08-front-3q-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 51269,
+          "sha256": "652f94a1cdbd5161d3af03ea03cc07b5ebaff14662ad2759bcb9f6239b0a115c"
+        },
+        {
+          "path": "design/assets/generated/demo-v08/demo-v08-front-3q-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 62026,
+          "sha256": "e5e22be503452bc0a6504e070f95c639aacf525c3cb129721d41a96a0ae2dcc2"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 54,
+        "y": 55
+      },
+      "alt": "Pojazd demonstracyjny furgon cargo w kolorze biały, widok z przodu pod kątem.",
+      "usage": [
+        "vehicle-card",
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "recorded",
+        "prompt": "Photorealistic catalogue series of one exact fictional unbranded white medium-wheelbase high-roof cargo panel van at a contemporary timber-and-brick rental office; distinct front-left three-quarter, rear-right three-quarter, perpendicular side profile and empty cargo-bay views; preserve opaque panels, dark trim and steel wheels; no people, cargo, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2156076,
+        "sha256": "873b1f1355506f9e963af8dbdce29a290e89bf8d4b14341cfe7f81e3d22fa637",
+        "archivedPath": "design/assets/originals/demo-v08/demo-v08-front-3q.png"
+      }
+    },
+    {
+      "id": "demo-v08-rear-3q",
+      "vehicleId": "demo-v08",
+      "vehicleName": "Furgon cargo",
+      "category": "Dostawczy",
+      "view": "rear-3q",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v08/demo-v08-rear-3q-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 17602,
+          "sha256": "1630c36d5785bf10c25b0c709d454bed5ecc6c9dc7a58aba10273f05772d3f64"
+        },
+        {
+          "path": "design/assets/generated/demo-v08/demo-v08-rear-3q-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 21318,
+          "sha256": "de12d05d7765ea039bac82e20194444edce4bff016e6c48b219f8d8c7397771f"
+        },
+        {
+          "path": "design/assets/generated/demo-v08/demo-v08-rear-3q-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 48347,
+          "sha256": "3cf6bef122409db99f5f2daebcb723f1f0259fdf055ed09facf103e2ae32e231"
+        },
+        {
+          "path": "design/assets/generated/demo-v08/demo-v08-rear-3q-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 59012,
+          "sha256": "e18089e56a3a5d4e72892be5385f0a35d7d5d08a5d38b3b9ee8411fcf02a6f3e"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 50,
+        "y": 54
+      },
+      "alt": "Pojazd demonstracyjny furgon cargo w kolorze biały, widok z tyłu pod kątem.",
+      "usage": [
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "recorded",
+        "prompt": "Photorealistic catalogue series of one exact fictional unbranded white medium-wheelbase high-roof cargo panel van at a contemporary timber-and-brick rental office; distinct front-left three-quarter, rear-right three-quarter, perpendicular side profile and empty cargo-bay views; preserve opaque panels, dark trim and steel wheels; no people, cargo, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [
+          "demo-v08-front-3q"
+        ],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2090526,
+        "sha256": "fe5e7fe5b043efc371586c459f8969244ea0b46ca7c2228b4b560311292febae",
+        "archivedPath": "design/assets/originals/demo-v08/demo-v08-rear-3q.png"
+      }
+    },
+    {
+      "id": "demo-v08-side",
+      "vehicleId": "demo-v08",
+      "vehicleName": "Furgon cargo",
+      "category": "Dostawczy",
+      "view": "side",
+      "variants": [
+        {
+          "path": "design/assets/generated/demo-v08/demo-v08-side-480w.avif",
+          "format": "avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 16983,
+          "sha256": "0e4f4f65511035cd7496cf31f120f99681b1dff4742b04a8c517c5cc5c5fc6a1"
+        },
+        {
+          "path": "design/assets/generated/demo-v08/demo-v08-side-480w.webp",
+          "format": "webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 20824,
+          "sha256": "8be230e4f229961368ae4991d22e52d061b4debb2898a3397f5295d14c7f1d73"
+        },
+        {
+          "path": "design/assets/generated/demo-v08/demo-v08-side-960w.avif",
+          "format": "avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 48321,
+          "sha256": "7d0aba708cc032e8de4239d9a10bc0a4e550790b52f682df6b660451c00bdbf5"
+        },
+        {
+          "path": "design/assets/generated/demo-v08/demo-v08-side-960w.webp",
+          "format": "webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 60988,
+          "sha256": "851e6dc6363db40d87df43c7fa1ac7c00b51b1cbca8e4099f09b77fc01eed000"
+        }
+      ],
+      "focalPointPercent": {
+        "x": 50,
+        "y": 53
+      },
+      "alt": "Pojazd demonstracyjny furgon cargo w kolorze biały, profil boczny.",
+      "usage": [
+        "vehicle-gallery",
+        "admin-preview"
+      ],
+      "provenance": {
+        "kind": "synthetic-demo",
+        "tool": "OpenAI built-in image generation",
+        "model": null,
+        "createdAt": "2026-09-24",
+        "promptRecord": "recorded",
+        "prompt": "Photorealistic catalogue series of one exact fictional unbranded white medium-wheelbase high-roof cargo panel van at a contemporary timber-and-brick rental office; distinct front-left three-quarter, rear-right three-quarter, perpendicular side profile and empty cargo-bay views; preserve opaque panels, dark trim and steel wheels; no people, cargo, logos, badges, readable plates, text or watermark.",
+        "identityReferences": [
+          "demo-v08-front-3q"
+        ],
+        "rights": "Wygenerowany materiał demonstracyjny; bez znaków marek i bez wizerunku osób."
+      },
+      "archivedOriginal": {
+        "format": "png",
+        "width": 1536,
+        "height": 1024,
+        "aspectRatio": "1536:1024",
+        "bytes": 2075199,
+        "sha256": "e8546d51b0127094f8ee167bbf0b37f46f545c94b101ff7d772322071adb6cc4",
+        "archivedPath": "design/assets/originals/demo-v08/demo-v08-side.png"
+      }
+    }
+  ]
+}
