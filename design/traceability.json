@@ -161,7 +161,7 @@
         "obsoleteBoardId": "1e066793-8858-8051-8008-cf43e509c242"
       }
     ],
-    "resolution": "Historyczne ID boardów OVR-14/15/17 pozostają nieobecne. OVR-17 mobile otrzymał nową instancję DS-NAV-010 na stronie panelu firmy; desktopowy board OVR-17 pozostaje niepotwierdzony. OVR-14/15 nie zostały rozwiązane w #94.",
+    "resolution": "Historyczne ID boardów OVR-14/15/17 pozostają nieobecne. OVR-17 mobile i desktop mają instancje DS-NAV-010 na stronie panelu firmy; desktop otwiera przycisk użytkownika w topbarze ADM-04. OVR-14/15 nie zostały rozwiązane w #94.",
     "emptyInteractionTargets": {
       "count": 52,
       "mobileScenarioPage": 28,
@@ -7323,12 +7323,15 @@
       "statesSpec": "Wywołanie: avatar / bottom nav",
       "penpot": {
         "targetPageId": "a4abf4c9-2e1f-80fd-8008-afc9717d55df",
-        "sourceComponentItemIds": ["DS-NAV-010", "DS-NAV-011"],
+        "sourceComponentItemIds": ["DS-NAV-010"],
         "sourceComponentPageId": "a4abf4c9-2e1f-80fd-8008-afc9717972ba",
         "mobileComponentId": "9425204d-c5c4-807f-8008-b5942c34f856",
-        "desktopComponentId": "9425204d-c5c4-807f-8008-b597a3eb96c9",
+        "desktopComponentId": "9425204d-c5c4-807f-8008-b5942c39e014",
+        "desktopTriggerShapeId": "37f3ef1b-03c6-808f-8008-c344268aba06",
+        "desktopServiceStatusTargetId": "269b07ba-69e5-8066-8008-c84b97fb8699",
         "boardIds": {
-          "mobile": "89433e5c-4f5c-80ad-8008-d5edfc7920c7"
+          "mobile": "89433e5c-4f5c-80ad-8008-d5edfc7920c7",
+          "desktop": "89433e5c-4f5c-80ad-8008-d5f3a39ca891"
         }
       },
       "prototypeIds": [
@@ -7337,7 +7340,7 @@
         "A-03",
         "A-04"
       ],
-      "mappingState": "mobile_overlay_created_desktop_missing"
+      "mappingState": "mobile_and_desktop_overlay_present"
     },
     {
       "id": "OVR-18",

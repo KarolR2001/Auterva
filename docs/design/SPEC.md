@@ -605,7 +605,7 @@ Każdy komponent musi mieć wariant mobilny i desktopowy, jeżeli sposób prezen
 | `DS-NAV-007` | `AdminSidebar` | expanded, collapsed | nie występuje | 240/72 px | active, hover, badge, disabled |
 | `DS-NAV-008` | `AdminTopbar` | with search, with status | tytuł + user/menu | breadcrumbs + user menu | online/offline/update |
 | `DS-NAV-009` | `AdminBottomNavigation` | Start, Pojazdy, Czat, Więcej | stała | nie występuje | active, notification dot |
-| `DS-NAV-010` | `AdminMoreMenu` | sheet/drawer | status usługi, ustawienia, konto, warunkowa instalacja PWA, wylogowanie | dropdown/user menu | open, active |
+| `DS-NAV-010` | `AdminMoreMenu` | sheet/drawer | status usługi, ustawienia, konto, warunkowa instalacja PWA, wylogowanie | dropdown przy przycisku użytkownika w topbarze, z tymi samymi celami | open, active |
 | `DS-NAV-011` | `UserMenu` | profile, account, logout | sheet | dropdown | current session, logout |
 | `DS-NAV-012` | `Tabs` | underline, contained, scrollable | przewijane poziomo | pełne | default, active, disabled, badge |
 | `DS-NAV-013` | `SegmentedControl` | 2–4 opcje | fill width | hug content | selected, focus |
@@ -1045,7 +1045,7 @@ Sidebar zawiera:
 4. Ustawienia,
 5. Konto.
 
-Na dole: status online/PWA, użytkownik i wylogowanie. „Czat z Autervą” prowadzi do `/admin/czat` i pokazuje tekstowo dostępny wskaźnik nowych wiadomości. Status usługi jest dostępny z dashboardu i menu użytkownika przez `/admin/usluga`.
+Na dole: status online/PWA, użytkownik i wylogowanie. „Czat z Autervą” prowadzi do `/admin/czat` i pokazuje tekstowo dostępny wskaźnik nowych wiadomości. Na dashboardzie przycisk użytkownika w topbarze otwiera desktopowy `DS-NAV-010` (`desktop-dropdown/open`); pozycja „Status usługi” prowadzi do `/admin/usluga`. `DS-NAV-011` służy profilowi/sesji i nie zastępuje tego wejścia.
 
 #### Mobile
 
@@ -1175,7 +1175,7 @@ Nie pokazuje komunikatu sukcesu dla niezapisanej operacji i nie tworzy kolejki z
 | `OVR-14` | Sesja wygasła | krytyczny dialog | krytyczny dialog | odpowiedź 401 / timeout |
 | `OVR-15` | Instalacja PWA | sheet/instrukcja | banner/dialog | możliwość instalacji/menu |
 | `OVR-16` | Aktualizacja PWA | banner/sheet | toast/dialog | nowy service worker |
-| `OVR-17` | User menu / Więcej | sheet | dropdown | avatar / bottom nav |
+| `OVR-17` | User menu / Więcej | sheet `DS-NAV-010` | dropdown `DS-NAV-010` | przycisk użytkownika w topbarze / „Więcej” w dolnej nawigacji |
 | `OVR-18` | Szczegóły wpisu audytu | sheet | expandable row/dialog | wpis logu |
 | `OVR-19` | Zakończ sesję | dialog | dialog | karta sesji |
 | `OVR-20` | Podgląd SEO | card/sheet | panel | ustawienia SEO |
