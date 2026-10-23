@@ -3,9 +3,11 @@ import { once } from "node:events";
 import { afterAll, expect, test } from "vitest";
 import * as OTPAuth from "otpauth";
 import WebSocket from "ws";
+import { POST as authPost } from "../../src/app/api/auth/[...all]/route";
 import { createAuth } from "../../src/lib/auth";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { startRealtimeServer } from "../../src/modules/chat/realtime";
+import { resolveRealtimeTenant } from "../../src/modules/chat/resolve-tenant";
 
 const db = createPrismaClient(process.env.DATABASE_URL ?? "");
 const auth = createAuth(db, true);
@@ -25,10 +27,19 @@ async function fixtureSession(organizationId: string) {
   const totp = OTPAuth.URI.parse(enrolled.totpURI);
   if (!(totp instanceof OTPAuth.TOTP)) throw new Error("Expected TOTP URI");
   await auth.api.verifyTOTP({ body: { code: totp.generate() }, headers: new Headers({ cookie: cookies(registered.headers) }) });
+  expect(await resolveRealtimeTenant(db, auth, new Headers({ cookie: cookies(registered.headers), origin: process.env.BETTER_AUTH_URL ?? "" }), new URL(process.env.BETTER_AUTH_URL ?? "").origin)).toBeNull();
   const signIn = await auth.api.signInEmail({ body: { email, password }, returnHeaders: true });
   expect(signIn.response).toHaveProperty("twoFactorRedirect", true);
-  const completed = await auth.api.verifyTOTP({ body: { code: totp.generate() }, headers: new Headers({ cookie: cookies(signIn.headers) }), returnHeaders: true });
-  return cookies(completed.headers);
+  const url = `${process.env.BETTER_AUTH_URL}/api/auth/two-factor/verify-totp`;
+  const request = new Request(url, {
+    method: "POST",
+    headers: { host: new URL(url).host, origin: new URL(url).origin, cookie: cookies(signIn.headers), "content-type": "application/json" },
+    body: JSON.stringify({ code: totp.generate(), trustDevice: false }),
+  });
+  process.env.AUTERVA_AUTH_PROBE = "1";
+  const response = await authPost(request);
+  expect(response.status).toBe(200);
+  return cookies(response.headers);
 }
 
 function connect(port: number, organizationId: string, cookie: string) {
@@ -45,12 +56,7 @@ test("persisted send is deduplicated after reconnect and isolated from another c
   await db.organization.createMany({ data: organizations.map((id) => ({ id, slug: `ws-${id}` })) });
   const cookieA = await fixtureSession(organizations[0]);
   const cookieB = await fixtureSession(organizations[1]);
-  const server = await startRealtimeServer(db, async (headers) => {
-    const session = await auth.api.getSession({ headers });
-    if (!session) return null;
-    const user = await db.user.findUnique({ where: { id: session.user.id }, select: { organizationId: true, twoFactorEnabled: true } });
-    return user?.twoFactorEnabled ? user.organizationId : null;
-  });
+  const server = await startRealtimeServer(db, (headers) => resolveRealtimeTenant(db, auth, headers, new URL(process.env.BETTER_AUTH_URL ?? "").origin));
   try {
     const first = connect(server.port, organizations[0], cookieA);
     await once(first, "open");
@@ -84,6 +90,14 @@ test("persisted send is deduplicated after reconnect and isolated from another c
 
     const forbidden = connect(server.port, organizations[1], cookieA);
     await expect(once(forbidden, "open")).rejects.toThrow();
+    const revoked = connect(server.port, organizations[0], cookieA);
+    await once(revoked, "open");
+    const sessionA = await auth.api.getSession({ headers: new Headers({ cookie: cookieA }) });
+    if (!sessionA) throw new Error("Expected fixture session");
+    await db.session.delete({ where: { id: sessionA.session.id } });
+    const closed = once(revoked, "close");
+    revoked.send(JSON.stringify({ type: "send", clientMessageId: randomUUID(), body: "Nie może zostać zapisane" }));
+    await closed;
     expect(await db.chatMessage.count({ where: { organizationId: organizations[0] } })).toBe(1);
   } finally {
     await server.close();

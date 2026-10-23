@@ -2,12 +2,28 @@ import { afterAll, expect, test } from "vitest";
 import * as OTPAuth from "otpauth";
 import { createAuth } from "../../src/lib/auth";
 import { createPrismaClient } from "../../src/lib/prisma";
+import { GET as guardedAuthGet } from "../../src/app/api/auth/[...all]/route";
 
 const client = createPrismaClient(process.env.DATABASE_URL ?? "");
 const auth = createAuth(client, true);
+const fixtureEmails: string[] = [];
 
 afterAll(async () => {
+  await client.user.deleteMany({ where: { email: { in: fixtureEmails } } });
   await client.$disconnect();
+});
+
+test("public auth entrypoint is disabled without explicit fixture flag", async () => {
+  const previous = process.env.AUTERVA_AUTH_PROBE;
+  delete process.env.AUTERVA_AUTH_PROBE;
+  try {
+    const url = `${process.env.BETTER_AUTH_URL}/api/auth/get-session/`;
+    const response = await guardedAuthGet(new Request(url, { headers: { host: new URL(url).host } }));
+    expect(response.status).toBe(404);
+  } finally {
+    if (previous === undefined) delete process.env.AUTERVA_AUTH_PROBE;
+    else process.env.AUTERVA_AUTH_PROBE = previous;
+  }
 });
 
 function cookie(headers: Headers) {
@@ -16,6 +32,7 @@ function cookie(headers: Headers) {
 
 test("real PostgreSQL credential login requires a verified TOTP before session", async () => {
   const email = `fixture-${crypto.randomUUID()}@example.test`;
+  fixtureEmails.push(email);
   const password = "Fixture password 9384!";
   const registration = await auth.api.signUpEmail({
     body: { name: "Fixture", email, password },
