@@ -251,7 +251,7 @@ To struktura planowana. Rzeczywistych istniejących plików instrukcji nie nadpi
 | Trial, opłacona data, domeny, odblokowanie po archiwum | Tak | Odczyt własnego stanu | Nie |
 | Logo, hero i publiczne materiały firmy | Zapis wybranej firmy | Odczyt / prośba w czacie | Tylko opublikowana treść |
 | Flota, zdjęcia pojazdów, prywatne blokady | W kontekście wybranej firmy | Wyłącznie własna firma | Brak zapisu, tylko publiczne DTO |
-| Kontakt, SEO, prawne i sporne pola SiteSettings | Zapis wybranej firmy | Dokładna allowlista do uzgodnienia; domyślnie odmowa spornych mutacji | Tylko opublikowane pola |
+| Kontakt, SEO, prawne i pozostałe pola SiteSettings | Zapis wybranej firmy według [kontraktu D-01/D-02](contracts/company-settings-and-vehicle-publication.md) | Odczyt własnej firmy; odmowa zapisu tych pól | Tylko opublikowane pola |
 | Czat | Rozmowy wybranych firm | Własna rozmowa | Nie |
 | Pojazdy/oferta po końcu okresu | Chroniony podgląd | Chroniony podgląd i pełna praca operacyjna | Neutralna odmowa |
 | Sekrety, hashe haseł, tokeny i kasowanie audytu | Nie przez UI/API produktu | Nie | Nie |
@@ -288,7 +288,7 @@ To struktura planowana. Rzeczywistych istniejących plików instrukcji nie nadpi
 
 ## 11. Flota, daty i współbieżność
 
-- Pojazd: DRAFT → PUBLISHED → UNPUBLISHED/ARCHIVED; niekompletne dane zapisują się jako szkic, publikacja wymaga kompletu wymaganych pól, poprawnych dat i cover.
+- Pojazd: DRAFT → PUBLISHED → UNPUBLISHED/ARCHIVED; niekompletne dane zapisują się jako szkic, publikacja wymaga kompletu wymaganych pól, w tym niepustego pełnego opisu, poprawnych dat i cover. [Jedna tabela walidacji klient/serwer](contracts/company-settings-and-vehicle-publication.md) rozstrzyga szczegóły D-02.
 - Publikacja pojazdu nie odblokowuje wygasłej firmy. Publiczny odczyt zawsze łączy warunki firmy i pojazdu.
 - `LocalDate` ma walidowany format `YYYY-MM-DD`; prezentacja `dd.MM.yyyy`, poniedziałek jako początek tygodnia, dzisiaj z zegara Europe/Warsaw.
 - Dostępność = cały żądany zakres mieści się w aktywności pojazdu i nie przecina żadnej ręcznej blokady. Wolnych dni nie zapisuje się w osobnej tabeli.
@@ -303,7 +303,7 @@ To struktura planowana. Rzeczywistych istniejących plików instrukcji nie nadpi
 
 - Server Components wywołują serwerowe use cases bez wewnętrznego HTTP. Route Handlers obsługują interakcje klienta; nie powielać tej samej mutacji w dwóch niezależnych implementacjach.
 - Zachować kontrakty bazowe: `/api/public/vehicles`, `/api/public/vehicles/[slug]`, kalendarz, `/api/public/availability/check`, `/api/public/settings`; zakres firmy wyznacza host.
-- Panel firmy: `/api/admin/vehicles`, publikacja/ukrycie/archiwizacja, zdjęcia, `/availability`, ustawienia, audyt; wszystkie operacje z serwerową kontrolą roli i firmy.
+- Panel firmy: `/api/admin/vehicles`, publikacja/ukrycie/archiwizacja, zdjęcia, `/availability`, odczyt ustawień, audyt; wszystkie operacje z serwerową kontrolą roli i firmy. Próby zapisu kontaktu, publicznych treści, SEO, prawa i brandingu przez admina są odrzucane także przy bezpośrednim API.
 - Platforma: `/api/platform/companies`, szczegóły firmy, `invitations`, `service-access`, `domains`, `archive`, `restore`, `public-unlock` oraz operacje floty w `/companies/[id]/…`.
 - Czat: odczyt historii z kursorem; wysyłanie/ponowienie przez ten sam use case; WebSocket dla zdarzeń message/typing/read i aktualizacji wskaźnika.
 - Payload mutacji: Zod, limit rozmiaru, jawna allowlista pól, oczekiwana wersja oraz idempotency key tam, gdzie retry może powielić skutek.
@@ -326,7 +326,7 @@ Prefiksy wyznaczają dozwolony obszar hosta; poniższe URI są projektem technic
 | `POST /api/admin/vehicles/[id]/publish`, `/unpublish`, `/archive` | Jawna walidowana zmiana stanu i audyt |
 | `GET/POST /api/admin/vehicles/[id]/availability`, `PATCH/DELETE /api/admin/availability/[id]` | Daty, konflikt współbieżności, bieżąca publiczna projekcja |
 | `POST /api/admin/vehicles/[id]/images`, `PATCH/DELETE /api/admin/images/[id]` | Upload/alt/cover/kolejność; bez obejścia warunku publikacji |
-| `GET/PATCH /api/admin/settings`, `GET /api/admin/audit` | Allowlista pól/roli, tenantowy audyt |
+| `GET/PATCH /api/admin/settings`, `GET /api/admin/audit` | Odczyt własnych ustawień i tenantowy audyt; `PATCH` odrzuca zapis pól D-01 admina firmy (`403`, bez częściowego zapisu). Zapis tych pól wyłącznie w zagnieżdżonej mutacji platformy według [kontraktu](contracts/company-settings-and-vehicle-publication.md) |
 | `GET/POST /api/platform/companies`, `GET/PATCH /api/platform/companies/[id]` | Prerejestracja z idempotencją, brak publicznego signup |
 | `POST /api/platform/companies/[id]/invitations` | Nowe wydanie versus retry; unieważnienie poprzedniego linku |
 | `PATCH /api/platform/companies/[id]/service-access` | Wyłącznie superadmin, wersja okresu, audyt i harmonogram |
