@@ -27,7 +27,22 @@ async function fixtureSession(organizationId: string) {
   const totp = OTPAuth.URI.parse(enrolled.totpURI);
   if (!(totp instanceof OTPAuth.TOTP)) throw new Error("Expected TOTP URI");
   await auth.api.verifyTOTP({ body: { code: totp.generate() }, headers: new Headers({ cookie: cookies(registered.headers) }) });
-  expect(await resolveRealtimeTenant(db, auth, new Headers({ cookie: cookies(registered.headers), origin: process.env.BETTER_AUTH_URL ?? "" }), new URL(process.env.BETTER_AUTH_URL ?? "").origin)).toBeNull();
+
+  const firstSignIn = await auth.api.signInEmail({ body: { email, password }, returnHeaders: true });
+  expect(firstSignIn.response).toHaveProperty("twoFactorRedirect", true);
+  const firstFactor = await auth.api.verifyTOTP({
+    body: { code: totp.generate(), trustDevice: false },
+    headers: new Headers({ cookie: cookies(firstSignIn.headers) }),
+    returnHeaders: true,
+  });
+  const unprovenCookie = cookies(firstFactor.headers);
+  const unprovenSession = await auth.api.getSession({ headers: new Headers({ cookie: unprovenCookie }) });
+  if (!unprovenSession) throw new Error("Expected valid first session after TOTP");
+  expect((await db.user.findUnique({ where: { id: unprovenSession.user.id } }))?.twoFactorEnabled).toBe(true);
+  expect((await db.session.findUnique({ where: { id: unprovenSession.session.id } }))?.mfaVerifiedAt).toBeNull();
+  const wsHeaders = new Headers({ cookie: unprovenCookie, origin: process.env.BETTER_AUTH_URL ?? "", host: "127.0.0.1:3312" });
+  expect(await resolveRealtimeTenant(db, auth, wsHeaders, new URL(process.env.BETTER_AUTH_URL ?? "").origin, "127.0.0.1:3312")).toBeNull();
+
   const signIn = await auth.api.signInEmail({ body: { email, password }, returnHeaders: true });
   expect(signIn.response).toHaveProperty("twoFactorRedirect", true);
   const url = `${process.env.BETTER_AUTH_URL}/api/auth/two-factor/verify-totp`;
@@ -39,11 +54,13 @@ async function fixtureSession(organizationId: string) {
   process.env.AUTERVA_AUTH_PROBE = "1";
   const response = await authPost(request);
   expect(response.status).toBe(200);
+  expect(await resolveRealtimeTenant(db, auth, wsHeaders, new URL(process.env.BETTER_AUTH_URL ?? "").origin, "127.0.0.1:3312")).toBeNull();
+  expect((await db.session.findUnique({ where: { id: unprovenSession.session.id } }))?.mfaVerifiedAt).toBeNull();
   return cookies(response.headers);
 }
 
-function connect(port: number, organizationId: string, cookie: string) {
-  const socket = new WebSocket(`ws://127.0.0.1:${port}/ws?organizationId=${organizationId}`, { headers: { cookie, origin: process.env.BETTER_AUTH_URL ?? "" } });
+function connect(port: number, organizationId: string, cookie: string, host?: string) {
+  const socket = new WebSocket(`ws://127.0.0.1:${port}/ws?organizationId=${organizationId}`, { headers: { cookie, origin: process.env.BETTER_AUTH_URL ?? "", ...(host ? { host } : {}) } });
   return socket;
 }
 
@@ -56,7 +73,7 @@ test("persisted send is deduplicated after reconnect and isolated from another c
   await db.organization.createMany({ data: organizations.map((id) => ({ id, slug: `ws-${id}` })) });
   const cookieA = await fixtureSession(organizations[0]);
   const cookieB = await fixtureSession(organizations[1]);
-  const server = await startRealtimeServer(db, (headers) => resolveRealtimeTenant(db, auth, headers, new URL(process.env.BETTER_AUTH_URL ?? "").origin));
+  const server = await startRealtimeServer(db, (headers, expectedHost) => resolveRealtimeTenant(db, auth, headers, new URL(process.env.BETTER_AUTH_URL ?? "").origin, expectedHost));
   try {
     const first = connect(server.port, organizations[0], cookieA);
     await once(first, "open");
@@ -90,6 +107,8 @@ test("persisted send is deduplicated after reconnect and isolated from another c
 
     const forbidden = connect(server.port, organizations[1], cookieA);
     await expect(once(forbidden, "open")).rejects.toThrow();
+    const wrongHost = connect(server.port, organizations[0], cookieA, "wrong.example.test");
+    await expect(once(wrongHost, "open")).rejects.toThrow();
     const revoked = connect(server.port, organizations[0], cookieA);
     await once(revoked, "open");
     const sessionA = await auth.api.getSession({ headers: new Headers({ cookie: cookieA }) });
