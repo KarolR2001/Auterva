@@ -258,10 +258,10 @@ Stan analizy: **22.10.2026**. Obowiązuje **PRD 3.1 z superadminem i wieloma fir
 - **FR-ADM-056:** szybka blokada mobile: auto → daty → typ → zapis, bez rozbudowanego procesu.
 - **FR-ADM-057 — SHOULD:** zbiorczy kalendarz floty firmy: pojazdy × dni/tygodnie; mobile może stosować listę. 3.1 jawnie utrzymuje SHOULD, bez globalnej floty wszystkich firm.
 - **FR-ADM-058 — MUST:** po każdej mutacji blokady nowy publiczny odczyt jest aktualny, cache unieważniony.
-- **FR-ADM-060:** nazwa firmy, logo, opis, adres, obszar, godziny. 3.1 logo/branding wyłącznie superadmin; dokładna granica danych/treści edytowalnych przez firmę pozostaje konfliktem zapisów 3.1.
-- **FR-ADM-061:** kontakt telefon/e-mail/WhatsApp; 3.1 §6.2 i ADM-11/12 zachowują firmową edycję, lecz szeroki TEST-MVP-47 wyłącza bezpośrednie mutacje publicznych danych przez admina — potrzebny jawny podział pól.
-- **FR-ADM-062:** SEO title/description, liczba wyróżnionych, ceny on/off, domyślny kontakt, disclaimer; nie przenosić z tego prawa zmiany palety/fontów/ikon.
-- **FR-ADM-063:** treści/linki prywatności i regulaminu; odrębne od dokumentów Autervy.
+- **FR-ADM-060:** nazwa firmy, publiczne logo, opis, adres, obszar i godziny pozostają do odczytu dla administratora firmy; zapisuje je wyłącznie superadmin w kontekście tej firmy. Obowiązuje [macierz D-01](contracts/company-settings-and-vehicle-publication.md), także dla bezpośredniego API.
+- **FR-ADM-061:** publiczny telefon, e-mail i WhatsApp pozostają do odczytu dla administratora firmy; zapisuje je wyłącznie superadmin. Historyczna sugestia edycji w ADM-11/12 nie nadaje prawa do mutacji.
+- **FR-ADM-062:** tytuł/opis SEO, liczba wyróżnionych, firmowy przełącznik widoczności cen, domyślny kontakt i zastrzeżenie dostępności pozostają do odczytu dla administratora firmy; zapisuje je wyłącznie superadmin. Paleta, fonty i ikony nie są ustawieniami firmy.
+- **FR-ADM-063:** treści/linki polityki prywatności i regulaminu firmy pozostają do odczytu dla administratora firmy; zapisuje je wyłącznie superadmin. Dokumenty prawne Autervy są odrębne.
 - **FR-ADM-070 — minimum audytu MUST; pełny ekran SHOULD:** login/logout, utworzenie/zmiana auta, publikacja/ukrycie/archiwizacja, CRUD blokady, ustawienia kontaktu, hasło, sesje. 3.1 dodaje tworzenie/archiwizację firmy, okresy, domeny, branding, zaproszenia i działania superadmina z prawdziwym aktorem.
 - **FR-ADM-071:** UTC, aktor, akcja, typ/ID obiektu, bezpieczne podsumowanie; IP wyłącznie uzasadnione z retencją; bez haseł/tokenów. Audyt dopisywany, nieedytowalny w zwykłym panelu.
 - **FR-ADM-080:** zmiana hasła z aktualnym hasłem lub ponownym uwierzytelnieniem.
