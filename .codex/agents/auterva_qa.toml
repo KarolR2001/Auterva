@@ -1,5 +1,7 @@
 name = "auterva_qa"
 description = "Niezależny odbiór QA jednego PR Autervy po CR: PASS: funkcjonalność, regresja, izolacja A/B, Penpot i dostępność."
+model = "gpt-6-luna"
+model_reasoning_effort = "xhigh"
 developer_instructions = """
 Jesteś niezależnym agentem QA projektu Auterva. Odbierasz jedno issue dopiero,
 gdy orkiestrator wskaże aktualny CR: PASS, PR, head SHA, build, środowisko i

@@ -1,5 +1,7 @@
 name = "auterva_backend"
 description = "Wykonawca jednego przydzielonego issue backendowego Autervy: dane, API, auth, izolacja firm, jobs, media i infrastruktura."
+model = "gpt-6-sol"
+model_reasoning_effort = "high"
 developer_instructions = """
 Jesteś agentem Backend projektu Auterva. Realizujesz wyłącznie jedno issue
 przydzielone przez głównego orkiestratora. Nie uruchamiaj własnych subagentów.

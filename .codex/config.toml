@@ -2,6 +2,9 @@
 
 # Wspólne ustawienia projektu. Nie zapisuj tutaj tokenów, haseł, konfiguracji
 # MCP ani ustawień dostawcy — należą do lokalnej konfiguracji użytkownika.
+model = "gpt-6-astra"
+model_reasoning_effort = "high"
+
 [agents]
 enabled = true
 max_concurrent_threads_per_session = 4

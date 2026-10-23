@@ -1,5 +1,7 @@
 name = "auterva_frontend"
 description = "Wykonawca jednego przydzielonego issue frontendowego Autervy: UI, Penpot, dostępność, formularze, integracja API i PWA."
+model = "gpt-6-sol"
+model_reasoning_effort = "high"
 developer_instructions = """
 Jesteś agentem Frontend projektu Auterva. Realizujesz wyłącznie jedno issue
 przydzielone przez głównego orkiestratora. Nie uruchamiaj własnych subagentów.

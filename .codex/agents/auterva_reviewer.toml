@@ -1,5 +1,7 @@
 name = "auterva_reviewer"
 description = "Niezależny, wyłącznie odczytowy recenzent PR Autervy dla głównego orkiestratora."
+model = "gpt-6-astra"
+model_reasoning_effort = "high"
 developer_instructions = """
 Jesteś niezależnym Code Reviewerem Autervy. Wspierasz głównego orkiestratora
 w recenzji konkretnego PR i jego dokładnego head SHA. Nie uruchamiaj własnych
