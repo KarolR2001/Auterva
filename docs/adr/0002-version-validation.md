@@ -23,6 +23,14 @@ Next pracuje w trybie Webpack, który obsługuje użyta integracja Serwist; konf
 
 Ścieżka auth próby jest celowo zamknięta przy braku flagi. Nie wolno włączać `AUTERVA_AUTH_PROBE` w publicznym środowisku. Produktowe API ma w osobnym zadaniu egzekwować aktora, rolę, firmę i stan konta na serwerze. Same Host, MFA enabled i ukrycie UI nie wystarczą.
 
+Mapowanie tej próby do wymagań (bez przypisywania jej ukończenia modułów produktu):
+
+| Wymaganie | Kod | Test |
+|---|---|---|
+| D-12 | `package.json`, `pnpm-lock.yaml`, `prisma/`, `src/app/`, `src/server/` | `tests/unit/env.test.ts`, `tests/integration/database.test.ts`, build i E2E |
+| C-R001 | `src/modules/tenancy/`, `src/modules/chat/`, `src/lib/`, wspólne entrypointy | `tests/integration/tenancy.test.ts`, `tests/integration/realtime.test.ts` |
+| C-N060 — tylko próba PWA/bezpieczeństwa | `src/app/sw.ts`, `src/app/admin/`, ograniczona trasa auth | `tests/e2e/pwa.spec.ts`, `tests/e2e/auth-host.spec.ts`; SEO, dostępność i wydajność wymagają dalszych ekranów i pomiarów |
+
 ## Reprodukcja i źródła
 
 Instrukcja lokalnego PostgreSQL, bezpiecznych wartości fixture i komend znajduje się w [README](../../README.md). Dowodami są testy `tests/unit`, `tests/integration`, `tests/e2e`, migracje `prisma/migrations` oraz wynik `pnpm build`; konkretny SHA i wyniki bramek są w PR. Nie wykonano zewnętrznego provisioningu, prób poczty, storage, DNS/TLS ani wdrożenia.
