@@ -21,21 +21,26 @@ export async function resolveAuthHost(db: PrismaClient, host: string | null, req
   return null;
 }
 
-export async function requireAuthorizedActor(db: PrismaClient, instance: typeof auth, headers: Headers, scope: AuthHost): Promise<{ userId: string; sessionId: string; organizationId: string | null; role: string } | null> {
+export async function requireScopedActor(db: PrismaClient, instance: typeof auth, headers: Headers, scope: AuthHost): Promise<{ userId: string; sessionId: string; organizationId: string | null; role: string; twoFactorEnabled: boolean } | null> {
   const session = await instance.api.getSession({ headers });
   if (!session) return null;
-  const [proof, user] = await Promise.all([
-    db.session.findUnique({ where: { id: session.session.id }, select: { userId: true, mfaVerifiedAt: true } }),
-    db.user.findUnique({ where: { id: session.user.id }, select: {
-      role: true, organizationId: true, twoFactorEnabled: true, disabledAt: true, emailVerified: true,
-      organization: { select: { archivedAt: true } },
-    } }),
-  ]);
-  if (!proof?.mfaVerifiedAt || proof.userId !== session.user.id || !user?.twoFactorEnabled || !user.emailVerified || user.disabledAt) return null;
+  const user = await db.user.findUnique({ where: { id: session.user.id }, select: {
+    role: true, organizationId: true, twoFactorEnabled: true, disabledAt: true, emailVerified: true,
+    organization: { select: { archivedAt: true } },
+  } });
+  if (!user || !user.emailVerified || user.disabledAt) return null;
   if (scope.area === "PLATFORM") {
     if (user.role !== "SUPERADMIN_AUTERVA" || user.organizationId !== null) return null;
   } else if (user.role !== "ADMIN_FIRMY" || user.organizationId !== scope.organizationId || user.organization?.archivedAt) {
     return null;
   }
-  return { userId: session.user.id, sessionId: session.session.id, organizationId: user.organizationId, role: user.role };
+  return { userId: session.user.id, sessionId: session.session.id, organizationId: user.organizationId, role: user.role, twoFactorEnabled: user.twoFactorEnabled === true };
+}
+
+export async function requireAuthorizedActor(db: PrismaClient, instance: typeof auth, headers: Headers, scope: AuthHost): Promise<{ userId: string; sessionId: string; organizationId: string | null; role: string } | null> {
+  const actor = await requireScopedActor(db, instance, headers, scope);
+  if (!actor?.twoFactorEnabled) return null;
+  const proof = await db.session.findUnique({ where: { id: actor.sessionId }, select: { userId: true, mfaVerifiedAt: true } });
+  if (!proof?.mfaVerifiedAt || proof.userId !== actor.userId) return null;
+  return { userId: actor.userId, sessionId: actor.sessionId, organizationId: actor.organizationId, role: actor.role };
 }

@@ -7,10 +7,13 @@ import { hashPassword } from "better-auth/crypto";
 import { config as loadEnv } from "dotenv";
 import { z } from "zod";
 import type { PrismaClient } from "../src/generated/prisma/client";
+import { getServerEnv } from "../src/lib/env";
 
-export async function bootstrapSuperadmin(db: PrismaClient, input: { name: string; email: string; password: string }): Promise<string> {
+export async function bootstrapSuperadmin(db: PrismaClient, input: { name: string; email: string; password: string; platformHost: string }): Promise<string> {
   const email = input.email.trim().toLowerCase();
-  if (!z.email().safeParse(email).success || !input.name.trim() || input.password.length < 12 || input.password.length > 256) {
+  const platformHost = input.platformHost.toLowerCase();
+  if (!z.email().safeParse(email).success || !input.name.trim() || input.password.length < 12 || input.password.length > 256
+    || !/^(?=.{1,253}$)[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/.test(platformHost) || platformHost.includes("..")) {
     throw new Error("Invalid bootstrap identity or password policy");
   }
   const password = await hashPassword(input.password);
@@ -37,6 +40,7 @@ export async function bootstrapSuperadmin(db: PrismaClient, input: { name: strin
     await tx.account.create({ data: {
       id: randomUUID(), accountId: userId, providerId: "credential", userId, password,
     } });
+    await tx.hostMapping.create({ data: { hostname: platformHost, area: "PLATFORM", status: "ACTIVE" } });
   });
   return userId;
 }
@@ -86,7 +90,7 @@ async function runInteractiveBootstrap() {
   if (password !== confirmation) throw new Error("Password confirmation differs");
   const { prisma } = await import("../src/lib/prisma");
   try {
-    await bootstrapSuperadmin(prisma, { name, email, password });
+    await bootstrapSuperadmin(prisma, { name, email, password, platformHost: new URL(getServerEnv().BETTER_AUTH_URL).hostname });
     process.stdout.write("Superadmin created. Sign in and enroll TOTP before using the panel.\n");
   } finally {
     await prisma.$disconnect();
