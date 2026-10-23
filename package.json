@@ -8,6 +8,7 @@
     "node": "24.20.0"
   },
   "scripts": {
+    "postinstall": "prisma generate",
     "dev": "next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
@@ -19,8 +20,8 @@
     "test": "pnpm test:unit && pnpm test:integration",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "dev:ws": "tsx src/server/realtime.ts",
-    "dev:worker": "tsx src/server/worker.ts"
+    "dev:ws": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local src/server/realtime.ts",
+    "dev:worker": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local src/server/worker.ts"
   },
   "dependencies": {
     "@better-auth/prisma-adapter": "1.7.12",
