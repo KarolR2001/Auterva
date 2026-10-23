@@ -4,7 +4,8 @@ import { test, expect } from "@playwright/test";
 test("admin service worker stores only static assets and leaves an unsaved form during update", async ({ page }) => {
   const response = await page.goto("/admin/");
   expect(response?.headers()["cache-control"]).toContain("no-store");
-  await page.evaluate(async () => { await navigator.serviceWorker.ready; });
+  const scope = await page.evaluate(async () => (await navigator.serviceWorker.ready).scope);
+  expect(scope).toBe(new URL("/admin/", page.url()).href);
   await page.reload();
   await page.evaluate(async () => { await navigator.serviceWorker.ready; });
 
