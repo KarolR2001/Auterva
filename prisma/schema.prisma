@@ -88,18 +88,20 @@ model AvailabilityBlock {
 }
 
 model ChatMessage {
-  id              String        @id @default(uuid()) @db.Uuid
-  organizationId  String        @db.Uuid
-  conversationId  String?       @db.Uuid
+  id              String                   @id @default(uuid()) @db.Uuid
+  organizationId  String                   @db.Uuid
+  conversationId  String?                  @db.Uuid
   senderId        String?
-  clientMessageId String        @db.Uuid
+  clientMessageId String                   @db.Uuid
   body            String
-  createdAt       DateTime      @default(now()) @db.Timestamptz(6)
-  organization    Organization  @relation(fields: [organizationId], references: [id])
-  conversation    Conversation? @relation(fields: [organizationId, conversationId], references: [organizationId, id])
-  sender          User?         @relation(fields: [senderId], references: [id], onDelete: Restrict)
+  createdAt       DateTime                 @default(now()) @db.Timestamptz(6)
+  organization    Organization             @relation(fields: [organizationId], references: [id])
+  conversation    Conversation?            @relation(fields: [organizationId, conversationId], references: [organizationId, id])
+  sender          User?                    @relation(fields: [senderId], references: [id], onDelete: Restrict)
+  readCursors     ConversationReadCursor[] @relation("CursorLastMessage")
 
   @@unique([organizationId, clientMessageId])
+  @@unique([organizationId, conversationId, id])
   @@index([organizationId, createdAt])
 }
 
@@ -343,6 +345,7 @@ model ConversationReadCursor {
   updatedAt      DateTime     @default(now()) @updatedAt @db.Timestamptz(6)
   conversation   Conversation @relation(fields: [organizationId, conversationId], references: [organizationId, id])
   user           User         @relation(fields: [userId], references: [id])
+  lastMessage    ChatMessage? @relation("CursorLastMessage", fields: [organizationId, conversationId, lastMessageId], references: [organizationId, conversationId, id], onDelete: Restrict)
 
   @@unique([conversationId, userId])
   @@index([organizationId, conversationId])
