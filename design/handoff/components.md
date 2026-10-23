@@ -1631,6 +1631,7 @@ type VehicleAdminItemProps = {
 ```
 
 - Mobile zachowuje wszystkie szybkie akcje i oba statusy. Nie ujawnia danych publicznych w innym zakresie niż desktop, ale może pokazać administracyjne ostrzeżenie jakości danych.
+- `onOpenCalendar` zawsze dotyczy `vehicle.id` z tego wiersza/karty i prowadzi do `/admin/pojazdy/[id]/kalendarz`. Lista `/admin/pojazdy` jest wejściem do kalendarzy MVP; nie kierujemy akcji do `/admin/kalendarz` ani do osobnych „Terminów” bez pojazdu.
 - Karta jest `<li>`/`<article>` wewnątrz listy, a akcje są osobnymi przyciskami. Nie czynimy całej karty klikalną, gdy zawiera te kontrolki.
 - Otwarty menu ma zarządzany fokus, Escape i zwrot fokusu do „Więcej”. Stan updating blokuje podwójną mutację i używa `aria-busy=true`.
 - Statyczny Penpot potwierdza strukturę i geometrię. Sortowanie klawiaturą, fokus menu i blokadę double-submit trzeba potwierdzić w demonstratorze.
@@ -2497,14 +2498,15 @@ type AdminVehicleCalendarProps = {
 ```ts
 type AdminSidebarProps = {
   mode?: "expanded" | "collapsed";
-  activeItem: "dashboard" | "vehicles" | "availability" | "settings" | "account";
-  vehicleBadgeCount?: number;
+  activeItem: "dashboard" | "vehicles" | "chat" | "settings" | "account";
+  unreadChatCount?: number;
 };
 ```
 
 - Szerokości wynoszą odpowiednio 240 i 72 px.
+- Cele MVP: Dashboard → `/admin`, Pojazdy → `/admin/pojazdy`, Czat z Autervą → `/admin/czat`, Ustawienia → `/admin/ustawienia`, Konto → `/admin/konto`. Nie ma osobnego celu „Dostępność” bez pojazdu; jego kalendarz otwiera widoczna akcja w `VehicleAdminItem`.
 - Active używa powierzchni, wagi tekstu i ikony, nie wyłącznie koloru.
-- Badge expanded pokazuje liczbę; collapsed używa notification dot z dostępną nazwą.
+- Badge przy Czat z Autervą w expanded pokazuje liczbę nowych wiadomości; collapsed używa notification dot z dostępną nazwą. Gdy liczba nie jest znana, pokazujemy sam opisany stan nowych wiadomości.
 - Po zwinięciu każda ikona wymaga tooltipu i czytelnej nazwy dla AT.
 
 ## DS-NAV-008 — AdminTopbar
@@ -2538,18 +2540,18 @@ type AdminTopbarProps = {
 
 | Oś | Wartości w katalogu |
 |---|---|
-| `active` | `dashboard`, `vehicles`, `availability`, `calendar`, `more` |
+| `active` | `dashboard`, `vehicles`, `chat`, `more` |
 | `notification` | `none`, `dot` |
 
 ```ts
 type AdminBottomNavigationProps = {
-  active: "dashboard" | "vehicles" | "availability" | "calendar" | "more";
-  showMoreNotification?: boolean;
+  active: "dashboard" | "vehicles" | "chat" | "more";
+  hasUnreadChat?: boolean;
 };
 ```
 
-- Pięć celów ma stałe etykiety: Start, Pojazdy, Terminy, Kalendarz, Więcej.
-- Active jest oznaczony wagą tekstu i ikoną; dot nie jest jedynym nośnikiem ważnej informacji.
+- Cztery cele mają stałe etykiety: Start (`/admin`), Pojazdy (`/admin/pojazdy`), Czat (`/admin/czat`) i Więcej (otwarcie menu, nie link). Kalendarz konkretnego pojazdu jest dostępny przez akcję na liście; ADM-10 pozostaje SHOULD poza nawigacją MVP.
+- Active jest oznaczony wagą tekstu i ikoną; dot na Czat nie jest jedynym nośnikiem informacji o nowych wiadomościach i ma nazwę dostępną.
 - Komponent respektuje dolny safe area i nie zasłania ostatniego elementu formularza.
 
 ## DS-AVL-009 — AdminDayCell
@@ -4188,7 +4190,7 @@ Kontrakt: projekt i kontrakt komponentu; zachowanie fokusu wymaga testu implemen
 type AdminMoreMenuProps = {
   mode: "mobile-sheet" | "desktop-dropdown";
   open: boolean;
-  activePath?: "/admin/ustawienia" | "/admin/logi" | "/admin/konto";
+  activePath?: "/admin/usluga" | "/admin/ustawienia" | "/admin/konto";
   canInstallPwa: boolean;
   onInstallPwa?: () => void;
   onLogout: () => void;
@@ -4196,7 +4198,7 @@ type AdminMoreMenuProps = {
 };
 ```
 
-- Lista ma pięć pozycji wynikających ze SPEC: Ustawienia (`/admin/ustawienia`), Dziennik zmian (`/admin/logi`), Konto (`/admin/konto`), warunkową instalację PWA i Wyloguj. Aktywna trasa jest propem runtime; nie tworzy osobnych wariantów dla każdego modułu.
+- Lista MVP ma pięć pozycji: Status usługi (`/admin/usluga`), Ustawienia (`/admin/ustawienia`), Konto (`/admin/konto`), warunkową instalację PWA i Wyloguj. Dziennik zmian (`/admin/logi`) jest przyszłym SHOULD i nie pojawia się jako martwe wejście. Aktywna trasa jest propem runtime; nie tworzy osobnych wariantów dla każdego modułu.
 - Instalacja PWA pojawia się tylko wtedy, gdy istnieje obsługiwany prompt albo właściwa instrukcja platformowa. W przeciwnym razie pozycję należy pominąć, a nie renderować jako martwą/disabled.
 - Wyloguj jest akcją, nie linkiem. Po sukcesie unieważnia bieżącą sesję i prowadzi do logowania. Komponent nie wykonuje tej operacji samodzielnie.
 - Mobile używa modalnego dialogu/sheetu z nazwą „Więcej — menu administratora”, przyciskiem Zamknij i bezpiecznym dolnym insetem. Desktop jest menu/dropdownem zakotwiczonym w triggerze topbara. Escape i kliknięcie poza zamykają oba tryby, a fokus wraca do triggera.
@@ -4226,7 +4228,7 @@ type UserMenuProps = {
 };
 ```
 
-- Komponent ma wspólną anatomię: profil, jawny status „Bieżąca sesja”, link Konto i hasło (`/admin/konto`), link Aktywne sesje (`/admin/konto?sekcja=sesje`) oraz akcję Wyloguj. Nie tworzy się osobnych osi dla tych elementów ani danych użytkownika.
+- Komponent MVP ma wspólną anatomię: profil, jawny status „Bieżąca sesja”, link Konto i hasło (`/admin/konto`) oraz akcję Wyloguj. Przegląd aktywnych sesji (`/admin/konto?sekcja=sesje`) jest przyszłym SHOULD i nie jest aktywną pozycją menu MVP. Nie tworzy się osobnych osi dla tych elementów ani danych użytkownika.
 - `AD` jest wyłącznie placeholderem `DEMO`; implementacja podstawia inicjały i nazwę uwierzytelnionego użytkownika. Nie wolno utrwalać danych osobowych w bibliotece komponentów.
 - Wyloguj jest przyciskiem, nie linkiem. Po sukcesie unieważnia bieżącą sesję i prowadzi do `/admin/login`; sam komponent nie wykonuje logiki serwerowej.
 - Mobile jest modalnym dialogiem/sheetem z przyciskiem Zamknij i safe area. Desktop jest menu/dropdownem zakotwiczonym w triggerze. Escape i kliknięcie poza zamykają menu, a fokus wraca do triggera.

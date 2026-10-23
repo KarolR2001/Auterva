@@ -1041,12 +1041,11 @@ Sidebar zawiera:
 
 1. Dashboard,
 2. Pojazdy,
-3. Kalendarz,
+3. Czat z Autervą,
 4. Ustawienia,
-5. Dziennik zmian,
-6. Konto.
+5. Konto.
 
-Na dole: status online/PWA, użytkownik i wylogowanie.
+Na dole: status online/PWA, użytkownik i wylogowanie. „Czat z Autervą” prowadzi do `/admin/czat` i pokazuje tekstowo dostępny wskaźnik nowych wiadomości. Status usługi jest dostępny z dashboardu i menu użytkownika przez `/admin/usluga`.
 
 #### Mobile
 
@@ -1054,10 +1053,14 @@ Dolna nawigacja:
 
 1. Start,
 2. Pojazdy,
-3. Kalendarz,
+3. Czat,
 4. Więcej.
 
-„Więcej” otwiera ustawienia, dziennik, konto, instalację PWA i wylogowanie. Główna akcja kontekstowa „Dodaj pojazd” lub „Dodaj blokadę” jest umieszczona w nagłówku albo jako dostępny FAB, ale nie może zasłaniać treści.
+Start prowadzi do `/admin`, Pojazdy do `/admin/pojazdy`, a Czat do `/admin/czat`. Pozycja Czat sygnalizuje nowe wiadomości także przy zamkniętym menu; sama kropka nie zastępuje dostępnej nazwy/stanu. „Więcej” otwiera status usługi (`/admin/usluga`), ustawienia (`/admin/ustawienia`), konto (`/admin/konto`), warunkową instalację PWA i akcję wylogowania. Nie pokazuje w MVP opcjonalnych ekranów dziennika zmian ani przeglądu sesji.
+
+Kalendarz w MVP zawsze dotyczy wybranego pojazdu: Pojazdy → widoczna akcja „Kalendarz”/„Terminy” na jego wierszu lub karcie → `/admin/pojazdy/[id]/kalendarz`. Bez wskazanego pojazdu nie ma aktywnego celu kalendarza; `/admin/kalendarz` (ADM-10) pozostaje SHOULD. W pustej flocie lista prowadzi do dodania pierwszego pojazdu. Główna akcja kontekstowa „Dodaj pojazd” lub „Dodaj blokadę” jest umieszczona w nagłówku albo jako dostępny FAB, ale nie może zasłaniać treści.
+
+W zagnieżdżonej obsłudze firmy superadmin zachowuje własną nawigację platformową i stały kontekst wybranej firmy; powrót prowadzi do jej karty PLT-03, bez przełączenia aktora i bez globalnej floty w koncie firmy.
 
 ### 7.12. `DS-CNT-002 ContactSheet`
 
@@ -1133,7 +1136,7 @@ Nie pokazuje komunikatu sukcesu dla niezapisanej operacji i nie tworzy kolejki z
 | `ADM-01` | `/admin/login` | Logowanie | MUST | redirect z chronionej trasy, start PWA | dashboard, reset hasła |
 | `ADM-02` | `/admin/reset-hasla` | Prośba o reset hasła | SHOULD/P1 | logowanie | potwierdzenie neutralne, logowanie |
 | `ADM-03` | `/admin/reset-hasla/[token]` | Ustawienie nowego hasła | SHOULD/P1 | link e-mail | sukces, logowanie |
-| `ADM-04` | `/admin` | Dashboard | MUST | logowanie, start PWA | pojazdy, nowy pojazd, blokada, kalendarz |
+| `ADM-04` | `/admin` | Dashboard | MUST | logowanie, start PWA | pojazdy, nowy pojazd, blokada, czat, kalendarz konkretnego pojazdu |
 | `ADM-05` | `/admin/pojazdy` | Lista pojazdów | MUST | sidebar/bottom nav, dashboard | nowy pojazd, edycja, kalendarz, podgląd |
 | `ADM-06` | `/admin/pojazdy/nowy` | Dodawanie pojazdu | MUST | dashboard, lista | szkic, podgląd, publikacja, lista |
 | `ADM-07` | `/admin/pojazdy/[id]` | Edycja pojazdu | MUST | lista, dashboard, kalendarz | podgląd, kalendarz, publikacja, lista |
@@ -1438,7 +1441,7 @@ Jeżeli reset nie zostanie wdrożony w MVP, makiety pozostają w bibliotece P1, 
 - szybkie akcje „Dodaj pojazd” i „Dodaj blokadę”,
 - najbliższe blokady,
 - ostrzeżenia jakości danych,
-- skrót do kalendarza całej floty,
+- skrót do listy pojazdów i kalendarza konkretnego pojazdu przy znanej najbliższej blokadzie,
 - status połączenia/PWA.
 
 ### Mobile
