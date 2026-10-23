@@ -33,7 +33,7 @@ describe("wspólne komponenty", () => {
       </Button>,
     );
 
-    const button = screen.getByRole("button", { name: /zapisz/i });
+    const button = screen.getByRole("button", { name: "Zapisywanie" });
     expect(button).toBeDisabled();
     expect(button).toHaveAttribute("aria-busy", "true");
     expect(button).toHaveTextContent("Zapisywanie");

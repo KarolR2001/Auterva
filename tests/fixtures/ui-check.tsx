@@ -18,6 +18,7 @@ export function UiCheckFixture() {
   const [dialogWithoutSecondaryOpen, setDialogWithoutSecondaryOpen] =
     useState(false);
   const [buttonLoading, setButtonLoading] = useState(false);
+  const [plainButtonLoading, setPlainButtonLoading] = useState(false);
 
   return (
     <>
@@ -53,9 +54,17 @@ export function UiCheckFixture() {
             Mały przycisk
           </Button>
           <Button
+            loading={plainButtonLoading}
+            loadingLabel="Zapisywanie dłuższej nazwy pojazdu"
+            data-testid="plain-loading-button"
+            onClick={() => setPlainButtonLoading(true)}
+          >
+            Zapisz
+          </Button>
+          <Button
             icon={<Check size={16} />}
             loading={buttonLoading}
-            loadingLabel="Zapisz"
+            loadingLabel="Zapisywanie dłuższej nazwy pojazdu"
             data-testid="icon-loading-button"
             onClick={() => setButtonLoading((value) => !value)}
           >

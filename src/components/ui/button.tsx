@@ -33,6 +33,7 @@ export function Button({
       type={type}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
+      aria-label={loading ? loadingLabel : undefined}
       className={[
         styles.button,
         styles[`button_${variant}`],
@@ -46,7 +47,7 @@ export function Button({
     >
       {loading ? (
         <>
-          <span className={styles.buttonOriginal}>
+          <span aria-hidden="true" className={styles.buttonOriginal}>
             {icon && iconPosition === "leading" && (
               <span aria-hidden="true" className={styles.buttonIcon}>
                 {icon}
