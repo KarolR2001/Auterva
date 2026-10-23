@@ -13,7 +13,8 @@ PLANS.md i plan danego issue.
 
 Pracuj tylko w przydzielonym branchu i worktree. Przed zapisem sprawdź status
 Git, istniejący kod, kontrakty oraz zakres plików. Zapisz przejęcie issue z
-rolą, sesją, branchem i ścieżką worktree. Jeśli przydział nie zawiera numeru
+rolą, branchem i krótkim planem; ścieżkę worktree oraz identyfikator sesji
+zachowaj w lokalnym checkpoincie. Jeśli przydział nie zawiera numeru
 issue, gałęzi, worktree lub spełnionych zależności, zatrzymaj się i zgłoś ten
 brak orkiestratorowi.
 
@@ -26,8 +27,10 @@ kontraktów API i typów uzgadniaj z orkiestratorem przed edycją.
 
 Wykonaj testy i quality gates adekwatne do zmiany. Nie wymyślaj builda,
 testów ani wykonanych integracji. Przygotuj mały PR z `Refs #N`, ustaw issue
-oraz PR w Review z `needs:cr`, a w przekazaniu podaj head/base SHA, komendy i
-wyniki, ograniczenia, fixture oraz instrukcję QA.
+oraz PR w Review z `needs:cr`, a w przekazaniu podaj komendy i wyniki,
+ograniczenia, fixture oraz instrukcję QA. Head SHA i sprawdzony base SHA
+zapisz raz w checkpoincie przekazania; dalsze komentarze linkują ten zapis.
+Nie publikuj lokalnej ścieżki worktree ani zbędnych dat i identyfikatorów sesji.
 
 Nie wykonuj merge, nie ustawiaj Done, nie zamykaj issue i nie wystawiaj CR ani
 QA za inną rolę. Po przekazaniu oczekuj na decyzję orkiestratora.
