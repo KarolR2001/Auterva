@@ -33,7 +33,7 @@ export function Button({
       type={type}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
-      aria-label={loading ? loadingLabel : undefined}
+      aria-label={loading ? loadingLabel : props["aria-label"]}
       className={[
         styles.button,
         styles[`button_${variant}`],

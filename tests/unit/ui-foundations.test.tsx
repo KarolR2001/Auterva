@@ -41,6 +41,55 @@ describe("wspólne komponenty", () => {
     expect(onClick).not.toHaveBeenCalled();
   });
 
+  it("zachowuje jawną nazwę dostępną w zwykłym stanie, także bez tekstu", () => {
+    const { rerender } = render(
+      <>
+        <Button aria-label="Usuń pojazd" loadingLabel="Usuwanie pojazdu">
+          Usuń
+        </Button>
+        <Button
+          aria-label="Otwórz menu"
+          icon={<span aria-hidden="true">⋯</span>}
+        />
+      </>,
+    );
+
+    expect(screen.getByRole("button", { name: "Usuń pojazd" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Otwórz menu" })).toBeVisible();
+
+    rerender(
+      <>
+        <Button
+          aria-label="Usuń pojazd"
+          loading
+          loadingLabel="Usuwanie pojazdu"
+        >
+          Usuń
+        </Button>
+        <Button
+          aria-label="Otwórz menu"
+          icon={<span aria-hidden="true">⋯</span>}
+        />
+      </>,
+    );
+    expect(
+      screen.getByRole("button", { name: "Usuwanie pojazdu" }),
+    ).toBeDisabled();
+
+    rerender(
+      <>
+        <Button aria-label="Usuń pojazd" loadingLabel="Usuwanie pojazdu">
+          Usuń
+        </Button>
+        <Button
+          aria-label="Otwórz menu"
+          icon={<span aria-hidden="true">⋯</span>}
+        />
+      </>,
+    );
+    expect(screen.getByRole("button", { name: "Usuń pojazd" })).toBeEnabled();
+  });
+
   it("wiąże etykietę i błąd z polem bez utraty wpisanej wartości", () => {
     render(
       <FormField id="email" label="E-mail" error="Podaj poprawny adres e-mail">
