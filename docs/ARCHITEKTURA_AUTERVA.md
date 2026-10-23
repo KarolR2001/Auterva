@@ -10,34 +10,34 @@ Dokument wymagań: [WYMAGANIA_AUTERVA.md](WYMAGANIA_AUTERVA.md). Dokładne nazwy
 - Zakres: [kanoniczny PRD 3.1](product/PRD.md), zwłaszcza U3/U4 §5.2A–5.4 i §17–20; cztery obszary, superadmin i wiele odseparowanych firm.
 - Reguły odziedziczone: [BASELINE_FLEET.md](product/BASELINE_FLEET.md). Wygląd i potwierdzone DEC-013–020: [SPEC](design/SPEC.md); szczegóły komponentów i responsywności: `design/handoff/components.md` i `design/handoff/responsive.md`.
 - Bieżące mapowanie designu: `design/traceability.json` i załącznik A. Historyczny zakaz multi-tenancy z bazy nie zmienia zakresu V31.
-- Repozytorium zawiera dokumentację, instrukcje, kontrakty komponentów, tokeny i mapę Penpota. Usunięto demonstrator oraz dawne eksporty i raporty pracy projektowej.
-- Brak scaffoldingu aplikacji, `package.json`, lockfile aplikacji, schematu Prisma, migracji i runtime auth/poczty/storage/WebSocket. Zapisany kod przykładowy oraz proponowane katalogi nie są implementacją.
-- `src/`, `prisma/` i `tests/` zawierają instrukcje przyszłej implementacji. Testy, CI i wdrożenia aplikacji pozostają do wykonania; walidację stosu zamyka [ADR-0002](adr/0002-version-validation.md).
+- Repozytorium zawiera dokumentację, instrukcje, kontrakty komponentów, tokeny, mapę Penpota i minimalny lokalny scaffold. Historyczny demonstrator usunięto.
+- Manifest, lockfile, schemat Prisma, migracje i lokalne entrypointy WWW/WS/workera służą zweryfikowanej próbie stosu. Auth i zaproszenie są ograniczonymi fixture; brak produkcyjnych modułów poczty, mediów i pełnego czatu. [ADR-0002](adr/0002-version-validation.md) opisuje dowody oraz granice.
+- `src/`, `prisma/` i `tests/` zawierają zarówno instrukcje, jak i działające minimalne próby. CI, pełne moduły i wdrożenia pozostają do wykonania.
 
 ## 2. Stos technologiczny i wersje
 
-| Obszar | Stan repozytorium | Projekt docelowy — do walidacji ADR-0002 |
+| Obszar | Stan scaffoldingu | Docelowy moduł MVP / granica próby |
 |---|---|---|
-| Runtime | Brak przypiętego runtime aplikacji | Node 24 LTS, patch zgodny z CI i produkcją |
-| Framework | Brak aplikacji Next.js | Next.js 16, App Router; bazowy PRD wskazuje `16.3+`, dokładny patch po walidacji |
-| React | Brak zależności aplikacji | Stabilna wersja React 19 zgodna z Next.js; wspólne wersje runtime i typów |
-| TypeScript | Brak konfiguracji/kompilatora aplikacji | Bazowy PRD wskazuje 7.x; zgodność kompilatora, lintowania, testów i generatora Prisma do sprawdzenia |
-| Style | Zachowany manifest i CSS tokenów | Tailwind CSS 4 + tokeny Autervy; Inter Variable, Lucide |
-| Komponenty | Kontrakty Penpota, brak `components.json` | shadcn/ui na Radix, dopasowane do Penpota bez zmiany palety |
-| Formularze | Kontrakty, bez implementacji | React Hook Form + Zod; ostateczna walidacja serwerowa |
-| Baza | Brak schematu i serwera projektu | Zarządzany PostgreSQL 18 jako kandydat, `btree_gist`, backup i PITR |
-| ORM | Brak Prisma w projekcie | Prisma 7.x, zgodne CLI/client/`@prisma/adapter-pg`, `pg`, ESM, kontrolowane migracje SQL |
-| Auth | Brak runtime | Better Auth + adapter Prisma + sesje bazodanowe + obowiązkowe MFA |
+| Runtime | Node 24.20.0, pnpm 12.6.0 przypięte | CI i produkcja mają używać zgodnych wersji |
+| Framework | Next.js 16.4.3, App Router, Webpack | Strony/API wszystkich obszarów pozostają do budowy |
+| React | React/React DOM 19.3.1 | Komponenty produktu powstają osobno |
+| TypeScript | 5.9.3, zgodny z peer `typescript-eslint` | Historyczny kandydat 7.x odrzucony dla tej macierzy |
+| Style | Tailwind 4.3.3, CSS i Inter Variable | Tokeny i kompletne komponenty UI wymagają odbioru FE |
+| Komponenty | Radix Dialog i zależności UI przypięte | Dopasowanie do Penpota w zadaniach FE |
+| Formularze | RHF 7.90.0 i Zod 4.6.7 przypięte | Produktowe formularze i walidacja serwerowa osobno |
+| Baza | Lokalna fixture PostgreSQL 18, minimalny schemat i migracje | Zarządzana baza z backup/PITR przed użyciem przez klientów |
+| ORM | Prisma 7.10.1, adapter-pg, `pg`, ESM sprawdzone | Rozbudowa modelu i kontrolowane migracje per moduł |
+| Auth | Better Auth 1.7.12 z PostgreSQL i próbą MFA | Produkcyjne role, zaproszenia, bootstrap i polityki dostępu osobno |
 | Media | Brak produkcyjnych zasobów i storage | Prywatny storage zgodny z S3, walidacja, warianty obrazów, kontrolowany odczyt |
-| PWA | Brak service workera | Serwist dla wybranego bundlera; scope panelu firmy |
-| Czat | Brak runtime | WebSocket, natywny klient przeglądarki, mały serwer Node `ws`, historia w PostgreSQL |
-| Zadania | Brak runtime | Worker tego samego kodu, trwałe zadania PostgreSQL, retry i deduplikacja |
-| Testy | Brak testów aplikacji | Vitest, Testing Library, Playwright i rzeczywisty PostgreSQL testowy |
-| Jakość | Brak konfiguracji aplikacji | ESLint + Prettier zgodne z wybranym TypeScript |
-| Pakiety | Brak manifestu i lockfile aplikacji | Dokładnie przypięte pnpm, runtime i kompletny lockfile |
-| Operacje | Brak CI i wdrożenia aplikacji | GitHub Actions, obraz kontenerowy, monitoring błędów i metryk |
+| PWA | Serwist 9.5.13 w buildzie Webpack, scope `/admin/` | Rzeczywiste formularze, offline i urządzenia osobno |
+| Czat | Minimalny serwer `ws`, test reconnect/MFA/A-B | Pełny czat, typing/read i autoryzacja produktu osobno |
+| Zadania | Proces workera połączony z DB | Trwałe jobs, retry i deduplikacja osobno |
+| Testy | Vitest, Testing Library, Playwright, lokalny PostgreSQL | Rozszerzane wraz z modułami |
+| Jakość | ESLint + Prettier, typecheck i build | CI do skonfigurowania |
+| Pakiety | Przypięty manifest i kompletny lockfile pnpm | Każda aktualizacja ponownie waliduje peer |
+| Operacje | Lokalny scaffold bez wdrożenia | GitHub Actions, obraz, monitoring i usługi zarządzane osobno |
 
-Historyczne zależności usuniętego demonstratora nie wyznaczają wersji aplikacji. Scaffolding musi przejść odtwarzalną instalację od zera i testy integracji; nie kopiować dawnych `node_modules` ani niepełnego lockfile.
+Historyczne zależności usuniętego demonstratora nie wyznaczają wersji aplikacji. Odtwarzalna instalacja i testy lokalne są zapisane w ADR-0002; nie kopiować dawnych `node_modules` ani niepełnego lockfile.
 
 Oficjalne źródła konsultowane przy projekcie 22.10.2026; przed instalacją trzeba ponownie sprawdzić konkretne wersje:
 
@@ -47,7 +47,7 @@ Oficjalne źródła konsultowane przy projekcie 22.10.2026; przed instalacją tr
 - Better Auth ma adapter Prisma i plugin MFA; schemat generuje się do przeglądu, a migracje prowadzi przez Prisma. [Adapter](https://better-auth.com/docs/adapters/prisma), [MFA](https://better-auth.com/docs/plugins/2fa).
 - Serwist rozróżnia integrację Webpack i Turbopack; konfiguracja jednej nie stanowi konfiguracji drugiej. [Webpack](https://serwist.pages.dev/docs/next/getting-started), [Turbopack](https://serwist.pages.dev/docs/next/turbo).
 
-Warunek zamknięcia ADR-0002: zamrożone wersje i poprawna instalacja od zera, lint, typecheck, build, logowanie/MFA z PostgreSQL, współbieżny zapis blokady oraz produkcyjny build PWA. W tej analizie nie instalowano pakietów i nie wykonywano tego testu zgodności.
+ADR-0002 dokumentuje wykonane próby stacku oraz ich granice. Poniższy projekt docelowy nie jest przez to automatycznie zaimplementowany.
 
 ## 3. Topologia systemu
 
@@ -452,7 +452,7 @@ Prefiksy wyznaczają dozwolony obszar hosta; poniższe URI są projektem technic
 ## 20. Kolejność realizacji
 
 1. Stosować uporządkowane źródła MVP 3.1; macierz pól D-01, publikacja D-02, limity D-04, bootstrap D-05, etapowy hosting D-09 i operacje D-10 są rozstrzygnięte 23.10.2026. Przed wdrożeniem pozostają do wpisania domena produkcyjna oraz zmierzony profil obciążenia.
-2. Zamknąć ADR-0002 testem zgodności; odtwarzalny scaffold i lockfile, PostgreSQL, cztery hosty, auth/MFA, tenant context i testy A/B.
+2. Utrzymać zamknięty ADR-0002: odtwarzalny scaffold i lockfile oraz lokalne próby PostgreSQL, host/auth/MFA, tenant context i A/B. Pełny routing czterech obszarów i polityki produktu odbierać w dalszych issue.
 3. Firma, okres, domeny, zaproszenie i rejestracja; potwierdzone 336 h i publikacja pustej oferty; testy wygaśnięcia wszystkich publicznych adresów.
 4. Flota, media, publikacja i dostępność; constraints, równoległe zapisy, DTO oraz aktualność publicznego wyniku.
 5. Wspólne widoki ADM i zagnieżdżona praca superadmina, ustawienia/audyt; porównanie z kanonicznymi boardami Penpota.
@@ -490,7 +490,7 @@ Poniższe punkty są propozycjami do osobnego backlogu, nie obowiązkami MVP:
 - Odczyt MCP z 22.10.2026 objął strony, boardy, bibliotekę, tokeny i interakcje. Załącznik A zachowuje 584 różne UUID, w tym jawnie oznaczone nieaktualne mapowania. Nie wykonano wtedy nowego pełnego przeglądu renderów ani testów klikania.
 - Odczyt live z 23.10.2026 ponownie nie znalazł siedmiu historycznych boardów OVR-14/15/17; na stronach scenariuszy 14/15 potwierdził 52 puste cele wśród 506 interakcji. Szczegóły, bieżące źródła komponentowe, boardy MFA M/D i warunki odbioru zapisano w [audycie issue #7](design/PENPOT_AUDIT_ISSUE_7.md). Porządkowanie repozytorium nie naprawia prototypu i nie zmienia braków w zaliczone testy.
 - Dawne eksporty, logi QA i demonstrator nie są częścią bazy implementacyjnej. Nie przenosi się ich historycznych wyników testów na przyszłą aplikację.
-- Hashe oryginalnych źródeł i bieżących dokumentów: [source-provenance.json](source-provenance.json). Testy aplikacji, zgodności stosu, poczty, DNS/TLS i infrastruktury wymagają stworzenia runtime.
+- Hashe oryginalnych źródeł i bieżących dokumentów: [source-provenance.json](source-provenance.json). Próby zgodności stosu wykonano lokalnie według ADR-0002; testy poczty, DNS/TLS i infrastruktury wymagają dalszych modułów oraz środowisk.
 
 ## Załącznik A. Dokładne ścieżki w Penpocie
 

@@ -1,6 +1,32 @@
 {
   "schemaVersion": 3,
-  "purpose": "Mapowanie projektu do wymagań; nie raport implementacji ani testów aplikacji.",
+  "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
+  "implementationRefs": [
+    {
+      "issue": 5,
+      "scope": "Lokalna próba stosu i minimalne fixture; nie pełne moduły produktu.",
+      "relatedRequirementIds": ["D-12", "C-R001", "C-N060"],
+      "codePaths": [
+        "package.json",
+        "prisma/schema.prisma",
+        "src/app/api/auth/[...all]/route.ts",
+        "src/app/sw.ts",
+        "src/modules/chat/resolve-tenant.ts",
+        "src/server/realtime.ts",
+        "src/server/worker.ts"
+      ],
+      "testPaths": [
+        "tests/unit/env.test.ts",
+        "tests/integration/auth.test.ts",
+        "tests/integration/database.test.ts",
+        "tests/integration/invitation.test.ts",
+        "tests/integration/realtime.test.ts",
+        "tests/integration/tenancy.test.ts",
+        "tests/e2e/auth-host.spec.ts",
+        "tests/e2e/pwa.spec.ts"
+      ]
+    }
+  ],
   "sources": [
     {
       "path": "docs/product/PRD.md",

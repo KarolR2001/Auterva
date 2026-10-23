@@ -1,0 +1,15 @@
+@import "@fontsource-variable/inter";
+@import "tailwindcss";
+@import "../../design/tokens/auterva.tokens.css";
+
+@theme inline {
+  --font-sans: var(--font-family-sans), sans-serif;
+  --color-canvas: var(--surface-canvas);
+  --color-ink: var(--text-primary);
+}
+
+html {
+  font-family: var(--font-family-sans), sans-serif;
+  background: var(--surface-canvas);
+  color: var(--text-primary);
+}
