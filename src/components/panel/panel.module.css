@@ -138,6 +138,303 @@
   margin-top: var(--space-8);
 }
 
+.shell {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  min-height: 100svh;
+  background: var(--surface-canvas);
+}
+
+.shellDesktopNav {
+  position: sticky;
+  top: 0;
+  display: flex;
+  height: 100svh;
+  flex-direction: column;
+  gap: var(--space-8);
+  overflow-y: auto;
+  padding: var(--space-6) var(--space-4);
+  border-right: var(--border-width-hairline) solid var(--border-subtle);
+  background: var(--surface-default);
+}
+
+.shellBrand {
+  color: var(--text-primary);
+  font-size: var(--font-size-22);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+
+.shellNavItems {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.shellNavLink,
+.shellMoreTrigger {
+  position: relative;
+  display: flex;
+  min-height: var(--touch-target-mobile);
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width-hairline) solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.shellNavLink[data-current],
+.shellNavLink[aria-current="page"] {
+  border-color: var(--border-strong);
+  background: var(--surface-selected);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.shellUnread {
+  margin-left: auto;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-full);
+  background: var(--surface-inverse);
+  color: var(--text-inverse);
+  font-size: var(--font-size-12);
+  line-height: var(--line-height-20);
+}
+
+.shellBody {
+  min-width: 0;
+}
+
+.shellTopbar {
+  display: flex;
+  min-height: 72px;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-8);
+  border-bottom: var(--border-width-hairline) solid var(--border-subtle);
+  background: var(--surface-default);
+}
+
+.shellTopbar h1 {
+  margin: 0;
+  font-size: var(--font-size-24);
+  line-height: var(--line-height-32);
+}
+
+.shellProfileTrigger {
+  display: inline-flex;
+  min-height: var(--button-height-md);
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
+  border: var(--border-width-hairline) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-default);
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.shellContext {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-8);
+  border-bottom: var(--border-width-hairline) solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.shellContext a {
+  color: var(--text-link);
+  text-underline-offset: 3px;
+}
+
+.shellMain {
+  min-width: 0;
+  padding: var(--space-8);
+}
+
+.shellMobileNav {
+  display: none;
+}
+
+.shellMenuOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  background: var(--surface-scrim);
+}
+
+.shellMenu {
+  position: fixed;
+  top: 72px;
+  right: var(--space-6);
+  z-index: calc(var(--z-modal) + 1);
+  box-sizing: border-box;
+  width: min(320px, calc(100vw - var(--space-8)));
+  max-height: calc(100dvh - 88px);
+  overflow-y: auto;
+  padding: var(--space-4);
+  border: var(--border-width-hairline) solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-default);
+  box-shadow: var(--shadow-md);
+}
+
+.shellMenu:focus {
+  outline: none;
+}
+
+.shellMenuTitle {
+  margin: 0 0 var(--space-4);
+  font-size: var(--font-size-20);
+  line-height: var(--line-height-28);
+}
+
+.shellMenuItems {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.shellMenuItems a,
+.shellMenuItems button,
+.shellMenuClose {
+  display: flex;
+  min-height: var(--button-height-md);
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width-hairline) solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.shellMenuItems a[aria-current="page"] {
+  border-color: var(--border-strong);
+  background: var(--surface-selected);
+  font-weight: var(--font-weight-semibold);
+}
+
+.shellMenuItems a:hover,
+.shellMenuItems button:hover,
+.shellMenuClose:hover {
+  background: var(--surface-subtle);
+}
+
+.shellMenuClose {
+  margin-top: var(--space-3);
+  border-color: var(--border-default);
+}
+
+.shellNavLink:focus-visible,
+.shellMoreTrigger:focus-visible,
+.shellBrand:focus-visible,
+.shellProfileTrigger:focus-visible,
+.shellContext a:focus-visible,
+.shellMenuItems a:focus-visible,
+.shellMenuItems button:focus-visible,
+.shellMenuClose:focus-visible {
+  outline: var(--border-width-active) solid var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+@media (max-width: 767px) {
+  .shell {
+    display: block;
+  }
+
+  .shellDesktopNav,
+  .shellProfileTrigger {
+    display: none;
+  }
+
+  .shellBody {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+
+  .shellTopbar {
+    min-height: 64px;
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .shellContext {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .shellMain {
+    padding: var(--space-4);
+  }
+
+  .shellMobileNav {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 100;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    min-height: 64px;
+    padding-bottom: env(safe-area-inset-bottom);
+    border-top: var(--border-width-hairline) solid var(--border-subtle);
+    background: var(--surface-default);
+  }
+
+  .shell[data-area="platform"] .shellMobileNav {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .shellMobileNav .shellNavLink,
+  .shellMoreTrigger {
+    min-width: 0;
+    min-height: 64px;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--space-1);
+    padding: var(--space-1);
+    border-radius: 0;
+    font-size: var(--font-size-12);
+    text-align: center;
+  }
+
+  .shellMobileNav .shellNavLink[data-current] {
+    border-top-color: var(--border-strong);
+  }
+
+  .shellUnread {
+    position: absolute;
+    top: var(--space-1);
+    right: var(--space-2);
+    width: 8px;
+    height: 8px;
+    padding: 0;
+    overflow: hidden;
+    font-size: 0;
+  }
+
+  .shellMenu {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    max-height: 100dvh;
+    padding: var(--space-6);
+    padding-bottom: max(var(--space-6), env(safe-area-inset-bottom));
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+}
+
 @media (max-width: 479px) {
   .accessCard,
   .feedback {
