@@ -21,7 +21,7 @@ async function fixtureSession(organizationId: string) {
   const email = `ws-${randomUUID()}@example.test`;
   const password = "Fixture password 9384!";
   const registered = await auth.api.signUpEmail({ body: { name: "Fixture", email, password }, returnHeaders: true });
-  await db.user.update({ where: { id: registered.response.user.id }, data: { organizationId } });
+  await db.user.update({ where: { id: registered.response.user.id }, data: { organizationId, role: "ADMIN_FIRMY", emailVerified: true } });
   const enrolled = await auth.api.enableTwoFactor({ body: { password, method: "totp" }, headers: new Headers({ cookie: cookies(registered.headers) }) });
   if (enrolled.method !== "totp") throw new Error("Expected TOTP enrollment");
   const totp = OTPAuth.URI.parse(enrolled.totpURI);
@@ -109,14 +109,26 @@ test("persisted send is deduplicated after reconnect and isolated from another c
     await expect(once(forbidden, "open")).rejects.toThrow();
     const wrongHost = connect(server.port, organizations[0], cookieA, "wrong.example.test");
     await expect(once(wrongHost, "open")).rejects.toThrow();
+    const idleB = connect(server.port, organizations[1], cookieB);
+    await once(idleB, "open");
+    const idleClosed = once(idleB, "close");
+    await db.organization.update({ where: { id: organizations[1] }, data: { archivedAt: new Date() } });
+    await idleClosed;
+    const archived = connect(server.port, organizations[1], cookieB);
+    await expect(once(archived, "open")).rejects.toThrow();
+    await db.organization.update({ where: { id: organizations[1] }, data: { archivedAt: null } });
     const revoked = connect(server.port, organizations[0], cookieA);
     await once(revoked, "open");
     const sessionA = await auth.api.getSession({ headers: new Headers({ cookie: cookieA }) });
     if (!sessionA) throw new Error("Expected fixture session");
-    await db.session.delete({ where: { id: sessionA.session.id } });
     const closed = once(revoked, "close");
-    revoked.send(JSON.stringify({ type: "send", clientMessageId: randomUUID(), body: "Nie może zostać zapisane" }));
+    const origin = new URL(process.env.BETTER_AUTH_URL ?? "").origin;
+    const signedOut = await authPost(new Request(`${origin}/api/auth/sign-out`, {
+      method: "POST", headers: { host: new URL(origin).host, origin, cookie: cookieA },
+    }));
+    expect(signedOut.status).toBe(200);
     await closed;
+    expect(await db.session.findUnique({ where: { id: sessionA.session.id } })).toBeNull();
     expect(await db.chatMessage.count({ where: { organizationId: organizations[0] } })).toBe(1);
   } finally {
     await server.close();

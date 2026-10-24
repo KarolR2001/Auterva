@@ -51,6 +51,47 @@
         "scripts/seed-local-access.ts"
       ],
       "testPaths": ["tests/unit/local-fixture.test.ts", "tests/integration/local-fixture.test.ts"]
+    },
+    {
+      "issue": 12,
+      "scope": "Bootstrap superadmina, host-bound login, obowiązkowe MFA, limity i cofanie sesji; produkcyjny ingress pozostaje zależnością #13.",
+      "relatedRequirementIds": ["C-F008", "C-F009", "C-F010", "C-F011", "C-F013", "C-F014", "C-F040", "C-F044", "C-N009", "C-N010", "C-N011", "C-N018"],
+      "codePaths": [
+        "scripts/bootstrap-superadmin.ts",
+        "scripts/recover-mfa.ts",
+        "src/app/api/auth/[...all]/route.ts",
+        "src/modules/auth/authorization.ts",
+        "src/modules/auth/mfa-factor-lock.ts",
+        "src/modules/auth/rate-limit.ts",
+        "src/modules/chat/resolve-tenant.ts",
+        "src/modules/chat/realtime.ts",
+        "prisma/migrations/20261023225000_auth_rate_limit_issue_12/migration.sql"
+      ],
+      "testPaths": [
+        "tests/isolated/bootstrap-superadmin.test.ts",
+        "tests/integration/auth-http.test.ts",
+        "tests/integration/rate-limit.test.ts",
+        "tests/integration/realtime.test.ts",
+        "tests/e2e/auth-host.spec.ts",
+        "tests/e2e/auth-production.spec.ts"
+      ]
+    },
+    {
+      "issue": 104,
+      "scope": "Jedna transakcja dla operacji czynnika MFA i szybka odmowa konkurentów bez wyczerpania puli PostgreSQL.",
+      "relatedRequirementIds": ["C-F011", "C-F013", "C-F014", "C-N009", "C-N011"],
+      "codePaths": [
+        "src/modules/auth/mfa-factor-lock.ts",
+        "src/app/api/auth/[...all]/route.ts",
+        "src/lib/auth.ts",
+        "src/lib/mfa-session.ts",
+        "src/modules/auth/authorization.ts"
+      ],
+      "testPaths": [
+        "tests/integration/mfa-factor-lock.test.ts",
+        "tests/integration/auth-http.test.ts",
+        "tests/isolated/bootstrap-superadmin.test.ts"
+      ]
     }
   ],
   "sources": [
