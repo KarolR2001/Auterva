@@ -10,6 +10,7 @@ const instance = createAuth(db, true);
 const a = randomUUID();
 const b = randomUUID();
 const email = `auth-${randomUUID()}@example.test`;
+const platformEmail = `platform-${randomUUID()}@example.test`;
 const hosts = [`admin-a-${randomUUID()}.example.test`, `public-b-${randomUUID()}.example.test`, `platform-${randomUUID()}.example.test`, `admin-b-${randomUUID()}.example.test`];
 
 beforeAll(async () => {
@@ -23,7 +24,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await db.user.deleteMany({ where: { email } });
+  await db.user.deleteMany({ where: { email: { in: [email, platformEmail] } } });
   await db.hostMapping.deleteMany({ where: { hostname: { in: hosts } } });
   await db.organization.deleteMany({ where: { id: { in: [a, b] } } });
   await db.$disconnect();
@@ -54,10 +55,27 @@ test("session is scoped to host, MFA proof and current archive state", async () 
   expect(await requireAuthorizedActor(db, instance, headers, { area: "COMPANY_ADMIN", organizationId: b })).toBeNull();
   expect(await requireAuthorizedActor(db, instance, headers, { area: "PLATFORM", organizationId: null })).toBeNull();
   expect(await requireRequestContext(db, instance, new Headers({ cookie, host: hosts[0] }), a)).toMatchObject({ actorId: userId, organizationId: a });
+  expect(await requireRequestContext(db, instance, new Headers({ cookie, host: hosts[0] }), b)).toBeNull();
   expect(await requireRequestContext(db, instance, new Headers({ cookie, host: `${hosts[0]}.` }), a)).toMatchObject({ actorId: userId, organizationId: a });
   expect(await requireRequestContext(db, instance, new Headers({ cookie, host: hosts[3] }), b)).toBeNull();
   expect(await requireRequestContext(db, instance, new Headers({ cookie, host: hosts[1] }), b)).toBeNull();
   expect(await requireRequestContext(db, instance, new Headers({ cookie, host: hosts[2] }), a)).toBeNull();
   await db.organization.update({ where: { id: a }, data: { archivedAt: new Date() } });
   expect(await requireAuthorizedActor(db, instance, headers, scope)).toBeNull();
+  await db.organization.update({ where: { id: a }, data: { archivedAt: null } });
+});
+
+test("a verified superadmin selects either existing company as the same actor", async () => {
+  const registration = await instance.api.signUpEmail({ body: { name: "Platform fixture", email: platformEmail, password: "Fixture password 9384!" }, returnHeaders: true });
+  const userId = registration.response.user.id;
+  const cookie = registration.headers.getSetCookie().map((value) => value.split(";", 1)[0]).join("; ");
+  await db.user.update({ where: { id: userId }, data: { role: "SUPERADMIN_AUTERVA", twoFactorEnabled: true, emailVerified: true } });
+  const session = await instance.api.getSession({ headers: new Headers({ cookie }) });
+  if (!session) throw new Error("Missing platform session");
+  await db.session.update({ where: { id: session.session.id }, data: { mfaVerifiedAt: new Date() } });
+  const headers = new Headers({ cookie, host: hosts[2] });
+  expect(await requireRequestContext(db, instance, headers, a)).toMatchObject({ actorId: userId, role: "SUPERADMIN_AUTERVA", organizationId: a });
+  expect(await requireRequestContext(db, instance, headers, b)).toMatchObject({ actorId: userId, role: "SUPERADMIN_AUTERVA", organizationId: b });
+  expect(await requireRequestContext(db, instance, headers, randomUUID())).toBeNull();
+  expect(await requireRequestContext(db, instance, new Headers({ cookie, host: hosts[0] }), a)).toBeNull();
 });
