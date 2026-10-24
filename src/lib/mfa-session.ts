@@ -14,10 +14,16 @@ function responseCookies(request: Request, response: Response) {
   return [...entries.values()].join("; ");
 }
 
-export async function recordVerifiedMfaSession(db: PrismaClient, instance: typeof auth, request: Request, response: Response) {
+export async function sessionFromResponse(instance: typeof auth, request: Request, response: Response) {
   if (!response.ok) return;
   const cookie = responseCookies(request, response);
   const session = await instance.api.getSession({ headers: new Headers({ cookie }) });
   if (!session) throw new Error("TOTP verification did not create or retain a session");
+  return session;
+}
+
+export async function recordVerifiedMfaSession(db: PrismaClient, instance: typeof auth, request: Request, response: Response) {
+  const session = await sessionFromResponse(instance, request, response);
+  if (!session) return;
   await db.session.update({ where: { id: session.session.id }, data: { mfaVerifiedAt: new Date() } });
 }
