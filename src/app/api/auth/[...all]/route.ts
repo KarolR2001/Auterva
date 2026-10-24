@@ -9,6 +9,7 @@ import { requireAuthorizedActor, requireScopedActor, resolveAuthHost } from "@/m
 import { MfaFactorBusyError, withMfaFactorLock } from "@/modules/auth/mfa-factor-lock";
 import { completeAuthAttempt, reserveAuthAttempt, takeRateLimit } from "@/modules/auth/rate-limit";
 import { trustedClientAddress } from "@/modules/auth/trusted-address";
+import { parseHostAuthority } from "@/modules/tenancy/host-registry";
 import { currentTrustedClientAddress } from "@/modules/ingress/client-address";
 import { apiRateLimitResponse, takeAuthenticatedApiLimit } from "@/modules/tenancy/api-rate-limit";
 import { withErrorRequestId } from "@/modules/tenancy/request-id";
@@ -150,12 +151,16 @@ async function guarded(request: Request, method: "GET" | "POST") {
   const externalUrl = new URL(request.url);
   const pathname = externalUrl.pathname.replace(/\/$/, "");
   const requestHost = request.headers.get("host");
-  if (requestHost && /^[a-z0-9.-]+(?::[0-9]{1,5})?$/i.test(requestHost)) externalUrl.host = requestHost;
+  const authority = requestHost && parseHostAuthority(requestHost);
+  if (authority) {
+    externalUrl.hostname = authority.hostname;
+    externalUrl.port = authority.port?.toString() ?? "";
+  }
   const configuredHost = new URL(getServerEnv().BETTER_AUTH_URL).host;
   const probe = process.env.NODE_ENV === "test" && process.env.AUTERVA_AUTH_PROBE === "1"
     && ["127.0.0.1", "localhost"].includes(new URL(getServerEnv().BETTER_AUTH_URL).hostname)
     && request.headers.get("host") === configuredHost;
-  const scope = probe ? null : await resolveAuthHost(prisma, request.headers.get("host"), request.url);
+  const scope = probe ? null : await resolveAuthHost(prisma, request.headers.get("host"));
   if ((!probe && !scope) || !allowed.has(pathname)) return refusal();
   if (method === "POST" && request.headers.get("origin") !== externalUrl.origin) return new Response(null, { status: 403, headers: { "Cache-Control": "no-store" } });
   if (method === "GET" && pathname !== "/api/auth/get-session") return new Response(null, { status: 405 });

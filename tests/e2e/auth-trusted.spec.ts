@@ -20,6 +20,24 @@ function fromIpv6(port: number, host: string, email: string) {
   });
 }
 
+function onHost(port: number, host: string, path: string, options: { method?: string; cookie?: string; origin?: string; body?: unknown } = {}) {
+  const data = options.body === undefined ? null : JSON.stringify(options.body);
+  return new Promise<{ status: number; body: string }>((resolve, reject) => {
+    const request = httpRequest({ hostname: "127.0.0.1", port, path, method: options.method ?? "GET", headers: {
+      Host: host, ...(options.cookie ? { Cookie: options.cookie } : {}),
+      ...(options.origin ? { Origin: options.origin } : {}),
+      ...(data ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(data) } : {}),
+    } }, (response) => {
+      let body = "";
+      response.setEncoding("utf8");
+      response.on("data", (chunk: string) => { body += chunk; });
+      response.on("end", () => resolve({ status: response.statusCode ?? 0, body }));
+    });
+    request.on("error", reject);
+    request.end(data ?? undefined);
+  });
+}
+
 async function clearLocalIpEvents(db: ReturnType<typeof createPrismaClient>) {
   const secret = process.env.BETTER_AUTH_SECRET ?? "";
   await db.rateLimitEvent.deleteMany({ where: { keyHash: { in: ["127.0.0.1", "::1"].map((address) =>
@@ -134,6 +152,66 @@ test("platform root requires a verified superadmin session", async ({ request, b
     if (user) await db.verification.deleteMany({ where: { value: { contains: `"userId":"${user.id}"` } } });
     await db.user.deleteMany({ where: { email } });
     await db.hostMapping.deleteMany({ where: { hostname } });
+    await db.$disconnect();
+  }
+});
+
+test("one built ingress isolates two real company hosts, platform and public host", async ({ baseURL }) => {
+  if (!baseURL) throw new Error("Missing trusted ingress URL");
+  const db = createPrismaClient(process.env.DATABASE_URL ?? "");
+  const fixtureAuth = createAuth(db, true, baseURL);
+  const port = Number(new URL(baseURL).port);
+  const suffix = randomUUID();
+  const hosts = {
+    a: `admin-a-${suffix}.example.test`, b: `admin-b-${suffix}.example.test`,
+    platform: `platform-${suffix}.example.test`, public: `public-${suffix}.example.test`,
+  };
+  const companies = [randomUUID(), randomUUID()];
+  const emails = ["a", "b", "platform"].map((part) => `${part}-${suffix}@example.test`);
+  const password = "Fixture password 9384!";
+  await db.organization.createMany({ data: companies.map((id) => ({ id, slug: `host-${id}` })) });
+  await db.hostMapping.createMany({ data: [
+    { hostname: hosts.a, area: "COMPANY_ADMIN", organizationId: companies[0], status: "ACTIVE" },
+    { hostname: hosts.b, area: "COMPANY_ADMIN", organizationId: companies[1], status: "ACTIVE" },
+    { hostname: hosts.platform, area: "PLATFORM", status: "ACTIVE" },
+    { hostname: hosts.public, area: "COMPANY_PUBLIC", organizationId: companies[0], status: "ACTIVE" },
+  ] });
+  try {
+    const cookies: string[] = [];
+    for (let index = 0; index < emails.length; index++) {
+      const registered = await fixtureAuth.api.signUpEmail({ body: { name: "Host fixture", email: emails[index], password }, returnHeaders: true });
+      const cookie = registered.headers.getSetCookie().map((entry) => entry.split(";", 1)[0]).join("; ");
+      cookies.push(cookie);
+      await db.user.update({ where: { id: registered.response.user.id }, data: {
+        role: index === 2 ? "SUPERADMIN_AUTERVA" : "ADMIN_FIRMY",
+        organizationId: index === 2 ? null : companies[index], emailVerified: true,
+      } });
+    }
+    for (const [host, email] of [[hosts.a, emails[0]], [hosts.b, emails[1]], [hosts.platform, emails[2]]] as const) {
+      expect(await onHost(port, host, "/api/auth/sign-in/email/", {
+        method: "POST", origin: `http://${host}`, body: { email, password },
+      })).toMatchObject({ status: 200 });
+    }
+    expect((await onHost(port, hosts.public, "/api/auth/sign-in/email/", {
+      method: "POST", origin: `http://${hosts.public}`, body: { email: emails[0], password },
+    })).status).toBe(404);
+    const users = await db.user.findMany({ where: { email: { in: emails } }, select: { id: true, email: true } });
+    for (const user of users) {
+      await db.user.update({ where: { id: user.id }, data: { twoFactorEnabled: true } });
+      await db.session.updateMany({ where: { userId: user.id }, data: { mfaVerifiedAt: new Date() } });
+    }
+    expect((await onHost(port, hosts.a, "/admin/", { cookie: cookies[0] })).status).toBe(200);
+    expect((await onHost(port, `${hosts.a}.`, "/admin/", { cookie: cookies[0] })).status).toBe(200);
+    expect((await onHost(port, hosts.b, "/admin/", { cookie: cookies[1] })).status).toBe(200);
+    expect((await onHost(port, hosts.b, "/admin/", { cookie: cookies[0] })).status).toBe(404);
+    expect((await onHost(port, hosts.public, "/admin/", { cookie: cookies[0] })).status).toBe(404);
+    expect((await onHost(port, hosts.platform, "/", { cookie: cookies[2] })).status).toBe(200);
+    expect((await onHost(port, hosts.platform, "/", { cookie: cookies[0] })).status).toBe(404);
+    expect((await onHost(port, hosts.a, "/api/auth/get-session/", { cookie: cookies[1] })).status).toBe(401);
+  } finally {
+    await db.user.deleteMany({ where: { email: { in: emails } } });
+    await db.hostMapping.deleteMany({ where: { hostname: { in: Object.values(hosts) } } });
+    await db.organization.deleteMany({ where: { id: { in: companies } } });
     await db.$disconnect();
   }
 });
