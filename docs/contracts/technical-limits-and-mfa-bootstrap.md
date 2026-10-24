@@ -40,6 +40,8 @@ Dla czatu serwer zapisuje czasy przyjętych **unikalnych** wiadomości w obu ruc
 
 Są to warunki serwerowe także dla superadmina, który działa własną tożsamością w kontekście firmy. Archiwizacja firmy blokuje login i sesję admina; wygaśnięcie okresu usługi tego nie robi. Audyt zmiany czynnika, odzyskania i cofnięcia sesji zawiera aktora, cel, czas i wynik bez sekretów. W [Better Auth 2FA](https://better-auth.com/docs/plugins/2fa) istnieją ścieżki backup codes, trusted devices i disable, więc przy integracji trzeba jawnie ograniczyć je zgodnie z powyższą polityką. [Limity Better Auth](https://better-auth.com/docs/concepts/rate-limit) nie zastępują wspólnej polityki serwera; [opcje sesji](https://better-auth.com/docs/reference/options) wymagają sprawdzenia unieważnienia po resecie hasła.
 
+**Współbieżna zmiana MFA (#104):** tylko jedna operacja danego konta trzyma blokadę czynnika. Konkurent otrzymuje `409 MFA_BUSY` i `Retry-After: 1`, bez cookie sukcesu; po ponowieniu serwer sprawdza sesję, stan czynnika i jednorazowy dowód od początku. Timeout lub konflikt transakcji daje `503 MFA_RETRY` z tym samym krótkim opóźnieniem, bez utrwalonej częściowej zmiany. Zapisy Better Auth, sesji, dowodów i audytu podczas zmiany czynnika należą do transakcji trzymającej blokadę; odpowiedź sukcesu jest udostępniana dopiero po jej commit. Próby niepoprawnych credentials nadal obciążają licznik konta, a techniczne `MFA_BUSY` i `MFA_RETRY` go nie resetują ani nie doliczają błędnych danych; źródłowe IP nadal jest liczone jako próba. `429 RATE_LIMITED` pozostaje odrębną polityką z tabeli wyżej.
+
 ## Fixture i odbiór przyszłej implementacji
 
 | Próba | Oczekiwany wynik |
