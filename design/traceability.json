@@ -75,6 +75,32 @@
         "tests/e2e/auth-host.spec.ts",
         "tests/e2e/auth-production.spec.ts"
       ]
+    },
+    {
+      "issue": 13,
+      "scope": "Aktywny host wybiera obszar; serwer sprawdza aktora i firmę, lokalny ingress dostarcza adres klienta, a wspólny limiter chroni uwierzytelnione API. Brzeg dostawcy pozostaje do odbioru przed stagingiem.",
+      "relatedRequirementIds": ["C-N002", "C-N003", "C-N005", "C-N007", "C-N008", "C-N009", "C-N012", "C-N013", "C-N024"],
+      "codePaths": [
+        "src/proxy.ts",
+        "src/modules/tenancy/host-registry.ts",
+        "src/modules/tenancy/host-route-policy.ts",
+        "src/modules/tenancy/request-context.ts",
+        "src/modules/tenancy/api-rate-limit.ts",
+        "src/modules/tenancy/request-id.ts",
+        "src/modules/ingress/client-address.ts",
+        "scripts/start-local-ingress.ts",
+        "src/app/api/auth/[...all]/route.ts",
+        "src/modules/chat/resolve-tenant.ts"
+      ],
+      "testPaths": [
+        "tests/unit/host-route-policy.test.ts",
+        "tests/integration/host-proxy.test.ts",
+        "tests/integration/request-context.test.ts",
+        "tests/integration/authenticated-api-limit.test.ts",
+        "tests/integration/realtime.test.ts",
+        "tests/e2e/auth-trusted.spec.ts",
+        "tests/e2e/auth-production.spec.ts"
+      ]
     }
   ],
   "sources": [

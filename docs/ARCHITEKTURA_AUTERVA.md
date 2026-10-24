@@ -95,7 +95,7 @@ Host rozpoznaje obszar i firmę; uprawnienia wynikają osobno z sesji. Przykład
 - OVR-01–20 to stany dialogów, sheetów, menu lub lightboxa. Błędy, wygasła sesja, PUB-09/10 i macierze stanów nie wymagają osobnych pozycji menu.
 - `HostMapping` przechowuje zatwierdzony hostname, obszar, firmę, stan weryfikacji i adres kanoniczny. Host normalizowany; brak dopasowania kończy się neutralną odmową.
 - Nie ufać dowolnemu `Host`/`X-Forwarded-Host`: ingress usuwa nagłówki klienta i przekazuje własne; aplikacja używa jawnego rejestru hostów.
-- Proxy wykonuje rewrite do wewnętrznych gałęzi App Routera. Każda gałąź oraz każdy endpoint ponownie weryfikuje host/obszar. Bezpośrednie wejścia do technicznych prefiksów są blokowane.
+- Proxy egzekwuje allowlistę hosta i trasy oraz usuwa niezaufane nagłówki przekazania. Wspólne trasy, w tym `/`, wybierają obszar w RSC z aktywnego `HostMapping`; chronione gałęzie i endpointy ponownie weryfikują host, sesję, rolę, MFA i firmę. Nie stosujemy wewnętrznego rewrite do prefiksów: w użytej wersji Next.js Proxy przetwarza także przepisany URL, więc proste rozdzielenie w gałęzi nie wymaga znacznika omijającego odmowę. Bezpośrednie wejścia do technicznych prefiksów pozostają blokowane.
 - Oferta publiczna i marketing nie udostępniają logowania, `/admin`, `/api/auth`, endpointów admina, API platformy ani administracyjnego handshake WebSocket. Host firmy nie udostępnia panelu superadmina.
 - Host panelu nie jest publicznym adresem zastępczym. Publiczny alias po aktywacji własnej domeny przekierowuje na nią dopiero po kontroli bieżącej widoczności firmy.
 - TLS dla paneli obejmuje właściwy poziom subdomen, np. `*.sites.auterva.example`. Własna domena wymaga weryfikacji przypisania, DNS, routingu i certyfikatu.

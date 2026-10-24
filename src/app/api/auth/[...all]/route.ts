@@ -8,6 +8,9 @@ import { requireAuthorizedActor, requireScopedActor, resolveAuthHost } from "@/m
 import { withMfaFactorLock } from "@/modules/auth/mfa-factor-lock";
 import { completeAuthAttempt, reserveAuthAttempt, takeRateLimit } from "@/modules/auth/rate-limit";
 import { trustedClientAddress } from "@/modules/auth/trusted-address";
+import { currentTrustedClientAddress } from "@/modules/ingress/client-address";
+import { apiRateLimitResponse, takeAuthenticatedApiLimit } from "@/modules/tenancy/api-rate-limit";
+import { withErrorRequestId } from "@/modules/tenancy/request-id";
 
 export const runtime = "nodejs";
 const allowed = new Set([
@@ -143,12 +146,20 @@ async function guarded(request: Request, method: "GET" | "POST") {
   if (method === "POST" && pathname === "/api/auth/get-session") return new Response(null, { status: 405 });
   let sourceIp: string;
   try {
-    // #13 replaces the absent transport adapter with a verified ingress address.
-    sourceIp = trustedClientAddress(undefined);
+    sourceIp = trustedClientAddress(currentTrustedClientAddress());
   } catch {
     return new Response(null, { status: 503, headers: { "Cache-Control": "no-store" } });
   }
   const instance = probe ? auth : createAuth(prisma, false, externalUrl.origin);
+  if (scope && pathname !== "/api/auth/sign-in/email") {
+    const scoped = await requireScopedActor(prisma, instance, request.headers, scope);
+    if (scoped) {
+      const limit = await takeAuthenticatedApiLimit(prisma, {
+        actorId: scoped.userId, organizationId: scoped.organizationId,
+      }, pathname === "/api/auth/get-session" ? "read" : "write");
+      if (!limit.allowed) return apiRateLimitResponse(limit.retryAfter);
+    }
+  }
   const handlers = toNextJsHandler(instance);
   if (pathname.startsWith("/api/auth/mfa/")) {
     if (!scope || method !== "POST") return refusal();
@@ -317,5 +328,5 @@ async function guarded(request: Request, method: "GET" | "POST") {
   return response;
 }
 
-export const GET = (request: Request) => guarded(request, "GET");
-export const POST = (request: Request) => guarded(request, "POST");
+export const GET = async (request: Request) => withErrorRequestId(await guarded(request, "GET"));
+export const POST = async (request: Request) => withErrorRequestId(await guarded(request, "POST"));
