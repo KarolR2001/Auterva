@@ -4,6 +4,7 @@ import { test, expect } from "@playwright/test";
 import * as OTPAuth from "otpauth";
 import { createAuth } from "../../src/lib/auth";
 import { createPrismaClient } from "../../src/lib/prisma";
+import { ensureControlledSuperadminMfa, verifiedFixtureSession } from "../fixtures/verified-session";
 
 function fromIpv6(port: number, host: string, email: string) {
   const data = JSON.stringify({ email, password: "Wrong fixture password 9384!" });
@@ -22,7 +23,7 @@ function fromIpv6(port: number, host: string, email: string) {
 
 function onHost(port: number, host: string, path: string, options: { method?: string; cookie?: string; origin?: string; body?: unknown } = {}) {
   const data = options.body === undefined ? null : JSON.stringify(options.body);
-  return new Promise<{ status: number; body: string }>((resolve, reject) => {
+  return new Promise<{ status: number; body: string; cookies: readonly string[] }>((resolve, reject) => {
     const request = httpRequest({ hostname: "127.0.0.1", port, path, method: options.method ?? "GET", headers: {
       Host: host, ...(options.cookie ? { Cookie: options.cookie } : {}),
       ...(options.origin ? { Origin: options.origin } : {}),
@@ -31,7 +32,7 @@ function onHost(port: number, host: string, path: string, options: { method?: st
       let body = "";
       response.setEncoding("utf8");
       response.on("data", (chunk: string) => { body += chunk; });
-      response.on("end", () => resolve({ status: response.statusCode ?? 0, body }));
+      response.on("end", () => resolve({ status: response.statusCode ?? 0, body, cookies: response.headers["set-cookie"] ?? [] }));
     });
     request.on("error", reject);
     request.end(data ?? undefined);
@@ -42,6 +43,25 @@ async function clearLocalIpEvents(db: ReturnType<typeof createPrismaClient>) {
   const secret = process.env.BETTER_AUTH_SECRET ?? "";
   await db.rateLimitEvent.deleteMany({ where: { keyHash: { in: ["127.0.0.1", "::1"].map((address) =>
     createHmac("sha256", secret).update(`auth:ip:${address}`).digest("hex")) } } });
+}
+
+async function platformSession(db: ReturnType<typeof createPrismaClient>, baseURL: string) {
+  const existing = await db.user.findFirst({ where: { role: "SUPERADMIN_AUTERVA" }, select: { id: true } });
+  let ownedId: string | null = null;
+  const userId = existing?.id ?? (await createAuth(db, true, baseURL).api.signUpEmail({ body: {
+    name: "Platform fixture", email: `platform-${randomUUID()}@example.test`, password: "Fixture password 9384!",
+  } })).user.id;
+  if (!existing) {
+    ownedId = userId;
+    await db.user.update({ where: { id: userId }, data: { role: "SUPERADMIN_AUTERVA", emailVerified: true, twoFactorEnabled: true } });
+  } else {
+    await ensureControlledSuperadminMfa(db, userId);
+  }
+  const session = await verifiedFixtureSession(db, userId);
+  return { cookie: session.cookie, dispose: async () => {
+    await session.dispose();
+    if (ownedId) await db.user.delete({ where: { id: ownedId } });
+  } };
 }
 
 test("built auth uses socket ingress for MFA; spoofed headers cannot merge two client counters", async ({ request, baseURL }) => {
@@ -131,26 +151,16 @@ test("platform root requires a verified superadmin session", async ({ request, b
   const db = createPrismaClient(process.env.DATABASE_URL ?? "");
   await clearLocalIpEvents(db);
   const hostname = new URL(baseURL).hostname;
-  const email = `platform-${randomUUID()}@example.test`;
-  const password = "Fixture password 9384!";
   await db.hostMapping.create({ data: { hostname, area: "PLATFORM", status: "ACTIVE" } });
+  let platform: Awaited<ReturnType<typeof platformSession>> | null = null;
   try {
-    const fixtureAuth = createAuth(db, true, baseURL);
-    const registered = await fixtureAuth.api.signUpEmail({ body: { name: "Platform fixture", email, password } });
-    await db.user.update({ where: { id: registered.user.id }, data: { role: "SUPERADMIN_AUTERVA", emailVerified: true } });
+    platform = await platformSession(db, baseURL);
     expect((await request.get("/")).status()).toBe(404);
-    expect((await request.post("/api/auth/sign-in/email/", { headers: { origin: baseURL }, data: { email, password } })).status()).toBe(200);
-    const enrollment = await request.post("/api/auth/two-factor/enable/", { headers: { origin: baseURL }, data: { password, method: "totp" } });
-    const totp = OTPAuth.URI.parse((await enrollment.json() as { totpURI: string }).totpURI);
-    if (!(totp instanceof OTPAuth.TOTP)) throw new Error("Expected TOTP URI");
-    expect((await request.post("/api/auth/two-factor/verify-totp/", { headers: { origin: baseURL }, data: { code: totp.generate() } })).status()).toBe(200);
-    expect((await request.get("/api/auth/get-session/")).status()).toBe(200);
-    expect((await request.get("/")).status()).toBe(200);
+    expect((await request.get("/api/auth/get-session/", { headers: { cookie: platform.cookie } })).status()).toBe(200);
+    expect((await request.get("/", { headers: { cookie: platform.cookie } })).status()).toBe(200);
   } finally {
     await clearLocalIpEvents(db);
-    const user = await db.user.findUnique({ where: { email }, select: { id: true } });
-    if (user) await db.verification.deleteMany({ where: { value: { contains: `"userId":"${user.id}"` } } });
-    await db.user.deleteMany({ where: { email } });
+    if (platform) await platform.dispose();
     await db.hostMapping.deleteMany({ where: { hostname } });
     await db.$disconnect();
   }
@@ -167,7 +177,7 @@ test("one built ingress isolates two real company hosts, platform and public hos
     platform: `platform-${suffix}.example.test`, public: `public-${suffix}.example.test`,
   };
   const companies = [randomUUID(), randomUUID()];
-  const emails = ["a", "b", "platform"].map((part) => `${part}-${suffix}@example.test`);
+  const emails = ["a", "b"].map((part) => `${part}-${suffix}@example.test`);
   const password = "Fixture password 9384!";
   await db.organization.createMany({ data: companies.map((id) => ({ id, slug: `host-${id}` })) });
   await db.hostMapping.createMany({ data: [
@@ -176,6 +186,7 @@ test("one built ingress isolates two real company hosts, platform and public hos
     { hostname: hosts.platform, area: "PLATFORM", status: "ACTIVE" },
     { hostname: hosts.public, area: "COMPANY_PUBLIC", organizationId: companies[0], status: "ACTIVE" },
   ] });
+  let platform: Awaited<ReturnType<typeof platformSession>> | null = null;
   try {
     const cookies: string[] = [];
     for (let index = 0; index < emails.length; index++) {
@@ -183,15 +194,23 @@ test("one built ingress isolates two real company hosts, platform and public hos
       const cookie = registered.headers.getSetCookie().map((entry) => entry.split(";", 1)[0]).join("; ");
       cookies.push(cookie);
       await db.user.update({ where: { id: registered.response.user.id }, data: {
-        role: index === 2 ? "SUPERADMIN_AUTERVA" : "ADMIN_FIRMY",
-        organizationId: index === 2 ? null : companies[index], emailVerified: true,
+        role: "ADMIN_FIRMY", organizationId: companies[index], emailVerified: true,
       } });
     }
-    for (const [host, email] of [[hosts.a, emails[0]], [hosts.b, emails[1]], [hosts.platform, emails[2]]] as const) {
+    platform = await platformSession(db, baseURL);
+    for (const [host, email] of [[hosts.a, emails[0]], [hosts.b, emails[1]]] as const) {
       expect(await onHost(port, host, "/api/auth/sign-in/email/", {
         method: "POST", origin: `http://${host}`, body: { email, password },
       })).toMatchObject({ status: 200 });
     }
+    expect((await onHost(port, `${hosts.a}.`, "/api/auth/sign-in/email/", {
+      method: "POST", origin: `http://${hosts.a}.`, body: { email: emails[0], password },
+    })).status).toBe(200);
+    const foreignOrigin = await onHost(port, hosts.a, "/api/auth/sign-in/email/", {
+      method: "POST", origin: `http://sister.${hosts.a}`, body: { email: emails[0], password },
+    });
+    expect(foreignOrigin.status).toBe(403);
+    expect(foreignOrigin.cookies).toEqual([]);
     expect((await onHost(port, hosts.public, "/api/auth/sign-in/email/", {
       method: "POST", origin: `http://${hosts.public}`, body: { email: emails[0], password },
     })).status).toBe(404);
@@ -205,10 +224,12 @@ test("one built ingress isolates two real company hosts, platform and public hos
     expect((await onHost(port, hosts.b, "/admin/", { cookie: cookies[1] })).status).toBe(200);
     expect((await onHost(port, hosts.b, "/admin/", { cookie: cookies[0] })).status).toBe(404);
     expect((await onHost(port, hosts.public, "/admin/", { cookie: cookies[0] })).status).toBe(404);
-    expect((await onHost(port, hosts.platform, "/", { cookie: cookies[2] })).status).toBe(200);
+    expect((await onHost(port, hosts.platform, "/api/auth/get-session/", { cookie: platform.cookie })).status).toBe(200);
+    expect((await onHost(port, hosts.platform, "/", { cookie: platform.cookie })).status).toBe(200);
     expect((await onHost(port, hosts.platform, "/", { cookie: cookies[0] })).status).toBe(404);
     expect((await onHost(port, hosts.a, "/api/auth/get-session/", { cookie: cookies[1] })).status).toBe(401);
   } finally {
+    if (platform) await platform.dispose();
     await db.user.deleteMany({ where: { email: { in: emails } } });
     await db.hostMapping.deleteMany({ where: { hostname: { in: Object.values(hosts) } } });
     await db.organization.deleteMany({ where: { id: { in: companies } } });

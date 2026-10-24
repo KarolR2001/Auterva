@@ -4,6 +4,7 @@ import { createAuth } from "../../src/lib/auth";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { requireAuthorizedActor, resolveAuthHost } from "../../src/modules/auth/authorization";
 import { requireRequestContext } from "../../src/modules/tenancy/request-context";
+import { ensureControlledSuperadminMfa, verifiedFixtureSession } from "../fixtures/verified-session";
 
 const db = createPrismaClient(process.env.DATABASE_URL ?? "");
 const instance = createAuth(db, true);
@@ -66,16 +67,27 @@ test("session is scoped to host, MFA proof and current archive state", async () 
 });
 
 test("a verified superadmin selects either existing company as the same actor", async () => {
-  const registration = await instance.api.signUpEmail({ body: { name: "Platform fixture", email: platformEmail, password: "Fixture password 9384!" }, returnHeaders: true });
-  const userId = registration.response.user.id;
-  const cookie = registration.headers.getSetCookie().map((value) => value.split(";", 1)[0]).join("; ");
-  await db.user.update({ where: { id: userId }, data: { role: "SUPERADMIN_AUTERVA", twoFactorEnabled: true, emailVerified: true } });
-  const session = await instance.api.getSession({ headers: new Headers({ cookie }) });
-  if (!session) throw new Error("Missing platform session");
-  await db.session.update({ where: { id: session.session.id }, data: { mfaVerifiedAt: new Date() } });
-  const headers = new Headers({ cookie, host: hosts[2] });
-  expect(await requireRequestContext(db, instance, headers, a)).toMatchObject({ actorId: userId, role: "SUPERADMIN_AUTERVA", organizationId: a });
-  expect(await requireRequestContext(db, instance, headers, b)).toMatchObject({ actorId: userId, role: "SUPERADMIN_AUTERVA", organizationId: b });
-  expect(await requireRequestContext(db, instance, headers, randomUUID())).toBeNull();
-  expect(await requireRequestContext(db, instance, new Headers({ cookie, host: hosts[0] }), a)).toBeNull();
+  const existing = await db.user.findFirst({ where: { role: "SUPERADMIN_AUTERVA" }, select: { id: true } });
+  let ownedId: string | null = null;
+  const userId = existing?.id ?? (await instance.api.signUpEmail({ body: {
+    name: "Platform fixture", email: platformEmail, password: "Fixture password 9384!",
+  } })).user.id;
+  if (!existing) {
+    ownedId = userId;
+    await db.user.update({ where: { id: userId }, data: { role: "SUPERADMIN_AUTERVA", twoFactorEnabled: true, emailVerified: true } });
+  } else {
+    await ensureControlledSuperadminMfa(db, userId);
+  }
+  const session = await verifiedFixtureSession(db, userId);
+  try {
+    const headers = new Headers({ cookie: session.cookie, host: hosts[2] });
+    expect(await instance.api.getSession({ headers })).not.toBeNull();
+    expect(await requireRequestContext(db, instance, headers, a)).toMatchObject({ actorId: userId, role: "SUPERADMIN_AUTERVA", organizationId: a });
+    expect(await requireRequestContext(db, instance, headers, b)).toMatchObject({ actorId: userId, role: "SUPERADMIN_AUTERVA", organizationId: b });
+    expect(await requireRequestContext(db, instance, headers, randomUUID())).toBeNull();
+    expect(await requireRequestContext(db, instance, new Headers({ cookie: session.cookie, host: hosts[0] }), a)).toBeNull();
+  } finally {
+    await session.dispose();
+    if (ownedId) await db.user.delete({ where: { id: ownedId } });
+  }
 });
