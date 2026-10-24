@@ -1601,6 +1601,10 @@ Kontrakt: mapowanie `layout=row` wspólnego komponentu `VehicleAdminItem`. `DS-D
 
 Wiersz ma warianty `default`, `selected`, `menu-open` i `updating`. Każdy zawiera kolejność, miniaturę, nazwę/kategorię, osobny status publikacji i dostępności, datę zmiany oraz akcje „Edycja”, „Terminy” i „Więcej”. Selected ma jawny znak i obramowanie; menu pokazuje „Podgląd”, „Ukryj” i „Archiwizuj”; updating składa rzeczywistą instancję `Spinner`.
 
+Na `ADM-05` trzy widoczne akcje każdego wiersza/karty mają osobne cele: Edytuj → `ADM-07`, Terminy/Kalendarz → `/admin/pojazdy/[id]/kalendarz` (`ADM-09`), Więcej → overlay menu. Referencyjny Mercedes Klasa V przechodzi do istniejącego boardu `ADM-09` z tym samym pojazdem; pozostałe demonstracyjne wiersze mają własne trasy pojazdów, a nie sześć kopii statycznego kalendarza. Overlay MVP `89433e5c-4f5c-80ad-8008-d67038a557ec` pokazuje Ukryj i Archiwizuj. Źródłowy wariant biblioteczny zachowuje Podgląd dla odłożonego `ADM-08` (SHOULD), lecz ta opcja nie jest wejściem MVP.
+
+Otwarcie menu jest interakcją prototypu; same Ukryj/Archiwizuj są tu statycznym kontraktem `onHide(vehicleId)`/`onArchive(vehicleId)` z właściwymi `OVR-10`/`OVR-11`, nie potwierdzonym wykonaniem mutacji ani przejściem wszystkich danych. [#107](https://github.com/KarolR2001/Auterva/issues/107) domyka kontekst wybranego pojazdu, stany i referencyjne potwierdzenia przed implementacją listy i cyklu publikacji (#34/#35). Nie kierujemy żadnej z tych akcji do `/admin/pojazdy/[id]/akcje`.
+
 Na mobile nie ściskamy wiersza tabeli. Rodzic przełącza ten sam model danych na `layout=card`, czyli kontrakt `DS-DAT-005`. W implementacji desktopowy wariant renderuje semantyczny `<tr>` z komórkami, `aria-selected` przy zaznaczeniu i prawdziwymi przyciskami akcji. Zmiana kolejności wymaga alternatywy klawiaturowej obok drag and drop.
 
 ## DS-DAT-005 — VehicleCardAdmin

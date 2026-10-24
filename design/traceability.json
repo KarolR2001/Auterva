@@ -845,6 +845,35 @@
           "desktop": "a4abf4c9-2e1f-80fd-8008-afc9717d55df"
         }
       },
+      "navigationContract": {
+        "issue": 94,
+        "menuActionsFollowUpIssue": 107,
+        "vehicleCalendarPath": "/admin/pojazdy/[id]/kalendarz",
+        "referenceVehicleSlug": "mercedes-klasa-v",
+        "referenceActions": {
+          "mobile": {
+            "editHitId": "1e066793-8858-8051-8008-cf3e7dc97aab",
+            "calendarHitId": "89433e5c-4f5c-80ad-8008-d6707fe1bad2",
+            "moreHitId": "89433e5c-4f5c-80ad-8008-d6708003560b",
+            "calendarBoardId": "1e066793-8858-8051-8008-cf3e7dc9ddb2"
+          },
+          "desktop": {
+            "editHitId": "92bfc32e-2dd6-801a-8008-bf076f901154",
+            "calendarHitId": "89433e5c-4f5c-80ad-8008-d672ef95b971",
+            "moreHitId": "89433e5c-4f5c-80ad-8008-d672f7b7b77c",
+            "calendarBoardId": "a4abf4c9-2e1f-80fd-8008-aff31c0f597d"
+          }
+        },
+        "vehicleActionsOverlayId": "89433e5c-4f5c-80ad-8008-d67038a557ec",
+        "userMenuTriggers": {
+          "mobile": "1e066793-8858-8051-8008-cf3e7dc97ab1",
+          "desktop": "92bfc32e-2dd6-801a-8008-bf076fbebf9b"
+        },
+        "mvpMenuOptions": ["Ukryj", "Archiwizuj"],
+        "menuActionTargets": ["OVR-10", "OVR-11"],
+        "menuActionState": "Statyczny wzorzec; kontekst vehicleId i potwierdzenia przed #34/#35 domyka #107.",
+        "otherVehicleActions": "Osobne cele Edytuj i Kalendarz używają trasy danego pojazdu; statyczny ADM-09 przedstawia wyłącznie Mercedesa."
+      },
       "assetIds": [
         "demo-v01-front-3q",
         "demo-v02-front-3q",
