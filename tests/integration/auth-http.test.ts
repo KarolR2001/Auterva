@@ -108,11 +108,15 @@ test("MFA enrollment session is limited to the user's own admin host", async () 
   expect(verified.status).toBe(200);
   const completedAfterEnrollment = await db.auditLog.count({ where: { actorId: fixtureUserId, action: "AUTH_LOGIN_COMPLETED" } });
   expect(completedAfterEnrollment).toBe(1);
+  const enrollmentAudit = await db.auditLog.findFirstOrThrow({ where: { actorId: fixtureUserId, action: "AUTH_LOGIN_COMPLETED" } });
+  expect(verified.headers.get("X-Request-Id")).toBe(enrollmentAudit.requestId);
   const result = await verified.json() as { backupCodes?: string[] };
   expect(result.backupCodes).toHaveLength(10);
   const fullCookie = verified.headers.getSetCookie().map((item) => item.split(";", 1)[0]).join("; ");
   expect((await GET(request(hostname, "get-session", undefined, fullCookie))).status).toBe(200);
-  expect((await POST(request(hostname, "two-factor/verify-totp", { code: totp.generate() }, fullCookie))).status).toBe(401);
+  const repeated = await POST(request(hostname, "two-factor/verify-totp", { code: totp.generate() }, fullCookie));
+  expect(repeated.status).toBe(401);
+  expect(repeated.headers.get("X-Request-Id")).toMatch(/^[a-f0-9-]{36}$/);
   expect(await db.auditLog.count({ where: { actorId: fixtureUserId, action: "AUTH_LOGIN_COMPLETED" } })).toBe(completedAfterEnrollment);
   const fullBody = await (await GET(request(hostname, "get-session", undefined, fullCookie))).json() as { session: { token?: string } };
   expect(fullBody.session.token).toBeUndefined();
