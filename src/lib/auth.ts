@@ -12,6 +12,9 @@ export function createAuth(client: PrismaClient | Prisma.TransactionClient, allo
     secret: env.BETTER_AUTH_SECRET,
     baseURL: baseURL ?? env.BETTER_AUTH_URL,
     database: prismaAdapter(client, { provider: "postgresql" }),
+    // The gateway applies shared PostgreSQL limits by actor and client address.
+    // Better Auth's process-local default (100/min) would preempt the 120/min contract.
+    rateLimit: { enabled: false },
     emailAndPassword: {
       enabled: true,
       disableSignUp: !allowFixtureSignup,
