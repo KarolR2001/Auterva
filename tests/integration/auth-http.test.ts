@@ -124,6 +124,35 @@ test("MFA enrollment session is limited to the user's own admin host", async () 
   const completeCookie = completed.headers.getSetCookie().map((item) => item.split(";", 1)[0]).join("; ");
   expect((await GET(request(hostname, "get-session", undefined, completeCookie))).status).toBe(200);
 
+  let signalPressureLock!: () => void;
+  let releasePressureLock!: () => void;
+  const pressureLocked = new Promise<void>((resolve) => { signalPressureLock = resolve; });
+  const releasePressure = new Promise<void>((resolve) => { releasePressureLock = resolve; });
+  const heldFactor = db.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`auterva:mfa-factor:${fixtureUserId}`}, 0))`;
+    signalPressureLock();
+    await releasePressure;
+  });
+  await pressureLocked;
+  try {
+    const started = Date.now();
+    const [pressured, otherAccount] = await Promise.all([
+      Promise.all(Array.from({ length: 10 }, () => POST(request(hostname, "mfa/rotate-backup-codes", { password, proof: "bad" }, completeCookie)))),
+      POST(request(otherHostname, "sign-in/email", { email: otherEmail, password })),
+    ]);
+    expect(pressured.map((response) => response.status)).toEqual(Array(10).fill(409));
+    for (const response of pressured) {
+      expect(await response.json()).toEqual({ code: "MFA_BUSY" });
+      expect(response.headers.get("Retry-After")).toBe("1");
+      expect(response.headers.getSetCookie()).toEqual([]);
+    }
+    expect(otherAccount.status).toBe(200);
+    expect(Date.now() - started).toBeLessThan(5_000);
+  } finally {
+    releasePressureLock();
+    await heldFactor;
+  }
+
   const otherLogin = await POST(request(hostname, "sign-in/email", { email, password }));
   const otherChallenge = otherLogin.headers.getSetCookie().map((item) => item.split(";", 1)[0]).join("; ");
   const otherComplete = await POST(request(hostname, "two-factor/verify-totp", { code: totp.generate() }, otherChallenge));
@@ -146,7 +175,13 @@ test("MFA enrollment session is limited to the user's own admin host", async () 
     POST(request(hostname, "mfa/reauth", { method: "recovery", code: firstRecovery }, completeCookie)),
     POST(request(hostname, "mfa/reauth", { method: "recovery", code: firstRecovery }, completeCookie)),
   ]);
-  expect(recoveryRace.map((response) => response.status).sort()).toEqual([200, 401]);
+  expect(recoveryRace.filter((response) => response.status === 200)).toHaveLength(1);
+  expect([401, 409]).toContain(recoveryRace.find((response) => response.status !== 200)?.status);
+  const busyRecovery = recoveryRace.find((response) => response.status === 409);
+  if (busyRecovery) {
+    expect(await busyRecovery.json()).toEqual({ code: "MFA_BUSY" });
+    expect(busyRecovery.headers.get("Retry-After")).toBe("1");
+  }
   expect((await POST(request(hostname, "mfa/reauth", { method: "recovery", code: firstRecovery }, completeCookie))).status).toBe(401);
   expect((await POST(request(hostname, "mfa/rotate-backup-codes", { password, proof: "missing" }, completeCookie))).status).toBe(401);
   expect((await POST(request(hostname, "mfa/reauth", { method: "totp", code: "000000" }, completeCookie))).status).toBe(401);
@@ -171,7 +206,8 @@ test("MFA enrollment session is limited to the user's own admin host", async () 
     POST(request(hostname, "mfa/rotate-backup-codes", { password, proof }, completeCookie)),
     POST(request(hostname, "mfa/rotate-backup-codes", { password, proof: secondProof }, completeCookie)),
   ]);
-  expect(outcomes.map((response) => response.status).sort()).toEqual([200, 401]);
+  expect(outcomes.filter((response) => response.status === 200)).toHaveLength(1);
+  expect([401, 409]).toContain(outcomes.find((response) => response.status !== 200)?.status);
   const rotated = outcomes.find((response) => response.status === 200);
   if (!rotated) throw new Error("Missing successful rotation");
   const currentCodes = (await rotated.json() as { backupCodes: string[] }).backupCodes;
@@ -289,8 +325,11 @@ test("login with a recovery code revokes earlier sessions and requires new TOTP 
   ]);
   releaseLock();
   await resetFactor;
-  expect(completedBeforeReset).toBe(false);
-  expect((await staleTotp).status).toBe(401);
+  expect(completedBeforeReset).toBe(true);
+  const staleResult = await staleTotp;
+  expect(staleResult.status).toBe(409);
+  expect(staleResult.headers.get("Retry-After")).toBe("1");
+  expect((await POST(request(otherHostname, "two-factor/verify-totp", { code: newTotp.generate() }, pendingCookie))).status).toBe(401);
 
   await db.rateLimitEvent.deleteMany();
   const newLogin = await POST(request(otherHostname, "sign-in/email", { email: otherEmail, password }));
@@ -321,11 +360,16 @@ test("login with a recovery code revokes earlier sessions and requires new TOTP 
   const racingVerify = POST(request(otherHostname, "two-factor/verify-totp", { code: firstTotp.generate() }, newCookie));
   releaseEnableLock();
   await completeFactor;
-  expect(enableFinishedBeforeVerification).toBe(false);
-  expect((await racingEnable).status).toBe(401);
+  expect(enableFinishedBeforeVerification).toBe(true);
+  expect((await racingEnable).status).toBe(409);
   expect((await db.twoFactor.findFirst({ where: { user: { email: otherEmail } } }))?.verified).toBe(true);
-  const oldFactorCompletion = await racingVerify;
+  const firstVerification = await racingVerify;
+  expect([200, 409]).toContain(firstVerification.status);
+  const oldFactorCompletion = firstVerification.status === 409
+    ? await POST(request(otherHostname, "two-factor/verify-totp", { code: firstTotp.generate() }, newCookie))
+    : firstVerification;
   expect(oldFactorCompletion.status).toBe(200);
+  expect((await POST(request(otherHostname, "two-factor/enable", { method: "totp", password }, newCookie))).status).toBe(401);
   const mergedCookies = new Map(newCookie.split("; ").map((item) => [item.split("=", 1)[0], item]));
   for (const item of oldFactorCompletion.headers.getSetCookie()) {
     const entry = item.split(";", 1)[0];

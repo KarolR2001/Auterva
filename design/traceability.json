@@ -122,6 +122,23 @@
         "tests/unit/unsaved-changes-dialog.test.tsx"
       ],
       "fixturePath": "tests/fixtures/panel-check.tsx"
+    },
+    {
+      "issue": 104,
+      "scope": "Jedna transakcja dla operacji czynnika MFA i szybka odmowa konkurentów bez wyczerpania puli PostgreSQL.",
+      "relatedRequirementIds": ["C-F011", "C-F013", "C-F014", "C-N009", "C-N011"],
+      "codePaths": [
+        "src/modules/auth/mfa-factor-lock.ts",
+        "src/app/api/auth/[...all]/route.ts",
+        "src/lib/auth.ts",
+        "src/lib/mfa-session.ts",
+        "src/modules/auth/authorization.ts"
+      ],
+      "testPaths": [
+        "tests/integration/mfa-factor-lock.test.ts",
+        "tests/integration/auth-http.test.ts",
+        "tests/isolated/bootstrap-superadmin.test.ts"
+      ]
     }
   ],
   "sources": [

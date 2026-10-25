@@ -1,4 +1,4 @@
-import type { PrismaClient } from "../generated/prisma/client";
+import type { Prisma, PrismaClient } from "../generated/prisma/client";
 import type { auth } from "./auth";
 
 function responseCookies(request: Request, response: Response) {
@@ -22,7 +22,7 @@ export async function sessionFromResponse(instance: typeof auth, request: Reques
   return session;
 }
 
-export async function recordVerifiedMfaSession(db: PrismaClient, instance: typeof auth, request: Request, response: Response) {
+export async function recordVerifiedMfaSession(db: PrismaClient | Prisma.TransactionClient, instance: typeof auth, request: Request, response: Response) {
   const session = await sessionFromResponse(instance, request, response);
   if (!session) return;
   await db.session.update({ where: { id: session.session.id }, data: { mfaVerifiedAt: new Date() } });

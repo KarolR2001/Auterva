@@ -1,11 +1,11 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { twoFactor } from "better-auth/plugins";
-import type { PrismaClient } from "../generated/prisma/client";
+import type { Prisma, PrismaClient } from "../generated/prisma/client";
 import { prisma } from "./prisma";
 import { getServerEnv } from "./env";
 
-export function createAuth(client: PrismaClient, allowFixtureSignup = false, baseURL?: string) {
+export function createAuth(client: PrismaClient | Prisma.TransactionClient, allowFixtureSignup = false, baseURL?: string) {
   const env = getServerEnv();
   return betterAuth({
     appName: "Auterva",
