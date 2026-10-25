@@ -120,6 +120,7 @@
       "stylePath": "src/components/panel/panel.module.css",
       "testPaths": [
         "tests/unit/panel-routes.test.tsx",
+        "tests/integration/panel-routes.test.tsx",
         "tests/unit/panel-states.test.tsx",
         "tests/unit/panel-shell.test.tsx",
         "tests/unit/unsaved-changes-dialog.test.tsx"
