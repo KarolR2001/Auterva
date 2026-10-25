@@ -9,6 +9,7 @@ import { requireAuthorizedActor, requireScopedActor, resolveAuthHost } from "@/m
 import { MfaFactorBusyError, withMfaFactorLock } from "@/modules/auth/mfa-factor-lock";
 import { completeAuthAttempt, reserveAuthAttempt, takeRateLimit } from "@/modules/auth/rate-limit";
 import { trustedClientAddress } from "@/modules/auth/trusted-address";
+import { appendAudit } from "@/modules/audit/append";
 
 export const runtime = "nodejs";
 const allowed = new Set([
@@ -50,7 +51,7 @@ async function matchingMfaAccount(db: PrismaClient | Prisma.TransactionClient, u
   return user.role === "ADMIN_FIRMY" && user.organizationId === scope.organizationId && !user.organization?.archivedAt ? user : null;
 }
 
-async function handleMfaManagement(request: Request, pathname: string, instance: typeof auth, scope: NonNullable<Awaited<ReturnType<typeof resolveAuthHost>>>, sourceIp: string, baseURL: string) {
+async function handleMfaManagement(request: Request, pathname: string, instance: typeof auth, scope: NonNullable<Awaited<ReturnType<typeof resolveAuthHost>>>, sourceIp: string, baseURL: string, auditRequestId: string) {
   const actor = await requireAuthorizedActor(prisma, instance, request.headers, scope);
   if (!actor) return neutral();
   const isReauth = pathname.endsWith("/reauth");
@@ -85,11 +86,10 @@ async function handleMfaManagement(request: Request, pathname: string, instance:
           valid = false;
         }
         if (!valid) return neutral();
-        if (body.method === "recovery") await tx.auditLog.create({ data: {
-          actorId: actor.userId, actorRole: actor.role, organizationId: actor.organizationId,
-          action: "MFA_RECOVERY_CODE_USED", entityType: "User", entityId: actor.userId, requestId: randomUUID(),
-          safeChanges: { purpose: "rotate-backup-codes", result: "accepted" },
-        } });
+        if (body.method === "recovery") await appendAudit(tx, {
+          actorId: actor.userId, sessionId: actor.sessionId, organizationId: actor.organizationId,
+          action: "MFA_RECOVERY_CODE_USED", entityId: actor.userId, eventKey: randomUUID(), requestId: auditRequestId,
+        });
         const proof = randomBytes(32).toString("hex");
         await tx.verification.create({ data: {
           id: randomUUID(), identifier: challengeKey(`reauth:${proof}`),
@@ -109,21 +109,21 @@ async function handleMfaManagement(request: Request, pathname: string, instance:
       // Existing sessions lose access before any factor material changes. An invalid
       // password can cause an extra logout, but cannot leave stale sessions active.
       const revoked = await tx.session.deleteMany({ where: { userId: actor.userId, id: { not: actor.sessionId } } });
-      await tx.auditLog.create({ data: {
-        actorId: actor.userId, actorRole: actor.role, organizationId: actor.organizationId,
-        action: "AUTH_OTHER_SESSIONS_REVOKED", entityType: "User", entityId: actor.userId, requestId: randomUUID(),
-        safeChanges: { count: revoked.count, purpose: "rotate-backup-codes" },
-      } });
+      await appendAudit(tx, {
+        actorId: actor.userId, sessionId: actor.sessionId, organizationId: actor.organizationId,
+        action: "AUTH_SESSIONS_REVOKED", entityId: actor.userId, eventKey: randomUUID(), requestId: auditRequestId,
+        revokedSessions: revoked.count,
+      });
       let rotated: Awaited<ReturnType<typeof instance.api.generateBackupCodes>>;
       try {
         rotated = await txInstance.api.generateBackupCodes({ body: { password: body.password }, headers: request.headers });
       } catch {
         return neutral();
       }
-      await tx.auditLog.create({ data: {
-        actorId: actor.userId, actorRole: actor.role, organizationId: actor.organizationId,
-        action: "MFA_BACKUP_CODES_ROTATED", entityType: "User", entityId: actor.userId, requestId: randomUUID(),
-      } });
+      await appendAudit(tx, {
+        actorId: actor.userId, sessionId: actor.sessionId, organizationId: actor.organizationId,
+        action: "MFA_BACKUP_CODES_ROTATED", entityId: actor.userId, eventKey: randomUUID(), requestId: auditRequestId,
+      });
       return Response.json({ status: true, backupCodes: rotated.backupCodes }, { headers: { "Cache-Control": "no-store" } });
     });
   } catch (error) {
@@ -144,6 +144,7 @@ async function revokeIssuedSession(instance: typeof auth, response: Response) {
 }
 
 async function guarded(request: Request, method: "GET" | "POST") {
+  const auditRequestId = randomUUID();
   const externalUrl = new URL(request.url);
   const pathname = externalUrl.pathname.replace(/\/$/, "");
   const requestHost = request.headers.get("host");
@@ -168,7 +169,7 @@ async function guarded(request: Request, method: "GET" | "POST") {
   const handlers = toNextJsHandler(instance);
   if (pathname.startsWith("/api/auth/mfa/")) {
     if (!scope || method !== "POST") return refusal();
-    return handleMfaManagement(request, pathname, instance, scope, sourceIp, externalUrl.origin);
+    return handleMfaManagement(request, pathname, instance, scope, sourceIp, externalUrl.origin, auditRequestId);
   }
   const enrollmentActor = pathname === "/api/auth/two-factor/verify-totp" && scope
     ? await requireScopedActor(prisma, instance, request.headers, scope) : null;
@@ -234,15 +235,16 @@ async function guarded(request: Request, method: "GET" | "POST") {
         if (!verified.ok) return verified;
         const session = await sessionFromResponse(txInstance, request, verified);
         if (!session || session.user.id !== challengeUser.id) throw new Error("Recovery session mismatch");
+        await recordVerifiedMfaSession(tx, txInstance, request, verified);
         const revoked = await tx.session.deleteMany({ where: { userId: challengeUser.id, id: { not: session.session.id } } });
+        await appendAudit(tx, {
+          actorId: challengeUser.id, sessionId: session.session.id, organizationId: challengeUser.organizationId,
+          action: "MFA_RECOVERY_STARTED", entityId: challengeUser.id, eventKey: randomUUID(), requestId: auditRequestId,
+          revokedSessions: revoked.count,
+        });
         await tx.twoFactor.deleteMany({ where: { userId: challengeUser.id } });
         await tx.user.update({ where: { id: challengeUser.id }, data: { twoFactorEnabled: false } });
         await tx.verification.deleteMany({ where: { identifier: { startsWith: "auterva:mfa:" }, value: { contains: `"userId":"${challengeUser.id}"` } } });
-        await tx.auditLog.create({ data: {
-          actorId: challengeUser.id, actorRole: scope?.area === "PLATFORM" ? "SUPERADMIN_AUTERVA" : "ADMIN_FIRMY", organizationId: challengeUser.organizationId,
-          action: "MFA_RECOVERY_STARTED", entityType: "User", entityId: challengeUser.id, requestId: randomUUID(),
-          safeChanges: { revokedSessions: revoked.count, next: "totp-enrollment" },
-        } });
         return Response.json({ enrollmentRequired: true }, { status: verified.status, headers: verified.headers });
       });
     } else if (pathname === "/api/auth/two-factor/verify-totp" && (challengeUser || enrollmentActor)) {
@@ -259,6 +261,15 @@ async function guarded(request: Request, method: "GET" | "POST") {
         }
         const verified = await toNextJsHandler(txInstance)[method](new Request(normalized, request));
         await recordVerifiedMfaSession(tx, txInstance, request, verified);
+        if (verified.ok) {
+          const fullSession = await sessionFromResponse(txInstance, request, verified);
+          if (!fullSession) throw new Error("Verified login has no session");
+          await appendAudit(tx, {
+            actorId: fullSession.user.id, sessionId: fullSession.session.id,
+            organizationId: scope!.organizationId, action: "AUTH_LOGIN_COMPLETED",
+            entityId: fullSession.user.id, eventKey: randomUUID(), requestId: auditRequestId,
+          });
+        }
         if (verified.ok && challenge) await tx.verification.deleteMany({ where: { id: challenge.id } });
         if (verified.ok && enrollmentActor && !enrollmentActor.twoFactorEnabled) {
           const codes = await txInstance.api.viewBackupCodes({ body: { userId: enrollmentActor.userId } });
@@ -266,6 +277,27 @@ async function guarded(request: Request, method: "GET" | "POST") {
         }
         return verified.ok ? Response.json({ status: true }, { status: verified.status, headers: verified.headers }) : verified;
       });
+    } else if (pathname === "/api/auth/sign-out" && scope) {
+      const exiting = await requireAuthorizedActor(prisma, instance, request.headers, scope);
+      if (!exiting) {
+        response = await handlers[method](new Request(normalized, request));
+      } else {
+        response = await prisma.$transaction(async (tx) => {
+          const txInstance = createAuth(tx, false, externalUrl.origin);
+          // Serialize two logout requests for the same session before writing either audit row.
+          const held = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM "session" WHERE id = ${exiting.sessionId} FOR UPDATE`;
+          if (!held.length) return neutral();
+          const current = await requireAuthorizedActor(tx, txInstance, request.headers, scope);
+          if (current?.sessionId !== exiting.sessionId) return neutral();
+          await appendAudit(tx, {
+            actorId: exiting.userId, sessionId: exiting.sessionId, organizationId: exiting.organizationId,
+            action: "AUTH_LOGOUT", entityId: exiting.userId, eventKey: randomUUID(), requestId: auditRequestId,
+          });
+          const signedOut = await toNextJsHandler(txInstance)[method](new Request(normalized, request));
+          if (!signedOut.ok) throw new Error("Sign-out failed after audit");
+          return signedOut;
+        });
+      }
     } else {
       response = await handlers[method](new Request(normalized, request));
     }

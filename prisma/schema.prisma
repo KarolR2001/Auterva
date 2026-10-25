@@ -364,6 +364,7 @@ model ConversationReadCursor {
 
 model AuditLog {
   id             String        @id @default(uuid()) @db.Uuid
+  eventKey       String?       @unique @db.Uuid
   organizationId String?       @db.Uuid
   actorId        String
   actorRole      String
