@@ -83,6 +83,26 @@ describe("nawigacja panelu", () => {
     expect(screen.getByRole("main")).toHaveTextContent("Dane firmy Alfa");
   });
 
+  it("oznacza Firmy jako bieżącą sekcję także na aliasie platformy /", () => {
+    render(
+      <PanelShell
+        area="platform"
+        accessState="allowed"
+        title="Firmy"
+        currentPath="/"
+        onLogout={vi.fn()}
+      >
+        <p>Lista firm</p>
+      </PanelShell>,
+    );
+
+    expect(
+      within(
+        screen.getByRole("navigation", { name: "Nawigacja panelu" }),
+      ).getByRole("link", { name: "Firmy" }),
+    ).toHaveAttribute("aria-current", "page");
+  });
+
   it.each(["session-expired", "forbidden", "archived", "loading"] as const)(
     "nie montuje prywatnego shella ani danych w stanie %s",
     (accessState) => {
@@ -185,5 +205,32 @@ describe("nawigacja panelu", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(more).toHaveFocus();
     expect(logout).not.toHaveBeenCalled();
+  });
+
+  it("po potwierdzonym wylogowaniu natychmiast usuwa prywatne dzieci", async () => {
+    const user = userEvent.setup();
+    const logout = vi.fn().mockResolvedValue(undefined);
+    render(
+      <PanelShell
+        area="company"
+        accessState="allowed"
+        title="Panel"
+        currentPath="/admin"
+        onLogout={logout}
+      >
+        <p>Poufna treść firmy</p>
+      </PanelShell>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Menu użytkownika" }));
+    await user.click(screen.getByRole("button", { name: "Wyloguj" }));
+    await waitFor(() => expect(logout).toHaveBeenCalledOnce());
+    expect(screen.queryByText("Poufna treść firmy")).toBeNull();
+    expect(
+      screen.queryByRole("navigation", { name: "Nawigacja panelu" }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "Przejdź do logowania" }),
+    ).toHaveAttribute("href", "/admin/login");
   });
 });

@@ -75,6 +75,7 @@ function AvailablePanelShell({
   const [menuMode, setMenuMode] = useState<"mobile" | "desktop">("mobile");
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState(false);
+  const [loggedOut, setLoggedOut] = useState(false);
   const menuTrigger = useRef<HTMLElement | null>(null);
   const desktopItems = area === "company" ? companyDesktop : platformNavigation;
   const mobileItems = area === "company" ? companyMobile : platformNavigation;
@@ -100,7 +101,7 @@ function AvailablePanelShell({
     setLogoutError(false);
     try {
       await onLogout();
-      setMenuOpen(false);
+      setLoggedOut(true);
     } catch {
       setLogoutError(true);
     } finally {
@@ -116,7 +117,9 @@ function AvailablePanelShell({
   ) {
     const Icon = item.icon;
     const chat = item.href === "/admin/czat" && unreadChat;
-    const current = isCurrent(currentPath, item.href);
+    const current =
+      isCurrent(currentPath, item.href) ||
+      (area === "platform" && currentPath === "/" && item.href === "/firmy");
     return (
       <a
         key={item.href}
@@ -134,6 +137,14 @@ function AvailablePanelShell({
           </span>
         )}
       </a>
+    );
+  }
+
+  if (loggedOut) {
+    return (
+      <PanelAccess area={area} state="session-expired">
+        {null}
+      </PanelAccess>
     );
   }
 
