@@ -22,6 +22,26 @@ export const safeAuditFieldNames = new Set([
 ]);
 export const safeAuditValueFields = new Set(["status", "visibility", "archivedAt", "paidThrough", "trialEndsAt",
   "availableFrom", "availableTo", "startDate", "endDate", "isCover", "featured", "version", "periodVersion"]);
+const statusValues = new Set(["DRAFT", "PUBLISHED", "HIDDEN", "ARCHIVED", "ACTIVE", "INACTIVE", "PENDING", "BLOCKED", "SUSPENDED", "REVOKED", "EXPIRED"]);
+const visibilityValues = new Set(["PUBLIC", "PRIVATE", "HIDDEN"]);
+function isLocalDate(value: unknown): value is string {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)
+    && !Number.isNaN(Date.parse(`${value}T00:00:00.000Z`))
+    && new Date(`${value}T00:00:00.000Z`).toISOString().slice(0, 10) === value;
+}
+function isUtcInstant(value: unknown): value is string {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)
+    && !Number.isNaN(Date.parse(value)) && new Date(value).toISOString() === value;
+}
+export function isSafeAuditSnapshotValue(field: string, value: unknown): value is string | number | boolean | null {
+  if (field === "status") return typeof value === "string" && statusValues.has(value);
+  if (field === "visibility") return typeof value === "string" && visibilityValues.has(value);
+  if (field === "isCover" || field === "featured") return typeof value === "boolean";
+  if (field === "version" || field === "periodVersion") return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+  if (field === "archivedAt" || field === "trialEndsAt") return value === null || isUtcInstant(value);
+  if (["paidThrough", "availableFrom", "availableTo", "startDate", "endDate"].includes(field)) return value === null || isLocalDate(value);
+  return false;
+}
 const platformOnly = new Set<AuditAction>([
   "COMPANY_CREATED", "COMPANY_UPDATED", "COMPANY_ARCHIVED", "INVITATION_CREATED", "INVITATION_REVOKED",
   "PERIOD_CHANGED", "DOMAIN_CHANGED", "BRANDING_CHANGED", "SETTINGS_CHANGED",
@@ -57,9 +77,7 @@ export async function appendAudit(tx: Prisma.TransactionClient, input: AppendAud
       if (snapshot === undefined) continue;
       if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot) || Object.keys(snapshot).length > 16
         || Object.entries(snapshot).some(([key, value]) => !safeAuditValueFields.has(key)
-          || !input.changes?.changedFields.includes(key)
-          || (value !== null && typeof value !== "boolean" && (typeof value !== "number" || !Number.isSafeInteger(value))
-            && (typeof value !== "string" || value.length > 40 || !/^[A-Z0-9_:.-]+$/i.test(value))))) {
+          || !input.changes?.changedFields.includes(key) || !isSafeAuditSnapshotValue(key, value))) {
         throw new Error("Unsafe audit snapshot");
       }
     }

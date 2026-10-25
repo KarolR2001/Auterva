@@ -175,6 +175,8 @@ async function guarded(request: Request, method: "GET" | "POST") {
     ? await requireScopedActor(prisma, instance, request.headers, scope) : null;
   const enableActor = pathname === "/api/auth/two-factor/enable" && scope
     ? await requireScopedActor(prisma, instance, request.headers, scope) : null;
+  if (pathname === "/api/auth/two-factor/verify-totp" && enrollmentActor
+    && await requireAuthorizedActor(prisma, instance, request.headers, scope!)) return neutral();
   if (pathname === "/api/auth/two-factor/enable" && scope && !enableActor) return neutral();
   let invalidEnable = false;
   if (pathname === "/api/auth/two-factor/enable") {
@@ -258,6 +260,8 @@ async function guarded(request: Request, method: "GET" | "POST") {
         if (enrollmentActor) {
           const current = await requireScopedActor(tx, txInstance, request.headers, scope!);
           if (current?.sessionId !== enrollmentActor.sessionId || current.twoFactorEnabled !== enrollmentActor.twoFactorEnabled) return neutral();
+          const proof = await tx.session.findUnique({ where: { id: enrollmentActor.sessionId }, select: { mfaVerifiedAt: true } });
+          if (current.twoFactorEnabled && proof?.mfaVerifiedAt) return neutral();
         }
         const verified = await toNextJsHandler(txInstance)[method](new Request(normalized, request));
         await recordVerifiedMfaSession(tx, txInstance, request, verified);

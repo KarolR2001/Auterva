@@ -112,6 +112,8 @@ test("MFA enrollment session is limited to the user's own admin host", async () 
   expect(result.backupCodes).toHaveLength(10);
   const fullCookie = verified.headers.getSetCookie().map((item) => item.split(";", 1)[0]).join("; ");
   expect((await GET(request(hostname, "get-session", undefined, fullCookie))).status).toBe(200);
+  expect((await POST(request(hostname, "two-factor/verify-totp", { code: totp.generate() }, fullCookie))).status).toBe(401);
+  expect(await db.auditLog.count({ where: { actorId: fixtureUserId, action: "AUTH_LOGIN_COMPLETED" } })).toBe(completedAfterEnrollment);
   const fullBody = await (await GET(request(hostname, "get-session", undefined, fullCookie))).json() as { session: { token?: string } };
   expect(fullBody.session.token).toBeUndefined();
 

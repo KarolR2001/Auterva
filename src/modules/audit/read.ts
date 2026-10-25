@@ -1,6 +1,6 @@
 import type { PrismaClient, Prisma } from "@/generated/prisma/client";
 import { requireAuditActor, requireAuditScope } from "./actor";
-import { safeAuditFieldNames, safeAuditValueFields } from "./append";
+import { safeAuditFieldNames, safeAuditValueFields, isSafeAuditSnapshotValue } from "./append";
 
 function safeView(value: Prisma.JsonValue | null): Prisma.JsonObject | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -23,9 +23,7 @@ function safeView(value: Prisma.JsonValue | null): Prisma.JsonObject | null {
     const safe: Prisma.JsonObject = {};
     for (const [field, candidate] of Object.entries(snapshot)) {
       if (!safeAuditValueFields.has(field)) continue;
-      if (candidate === null || typeof candidate === "boolean"
-        || (typeof candidate === "number" && Number.isSafeInteger(candidate))
-        || (typeof candidate === "string" && candidate.length <= 40 && /^[A-Z0-9_:.-]+$/i.test(candidate))) safe[field] = candidate;
+      if (isSafeAuditSnapshotValue(field, candidate)) safe[field] = candidate;
     }
     if (Object.keys(safe).length) output[key] = safe;
   }

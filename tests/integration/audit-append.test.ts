@@ -43,7 +43,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await db.auditLog.deleteMany({ where: { id: { in: auditIds } } });
+  await db.auditLog.deleteMany({ where: { organizationId: { in: organizations } } });
   await db.session.deleteMany({ where: { id: { in: sessions } } });
   await db.session.deleteMany({ where: { id: platformSession } });
   if (!createdPlatformUser) await db.user.update({ where: { id: platformUserId }, data: { twoFactorEnabled: priorPlatformMfa } });
@@ -123,6 +123,17 @@ test("wrong tenant, revoked MFA proof, unsafe payload and rollback cannot leave 
     action: "VEHICLE_UPDATED", entityId: vehicles[1], eventKey: randomUUID(), requestId: randomUUID(),
     changes: { changedFields: ["email"], before: { email: "private@example.test" } } as never,
   }))).rejects.toThrow("Unsafe audit snapshot");
+  for (const changes of [
+    { changedFields: ["status"], after: { status: "127.0.0.1" } },
+    { changedFields: ["startDate"], after: { startDate: "2026-02-30" } },
+    { changedFields: ["isCover"], after: { isCover: "true" } },
+  ]) {
+    await expect(db.$transaction((tx) => appendAudit(tx, {
+      actorId: admins[1], sessionId: sessions[1], organizationId: organizations[1],
+      action: "VEHICLE_UPDATED", entityId: vehicles[1], eventKey: randomUUID(), requestId: randomUUID(),
+      changes: changes as never,
+    }))).rejects.toThrow("Unsafe audit snapshot");
+  }
   await expect(db.$transaction((tx) => appendAudit(tx, {
     actorId: admins[0], sessionId: sessions[0], organizationId: organizations[0],
     action: "COMPANY_UPDATED", entityId: organizations[0], eventKey: randomUUID(), requestId: randomUUID(),
