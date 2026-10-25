@@ -12,6 +12,7 @@
     "dev": "next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
+    "start:local-ingress": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx scripts/start-local-ingress.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run tests/unit",
