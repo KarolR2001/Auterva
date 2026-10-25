@@ -233,4 +233,43 @@ describe("nawigacja panelu", () => {
       screen.getByRole("link", { name: "Przejdź do logowania" }),
     ).toHaveAttribute("href", "/admin/login");
   });
+
+  it("bez callbacku wylogowuje przez API bieżącego hosta", async () => {
+    const user = userEvent.setup();
+    const request = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(null, { status: 200 }));
+    try {
+      render(
+        <PanelShell
+          area="platform"
+          accessState="allowed"
+          title="Firmy"
+          currentPath="/firmy"
+        >
+          <p>Poufne dane platformy</p>
+        </PanelShell>,
+      );
+
+      await user.click(
+        screen.getByRole("button", { name: "Profil superadmina" }),
+      );
+      await user.click(screen.getByRole("button", { name: "Wyloguj" }));
+
+      await waitFor(() =>
+        expect(screen.queryByText("Poufne dane platformy")).toBeNull(),
+      );
+      expect(request).toHaveBeenCalledWith("/api/auth/sign-out/", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      expect(
+        screen.getByRole("link", { name: "Przejdź do logowania" }),
+      ).toHaveAttribute("href", "/login");
+    } finally {
+      request.mockRestore();
+    }
+  });
 });

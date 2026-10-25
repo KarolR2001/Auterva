@@ -39,6 +39,16 @@ function isCurrent(path: string, href: string) {
   return path === href || (href !== "/admin" && path.startsWith(`${href}/`));
 }
 
+async function signOutOnCurrentHost() {
+  const response = await fetch("/api/auth/sign-out/", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
+  if (!response.ok) throw new Error("Sign-out failed");
+}
+
 type PanelShellProps = {
   area: "company" | "platform";
   accessState: PanelAccessState;
@@ -48,7 +58,7 @@ type PanelShellProps = {
   companyContext?: { id: string; name: string };
   canInstallPwa?: boolean;
   onInstallPwa?: () => void;
-  onLogout: () => void | Promise<void>;
+  onLogout?: () => void | Promise<void>;
   children: ReactNode;
 };
 
@@ -100,7 +110,7 @@ function AvailablePanelShell({
     setLoggingOut(true);
     setLogoutError(false);
     try {
-      await onLogout();
+      await (onLogout ?? signOutOnCurrentHost)();
       setLoggedOut(true);
     } catch {
       setLogoutError(true);
