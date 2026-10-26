@@ -186,6 +186,28 @@
         "tests/integration/audit-retention-process.test.ts",
         "tests/integration/audit-export.test.ts"
       ]
+    },
+    {
+      "issue": 21,
+      "scope": "Okres usługi i brama istniejącego wejścia publicznego, wersjonowane mutacje superadmina; przyszłe strony oferty, media i integracja zaproszeń pozostają osobnymi konsumentami.",
+      "relatedRequirementIds": ["C-F046", "C-F048", "C-F049", "C-F050", "C-F054", "C-F055", "C-F056", "C-F057", "C-F062", "C-F072", "C-F078"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261026094000_service_public_requires_paid_issue_21/migration.sql",
+        "src/modules/service-period/state.ts",
+        "src/modules/service-period/public.ts",
+        "src/modules/service-period/mutations.ts",
+        "src/app/page.tsx",
+        "src/app/api/platform/companies/[organizationId]/period/route.ts",
+        "src/app/api/platform/companies/[organizationId]/public-unlock/route.ts"
+      ],
+      "testPaths": [
+        "tests/unit/service-period.test.ts",
+        "tests/integration/service-period-migration.test.ts",
+        "tests/integration/service-period-public.test.ts",
+        "tests/integration/service-period-mutation.test.ts",
+        "tests/e2e/service-period.spec.ts"
+      ]
     }
   ],
   "sources": [
