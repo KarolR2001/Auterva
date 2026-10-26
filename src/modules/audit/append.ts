@@ -22,7 +22,8 @@ export const safeAuditFieldNames = new Set([
 ]);
 export const safeAuditValueFields = new Set(["status", "visibility", "archivedAt", "paidThrough", "trialEndsAt",
   "availableFrom", "availableTo", "startDate", "endDate", "isCover", "featured", "publicUnlockRequired", "sortOrder", "version", "periodVersion"]);
-const statusValues = new Set(["DRAFT", "PUBLISHED", "UNPUBLISHED", "HIDDEN", "ARCHIVED", "ACTIVE", "INACTIVE", "PENDING", "BLOCKED", "SUSPENDED", "REVOKED", "EXPIRED"]);
+const statusValues = new Set(["DRAFT", "PUBLISHED", "UNPUBLISHED", "HIDDEN", "ARCHIVED", "ACTIVE", "INACTIVE", "PENDING", "BLOCKED", "SUSPENDED", "REVOKED", "EXPIRED",
+  "PENDING_OWNERSHIP", "PENDING_ROUTING", "READY"]);
 const visibilityValues = new Set(["PUBLIC", "PRIVATE", "HIDDEN"]);
 function isLocalDate(value: unknown): value is string {
   return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)
