@@ -136,6 +136,30 @@
       "testPaths": ["tests/integration/audit-append.test.ts", "tests/integration/auth-http.test.ts", "tests/isolated/bootstrap-superadmin.test.ts"]
     },
     {
+      "issue": 17,
+      "scope": "Trwały outbox poczty, szyfrowany payload, worker PostgreSQL i okresowe usuwanie tylko wygasłych zdarzeń limitera; integracje domenowe w #18/#19/#54.",
+      "relatedRequirementIds": ["C-F025", "C-F035", "C-N004", "C-N016", "C-N017"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261026083100_job_leases_issue_17/migration.sql",
+        "src/modules/jobs/queue.ts",
+        "src/modules/jobs/outbox.ts",
+        "src/modules/jobs/processor.ts",
+        "src/modules/jobs/provider.ts",
+        "src/modules/jobs/runner.ts",
+        "src/server/worker.ts"
+      ],
+      "testPaths": [
+        "tests/integration/jobs-queue.test.ts",
+        "tests/integration/jobs-outbox.test.ts",
+        "tests/integration/jobs-worker.test.ts",
+        "tests/integration/jobs-process.test.ts",
+        "tests/integration/jobs-maintenance.test.ts",
+        "tests/unit/jobs-provider.test.ts",
+        "tests/unit/jobs-config.test.ts"
+      ]
+    },
+    {
       "issue": 114,
       "scope": "UTC dla połączeń Prisma bez zmiany dat biznesowych Europe/Warsaw ani istniejących danych.",
       "relatedRequirementIds": ["C-F050", "C-R022", "FR-ADM-071"],
