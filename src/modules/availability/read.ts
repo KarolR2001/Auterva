@@ -1,6 +1,7 @@
 import type { Prisma } from "@/generated/prisma/client";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { resolvePublicVisibility } from "@/modules/service-period/public";
+import { blockTypeLabels, type BlockType } from "./block-types";
 import { enumerateAvailabilityDays, localDate, sqlDate, type AvailabilityRange } from "./dates";
 
 /** Reusable before list pagination and count; all dates are inclusive SQL DATE values. */
@@ -94,7 +95,8 @@ export async function getPrivateCalendar(
   return { vehicleId, availableFrom: vehicle.availableFrom ? localDate(vehicle.availableFrom) : null,
     availableTo: vehicle.availableTo ? localDate(vehicle.availableTo) : null,
     days: calendarDays(range, vehicle, blocks),
-    blocks: blocks.map((block) => ({ ...block, from: localDate(block.from), to: localDate(block.to) })) };
+    blocks: blocks.map((block) => ({ ...block, typeLabel: blockTypeLabels[block.type as BlockType] ?? block.type,
+      from: localDate(block.from), to: localDate(block.to) })) };
 }
 
 /** One current database read of blocks, then a bounded projection of public day states. */
