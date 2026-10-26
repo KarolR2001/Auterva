@@ -16,7 +16,7 @@
 - Trwałe testy w repo; interaktywne `playwright-cli` nie zastępuje suite CI. Stabilne locatory, bez stałych sleepów; zegar i fixture zamrożone.
 - QA czyta Penpot bez zmieniania stron, komponentów, tokenów, interakcji i wzorca. Bieżący board ID sprawdź w pliku; brak zgłoś z ID/wymaganiem.
 - Porównanie: realne file/page/board ID, stan/fixture, viewport, screenshot aplikacji, eksport wzorca i różnice; testowany commit/build odczytaj z sekcji synchronizacji raportu. Datę odczytu Penpota podaj, gdy jest potrzebna do oceny aktualności zmiennego wzorca. Obraz nie potwierdza zapisu, auth, WebSocket ani dostępności.
-- Chromium, Firefox, WebKit; 390/1440 jako referencje, 320/430/768/1024/1920 według ryzyka. Automat + ręczna klawiatura/fokus/czytnik, kontrast, zoom i reduced motion.
+- Chromium, Firefox, WebKit; 390/1440 jako referencje, 320/430/768/1024/1920 według ryzyka. Automat i ręczna klawiatura/fokus, semantyka, kontrast, zoom oraz reduced motion pozostają w bieżącym odbiorze. Rzeczywisty VoiceOver wykonaj na końcu implementacji w #97; wcześniej zapisuj `DEFERRED` z linkiem, nie `PASS`. Nowe problemy czytnika zgłaszaj jako osobne P3 issue do końcowego odbioru.
 - PWA na produkcyjnym buildzie: host firmy, start_url/scope `/admin/`, offline bez zapisu/prywatnego cache, logout, update z dirty form. Instalacja na prawdziwym iOS/Android; emulacja WebKit nie jest dowodem instalacji.
 - Dowody wyłącznie na fixture, bez sekretów/sesji/produkcji. Nie zmieniaj golden screenshotów/asercji, by ukryć regresję. Raportuj pass/fail/blocked/not-run z komendą i rzeczywistym wynikiem.
 

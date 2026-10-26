@@ -42,6 +42,7 @@
 - Mobile zapewnia pełne funkcje paneli. Makiety referencyjne: 390 i 1440 px; testy także 320, 768, 1024 i 1920 px.
 - Powiąż wymaganie → ekran/stan Penpota → kod → test w `design/traceability.json` i issue. Brakujące lub zmienione ID sprawdź w Penpocie; nie zgaduj.
 - QA porównuje aplikację i aktualną makietę; eksport ekranu nie dowodzi działania klawiatury, czytnika ani API. Dowody zapisuj w PR/artefaktach CI, nie jako wielki dziennik w repozytorium.
+- Rzeczywisty odbiór VoiceOver jest odroczony do końca implementacji w #97 (P3). W bieżących PR oznacz go `DEFERRED` z linkiem do #97, nigdy `PASS`; sam brak tej próby nie blokuje CR, QA ani merge. Klawiatura, fokus, semantyka, kontrast, zoom i reduced motion pozostają bieżącymi bramkami. Nowe problemy czytnika zapisuj jako osobne P3 issue do końcowego odbioru.
 - Przed zakończeniem wykonaj odpowiednie [quality gates](docs/quality-gates.md). Raportuj komendy, wyniki, niesprawdzone elementy i ryzyka.
 
 ## Granice współpracy
