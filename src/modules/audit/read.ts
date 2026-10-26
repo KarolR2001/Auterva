@@ -2,7 +2,7 @@ import type { PrismaClient, Prisma } from "@/generated/prisma/client";
 import { requireAuditActor, requireAuditScope } from "./actor";
 import { safeAuditFieldNames, safeAuditValueFields, isSafeAuditSnapshotValue } from "./append";
 
-function safeView(value: Prisma.JsonValue | null): Prisma.JsonObject | null {
+export function safeAuditView(value: Prisma.JsonValue | null): Prisma.JsonObject | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const input = value as Prisma.JsonObject;
   const output: Prisma.JsonObject = {};
@@ -45,6 +45,6 @@ export async function listAudit(db: PrismaClient, input: {
       select: { id: true, eventKey: true, organizationId: true, actorId: true, actorRole: true,
         action: true, entityType: true, entityId: true, safeChanges: true, requestId: true, createdAt: true },
     });
-    return rows.map(({ eventKey, ...row }) => ({ ...row, safeChanges: eventKey ? safeView(row.safeChanges) : null }));
+    return rows.map(({ eventKey, ...row }) => ({ ...row, safeChanges: eventKey ? safeAuditView(row.safeChanges) : null }));
   });
 }

@@ -165,6 +165,27 @@
       "relatedRequirementIds": ["C-F050", "C-R022", "FR-ADM-071"],
       "codePaths": ["src/lib/prisma.ts"],
       "testPaths": ["tests/integration/prisma-timezone.test.ts"]
+    },
+    {
+      "issue": 108,
+      "scope": "Retencja audytu 365 dni w kolejce operatora; eksport wyłącznie lokalnej fixture, docelowy storage w #58/#60.",
+      "relatedRequirementIds": ["D-10", "C-N019", "C-N037", "C-N040", "FR-ADM-070"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261026100857_audit_retention_issue_108/migration.sql",
+        "prisma/migrations/20261026101214_audit_export_issue_108/migration.sql",
+        "src/modules/audit/retention.ts",
+        "src/modules/audit/retention-runner.ts",
+        "src/modules/audit/operator-export.ts",
+        "src/modules/jobs/queue.ts",
+        "scripts/audit-retention.ts"
+      ],
+      "testPaths": [
+        "tests/unit/audit-retention.test.ts",
+        "tests/integration/audit-retention.test.ts",
+        "tests/integration/audit-retention-process.test.ts",
+        "tests/integration/audit-export.test.ts"
+      ]
     }
   ],
   "sources": [
