@@ -1,5 +1,6 @@
 import { defineConfig } from "@playwright/test";
 import { config as loadEnv } from "dotenv";
+import { existsSync, readFileSync } from "node:fs";
 
 loadEnv({ path: ".env.local", quiet: true });
 loadEnv({ path: ".env", quiet: true });
@@ -12,6 +13,9 @@ if (!Number.isInteger(trustedPort) || trustedPort < 1 || trustedPort > 65535 || 
 const productionURL = `http://127.0.0.1:${port}`;
 const developmentURL = `http://127.0.0.1:${devPort}`;
 const trustedURL = `http://127.0.0.1:${trustedPort}`;
+// Only media tests need the local S3 secrets; other projects run without the fixture.
+const mediaEnv = existsSync(".local/fixture-9/secrets.env") ? Object.fromEntries(readFileSync(".local/fixture-9/secrets.env", "utf8")
+  .trim().split("\n").map((line) => { const at = line.indexOf("="); return [line.slice(0, at), line.slice(at + 1)]; })) : {};
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -20,7 +24,7 @@ export default defineConfig({
   projects: [
     { name: "production", testMatch: /auth-production\.spec\.ts/, use: { baseURL: productionURL } },
     { name: "auth-local", testMatch: /auth-host\.spec\.ts/, use: { baseURL: developmentURL } },
-    { name: "trusted-ingress", testMatch: /(?:auth-trusted|pwa|service-period|availability|company-onboarding|fleet)\.spec\.ts/, use: { baseURL: trustedURL } },
+    { name: "trusted-ingress", testMatch: /(?:auth-trusted|pwa|service-period|availability|company-onboarding|fleet|media)\.spec\.ts/, use: { baseURL: trustedURL } },
   ],
   webServer: [
     {
@@ -37,7 +41,8 @@ export default defineConfig({
       command: "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx scripts/start-local-ingress.ts",
       url: `${trustedURL}/api/health/`, reuseExistingServer: false, timeout: 30_000,
       env: { NEXT_TELEMETRY_DISABLED: "1", NODE_ENV: "production", PORT: String(trustedPort), BETTER_AUTH_URL: trustedURL,
-        AUTERVA_LOCAL_IPV6: "1", AUTERVA_ADMIN_BASE_DOMAIN: "sites.example.test", AUTERVA_PUBLIC_BASE_DOMAIN: "public.example.test" },
+        AUTERVA_LOCAL_IPV6: "1", AUTERVA_ADMIN_BASE_DOMAIN: "sites.example.test", AUTERVA_PUBLIC_BASE_DOMAIN: "public.example.test",
+        ...mediaEnv },
     },
   ],
 });

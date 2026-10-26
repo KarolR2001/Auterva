@@ -93,6 +93,10 @@
     {
       "path": "docs/contracts/platform-companies-read.md",
       "sha256": "b6ad063a780b193353baac9f2e79e788a9aa25a91dfcd580cbfada4a2ba97faa"
+    },
+    {
+      "path": "docs/contracts/media-upload-processing.md",
+      "sha256": "d6070180aaa1f70808cf0c3c47284ba3f2d8caa6786dd0621bf1cb680b03f1fa"
     }
   ],
   "historicalSourcesOutsideRepository": [
