@@ -66,6 +66,7 @@ export async function exportAuditRange(db: PrismaClient, input: ExportAuditInput
     fromAt: from, toAt: to, count: rows.length, expiresAt, createdAt: now, status: "PENDING" } });
   const finalPath = resolve(directory, name);
   const partialPath = `${finalPath}.part`;
+  let digest: string | null = null;
   try {
     const records = rows.map(({ eventKey, ...row }) => ({ ...row,
       safeChanges: eventKey ? safeAuditView(row.safeChanges) : null }));
@@ -73,7 +74,7 @@ export async function exportAuditRange(db: PrismaClient, input: ExportAuditInput
     const cipher = createCipheriv("aes-256-gcm", input.key, nonce);
     const ciphertext = Buffer.concat([cipher.update(JSON.stringify(records), "utf8"), cipher.final()]);
     const bytes = Buffer.concat([Buffer.from("AUR1"), nonce, cipher.getAuthTag(), ciphertext]);
-    const digest = createHash("sha256").update(bytes).digest("hex");
+    digest = createHash("sha256").update(bytes).digest("hex");
     await input.beforeWrite?.(id);
     await writeFile(partialPath, bytes, { flag: "wx", mode: 0o600 });
     await chmod(partialPath, 0o600);
@@ -86,10 +87,33 @@ export async function exportAuditRange(db: PrismaClient, input: ExportAuditInput
     if (updated.count !== 1) throw new Error("AUDIT_EXPORT_STATE_CHANGED");
     return { ...pending, status: "READY", digest, completedAt: finishedAt };
   } catch (error) {
-    await removeIfPresent(partialPath);
-    await removeIfPresent(finalPath);
-    await db.auditOperatorExport.updateMany({ where: { id, status: "PENDING" },
-      data: { status: "FAILED", errorCode: "AUDIT_EXPORT_INCOMPLETE" } });
+    // A READY write may have committed even if its acknowledgement was lost.
+    // Only a confirmed PENDING -> FAILED transition permits deleting its bytes.
+    let failed: number;
+    try {
+      failed = (await db.auditOperatorExport.updateMany({ where: { id, status: "PENDING" },
+        data: { status: "FAILED", errorCode: "AUDIT_EXPORT_INCOMPLETE" } })).count;
+    } catch {
+      // Database unavailable: preserve bytes for the next storage/receipt sweep.
+      throw error;
+    }
+    if (failed === 1) {
+      await removeIfPresent(partialPath);
+      await removeIfPresent(finalPath);
+      throw error;
+    }
+    // If READY won, return only after checking both the durable digest and bytes.
+    // DELETED/other states belong to sweep; never remove an uncertain artifact here.
+    try {
+      const committed = await db.auditOperatorExport.findUnique({ where: { id } });
+      if (committed?.status === "READY" && digest && committed.digest === digest
+        && committed.expiresAt > (input.clock?.() ?? new Date())) {
+        const bytes = await readFile(finalPath);
+        if (createHash("sha256").update(bytes).digest("hex") === digest) return committed;
+      }
+    } catch {
+      // The original write failed or cannot be reconciled yet; retain the file.
+    }
     throw error;
   }
 }

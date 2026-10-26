@@ -178,3 +178,54 @@ test("SIGKILL after a late write leaves no READY receipt and next sweep removes 
     await rm(ownDirectory, { recursive: true, force: true });
   }
 }, 15_000);
+
+test("lost READY acknowledgement preserves the committed receipt and its encrypted file", async () => {
+  const ownDirectory = await mkdtemp(resolve(".local/audit-export-ack-"));
+  let id = "";
+  const lostAck = db.$extends({ query: { auditOperatorExport: {
+    async updateMany({ args, query }) {
+      const result = await query(args);
+      if ((args.data as { status?: unknown }).status === "READY") throw new Error("fixture: acknowledgement lost");
+      return result;
+    },
+  } } }) as unknown as Parameters<typeof exportAuditRange>[0];
+  try {
+    const receipt = await exportAuditRange(lostAck, { from: new Date(cutoff.getTime() + 60_000),
+      to: new Date(cutoff.getTime() + 4 * 60 * 60_000), now, key, directory: ownDirectory,
+      clock: () => now, beforeWrite: async (value) => { id = value; } });
+    exportIds.push(id);
+    expect(receipt).toMatchObject({ id, status: "READY" });
+    expect((await db.auditOperatorExport.findUniqueOrThrow({ where: { id } })).status).toBe("READY");
+    expect(await readAuditExport(db, id, { now, key, directory: ownDirectory })).toBeInstanceOf(Array);
+  } finally {
+    if (id && !exportIds.includes(id)) exportIds.push(id);
+    await rm(ownDirectory, { recursive: true, force: true });
+  }
+});
+
+test("database unavailable while confirming a failed READY write leaves bytes for recovery", async () => {
+  const ownDirectory = await mkdtemp(resolve(".local/audit-export-db-failure-"));
+  let id = "";
+  const disconnected = db.$extends({ query: { auditOperatorExport: {
+    async updateMany({ args, query }) {
+      const status = (args.data as { status?: unknown }).status;
+      if (status === "READY" || status === "FAILED") throw new Error("fixture: database unavailable");
+      return query(args);
+    },
+  } } }) as unknown as Parameters<typeof exportAuditRange>[0];
+  try {
+    await expect(exportAuditRange(disconnected, { from: new Date(cutoff.getTime() + 60_000),
+      to: new Date(cutoff.getTime() + 4 * 60 * 60_000), now, key, directory: ownDirectory,
+      clock: () => now, beforeWrite: async (value) => { id = value; } }))
+      .rejects.toThrow("fixture: database unavailable");
+    exportIds.push(id);
+    expect((await db.auditOperatorExport.findUniqueOrThrow({ where: { id } })).status).toBe("PENDING");
+    expect((await stat(resolve(ownDirectory, `${id}.bin`))).size).toBeGreaterThan(0);
+    expect(await sweepExpiredAuditExports(db, { now: new Date(now.getTime() + 6 * 60_000),
+      directory: ownDirectory })).toBe(1);
+    await expect(stat(resolve(ownDirectory, `${id}.bin`))).rejects.toMatchObject({ code: "ENOENT" });
+  } finally {
+    if (id && !exportIds.includes(id)) exportIds.push(id);
+    await rm(ownDirectory, { recursive: true, force: true });
+  }
+});
