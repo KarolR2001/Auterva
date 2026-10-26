@@ -27,18 +27,8 @@ export async function ensureControlledSuperadminMfa(db: PrismaClient, userId: st
   }
   if (user.twoFactorEnabled) return;
   if (userId !== FIXTURE.users[2]) throw new Error("Refusing to change a non-fixture superadmin");
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    // The #9 integration suite resets its own users between tests. Re-enroll
-    // only that exact local fixture through its existing guarded setup path.
-    await seedLocalAccess(client, { ...process.env, AUTERVA_FIXTURE: "1" });
-  } finally {
-    await client.end();
-  }
-  if (!(await db.user.findUnique({ where: { id: userId }, select: { twoFactorEnabled: true } }))?.twoFactorEnabled) {
-    throw new Error("Controlled superadmin MFA enrollment failed");
-  }
+  // The seeder touches A, B and platform. Validate every identity first.
+  await ensureControlledFixtureAccess(db);
 }
 
 /** The local access seeder touches A, B and platform; verify all identities first. */

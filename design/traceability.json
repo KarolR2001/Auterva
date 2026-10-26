@@ -255,6 +255,17 @@
       "testPaths": ["tests/integration/company-preregistration.test.ts", "tests/integration/jobs-outbox.test.ts", "tests/integration/jobs-worker.test.ts", "tests/integration/jobs-process.test.ts", "tests/e2e/company-onboarding.spec.ts"]
     },
     {
+      "issue": 22,
+      "scope": "Jednorazowa aktywacja istniejącego zaproszonego admina i start przyznanego trialu; pełny dostęp wymaga późniejszego MFA.",
+      "relatedRequirementIds": ["C-F029", "C-F031", "C-F032", "C-F033", "C-F037", "C-F038", "C-F039", "C-F050", "C-F051", "C-F052", "C-F053", "C-F054", "C-N014", "C-N026"],
+      "codePaths": [
+        "src/modules/invitations/activate.ts",
+        "src/app/api/auth/invitation/[token]/route.ts",
+        "src/modules/audit/append.ts"
+      ],
+      "testPaths": ["tests/integration/company-activation.test.ts", "tests/e2e/company-onboarding.spec.ts"]
+    },
+    {
       "issue": 108,
       "scope": "Retencja audytu 365 dni w kolejce operatora; eksport wyłącznie lokalnej fixture, docelowy storage w #58/#60.",
       "relatedRequirementIds": ["D-10", "C-N019", "C-N037", "C-N040", "FR-ADM-070"],
