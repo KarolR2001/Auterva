@@ -3,6 +3,7 @@ import { afterAll, expect, test } from "vitest";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { decryptMailPayload, enqueueMail } from "../../src/modules/jobs/outbox";
 import { FIXTURE } from "../../scripts/fixture-ids";
+import { ensureControlledSuperadminMfa } from "../fixtures/verified-session";
 import { claimNextJob } from "../../src/modules/jobs/queue";
 import { processClaimedJob } from "../../src/modules/jobs/processor";
 
@@ -62,9 +63,13 @@ test("invitation and encrypted outbox commit together, dedupe preserves original
 
 test("real superadmin reset uses PLATFORM; company A, B and platform scopes do not mix", async () => {
   const superadmin = await db.user.findUniqueOrThrow({ where: { id: FIXTURE.users[2] } });
+  expect(superadmin).toMatchObject({ email: "superadmin@example.test",
+    role: "SUPERADMIN_AUTERVA", organizationId: null });
+  await ensureControlledSuperadminMfa(db, superadmin.id);
+  expect(await db.account.count({ where: { userId: superadmin.id,
+    providerId: "credential", password: { not: null } } })).toBe(1);
   const adminA = await db.user.findUniqueOrThrow({ where: { id: FIXTURE.users[0] } });
   const adminB = await db.user.findUniqueOrThrow({ where: { id: FIXTURE.users[1] } });
-  expect(superadmin).toMatchObject({ role: "SUPERADMIN_AUTERVA", organizationId: null });
   const platformHost = `${randomUUID()}.example.test`;
   const token = randomUUID();
   const verificationId = randomUUID();
