@@ -19,9 +19,15 @@ export const safeAuditFieldNames = new Set([
   "trialEndsAt", "hostname", "brandName", "phone", "email", "address", "seoTitle",
   "seoDescription", "availableFrom", "availableTo", "startDate", "endDate", "isCover",
   "featured", "publicUnlockRequired", "sortOrder", "version", "periodVersion",
+  // #30 company settings and public brand media: field names only, never their text.
+  "publicName", "shortDescription", "serviceArea", "whatsapp", "contactChannel", "contactHours",
+  "addressLine", "postalCode", "city", "country", "mapLatitude", "mapLongitude", "showPrices",
+  "featuredVehicleCount", "availabilityNotice", "privacyText", "termsText", "privacyUrl", "termsUrl",
+  "heroText", "operatorNote", "media", "alt", "position",
 ]);
 export const safeAuditValueFields = new Set(["status", "visibility", "archivedAt", "paidThrough", "trialEndsAt",
-  "availableFrom", "availableTo", "startDate", "endDate", "isCover", "featured", "publicUnlockRequired", "sortOrder", "version", "periodVersion"]);
+  "availableFrom", "availableTo", "startDate", "endDate", "isCover", "featured", "publicUnlockRequired", "sortOrder", "version", "periodVersion",
+  "showPrices", "featuredVehicleCount"]);
 const statusValues = new Set(["DRAFT", "PUBLISHED", "UNPUBLISHED", "HIDDEN", "ARCHIVED", "ACTIVE", "INACTIVE", "PENDING", "BLOCKED", "SUSPENDED", "REVOKED", "EXPIRED",
   "PENDING_OWNERSHIP", "PENDING_ROUTING", "READY"]);
 const visibilityValues = new Set(["PUBLIC", "PRIVATE", "HIDDEN"]);
@@ -37,8 +43,9 @@ function isUtcInstant(value: unknown): value is string {
 export function isSafeAuditSnapshotValue(field: string, value: unknown): value is string | number | boolean | null {
   if (field === "status") return typeof value === "string" && statusValues.has(value);
   if (field === "visibility") return typeof value === "string" && visibilityValues.has(value);
-  if (field === "isCover" || field === "featured" || field === "publicUnlockRequired") return typeof value === "boolean";
-  if (field === "version" || field === "periodVersion" || field === "sortOrder") {
+  if (field === "isCover" || field === "featured" || field === "publicUnlockRequired" || field === "showPrices")
+    return typeof value === "boolean";
+  if (field === "version" || field === "periodVersion" || field === "sortOrder" || field === "featuredVehicleCount") {
     return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
   }
   if (field === "archivedAt" || field === "trialEndsAt") return value === null || isUtcInstant(value);
