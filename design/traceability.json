@@ -3,6 +3,23 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 38,
+      "scope": "Serwerowy CRUD ręcznych blokad z kontrolą kolizji pod blokadą wiersza Vehicle, wersją, audytem i natychmiastowym publicznym odczytem; UI blokad w osobnym issue.",
+      "relatedRequirementIds": ["C-F007", "C-F100", "C-F102", "C-F103", "C-F104", "C-F105", "C-N027", "C-N031", "FR-ADM-050", "FR-ADM-051", "FR-ADM-052", "FR-ADM-053", "FR-ADM-054", "FR-ADM-055", "FR-ADM-058", "D-15"],
+      "referenceScreenIds": ["ADM-09"],
+      "codePaths": [
+        "prisma/migrations/20261026180000_availability_block_integrity_issue_38/migration.sql",
+        "src/modules/availability/block-types.ts",
+        "src/modules/availability/blocks.ts",
+        "src/modules/availability/blocks-http.ts",
+        "src/app/api/admin/vehicles/[id]/blocks/route.ts",
+        "src/app/api/admin/vehicles/[id]/blocks/[blockId]/route.ts",
+        "src/app/api/platform/companies/[organizationId]/vehicles/[id]/blocks/route.ts",
+        "src/app/api/platform/companies/[organizationId]/vehicles/[id]/blocks/[blockId]/route.ts"
+      ],
+      "testPaths": ["tests/integration/availability-blocks.test.ts", "tests/e2e/availability.spec.ts"]
+    },
+    {
       "issue": 29,
       "scope": "Prywatny upload obrazów, rezerwacja 30 miejsc, walidacja i izolowany dekoder, niezmienna finalizacja, odzyskiwalny worker i cleanup; publiczne odczyty mediów należą do konsumentów.",
       "relatedRequirementIds": ["C-F098", "C-N034", "C-N035", "FR-ADM-040", "FR-ADM-041", "FR-ADM-042", "NFR-PERF-004"],

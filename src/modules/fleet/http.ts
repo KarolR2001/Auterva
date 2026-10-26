@@ -9,10 +9,10 @@ import { createVehicle, editVehicle, PublishingRequirementsError, reorderVehicle
   setVehicleStatus, type VehicleFields } from "./mutations";
 import { listCompanyVehicles, type VehicleListFilters } from "./read";
 
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+export const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 type Area = "COMPANY_ADMIN" | "PLATFORM";
 
-function response(body: object, status: number, requestId: string, retryAfter?: number) {
+export function response(body: object, status: number, requestId: string, retryAfter?: number) {
   return Response.json(body, { status, headers: { "Cache-Control": "no-store", "X-Request-Id": requestId,
     ...(retryAfter ? { "Retry-After": String(retryAfter) } : {}) } });
 }
@@ -29,7 +29,7 @@ function validOrigin(request: Request): boolean {
   } catch { return false; }
 }
 
-async function actor(request: Request, area: Area, targetOrganizationId: string | undefined,
+export async function actor(request: Request, area: Area, targetOrganizationId: string | undefined,
   mutation: boolean, requestId: string) {
   if (area === "PLATFORM" && (!targetOrganizationId || !uuid.test(targetOrganizationId))) {
     return { error: response({ code: "INVALID_ID" }, 400, requestId) };
@@ -49,7 +49,7 @@ async function actor(request: Request, area: Area, targetOrganizationId: string 
   return { context, organizationId };
 }
 
-async function body(request: Request): Promise<Record<string, unknown> | null> {
+export async function body(request: Request): Promise<Record<string, unknown> | null> {
   if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) return null;
   try {
     const value: unknown = await request.json();
@@ -57,7 +57,7 @@ async function body(request: Request): Promise<Record<string, unknown> | null> {
   } catch { return null; }
 }
 
-function only(value: Record<string, unknown>, keys: string[]) {
+export function only(value: Record<string, unknown>, keys: string[]) {
   return Object.keys(value).every((key) => keys.includes(key));
 }
 
