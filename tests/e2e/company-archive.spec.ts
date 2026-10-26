@@ -37,7 +37,9 @@ test("built app: archive logs the admin out and hides every public host; restore
   const [orgA, orgB] = [randomUUID(), randomUUID()];
   const platformHost = `archive-e2e-platform-${randomUUID()}.example.test`;
   const adminHost = [`archive-e2e-a-${orgA}.example.test`, `archive-e2e-b-${orgB}.example.test`];
-  const publicHosts = [`archive-e2e-pub-${orgA}.example.test`, `archive-e2e-alias-${orgA}.example.test`];
+  // publicHosts[1] is an active custom domain; the alias redirects to it while the offer is visible.
+  const publicHosts = [`archive-e2e-pub-${orgA}.example.test`, `www.archive-e2e-${orgA.slice(0, 8)}.klient.example.test`];
+  const alias = `archive-e2e-alias-${orgA}.example.test`;
   const password = "Fixture password 9384!";
   const email = `archive-e2e-${randomUUID()}@example.test`;
   const userB = randomUUID();
@@ -54,8 +56,13 @@ test("built app: archive logs the admin out and hides every public host; restore
       { hostname: adminHost[0], area: "COMPANY_ADMIN", organizationId: orgA, status: "ACTIVE" },
       { hostname: adminHost[1], area: "COMPANY_ADMIN", organizationId: orgB, status: "ACTIVE" },
       { hostname: publicHosts[0], area: "COMPANY_PUBLIC", organizationId: orgA, status: "ACTIVE" },
-      { hostname: publicHosts[1], area: "COMPANY_PUBLIC", organizationId: orgA, status: "ACTIVE" },
+      { hostname: publicHosts[1], area: "COMPANY_PUBLIC", kind: "CUSTOM", organizationId: orgA, status: "ACTIVE" },
+      { hostname: alias, area: "COMPANY_PUBLIC", organizationId: orgA, status: "ACTIVE", canonicalTarget: publicHosts[1] },
     ] });
+    const custom = await db.hostMapping.findUniqueOrThrow({ where: { hostname: publicHosts[1] } });
+    await db.customDomain.create({ data: { organizationId: orgA, hostMappingId: custom.id,
+      verificationToken: `archive-token-${orgA}`, status: "ACTIVE", activatedAt: new Date(),
+      ownershipVerifiedAt: new Date(), routingVerifiedAt: new Date(), tlsVerifiedAt: new Date() } });
     for (const id of [orgA, orgB]) await db.serviceAccess.create({ data: { organizationId: id, paidThrough: new Date(`${paidThrough}T00:00:00.000Z`),
       trialGranted: true, trialStartedAt: registered, trialEndsAt: new Date(registered.getTime() + 336 * 3_600_000) } });
     await db.organization.update({ where: { id: orgA }, data: { publicRequiresPaid: true } });
@@ -81,12 +88,22 @@ test("built app: archive logs the admin out and hides every public host; restore
 
     // Before: the company is public, the admin has a session and may start a login.
     for (const host of publicHosts) expect((await call(port, host, "GET", "/")).status).toBe(200);
+    expect((await call(port, alias, "GET", "/")).status).toBe(307);
     expect((await call(port, adminHost[0], "GET", "/api/auth/get-session/", admin.cookie)).status).toBe(200);
     const detail = await call(port, platformHost, "GET", `${base}/`, platform.cookie);
     expect(detail.status).toBe(200);
     const version = detail.body.organizationVersion as number;
 
     // Archive.
+    const expectClosed = async () => {
+      for (const host of publicHosts) expect((await call(port, host, "GET", "/")).status).toBe(404);
+      const closedAlias = await call(port, alias, "GET", "/");
+      expect(closedAlias.status).toBe(404);
+      expect(closedAlias.headers.location).toBeUndefined();
+      // The routing probe of the custom host stays a bare proof and never exposes company data.
+      const probe = await call(port, publicHosts[1], "GET", "/.well-known/auterva-domain-check/");
+      expect(Object.keys(probe.body)).toEqual(["proof"]);
+    };
     const archived = await call(port, platformHost, "POST", `${base}/archive/`, platform.cookie,
       { expectedOrganizationVersion: version, eventKey: randomUUID() });
     expect(archived.status).toBe(200);
@@ -95,7 +112,7 @@ test("built app: archive logs the admin out and hides every public host; restore
     const login = await call(port, adminHost[0], "POST", "/api/auth/sign-in/email/", "", { email, password });
     expect(login.status).toBe(401);
     expect(login.headers["set-cookie"]).toBeUndefined();
-    for (const host of publicHosts) expect((await call(port, host, "GET", "/")).status).toBe(404);
+    await expectClosed();
     expect((await call(port, adminHost[1], "GET", "/api/auth/get-session/", other.cookie)).status).toBe(200);
     const seen = await call(port, platformHost, "GET", `${base}/`, platform.cookie);
     expect(seen.body).toMatchObject({ organizationVersion: version + 1 });
@@ -115,11 +132,12 @@ test("built app: archive logs the admin out and hides every public host; restore
     expect((await call(port, adminHost[0], "GET", "/api/auth/get-session/", admin.cookie)).status).toBe(401);
     const relogin = await call(port, adminHost[0], "POST", "/api/auth/sign-in/email/", "", { email, password });
     expect(relogin.status).toBe(200);
-    for (const host of publicHosts) expect((await call(port, host, "GET", "/")).status).toBe(404);
+    await expectClosed();
     const unlocked = await call(port, platformHost, "POST", `${base}/public-unlock/`, platform.cookie,
       { expectedOrganizationVersion: version + 2, eventKey: randomUUID() });
     expect(unlocked.status).toBe(200);
     for (const host of publicHosts) expect((await call(port, host, "GET", "/")).status).toBe(200);
+    expect((await call(port, alias, "GET", "/")).status).toBe(307);
     expect(await db.auditLog.count({ where: { organizationId: orgA, action: "COMPANY_ARCHIVED" } })).toBe(1);
   } finally {
     await db.auditLog.deleteMany({ where: { organizationId: { in: [orgA, orgB] } } });
@@ -129,7 +147,8 @@ test("built app: archive logs the admin out and hides every public host; restore
     await db.verification.deleteMany({ where: { value: { contains: adminId || "none" } } });
     await db.user.deleteMany({ where: { id: { in: [adminId, userB].filter(Boolean) } } });
     if (ownedSuperadmin) await db.user.delete({ where: { id: ownedSuperadmin } });
-    await db.hostMapping.deleteMany({ where: { hostname: { in: [platformHost, ...adminHost, ...publicHosts] } } });
+    await db.customDomain.deleteMany({ where: { organizationId: orgA } });
+    await db.hostMapping.deleteMany({ where: { hostname: { in: [platformHost, ...adminHost, ...publicHosts, alias] } } });
     await db.organization.deleteMany({ where: { id: { in: [orgA, orgB] } } });
     await db.$disconnect();
   }

@@ -33,6 +33,20 @@ async function begin(tx: Prisma.TransactionClient, input: CompanyArchiveOperatio
 }
 
 /**
+ * Archive and restore raise ServiceAccess.periodVersion (service-periods-kpi-reminders, step 2) under the
+ * organization lock, so a reminder worker can reject events from before the change. Trial, payment and
+ * their boundaries are not touched. A missing row is created like in changePaidThrough.
+ */
+async function bumpPeriodVersion(tx: Prisma.TransactionClient, organizationId: string, actorId: string) {
+  const previous = await tx.serviceAccess.findUnique({ where: { organizationId }, select: { periodVersion: true } });
+  const before = previous?.periodVersion ?? 0;
+  if (previous) await tx.serviceAccess.update({ where: { organizationId },
+    data: { periodVersion: { increment: 1 }, changedById: actorId } });
+  else await tx.serviceAccess.create({ data: { organizationId, periodVersion: 1, changedById: actorId } });
+  return { before, after: before + 1 };
+}
+
+/**
  * Archives a company without deleting anything. In one transaction it blocks the
  * company's login and public addresses (archivedAt + publicRequiresPaid + unlock lock),
  * permanently revokes the admin's sessions, MFA challenges and reset proofs, and
@@ -57,6 +71,7 @@ export async function archiveCompany(db: PrismaClient, input: CompanyArchiveOper
       version: input.expectedVersion, archivedAt: null }, data: { archivedAt: now,
       publicRequiresPaid: true, publicUnlockRequired: true, version: { increment: 1 } } });
     if (changed.count !== 1) throw new Error("COMPANY_VERSION_CONFLICT");
+    const period = await bumpPeriodVersion(tx, input.organizationId, input.actorId);
     const users = await tx.user.findMany({ where: { organizationId: input.organizationId },
       select: { id: true, email: true }, orderBy: { id: "asc" } });
     let revokedSessions = 0;
@@ -78,18 +93,18 @@ export async function archiveCompany(db: PrismaClient, input: CompanyArchiveOper
     await appendAudit(tx, { actorId: input.actorId, sessionId: input.sessionId,
       organizationId: input.organizationId, action: "COMPANY_ARCHIVED", entityId: input.organizationId,
       eventKey: input.eventKey, requestId: input.requestId,
-      changes: { changedFields: ["archivedAt", "publicUnlockRequired", "version"],
+      changes: { changedFields: ["archivedAt", "publicUnlockRequired", "version", "periodVersion"],
         before: { archivedAt: null, publicUnlockRequired: company.publicUnlockRequired,
-          version: input.expectedVersion },
+          version: input.expectedVersion, periodVersion: period.before },
         after: { archivedAt: now.toISOString(), publicUnlockRequired: true,
-          version: input.expectedVersion + 1 } } });
-    return { archivedAt: now.toISOString(), version: input.expectedVersion + 1,
+          version: input.expectedVersion + 1, periodVersion: period.after } } });
+    return { archivedAt: now.toISOString(), version: input.expectedVersion + 1, periodVersion: period.after,
       publicRequiresPaid: true, publicUnlockRequired: true, revokedSessions };
   }, { maxWait: 10_000, timeout: 30_000 });
 }
 
 /**
- * Restores login only. Trial and payment are not renewed; both publication gates stay
+ * Restores login only. Trial and payment are not renewed (only periodVersion is raised); both publication gates stay
  * closed until the existing unlockPublicAfterRestore confirms a valid payment.
  */
 export async function restoreCompany(db: PrismaClient, input: CompanyArchiveOperation) {
@@ -102,14 +117,16 @@ export async function restoreCompany(db: PrismaClient, input: CompanyArchiveOper
       version: input.expectedVersion, archivedAt: { not: null } }, data: { archivedAt: null,
       publicRequiresPaid: true, publicUnlockRequired: true, version: { increment: 1 } } });
     if (changed.count !== 1) throw new Error("COMPANY_VERSION_CONFLICT");
+    const period = await bumpPeriodVersion(tx, input.organizationId, input.actorId);
     await appendAudit(tx, { actorId: input.actorId, sessionId: input.sessionId,
       organizationId: input.organizationId, action: "COMPANY_UPDATED", entityId: input.organizationId,
       eventKey: input.eventKey, requestId: input.requestId,
-      changes: { changedFields: ["archivedAt", "publicUnlockRequired", "version"],
+      changes: { changedFields: ["archivedAt", "publicUnlockRequired", "version", "periodVersion"],
         before: { archivedAt: company.archivedAt.toISOString(), publicUnlockRequired: company.publicUnlockRequired,
-          version: input.expectedVersion },
-        after: { archivedAt: null, publicUnlockRequired: true, version: input.expectedVersion + 1 } } });
-    return { archivedAt: null, version: input.expectedVersion + 1,
+          version: input.expectedVersion, periodVersion: period.before },
+        after: { archivedAt: null, publicUnlockRequired: true, version: input.expectedVersion + 1,
+          periodVersion: period.after } } });
+    return { archivedAt: null, version: input.expectedVersion + 1, periodVersion: period.after,
       publicRequiresPaid: true, publicUnlockRequired: true };
   }, { maxWait: 10_000, timeout: 30_000 });
 }

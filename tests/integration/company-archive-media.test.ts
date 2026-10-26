@@ -60,6 +60,7 @@ afterAll(async () => {
   if (createdPlatform) await db.user.deleteMany({ where: { id: platformId } });
   await db.vehicle.deleteMany({ where: { id: vehicleId } });
   await db.hostMapping.deleteMany({ where: { hostname: adminHost } });
+  await db.serviceAccess.deleteMany({ where: { organizationId } });
   await db.organization.deleteMany({ where: { id: organizationId } });
   for (const key of keys) await removeObject(storage, key).catch(() => {});
   storage.client.destroy();

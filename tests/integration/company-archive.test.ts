@@ -1,10 +1,13 @@
 import { randomUUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { Client } from "pg";
 import * as OTPAuth from "otpauth";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { createAuth } from "../../src/lib/auth";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { sqlDate } from "../../src/modules/availability/dates";
+import { changeAccountPassword, requestPasswordReset, resetPassword } from "../../src/modules/auth/account-operations";
+import { decryptMailPayload } from "../../src/modules/jobs/outbox";
 import { archiveCompany, restoreCompany } from "../../src/modules/organizations/archive";
 import { getPlatformCompany, listPlatformCompanies } from "../../src/modules/organizations/read";
 import { changePaidThrough, unlockPublicAfterRestore } from "../../src/modules/service-period/mutations";
@@ -22,7 +25,7 @@ const adminHostA = `archive-admin-a-${orgA}.example.test`;
 const adminHostB = `archive-admin-b-${orgB}.example.test`;
 const publicHostA = `archive-public-a-${orgA}.example.test`;
 const platformHost = `archive-platform-${orgA}.example.test`;
-const password = "Fixture password 9384!";
+let password = "Fixture password 9384!";
 const day = 24 * 60 * 60_000;
 type Admin = { userId: string; email: string; organizationId: string; host: string; totp: OTPAuth.TOTP };
 let adminA: Admin;
@@ -106,7 +109,8 @@ async function dataSnapshot(organizationId: string) {
     db.serviceAccess.findMany({ where: { organizationId } }),
     db.siteSettings.findMany({ where: { organizationId } }),
   ]);
-  return { vehicles, images, blocks, messages, conversation, hosts, access, settings };
+  const stable = access.map((row) => ({ ...row, periodVersion: 0, changedById: null, updatedAt: null }));
+  return { vehicles, images, blocks, messages, conversation, hosts, access: stable, settings };
 }
 
 beforeAll(async () => {
@@ -149,6 +153,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await db.auditLog.deleteMany({ where: { organizationId: { in: [orgA, orgB] } } });
+  await db.passwordResetRequest.deleteMany({ where: { userId: { in: [adminA.userId, adminB.userId] } } });
+  await db.job.deleteMany({ where: { organizationId: { in: [orgA, orgB] } } });
   await db.chatMessage.deleteMany({ where: { organizationId: { in: [orgA, orgB] } } });
   await db.conversation.deleteMany({ where: { organizationId: { in: [orgA, orgB] } } });
   await db.availabilityBlock.deleteMany({ where: { organizationId: { in: [orgA, orgB] } } });
@@ -194,7 +200,16 @@ test("archive atomically blocks login, revokes sessions and challenges, audits t
   const beforeA = await dataSnapshot(orgA);
   const beforeB = await dataSnapshot(orgB);
   const orgBBefore = await orgRow(orgB);
+  const accessBefore = await db.serviceAccess.findUniqueOrThrow({ where: { organizationId: orgA } });
   const result = await archiveCompany(db, op(orgA, 0));
+  // Step 2 of the approved period contract: periodVersion rises atomically; trial, payment and bounds do not change.
+  const accessAfter = await db.serviceAccess.findUniqueOrThrow({ where: { organizationId: orgA } });
+  expect(accessAfter.periodVersion).toBe(accessBefore.periodVersion + 1);
+  expect({ ...accessAfter, periodVersion: 0, changedById: null, updatedAt: null })
+    .toEqual({ ...accessBefore, periodVersion: 0, changedById: null, updatedAt: null });
+  expect(result.periodVersion).toBe(accessAfter.periodVersion);
+  expect(await db.auditLog.findFirstOrThrow({ where: { organizationId: orgA, action: "COMPANY_ARCHIVED" } }))
+    .toMatchObject({ safeChanges: { after: { periodVersion: accessAfter.periodVersion } } });
   expect(result).toMatchObject({ version: 1, publicRequiresPaid: true, publicUnlockRequired: true });
   expect(result.revokedSessions).toBeGreaterThanOrEqual(1);
   const archived = await orgRow(orgA);
@@ -239,10 +254,16 @@ test("archive atomically blocks login, revokes sessions and challenges, audits t
 
 test("restore returns login only: no trial or payment renewal, publication stays locked until the existing unlock", async () => {
   const access = await db.serviceAccess.findUniqueOrThrow({ where: { organizationId: orgA } });
+  const archivedPeriodVersion = access.periodVersion;
   await expect(restoreCompany(db, op(orgA, 0))).rejects.toThrow("COMPANY_VERSION_CONFLICT");
   const restored = await restoreCompany(db, op(orgA, 1));
-  expect(restored).toEqual({ archivedAt: null, version: 2, publicRequiresPaid: true, publicUnlockRequired: true });
-  expect(await db.serviceAccess.findUniqueOrThrow({ where: { organizationId: orgA } })).toEqual(access);
+  expect(restored).toEqual({ archivedAt: null, version: 2, periodVersion: archivedPeriodVersion + 1,
+    publicRequiresPaid: true, publicUnlockRequired: true });
+  const afterRestore = await db.serviceAccess.findUniqueOrThrow({ where: { organizationId: orgA } });
+  expect(afterRestore.periodVersion).toBe(archivedPeriodVersion + 1);
+  expect({ ...afterRestore, periodVersion: 0, changedById: null, updatedAt: null })
+    .toEqual({ ...access, periodVersion: 0, changedById: null, updatedAt: null });
+  access.periodVersion = afterRestore.periodVersion;
   expect(await orgRow(orgA)).toMatchObject({ archivedAt: null, publicRequiresPaid: true, publicUnlockRequired: true, version: 2 });
   await expect(restoreCompany(db, op(orgA, 2))).rejects.toThrow("COMPANY_NOT_ARCHIVED");
   // Old sessions did not come back; a new login works.
@@ -280,6 +301,9 @@ test("race: login and MFA committed first are revoked by archive; both orders en
   await waitForLockWaiters(2);
   await holder.release();
   const loginResponse = await login;
+  // Login committed first: it succeeded with a challenge, and only then did archive revoke it.
+  expect(loginResponse.status).toBe(200);
+  expect(await loginResponse.clone().json()).toEqual({ twoFactorRedirect: true });
   const issuedChallenge = cookieOf(loginResponse);
   await archive;
   expect(await db.verification.count({ where: { value: { contains: adminA.userId } } })).toBe(0);
@@ -345,6 +369,92 @@ test("race: archive and restore serialize in both orders with exactly one winner
   // Unrestricted parallel pair: exactly one of the two operations may apply.
   const parallel = await Promise.allSettled([restoreCompany(db, op(orgA, 9)), archiveCompany(db, op(orgA, 9))]);
   expect(parallel.filter((entry) => entry.status === "fulfilled")).toHaveLength(1);
+});
+
+test("race: password change and reset serialize with archive in both orders", async () => {
+  const scope = { area: "COMPANY_ADMIN" as const, organizationId: orgA };
+  const baseURL = `https://${adminHostA}`;
+  const hash = async () => (await db.account.findFirstOrThrow({
+    where: { userId: adminA.userId, providerId: "credential" } })).password;
+  const ensureActive = async () => {
+    const current = await orgRow(orgA);
+    if (current.archivedAt) await restoreCompany(db, op(orgA, current.version));
+  };
+  const resetToken = async () => {
+    const mailKey = randomBytes(32);
+    await requestPasswordReset(db, { email: adminA.email, idempotencyKey: randomUUID(), scope,
+      hostname: adminHostA, now: new Date(), mailKey });
+    const receipt = await db.passwordResetRequest.findFirstOrThrow({
+      where: { userId: adminA.userId, consumedAt: null }, orderBy: { createdAt: "desc" } });
+    const job = await db.job.findFirstOrThrow({ where: { dedupeKey: `MAIL_PASSWORD_RESET:${receipt.verificationId}` } });
+    return decodeURIComponent(decryptMailPayload(job.payload, mailKey).url.split("/").at(-1)!);
+  };
+  // The second operation starts only after the first waits on the credential row, so the order is fixed.
+  const ordered = async (first: () => Promise<unknown>, second: () => Promise<unknown>) => {
+    const holder = await holdLock(`SELECT a.id FROM "account" a WHERE a."userId" = '${adminA.userId}' FOR UPDATE`);
+    const a = first();
+    void a.catch(() => undefined);
+    await waitForLockWaiters(1);
+    const b = second();
+    void b.catch(() => undefined);
+    await waitForLockWaiters(2);
+    await holder.release();
+    return Promise.allSettled([a, b]);
+  };
+  const change = (cookie: string, current: string, next: string) => () => changeAccountPassword(db, {
+    headers: new Headers({ cookie }), scope, baseURL, currentPassword: current, newPassword: next, requestId: randomUUID() });
+  const reset = (token: string, next: string) => () => resetPassword(db, { token, newPassword: next, scope,
+    hostname: adminHostA, now: new Date(), requestId: randomUUID() });
+  const archiveNow = () => { const version = orgVersion; return archiveCompany(db, op(orgA, version)); };
+  let orgVersion = 0;
+  const prepare = async () => { await ensureActive(); orgVersion = (await orgRow(orgA)).version; };
+
+  // Change committed first: the password changed, then archive removed whatever sessions remained.
+  await db.rateLimitEvent.deleteMany();
+  await prepare();
+  let cookie = await fullSession(adminA);
+  let before = await hash();
+  let outcome = await ordered(change(cookie, password, "Changed fixture password 1111!"), archiveNow);
+  expect(outcome.map((entry) => entry.status)).toEqual(["fulfilled", "fulfilled"]);
+  expect((outcome[0] as PromiseFulfilledResult<boolean>).value).toBe(true);
+  password = "Changed fixture password 1111!";
+  expect(await hash()).not.toBe(before);
+  expect(await db.session.count({ where: { userId: adminA.userId } })).toBe(0);
+  expect((await orgRow(orgA)).archivedAt).not.toBeNull();
+
+  // Archive first: the queued change is refused (false => 401), the password is unchanged.
+  await prepare();
+  cookie = await fullSession(adminA);
+  before = await hash();
+  outcome = await ordered(archiveNow, change(cookie, password, "Changed fixture password 2222!"));
+  expect(outcome.map((entry) => entry.status)).toEqual(["fulfilled", "fulfilled"]);
+  expect((outcome[1] as PromiseFulfilledResult<boolean>).value).toBe(false);
+  expect(await hash()).toBe(before);
+  expect(await db.session.count({ where: { userId: adminA.userId } })).toBe(0);
+
+  // Reset first: executed; archive then revokes the rest.
+  await prepare();
+  let token = await resetToken();
+  before = await hash();
+  outcome = await ordered(reset(token, "Reset fixture password 3333!"), archiveNow);
+  expect((outcome[0] as PromiseFulfilledResult<boolean>).value).toBe(true);
+  expect(outcome[1].status).toBe("fulfilled");
+  password = "Reset fixture password 3333!";
+  expect(await hash()).not.toBe(before);
+
+  // Archive first: reset is refused and its proof is gone for good, even after restore.
+  await prepare();
+  token = await resetToken();
+  before = await hash();
+  outcome = await ordered(archiveNow, reset(token, "Reset fixture password 4444!"));
+  expect(outcome[0].status).toBe("fulfilled");
+  expect((outcome[1] as PromiseFulfilledResult<boolean>).value).toBe(false);
+  expect(await hash()).toBe(before);
+  expect(await db.verification.count({ where: { identifier: `password-reset:${adminA.email}` } })).toBe(0);
+  await ensureActive();
+  expect(await resetPassword(db, { token, newPassword: "Reset fixture password 5555!", scope,
+    hostname: adminHostA, now: new Date(), requestId: randomUUID() })).toBe(false);
+  expect(await hash()).toBe(before);
 });
 
 test("platform HTTP transport guards host, origin, MFA and input, and the admin session ends", async () => {
