@@ -1,4 +1,5 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { Client } from "pg";
 import { verifyPassword } from "better-auth/crypto";
 import { afterAll, expect, test } from "vitest";
 import { createPrismaClient } from "../../src/lib/prisma";
@@ -9,6 +10,8 @@ import { POST as activatePost } from "../../src/app/api/auth/invitation/[token]/
 import { GET as authGet, POST as authPost } from "../../src/app/api/auth/[...all]/route";
 import { runWithTrustedClientAddress } from "../../src/modules/ingress/client-address";
 import { recoverMfaByOperator } from "../../scripts/recover-mfa";
+import { FIXTURE } from "../../scripts/fixture-ids";
+import { seedLocalFixture } from "../../scripts/seed-local-fixture";
 import { ensureControlledSuperadminMfa, verifiedFixtureSession } from "../fixtures/verified-session";
 import { cancelCompanyInvitation, issueCompanyInvitation } from "../../src/modules/invitations/issue";
 
@@ -342,3 +345,25 @@ test.each([
     if (!existing) await db.user.delete({ where: { id: actorId } });
   }
 }, 30_000);
+
+test.each([0, 1] as const)("foreign fixture identity %i cannot trigger access writes during activation setup", async (index) => {
+  const raw = new Client({ connectionString: process.env.DATABASE_URL });
+  await raw.connect();
+  try {
+    await seedLocalFixture(raw, { ...process.env, AUTERVA_FIXTURE: "1" }, true);
+    const userId = FIXTURE.users[index];
+    const original = await db.user.findUniqueOrThrow({ where: { id: userId }, select: { email: true } });
+    await db.user.update({ where: { id: userId }, data: { email: `foreign-${randomUUID()}@example.test` } });
+    try {
+      await expect(ensureControlledSuperadminMfa(db, FIXTURE.users[2])).rejects.toThrow("Fixture identity mismatch");
+      expect(await db.account.count({ where: { userId: { in: [...FIXTURE.users] } } })).toBe(0);
+      expect(await db.twoFactor.count({ where: { userId: { in: [...FIXTURE.users] } } })).toBe(0);
+      expect(await db.session.count({ where: { userId: { in: [...FIXTURE.users] } } })).toBe(0);
+    } finally {
+      await db.user.update({ where: { id: userId }, data: { email: original.email } });
+      await seedLocalFixture(raw, { ...process.env, AUTERVA_FIXTURE: "1" }, true);
+    }
+  } finally {
+    await raw.end();
+  }
+});
