@@ -71,6 +71,10 @@
       "sha256": "d858ed1fbbd0c5e2fe8eaf18e721b39098a90476b109c44598c613e62dac1381"
     },
     {
+      "path": "docs/contracts/availability-reads.md",
+      "sha256": "e820049a2665a8c38c2a3627d4e204abaec61e11b2424225c515b5377a425b87"
+    },
+    {
       "path": "docs/contracts/account-operations.md",
       "sha256": "624c57d69caf3d4c5567a2f39e291625555ff2f87365b26ced302eddfaf7fa26"
     },
