@@ -179,6 +179,23 @@ model Verification {
   @@map("verification")
 }
 
+model PasswordResetRequest {
+  id              String    @id @default(uuid()) @db.Uuid
+  requestKeyHash  String    @unique @db.VarChar(64)
+  inputHash       String    @db.VarChar(64)
+  userId          String?
+  verificationId  String?   @unique
+  hostname        String    @db.VarChar(253)
+  area            String    @db.VarChar(32)
+  organizationId  String?   @db.Uuid
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  expiresAt       DateTime  @db.Timestamptz(6)
+  consumedAt      DateTime? @db.Timestamptz(6)
+
+  @@index([expiresAt])
+  @@index([userId, createdAt])
+}
+
 model RateLimitEvent {
   id         String   @id @default(uuid()) @db.Uuid
   keyHash    String   @db.VarChar(64)

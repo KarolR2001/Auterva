@@ -167,6 +167,21 @@
       "testPaths": ["tests/integration/prisma-timezone.test.ts"]
     },
     {
+      "issue": 18,
+      "scope": "Neutralny reset hasła, profil tylko nazwa, zmiana hasła z pełnym MFA i cofnięciem sesji; ekran należy do #19.",
+      "relatedRequirementIds": ["C-F041", "C-F042", "C-F044", "C-N015", "C-N016", "C-N017", "FR-ADM-006", "FR-ADM-080", "FR-ADM-082"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261026120000_password_reset_issue_18/migration.sql",
+        "src/modules/auth/account-operations.ts",
+        "src/app/api/auth/[...all]/route.ts",
+        "src/modules/audit/append.ts",
+        "src/modules/jobs/outbox.ts",
+        "src/modules/jobs/processor.ts"
+      ],
+      "testPaths": ["tests/integration/password-reset.test.ts", "tests/isolated/bootstrap-superadmin.test.ts"]
+    },
+    {
       "issue": 21,
       "scope": "Okres usługi i brama istniejącego wejścia publicznego, wersjonowane mutacje superadmina; przyszłe strony oferty, media i integracja zaproszeń pozostają osobnymi konsumentami.",
       "relatedRequirementIds": ["C-F046", "C-F048", "C-F049", "C-F050", "C-F054", "C-F055", "C-F056", "C-F057", "C-F062", "C-F072", "C-F078"],

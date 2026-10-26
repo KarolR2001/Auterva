@@ -6,6 +6,8 @@ import { createPrismaClient } from "../../src/lib/prisma";
 import { GET, POST } from "../../src/app/api/auth/[...all]/route";
 import { bootstrapSuperadmin } from "../../scripts/bootstrap-superadmin";
 import { recoverMfaByOperator } from "../../scripts/recover-mfa";
+import { decryptMailPayload } from "../../src/modules/jobs/outbox";
+import { parseMailPayloadKey } from "../../src/modules/jobs/config";
 
 const db = createPrismaClient(process.env.DATABASE_URL ?? "");
 const email = `bootstrap-${randomUUID()}@example.test`;
@@ -87,4 +89,25 @@ test("bootstrap refuses nonempty token storage and concurrent runs create exactl
   expect(newlyConfirmed.status).toBe(200);
   const newCookie = newlyConfirmed.headers.getSetCookie().map((item) => item.split(";", 1)[0]).join("; ");
   expect((await GET(request("get-session", undefined, newCookie))).status).toBe(200);
+
+  const mailKey = parseMailPayloadKey(process.env.MAIL_PAYLOAD_KEY);
+  const resetRequested = await POST(request("password/request-reset", { email, idempotencyKey: randomUUID() }));
+  expect(resetRequested.status).toBe(200);
+  expect(await resetRequested.json()).toEqual({ accepted: true });
+  const resetJob = await db.job.findFirstOrThrow({ where: { kind: "MAIL_PASSWORD_RESET", organizationId: null } });
+  const resetLink = decryptMailPayload(resetJob.payload, mailKey).url;
+  expect(resetLink).toMatch(new RegExp(`^https://${platformHost}/reset-hasla/`));
+  const resetToken = decodeURIComponent(resetLink.split("/").at(-1)!);
+  const newPassword = "New bootstrap password 9384!";
+  const reset = await POST(request("password/reset", { token: resetToken, newPassword }));
+  expect(reset.status).toBe(200);
+  expect((await GET(request("get-session", undefined, newCookie))).status).toBe(401);
+  expect((await POST(request("sign-in/email", { email, password }))).status).toBe(401);
+  const afterReset = await POST(request("sign-in/email", { email, password: newPassword }));
+  expect(await afterReset.json()).toEqual({ twoFactorRedirect: true });
+  const challengeCookie = afterReset.headers.getSetCookie().map((item) => item.split(";", 1)[0]).join("; ");
+  const afterMfa = await POST(request("two-factor/verify-totp", { code: replacement.generate() }, challengeCookie));
+  expect(afterMfa.status).toBe(200);
+  const afterMfaCookie = afterMfa.headers.getSetCookie().map((item) => item.split(";", 1)[0]).join("; ");
+  expect((await GET(request("get-session", undefined, afterMfaCookie))).status).toBe(200);
 });

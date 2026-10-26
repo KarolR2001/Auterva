@@ -45,8 +45,9 @@ async function isCurrent(db: PrismaClient, mail: MailPayload, now: Date): Promis
     const pathPrefix = mail.scope === "PLATFORM" ? "/reset-hasla/" : "/admin/reset-hasla/";
     const token = decodeURIComponent(parsed.pathname.slice(pathPrefix.length));
     const user = await db.user.findUnique({ where: { email: mail.recipient },
-      select: { organizationId: true, role: true, disabledAt: true } });
-    return parsed.pathname.startsWith(pathPrefix) && !!verification && !!user && !user.disabledAt &&
+      select: { organizationId: true, role: true, disabledAt: true, emailVerified: true,
+        accounts: { where: { providerId: "credential", password: { not: null } }, select: { id: true }, take: 1 } } });
+    return parsed.pathname.startsWith(pathPrefix) && !!verification && !!user && !user.disabledAt && user.emailVerified && user.accounts.length === 1 &&
       user.organizationId === mail.organizationId &&
       user.role === (mail.scope === "PLATFORM" ? "SUPERADMIN_AUTERVA" : "ADMIN_FIRMY") &&
       verification.identifier === `password-reset:${mail.recipient}` &&
