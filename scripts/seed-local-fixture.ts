@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import { config as loadEnv } from "dotenv";
 import { Client } from "pg";
@@ -60,6 +61,19 @@ async function assertFixtureIdentities(db: Client) {
   }
 }
 
+/**
+ * `--reset` from the CLI: audit rows are append-only (audit-append-and-access.md), so instead of deleting
+ * them the whole disposable local fixture schema is recreated and migrated. Only the guarded database.
+ */
+export async function recreateFixtureSchema(db: Client, env: Record<string, string | undefined>) {
+  assertLocalFixtureTarget(env);
+  const current = await db.query("SELECT current_database() AS name");
+  if (current.rows[0]?.name !== "auterva_fixture_9") throw new Error("Refusing to recreate a non-fixture database");
+  await db.query("DROP SCHEMA public CASCADE");
+  await db.query("CREATE SCHEMA public");
+  execFileSync("pnpm", ["exec", "prisma", "migrate", "deploy"], { stdio: "inherit", env: { ...process.env, ...env } });
+}
+
 export async function seedLocalFixture(db: Client, env: Record<string, string | undefined>, reset: boolean) {
   assertLocalFixtureTarget(env);
   await db.query("BEGIN");
@@ -93,10 +107,7 @@ export async function seedLocalFixture(db: Client, env: Record<string, string | 
       await db.query('DELETE FROM "VehicleImage" WHERE id = ANY($1::uuid[]) OR "vehicleId" = ANY($2::uuid[])', [[id(51), id(52), id(54)], FIXTURE.vehicles]);
       await db.query('DELETE FROM "AvailabilityBlock" WHERE id = ANY($1::uuid[])', [[id(41), id(42), id(43)]]);
       await db.query('DELETE FROM "Vehicle" WHERE id = ANY($1::uuid[])', [FIXTURE.vehicles]);
-      // Local-fixture exception (target guarded by assertLocalFixtureTarget, identities verified above):
-      // uploads and other work append audit rows (e.g. MEDIA_CHANGED) whose FK would block removing the
-      // company. Only rows of the two fixture companies go; the app itself still never deletes audit.
-      await db.query('DELETE FROM "AuditLog" WHERE "organizationId" = ANY($1::uuid[])', [orgs]);
+      await db.query('DELETE FROM "AuditLog" WHERE id = ANY($1::uuid[])', [[id(91), id(92)]]);
       await db.query('DELETE FROM "ServiceAccess" WHERE "organizationId" = ANY($1::uuid[])', [orgs]);
       await db.query('DELETE FROM "SiteSettings" WHERE "organizationId" = ANY($1::uuid[])', [orgs]);
       await db.query('DELETE FROM "HostMapping" WHERE id = ANY($1::uuid[])', [[id(81), id(82), id(83), id(84)]]);
@@ -171,7 +182,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const db = new Client({ connectionString: target });
   try {
     await db.connect();
-    await seedLocalFixture(db, process.env, reset);
+    if (reset) await recreateFixtureSchema(db, process.env);
+    await seedLocalFixture(db, process.env, false);
     const { seedLocalAccess } = await import("./seed-local-access");
     await seedLocalAccess(db, process.env);
     process.stdout.write(`Fixture A/B ${reset ? "reset and seeded" : "seeded"}; local credentials enrolled with MFA.\n`);

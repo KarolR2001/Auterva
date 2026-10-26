@@ -75,11 +75,13 @@ test("isolated decoder rejects SVG, corrupt bytes and an extra pixel dimension",
 });
 
 // D-04 bound: 12 000 x 12 000 must decode (files under 10 MB; block pattern keeps them compressible).
-async function bound(format: "jpeg-baseline" | "jpeg-progressive" | "png-interlaced" | "png" | "webp") {
-  const small = await sharp({ create: { width: 200, height: 200, channels: 3, background: "#808080",
-    noise: { type: "gaussian", mean: 128, sigma: 40 } } }).png().toBuffer();
+async function bound(format: "jpeg-baseline" | "jpeg-progressive" | "png16-interlaced" | "png-interlaced" | "png" | "webp") {
+  const small = await sharp({ create: { width: format === "png16-interlaced" ? 40 : 200,
+    height: format === "png16-interlaced" ? 40 : 200, channels: format === "png16-interlaced" ? 4 : 3,
+    background: "#808080", noise: { type: "gaussian", mean: 128, sigma: 40 } } }).png().toBuffer();
   const image = sharp(small).resize(12_000, 12_000, { kernel: "nearest" });
-  const bytes = format === "jpeg-baseline" ? await image.jpeg({ quality: 70 }).toBuffer()
+  const bytes = format === "png16-interlaced"
+    ? await image.toColourspace("rgb16").png({ progressive: true, compressionLevel: 9 }).toBuffer() : format === "jpeg-baseline" ? await image.jpeg({ quality: 70 }).toBuffer()
     : format === "jpeg-progressive" ? await image.jpeg({ quality: 70, progressive: true }).toBuffer()
     : format === "png-interlaced" ? await image.png({ progressive: true, compressionLevel: 9 }).toBuffer()
     : format === "png" ? await image.png({ compressionLevel: 9 }).toBuffer()
@@ -88,7 +90,7 @@ async function bound(format: "jpeg-baseline" | "jpeg-progressive" | "png-interla
   return bytes;
 }
 
-test.each(["jpeg-baseline", "jpeg-progressive", "png-interlaced", "png", "webp"] as const)(
+test.each(["jpeg-baseline", "jpeg-progressive", "png16-interlaced", "png-interlaced", "png", "webp"] as const)(
   "isolated decoder accepts a 12 000 x 12 000 %s image", async (format) => {
     const result = await decodeMedia(await bound(format));
     expect(result).toMatchObject({ width: 12_000, height: 12_000 });

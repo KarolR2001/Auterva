@@ -3,6 +3,25 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 138,
+      "scope": "Dekoder mediów: limit RSS fail-closed (/proc lub ps), błędy środowiska i sygnały spoza dekodera jako nieostateczne 503, zmierzony najgorszy przypadek pamięci i wymagania operacyjne, reset fixture bez usuwania audytu.",
+      "relatedRequirementIds": ["C-F098", "C-N034", "C-N035", "NFR-PERF-004"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/media/rss.ts",
+        "src/modules/media/decode.ts",
+        "src/modules/media/http.ts",
+        "scripts/media-decode.mjs",
+        "scripts/seed-local-fixture.ts",
+        "docs/contracts/media-upload-processing.md"
+      ],
+      "testPaths": [
+        "tests/integration/media-decode.test.ts",
+        "tests/integration/media-http.test.ts",
+        "tests/integration/media-process-lifecycle.test.ts"
+      ]
+    },
+    {
       "issue": 29,
       "scope": "Prywatny upload obrazów, rezerwacja 30 miejsc, walidacja i izolowany dekoder, niezmienna finalizacja, odzyskiwalny worker i cleanup; publiczne odczyty mediów należą do konsumentów.",
       "relatedRequirementIds": ["C-F098", "C-N034", "C-N035", "FR-ADM-040", "FR-ADM-041", "FR-ADM-042", "NFR-PERF-004"],

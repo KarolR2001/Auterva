@@ -8,7 +8,7 @@ import { maxImageBytes } from "./storage";
 const timeoutMs = 30_000;
 // Measured peak RSS of the decoder at the D-04 bound (12 000 x 12 000, files under 10 MB): about
 // 0.9-1.0 GiB for lossy/alpha WebP and 4:4:4 progressive JPEG, 0.9 GiB for 8-bit RGBA interlaced PNG and
-// about 1.5 GiB worst case (16-bit RGBA interlaced PNG). The 2 GiB limit is enforced by sampling RSS and
+// about 1.4 GiB worst case (16-bit RGBA interlaced PNG, 6.7 MB, measured on macOS). The 2 GiB limit is enforced by sampling RSS and
 // is fail-closed: when RSS cannot be measured the decode is refused (MEDIA_DECODER_UNAVAILABLE), never
 // run unlimited. Operational requirements: docs/contracts/media-upload-processing.md.
 const maxRssKb = 2 * 1024 * 1024;
