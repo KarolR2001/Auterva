@@ -124,6 +124,7 @@ test("wrong tenant, revoked MFA proof, unsafe payload and rollback cannot leave 
     { changedFields: ["status"], after: { status: "127.0.0.1" } },
     { changedFields: ["startDate"], after: { startDate: "2026-02-30" } },
     { changedFields: ["isCover"], after: { isCover: "true" } },
+    { changedFields: ["sortOrder"], after: { sortOrder: -1 } },
   ]) {
     await expect(db.$transaction((tx) => appendAudit(tx, {
       actorId: admins[1], sessionId: sessions[1], organizationId: organizations[1],
