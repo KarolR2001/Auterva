@@ -574,6 +574,44 @@
           "sharedMfa": {
             "mobile": "4e2ad814-13be-80ec-8008-cc9fbbe9363e",
             "desktop": "4e2ad814-13be-80ec-8008-cc9f9f862e0d"
+          },
+          "recoveryCode": {
+            "mobile": {
+              "default": "89433e5c-4f5c-80ad-8008-d9772125fce1",
+              "error": "89433e5c-4f5c-80ad-8008-d977b0957fc6",
+              "pending": "89433e5c-4f5c-80ad-8008-d977e674eafe",
+              "rateLimit": "89433e5c-4f5c-80ad-8008-d977e6a1827a"
+            },
+            "desktop": {
+              "default": "89433e5c-4f5c-80ad-8008-d979bfb8c22a",
+              "error": "89433e5c-4f5c-80ad-8008-d97a095fc6e2",
+              "pending": "89433e5c-4f5c-80ad-8008-d97a0987eb1c",
+              "rateLimit": "89433e5c-4f5c-80ad-8008-d97a09c1c3e0"
+            }
+          },
+          "recoveryPassword": {
+            "mobile": "89433e5c-4f5c-80ad-8008-d978941801a9",
+            "desktop": "89433e5c-4f5c-80ad-8008-d97a2cff22b7"
+          },
+          "issuedCodes": {
+            "mobile": "89433e5c-4f5c-80ad-8008-d97894702d92",
+            "desktop": "89433e5c-4f5c-80ad-8008-d97a2d574f37"
+          },
+          "uncertainResult": {
+            "mobile": "89433e5c-4f5c-80ad-8008-d97894a37e06",
+            "desktop": "89433e5c-4f5c-80ad-8008-d97a2d96c553"
+          },
+          "rotateFreshFactor": {
+            "mobile": "89433e5c-4f5c-80ad-8008-d978bc2374d0",
+            "desktop": "89433e5c-4f5c-80ad-8008-d97a4e1d6e10"
+          },
+          "rotatePassword": {
+            "mobile": "89433e5c-4f5c-80ad-8008-d978bc7013ef",
+            "desktop": "89433e5c-4f5c-80ad-8008-d97a4e735e8b"
+          },
+          "expiredProof": {
+            "mobile": "89433e5c-4f5c-80ad-8008-d978bcc38d44",
+            "desktop": "89433e5c-4f5c-80ad-8008-d97a4ec58f20"
           }
         }
       },

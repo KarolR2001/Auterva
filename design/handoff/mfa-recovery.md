@@ -22,3 +22,17 @@ Zakres: C-F040, C-F044, FR-ADM-004/005/007 oraz D-05. Ten kontrakt uzupełnia `D
 - **Ponowne wydanie:** najpierw świeży czynnik, potem hasło. Odmowa lub wygaśnięcie potwierdzenia wraca do świeżej weryfikacji; nie ponawia starego dowodu. Utrata odpowiedzi na rotację wraca do stanu niepewnego, bez pozornego sukcesu.
 
 Makiety są statycznym kontraktem układu i nawigacji. Testy API, rzeczywiste zużycie kodu, sesja, limit, utrata odpowiedzi oraz brak sekretów w logach należą do implementacji i odbioru #15. VoiceOver pozostaje odroczony do #97; pozostałe kontrole dostępności obowiązują teraz.
+
+## Referencje ekranów
+
+Plik Penpota: `b564c72c-f31f-81ec-8008-af198a313438`. Strony scenariuszy: Mobile `fb4e1683-f05f-8095-8008-c755dff0027c`, Desktop `fb4e1683-f05f-8095-8008-c755dff4dae6`. Pary rzeczywistych ID są w `design/traceability.json` → `ACC-07.scenarioStateBoards`:
+
+- `recoveryCode`: 07D (wpisanie), 07D1 (niepoprawny lub użyty), 07D2 (sprawdzanie), 07D3 (limit);
+- `recoveryPassword`: 07E, po przyjęciu kodu i przed nowym TOTP;
+- `issuedCodes`: 07G, jednorazowa lista przykładowych kodów;
+- `uncertainResult`: 07H, niepewny wynik i odczyt sesji;
+- `rotateFreshFactor`: 07I, świeży czynnik po utracie listy;
+- `rotatePassword`: 07J, hasło przed ponownym wydaniem;
+- `expiredProof`: 07J1, odmowa lub wygaśnięcie potwierdzenia.
+
+Istniejący 07C pozostaje wyłącznie ręczną procedurą po utracie obu czynników. Istniejący 07 jest ekranem nowego TOTP po ograniczonym dostępie; wymagane przejście po jego zatwierdzeniu to 07G, a dopiero potwierdzenie zapisania kodów prowadzi do panelu. Prototyp Penpota nie rozpoznaje odpowiedzi serwera, więc warunki odczytu sesji i utrata odpowiedzi są rozstrzygane przez aplikację zgodnie z tabelą wyżej. Samo istnienie ID nie potwierdza połączenia wszystkich akcji; wynik odczytu live i eksportu jest w #132.
