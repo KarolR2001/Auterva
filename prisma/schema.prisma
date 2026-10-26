@@ -333,7 +333,8 @@ model VehicleImage {
 model ImageUpload {
   id             String   @id @default(uuid()) @db.Uuid
   organizationId String   @db.Uuid
-  vehicleId      String   @db.Uuid
+  vehicleId      String?  @db.Uuid
+  publicKind     String?
   reservationKey String   @db.Uuid
   imageId        String   @unique @db.Uuid
   stagingKey     String   @unique
@@ -349,7 +350,7 @@ model ImageUpload {
   height         Int?
   createdAt      DateTime @default(now()) @db.Timestamptz(6)
   updatedAt      DateTime @updatedAt @db.Timestamptz(6)
-  vehicle        Vehicle  @relation(fields: [organizationId, vehicleId], references: [organizationId, id], onDelete: Restrict)
+  vehicle        Vehicle? @relation(fields: [organizationId, vehicleId], references: [organizationId, id], onDelete: Restrict)
 
   @@unique([organizationId, vehicleId, reservationKey])
   @@index([organizationId, vehicleId, state])
@@ -379,7 +380,12 @@ model SiteSettings {
   termsText            String?
   availabilityNotice   String?
   heroText             String?
+  serviceArea          String?
+  privacyUrl           String?
+  termsUrl             String?
+  operatorNote         String?
   version              Int          @default(0)
+  updatedAt            DateTime     @default(now()) @updatedAt @db.Timestamptz(6)
   organization         Organization @relation(fields: [organizationId], references: [id])
 }
 
@@ -391,9 +397,18 @@ model PublicMedia {
   alt            String?
   position       Int          @default(0)
   status         String       @default("PENDING")
+  mime           String?
+  width          Int?
+  height         Int?
+  bytes          Int?
+  variants       Json?
+  version        Int          @default(0)
+  storageCleanedAt DateTime?  @db.Timestamptz(6)
+  createdAt      DateTime     @default(now()) @db.Timestamptz(6)
   organization   Organization @relation(fields: [organizationId], references: [id])
 
   @@index([organizationId, kind, position])
+  @@index([status, storageCleanedAt])
 }
 
 model SlugRedirect {

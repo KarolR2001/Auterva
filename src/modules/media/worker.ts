@@ -20,13 +20,19 @@ export async function cleanupExpiredImageUploads(db: PrismaClient, storage: Medi
   let cleaned = 0;
   for (const candidate of candidates) {
     const keys = await db.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT id FROM "Vehicle" WHERE id = ${candidate.vehicleId}::uuid
-        AND "organizationId" = ${candidate.organizationId}::uuid FOR UPDATE`;
+      if (candidate.vehicleId) {
+        await tx.$queryRaw`SELECT id FROM "Vehicle" WHERE id = ${candidate.vehicleId}::uuid
+          AND "organizationId" = ${candidate.organizationId}::uuid FOR UPDATE`;
+      } else {
+        await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${candidate.organizationId}::uuid
+          FOR NO KEY UPDATE`;
+      }
       const current = await tx.imageUpload.findUnique({ where: { id: candidate.id } });
       if (!current || current.storageCleanedAt) return null;
       if (current.state === "READY") return { id: current.id, staging: current.stagingKey,
         raw: null, state: current.state };
-      if (await tx.vehicleImage.count({ where: { id: current.imageId } })) return null;
+      if (await tx.vehicleImage.count({ where: { id: current.imageId } })
+        || await tx.publicMedia.count({ where: { id: current.imageId } })) return null;
       if (["RESERVED", "FINALIZING", "PROCESSING"].includes(current.state)) {
         if (current.expiresAt.getTime() + cleanupGraceMs > now.getTime()) return null;
         await tx.imageUpload.update({ where: { id: current.id }, data: { state: "EXPIRED" } });
@@ -44,6 +50,23 @@ export async function cleanupExpiredImageUploads(db: PrismaClient, storage: Medi
         storageCleanedAt: null }, data: { storageCleanedAt: now } });
       cleaned++;
     } catch { console.warn("Media cleanup failed; retrying"); }
+  }
+  return cleaned;
+}
+
+/** Deleted company media loses its objects only after the row stopped being served (#30). */
+export async function cleanupDeletedPublicMedia(db: PrismaClient, storage: MediaStorage): Promise<number> {
+  const deleted = await db.publicMedia.findMany({ where: { status: "DELETED", storageCleanedAt: null },
+    orderBy: { createdAt: "asc" }, take: 100 });
+  let cleaned = 0;
+  for (const media of deleted) {
+    try {
+      for (const key of [media.storageKey, `${media.storageKey}/large.webp`, `${media.storageKey}/thumb.webp`])
+        await removeObject(storage, key);
+      await db.publicMedia.updateMany({ where: { id: media.id, status: "DELETED", storageCleanedAt: null },
+        data: { storageCleanedAt: new Date() } });
+      cleaned++;
+    } catch { console.warn("Public media cleanup failed; retrying"); }
   }
   return cleaned;
 }
@@ -98,9 +121,9 @@ export async function processMediaClaim(db: PrismaClient, storage: MediaStorage,
     const committed = await db.$transaction(async (tx) => {
       const company = await tx.$queryRaw<{ id: string; archivedAt: Date | null }[]>`
         SELECT id, "archivedAt" FROM "Organization" WHERE id = ${upload.organizationId}::uuid FOR NO KEY UPDATE`;
-      const vehicle = await tx.$queryRaw<{ id: string; status: string }[]>`
+      const vehicle = upload.vehicleId ? await tx.$queryRaw<{ id: string; status: string }[]>`
         SELECT id, status FROM "Vehicle" WHERE id = ${upload.vehicleId}::uuid
-          AND "organizationId" = ${upload.organizationId}::uuid FOR UPDATE`;
+          AND "organizationId" = ${upload.organizationId}::uuid FOR UPDATE` : null;
       const activeJob = await tx.$queryRaw<{ id: string }[]>`
         SELECT id FROM "Job" WHERE id = ${claim.id}::uuid AND kind = 'MEDIA_PROCESS'
           AND status = 'RUNNING' AND "leaseToken" = ${claim.leaseToken}::uuid
@@ -110,16 +133,29 @@ export async function processMediaClaim(db: PrismaClient, storage: MediaStorage,
         organizationId: upload.organizationId, vehicleId: upload.vehicleId,
         state: "PROCESSING", rawSha256: upload.rawSha256 } });
       if (!current) return false;
-      if (company.length !== 1 || company[0].archivedAt || vehicle.length !== 1
-        || vehicle[0].status === "ARCHIVED") {
+      if (company.length !== 1 || company[0].archivedAt
+        || (vehicle !== null && (vehicle.length !== 1 || vehicle[0].status === "ARCHIVED"))) {
         await tx.imageUpload.update({ where: { id: upload.id }, data: { state: "FAILED" } });
         await tx.job.update({ where: { id: claim.id }, data: { status: "FAILED",
           errorCode: "MEDIA_SCOPE_INACTIVE", leaseToken: null, lockedUntil: null } });
         return false;
       }
-      await tx.vehicleImage.create({ data: { id: upload.imageId, organizationId: upload.organizationId,
-        vehicleId: upload.vehicleId, storageKey: upload.rawKey, mime: decoded.mime,
-        width: decoded.width, height: decoded.height, bytes: bytes.length, status: "READY", variants } });
+      if (upload.vehicleId) {
+        await tx.vehicleImage.create({ data: { id: upload.imageId, organizationId: upload.organizationId,
+          vehicleId: upload.vehicleId, storageKey: upload.rawKey, mime: decoded.mime,
+          width: decoded.width, height: decoded.height, bytes: bytes.length, status: "READY", variants } });
+      } else {
+        const kind = upload.publicKind ?? "";
+        // A new logo replaces the old one inside the same transaction; its objects are cleaned later.
+        if (kind === "LOGO") await tx.publicMedia.updateMany({ where: {
+          organizationId: upload.organizationId, kind, status: { not: "DELETED" } },
+        data: { status: "DELETED", version: { increment: 1 } } });
+        const position = await tx.publicMedia.count({ where: { organizationId: upload.organizationId,
+          kind, status: { not: "DELETED" } } });
+        await tx.publicMedia.create({ data: { id: upload.imageId, organizationId: upload.organizationId,
+          kind, storageKey: upload.rawKey, mime: decoded.mime, width: decoded.width,
+          height: decoded.height, bytes: bytes.length, status: "READY", variants, position } });
+      }
       await tx.imageUpload.update({ where: { id: upload.id }, data: { state: "READY" } });
       await tx.job.update({ where: { id: claim.id }, data: { status: "SENT", completedAt: clock(),
         leaseToken: null, lockedUntil: null, payload: { uploadId: upload.id } } });
@@ -146,6 +182,7 @@ export async function runMediaWorkerLoop(db: PrismaClient, storage: MediaStorage
       const now = clock();
       await reconcileMediaFailures(db);
       await cleanupExpiredImageUploads(db, storage, now);
+      await cleanupDeletedPublicMedia(db, storage);
       const claim = await claimNextJob(db, now, leaseMs, false, "MEDIA_PROCESS");
       if (claim) {
         await processMediaClaim(db, storage, claim, clock);
