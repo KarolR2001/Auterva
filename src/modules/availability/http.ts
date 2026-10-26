@@ -16,6 +16,7 @@ const batchBody = z.object({ slugs: z.array(z.string().min(1).max(120)).min(1).m
   from: z.string(), to: z.string() }).strict();
 const noStore = { "Cache-Control": "no-store" };
 type RequestId = ReturnType<typeof randomUUID>;
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function respond(body: object, status: number, requestId: RequestId): Response {
   return withErrorRequestId(Response.json(body, { status, headers: noStore }), requestId);
@@ -86,6 +87,9 @@ export async function publicCalendar(request: Request, slug: string): Promise<Re
 export async function privateCalendar(request: Request, vehicleId: string,
   expectedArea: "COMPANY_ADMIN" | "PLATFORM", targetOrganizationId?: string): Promise<Response> {
   const requestId = randomUUID();
+  if (!uuid.test(vehicleId) || (expectedArea === "PLATFORM" && !uuid.test(targetOrganizationId ?? ""))) {
+    return respond({ code: "INVALID_ID" }, 400, requestId);
+  }
   const area = await resolveRequestArea(prisma, request.headers.get("host"));
   if (!area || area.area !== expectedArea) return respond({ code: "FORBIDDEN" }, 403, requestId);
   const organizationId = expectedArea === "COMPANY_ADMIN" ? area.organizationId : targetOrganizationId;

@@ -155,6 +155,22 @@ test("private admin and platform calendars require full MFA/tenant and retain hi
   expect((await adminCalendar(new Request(path.replace(vehicleId, otherVehicleId),
     { headers: { host: adminHost, cookie: adminCookie } }),
   { params: Promise.resolve({ id: otherVehicleId }) })).status).toBe(404);
+  for (const response of [
+    await adminCalendar(new Request(path.replace(vehicleId, "bad-id"),
+      { headers: { host: adminHost, cookie: adminCookie } }),
+    { params: Promise.resolve({ id: "bad-id" }) }),
+    await platformCalendar(new Request(platformPath.replace(vehicleId, "bad-id"),
+      { headers: { host: platformHost, cookie: platformCookie } }),
+    { params: Promise.resolve({ organizationId, id: "bad-id" }) }),
+    await platformCalendar(new Request(platformPath.replace(organizationId, "bad-id"),
+      { headers: { host: platformHost, cookie: platformCookie } }),
+    { params: Promise.resolve({ organizationId: "bad-id", id: vehicleId }) }),
+  ]) {
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ code: "INVALID_ID" });
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(response.headers.get("X-Request-Id")).toMatch(/^[0-9a-f-]{36}$/i);
+  }
 });
 
 test("public budget is shared across check, calendar and batch, and fresh writes invalidate offers", async () => {
@@ -189,5 +205,43 @@ test("public budget is shared across check, calendar and batch, and fresh writes
     const keyHash = createHmac("sha256", getServerEnv().BETTER_AUTH_SECRET)
       .update(`api:public:availability:ip:${secondIp}`).digest("hex");
     await db.rateLimitEvent.deleteMany({ where: { keyHash } });
+  }
+});
+
+test("all public availability routes stop after paid period shortens; private history stays readable", async () => {
+  const paidOrganizationId = randomUUID();
+  const paidVehicleId = randomUUID();
+  const paidHost = `available-paid-${paidOrganizationId}.example.test`;
+  const paidSlug = `available-paid-${paidVehicleId}`;
+  await clearPublicBudget();
+  await db.organization.create({ data: { id: paidOrganizationId,
+    slug: `available-paid-${paidOrganizationId}`, firstAdminRegisteredAt: new Date() } });
+  try {
+    await db.hostMapping.create({ data: { organizationId: paidOrganizationId,
+      hostname: paidHost, area: "COMPANY_PUBLIC", status: "ACTIVE" } });
+    await db.serviceAccess.create({ data: { organizationId: paidOrganizationId,
+      paidThrough: sqlDate(today) } });
+    await db.vehicle.create({ data: { id: paidVehicleId, organizationId: paidOrganizationId,
+      slug: paidSlug, status: "PUBLISHED", availableFrom: sqlDate(today) } });
+    expect((await publicPost("check", { slug: paidSlug, from: today, to: today }, paidHost)).status).toBe(200);
+    expect((await publicCalendar(paidSlug, today, today, paidHost)).status).toBe(200);
+    expect((await publicPost("batch", { slugs: [paidSlug], from: today, to: today }, paidHost)).status).toBe(200);
+    await db.serviceAccess.update({ where: { organizationId: paidOrganizationId },
+      data: { paidThrough: sqlDate(day(-1)), periodVersion: { increment: 1 } } });
+    expect((await publicPost("check", { slug: paidSlug, from: today, to: today }, paidHost)).status).toBe(404);
+    expect((await publicCalendar(paidSlug, today, today, paidHost)).status).toBe(404);
+    expect((await publicPost("batch", { slugs: [paidSlug], from: today, to: today }, paidHost)).status).toBe(404);
+    const privatePath = `http://${platformHost}/api/platform/companies/${paidOrganizationId}/vehicles/${paidVehicleId}/availability?from=${today}&to=${today}`;
+    const privateResult = await platformCalendar(new Request(privatePath,
+      { headers: { host: platformHost, cookie: platformCookie } }),
+    { params: Promise.resolve({ organizationId: paidOrganizationId, id: paidVehicleId }) });
+    expect(privateResult.status).toBe(200);
+    expect(await privateResult.json()).toMatchObject({ days: [{ date: today, available: true }] });
+  } finally {
+    await db.vehicle.deleteMany({ where: { id: paidVehicleId } });
+    await db.serviceAccess.deleteMany({ where: { organizationId: paidOrganizationId } });
+    await db.hostMapping.deleteMany({ where: { hostname: paidHost } });
+    await db.organization.deleteMany({ where: { id: paidOrganizationId } });
+    await clearPublicBudget();
   }
 });
