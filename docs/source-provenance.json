@@ -25,7 +25,7 @@
       "path": "docs/design/SPEC.md",
       "role": "current-design-contract",
       "originalSha256": "57f6591f985e33c7ea225f84b9fa2ac298ff852c2843fb1c54994991608b2027",
-      "sha256": "9a458b19d38643cd45e0f9399623ed934e4411a2dfbbf3809195b2f4bc154355",
+      "sha256": "6361d27cbd219e78a42c7c525ff95b2644a688695c89fc02649f4719c7369c7f",
       "transformation": "Dodano nadrzędny kontrakt 3.1 i DEC-013–020, aktualne strony Penpota, obowiązkowe MFA, granice ustawień i status prototypów; zachowano fundamenty/komponenty i przeniesiono reguły motion/copy bez historycznych wyników QA. Doprecyzowano nawigację panelu firmy w #94 i platformy w #102."
     }
   ],

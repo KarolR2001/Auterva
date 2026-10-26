@@ -420,7 +420,7 @@
       },
       {
         "id": "PLT-01-02",
-        "name": "Pulpit i lista firm",
+        "name": "Lista firm i KPI (wejścia / i /firmy)",
         "pageIds": {
           "mobile": "fb4e1683-f05f-8095-8008-c755dff0027c",
           "desktop": "fb4e1683-f05f-8095-8008-c755dff4dae6"
@@ -434,6 +434,55 @@
             "fb4e1683-f05f-8095-8008-c759e3b05202",
             "fb4e1683-f05f-8095-8008-c75e49caf56f"
           ]
+        },
+        "navigationContract": {
+          "issue": 102,
+          "requirementIds": ["C-R003", "C-R006", "C-R007"],
+          "routes": {
+            "homeAlias": "/",
+            "companies": "/firmy",
+            "messages": "/wiadomosci",
+            "account": "/konto"
+          },
+          "mobileNavInstanceIds": [
+            "fb4e1683-f05f-8095-8008-c7596662b376",
+            "01ccd025-5b85-80fe-8008-d034b6d49406",
+            "fb4e1683-f05f-8095-8008-c7717df95fbd",
+            "fb4e1683-f05f-8095-8008-c7725a47c378",
+            "43eeb5e5-a1c6-801a-8008-d026559e1626"
+          ],
+          "desktopSidebarInstanceIds": [
+            "fb4e1683-f05f-8095-8008-c759e3b60caf",
+            "fb4e1683-f05f-8095-8008-c760ae864575",
+            "fb4e1683-f05f-8095-8008-c772c973154e",
+            "43eeb5e5-a1c6-801a-8008-d025519202ec"
+          ],
+          "menuBoardIds": {
+            "mobile": "89433e5c-4f5c-80ad-8008-d910ad0b18fd",
+            "desktop": "89433e5c-4f5c-80ad-8008-d90d3f63bcb7"
+          },
+          "prototypeDestinations": {
+            "companies": {
+              "mobile": "fb4e1683-f05f-8095-8008-c7595a575f33",
+              "desktop": "fb4e1683-f05f-8095-8008-c759e3b05202"
+            },
+            "messages": {
+              "mobile": "fb4e1683-f05f-8095-8008-c76fcc42bde3",
+              "desktop": "fb4e1683-f05f-8095-8008-c772c96f234e"
+            },
+            "logoutAfterServerAction": {
+              "mobile": "fb4e1683-f05f-8095-8008-c75bec06c851",
+              "desktop": "fb4e1683-f05f-8095-8008-c75b5b2ee55c"
+            }
+          },
+          "nestedCompanyReturn": {
+            "mobileHitId": "43eeb5e5-a1c6-801a-8008-d0265908f175",
+            "mobileBoardId": "4e2ad814-13be-80ec-8008-ccaacecd969f",
+            "desktopHitId": "43eeb5e5-a1c6-801a-8008-d02563417960",
+            "desktopBoardId": "4e2ad814-13be-80ec-8008-ccadc80b0a41"
+          },
+          "accountBoardFollowUpIssue": 103,
+          "prototypeLogoutIsNotSessionInvalidation": true
         }
       },
       {
@@ -480,7 +529,8 @@
             "4e2ad814-13be-80ec-8008-cc90124ec8d8",
             "4e2ad814-13be-80ec-8008-cc8fff9637ac"
           ]
-        }
+        },
+        "navigationFollowUpIssue": 112
       },
       {
         "id": "ACC-04",
