@@ -317,7 +317,7 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
     } else if (pathname === "/api/auth/sign-out" && scope) {
       const exiting = await requireAuthorizedActor(prisma, instance, request.headers, scope);
       if (!exiting) {
-        response = await handlers[method](new Request(normalized, request));
+        response = await handlers[method](authRequest());
       } else {
         response = await prisma.$transaction(async (tx) => {
           const txInstance = createAuth(tx, false, externalUrl.origin);
@@ -330,7 +330,7 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
             actorId: exiting.userId, sessionId: exiting.sessionId, organizationId: exiting.organizationId,
             action: "AUTH_LOGOUT", entityId: exiting.userId, eventKey: randomUUID(), requestId: auditRequestId,
           });
-          const signedOut = await toNextJsHandler(txInstance)[method](new Request(normalized, request));
+          const signedOut = await toNextJsHandler(txInstance)[method](authRequest());
           if (!signedOut.ok) throw new Error("Sign-out failed after audit");
           return signedOut;
         });
