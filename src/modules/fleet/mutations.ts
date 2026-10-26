@@ -23,7 +23,7 @@ const vehicleFields = z.object({
 }).partial().strict();
 export type VehicleFields = z.input<typeof vehicleFields>;
 
-type Operation = { actorId: string; sessionId: string; organizationId: string; requestId: string };
+export type Operation = { actorId: string; sessionId: string; organizationId: string; requestId: string };
 type Status = "PUBLISHED" | "UNPUBLISHED" | "ARCHIVED";
 
 export class PublishingRequirementsError extends Error {
@@ -56,14 +56,14 @@ function version(value: number): boolean {
   return Number.isSafeInteger(value) && value >= 0 && value < 2_147_483_647;
 }
 
-function checkOperation(input: Operation) {
+export function checkOperation(input: Operation) {
   if (![input.actorId, input.sessionId].every((value) => typeof value === "string" && value.length > 0 && value.length <= 128)
     || !uuid.safeParse(input.organizationId).success || !uuid.safeParse(input.requestId).success) {
     throw new Error("FLEET_INVALID_INPUT");
   }
 }
 
-async function authorizedCompany(tx: Prisma.TransactionClient, input: Operation) {
+export async function authorizedCompany(tx: Prisma.TransactionClient, input: Operation) {
   const actor = await requireAuditActor(tx, input.actorId, input.sessionId);
   if (actor.role === "ADMIN_FIRMY" && actor.organizationId !== input.organizationId) throw new Error("FLEET_NOT_FOUND");
   const rows = await tx.$queryRaw<{ id: string }[]>`
@@ -71,7 +71,7 @@ async function authorizedCompany(tx: Prisma.TransactionClient, input: Operation)
   if (rows.length !== 1) throw new Error("FLEET_NOT_FOUND");
 }
 
-async function lockVehicle(tx: Prisma.TransactionClient, organizationId: string, vehicleId: string) {
+export async function lockVehicle(tx: Prisma.TransactionClient, organizationId: string, vehicleId: string) {
   const rows = await tx.$queryRaw<{ id: string }[]>`
     SELECT id FROM "Vehicle" WHERE "organizationId" = ${organizationId}::uuid
       AND id = ${vehicleId}::uuid FOR UPDATE`;
