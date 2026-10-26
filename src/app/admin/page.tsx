@@ -32,6 +32,7 @@ export default async function AdminPage() {
     <PanelShell
       area="company"
       accessState="allowed"
+      expectedSessionId={actor.sessionId}
       title={organization.name ?? "Panel firmy"}
       currentPath="/admin"
     >

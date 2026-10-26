@@ -17,24 +17,23 @@ export default async function HomePage() {
         <h1>Auterva</h1>
       </main>
     );
-  if (
-    area?.area === "PLATFORM" &&
-    area.organizationId === null &&
-    (await requireAuthorizedActor(prisma, auth, incoming, {
+  if (area?.area === "PLATFORM" && area.organizationId === null) {
+    const actor = await requireAuthorizedActor(prisma, auth, incoming, {
       area: "PLATFORM",
       organizationId: null,
-    }))
-  ) {
-    return (
-      <PanelShell
-        area="platform"
-        accessState="allowed"
-        title="Firmy"
-        currentPath="/"
-      >
-        <p>Panel jest w przygotowaniu.</p>
-      </PanelShell>
-    );
+    });
+    if (actor)
+      return (
+        <PanelShell
+          area="platform"
+          accessState="allowed"
+          expectedSessionId={actor.sessionId}
+          title="Firmy"
+          currentPath="/"
+        >
+          <p>Panel jest w przygotowaniu.</p>
+        </PanelShell>
+      );
   }
   // A host mapping alone cannot publish content; the public visibility use case follows separately.
   notFound();

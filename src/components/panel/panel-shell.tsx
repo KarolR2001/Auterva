@@ -10,7 +10,7 @@ import {
   MessageCircle,
   Settings,
 } from "lucide-react";
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { SkipLink } from "../ui/skip-link";
 import { PanelAccess, type PanelAccessState } from "./panel-states";
@@ -52,6 +52,7 @@ async function signOutOnCurrentHost() {
 type PanelShellProps = {
   area: "company" | "platform";
   accessState: PanelAccessState;
+  expectedSessionId?: string;
   title: string;
   currentPath: string;
   unreadChat?: boolean;
@@ -62,11 +63,121 @@ type PanelShellProps = {
   children: ReactNode;
 };
 
-export function PanelShell({ accessState, ...props }: PanelShellProps) {
+export function PanelShell({
+  accessState,
+  expectedSessionId,
+  ...props
+}: PanelShellProps) {
+  const [revokedAccess, setRevokedAccess] = useState<
+    "session-expired" | "forbidden" | null
+  >(null);
+  const [connectionError, setConnectionError] = useState(false);
+  const [connectionEpoch, setConnectionEpoch] = useState(0);
+  const [retryKey, setRetryKey] = useState(0);
+
+  useEffect(() => {
+    if (accessState !== "allowed" || !expectedSessionId) return;
+    let active = true;
+    let pending = false;
+    let recheck = false;
+    let terminal = false;
+    const controller = new AbortController();
+    const showConnectionError = () => {
+      setConnectionError(true);
+      setConnectionEpoch((value) => value + 1);
+    };
+    const checkSession = async () => {
+      if (!active || terminal) return;
+      if (pending) {
+        recheck = true;
+        return;
+      }
+      pending = true;
+      try {
+        const response = await fetch("/api/auth/get-session/", {
+          credentials: "same-origin",
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!active) return;
+        if (response.status === 401) {
+          terminal = true;
+          setRevokedAccess("session-expired");
+        } else if (response.status === 403 || response.status === 404) {
+          terminal = true;
+          setRevokedAccess("forbidden");
+        } else if (response.ok) {
+          const body = (await response.json()) as { session?: { id?: string } };
+          if (!active) return;
+          if (body.session?.id === expectedSessionId) setConnectionError(false);
+          else if (body.session?.id) {
+            terminal = true;
+            setRevokedAccess("session-expired");
+          } else showConnectionError();
+        } else showConnectionError();
+      } catch {
+        if (active) showConnectionError();
+      } finally {
+        pending = false;
+        if (recheck && active && !terminal) {
+          recheck = false;
+          void checkSession();
+        }
+      }
+    };
+    const checkVisibleSession = () => {
+      if (document.visibilityState === "visible") void checkSession();
+    };
+    void checkSession();
+    const interval = window.setInterval(() => void checkSession(), 15_000);
+    window.addEventListener("focus", checkSession);
+    window.addEventListener("online", checkSession);
+    document.addEventListener("visibilitychange", checkVisibleSession);
+    return () => {
+      active = false;
+      controller.abort();
+      window.clearInterval(interval);
+      window.removeEventListener("focus", checkSession);
+      window.removeEventListener("online", checkSession);
+      document.removeEventListener("visibilitychange", checkVisibleSession);
+    };
+  }, [accessState, expectedSessionId, retryKey]);
+
   return (
-    <PanelAccess area={props.area} state={accessState}>
-      <AvailablePanelShell {...props} />
-    </PanelAccess>
+    <>
+      {accessState === "allowed" && connectionError && !revokedAccess && (
+        <main className={styles.accessPage}>
+          <section className={styles.feedback} role="alert">
+            <h1>Nie udało się sprawdzić dostępu</h1>
+            <p>
+              Sprawdź połączenie i spróbuj ponownie. Niezapisane dane pozostają
+              na tym urządzeniu.
+            </p>
+            <button
+              type="button"
+              className={styles.linkButton}
+              onClick={() => setRetryKey((value) => value + 1)}
+            >
+              Spróbuj ponownie
+            </button>
+          </section>
+        </main>
+      )}
+      <PanelAccess
+        area={props.area}
+        state={
+          accessState === "allowed"
+            ? (revokedAccess ?? accessState)
+            : accessState
+        }
+      >
+        <AvailablePanelShell
+          {...props}
+          connectionError={connectionError}
+          connectionEpoch={connectionEpoch}
+        />
+      </PanelAccess>
+    </>
   );
 }
 
@@ -80,8 +191,14 @@ function AvailablePanelShell({
   onInstallPwa,
   onLogout,
   children,
-}: Omit<PanelShellProps, "accessState">) {
+  connectionError,
+  connectionEpoch,
+}: Omit<PanelShellProps, "accessState" | "expectedSessionId"> & {
+  connectionError: boolean;
+  connectionEpoch: number;
+}) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [openedEpoch, setOpenedEpoch] = useState(0);
   const [menuMode, setMenuMode] = useState<"mobile" | "desktop">("mobile");
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState(false);
@@ -102,6 +219,7 @@ function AvailablePanelShell({
     menuTrigger.current = trigger;
     setMenuMode(mode);
     setLogoutError(false);
+    setOpenedEpoch(connectionEpoch);
     setMenuOpen(true);
   }
 
@@ -159,8 +277,14 @@ function AvailablePanelShell({
   }
 
   return (
-    <DialogPrimitive.Root open={menuOpen} onOpenChange={setMenuOpen}>
-      <div className={styles.shell} data-area={area}>
+    <DialogPrimitive.Root
+      open={menuOpen && openedEpoch === connectionEpoch && !connectionError}
+      onOpenChange={(open) => {
+        setMenuOpen(open);
+        if (open) setOpenedEpoch(connectionEpoch);
+      }}
+    >
+      <div className={styles.shell} data-area={area} hidden={connectionError}>
         <SkipLink target="content" />
         <nav className={styles.shellDesktopNav} aria-label="Nawigacja panelu">
           <a

@@ -123,7 +123,8 @@
         "tests/integration/panel-routes.test.tsx",
         "tests/unit/panel-states.test.tsx",
         "tests/unit/panel-shell.test.tsx",
-        "tests/unit/unsaved-changes-dialog.test.tsx"
+        "tests/unit/unsaved-changes-dialog.test.tsx",
+        "tests/e2e/auth-host.spec.ts"
       ],
       "fixturePath": "tests/fixtures/panel-check.tsx"
     },

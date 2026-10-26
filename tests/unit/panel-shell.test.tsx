@@ -272,4 +272,96 @@ describe("nawigacja panelu", () => {
       request.mockRestore();
     }
   });
+
+  it("usuwa prywatny widok, gdy serwer cofnie sesję już otwartego panelu", async () => {
+    let revoked = false;
+    const request = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () =>
+        revoked
+          ? Response.json({ code: "INVALID_CREDENTIALS" }, { status: 401 })
+          : Response.json({ session: { id: "sesja-alfa" } }),
+      );
+    try {
+      render(
+        <PanelShell
+          area="company"
+          accessState="allowed"
+          expectedSessionId="sesja-alfa"
+          title="Panel"
+          currentPath="/admin"
+        >
+          <p>Poufne dane firmy Alfa</p>
+        </PanelShell>,
+      );
+      expect(screen.getByText("Poufne dane firmy Alfa")).toBeInTheDocument();
+      revoked = true;
+      window.dispatchEvent(new Event("focus"));
+      await waitFor(() =>
+        expect(screen.queryByText("Poufne dane firmy Alfa")).toBeNull(),
+      );
+      expect(screen.getByText("Sesja wygasła")).toBeInTheDocument();
+      expect(request).toHaveBeenCalledWith(
+        "/api/auth/get-session/",
+        expect.objectContaining({
+          credentials: "same-origin",
+          cache: "no-store",
+        }),
+      );
+    } finally {
+      request.mockRestore();
+    }
+  });
+
+  it("przy błędzie sieci ukrywa widok, lecz zachowuje szkic do ponownej kontroli", async () => {
+    const user = userEvent.setup();
+    let offline = false;
+    const request = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => {
+        if (offline) throw new TypeError("network unavailable");
+        return Response.json({ session: { id: "sesja-platformy" } });
+      });
+    try {
+      render(
+        <PanelShell
+          area="platform"
+          accessState="allowed"
+          expectedSessionId="sesja-platformy"
+          title="Firmy"
+          currentPath="/firmy"
+        >
+          <label>
+            Szkic <input defaultValue="Firma" />
+          </label>
+        </PanelShell>,
+      );
+      const draft = screen.getByRole("textbox", { name: "Szkic" });
+      await user.type(draft, " Alfa");
+      expect(draft).toHaveValue("Firma Alfa");
+      await user.click(
+        screen.getByRole("button", { name: "Profil superadmina" }),
+      );
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      offline = true;
+      window.dispatchEvent(new Event("focus"));
+      await waitFor(() =>
+        expect(
+          screen.getByText(/nie udało się sprawdzić dostępu/i),
+        ).toBeInTheDocument(),
+      );
+      expect(screen.queryByText("Sesja wygasła")).toBeNull();
+      expect(draft).toBeInTheDocument();
+      expect(draft).not.toBeVisible();
+      offline = false;
+      await user.click(
+        screen.getByRole("button", { name: "Spróbuj ponownie" }),
+      );
+      await waitFor(() => expect(draft).toBeVisible());
+      expect(draft).toHaveValue("Firma Alfa");
+      expect(screen.queryByRole("dialog")).toBeNull();
+    } finally {
+      request.mockRestore();
+    }
+  });
 });

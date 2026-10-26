@@ -3,6 +3,7 @@ import { test, expect } from "@playwright/test";
 import * as OTPAuth from "otpauth";
 import { createAuth } from "../../src/lib/auth";
 import { createPrismaClient } from "../../src/lib/prisma";
+import { verifiedFixtureSession } from "../fixtures/verified-session";
 
 test("an active company host requires TOTP and revokes the old cookie on logout", async ({ request, baseURL }) => {
   if (!baseURL) throw new Error("Missing E2E base URL");
@@ -59,6 +60,87 @@ test("an active company host requires TOTP and revokes the old cookie on logout"
     await db.user.deleteMany({ where: { email } });
     await db.hostMapping.deleteMany({ where: { hostname } });
     await db.organization.delete({ where: { id: company } });
+    await db.$disconnect();
+  }
+});
+
+test("an open panel distinguishes network failure from server revocation", async ({
+  page,
+  baseURL,
+}) => {
+  test.setTimeout(45_000);
+  if (!baseURL) throw new Error("Missing E2E base URL");
+  const db = createPrismaClient(process.env.DATABASE_URL ?? "");
+  const organizationId = randomUUID();
+  const userId = randomUUID();
+  const hostname = `panel-${randomUUID()}.localhost`;
+  const origin = new URL(baseURL);
+  origin.hostname = hostname;
+  await db.organization.create({
+    data: {
+      id: organizationId,
+      slug: `panel-${organizationId}`,
+      name: "Firma Alfa",
+    },
+  });
+  await db.hostMapping.create({
+    data: { hostname, area: "COMPANY_ADMIN", organizationId, status: "ACTIVE" },
+  });
+  await db.user.create({
+    data: {
+      id: userId,
+      name: "Administrator Alfa",
+      email: `panel-${userId}@example.test`,
+      emailVerified: true,
+      twoFactorEnabled: true,
+      role: "ADMIN_FIRMY",
+      organizationId,
+    },
+  });
+  const session = await verifiedFixtureSession(db, userId);
+  try {
+    const cookieValue = session.cookie.slice(session.cookie.indexOf("=") + 1);
+    await page.context().addCookies([
+      {
+        name: "better-auth.session_token",
+        value: cookieValue,
+        url: origin.origin,
+      },
+    ]);
+    const firstCheck = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === "/api/auth/get-session/" &&
+        response.status() === 200,
+    );
+    await page.goto(`${origin.origin}/admin/`);
+    await firstCheck;
+    await expect(page.getByText("Panel jest w przygotowaniu.")).toBeVisible();
+
+    const sessionUrl = /\/api\/auth\/get-session\/?$/;
+    const interrupt = (route: import("@playwright/test").Route) =>
+      route.abort("failed");
+    await page.route(sessionUrl, interrupt);
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(
+      page.getByText("Nie udało się sprawdzić dostępu"),
+    ).toBeVisible();
+    await expect(page.getByText("Panel jest w przygotowaniu.")).toBeHidden();
+    await expect(page.getByText("Sesja wygasła")).toHaveCount(0);
+
+    await page.unroute(sessionUrl, interrupt);
+    await page.getByRole("button", { name: "Spróbuj ponownie" }).click();
+    await expect(page.getByText("Panel jest w przygotowaniu.")).toBeVisible();
+
+    await session.dispose();
+    await expect(page.getByText("Sesja wygasła")).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(page.getByText("Panel jest w przygotowaniu.")).toHaveCount(0);
+  } finally {
+    await session.dispose();
+    await db.user.deleteMany({ where: { id: userId } });
+    await db.hostMapping.deleteMany({ where: { hostname } });
+    await db.organization.deleteMany({ where: { id: organizationId } });
     await db.$disconnect();
   }
 });
