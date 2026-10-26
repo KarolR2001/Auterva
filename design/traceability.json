@@ -158,6 +158,13 @@
         "tests/unit/jobs-provider.test.ts",
         "tests/unit/jobs-config.test.ts"
       ]
+    },
+    {
+      "issue": 114,
+      "scope": "UTC dla połączeń Prisma bez zmiany dat biznesowych Europe/Warsaw ani istniejących danych.",
+      "relatedRequirementIds": ["C-F050", "C-R022", "FR-ADM-071"],
+      "codePaths": ["src/lib/prisma.ts"],
+      "testPaths": ["tests/integration/prisma-timezone.test.ts"]
     }
   ],
   "sources": [
