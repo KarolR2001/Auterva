@@ -116,13 +116,28 @@ export async function resetPassword(db: PrismaClient, input: {
     if (!user || user.role !== expectedRole || user.organizationId !== input.scope.organizationId
       || user.disabledAt || !user.emailVerified || user.organization?.archivedAt
       || proof.identifier !== `password-reset:${user.email.toLowerCase()}`) return false;
-    const account = await tx.account.findFirst({ where: { userId: user.id, providerId: "credential" },
-      select: { id: true, password: true } });
-    if (!account?.password) return false;
+    // All credential mutations take the account row before touching reset proofs
+    // or sessions. Re-read the proof after waiting for a concurrent change.
+    const held = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id FROM "account" WHERE "userId" = ${user.id} AND "providerId" = 'credential' FOR UPDATE`;
+    if (held.length !== 1) return false;
+    const account = await tx.account.findUnique({ where: { id: held[0].id }, select: { password: true } });
+    const freshProof = await tx.verification.findFirst({ where: { id: proof.id,
+      value: digest(input.token), expiresAt: { gt: input.now } } });
+    const freshReceipt = await tx.passwordResetRequest.findUnique({ where: { id: receipt.id } });
+    const freshUser = await tx.user.findUnique({ where: { id: user.id }, select: {
+      email: true, role: true, organizationId: true, disabledAt: true, emailVerified: true,
+      organization: { select: { archivedAt: true } },
+    } });
+    if (!account?.password || !freshProof || !freshReceipt || freshReceipt.consumedAt
+      || freshReceipt.verificationId !== proof.id || freshReceipt.userId !== user.id
+      || !freshUser || freshUser.role !== expectedRole || freshUser.organizationId !== input.scope.organizationId
+      || freshUser.disabledAt || !freshUser.emailVerified || freshUser.organization?.archivedAt
+      || freshProof.identifier !== `password-reset:${freshUser.email.toLowerCase()}`) return false;
     const consumed = await tx.verification.deleteMany({ where: { id: proof.id,
       value: digest(input.token), expiresAt: { gt: input.now } } });
     if (consumed.count !== 1) return false;
-    await tx.account.update({ where: { id: account.id }, data: { password: newHash } });
+    await tx.account.update({ where: { id: held[0].id }, data: { password: newHash } });
     const revoked = await tx.session.deleteMany({ where: { userId: user.id } });
     await tx.verification.deleteMany({ where: { identifier: `password-reset:${user.email.toLowerCase()}` } });
     await revokeMfaChallenges(tx, user.id);

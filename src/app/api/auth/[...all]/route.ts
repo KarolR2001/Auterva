@@ -1,4 +1,5 @@
 import { toNextJsHandler } from "better-auth/next-js";
+import { hashPassword } from "better-auth/crypto";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { auth, createAuth } from "@/lib/auth";
@@ -54,9 +55,14 @@ const passwordChangeBody = z.object({ currentPassword: z.string().min(1).max(256
 const noStore = { "Cache-Control": "no-store" };
 class SignInScopeDenied extends Error {}
 
-async function loginEmail(request: Request) {
-  const body = await request.clone().json().catch(() => null) as { email?: unknown } | null;
-  return typeof body?.email === "string" ? body.email : "";
+async function loginCredentials(request: Request) {
+  const body = await request.clone().json().catch(() => null) as { email?: unknown; password?: unknown } | null;
+  const email = typeof body?.email === "string" ? body.email : "";
+  // Match Better Auth's schema and maximum-length checks before choosing a
+  // neutral KDF path; malformed input is a fast rejection for every account.
+  const password = z.email().safeParse(email).success && typeof body?.password === "string"
+    && body.password.length <= 256 ? body.password : null;
+  return { email, password };
 }
 
 function challengeCookie(header: string | null) {
@@ -256,9 +262,20 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
     }
     const parsed = passwordChangeBody.safeParse(body);
     if (!parsed.success) return Response.json({ code: "INVALID_REQUEST" }, { status: 400, headers: noStore });
-    const changed = await changeAccountPassword(prisma, { headers: request.headers, scope,
-      baseURL: externalUrl.origin, currentPassword: parsed.data.currentPassword,
-      newPassword: parsed.data.newPassword, requestId: auditRequestId });
+    const account = await prisma.user.findUniqueOrThrow({ where: { id: actor.userId }, select: { email: true } });
+    const reservation = await reserveAuthAttempt(prisma, account.email, sourceIp);
+    if (!reservation.allowed) return Response.json({ code: "RATE_LIMITED" }, { status: 429,
+      headers: { ...noStore, "Retry-After": String(reservation.retryAfter) } });
+    let changed: boolean;
+    try {
+      changed = await changeAccountPassword(prisma, { headers: request.headers, scope,
+        baseURL: externalUrl.origin, currentPassword: parsed.data.currentPassword,
+        newPassword: parsed.data.newPassword, requestId: auditRequestId });
+    } catch (error) {
+      await completeAuthAttempt(prisma, reservation.reservationId, !retryableMfaError(error));
+      throw error;
+    }
+    await completeAuthAttempt(prisma, reservation.reservationId, !changed);
     return changed ? Response.json({ status: true, signInRequired: true }, { headers: noStore }) : neutral();
   }
   if (scope && pathname !== "/api/auth/sign-in/email") {
@@ -312,7 +329,8 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
     if (method === "POST") forwarded.headers.set("origin", externalUrl.origin);
     return forwarded;
   };
-  const email = pathname === "/api/auth/sign-in/email" ? await loginEmail(request) : null;
+  const credentials = pathname === "/api/auth/sign-in/email" ? await loginCredentials(request) : null;
+  const email = credentials?.email ?? null;
   const scopedUser = enrollmentActor ?? enableActor;
   const mfaEmail = challengeUser?.email ?? (scopedUser ? (await prisma.user.findUnique({ where: { id: scopedUser.userId }, select: { email: true } }))?.email : null);
   const reservation = email === null && !mfaEmail ? null : await reserveAuthAttempt(prisma, email ?? mfaEmail ?? "", sourceIp);
@@ -421,14 +439,22 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
       const account = candidate && await prisma.account.findFirst({ where: {
         userId: candidate.id, providerId: "credential",
       }, select: { id: true } });
-      if (!account) response = neutral();
+      if (!account) {
+        // Better Auth hashes unknown credentials deliberately. Preserve that
+        // work after the shared limiter even though this gateway refuses early.
+        if (credentials?.password !== null) await hashPassword(credentials?.password ?? "");
+        response = neutral();
+      }
       else response = await prisma.$transaction(async (tx) => {
         // Password changes hold this same account row until all old sessions
         // are revoked. A login cannot commit an old-password session later.
         const held = await tx.$queryRaw<Array<{ id: string }>>`
           SELECT id FROM "account" WHERE id = ${account.id} FOR UPDATE`;
         if (!held.length) return neutral();
-        if (!await matchingMfaAccount(tx, candidate.id, scope)) throw new SignInScopeDenied();
+        if (!await matchingMfaAccount(tx, candidate.id, scope)) {
+          if (credentials?.password !== null) await hashPassword(credentials?.password ?? "");
+          throw new SignInScopeDenied();
+        }
         const signedIn = await toNextJsHandler(createAuth(tx, false, externalUrl.origin))[method](authRequest());
         if (signedIn.ok) {
           const result = await signedIn.clone().json().catch(() => null) as { twoFactorRedirect?: boolean } | null;
