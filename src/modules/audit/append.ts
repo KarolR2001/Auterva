@@ -18,10 +18,10 @@ export const safeAuditFieldNames = new Set([
   "name", "status", "slug", "visibility", "publishedAt", "archivedAt", "paidThrough",
   "trialEndsAt", "hostname", "brandName", "phone", "email", "address", "seoTitle",
   "seoDescription", "availableFrom", "availableTo", "startDate", "endDate", "isCover",
-  "featured", "version", "periodVersion",
+  "featured", "publicUnlockRequired", "version", "periodVersion",
 ]);
 export const safeAuditValueFields = new Set(["status", "visibility", "archivedAt", "paidThrough", "trialEndsAt",
-  "availableFrom", "availableTo", "startDate", "endDate", "isCover", "featured", "version", "periodVersion"]);
+  "availableFrom", "availableTo", "startDate", "endDate", "isCover", "featured", "publicUnlockRequired", "version", "periodVersion"]);
 const statusValues = new Set(["DRAFT", "PUBLISHED", "HIDDEN", "ARCHIVED", "ACTIVE", "INACTIVE", "PENDING", "BLOCKED", "SUSPENDED", "REVOKED", "EXPIRED"]);
 const visibilityValues = new Set(["PUBLIC", "PRIVATE", "HIDDEN"]);
 function isLocalDate(value: unknown): value is string {
@@ -36,7 +36,7 @@ function isUtcInstant(value: unknown): value is string {
 export function isSafeAuditSnapshotValue(field: string, value: unknown): value is string | number | boolean | null {
   if (field === "status") return typeof value === "string" && statusValues.has(value);
   if (field === "visibility") return typeof value === "string" && visibilityValues.has(value);
-  if (field === "isCover" || field === "featured") return typeof value === "boolean";
+  if (field === "isCover" || field === "featured" || field === "publicUnlockRequired") return typeof value === "boolean";
   if (field === "version" || field === "periodVersion") return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
   if (field === "archivedAt" || field === "trialEndsAt") return value === null || isUtcInstant(value);
   if (["paidThrough", "availableFrom", "availableTo", "startDate", "endDate"].includes(field)) return value === null || isLocalDate(value);
