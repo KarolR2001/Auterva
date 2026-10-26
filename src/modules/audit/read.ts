@@ -1,6 +1,7 @@
 import type { PrismaClient, Prisma } from "@/generated/prisma/client";
 import { requireAuditActor, requireAuditScope } from "./actor";
 import { safeAuditFieldNames, safeAuditValueFields, isSafeAuditSnapshotValue } from "./append";
+import { auditRetentionCutoff } from "./retention";
 
 export function safeAuditView(value: Prisma.JsonValue | null): Prisma.JsonObject | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -39,8 +40,9 @@ export async function listAudit(db: PrismaClient, input: {
   return db.$transaction(async (tx) => {
     const actor = await requireAuditActor(tx, input.actorId, input.sessionId);
     requireAuditScope(actor, input.organizationId);
+    const cutoff = auditRetentionCutoff(new Date());
     const rows = await tx.auditLog.findMany({
-      where: { organizationId: input.organizationId },
+      where: { organizationId: input.organizationId, createdAt: { gte: cutoff } },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: limit,
       select: { id: true, eventKey: true, organizationId: true, actorId: true, actorRole: true,
         action: true, entityType: true, entityId: true, safeChanges: true, requestId: true, createdAt: true },

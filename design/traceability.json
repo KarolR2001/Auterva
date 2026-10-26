@@ -177,12 +177,14 @@
         "src/modules/audit/retention.ts",
         "src/modules/audit/retention-runner.ts",
         "src/modules/audit/operator-export.ts",
+        "src/modules/audit/read.ts",
         "src/modules/jobs/queue.ts",
         "scripts/audit-retention.ts"
       ],
       "testPaths": [
         "tests/unit/audit-retention.test.ts",
         "tests/integration/audit-retention.test.ts",
+        "tests/integration/audit-retention-read.test.ts",
         "tests/integration/audit-retention-process.test.ts",
         "tests/integration/audit-export.test.ts"
       ]
