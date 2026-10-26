@@ -7,16 +7,20 @@ const port = Number(process.env.E2E_PORT ?? "3305");
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid E2E_PORT");
 const devPort = Number(process.env.E2E_DEV_PORT ?? String(port + 1));
 if (!Number.isInteger(devPort) || devPort < 1 || devPort > 65535 || devPort === port) throw new Error("Invalid E2E_DEV_PORT");
+const trustedPort = Number(process.env.E2E_TRUSTED_PORT ?? String(port + 2));
+if (!Number.isInteger(trustedPort) || trustedPort < 1 || trustedPort > 65535 || trustedPort === port || trustedPort === devPort) throw new Error("Invalid E2E_TRUSTED_PORT");
 const productionURL = `http://127.0.0.1:${port}`;
 const developmentURL = `http://127.0.0.1:${devPort}`;
+const trustedURL = `http://127.0.0.1:${trustedPort}`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
   workers: 1,
   use: { browserName: "chromium", serviceWorkers: "allow" },
   projects: [
-    { name: "production", testMatch: /(?:pwa|auth-production)\.spec\.ts/, use: { baseURL: productionURL } },
+    { name: "production", testMatch: /auth-production\.spec\.ts/, use: { baseURL: productionURL } },
     { name: "auth-local", testMatch: /auth-host\.spec\.ts/, use: { baseURL: developmentURL } },
+    { name: "trusted-ingress", testMatch: /(?:auth-trusted|pwa)\.spec\.ts/, use: { baseURL: trustedURL } },
   ],
   webServer: [
     {
@@ -28,6 +32,11 @@ export default defineConfig({
       command: `node node_modules/next/dist/bin/next dev --webpack --hostname 127.0.0.1 --port ${devPort}`,
       url: `${developmentURL}/api/health/`, reuseExistingServer: false, timeout: 60_000,
       env: { NEXT_TELEMETRY_DISABLED: "1", BETTER_AUTH_URL: developmentURL, AUTERVA_NEXT_DIST_DIR: ".local/next-dev" },
+    },
+    {
+      command: "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx scripts/start-local-ingress.ts",
+      url: `${trustedURL}/api/health/`, reuseExistingServer: false, timeout: 30_000,
+      env: { NEXT_TELEMETRY_DISABLED: "1", NODE_ENV: "production", PORT: String(trustedPort), BETTER_AUTH_URL: trustedURL, AUTERVA_LOCAL_IPV6: "1" },
     },
   ],
 });

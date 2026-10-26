@@ -9,6 +9,10 @@ import { requireAuthorizedActor, requireScopedActor, resolveAuthHost } from "@/m
 import { MfaFactorBusyError, withMfaFactorLock } from "@/modules/auth/mfa-factor-lock";
 import { completeAuthAttempt, reserveAuthAttempt, takeRateLimit } from "@/modules/auth/rate-limit";
 import { trustedClientAddress } from "@/modules/auth/trusted-address";
+import { parseHostAuthority } from "@/modules/tenancy/host-registry";
+import { currentTrustedClientAddress } from "@/modules/ingress/client-address";
+import { apiRateLimitResponse, takeAuthenticatedApiLimit } from "@/modules/tenancy/api-rate-limit";
+import { withErrorRequestId } from "@/modules/tenancy/request-id";
 
 export const runtime = "nodejs";
 const allowed = new Set([
@@ -18,6 +22,19 @@ const allowed = new Set([
 ]);
 const refusal = () => new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
 const neutral = () => Response.json({ code: "INVALID_CREDENTIALS" }, { status: 401, headers: { "Cache-Control": "no-store" } });
+
+function sameCanonicalOrigin(raw: string | null, expected: URL): boolean {
+  if (!raw) return false;
+  try {
+    const origin = new URL(raw);
+    const suppliedHost = parseHostAuthority(origin.host);
+    const expectedHost = parseHostAuthority(expected.host);
+    return origin.origin === raw && origin.protocol === expected.protocol
+      && suppliedHost?.hostname === expectedHost?.hostname && suppliedHost?.port === expectedHost?.port;
+  } catch {
+    return false;
+  }
+}
 const busy = () => Response.json({ code: "MFA_BUSY" }, { status: 409, headers: { "Retry-After": "1", "Cache-Control": "no-store" } });
 const retryableMfaError = (error: unknown) => error instanceof MfaFactorBusyError
   || (typeof error === "object" && error !== null && "code" in error && ["P2024", "P2028", "P2034"].includes(String(error.code)));
@@ -147,24 +164,36 @@ async function guarded(request: Request, method: "GET" | "POST") {
   const externalUrl = new URL(request.url);
   const pathname = externalUrl.pathname.replace(/\/$/, "");
   const requestHost = request.headers.get("host");
-  if (requestHost && /^[a-z0-9.-]+(?::[0-9]{1,5})?$/i.test(requestHost)) externalUrl.host = requestHost;
+  const authority = requestHost && parseHostAuthority(requestHost);
+  if (authority) {
+    externalUrl.hostname = authority.hostname;
+    externalUrl.port = authority.port?.toString() ?? "";
+  }
   const configuredHost = new URL(getServerEnv().BETTER_AUTH_URL).host;
   const probe = process.env.NODE_ENV === "test" && process.env.AUTERVA_AUTH_PROBE === "1"
     && ["127.0.0.1", "localhost"].includes(new URL(getServerEnv().BETTER_AUTH_URL).hostname)
     && request.headers.get("host") === configuredHost;
-  const scope = probe ? null : await resolveAuthHost(prisma, request.headers.get("host"), request.url);
+  const scope = probe ? null : await resolveAuthHost(prisma, request.headers.get("host"));
   if ((!probe && !scope) || !allowed.has(pathname)) return refusal();
-  if (method === "POST" && request.headers.get("origin") !== externalUrl.origin) return new Response(null, { status: 403, headers: { "Cache-Control": "no-store" } });
+  if (method === "POST" && !sameCanonicalOrigin(request.headers.get("origin"), externalUrl)) return new Response(null, { status: 403, headers: { "Cache-Control": "no-store" } });
   if (method === "GET" && pathname !== "/api/auth/get-session") return new Response(null, { status: 405 });
   if (method === "POST" && pathname === "/api/auth/get-session") return new Response(null, { status: 405 });
   let sourceIp: string;
   try {
-    // #13 replaces the absent transport adapter with a verified ingress address.
-    sourceIp = trustedClientAddress(undefined);
+    sourceIp = trustedClientAddress(currentTrustedClientAddress());
   } catch {
     return new Response(null, { status: 503, headers: { "Cache-Control": "no-store" } });
   }
   const instance = probe ? auth : createAuth(prisma, false, externalUrl.origin);
+  if (scope && pathname !== "/api/auth/sign-in/email") {
+    const scoped = await requireScopedActor(prisma, instance, request.headers, scope);
+    if (scoped) {
+      const limit = await takeAuthenticatedApiLimit(prisma, {
+        actorId: scoped.userId, organizationId: scoped.organizationId,
+      }, pathname === "/api/auth/get-session" ? "read" : "write");
+      if (!limit.allowed) return apiRateLimitResponse(limit.retryAfter);
+    }
+  }
   const handlers = toNextJsHandler(instance);
   if (pathname.startsWith("/api/auth/mfa/")) {
     if (!scope || method !== "POST") return refusal();
@@ -200,6 +229,11 @@ async function guarded(request: Request, method: "GET" | "POST") {
   // Next redirects to trailing-slash URLs for the PWA scope; Better Auth matches paths without it.
   const normalized = new URL(externalUrl);
   normalized.pathname = pathname;
+  const authRequest = () => {
+    const forwarded = new Request(normalized, request);
+    if (method === "POST") forwarded.headers.set("origin", externalUrl.origin);
+    return forwarded;
+  };
   const email = pathname === "/api/auth/sign-in/email" ? await loginEmail(request) : null;
   const scopedUser = enrollmentActor ?? enableActor;
   const mfaEmail = challengeUser?.email ?? (scopedUser ? (await prisma.user.findUnique({ where: { id: scopedUser.userId }, select: { email: true } }))?.email : null);
@@ -222,7 +256,7 @@ async function guarded(request: Request, method: "GET" | "POST") {
         if (current?.sessionId !== enableActor.sessionId || current.twoFactorEnabled) return neutral();
         const factor = await tx.twoFactor.findFirst({ where: { userId: enableActor.userId }, select: { verified: true } });
         if (factor?.verified) return neutral();
-        return toNextJsHandler(txInstance)[method](new Request(normalized, request));
+        return toNextJsHandler(txInstance)[method](authRequest());
       });
     } else if (pathname === "/api/auth/two-factor/verify-backup-code" && challengeUser) {
       response = await withMfaFactorLock(prisma, challengeUser.id, async (tx) => {
@@ -230,7 +264,7 @@ async function guarded(request: Request, method: "GET" | "POST") {
         const current = await tx.user.findUnique({ where: { id: challengeUser.id }, select: { twoFactorEnabled: true } });
         const activeChallenge = challenge && await tx.verification.findFirst({ where: { id: challenge.id, expiresAt: { gt: new Date() } } });
         if (!current?.twoFactorEnabled || !activeChallenge) return neutral();
-        const verified = await toNextJsHandler(txInstance)[method](new Request(normalized, request));
+        const verified = await toNextJsHandler(txInstance)[method](authRequest());
         if (!verified.ok) return verified;
         const session = await sessionFromResponse(txInstance, request, verified);
         if (!session || session.user.id !== challengeUser.id) throw new Error("Recovery session mismatch");
@@ -257,7 +291,7 @@ async function guarded(request: Request, method: "GET" | "POST") {
           const current = await requireScopedActor(tx, txInstance, request.headers, scope!);
           if (current?.sessionId !== enrollmentActor.sessionId || current.twoFactorEnabled !== enrollmentActor.twoFactorEnabled) return neutral();
         }
-        const verified = await toNextJsHandler(txInstance)[method](new Request(normalized, request));
+        const verified = await toNextJsHandler(txInstance)[method](authRequest());
         await recordVerifiedMfaSession(tx, txInstance, request, verified);
         if (verified.ok && challenge) await tx.verification.deleteMany({ where: { id: challenge.id } });
         if (verified.ok && enrollmentActor && !enrollmentActor.twoFactorEnabled) {
@@ -267,7 +301,7 @@ async function guarded(request: Request, method: "GET" | "POST") {
         return verified.ok ? Response.json({ status: true }, { status: verified.status, headers: verified.headers }) : verified;
       });
     } else {
-      response = await handlers[method](new Request(normalized, request));
+      response = await handlers[method](authRequest());
     }
   } catch (error) {
     if (reservation?.allowed) await completeAuthAttempt(prisma, reservation.reservationId, !retryableMfaError(error));
@@ -338,5 +372,5 @@ async function guarded(request: Request, method: "GET" | "POST") {
   return response;
 }
 
-export const GET = (request: Request) => guarded(request, "GET");
-export const POST = (request: Request) => guarded(request, "POST");
+export const GET = async (request: Request) => withErrorRequestId(await guarded(request, "GET"));
+export const POST = async (request: Request) => withErrorRequestId(await guarded(request, "POST"));
