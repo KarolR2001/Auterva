@@ -21,7 +21,9 @@ const pendingEmail = `pending-${randomUUID()}@example.test`;
 const originalPassword = "Original password 9384!";
 const nextPassword = "Next password 9384!";
 const mailKey = randomBytes(32);
-const now = new Date("2026-10-26T12:00:00.000Z");
+// One fixture clock for relative TTL assertions; Better Auth's cleanup uses
+// the actual process clock, so an old absolute timestamp would expire mid-run.
+const now = new Date();
 const scope = { area: "COMPANY_ADMIN" as const, organizationId };
 const ownRequestIds: string[] = [];
 const testIp = `10.${randomBytes(3).join(".")}`;
@@ -171,9 +173,9 @@ function postReset(host: string, path: string, body: object, origin = `https://$
 
 test("HTTP reset is host/Origin scoped, neutral and uses the encrypted outbox", async () => {
   await db.serviceAccess.create({ data: { organizationId, trialGranted: true,
-    trialStartedAt: new Date("2026-10-01T12:00:00.000Z"),
-    trialEndsAt: new Date("2026-10-15T12:00:00.000Z"),
-    paidThrough: new Date("2026-10-20T00:00:00.000Z") } });
+    trialStartedAt: new Date(now.getTime() - 30 * 86_400_000),
+    trialEndsAt: new Date(now.getTime() - 16 * 86_400_000),
+    paidThrough: new Date(now.getTime() - 3 * 86_400_000) } });
   const previous = process.env.MAIL_PAYLOAD_KEY;
   process.env.MAIL_PAYLOAD_KEY = mailKey.toString("hex");
   try {
