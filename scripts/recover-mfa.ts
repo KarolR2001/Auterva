@@ -1,10 +1,10 @@
-import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { pathToFileURL } from "node:url";
 import { config as loadEnv } from "dotenv";
 import { z } from "zod";
 import type { PrismaClient } from "../src/generated/prisma/client";
 import { withMfaFactorLock } from "../src/modules/auth/mfa-factor-lock";
+import { appendOperatorRecoveryAudit } from "../src/modules/audit/operator";
 
 export type OperatorRecovery = {
   targetEmail: string;
@@ -34,11 +34,10 @@ export async function recoverMfaByOperator(db: PrismaClient, input: OperatorReco
     await tx.twoFactor.deleteMany({ where: { userId: user.id } });
     await tx.user.update({ where: { id: user.id }, data: { twoFactorEnabled: false } });
     await tx.verification.deleteMany({ where: { identifier: { startsWith: "auterva:mfa:" }, value: { contains: `"userId":"${user.id}"` } } });
-    await tx.auditLog.create({ data: {
-      actorId: `operator:${operatorId}`, actorRole: "OPERATOR", organizationId: current.organizationId,
-      action: "MFA_OPERATOR_RECOVERY", entityType: "User", entityId: user.id, requestId: randomUUID(),
-      safeChanges: { channel, evidenceReference: reference, identityConfirmed: true, revokedSessions: revoked.count, next: "totp-enrollment" },
-    } });
+    await appendOperatorRecoveryAudit(tx, {
+      operatorId, targetUserId: user.id, organizationId: current.organizationId,
+      evidenceReference: reference, revokedSessions: revoked.count,
+    });
     return { userId: user.id, revokedSessions: revoked.count };
   });
 }

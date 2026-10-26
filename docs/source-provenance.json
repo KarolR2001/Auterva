@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-10-23",
+  "updatedAt": "2026-10-25",
   "note": "Repozytorium dokumentacji i kontraktów MVP 3.1. Źródłowe treści PRD zachowano dosłownie pod jawnymi preambułami. Dokumenty syntezy i SPEC zaktualizowano jawnie; historyczne materiały V2/V30 i artefakty designu nie są zależnościami implementacji.",
   "sources": [
     {
@@ -25,8 +25,8 @@
       "path": "docs/design/SPEC.md",
       "role": "current-design-contract",
       "originalSha256": "57f6591f985e33c7ea225f84b9fa2ac298ff852c2843fb1c54994991608b2027",
-      "sha256": "31444bc54e09d40aa217b2f3894799be852aa1bdff6b52335b891a5ad1428ad7",
-      "transformation": "Dodano nadrzędny kontrakt 3.1 i DEC-013–020, aktualne strony Penpota, obowiązkowe MFA, granice ustawień i status prototypów; zachowano fundamenty/komponenty i przeniesiono reguły motion/copy bez historycznych wyników QA."
+      "sha256": "a201d58feb95be0009c35d8b41985872f087c2201fa9511f9c6d8b8b3119f2af",
+      "transformation": "Dodano nadrzędny kontrakt 3.1 i DEC-013–020, aktualne strony Penpota, obowiązkowe MFA, granice ustawień i status prototypów; zachowano fundamenty/komponenty i przeniesiono reguły motion/copy bez historycznych wyników QA. Doprecyzowano cele nawigacji panelu firmy dla MVP w #94."
     }
   ],
   "derivedDocuments": [
@@ -65,6 +65,10 @@
     {
       "path": "docs/contracts/data-model-and-migrations.md",
       "sha256": "3df3a9f1632d7c13ee9456165cc4ac2c45f06c1abeb79006e30deed117a01b1a"
+    },
+    {
+      "path": "docs/contracts/audit-append-and-access.md",
+      "sha256": "f1008602a899a38d2064ec79d2909013ef6a8e60bfb7dfa495ceafad0e127bd2"
     }
   ],
   "historicalSourcesOutsideRepository": [
