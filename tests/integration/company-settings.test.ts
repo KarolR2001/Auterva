@@ -15,6 +15,8 @@ import { createMediaStorage, readLimited, removeObject } from "../../src/modules
 import { cleanupDeletedPublicMedia, processMediaClaim } from "../../src/modules/media/worker";
 import { ensureControlledSuperadminMfa, verifiedFixtureSession } from "../fixtures/verified-session";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- parsed fixture responses are asserted structurally
+type Json = Record<string, any>;
 const db = createPrismaClient(process.env.DATABASE_URL ?? "");
 const [orgA, orgB] = [randomUUID(), randomUUID()];
 const adminIds = [randomUUID(), randomUUID()];
@@ -24,15 +26,14 @@ const platformHost = `settings-platform-${randomUUID()}.example.test`;
 const secrets = Object.fromEntries(readFileSync(join(process.cwd(), ".local/fixture-9/secrets.env"), "utf8")
   .trim().split("\n").map((line) => { const at = line.indexOf("="); return [line.slice(0, at), line.slice(at + 1)]; }));
 const previousEnv = Object.fromEntries(Object.keys(secrets).map((key) => [key, process.env[key]]));
-let adminSession: Awaited<ReturnType<typeof verifiedFixtureSession>>[] = [];
+const adminSession: Awaited<ReturnType<typeof verifiedFixtureSession>>[] = [];
 let superSession: Awaited<ReturnType<typeof verifiedFixtureSession>>;
 let superId = "";
 let createdSuperadmin: string | undefined;
 const registered = new Date(Date.now() - 86_400_000);
 const day = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
 
-type Ctx = { params: Promise<Record<string, string>> };
-const noParams: Ctx = { params: Promise.resolve({}) };
+type MediaCtx = { params: Promise<{ mediaId: string; variant: string }> };
 // The platform write budget is 60 per minute per actor; every test starts with a fresh one.
 const resetLimits = () => db.rateLimitEvent.deleteMany({});
 
@@ -48,7 +49,7 @@ function platform(method: string, path: string, body?: unknown, cookie = superSe
   body: body === undefined ? undefined : JSON.stringify(body) });
 }
 const settingsPath = (org: string) => `/api/platform/companies/${org}/settings/`;
-const orgCtx = (org: string): Ctx => ({ params: Promise.resolve({ organizationId: org }) });
+const orgCtx = (org: string) => ({ params: Promise.resolve({ organizationId: org }) });
 async function write(org: string, group: string, fields: unknown, expectedVersion: number) {
   return platformPatch(platform("PATCH", settingsPath(org), { group, expectedVersion, eventKey: randomUUID(), fields }),
     orgCtx(org));
@@ -56,10 +57,13 @@ async function write(org: string, group: string, fields: unknown, expectedVersio
 async function version(org: string): Promise<number> {
   return (await db.siteSettings.findUnique({ where: { organizationId: org } }))?.version ?? 0;
 }
-function pub(host: string, handler: typeof publicSettings, ctx?: Ctx, path = "/api/public/settings/") {
+function pub(host: string, handler: (request: Request) => Promise<Response>, path = "/api/public/settings/") {
   return runWithTrustedClientAddress(`203.0.113.${Math.floor(Math.random() * 200) + 1}`, () =>
-    (handler as (r: Request, c?: Ctx) => Promise<Response>)(new Request(`https://${host}${path}`, { headers: { host } }), ctx));
+    handler(new Request(`https://${host}${path}`, { headers: { host } })));
 }
+const media = (host: string, mediaId: string, variant: string) => pub(host,
+  (request) => publicMedia(request, { params: Promise.resolve({ mediaId, variant }) } satisfies MediaCtx),
+  `/api/public/media/${mediaId}/${variant}/`);
 
 beforeAll(async () => {
   for (const [key, value] of Object.entries(secrets)) process.env[key] = value;
@@ -127,21 +131,21 @@ const groups: Record<string, Record<string, string | number | boolean | null>> =
 test("D-01 matrix: company admin cannot write any field, also by direct API, and reads without the operator note", async () => {
   const before = await db.siteSettings.findUnique({ where: { organizationId: orgA } });
   for (const [group, fields] of Object.entries(groups)) for (const [field, value] of Object.entries(fields)) {
-    const response = await adminPatch(admin(0, "PATCH", { [field]: value }), noParams);
+    const response = await adminPatch(admin(0, "PATCH", { [field]: value }));
     expect([group, field, response.status]).toEqual([group, field, 403]);
   }
   for (const forbidden of [{ seo: { title: "x" } }, { phone: "1", "seo.title": "x" }, { unknown: 1 }, { slug: "x" }, { showPrices: true }])
-    expect((await adminPatch(admin(0, "PATCH", forbidden), noParams)).status).toBe(403);
-  expect((await adminPatch(admin(0, "PATCH", {}), noParams)).status).toBe(400);
-  expect((await adminPatch(admin(0, "PATCH", [1]), noParams)).status).toBe(400);
+    expect((await adminPatch(admin(0, "PATCH", forbidden))).status).toBe(403);
+  expect((await adminPatch(admin(0, "PATCH", {}))).status).toBe(400);
+  expect((await adminPatch(admin(0, "PATCH", [1]))).status).toBe(400);
   const noOrigin = admin(0, "PATCH", { phone: "1" }); noOrigin.headers.delete("origin");
-  expect((await adminPatch(noOrigin, noParams)).status).toBe(403);
+  expect((await adminPatch(noOrigin)).status).toBe(403);
   const foreignSession = admin(0, "PATCH", { phone: "1" }, { cookie: adminSession[1].cookie });
-  expect((await adminPatch(foreignSession, noParams)).status).toBe(403);
-  expect((await adminPatch(admin(0, "PATCH", { phone: "1" }, { cookie: "" }), noParams)).status).toBe(403);
+  expect((await adminPatch(foreignSession)).status).toBe(403);
+  expect((await adminPatch(admin(0, "PATCH", { phone: "1" }, { cookie: "" }))).status).toBe(403);
   expect(await db.siteSettings.findUnique({ where: { organizationId: orgA } })).toEqual(before);
   expect(await db.auditLog.count({ where: { organizationId: orgA, action: "SETTINGS_CHANGED" } })).toBe(0);
-  const read = await adminGet(admin(0, "GET"), noParams);
+  const read = await adminGet(admin(0, "GET"));
   expect(read.status).toBe(200);
   expect(read.headers.get("cache-control")).toBe("no-store");
   const text = JSON.stringify(await read.json());
@@ -174,15 +178,15 @@ test("superadmin writes every D-01 group for company A only; B and the admin log
   expect((await db.user.findUniqueOrThrow({ where: { id: adminIds[0] } })).email).toBe(adminEmail);
   expect(await db.siteSettings.findUnique({ where: { organizationId: orgB } })).toBeNull();
   expect((await db.organization.findUniqueOrThrow({ where: { id: orgB } })).name).toBe("Firma 1");
-  const adminA = await (await adminGet(admin(0, "GET"), noParams)).json() as Record<string, any>;
+  const adminA = await (await adminGet(admin(0, "GET"))).json() as Json;
   expect(adminA.settings.contact).toMatchObject({ phone: "+48 600 100 200", email: "kontakt@example.test" });
   expect(adminA.settings.display).toEqual({ showPrices: true, featuredVehicleCount: 4 });
   expect(JSON.stringify(adminA)).not.toContain("tajna notatka");
-  const adminB = await (await adminGet(admin(1, "GET"), noParams)).json() as Record<string, any>;
+  const adminB = await (await adminGet(admin(1, "GET"))).json() as Json;
   expect(adminB.organizationId).toBe(orgB);
   expect(adminB.settings.contact.phone).toBeNull();
   expect(adminB.settings.display.showPrices).toBe(false);
-  const platformRead = await (await platformGet(platform("GET", settingsPath(orgA)), orgCtx(orgA))).json() as Record<string, any>;
+  const platformRead = await (await platformGet(platform("GET", settingsPath(orgA)), orgCtx(orgA))).json() as Json;
   expect(platformRead.operator.operatorNote).toBe("tajna notatka operatora");
   // the company admin session cannot use the platform path
   const asAdmin = new Request(`https://${platformHost}${settingsPath(orgA)}`, { method: "PATCH", headers: { host: platformHost,
@@ -282,10 +286,10 @@ test("public settings pass the service-period gate on every read and never leak 
   const warmA = await pub(publicHost[0], publicSettings);
   expect(warmA.status).toBe(200);
   expect(warmA.headers.get("cache-control")).toBe("no-store");
-  const dto = await warmA.json() as Record<string, any>;
+  const dto = await warmA.json() as Json;
   expect(dto).toMatchObject({ name: "Wypożyczalnia A", display: { showPrices: true } });
   expect(JSON.stringify(dto)).not.toMatch(/operator|tajna|organizationId|storageKey|version|internalNote|reference/);
-  const dtoB = await (await pub(publicHost[1], publicSettings)).json() as Record<string, any>;
+  const dtoB = await (await pub(publicHost[1], publicSettings)).json() as Json;
   expect(dtoB).toMatchObject({ name: "Firma B publiczna", display: { showPrices: false } });
   expect(JSON.stringify(dtoB)).not.toMatch(/Wypożyczalnia A|notatka B/);
   // company admin hosts and platform host never serve the public projection
@@ -295,7 +299,7 @@ test("public settings pass the service-period gate on every read and never leak 
   await db.serviceAccess.update({ where: { organizationId: orgA }, data: { paidThrough: new Date(`${day(-2)}T00:00:00.000Z`) } });
   expect((await pub(publicHost[0], publicSettings)).status).toBe(404);
   // private reads and allowed writes survive the expiry; B is unaffected
-  expect((await adminGet(admin(0, "GET"), noParams)).status).toBe(200);
+  expect((await adminGet(admin(0, "GET"))).status).toBe(200);
   expect((await write(orgA, "seo", { seoDescription: "Po wygaśnięciu" }, await version(orgA))).status).toBe(200);
   expect((await platformGet(platform("GET", settingsPath(orgA)), orgCtx(orgA))).status).toBe(200);
   expect((await pub(publicHost[1], publicSettings)).status).toBe(200);
@@ -348,27 +352,23 @@ test("logo and hero go through the media pipeline, only for the superadmin and o
   expect(audits).toHaveLength(2);
   expect(audits.every((log) => log.actorId === superId && log.actorRole === "SUPERADMIN_AUTERVA")).toBe(true);
   expect(await db.publicMedia.count({ where: { organizationId: orgB } })).toBe(0);
-  const adminView = await (await adminGet(admin(0, "GET"), noParams)).json() as { media: { id: string; kind: string }[] };
+  const adminView = await (await adminGet(admin(0, "GET"))).json() as { media: { id: string; kind: string }[] };
   expect(adminView.media.map((m) => m.kind).sort()).toEqual(["HERO", "LOGO"]);
   expect(JSON.stringify(adminView)).not.toMatch(/storageKey|private\//);
   const view = await (await pub(publicHost[0], publicSettings)).json() as { media: { id: string; urls: { large: string } }[] };
   expect(view.media).toHaveLength(2);
-  const served = await pub(publicHost[0], publicMedia, { params: Promise.resolve({ mediaId: imageId, variant: "large" }) },
-    `/api/public/media/${imageId}/large/`);
+  const served = await media(publicHost[0], imageId, "large");
   expect(served.status).toBe(200);
   expect(served.headers.get("content-type")).toBe("image/webp");
   expect(served.headers.get("cache-control")).toBe("no-store");
   // another company's host cannot fetch A's image, and the raw object is never reachable
-  const crossHost = await pub(publicHost[1], publicMedia, { params: Promise.resolve({ mediaId: imageId, variant: "large" }) },
-    `/api/public/media/${imageId}/large/`);
+  const crossHost = await media(publicHost[1], imageId, "large");
   expect(crossHost.status).toBe(404);
-  const raw = await pub(publicHost[0], publicMedia, { params: Promise.resolve({ mediaId: imageId, variant: "raw" }) },
-    `/api/public/media/${imageId}/raw/`);
+  const raw = await media(publicHost[0], imageId, "raw");
   expect(raw.status).toBe(404);
   // after expiry the media is as hidden as the settings
   await db.serviceAccess.update({ where: { organizationId: orgA }, data: { paidThrough: new Date(`${day(-2)}T00:00:00.000Z`) } });
-  expect((await pub(publicHost[0], publicMedia, { params: Promise.resolve({ mediaId: imageId, variant: "large" }) },
-    `/api/public/media/${imageId}/large/`)).status).toBe(404);
+  expect((await media(publicHost[0], imageId, "large")).status).toBe(404);
   await db.serviceAccess.update({ where: { organizationId: orgA }, data: { paidThrough: new Date(`${day(30)}T00:00:00.000Z`) } });
 });
 
@@ -416,7 +416,7 @@ test("archived companies are read-only for settings and media", async () => {
   try {
     expect((await write(orgB, "seo", { seoTitle: "x" }, await version(orgB))).status).toBe(409);
     expect((await upload(orgB, "logo", await png("#445566"))).status).toBe(404);
-    expect((await adminGet(admin(1, "GET"), noParams)).status).toBe(403);
+    expect((await adminGet(admin(1, "GET"))).status).toBe(403);
     expect((await platformGet(platform("GET", settingsPath(orgB)), orgCtx(orgB))).status).toBe(200);
   } finally { await db.organization.update({ where: { id: orgB }, data: { archivedAt: null } }); }
 });
