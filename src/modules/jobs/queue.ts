@@ -64,30 +64,35 @@ export async function claimNextJob(db: PrismaClient, now: Date, leaseMs: number,
 }
 
 export async function finishJob(db: PrismaClient, claim: ClaimedJob, status: "SENT" | "SKIPPED", now: Date, providerId?: string): Promise<boolean> {
-  const current = await db.job.findUnique({ where: { id: claim.id }, select: { payload: true } });
-  const digest = (current?.payload as { digest?: unknown } | undefined)?.digest;
-  const result = await db.job.updateMany({
-    where: { id: claim.id, status: "RUNNING", leaseToken: claim.leaseToken, lockedUntil: { gt: now } },
-    data: { status, providerId, completedAt: now, leaseToken: null, lockedUntil: null,
-      payload: typeof digest === "string" ? { digest } : {} },
-  });
-  return result.count === 1;
+  const result = await db.$queryRaw<{ id: string }[]>`
+    UPDATE "Job" SET status = ${status}, "providerId" = ${providerId ?? null},
+      "completedAt" = ${now}, "leaseToken" = NULL, "lockedUntil" = NULL,
+      payload = jsonb_build_object('digest', payload->>'digest')
+    WHERE id = ${claim.id}::uuid AND status = 'RUNNING'
+      AND "leaseToken" = ${claim.leaseToken}::uuid AND "lockedUntil" > ${now}
+    RETURNING id
+  `;
+  return result.length === 1;
 }
 
 export async function failJob(db: PrismaClient | Prisma.TransactionClient, claim: ClaimedJob, code: "MAIL_TRANSIENT" | "MAIL_PERMANENT", now: Date): Promise<boolean> {
-  const current = await db.job.findUnique({ where: { id: claim.id }, select: { maxAttempts: true, payload: true } });
-  if (!current) return false;
-  const exhausted = code === "MAIL_PERMANENT" || claim.attempts >= current.maxAttempts;
-  const uncertain = code === "MAIL_TRANSIENT" && exhausted;
+  const permanent = code === "MAIL_PERMANENT";
   const delay = Math.min(5_000 * 2 ** Math.min(claim.attempts - 1, 6), 300_000);
-  const result = await db.job.updateMany({
-    where: { id: claim.id, status: "RUNNING", leaseToken: claim.leaseToken, lockedUntil: { gt: now } },
-    data: { status: uncertain ? "UNCERTAIN" : exhausted ? "FAILED" : "PENDING",
-      runAt: exhausted ? undefined : new Date(now.getTime() + delay),
-      errorCode: uncertain ? "MAIL_OUTCOME_UNKNOWN" : code, leaseToken: null, lockedUntil: null,
-      payload: exhausted && !uncertain ? { digest: (current.payload as { digest?: unknown }).digest ?? null } : undefined },
-  });
-  return result.count === 1;
+  const nextAt = new Date(now.getTime() + delay);
+  const result = await db.$queryRaw<{ id: string }[]>`
+    UPDATE "Job" SET
+      status = CASE WHEN ${permanent} THEN 'FAILED'
+        WHEN attempts >= "maxAttempts" THEN 'UNCERTAIN' ELSE 'PENDING' END,
+      "runAt" = CASE WHEN NOT ${permanent} AND attempts < "maxAttempts" THEN ${nextAt} ELSE "runAt" END,
+      "errorCode" = CASE WHEN NOT ${permanent} AND attempts >= "maxAttempts"
+        THEN 'MAIL_OUTCOME_UNKNOWN' ELSE ${code} END,
+      "leaseToken" = NULL, "lockedUntil" = NULL,
+      payload = CASE WHEN ${permanent} THEN jsonb_build_object('digest', payload->>'digest') ELSE payload END
+    WHERE id = ${claim.id}::uuid AND status = 'RUNNING'
+      AND "leaseToken" = ${claim.leaseToken}::uuid AND "lockedUntil" > ${now}
+    RETURNING id
+  `;
+  return result.length === 1;
 }
 
 export async function startMailAttempt(db: PrismaClient, claim: ClaimedJob, now: Date): Promise<boolean> {

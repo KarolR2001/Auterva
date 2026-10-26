@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { PrismaClient } from "@/generated/prisma/client";
+import type { Job, PrismaClient } from "@/generated/prisma/client";
 import { normalizeHostname } from "@/modules/tenancy/host-registry";
 import { decryptMailPayload, isCurrentReminderRecipient, type MailPayload } from "./outbox";
 import { failJob, quarantineMailJob, startMailAttempt, type ClaimedJob } from "./queue";
@@ -14,6 +14,8 @@ export type WorkerContext = {
   allowedRecipients: ReadonlySet<string>;
   provider: MailProvider;
   clock?: () => Date;
+  /** Controlled concurrency-test hook; never configured by the worker entrypoint. */
+  afterPayloadRead?: () => Promise<void>;
   afterProviderResponse?: () => Promise<void>;
 };
 
@@ -56,39 +58,49 @@ async function isCurrent(db: PrismaClient, mail: MailPayload, now: Date): Promis
     && await isCurrentReminderRecipient(db, mail.organizationId, mail.recipient);
 }
 
-async function skip(db: PrismaClient, claim: ClaimedJob, now: Date, code: string): Promise<void> {
-  const current = await db.job.findUnique({ where: { id: claim.id }, select: { payload: true } });
-  await db.job.updateMany({ where: { id: claim.id, status: "RUNNING", leaseToken: claim.leaseToken,
-    lockedUntil: { gt: now } }, data: { status: "SKIPPED", errorCode: code, completedAt: now,
-      leaseToken: null, lockedUntil: null,
-      payload: { digest: (current?.payload as { digest?: unknown } | undefined)?.digest ?? null } } });
+async function skip(db: PrismaClient, claim: ClaimedJob, now: Date, code: string, expectedPayload: Job["payload"]): Promise<boolean> {
+  // The payload is the snapshot that was checked. A concurrent rebind changes it
+  // without changing the active lease, so status/lease alone cannot fence a stale skip.
+  const changed = await db.$queryRaw<{ id: string }[]>`
+    UPDATE "Job" SET status = 'SKIPPED', "errorCode" = ${code}, "completedAt" = ${now},
+      "leaseToken" = NULL, "lockedUntil" = NULL,
+      payload = jsonb_build_object('digest', payload->>'digest')
+    WHERE id = ${claim.id}::uuid AND status = 'RUNNING'
+      AND "leaseToken" = ${claim.leaseToken}::uuid AND "lockedUntil" > ${now}
+      AND payload = ${JSON.stringify(expectedPayload)}::jsonb
+    RETURNING id
+  `;
+  return changed.length === 1;
 }
 
 export async function processClaimedJob(db: PrismaClient, claim: ClaimedJob, context: WorkerContext): Promise<void> {
   const currentTime = () => context.clock?.() ?? context.now;
-  const job = await db.job.findUnique({ where: { id: claim.id } });
-  if (!job || job.status !== "RUNNING" || job.leaseToken !== claim.leaseToken) return;
-  if (job.kind === "RATE_LIMIT_SWEEP") {
-    // Periodic cleanup is scheduled in the worker loop, not through a persistent mail job.
-    await skip(db, claim, currentTime(), "UNSUPPORTED_JOB_KIND");
-    return;
+  let ready: { job: Job; mail: MailPayload } | null = null;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const job = await db.job.findUnique({ where: { id: claim.id } });
+    if (!job || job.status !== "RUNNING" || job.leaseToken !== claim.leaseToken) return;
+    if (attempt === 0) await context.afterPayloadRead?.();
+    let code: string | null = null;
+    let mail: MailPayload | null = null;
+    if (!job.kind.startsWith("MAIL_") || job.kind === "RATE_LIMIT_SWEEP") {
+      code = "UNSUPPORTED_JOB_KIND";
+    } else {
+      try { mail = decryptMailPayload(job.payload, context.key); }
+      catch { code = "INVALID_PAYLOAD"; }
+      if (mail && (mail.kind !== job.kind || mail.organizationId !== job.organizationId ||
+          (context.mode !== "production" && !context.allowedRecipients.has(mail.recipient)))) {
+        code = "RECIPIENT_NOT_ALLOWED";
+      } else if (mail && !(await isCurrent(db, mail, currentTime()))) {
+        code = "STALE_INTENT";
+      }
+    }
+    if (!code && mail) { ready = { job, mail }; break; }
+    if (await skip(db, claim, currentTime(), code ?? "INVALID_PAYLOAD", job.payload)) return;
+    // A rebind replaced the checked payload. Re-read the still-owned lease and
+    // validate its new version instead of discarding the current due intent.
   }
-  if (!job.kind.startsWith("MAIL_")) {
-    await skip(db, claim, currentTime(), "UNSUPPORTED_JOB_KIND");
-    return;
-  }
-  let mail: MailPayload;
-  try { mail = decryptMailPayload(job.payload, context.key); }
-  catch { await skip(db, claim, currentTime(), "INVALID_PAYLOAD"); return; }
-  if (mail.kind !== job.kind || mail.organizationId !== job.organizationId ||
-      (context.mode !== "production" && !context.allowedRecipients.has(mail.recipient))) {
-    await skip(db, claim, currentTime(), "RECIPIENT_NOT_ALLOWED");
-    return;
-  }
-  if (!(await isCurrent(db, mail, currentTime()))) {
-    await skip(db, claim, currentTime(), "STALE_INTENT");
-    return;
-  }
+  if (!ready) return;
+  const { job, mail } = ready;
   const dispatchAt = currentTime();
   if (!(await startMailAttempt(db, claim, dispatchAt))) {
     await quarantineMailJob(db, claim, dispatchAt);
@@ -101,12 +113,15 @@ export async function processClaimedJob(db: PrismaClient, claim: ClaimedJob, con
   const completedAt = currentTime();
   if (result.kind === "accepted") {
     await db.$transaction(async (tx) => {
-      const updated = await tx.job.updateMany({ where: { id: claim.id, status: "RUNNING",
-        leaseToken: claim.leaseToken, lockedUntil: { gt: completedAt } },
-      data: { status: "SENT", providerId: result.providerId, completedAt,
-        leaseToken: null, lockedUntil: null,
-        payload: { digest: (job.payload as { digest?: unknown }).digest ?? null } } });
-      if (updated.count === 1 && mail.kind === "MAIL_INVITATION") {
+      const updated = await tx.$queryRaw<{ id: string }[]>`
+        UPDATE "Job" SET status = 'SENT', "providerId" = ${result.providerId},
+          "completedAt" = ${completedAt}, "leaseToken" = NULL, "lockedUntil" = NULL,
+          payload = jsonb_build_object('digest', payload->>'digest')
+        WHERE id = ${claim.id}::uuid AND status = 'RUNNING'
+          AND "leaseToken" = ${claim.leaseToken}::uuid AND "lockedUntil" > ${completedAt}
+        RETURNING id
+      `;
+      if (updated.length === 1 && mail.kind === "MAIL_INVITATION") {
         await tx.invitation.updateMany({ where: { id: mail.referenceId, organizationId: mail.organizationId! },
           data: { deliveryStatus: "SENT" } });
       }
