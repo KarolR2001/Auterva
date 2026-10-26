@@ -97,8 +97,9 @@ export async function enqueueMail(tx: Prisma.TransactionClient, input: MailInput
   }
   if (input.kind === "MAIL_PASSWORD_RESET") {
     const user = await tx.user.findUnique({ where: { email: input.recipient.toLowerCase() },
-      select: { organizationId: true, role: true, disabledAt: true } });
-    if (!user || user.disabledAt || user.organizationId !== input.organizationId ||
+      select: { organizationId: true, role: true, disabledAt: true, emailVerified: true,
+        accounts: { where: { providerId: "credential", password: { not: null } }, select: { id: true }, take: 1 } } });
+    if (!user || user.disabledAt || !user.emailVerified || user.accounts.length !== 1 || user.organizationId !== input.organizationId ||
         user.role !== (scope === "PLATFORM" ? "SUPERADMIN_AUTERVA" : "ADMIN_FIRMY")) {
       throw new Error("Reset recipient does not match mail scope");
     }

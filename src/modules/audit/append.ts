@@ -2,7 +2,7 @@ import type { Prisma, AuditLog } from "@/generated/prisma/client";
 import { requireAuditActor, requireAuditScope } from "./actor";
 
 const actionEntity = {
-  AUTH_LOGIN_COMPLETED: "User", AUTH_LOGOUT: "User", AUTH_PASSWORD_CHANGED: "User",
+  AUTH_LOGIN_COMPLETED: "User", AUTH_LOGOUT: "User", AUTH_PASSWORD_CHANGED: "User", AUTH_PROFILE_UPDATED: "User",
   AUTH_SESSIONS_REVOKED: "User",
   COMPANY_CREATED: "Organization", COMPANY_UPDATED: "Organization", COMPANY_ARCHIVED: "Organization",
   INVITATION_CREATED: "Invitation", INVITATION_REVOKED: "Invitation",
