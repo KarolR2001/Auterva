@@ -6,6 +6,7 @@ import { afterAll, beforeAll, expect, test } from "vitest";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { POST as uploadPost } from "../../src/app/api/admin/vehicles/[id]/images/route";
 import { POST as platformPost } from "../../src/app/api/platform/companies/[organizationId]/vehicles/[id]/images/route";
+import { mediaFailure } from "../../src/modules/media/http";
 import { createMediaStorage, removeObject } from "../../src/modules/media/storage";
 import { ensureControlledSuperadminMfa, verifiedFixtureSession } from "../fixtures/verified-session";
 
@@ -14,6 +15,7 @@ const organizationId = randomUUID();
 const otherOrganizationId = randomUUID();
 const vehicleId = randomUUID();
 const otherVehicleId = randomUUID();
+const fullVehicleId = randomUUID();
 const actorId = randomUUID();
 const host = `media-${organizationId}.example.test`;
 const otherHost = `media-${otherOrganizationId}.example.test`;
@@ -39,6 +41,7 @@ beforeAll(async () => {
   ] });
   await db.vehicle.createMany({ data: [
     { id: vehicleId, organizationId }, { id: otherVehicleId, organizationId: otherOrganizationId },
+    { id: fullVehicleId, organizationId },
   ] });
   await db.hostMapping.createMany({ data: [
     { hostname: host, area: "COMPANY_ADMIN", organizationId, status: "ACTIVE" },
@@ -76,7 +79,7 @@ afterAll(async () => {
   await db.user.deleteMany({ where: { id: actorId } });
   await db.hostMapping.deleteMany({ where: { organizationId: { in: [organizationId, otherOrganizationId] } } });
   await db.hostMapping.deleteMany({ where: { hostname: platformHost } });
-  await db.vehicle.deleteMany({ where: { id: { in: [vehicleId, otherVehicleId] } } });
+  await db.vehicle.deleteMany({ where: { id: { in: [vehicleId, otherVehicleId, fullVehicleId] } } });
   await db.organization.deleteMany({ where: { id: { in: [organizationId, otherOrganizationId] } } });
   for (const [key, value] of Object.entries(previousStorage)) {
     if (value === undefined) delete process.env[key]; else process.env[key] = value;
@@ -153,4 +156,44 @@ test("platform MFA actor may upload within the selected company but cannot switc
   expect((await platformPost(platformRequest(vehicleId, session.cookie),
     { params: Promise.resolve({ organizationId, id: vehicleId }) })).status).toBe(403);
   expect(await db.imageUpload.count({ where: { organizationId, vehicleId, reservationKey: key } })).toBe(1);
+});
+
+test("29 images + rejected upload + valid upload: the rejection releases its place", async () => {
+  await db.vehicleImage.createMany({ data: Array.from({ length: 29 }, (_, index) => ({
+    id: randomUUID(), organizationId, vehicleId: fullVehicleId, storageKey: `legacy/${fullVehicleId}/${index}`,
+    mime: "image/webp", width: 1, height: 1, bytes: 1, status: "READY" })) });
+  const params = { params: Promise.resolve({ id: fullVehicleId }) };
+  const rejectedKey = randomUUID();
+  const svg = request(host, fullVehicleId, Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>'), rejectedKey);
+  expect((await uploadPost(svg, params)).status).toBe(422);
+  expect((await db.imageUpload.findFirstOrThrow({ where: { reservationKey: rejectedKey } })).state).toBe("REJECTED");
+  const png = await sharp({ create: { width: 30, height: 20, channels: 3, background: "#118833" } }).png().toBuffer();
+  // A rejected key is consumed; it neither reuses the place nor accepts other bytes.
+  const again = await uploadPost(request(host, fullVehicleId, png, rejectedKey), params);
+  expect(again.status).toBe(409);
+  expect(await again.json()).toMatchObject({ code: "MEDIA_UPLOAD_REJECTED" });
+  const good = await uploadPost(request(host, fullVehicleId, png), params);
+  expect(good.status).toBe(202);
+  // 29 images + 1 accepted upload: the 30 places are full again.
+  const full = await uploadPost(request(host, fullVehicleId, png), params);
+  expect(full.status).toBe(409);
+  expect(await full.json()).toMatchObject({ code: "MEDIA_IMAGE_LIMIT" });
+  // Declared oversize length is refused before any reservation exists.
+  const before = await db.imageUpload.count({ where: { organizationId, vehicleId: vehicleId } });
+  const declared = request(host, vehicleId, png);
+  declared.headers.set("content-length", "10000001");
+  expect((await uploadPost(declared, { params: Promise.resolve({ id: vehicleId }) })).status).toBe(413);
+  expect(await db.imageUpload.count({ where: { organizationId, vehicleId } })).toBe(before);
+});
+
+test("decoder resource limits are the client's invalid input (422), a busy decoder is retryable", async () => {
+  for (const code of ["MEDIA_MEMORY_LIMIT", "MEDIA_DECODE_TIMEOUT"]) {
+    const res = mediaFailure(new Error(code), randomUUID());
+    expect(res.status).toBe(422);
+    expect(await res.json()).toEqual({ code: "IMAGE_TOO_COMPLEX" });
+  }
+  const busy = mediaFailure(new Error("MEDIA_BUSY"), randomUUID());
+  expect(busy.status).toBe(503);
+  expect(busy.headers.get("retry-after")).toBe("5");
+  expect(mediaFailure(new Error("Audit actor is not authorized"), randomUUID()).status).toBe(401);
 });

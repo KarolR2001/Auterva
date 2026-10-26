@@ -1,6 +1,6 @@
 import { defineConfig } from "@playwright/test";
 import { config as loadEnv } from "dotenv";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 loadEnv({ path: ".env.local", quiet: true });
 loadEnv({ path: ".env", quiet: true });
@@ -13,8 +13,9 @@ if (!Number.isInteger(trustedPort) || trustedPort < 1 || trustedPort > 65535 || 
 const productionURL = `http://127.0.0.1:${port}`;
 const developmentURL = `http://127.0.0.1:${devPort}`;
 const trustedURL = `http://127.0.0.1:${trustedPort}`;
-const mediaEnv = Object.fromEntries(readFileSync(".local/fixture-9/secrets.env", "utf8")
-  .trim().split("\n").map((line) => { const at = line.indexOf("="); return [line.slice(0, at), line.slice(at + 1)]; }));
+// Only media tests need the local S3 secrets; other projects run without the fixture.
+const mediaEnv = existsSync(".local/fixture-9/secrets.env") ? Object.fromEntries(readFileSync(".local/fixture-9/secrets.env", "utf8")
+  .trim().split("\n").map((line) => { const at = line.indexOf("="); return [line.slice(0, at), line.slice(at + 1)]; })) : {};
 
 export default defineConfig({
   testDir: "./tests/e2e",

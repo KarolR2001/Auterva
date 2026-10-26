@@ -3,11 +3,12 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { takeAuthenticatedApiLimit } from "@/modules/tenancy/api-rate-limit";
 import { parseHostAuthority } from "@/modules/tenancy/host-registry";
+import { routeAllowedForArea } from "@/modules/tenancy/host-route-policy";
 import { requireRequestContext, resolveRequestArea } from "@/modules/tenancy/request-context";
 import { finalizeImageUpload } from "./finalize";
-import { reserveVehicleImageUpload } from "./reservation";
+import { rejectImageUpload, reserveVehicleImageUpload } from "./reservation";
 import { createMediaStorage, stageBytes } from "./storage";
-import { readUploadBody } from "./stream";
+import { declaredUploadLength, readUploadBody } from "./stream";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 type Area = "COMPANY_ADMIN" | "PLATFORM";
@@ -29,7 +30,7 @@ function validOrigin(request: Request): boolean {
   } catch { return false; }
 }
 
-function failure(error: unknown, requestId: string) {
+export function mediaFailure(error: unknown, requestId: string) {
   const code = error instanceof Error ? error.message : "";
   if (["MEDIA_INVALID_INPUT", "MEDIA_INVALID_SIZE"].includes(code))
     return response({ code: code === "MEDIA_INVALID_SIZE" ? "IMAGE_TOO_LARGE_OR_EMPTY" : "INVALID_INPUT" },
@@ -38,12 +39,22 @@ function failure(error: unknown, requestId: string) {
     return response({ code: "NOT_FOUND" }, 404, requestId);
   if (["MEDIA_IMAGE_LIMIT", "MEDIA_RESERVATION_EXPIRED", "MEDIA_IDEMPOTENCY_CONFLICT",
     "MEDIA_IMMUTABLE_CONFLICT"].includes(code)) return response({ code }, 409, requestId);
+  if (["MEDIA_MEMORY_LIMIT", "MEDIA_DECODE_TIMEOUT"].includes(code))
+    return response({ code: "IMAGE_TOO_COMPLEX" }, 422, requestId);
+  if (code === "MEDIA_BUSY") return response({ code: "MEDIA_BUSY" }, 503, requestId, 5);
+  if (code === "MEDIA_UPLOAD_REJECTED") return response({ code }, 409, requestId);
+  if (code === "Audit actor is not authorized") return response({ code: "UNAUTHORIZED" }, 401, requestId);
+  if (code === "Audit tenant mismatch") return response({ code: "FORBIDDEN" }, 403, requestId);
   if (code === "MEDIA_UPLOAD_TIMEOUT") return response({ code }, 408, requestId);
   if (code === "MEDIA_UPLOAD_ABORTED") return response({ code }, 400, requestId);
   if (["MEDIA_UNSUPPORTED_TYPE", "MEDIA_INVALID_IMAGE", "MEDIA_DECODE_FAILED", "MEDIA_MIME_MISMATCH"].includes(code))
     return response({ code: "INVALID_IMAGE" }, 422, requestId);
   return response({ code: "INTERNAL_ERROR" }, 500, requestId);
 }
+
+// Deterministic outcomes: the same bytes can never succeed, so the reserved place is released.
+const rejecting = new Set(["MEDIA_INVALID_SIZE", "MEDIA_UNSUPPORTED_TYPE", "MEDIA_INVALID_IMAGE",
+  "MEDIA_DECODE_FAILED", "MEDIA_MIME_MISMATCH", "MEDIA_MEMORY_LIMIT", "MEDIA_DECODE_TIMEOUT"]);
 
 /** This endpoint receives bytes only after scope, MFA, Origin and rate limit checks. */
 export async function uploadVehicleImage(request: Request, area: Area, vehicleId: string,
@@ -54,6 +65,7 @@ export async function uploadVehicleImage(request: Request, area: Area, vehicleId
   try {
     const mapping = await resolveRequestArea(prisma, request.headers.get("host"));
     if (!mapping || mapping.area !== area) return response({ code: "NOT_FOUND" }, 404, requestId);
+    if (!routeAllowedForArea(mapping.area, new URL(request.url).pathname)) return response({ code: "NOT_FOUND" }, 404, requestId);
     if (!validOrigin(request)) return response({ code: "FORBIDDEN" }, 403, requestId);
     const organizationId = area === "COMPANY_ADMIN" ? mapping.organizationId : targetOrganizationId;
     if (!organizationId) return response({ code: "NOT_FOUND" }, 404, requestId);
@@ -67,9 +79,11 @@ export async function uploadVehicleImage(request: Request, area: Area, vehicleId
     const mime = request.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase();
     if (!uuid.test(reservationKey) || !["image/jpeg", "image/png", "image/webp",
       "application/octet-stream"].includes(mime ?? "")) return response({ code: "INVALID_INPUT" }, 400, requestId);
+    declaredUploadLength(request);
     const now = new Date();
     const upload = await reserveVehicleImageUpload(prisma, { actorId: context.actorId,
       sessionId: context.sessionId, organizationId, vehicleId, reservationKey, now });
+    if (upload.state === "REJECTED") return response({ code: "MEDIA_UPLOAD_REJECTED" }, 409, requestId);
     const storage = createMediaStorage();
     try {
       const bytes = await readUploadBody(request);
@@ -79,6 +93,10 @@ export async function uploadVehicleImage(request: Request, area: Area, vehicleId
         sessionId: context.sessionId, organizationId, vehicleId, uploadId: upload.id, requestId, now,
         declaredMime: mime === "application/octet-stream" ? undefined : mime }, bytes);
       return response(result, result.state === "READY" ? 200 : 202, requestId);
+    } catch (error) {
+      if (error instanceof Error && rejecting.has(error.message))
+        await rejectImageUpload(prisma, { organizationId, vehicleId, uploadId: upload.id }).catch(() => {});
+      throw error;
     } finally { storage.client.destroy(); }
-  } catch (error) { return failure(error, requestId); }
+  } catch (error) { return mediaFailure(error, requestId); }
 }

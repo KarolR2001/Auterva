@@ -19,6 +19,7 @@
         "src/modules/media/decode.ts",
         "src/modules/media/storage.ts",
         "src/modules/media/worker.ts",
+        "src/proxy.ts",
         "src/server/media-worker.ts",
         "src/app/api/admin/vehicles/[id]/images/route.ts",
         "src/app/api/platform/companies/[organizationId]/vehicles/[id]/images/route.ts"
@@ -32,6 +33,7 @@
         "tests/integration/media-storage.test.ts",
         "tests/integration/media-decode.test.ts",
         "tests/integration/media-process-lifecycle.test.ts",
+        "tests/integration/media-cleanup.test.ts",
         "tests/e2e/media.spec.ts"
       ]
     },

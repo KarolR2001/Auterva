@@ -3,10 +3,17 @@ import { maxImageBytes } from "./storage";
 const totalTimeoutMs = 15_000;
 const idleTimeoutMs = 3_000;
 
-export async function readUploadBody(request: Request): Promise<Buffer> {
+/** Checked before any reservation or body read; throws MEDIA_INVALID_SIZE for a bad declared length. */
+export function declaredUploadLength(request: Request): number | null {
   const stated = request.headers.get("content-length");
-  if (stated !== null && (!/^\d+$/.test(stated) || Number(stated) > maxImageBytes || Number(stated) < 1))
+  if (stated === null) return null;
+  if (!/^\d+$/.test(stated) || Number(stated) > maxImageBytes || Number(stated) < 1)
     throw new Error("MEDIA_INVALID_SIZE");
+  return Number(stated);
+}
+
+export async function readUploadBody(request: Request): Promise<Buffer> {
+  const stated = declaredUploadLength(request);
   if (!request.body) throw new Error("MEDIA_INVALID_SIZE");
   const reader = request.body.getReader();
   const chunks: Buffer[] = [];
@@ -32,7 +39,7 @@ export async function readUploadBody(request: Request): Promise<Buffer> {
       if (total > maxImageBytes) throw new Error("MEDIA_INVALID_SIZE");
       chunks.push(Buffer.from(result.value));
     }
-    if (total === 0 || (stated !== null && total !== Number(stated))) throw new Error("MEDIA_INVALID_SIZE");
+    if (total === 0 || (stated !== null && total !== stated)) throw new Error("MEDIA_INVALID_SIZE");
     return Buffer.concat(chunks, total);
   } catch (error) {
     // A stalled producer may never settle cancel(); do not hold the response open.

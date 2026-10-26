@@ -17,6 +17,8 @@ try {
   const meta = await image.metadata();
   const mime = meta.format === "jpeg" ? "image/jpeg" : meta.format === "png" ? "image/png"
     : meta.format === "webp" ? "image/webp" : null;
+  // Stored dimensions follow the EXIF orientation that the variants are rotated by.
+  const oriented = meta.autoOrient ?? { width: meta.width, height: meta.height };
   if (!mime || !meta.width || !meta.height || meta.width > 12_000 || meta.height > 12_000
     || (meta.pages ?? 1) !== 1 || (meta.pageHeight && meta.pageHeight !== meta.height))
     throw new Error("MEDIA_INVALID_IMAGE");
@@ -26,8 +28,8 @@ try {
       withoutEnlargement: true, fit: "inside" }).webp({ quality: 82, effort: 4 }).toBuffer();
     await writeFile(`${outputDir}/${variant}.webp`, transformed, { mode: 0o600 });
   }
-  await writeFile(`${outputDir}/result.json`, JSON.stringify({ mime, width: meta.width,
-    height: meta.height }), { mode: 0o600 });
+  await writeFile(`${outputDir}/result.json`, JSON.stringify({ mime, width: oriented.width,
+    height: oriented.height }), { mode: 0o600 });
 } catch (error) {
   const code = error instanceof Error && /^MEDIA_/.test(error.message) ? error.message : "MEDIA_DECODE_FAILED";
   process.stderr.write(`${code}\n`);

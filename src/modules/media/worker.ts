@@ -31,7 +31,8 @@ export async function cleanupExpiredImageUploads(db: PrismaClient, storage: Medi
         if (current.expiresAt.getTime() + cleanupGraceMs > now.getTime()) return null;
         await tx.imageUpload.update({ where: { id: current.id }, data: { state: "EXPIRED" } });
       } else if (!["FAILED", "EXPIRED", "REJECTED"].includes(current.state)) return null;
-      return { id: current.id, staging: current.stagingKey, raw: current.rawKey, state: "EXPIRED" };
+      return { id: current.id, staging: current.stagingKey, raw: current.rawKey,
+        state: ["FAILED", "REJECTED"].includes(current.state) ? current.state : "EXPIRED" };
     });
     if (!keys) continue;
     try {
@@ -141,14 +142,16 @@ export async function processMediaClaim(db: PrismaClient, storage: MediaStorage,
 export async function runMediaWorkerLoop(db: PrismaClient, storage: MediaStorage, signal: AbortSignal,
   clock: () => Date = () => new Date()): Promise<void> {
   while (!signal.aborted) {
-    const now = clock();
-    await reconcileMediaFailures(db);
-    await cleanupExpiredImageUploads(db, storage, now);
-    const claim = await claimNextJob(db, now, leaseMs, false, "MEDIA_PROCESS");
-    if (claim) {
-      await processMediaClaim(db, storage, claim, clock);
-      continue;
-    }
+    try {
+      const now = clock();
+      await reconcileMediaFailures(db);
+      await cleanupExpiredImageUploads(db, storage, now);
+      const claim = await claimNextJob(db, now, leaseMs, false, "MEDIA_PROCESS");
+      if (claim) {
+        await processMediaClaim(db, storage, claim, clock);
+        continue;
+      }
+    } catch { console.warn("Media worker iteration failed; retrying"); }
     await new Promise<void>((resolve) => {
       const timer = setTimeout(done, 1_000);
       function done() { clearTimeout(timer); signal.removeEventListener("abort", done); resolve(); }

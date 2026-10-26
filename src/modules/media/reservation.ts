@@ -43,3 +43,14 @@ export async function reserveVehicleImageUpload(db: PrismaClient, input: Reserve
       expiresAt: new Date(input.now.getTime() + reservationMs) } });
   });
 }
+
+/** A deterministic rejection frees the slot under the same vehicle lock that counts it. */
+export async function rejectImageUpload(db: PrismaClient, input: { organizationId: string;
+  vehicleId: string; uploadId: string }): Promise<void> {
+  await db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "Vehicle" WHERE id = ${input.vehicleId}::uuid
+      AND "organizationId" = ${input.organizationId}::uuid FOR UPDATE`;
+    await tx.imageUpload.updateMany({ where: { id: input.uploadId, organizationId: input.organizationId,
+      vehicleId: input.vehicleId, state: { in: ["RESERVED", "FINALIZING"] } }, data: { state: "REJECTED" } });
+  });
+}
