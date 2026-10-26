@@ -1,5 +1,4 @@
 import { toNextJsHandler } from "better-auth/next-js";
-import { hashPassword } from "better-auth/crypto";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { auth, createAuth } from "@/lib/auth";
@@ -63,7 +62,7 @@ async function loginCredentials(request: Request) {
   // choosing an account-dependent KDF path; Better Auth checks optional fields
   // earlier than credentials and would otherwise expose an inverse timing gap.
   const parsed = signInBody.safeParse(body);
-  return { email, password: parsed.success ? parsed.data.password : null, valid: parsed.success };
+  return { email, valid: parsed.success };
 }
 
 function challengeCookie(header: string | null) {
@@ -434,39 +433,33 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
         });
       }
     } else if (pathname === "/api/auth/sign-in/email" && scope && email) {
-      const candidate = await prisma.user.findFirst({ where: {
-        email: { equals: email.trim(), mode: "insensitive" },
-      }, select: { id: true } });
-      const account = candidate && await prisma.account.findFirst({ where: {
-        userId: candidate.id, providerId: "credential",
-      }, select: { id: true } });
-      if (!account) {
-        // Better Auth hashes unknown credentials deliberately. Preserve that
-        // work after the shared limiter even though this gateway refuses early.
-        if (credentials?.password !== null) await hashPassword(credentials?.password ?? "");
-        response = neutral();
-      }
-      else response = await prisma.$transaction(async (tx) => {
+      response = await prisma.$transaction(async (tx) => {
+        const candidate = await tx.user.findFirst({ where: {
+          email: { equals: email.trim(), mode: "insensitive" },
+        }, select: { id: true } });
+        const account = candidate && await tx.account.findFirst({ where: {
+          userId: candidate.id, providerId: "credential",
+        }, select: { id: true } });
         // Password changes hold this same account row until all old sessions
         // are revoked. A login cannot commit an old-password session later.
-        const held = await tx.$queryRaw<Array<{ id: string }>>`
-          SELECT id FROM "account" WHERE id = ${account.id} FOR UPDATE`;
-        if (!held.length) return neutral();
-        if (!await matchingMfaAccount(tx, candidate.id, scope)) {
-          if (credentials?.password !== null) await hashPassword(credentials?.password ?? "");
-          throw new SignInScopeDenied();
-        }
+        const held = account ? await tx.$queryRaw<Array<{ id: string }>>`
+          SELECT id FROM "account" WHERE id = ${account.id} FOR UPDATE` : [];
+        const permitted = candidate && held.length ? await matchingMfaAccount(tx, candidate.id, scope) : null;
+        // Every account state traverses the same Better Auth transport, Origin,
+        // CSRF, schema and credential pipeline. If a credential appears between
+        // our lookup and BA's read, its success still rolls back without a cookie.
         const signedIn = await toNextJsHandler(createAuth(tx, false, externalUrl.origin))[method](authRequest());
+        if (!permitted) throw new SignInScopeDenied();
         if (signedIn.ok) {
           const result = await signedIn.clone().json().catch(() => null) as { twoFactorRedirect?: boolean } | null;
+          if (permitted.twoFactorEnabled && !result?.twoFactorRedirect) throw new SignInScopeDenied();
           if (result?.twoFactorRedirect) {
             const issued = challengeCookie(signedIn.headers.getSetCookie().map((item) => item.split(";", 1)[0]).join("; "));
-            const current = await matchingMfaAccount(tx, candidate.id, scope);
-            if (!current?.twoFactorEnabled) throw new SignInScopeDenied();
+            if (!permitted.twoFactorEnabled) throw new SignInScopeDenied();
             if (!issued) throw new Error("Invalid MFA challenge at login");
             await tx.verification.create({ data: {
               id: randomUUID(), identifier: challengeKey(issued),
-              value: JSON.stringify({ userId: candidate.id, hostname: externalUrl.hostname }),
+              value: JSON.stringify({ userId: permitted.id, hostname: externalUrl.hostname }),
               expiresAt: new Date(Date.now() + 10 * 60_000),
             } });
           }
