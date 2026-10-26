@@ -40,12 +40,13 @@ test("expired lease is reclaimed and stale owner cannot mark delivery", async ()
   });
 });
 
-test("transient failure backs off and exhausted job remains visible without raw error", async () => {
+test("transient failure backs off and exhausted mail is quarantined", async () => {
   const at = new Date("2026-10-26T10:00:00.000Z");
   const job = await first.job.create({ data: {
     kind: "MAIL_INVITATION", dedupeKey: `${prefix}retry`, payload: {}, runAt: at, maxAttempts: 2,
   } });
   const firstClaim = await claimNextJob(first, at, 30_000);
+  expect(await startMailAttempt(first, firstClaim!, at)).toBe(true);
   expect(await failJob(first, firstClaim!, "MAIL_TRANSIENT", at)).toBe(true);
   expect(await first.job.findUniqueOrThrow({ where: { id: job.id } })).toMatchObject({
     status: "PENDING", runAt: new Date("2026-10-26T10:00:05.000Z"), errorCode: "MAIL_TRANSIENT",
@@ -53,9 +54,10 @@ test("transient failure backs off and exhausted job remains visible without raw 
   expect(await claimNextJob(second, new Date("2026-10-26T10:00:04.999Z"), 30_000)).toBeNull();
   const secondClaim = await claimNextJob(second, new Date("2026-10-26T10:00:05.000Z"), 30_000);
   expect(secondClaim?.id).toBe(job.id);
+  expect(await startMailAttempt(second, secondClaim!, new Date("2026-10-26T10:00:05.000Z"))).toBe(true);
   expect(await failJob(second, secondClaim!, "MAIL_TRANSIENT", new Date("2026-10-26T10:00:05.000Z"))).toBe(true);
   expect(await first.job.findUniqueOrThrow({ where: { id: job.id } })).toMatchObject({
-    status: "FAILED", attempts: 2, errorCode: "MAIL_TRANSIENT", leaseToken: null,
+    status: "UNCERTAIN", attempts: 2, errorCode: "MAIL_OUTCOME_UNKNOWN", leaseToken: null,
   });
 });
 
@@ -88,9 +90,18 @@ test("restart after the final claimed attempt terminates abandoned jobs", async 
   }
   expect(await claimNextJob(second, new Date("2026-10-26T10:00:02.000Z"), 1_000)).toBeNull();
   expect(await first.job.findUniqueOrThrow({ where: { id: jobs[0].id } })).toMatchObject({
-    status: "FAILED", errorCode: "LEASE_EXHAUSTED", payload: {},
+    status: "FAILED", errorCode: "LEASE_EXHAUSTED", payload: { digest: null },
   });
   expect(await first.job.findUniqueOrThrow({ where: { id: jobs[1].id } })).toMatchObject({
     status: "UNCERTAIN", errorCode: "MAIL_OUTCOME_UNKNOWN",
   });
+});
+
+test("mail worker leaves unsupported future job kinds untouched", async () => {
+  const now = new Date("2026-10-26T10:00:00.000Z");
+  const media = await first.job.create({ data: { kind: "MEDIA_PROCESS", dedupeKey: `${prefix}media`, payload: {}, runAt: new Date(now.getTime() - 1_000) } });
+  const mail = await first.job.create({ data: { kind: "MAIL_REMINDER", dedupeKey: `${prefix}mail`, payload: {}, runAt: now } });
+  const claim = await claimNextJob(first, now, 1_000, true);
+  expect(claim?.id).toBe(mail.id);
+  expect(await first.job.findUniqueOrThrow({ where: { id: media.id } })).toMatchObject({ status: "PENDING", attempts: 0 });
 });
