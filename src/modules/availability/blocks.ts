@@ -83,16 +83,35 @@ async function findOverlap(db: Prisma.TransactionClient | PrismaClient, organiza
     type: row.type as BlockType, version: row.version } : null;
 }
 
+type DbFailure = { state: string | null; text: string };
+
+/** Structured driver fields only (never stack or message of the wrapper, which can contain file paths). */
+function dbFailure(error: unknown): DbFailure {
+  const record = (value: unknown): Record<string, unknown> =>
+    value && typeof value === "object" ? value as Record<string, unknown> : {};
+  const meta = record(record(error).meta);
+  const cause = record(record(meta.driverAdapterError).cause);
+  const nested = record(record(error).cause);
+  const pick = (...values: unknown[]) => values.find((value): value is string => typeof value === "string") ?? null;
+  return { state: pick(cause.originalCode, cause.code, nested.originalCode, nested.code, meta.code),
+    text: pick(cause.originalMessage, cause.message, nested.message, meta.message) ?? "" };
+}
+
+const checkConstraints = ["availability_block_text_limits", "availability_block_version_nonnegative",
+  "availability_valid_range", "availability_type_valid", "availability_source_valid"];
+
 /** The GiST constraint is the last barrier for writers that bypass the Vehicle lock protocol. */
-async function normalizeError(db: PrismaClient, error: unknown, scope: { organizationId: string; vehicleId: string;
+export async function normalizeBlockError(db: PrismaClient, error: unknown, scope: { organizationId: string; vehicleId: string;
   start?: Date; end?: Date; exceptId?: string }): Promise<never> {
-  const text = JSON.stringify(error, Object.getOwnPropertyNames(error as object)) + String(error);
-  if (text.includes("availability_no_overlap") || text.includes("23P01")) {
+  const failure = dbFailure(error);
+  if (failure.state === "23P01" || failure.text.includes("availability_no_overlap")) {
     const conflict = scope.start && scope.end
       ? await findOverlap(db, scope.organizationId, scope.vehicleId, scope.start, scope.end, scope.exceptId) : null;
     throw new BlockOverlapError(conflict);
   }
-  if (text.includes("23514") || /violates check constraint/i.test(text)) throw new Error("BLOCK_DATA_INVALID");
+  if (failure.state === "23514" || checkConstraints.some((name) => failure.text.includes(name))) {
+    throw new Error("BLOCK_DATA_INVALID");
+  }
   throw error;
 }
 
@@ -135,7 +154,7 @@ export async function createBlock(db: PrismaClient, input: Operation & { vehicle
       return dto(block);
     });
   } catch (error) {
-    return normalizeError(db, error, { organizationId: input.organizationId, vehicleId: input.vehicleId, start, end });
+    return normalizeBlockError(db, error, { organizationId: input.organizationId, vehicleId: input.vehicleId, start, end });
   }
 }
 
@@ -175,7 +194,7 @@ export async function editBlock(db: PrismaClient, input: Operation & { vehicleId
       return dto(after);
     });
   } catch (error) {
-    return normalizeError(db, error, { organizationId: input.organizationId, vehicleId: input.vehicleId,
+    return normalizeBlockError(db, error, { organizationId: input.organizationId, vehicleId: input.vehicleId,
       ...scope, exceptId: input.blockId });
   }
 }

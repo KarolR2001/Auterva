@@ -4,7 +4,7 @@ import { Client } from "pg";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { availabilityToday, sqlDate } from "../../src/modules/availability/dates";
-import { createBlock } from "../../src/modules/availability/blocks";
+import { createBlock, normalizeBlockError, BlockOverlapError } from "../../src/modules/availability/blocks";
 import { runWithTrustedClientAddress } from "../../src/modules/ingress/client-address";
 import { ensureControlledSuperadminMfa, verifiedFixtureSession } from "../fixtures/verified-session";
 import { POST as adminAdd } from "../../src/app/api/admin/vehicles/[id]/blocks/route";
@@ -473,7 +473,7 @@ async function mfaLikeTransaction(client: Client, userId: string, sessionId: str
     [randomUUID(), organizationId, userId, "ADMIN_FIRMY", "AUTH_LOGIN_COMPLETED", "User", userId, randomUUID(), randomUUID()]);
 }
 
-test("block write and the same admin's MFA completion cannot deadlock, in either order", async () => {
+test("block write and the same admin's MFA completion do not wait on each other, in either order", async () => {
   const vehicle = await newVehicle(orgB, "mfa");
   const token = sessions[1].cookie.split("=")[1].split(".")[0];
   const sessionId = (await db.session.findUniqueOrThrow({ where: { token } })).id;
@@ -510,3 +510,25 @@ test("block write and the same admin's MFA completion cannot deadlock, in either
   }
   await db.auditLog.deleteMany({ where: { organizationId: orgB, action: "AUTH_LOGIN_COMPLETED", actorId: adminB } });
 }, 20_000);
+
+test("database errors are classified by structured driver fields, never by stack, path or wrapper message", async () => {
+  const scope = { organizationId: orgA, vehicleId: randomUUID() };
+  // Domain and unknown errors carrying SQLSTATE-looking text in message/stack stay untouched.
+  for (const code of ["BLOCK_OUTSIDE_ACTIVITY", "BLOCK_VERSION_CONFLICT", "BLOCK_NOT_FOUND", "FLEET_NOT_FOUND"]) {
+    const error = new Error(`${code} 23514 23P01 availability_no_overlap`);
+    error.stack = `Error: ${code}\n    at /srv/release-23514/blocks.ts:23:14 (23P01)`;
+    await expect(normalizeBlockError(db, error, scope)).rejects.toBe(error);
+  }
+  const wrapper = Object.assign(new Error("Raw query failed. Code: `23514`. availability_no_overlap"),
+    { code: "P2010", meta: { message: undefined } });
+  wrapper.stack = "at /release-23514/x";
+  await expect(normalizeBlockError(db, wrapper, scope)).rejects.toBe(wrapper);
+  // Real driver shapes are mapped.
+  const driver = (originalCode: string, originalMessage: string) => Object.assign(new Error("wrapper"),
+    { code: "P2010", meta: { driverAdapterError: { cause: { originalCode, originalMessage } } } });
+  await expect(normalizeBlockError(db, driver("23514", "violates check constraint \"availability_block_text_limits\""), scope))
+    .rejects.toMatchObject({ message: "BLOCK_DATA_INVALID" });
+  await expect(normalizeBlockError(db, driver("23P01", "violates exclusion constraint \"availability_no_overlap\""), scope))
+    .rejects.toBeInstanceOf(BlockOverlapError);
+  await expect(normalizeBlockError(db, driver("23505", "duplicate"), scope)).rejects.toMatchObject({ message: "wrapper" });
+});
