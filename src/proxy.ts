@@ -40,3 +40,9 @@ export async function proxy(request: NextRequest) {
   if (mapping.area === "MARKETING" || mapping.area === "COMPANY_PUBLIC") headers.delete("cookie");
   return NextResponse.next({ request: { headers } });
 }
+
+// Upload routes must reach their handler unbuffered: Next buffers the request body for
+// Proxy. Their handler repeats the host, area, route-policy, Origin and session checks.
+export const config = {
+  matcher: ["/((?!api/admin/vehicles/[^/]+/images/?$|api/platform/companies/[^/]+/vehicles/[^/]+/images/?$).*)"],
+};
