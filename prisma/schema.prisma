@@ -99,6 +99,7 @@ model ChatMessage {
   conversationId  String?                  @db.Uuid
   senderId        String?
   clientMessageId String                   @db.Uuid
+  seq             Int?
   body            String
   createdAt       DateTime                 @default(now()) @db.Timestamptz(6)
   organization    Organization             @relation(fields: [organizationId], references: [id])
@@ -108,6 +109,7 @@ model ChatMessage {
 
   @@unique([organizationId, clientMessageId])
   @@unique([organizationId, conversationId, id])
+  @@unique([conversationId, seq])
   @@index([organizationId, createdAt])
 }
 
@@ -412,6 +414,8 @@ model Conversation {
   id             String                   @id @default(uuid()) @db.Uuid
   organizationId String                   @unique @db.Uuid
   createdAt      DateTime                 @default(now()) @db.Timestamptz(6)
+  lastSeq        Int                      @default(0)
+  activityAt     DateTime                 @default(now()) @db.Timestamptz(6)
   organization   Organization             @relation(fields: [organizationId], references: [id])
   messages       ChatMessage[]
   readCursors    ConversationReadCursor[]
