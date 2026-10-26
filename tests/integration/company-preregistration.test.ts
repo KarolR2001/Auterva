@@ -211,6 +211,7 @@ test("HTTP scopes preregistration and invitation to verified platform and bound 
       `http://${slug}.sites.example.test`))).status).toBe(404);
     expect((await postCompany(request("/api/platform/companies", body, platformHost,
       "http://sibling.example.test"))).status).toBe(403);
+    expect((await postCompany(request("/api/platform/companies", { ...body, paidThrough: "2026-13-01" }))).status).toBe(422);
     const created = await postCompany(request("/api/platform/companies", body));
     expect(created.status).toBe(200);
     expect(created.headers.get("cache-control")).toBe("no-store");

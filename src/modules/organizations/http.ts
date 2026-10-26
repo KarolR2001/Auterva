@@ -51,6 +51,8 @@ export function onboardingFailure(error: unknown, requestId: string): Response {
   const code = error instanceof Error ? error.message : "";
   if (["COMPANY_INVALID_INPUT", "COMPANY_INVALID_HOST", "INVITATION_INVALID_INPUT", "INVITATION_INVALID_HOST"].includes(code))
     return onboardingResponse({ code: "INVALID_INPUT" }, 400, requestId);
+  if (code === "Invalid paidThrough LocalDate" || code === "PaidThrough out of range")
+    return onboardingResponse({ code: "INVALID_PAID_THROUGH" }, 422, requestId);
   if (["COMPANY_IDEMPOTENCY_CONFLICT", "COMPANY_CONFLICT", "INVITATION_HOST_NOT_READY",
     "INVITATION_ADMIN_NOT_PENDING", "INVITATION_COMPANY_INACTIVE", "INVITATION_DELIVERY_UNCERTAIN"].includes(code))
     return onboardingResponse({ code }, 409, requestId);
