@@ -225,6 +225,27 @@
         "tests/integration/service-period-mutation.test.ts",
         "tests/e2e/service-period.spec.ts"
       ]
+    },
+    {
+      "issue": 33,
+      "scope": "Serwerowe odczyty dostępności, aktywność minus blokady, publiczny i prywatny kalendarz oraz predykat filtra #28; mutacje należą do kolejnych issue.",
+      "relatedRequirementIds": ["C-F094", "C-F102", "C-F105", "C-N028", "C-N029", "C-N030", "FR-PUB-023", "FR-PUB-024", "FR-PUB-025", "FR-PUB-026", "FR-ADM-010", "FR-ADM-021"],
+      "codePaths": [
+        "src/modules/availability/dates.ts",
+        "src/modules/availability/read.ts",
+        "src/modules/availability/http.ts",
+        "src/app/api/public/availability/check/route.ts",
+        "src/app/api/public/availability/batch/route.ts",
+        "src/app/api/public/vehicles/[slug]/calendar/route.ts",
+        "src/app/api/admin/vehicles/[id]/availability/route.ts",
+        "src/app/api/platform/companies/[organizationId]/vehicles/[id]/availability/route.ts"
+      ],
+      "testPaths": [
+        "tests/unit/availability.test.ts",
+        "tests/integration/availability-read.test.ts",
+        "tests/integration/availability-http.test.ts",
+        "tests/e2e/availability.spec.ts"
+      ]
     }
   ],
   "sources": [
