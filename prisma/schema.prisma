@@ -240,6 +240,7 @@ model Invitation {
   id             String       @id @default(uuid()) @db.Uuid
   organizationId String       @db.Uuid
   recipientEmail String
+  issuedHost     String?
   tokenHash      String       @unique
   issueKey       String       @unique
   issuedAt       DateTime     @default(now()) @db.Timestamptz(6)

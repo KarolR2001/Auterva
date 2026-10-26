@@ -9,6 +9,7 @@ import { enqueueMail } from "../../src/modules/jobs/outbox";
 const db = createPrismaClient(process.env.DATABASE_URL ?? "");
 const key = randomBytes(32);
 const organizationId = randomUUID();
+const adminId = randomUUID();
 const hostname = `${randomUUID()}.example.test`;
 let server: Server;
 let providerUrl: string;
@@ -20,6 +21,7 @@ afterAll(async () => {
   for (const child of children) child.kill("SIGKILL");
   await db.job.deleteMany({ where: { organizationId } });
   await db.invitation.deleteMany({ where: { organizationId } });
+  await db.user.deleteMany({ where: { id: adminId } });
   await db.hostMapping.deleteMany({ where: { organizationId } });
   await db.organization.deleteMany({ where: { id: organizationId } });
   await db.$disconnect();
@@ -48,7 +50,11 @@ async function setup() {
 async function createJob(recipient: string) {
   const now = new Date();
   const token = randomUUID();
+  await db.user.upsert({ where: { id: adminId }, create: { id: adminId, organizationId,
+    name: "Pending admin", email: recipient, role: "ADMIN_FIRMY", emailVerified: false },
+  update: { email: recipient, emailVerified: false } });
   const invitation = await db.invitation.create({ data: { organizationId, recipientEmail: recipient,
+    issuedHost: hostname,
     tokenHash: createHash("sha256").update(token).digest("hex"), issueKey: randomUUID(),
     issuedAt: now, expiresAt: new Date(now.getTime() + 7 * 24 * 60 * 60_000) } });
   return db.$transaction((tx) => enqueueMail(tx, { kind: "MAIL_INVITATION", organizationId,
