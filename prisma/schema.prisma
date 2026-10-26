@@ -20,6 +20,7 @@ model Organization {
   messages               ChatMessage[]
   users                  User[]
   hosts                  HostMapping[]
+  customDomain           CustomDomain?
   invitations            Invitation[]
   serviceAccess          ServiceAccess?
   settings               SiteSettings?
@@ -234,8 +235,30 @@ model HostMapping {
   canonicalTarget String?
   createdAt       DateTime      @default(now()) @db.Timestamptz(6)
   organization    Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  customDomain    CustomDomain?
 
+  @@unique([id, organizationId])
   @@index([organizationId, area])
+}
+
+model CustomDomain {
+  id                  String      @id @default(uuid()) @db.Uuid
+  organizationId      String      @unique @db.Uuid
+  hostMappingId       String      @unique @db.Uuid
+  status              String      @default("PENDING_OWNERSHIP")
+  verificationToken   String
+  ownershipVerifiedAt DateTime?   @db.Timestamptz(6)
+  routingVerifiedAt   DateTime?   @db.Timestamptz(6)
+  tlsVerifiedAt       DateTime?   @db.Timestamptz(6)
+  checkedAt           DateTime?   @db.Timestamptz(6)
+  lastFailureCode     String?
+  activatedAt         DateTime?   @db.Timestamptz(6)
+  version             Int         @default(0)
+  createdAt           DateTime    @default(now()) @db.Timestamptz(6)
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  hostMapping         HostMapping  @relation(fields: [hostMappingId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([hostMappingId, organizationId])
 }
 
 model Invitation {
