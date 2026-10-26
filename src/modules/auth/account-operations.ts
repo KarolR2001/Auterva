@@ -27,7 +27,7 @@ function validPassword(value: string): boolean {
   return value.length >= 12 && value.length <= 256;
 }
 
-async function revokeMfaChallenges(tx: Prisma.TransactionClient, userId: string) {
+export async function revokeMfaChallenges(tx: Prisma.TransactionClient, userId: string) {
   await tx.verification.deleteMany({ where: { identifier: { startsWith: "auterva:mfa:" },
     value: { contains: `"userId":"${userId}"` } } });
 }
@@ -185,6 +185,10 @@ export async function changeAccountPassword(db: PrismaClient, input: {
     const held = await tx.$queryRaw<Array<{ id: string }>>`
       SELECT id FROM "account" WHERE "userId" = ${actor.userId} AND "providerId" = 'credential' FOR UPDATE`;
     if (held.length !== 1) return false;
+    // The actor was read before waiting for the account row; an archive that committed meanwhile
+    // revoked the session, so re-check and refuse (401) instead of failing later in the audit.
+    const current = await requireAuthorizedActor(tx, createAuth(tx, false, input.baseURL), input.headers, input.scope);
+    if (current?.sessionId !== actor.sessionId) return false;
     const account = await tx.account.findUnique({ where: { id: held[0].id }, select: { password: true } });
     if (!account?.password || !await verifyPassword({ hash: account.password, password: input.currentPassword })) return false;
     await tx.account.update({ where: { id: held[0].id }, data: { password: newHash } });
