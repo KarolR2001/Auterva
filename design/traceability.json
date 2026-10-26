@@ -3,6 +3,25 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 138,
+      "scope": "Dekoder mediów: limit RSS fail-closed (/proc lub ps), błędy środowiska i sygnały spoza dekodera jako nieostateczne 503, zmierzony najgorszy przypadek pamięci i wymagania operacyjne, reset fixture bez usuwania audytu.",
+      "relatedRequirementIds": ["C-F098", "C-N034", "C-N035", "NFR-PERF-004"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/media/rss.ts",
+        "src/modules/media/decode.ts",
+        "src/modules/media/http.ts",
+        "scripts/media-decode.mjs",
+        "scripts/seed-local-fixture.ts",
+        "docs/contracts/media-upload-processing.md"
+      ],
+      "testPaths": [
+        "tests/integration/media-decode.test.ts",
+        "tests/integration/media-http.test.ts",
+        "tests/integration/media-process-lifecycle.test.ts"
+      ]
+    },
+    {
       "issue": 38,
       "scope": "Serwerowy CRUD ręcznych blokad z kontrolą kolizji pod blokadą wiersza Vehicle, wersją, audytem i natychmiastowym publicznym odczytem; UI blokad w osobnym issue.",
       "relatedRequirementIds": ["C-F007", "C-F100", "C-F102", "C-F103", "C-F104", "C-F105", "C-N027", "C-N031", "FR-ADM-050", "FR-ADM-051", "FR-ADM-052", "FR-ADM-053", "FR-ADM-054", "FR-ADM-055", "FR-ADM-058", "D-15"],

@@ -10,6 +10,7 @@ import { createPrismaClient } from "../../src/lib/prisma";
 import { createMediaStorage, putImmutable, readLimited, removeObject, stageBytes } from "../../src/modules/media/storage";
 import { claimNextJob } from "../../src/modules/jobs/queue";
 import { cleanupExpiredImageUploads, processMediaClaim } from "../../src/modules/media/worker";
+import { rssProbe } from "../../src/modules/media/rss";
 import { reserveVehicleImageUpload } from "../../src/modules/media/reservation";
 
 const db = createPrismaClient(process.env.DATABASE_URL ?? "");
@@ -312,4 +313,30 @@ test("lost DB commit acknowledgement keeps READY bytes and cleanup retries stagi
   await expect(readLimited(storage, staging)).rejects.toThrow();
   expect(await readLimited(storage, raw)).toEqual(bytes);
   expect((await db.imageUpload.findUniqueOrThrow({ where: { id } })).storageCleanedAt).not.toBeNull();
+}, 30_000);
+
+test("worker: an unmeasurable decoder is retried with backoff, not failed or finalized", async () => {
+  const id = randomUUID();
+  const image = randomUUID();
+  const raw = `private/${organizationId}/${vehicleId}/${image}/raw`;
+  extraKeys.push(raw, `${raw}/large.webp`, `${raw}/thumb.webp`);
+  const bytes = await sharp({ create: { width: 128, height: 96, channels: 3, background: "#44aa77" } }).png().toBuffer();
+  await putImmutable(storage, raw, bytes, "image/png");
+  await db.imageUpload.create({ data: { id, organizationId, vehicleId, imageId: image,
+    reservationKey: randomUUID(), stagingKey: `staging/${organizationId}/${vehicleId}/${id}`, rawKey: raw,
+    state: "PROCESSING", expiresAt: new Date(Date.now() + 24 * 60 * 60_000),
+    rawSha256: createHash("sha256").update(bytes).digest("hex"), rawBytes: bytes.length,
+    mime: "image/png", width: 128, height: 96 } });
+  const job = await db.job.create({ data: { organizationId, kind: "MEDIA_PROCESS",
+    dedupeKey: `MEDIA_PROCESS:${id}`, payload: { uploadId: id }, runAt: new Date() } });
+  const claim = await claimNextJob(db, new Date(), 90_000, false, "MEDIA_PROCESS");
+  expect(claim?.id).toBe(job.id);
+  const original = rssProbe.read;
+  rssProbe.read = async () => null;
+  try { expect(await processMediaClaim(db, storage, claim!)).toBe(false); } finally { rssProbe.read = original; }
+  expect(await db.job.findUniqueOrThrow({ where: { id: job.id } }))
+    .toMatchObject({ status: "PENDING", attempts: 1, leaseToken: null });
+  expect((await db.job.findUniqueOrThrow({ where: { id: job.id } })).runAt.getTime()).toBeGreaterThan(Date.now());
+  expect((await db.imageUpload.findUniqueOrThrow({ where: { id } })).state).toBe("PROCESSING");
+  expect(await db.vehicleImage.count({ where: { id: image } })).toBe(0);
 }, 30_000);
