@@ -12,10 +12,13 @@ function failure(error: unknown, requestId: string) {
       conflict: error.conflict }, 409, requestId);
   }
   const code = error instanceof Error ? error.message : "";
-  if (code === "BLOCK_INVALID_INPUT") return response({ code: "INVALID_INPUT" }, 400, requestId);
+  if (code === "BLOCK_INVALID_INPUT" || code === "FLEET_INVALID_INPUT") return response({ code: "INVALID_INPUT" }, 400, requestId);
   if (code === "FLEET_NOT_FOUND" || code === "BLOCK_NOT_FOUND") return response({ code: "NOT_FOUND" }, 404, requestId);
   if (code === "BLOCK_OUTSIDE_ACTIVITY") {
     return response({ code, message: "Blokada musi mieścić się w okresie aktywności pojazdu." }, 409, requestId);
+  }
+  if (code === "BLOCK_DATA_INVALID") {
+    return response({ code, message: "Dane blokady przekraczają limity pól; skróć numer referencyjny lub notatkę." }, 422, requestId);
   }
   if (["BLOCK_VERSION_CONFLICT", "BLOCK_VEHICLE_ARCHIVED"].includes(code)) return response({ code }, 409, requestId);
   if (code === "Audit actor is not authorized") return response({ code: "FORBIDDEN" }, 403, requestId);

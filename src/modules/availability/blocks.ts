@@ -2,14 +2,16 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { appendAudit } from "@/modules/audit/append";
-import { authorizedCompany, checkOperation, lockVehicle, type Operation } from "@/modules/fleet/mutations";
+import { requireAuditActor } from "@/modules/audit/actor";
+import { checkOperation, lockVehicle, type Operation } from "@/modules/fleet/mutations";
 import { localDate, sqlDate } from "./dates";
 
 import { blockTypeLabels, blockTypes, type BlockType } from "./block-types";
 export { blockTypeLabels, blockTypes, type BlockType };
 
 const uuid = z.uuid();
-const optionalText = (max: number) => z.string().trim().max(max).transform((value) => value || null).nullable();
+const optionalText = (max: number) => z.string().trim().max(max)
+  .refine((value) => !value.includes("\u0000")).transform((value) => value || null).nullable();
 const dateField = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const createFields = z.object({ from: dateField, to: dateField, type: z.enum(blockTypes),
   reference: optionalText(120).optional(), internalNote: optionalText(2000).optional() }).strict();
@@ -45,8 +47,21 @@ function dto(block: { id: string; vehicleId: string; from: Date; to: Date; type:
     reference: block.reference, internalNote: block.internalNote, version: block.version };
 }
 
+/**
+ * FOR NO KEY UPDATE keeps mutual exclusion with other company writers (#28 uses FOR UPDATE) but does not
+ * conflict with the KEY SHARE taken by audit inserts, so a block write cannot form a cycle with MFA login,
+ * which holds account rows and inserts an audit row for the same company.
+ */
+async function authorizeAndLockCompany(tx: Prisma.TransactionClient, input: Operation) {
+  const actor = await requireAuditActor(tx, input.actorId, input.sessionId);
+  if (actor.role === "ADMIN_FIRMY" && actor.organizationId !== input.organizationId) throw new Error("FLEET_NOT_FOUND");
+  const rows = await tx.$queryRaw<{ id: string }[]>`
+    SELECT id FROM "Organization" WHERE id = ${input.organizationId}::uuid AND "archivedAt" IS NULL FOR NO KEY UPDATE`;
+  if (rows.length !== 1) throw new Error("FLEET_NOT_FOUND");
+}
+
 async function lockedVehicle(tx: Prisma.TransactionClient, input: Operation & { vehicleId: string }) {
-  await authorizedCompany(tx, input);
+  await authorizeAndLockCompany(tx, input);
   await lockVehicle(tx, input.organizationId, input.vehicleId);
   // Re-read only AFTER the Vehicle row lock: activity edits (#28) hold the same lock, so this is current.
   return tx.vehicle.findFirstOrThrow({ where: { id: input.vehicleId, organizationId: input.organizationId },
@@ -77,7 +92,18 @@ async function normalizeError(db: PrismaClient, error: unknown, scope: { organiz
       ? await findOverlap(db, scope.organizationId, scope.vehicleId, scope.start, scope.end, scope.exceptId) : null;
     throw new BlockOverlapError(conflict);
   }
+  if (text.includes("23514") || /violates check constraint/i.test(text)) throw new Error("BLOCK_DATA_INVALID");
   throw error;
+}
+
+/** Only allowlisted fields that really changed; type, reference and note never enter the audit. */
+function auditChanges(before: { from: Date; to: Date; version: number }, after: { from: Date; to: Date; version: number }) {
+  const changedFields = [...(before.from.getTime() !== after.from.getTime() ? ["startDate"] : []),
+    ...(before.to.getTime() !== after.to.getTime() ? ["endDate"] : []), "version"];
+  const pick = (row: { from: Date; to: Date; version: number }) => ({
+    ...(changedFields.includes("startDate") ? { startDate: localDate(row.from) } : {}),
+    ...(changedFields.includes("endDate") ? { endDate: localDate(row.to) } : {}), version: row.version });
+  return { changedFields, before: pick(before), after: pick(after) };
 }
 
 function checkIds(input: Operation & { vehicleId: string }) {
@@ -145,9 +171,7 @@ export async function editBlock(db: PrismaClient, input: Operation & { vehicleId
       const after = await tx.availabilityBlock.findUniqueOrThrow({ where: { id: before.id } });
       await appendAudit(tx, { actorId: input.actorId, sessionId: input.sessionId, organizationId: input.organizationId,
         action: "BLOCK_UPDATED", entityId: before.id, eventKey: randomUUID(), requestId: input.requestId,
-        changes: { changedFields: ["startDate", "endDate", "version"],
-          before: { startDate: localDate(before.from), endDate: localDate(before.to), version: before.version },
-          after: { startDate: localDate(after.from), endDate: localDate(after.to), version: after.version } } });
+        changes: auditChanges(before, after) });
       return dto(after);
     });
   } catch (error) {

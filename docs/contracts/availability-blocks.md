@@ -10,11 +10,11 @@ Typy: `RESERVED`, `MAINTENANCE` ("Serwis"), `BLOCKED`, `OTHER`; źródło zawsze
 
 ## Współbieżność
 
-Transakcja: aktor → blokada `Organization` → `Vehicle FOR UPDATE` (ta sama kolejność co #28) → **dopiero potem** odczyt aktywności i blokad, kontrola kolizji, zapis i audyt (`BLOCK_CREATED/UPDATED/DELETED`, tylko daty i wersja). Dzięki temu edycja aktywności #28 i zapis blokady wzajemnie się szeregują i obie kolejności kończą się spójnie: po zakończeniu nie istnieje blokada poza aktywnością pojazdu. Ograniczenie GiST `availability_no_overlap` pozostaje ostatnią barierą i mapuje się na ten sam `BLOCK_OVERLAP`. Edycja używa `version` (`updateMany ... WHERE version`), bez cichego nadpisania.
+Transakcja: aktor → blokada `Organization FOR NO KEY UPDATE` → `Vehicle FOR UPDATE` (ta sama kolejność co #28) → **dopiero potem** odczyt aktywności i blokad, kontrola kolizji, zapis i audyt (`BLOCK_CREATED/UPDATED/DELETED`; `changedFields` w edycji to faktycznie zmienione pola z allowlisty `startDate`/`endDate` oraz `version`, nigdy typ, reference ani notatka). Dzięki temu edycja aktywności #28 i zapis blokady wzajemnie się szeregują i obie kolejności kończą się spójnie: po zakończeniu nie istnieje blokada poza aktywnością pojazdu. Słabszy lock firmy nadal wyklucza pozostałych piszących firmę (#28 bierze `FOR UPDATE`) i wiersz `Vehicle` szereguje edycję aktywności, ale nie koliduje z `KEY SHARE`, który wstawienie audytu bierze na `Organization`. Logowanie/MFA i reset hasła blokują wiersze konta/sesji, a potem wstawiają audyt firmy; mutator blokad nie czeka na te wiersze (zwykłe odczyty), więc cykl nie powstaje, a test wyścigu w obu kolejnościach to potwierdza. Ograniczenie GiST `availability_no_overlap` pozostaje ostatnią barierą i mapuje się na ten sam `BLOCK_OVERLAP`. Edycja używa `version` (`updateMany ... WHERE version`), bez cichego nadpisania.
 
 ## Odmowy (wszystkie atomowe, bez częściowej mutacji i audytu)
 
-`400 INVALID_INPUT`; `404 NOT_FOUND` (obca firma/pojazd/blokada, brak ujawnienia); `409 BLOCK_OVERLAP` z `conflict:{id,from,to,type,version}` istniejącego wpisu (tylko uwierzytelniony aktor tej firmy); `409 BLOCK_OUTSIDE_ACTIVITY` (aktywność bez początku, przed początkiem lub po końcu); `409 BLOCK_VERSION_CONFLICT`; `409 BLOCK_VEHICLE_ARCHIVED` (zapis i edycja; usunięcie pozostaje dozwolone); `403 FORBIDDEN`; `429 RATE_LIMITED`.
+`400 INVALID_INPUT` (także znak NUL w `reference`/`internalNote`); `404 NOT_FOUND` (obca firma/pojazd/blokada, brak ujawnienia); `409 BLOCK_OVERLAP` z `conflict:{id,from,to,type,version}` istniejącego wpisu (tylko uwierzytelniony aktor tej firmy); `409 BLOCK_OUTSIDE_ACTIVITY` (aktywność bez początku, przed początkiem lub po końcu); `409 BLOCK_VERSION_CONFLICT`; `409 BLOCK_VEHICLE_ARCHIVED` (zapis i edycja; usunięcie pozostaje dozwolone); `422 BLOCK_DATA_INVALID` (naruszenie CHECK 23514, np. stary wiersz z `reference` > 120 przy edycji samego typu — popraw tekst i zapisz ponownie); `403 FORBIDDEN`; `429 RATE_LIMITED`.
 
 ## Aktualność publiczna i okres usługi
 
@@ -23,3 +23,5 @@ Publiczne odczyty #33 nie mają cache aplikacyjnego i przy każdym żądaniu czy
 ## Migracja
 
 `20261026180000_availability_block_integrity_issue_38` jest addytywna: CHECK `NOT VALID` na długość `reference`/`internalNote` i nieujemną wersję (typ i źródło chroni #8). Istniejące wiersze nie są skanowane ani zmieniane; nowe i edytowane muszą spełniać limity. Odtworzenie: backup, bez resetu.
+
+Plan VALIDATE: po wdrożeniu sprawdź dane zapytaniem o wiersze z `char_length(reference) > 120` lub `char_length("internalNote") > 2000`, skróć je zatwierdzonym skryptem (bez automatycznego usuwania), dopiero potem `ALTER TABLE "AvailabilityBlock" VALIDATE CONSTRAINT availability_block_text_limits` oraz `availability_block_version_nonnegative` w osobnej, przeglądanej migracji. Do tego czasu naruszenie przy edycji starego wiersza daje `422 BLOCK_DATA_INVALID`.

@@ -10,7 +10,7 @@ import { ensureControlledSuperadminMfa, verifiedFixtureSession } from "../fixtur
 import { POST as adminAdd } from "../../src/app/api/admin/vehicles/[id]/blocks/route";
 import { PATCH as adminPatch, DELETE as adminDelete } from "../../src/app/api/admin/vehicles/[id]/blocks/[blockId]/route";
 import { POST as platformAdd } from "../../src/app/api/platform/companies/[organizationId]/vehicles/[id]/blocks/route";
-import { PATCH as platformPatch } from "../../src/app/api/platform/companies/[organizationId]/vehicles/[id]/blocks/[blockId]/route";
+import { PATCH as platformPatch, DELETE as platformDelete } from "../../src/app/api/platform/companies/[organizationId]/vehicles/[id]/blocks/[blockId]/route";
 import { PATCH as adminVehiclePatch } from "../../src/app/api/admin/vehicles/[id]/route";
 import { GET as adminCalendar } from "../../src/app/api/admin/vehicles/[id]/availability/route";
 import { POST as publicCheck } from "../../src/app/api/public/availability/check/route";
@@ -398,3 +398,115 @@ test("service period expiry does not stop private writes, including one queued b
     .toEqual(sqlDate(day(-1)));
   expect(await db.availabilityBlock.count({ where: { vehicleId: vehicle.id } })).toBe(2);
 });
+
+test("NUL in reference or internalNote is a controlled 400 on create and edit", async () => {
+  const vehicle = await newVehicle(orgA, "nul");
+  expect((await add(vehicle.id, { from: day(1), to: day(1), type: "OTHER", reference: "a\u0000b" })).status).toBe(400);
+  expect((await add(vehicle.id, { from: day(1), to: day(1), type: "OTHER", internalNote: "\u0000" })).status).toBe(400);
+  const block = await (await add(vehicle.id, { from: day(2), to: day(2), type: "OTHER" })).json() as { id: string };
+  const refused = await patch(vehicle.id, block.id, 0, { internalNote: "x\u0000" });
+  expect(refused.status).toBe(400);
+  expect(await refused.json()).toEqual({ code: "INVALID_INPUT" });
+  expect(await db.availabilityBlock.count({ where: { vehicleId: vehicle.id } })).toBe(1);
+});
+
+test("an old row violating the NOT VALID text limit is refused with a stable code until its text is fixed", async () => {
+  const vehicle = await newVehicle(orgA, "legacy");
+  const id = randomUUID();
+  const table = '"AvailabilityBlock"';
+  await db.$executeRawUnsafe(`ALTER TABLE ${table} DROP CONSTRAINT availability_block_text_limits`);
+  try {
+    await db.availabilityBlock.create({ data: { id, organizationId: orgA, vehicleId: vehicle.id, type: "OTHER",
+      from: sqlDate(day(1)), to: sqlDate(day(1)), reference: "x".repeat(300) } });
+  } finally {
+    await db.$executeRawUnsafe(`ALTER TABLE ${table} ADD CONSTRAINT availability_block_text_limits
+      CHECK (char_length("reference") <= 120 AND char_length("internalNote") <= 2000) NOT VALID`);
+  }
+  const auditBefore = await db.auditLog.count({ where: { organizationId: orgA, entityId: id } });
+  const refused = await patch(vehicle.id, id, 0, { type: "BLOCKED" });
+  expect(refused.status).toBe(422);
+  expect(await refused.json()).toMatchObject({ code: "BLOCK_DATA_INVALID" });
+  expect(await db.availabilityBlock.findUniqueOrThrow({ where: { id } })).toMatchObject({ type: "OTHER", version: 0 });
+  expect(await db.auditLog.count({ where: { organizationId: orgA, entityId: id } })).toBe(auditBefore);
+  expect((await patch(vehicle.id, id, 0, { type: "BLOCKED", reference: "krótki" })).status).toBe(200);
+});
+
+test("BLOCK_UPDATED audit lists only fields that really changed and never type, reference or note", async () => {
+  const vehicle = await newVehicle(orgA, "audit");
+  const block = await (await add(vehicle.id, { from: day(1), to: day(2), type: "OTHER" })).json() as { id: string };
+  expect((await patch(vehicle.id, block.id, 0, { type: "RESERVED", reference: "SECRET-REF" })).status).toBe(200);
+  expect((await patch(vehicle.id, block.id, 1, { to: day(3) })).status).toBe(200);
+  expect((await patch(vehicle.id, block.id, 2, { from: day(0), to: day(3), internalNote: "SECRET-NOTE" })).status).toBe(200);
+  const rows = await db.auditLog.findMany({ where: { organizationId: orgA, entityId: block.id, action: "BLOCK_UPDATED" },
+    orderBy: { createdAt: "asc" } });
+  expect(rows.map((row) => (row.safeChanges as { changedFields: string[] }).changedFields))
+    .toEqual([["version"], ["endDate", "version"], ["startDate", "version"]]);
+  expect(rows[1].safeChanges).toEqual({ changedFields: ["endDate", "version"],
+    before: { endDate: day(2), version: 1 }, after: { endDate: day(3), version: 2 } });
+  expect(JSON.stringify(rows)).not.toMatch(/SECRET|RESERVED/);
+});
+
+test("superadmin deletes on the platform host and sees the conflicting entry", async () => {
+  const vehicle = await newVehicle(orgA, "platform");
+  const base = `/api/platform/companies/${orgA}/vehicles/${vehicle.id}/blocks`;
+  const params = { organizationId: orgA, id: vehicle.id };
+  const first = await (await platformAdd(request("POST", base, hosts.platform, cookies.platform,
+    { fields: { from: day(4), to: day(5), type: "MAINTENANCE" } }), { params: Promise.resolve(params) })).json() as { id: string };
+  const clash = await platformAdd(request("POST", base, hosts.platform, cookies.platform,
+    { fields: { from: day(5), to: day(6), type: "OTHER" } }), { params: Promise.resolve(params) });
+  expect(clash.status).toBe(409);
+  expect(await clash.json()).toMatchObject({ code: "BLOCK_OVERLAP", conflict: { id: first.id, type: "MAINTENANCE" } });
+  const removed = await platformDelete(request("DELETE", `${base}/${first.id}`, hosts.platform, cookies.platform,
+    { expectedVersion: 0 }), { params: Promise.resolve({ ...params, blockId: first.id }) });
+  expect(removed.status).toBe(200);
+  expect(await db.availabilityBlock.count({ where: { vehicleId: vehicle.id } })).toBe(0);
+  expect(await db.auditLog.findFirstOrThrow({ where: { entityId: first.id, action: "BLOCK_DELETED" } }))
+    .toMatchObject({ actorId: platformId, actorRole: "SUPERADMIN_AUTERVA" });
+});
+
+/** The MFA completion path locks the account/session rows and then inserts an audit row for the company (KEY SHARE on it). */
+async function mfaLikeTransaction(client: Client, userId: string, sessionId: string, organizationId: string) {
+  await client.query("BEGIN");
+  await client.query('SELECT id FROM "user" WHERE id = $1 FOR UPDATE', [userId]);
+  await client.query('SELECT id FROM "session" WHERE id = $1 FOR UPDATE', [sessionId]);
+  await client.query('INSERT INTO "AuditLog" (id, "organizationId", "actorId", "actorRole", action, "entityType", "entityId", "requestId", "eventKey") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+    [randomUUID(), organizationId, userId, "ADMIN_FIRMY", "AUTH_LOGIN_COMPLETED", "User", userId, randomUUID(), randomUUID()]);
+}
+
+test("block write and the same admin's MFA completion cannot deadlock, in either order", async () => {
+  const vehicle = await newVehicle(orgB, "mfa");
+  const token = sessions[1].cookie.split("=")[1].split(".")[0];
+  const sessionId = (await db.session.findUniqueOrThrow({ where: { token } })).id;
+  const mfa = new Client({ connectionString: process.env.DATABASE_URL });
+  await mfa.connect();
+  try {
+    // MFA first: it holds the user/session rows and a KEY SHARE on the company; the block write must still finish.
+    await mfaLikeTransaction(mfa, adminB, sessionId, orgB);
+    const done = await Promise.race([add(vehicle.id, { from: day(1), to: day(1), type: "OTHER" }, "b"),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 4_000))]);
+    expect(done?.status).toBe(201);
+    await mfa.query("COMMIT");
+    // Block write first (paused after its audit-relevant locks): the MFA transaction must not wait on the company row.
+    let reached!: () => void;
+    let release!: () => void;
+    const atCreate = new Promise<void>((resolve) => { reached = resolve; });
+    const paused = new Promise<void>((resolve) => { release = resolve; });
+    const slow = db.$extends({ query: { availabilityBlock: { async create({ args, query }) {
+      reached(); await paused; return query(args);
+    } } } });
+    const token2 = sessionId;
+    const writing = createBlock(slow as typeof db, { actorId: adminB, sessionId: token2, organizationId: orgB,
+      requestId: randomUUID(), vehicleId: vehicle.id, fields: { from: day(3), to: day(3), type: "OTHER" } });
+    await atCreate;
+    const mfaDone = await Promise.race([mfaLikeTransaction(mfa, adminB, sessionId, orgB).then(() => "ok" as const),
+      new Promise<"blocked">((resolve) => setTimeout(() => resolve("blocked"), 4_000))]);
+    expect(mfaDone).toBe("ok");
+    release();
+    expect((await writing).from).toBe(day(3));
+    await mfa.query("COMMIT");
+  } finally {
+    await mfa.query("ROLLBACK").catch(() => undefined);
+    await mfa.end();
+  }
+  await db.auditLog.deleteMany({ where: { organizationId: orgB, action: "AUTH_LOGIN_COMPLETED", actorId: adminB } });
+}, 20_000);
