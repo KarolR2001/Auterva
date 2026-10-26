@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "vitest";
+import { spawnSync } from "node:child_process";
 import sharp from "sharp";
 import { decodeMedia } from "../../src/modules/media/decode";
 import { defaultRssKb, rssProbe } from "../../src/modules/media/rss";
@@ -103,4 +104,19 @@ test("stored dimensions follow EXIF orientation, like the rotated variants", asy
   const result = await decodeMedia(bytes);
   expect(result).toMatchObject({ width: 400, height: 600 });
   expect(await sharp(result.large).metadata()).toMatchObject({ width: 400, height: 600 });
+});
+
+test("decoder script exits 3 (retryable) on an operating-system error and 1 on an image verdict", async () => {
+  const png = await sharp({ create: { width: 8, height: 8, channels: 3, background: "#123456" } }).png().toBuffer();
+  const { mkdtempSync, writeFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const { tmpdir } = await import("node:os");
+  const dir = mkdtempSync(join(tmpdir(), "auterva-exit-"));
+  writeFileSync(join(dir, "ok.png"), png);
+  writeFileSync(join(dir, "bad.bin"), Buffer.from("not an image"));
+  const run = (input: string, out: string) => spawnSync(process.execPath, ["scripts/media-decode.mjs", join(dir, input), out]);
+  const io = run("ok.png", join(dir, "missing-output-dir"));
+  expect(io.status).toBe(3);
+  expect(io.stderr.toString()).toContain("MEDIA_ENVIRONMENT");
+  expect(run("bad.bin", dir).status).toBe(1);
 });

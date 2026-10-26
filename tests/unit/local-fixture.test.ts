@@ -1,5 +1,8 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { expect, test, vi } from "vitest";
-import { assertLocalFixtureTarget, warsawDate } from "../../scripts/fixture-safety";
+import { assertLocalFixtureTarget, assertOwnFixtureCluster, warsawDate } from "../../scripts/fixture-safety";
 
 const fixtureUrl = "postgresql://fixture@127.0.0.1:15450/auterva_fixture_9";
 
@@ -35,4 +38,19 @@ test("Warsaw day follows both DST boundaries without changing the system clock",
   } finally {
     vi.useRealTimers();
   }
+});
+
+test("reset is bound to this worktree's PostgreSQL cluster (data directory and port marker)", async () => {
+  const repo = mkdtempSync(join(tmpdir(), "auterva-bind-"));
+  const data = join(repo, ".local", "fixture-9", "pg");
+  mkdirSync(data, { recursive: true });
+  const fake = (directory: string, port: string) => ({ query: async (sql: string) => ({
+    rows: [sql.includes("port") ? { port } : { data_directory: directory }] }) });
+  await expect(assertOwnFixtureCluster(fake(data, "33800"), repo)).resolves.toBeUndefined();
+  await expect(assertOwnFixtureCluster(fake(join(tmpdir(), "other-worktree", "pg"), "33800"), repo))
+    .rejects.toThrow(/not this worktree/);
+  writeFileSync(join(repo, ".local", "fixture-9", "pg.port"), "33800\n");
+  await expect(assertOwnFixtureCluster(fake(data, "33800"), repo)).resolves.toBeUndefined();
+  await expect(assertOwnFixtureCluster(fake(data, "15450"), repo)).rejects.toThrow(/not this worktree/);
+  await expect(assertOwnFixtureCluster(fake(data, "33800"), join(repo, "missing"))).rejects.toThrow(/not this worktree/);
 });

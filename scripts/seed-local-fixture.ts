@@ -1,8 +1,9 @@
 import { execFileSync } from "node:child_process";
-import { pathToFileURL } from "node:url";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { config as loadEnv } from "dotenv";
 import { Client } from "pg";
-import { assertLocalFixtureTarget } from "./fixture-safety";
+import { assertLocalFixtureTarget, assertOwnFixtureCluster } from "./fixture-safety";
 import { FIXTURE, fixtureId as id } from "./fixture-ids";
 
 export { FIXTURE } from "./fixture-ids";
@@ -65,8 +66,11 @@ async function assertFixtureIdentities(db: Client) {
  * `--reset` from the CLI: audit rows are append-only (audit-append-and-access.md), so instead of deleting
  * them the whole disposable local fixture schema is recreated and migrated. Only the guarded database.
  */
-export async function recreateFixtureSchema(db: Client, env: Record<string, string | undefined>) {
+const repoDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+export async function recreateFixtureSchema(db: Client, env: Record<string, string | undefined>, root = repoDir) {
   assertLocalFixtureTarget(env);
+  await assertOwnFixtureCluster(db, root);
   const current = await db.query("SELECT current_database() AS name");
   if (current.rows[0]?.name !== "auterva_fixture_9") throw new Error("Refusing to recreate a non-fixture database");
   await db.query("DROP SCHEMA public CASCADE");
@@ -74,8 +78,10 @@ export async function recreateFixtureSchema(db: Client, env: Record<string, stri
   execFileSync("pnpm", ["exec", "prisma", "migrate", "deploy"], { stdio: "inherit", env: { ...process.env, ...env } });
 }
 
-export async function seedLocalFixture(db: Client, env: Record<string, string | undefined>, reset: boolean) {
+export async function seedLocalFixture(db: Client, env: Record<string, string | undefined>, reset: boolean,
+  root = repoDir) {
   assertLocalFixtureTarget(env);
+  if (reset) await assertOwnFixtureCluster(db, root);
   await db.query("BEGIN");
   try {
     // Existing fixture IDs must still refer to the expected companies. A mixed database is refused.
