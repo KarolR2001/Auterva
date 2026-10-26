@@ -34,8 +34,10 @@ export async function listCompanyVehicles(db: PrismaClient, organizationId: stri
       ...(query ? [{ OR: ["name", "brand", "model", "variant", "slug"].map((field) => ({
         [field]: { contains: query, mode: "insensitive" },
       })) } as Prisma.VehicleWhereInput] : []),
-      ...(filters.activeToday === undefined ? [] : [filters.activeToday ? active : { NOT: active }]),
-      ...(filters.availableToday === undefined ? [] : [filters.availableToday ? available : { NOT: available }]),
+      ...(filters.activeToday === undefined ? [] : [filters.activeToday ? active
+        : { OR: [{ availableFrom: null }, { NOT: active }] }]),
+      ...(filters.availableToday === undefined ? [] : [filters.availableToday ? available
+        : { OR: [{ availableFrom: null }, { NOT: available }] }]),
     ],
   };
   const [total, vehicles] = await db.$transaction([

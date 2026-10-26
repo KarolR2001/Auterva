@@ -121,7 +121,7 @@ export async function createVehicle(db: PrismaClient, input: Operation & { field
   if (!Object.hasOwn(fields, "slug")) fields.slug = slugFromName(typeof fields.name === "string" ? fields.name : null);
   const from = fields.availableFrom as Date | null | undefined;
   const to = fields.availableTo as Date | null | undefined;
-  if (from && to && from > to) throw new Error("FLEET_INVALID_ACTIVITY");
+  if (to && (!from || from > to)) throw new Error("FLEET_INVALID_ACTIVITY");
   try {
     return await db.$transaction(async (tx) => {
       await authorizedCompany(tx, input);
@@ -156,7 +156,7 @@ export async function editVehicle(db: PrismaClient, input: Operation & { vehicle
       await validateCategory(tx, typeof fields.categoryId === "string" ? fields.categoryId : null);
       const nextFrom = Object.hasOwn(fields, "availableFrom") ? fields.availableFrom as Date | null : before.availableFrom;
       const nextTo = Object.hasOwn(fields, "availableTo") ? fields.availableTo as Date | null : before.availableTo;
-      if (nextFrom && nextTo && nextFrom > nextTo) throw new Error("FLEET_INVALID_ACTIVITY");
+      if (nextTo && (!nextFrom || nextFrom > nextTo)) throw new Error("FLEET_INVALID_ACTIVITY");
       if (Object.hasOwn(fields, "availableFrom") || Object.hasOwn(fields, "availableTo")) {
         const blocks = await tx.availabilityBlock.findMany({ where: { organizationId: input.organizationId,
           vehicleId: input.vehicleId }, select: { from: true, to: true } });

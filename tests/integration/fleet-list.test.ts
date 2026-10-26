@@ -62,3 +62,27 @@ test("search, status and category use stable sortOrder/id without leaking privat
     page: 1, pageSize: 20 }, new Date("2026-10-26T12:00:00Z"));
   expect(drafts.items.map((item) => item.id)).toEqual([vehicles[2]]);
 });
+
+test("negative activity and availability filters include drafts without a start before pagination", async () => {
+  const now = new Date("2026-10-26T12:00:00Z");
+  const inactive = await listCompanyVehicles(db, organizations[0], { activeToday: false,
+    page: 1, pageSize: 1 }, now);
+  expect(inactive.total).toBe(1);
+  expect(inactive.items).toMatchObject([{ id: vehicles[2], activeToday: false, availableToday: false }]);
+  const firstUnavailable = await listCompanyVehicles(db, organizations[0], { availableToday: false,
+    page: 1, pageSize: 1 }, now);
+  const secondUnavailable = await listCompanyVehicles(db, organizations[0], { availableToday: false,
+    page: 2, pageSize: 1 }, now);
+  expect(firstUnavailable.total).toBe(2);
+  expect(secondUnavailable.total).toBe(2);
+  expect([firstUnavailable.items[0]?.id, secondUnavailable.items[0]?.id]).toEqual([vehicles[1], vehicles[2]]);
+  for (const filter of [{ activeToday: false }, { availableToday: false }]) {
+    const searched = await listCompanyVehicles(db, organizations[0], { ...filter, search: "szkic",
+      page: 1, pageSize: 1 }, now);
+    expect(searched.total).toBe(1);
+    expect(searched.items[0]?.id).toBe(vehicles[2]);
+  }
+  const foreign = await listCompanyVehicles(db, organizations[1], { availableToday: false,
+    page: 1, pageSize: 10 }, now);
+  expect(foreign.total).toBe(0);
+});

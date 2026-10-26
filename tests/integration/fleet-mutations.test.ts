@@ -104,6 +104,42 @@ test("incomplete draft saves; publication requires full D-02 and READY cover", a
     action: "VEHICLE_PUBLISHED" } })).toBe(1);
 });
 
+test("HTTP rejects an end date without a start on create, patch and start removal", async () => {
+  const request = (method: string, path: string, data: object) => new Request(`http://127.0.0.1:3381${path}`, {
+    method, headers: { host: adminHosts[0], origin: `http://${adminHosts[0]}`,
+      cookie: sessions[0].cookie, "content-type": "application/json" }, body: JSON.stringify(data),
+  });
+  const path = "/api/admin/vehicles";
+  const name = `Invalid activity ${randomUUID()}`;
+  const invalidCreate = await adminCreate(request("POST", path,
+    { fields: { name, availableTo: "2026-10-27" } }));
+  expect(invalidCreate.status).toBe(400);
+  expect(await invalidCreate.json()).toMatchObject({ code: "INVALID_INPUT" });
+  expect(await db.vehicle.count({ where: { organizationId: organizations[0], name } })).toBe(0);
+
+  const created = await adminCreate(request("POST", path, { fields: { name } }));
+  expect(created.status).toBe(201);
+  const draft = await created.json() as { id: string; version: number };
+  vehicles.push(draft.id);
+  const patch = (expectedVersion: number, fields: object) => adminEdit(request("PATCH", `${path}/${draft.id}`,
+    { expectedVersion, fields }), { params: Promise.resolve({ id: draft.id }) });
+  const invalidEnd = await patch(0, { availableTo: "2026-10-27" });
+  expect(invalidEnd.status).toBe(400);
+  expect(await invalidEnd.json()).toMatchObject({ code: "INVALID_INPUT" });
+  expect((await db.vehicle.findUniqueOrThrow({ where: { id: draft.id } })).version).toBe(0);
+
+  const valid = await patch(0, { availableFrom: "2026-10-26", availableTo: "2026-10-27" });
+  expect(valid.status).toBe(200);
+  const invalidRemoval = await patch(1, { availableFrom: null });
+  expect(invalidRemoval.status).toBe(400);
+  expect(await invalidRemoval.json()).toMatchObject({ code: "INVALID_INPUT" });
+  expect(await db.vehicle.findUniqueOrThrow({ where: { id: draft.id } })).toMatchObject({
+    version: 1, availableFrom: sqlDate("2026-10-26"), availableTo: sqlDate("2026-10-27"),
+  });
+  expect(await db.auditLog.count({ where: { organizationId: organizations[0], entityId: draft.id,
+    action: "VEHICLE_UPDATED" } })).toBe(1);
+});
+
 test("published edits reject loss of required fields; both roles use CAS, tenant isolation and archive", async () => {
   const id = vehicles[0];
   await expect(editVehicle(db, { ...actor(), vehicleId: id, expectedVersion: 2,
