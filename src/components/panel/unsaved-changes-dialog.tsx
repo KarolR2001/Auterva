@@ -1,7 +1,14 @@
 "use client";
 
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { useId, useRef, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 
 import { Button } from "../ui/button";
 import styles from "./panel.module.css";
@@ -14,6 +21,8 @@ type UnsavedChangesDialogProps = {
   onSaveAndLeave: () => void | Promise<void>;
 };
 
+export const UnsavedChangesSuspensionContext = createContext(false);
+
 export function UnsavedChangesDialog({
   open,
   contextLabel,
@@ -21,11 +30,16 @@ export function UnsavedChangesDialog({
   onDiscard,
   onSaveAndLeave,
 }: UnsavedChangesDialogProps) {
+  const suspended = useContext(UnsavedChangesSuspensionContext);
   const descriptionId = useId();
   const actions = useRef<HTMLDivElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
   const [pending, setPending] = useState<"discard" | "save" | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (suspended && open) onStay();
+  }, [suspended, open, onStay]);
 
   async function run(action: "discard" | "save") {
     if (pending) return;
@@ -46,7 +60,7 @@ export function UnsavedChangesDialog({
 
   return (
     <DialogPrimitive.Root
-      open={open}
+      open={open && !suspended}
       onOpenChange={(nextOpen) => {
         if (!nextOpen && !pending) onStay();
       }}
@@ -69,6 +83,10 @@ export function UnsavedChangesDialog({
             actions.current?.querySelector("button")?.focus();
           }}
           onCloseAutoFocus={(event) => {
+            if (suspended) {
+              event.preventDefault();
+              return;
+            }
             if (previousFocus.current) {
               event.preventDefault();
               previousFocus.current.focus();

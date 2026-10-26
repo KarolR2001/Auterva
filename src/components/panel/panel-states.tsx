@@ -19,15 +19,15 @@ type PanelAccessProps = {
 };
 
 export function PanelAccess({ state, area, children }: PanelAccessProps) {
-  if (state === "allowed") return children;
-
-  if (state === "service-expired") {
+  if (state === "allowed" || state === "service-expired") {
     return (
       <>
-        <Alert tone="warning" title="Usługa wygasła">
-          Panel i zapisane formularze pozostają dostępne. Publiczna strona firmy
-          jest wstrzymana do odnowienia usługi.
-        </Alert>
+        {state === "service-expired" && (
+          <Alert tone="warning" title="Usługa wygasła">
+            Panel i zapisane formularze pozostają dostępne. Publiczna strona
+            firmy jest wstrzymana do odnowienia usługi.
+          </Alert>
+        )}
         {children}
       </>
     );
@@ -59,7 +59,10 @@ export function PanelAccess({ state, area, children }: PanelAccessProps) {
 
   return (
     <main className={styles.accessPage}>
-      <section className={styles.accessCard} aria-labelledby="panel-access-title">
+      <section
+        className={styles.accessCard}
+        aria-labelledby="panel-access-title"
+      >
         <span className={styles.eyebrow}>Auterva</span>
         <h1 id="panel-access-title">{content.title}</h1>
         <p>{content.description}</p>
@@ -97,9 +100,13 @@ export function PanelFeedback({
 }: PanelFeedbackProps) {
   return (
     <section className={styles.feedback} aria-labelledby="panel-feedback-title">
-      <span className={styles.eyebrow}>{kind === "not-found" ? "404" : "Błąd"}</span>
+      <span className={styles.eyebrow}>
+        {kind === "not-found" ? "404" : "Błąd"}
+      </span>
       <h1 id="panel-feedback-title">
-        {kind === "not-found" ? "Nie znaleziono strony" : "Nie udało się otworzyć strony"}
+        {kind === "not-found"
+          ? "Nie znaleziono strony"
+          : "Nie udało się otworzyć strony"}
       </h1>
       <p>
         {kind === "not-found"
@@ -107,7 +114,9 @@ export function PanelFeedback({
           : "Spróbuj ponownie lub wróć do bezpiecznej sekcji panelu."}
       </p>
       {kind === "error" && requestId && (
-        <p className={styles.requestId}>Identyfikator zgłoszenia: {requestId}</p>
+        <p className={styles.requestId}>
+          Identyfikator zgłoszenia: {requestId}
+        </p>
       )}
       <div className={styles.feedbackActions}>
         {kind === "error" && onRetry && (

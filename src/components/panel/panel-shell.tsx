@@ -14,6 +14,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { SkipLink } from "../ui/skip-link";
 import { PanelAccess, type PanelAccessState } from "./panel-states";
+import { UnsavedChangesSuspensionContext } from "./unsaved-changes-dialog";
 import styles from "./panel.module.css";
 
 const companyDesktop = [
@@ -68,6 +69,8 @@ export function PanelShell({
   expectedSessionId,
   ...props
 }: PanelShellProps) {
+  const panelAvailable =
+    accessState === "allowed" || accessState === "service-expired";
   const [revokedAccess, setRevokedAccess] = useState<
     "session-expired" | "forbidden" | null
   >(null);
@@ -76,7 +79,7 @@ export function PanelShell({
   const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
-    if (accessState !== "allowed" || !expectedSessionId) return;
+    if (!panelAvailable || !expectedSessionId) return;
     let active = true;
     let pending = false;
     let recheck = false;
@@ -141,11 +144,11 @@ export function PanelShell({
       window.removeEventListener("online", checkSession);
       document.removeEventListener("visibilitychange", checkVisibleSession);
     };
-  }, [accessState, expectedSessionId, retryKey]);
+  }, [panelAvailable, expectedSessionId, retryKey]);
 
   return (
     <>
-      {accessState === "allowed" && connectionError && !revokedAccess && (
+      {panelAvailable && connectionError && !revokedAccess && (
         <main className={styles.accessPage}>
           <section className={styles.feedback} role="alert">
             <h1>Nie udało się sprawdzić dostępu</h1>
@@ -163,20 +166,18 @@ export function PanelShell({
           </section>
         </main>
       )}
-      <PanelAccess
-        area={props.area}
-        state={
-          accessState === "allowed"
-            ? (revokedAccess ?? accessState)
-            : accessState
-        }
-      >
-        <AvailablePanelShell
-          {...props}
-          connectionError={connectionError}
-          connectionEpoch={connectionEpoch}
-        />
-      </PanelAccess>
+      <UnsavedChangesSuspensionContext.Provider value={connectionError}>
+        <PanelAccess
+          area={props.area}
+          state={panelAvailable ? (revokedAccess ?? accessState) : accessState}
+        >
+          <AvailablePanelShell
+            {...props}
+            connectionError={connectionError}
+            connectionEpoch={connectionEpoch}
+          />
+        </PanelAccess>
+      </UnsavedChangesSuspensionContext.Provider>
     </>
   );
 }
@@ -204,6 +205,8 @@ function AvailablePanelShell({
   const [logoutError, setLogoutError] = useState(false);
   const [loggedOut, setLoggedOut] = useState(false);
   const menuTrigger = useRef<HTMLElement | null>(null);
+  const menuVisible =
+    menuOpen && openedEpoch === connectionEpoch && !connectionError;
   const desktopItems = area === "company" ? companyDesktop : platformNavigation;
   const mobileItems = area === "company" ? companyMobile : platformNavigation;
   const menuLinks =
@@ -278,7 +281,7 @@ function AvailablePanelShell({
 
   return (
     <DialogPrimitive.Root
-      open={menuOpen && openedEpoch === connectionEpoch && !connectionError}
+      open={menuVisible}
       onOpenChange={(open) => {
         setMenuOpen(open);
         if (open) setOpenedEpoch(connectionEpoch);
@@ -304,7 +307,7 @@ function AvailablePanelShell({
               type="button"
               className={styles.shellProfileTrigger}
               aria-haspopup="dialog"
-              aria-expanded={menuOpen && menuMode === "desktop"}
+              aria-expanded={menuVisible && menuMode === "desktop"}
               onClick={(event) => openMenu("desktop", event.currentTarget)}
             >
               <CircleUserRound size={20} aria-hidden="true" />
@@ -331,7 +334,7 @@ function AvailablePanelShell({
             type="button"
             className={styles.shellMoreTrigger}
             aria-haspopup="dialog"
-            aria-expanded={menuOpen && menuMode === "mobile"}
+            aria-expanded={menuVisible && menuMode === "mobile"}
             onClick={(event) => openMenu("mobile", event.currentTarget)}
           >
             <Menu size={20} aria-hidden="true" />

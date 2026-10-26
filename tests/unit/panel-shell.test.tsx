@@ -8,9 +8,11 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PanelShell } from "../../src/components/panel/panel-shell";
+import { UnsavedChangesDialog } from "../../src/components/panel/unsaved-changes-dialog";
 
 afterEach(cleanup);
 
@@ -360,6 +362,161 @@ describe("nawigacja panelu", () => {
       await waitFor(() => expect(draft).toBeVisible());
       expect(draft).toHaveValue("Firma Alfa");
       expect(screen.queryByRole("dialog")).toBeNull();
+      expect(
+        screen.getByRole("button", { name: "Profil superadmina" }),
+      ).toHaveAttribute("aria-expanded", "false");
+    } finally {
+      request.mockRestore();
+    }
+  });
+
+  it("zachowuje wpisany formularz przy przejściu do wygasłej usługi", async () => {
+    const user = userEvent.setup();
+    const props = {
+      area: "company" as const,
+      title: "Pojazdy",
+      currentPath: "/admin/pojazdy",
+    };
+    const form = (
+      <label>
+        Nazwa pojazdu <input defaultValue="Mercedes" />
+      </label>
+    );
+    const { rerender } = render(
+      <PanelShell {...props} accessState="allowed">
+        {form}
+      </PanelShell>,
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: "Nazwa pojazdu" }),
+      " V",
+    );
+    rerender(
+      <PanelShell {...props} accessState="service-expired">
+        {form}
+      </PanelShell>,
+    );
+    expect(screen.getByRole("textbox", { name: "Nazwa pojazdu" })).toHaveValue(
+      "Mercedes V",
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Usługa wygasła");
+    rerender(
+      <PanelShell {...props} accessState="allowed">
+        {form}
+      </PanelShell>,
+    );
+    expect(screen.getByRole("textbox", { name: "Nazwa pojazdu" })).toHaveValue(
+      "Mercedes V",
+    );
+  });
+
+  it("po wygaśnięciu usługi nadal usuwa panel po cofnięciu sesji", async () => {
+    let revoked = false;
+    const request = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () =>
+        revoked
+          ? Response.json({ code: "INVALID_CREDENTIALS" }, { status: 401 })
+          : Response.json({ session: { id: "sesja-firmy" } }),
+      );
+    try {
+      const props = {
+        area: "company" as const,
+        expectedSessionId: "sesja-firmy",
+        title: "Pojazdy",
+        currentPath: "/admin/pojazdy",
+      };
+      const { rerender } = render(
+        <PanelShell {...props} accessState="allowed">
+          <p>Prywatne pojazdy</p>
+        </PanelShell>,
+      );
+      await waitFor(() => expect(request).toHaveBeenCalled());
+      rerender(
+        <PanelShell {...props} accessState="service-expired">
+          <p>Prywatne pojazdy</p>
+        </PanelShell>,
+      );
+      expect(screen.getByText("Prywatne pojazdy")).toBeInTheDocument();
+      revoked = true;
+      window.dispatchEvent(new Event("focus"));
+      await waitFor(() =>
+        expect(screen.getByText("Sesja wygasła")).toBeInTheDocument(),
+      );
+      expect(screen.queryByText("Prywatne pojazdy")).toBeNull();
+    } finally {
+      request.mockRestore();
+    }
+  });
+
+  it("chowa otwarty dialog niezapisanych zmian przy błędzie sieci i nie wznawia go po retry", async () => {
+    const user = userEvent.setup();
+    const stayed = vi.fn();
+    let offline = false;
+    const request = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => {
+        if (offline) throw new TypeError("network unavailable");
+        return Response.json({ session: { id: "sesja-firmy" } });
+      });
+    function Draft() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <label>
+            Szkic <input defaultValue="Firma" />
+          </label>
+          <button onClick={() => setOpen(true)}>Opuść formularz</button>
+          <UnsavedChangesDialog
+            open={open}
+            onStay={() => {
+              stayed();
+              setOpen(false);
+            }}
+            onDiscard={vi.fn()}
+            onSaveAndLeave={vi.fn()}
+          />
+        </>
+      );
+    }
+    try {
+      render(
+        <PanelShell
+          area="company"
+          accessState="allowed"
+          expectedSessionId="sesja-firmy"
+          title="Panel"
+          currentPath="/admin"
+        >
+          <Draft />
+        </PanelShell>,
+      );
+      const draft = screen.getByRole("textbox", { name: "Szkic" });
+      await user.type(draft, " Alfa");
+      await user.click(screen.getByRole("button", { name: "Opuść formularz" }));
+      expect(
+        screen.getByRole("alertdialog", { name: "Niezapisane zmiany" }),
+      ).toBeVisible();
+      offline = true;
+      window.dispatchEvent(new Event("focus"));
+      await waitFor(() =>
+        expect(
+          screen.getByText("Nie udało się sprawdzić dostępu"),
+        ).toBeVisible(),
+      );
+      expect(
+        screen.queryByRole("alertdialog", { name: "Niezapisane zmiany" }),
+      ).toBeNull();
+      expect(stayed).toHaveBeenCalledOnce();
+      offline = false;
+      await user.click(
+        screen.getByRole("button", { name: "Spróbuj ponownie" }),
+      );
+      await waitFor(() => expect(draft).toBeVisible());
+      expect(draft).toHaveValue("Firma Alfa");
+      expect(
+        screen.queryByRole("alertdialog", { name: "Niezapisane zmiany" }),
+      ).toBeNull();
     } finally {
       request.mockRestore();
     }
