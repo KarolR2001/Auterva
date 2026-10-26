@@ -45,3 +45,8 @@ tmp/
 *.bak
 
 # Project skills and skills-lock.json are intentionally tracked.
+
+# Claude Code: lokalne ustawienia i tymczasowe worktree
+.claude/settings.local.json
+.claude/worktrees/
+CLAUDE.local.md
