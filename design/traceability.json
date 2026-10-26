@@ -307,7 +307,7 @@
       "codePaths": [
         "docs/contracts/custom-domain-lifecycle.md",
         "prisma/schema.prisma",
-        "prisma/migrations/20261026160000_custom_domain_issue_23/migration.sql",
+        "prisma/migrations/20261026162000_custom_domain_issue_23/migration.sql",
         "src/modules/domains/hostname.ts",
         "src/modules/domains/address-policy.ts",
         "src/modules/domains/network-checker.ts",
