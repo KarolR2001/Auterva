@@ -3,6 +3,23 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 38,
+      "scope": "Serwerowy CRUD ręcznych blokad z kontrolą kolizji pod blokadą wiersza Vehicle, wersją, audytem i natychmiastowym publicznym odczytem; UI blokad w osobnym issue.",
+      "relatedRequirementIds": ["C-F007", "C-F100", "C-F102", "C-F103", "C-F104", "C-F105", "C-N027", "C-N031", "FR-ADM-050", "FR-ADM-051", "FR-ADM-052", "FR-ADM-053", "FR-ADM-054", "FR-ADM-055", "FR-ADM-058", "D-15"],
+      "referenceScreenIds": ["ADM-09"],
+      "codePaths": [
+        "prisma/migrations/20261026180000_availability_block_integrity_issue_38/migration.sql",
+        "src/modules/availability/block-types.ts",
+        "src/modules/availability/blocks.ts",
+        "src/modules/availability/blocks-http.ts",
+        "src/app/api/admin/vehicles/[id]/blocks/route.ts",
+        "src/app/api/admin/vehicles/[id]/blocks/[blockId]/route.ts",
+        "src/app/api/platform/companies/[organizationId]/vehicles/[id]/blocks/route.ts",
+        "src/app/api/platform/companies/[organizationId]/vehicles/[id]/blocks/[blockId]/route.ts"
+      ],
+      "testPaths": ["tests/integration/availability-blocks.test.ts", "tests/e2e/availability.spec.ts"]
+    },
+    {
       "issue": 28,
       "scope": "Serwerowy CRUD floty, walidacja publikacji D-02, lista z filtrem dostępności #33 i wersjonowana kolejność; rzeczywisty upload i publiczna oferta w osobnych issue.",
       "relatedRequirementIds": ["C-F095", "C-F096", "C-F097", "C-F104", "FR-ADM-020", "FR-ADM-021", "FR-ADM-022", "FR-ADM-030", "FR-ADM-032"],
