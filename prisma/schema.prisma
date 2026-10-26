@@ -66,6 +66,7 @@ model Vehicle {
   blocks           AvailabilityBlock[]
   features         VehicleFeature[]
   images           VehicleImage[]
+  imageUploads     ImageUpload[]
   redirects        SlugRedirect[]
 
   @@unique([organizationId, id])
@@ -305,6 +306,32 @@ model VehicleImage {
   @@index([organizationId, vehicleId, position])
 }
 
+model ImageUpload {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  vehicleId      String   @db.Uuid
+  reservationKey String   @db.Uuid
+  imageId        String   @unique @db.Uuid
+  stagingKey     String   @unique
+  rawKey         String   @unique
+  state          String   @default("RESERVED")
+  expiresAt      DateTime @db.Timestamptz(6)
+  leaseUntil     DateTime? @db.Timestamptz(6)
+  storageCleanedAt DateTime? @db.Timestamptz(6)
+  rawSha256      String?  @db.VarChar(64)
+  rawBytes       Int?
+  mime           String?
+  width          Int?
+  height         Int?
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(6)
+  vehicle        Vehicle  @relation(fields: [organizationId, vehicleId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([organizationId, vehicleId, reservationKey])
+  @@index([organizationId, vehicleId, state])
+  @@index([state, expiresAt])
+}
+
 model SiteSettings {
   organizationId       String       @id @db.Uuid
   publicName           String?
@@ -423,6 +450,7 @@ model Job {
   retentionManifests AuditRetentionManifest[]
 
   @@unique([organizationId, dedupeKey])
+  @@index([kind, status, runAt])
   @@index([status, runAt])
   @@index([status, lockedUntil])
 }
