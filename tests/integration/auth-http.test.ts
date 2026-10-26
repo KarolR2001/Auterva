@@ -68,6 +68,7 @@ test("auth HTTP accepts only an active admin host and closes signup/public/other
     expect((await POST(wrong)).status).toBe(404);
     const login = await POST(request(hostname, "sign-in/email", { email, password }));
     expect(login.status).toBe(200);
+    expect(await db.auditLog.count({ where: { actorId: fixtureUserId, action: "AUTH_LOGIN_COMPLETED" } })).toBe(0);
     expect(login.headers.getSetCookie().every((item) => !/domain=/i.test(item) && /httponly/i.test(item))).toBe(true);
     expect((await login.clone().json() as { token?: string }).token).toBeUndefined();
     const cookie = login.headers.getSetCookie().map((item) => item.split(";", 1)[0]).join("; ");
@@ -105,22 +106,32 @@ test("MFA enrollment session is limited to the user's own admin host", async () 
   if (!(totp instanceof OTPAuth.TOTP)) throw new Error("Missing enrollment TOTP");
   const verified = await POST(request(hostname, "two-factor/verify-totp", { code: totp.generate(), trustDevice: false }, cookie));
   expect(verified.status).toBe(200);
+  const completedAfterEnrollment = await db.auditLog.count({ where: { actorId: fixtureUserId, action: "AUTH_LOGIN_COMPLETED" } });
+  expect(completedAfterEnrollment).toBe(1);
+  const enrollmentAudit = await db.auditLog.findFirstOrThrow({ where: { actorId: fixtureUserId, action: "AUTH_LOGIN_COMPLETED" } });
+  expect(verified.headers.get("X-Request-Id")).toBe(enrollmentAudit.requestId);
   const result = await verified.json() as { backupCodes?: string[] };
   expect(result.backupCodes).toHaveLength(10);
   const fullCookie = verified.headers.getSetCookie().map((item) => item.split(";", 1)[0]).join("; ");
   expect((await GET(request(hostname, "get-session", undefined, fullCookie))).status).toBe(200);
+  const repeated = await POST(request(hostname, "two-factor/verify-totp", { code: totp.generate() }, fullCookie));
+  expect(repeated.status).toBe(401);
+  expect(repeated.headers.get("X-Request-Id")).toMatch(/^[a-f0-9-]{36}$/);
+  expect(await db.auditLog.count({ where: { actorId: fixtureUserId, action: "AUTH_LOGIN_COMPLETED" } })).toBe(completedAfterEnrollment);
   const fullBody = await (await GET(request(hostname, "get-session", undefined, fullCookie))).json() as { session: { token?: string } };
   expect(fullBody.session.token).toBeUndefined();
 
   const nextLogin = await POST(request(hostname, "sign-in/email", { email, password }));
   expect(nextLogin.status).toBe(200);
   expect((await nextLogin.json() as { twoFactorRedirect?: boolean }).twoFactorRedirect).toBe(true);
+  expect(await db.auditLog.count({ where: { actorId: fixtureUserId, action: "AUTH_LOGIN_COMPLETED" } })).toBe(completedAfterEnrollment);
   const challengeCookie = nextLogin.headers.getSetCookie().map((item) => item.split(";", 1)[0]).join("; ");
   expect(challengeCookie).toContain("two_factor");
   expect((await POST(request(platformHost, "two-factor/verify-totp", { code: totp.generate() }, challengeCookie))).status).toBe(401);
   expect((await POST(request(otherHostname, "two-factor/verify-totp", { code: totp.generate() }, challengeCookie))).status).toBe(401);
   const completed = await POST(request(hostname, "two-factor/verify-totp", { code: totp.generate() }, challengeCookie));
   expect(completed.status).toBe(200);
+  expect(await db.auditLog.count({ where: { actorId: fixtureUserId, action: "AUTH_LOGIN_COMPLETED" } })).toBe(completedAfterEnrollment + 1);
   const completeCookie = completed.headers.getSetCookie().map((item) => item.split(";", 1)[0]).join("; ");
   expect((await GET(request(hostname, "get-session", undefined, completeCookie))).status).toBe(200);
 
@@ -219,6 +230,16 @@ test("MFA enrollment session is limited to the user's own admin host", async () 
   const untouchedOldCode = result.backupCodes?.[1];
   if (!untouchedOldCode) throw new Error("Missing second recovery code");
   expect((await POST(request(hostname, "mfa/reauth", { method: "recovery", code: untouchedOldCode }, completeCookie))).status).toBe(401);
+  const rotation = await db.auditLog.findFirst({ where: { actorId: fixtureUserId, action: "MFA_BACKUP_CODES_ROTATED" }, orderBy: { createdAt: "desc" } });
+  expect(rotation).not.toBeNull();
+  expect(await db.auditLog.count({ where: { actorId: fixtureUserId, action: "AUTH_SESSIONS_REVOKED", requestId: rotation!.requestId } })).toBe(1);
+  const signOutRace = await Promise.all([
+    POST(request(hostname, "sign-out", {}, completeCookie)),
+    POST(request(hostname, "sign-out", {}, completeCookie)),
+  ]);
+  expect(signOutRace.some((response) => response.status === 200)).toBe(true);
+  expect(await db.auditLog.count({ where: { actorId: fixtureUserId, action: "AUTH_LOGOUT" } })).toBe(1);
+  expect((await GET(request(hostname, "get-session", undefined, completeCookie))).status).toBe(401);
 });
 
 test("the public gateway enforces five account failures and twenty source attempts", async () => {

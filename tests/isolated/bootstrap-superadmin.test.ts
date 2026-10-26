@@ -72,7 +72,10 @@ test("bootstrap refuses nonempty token storage and concurrent runs create exactl
   expect((await db.user.findUnique({ where: { id: user.id } }))?.twoFactorEnabled).toBe(false);
   expect(await db.twoFactor.count({ where: { userId: user.id } })).toBe(0);
   expect((await GET(request("get-session", undefined, fullCookie))).status).toBe(401);
-  expect(await db.auditLog.count({ where: { entityId: user.id, action: "MFA_OPERATOR_RECOVERY" } })).toBe(1);
+  const recoveryAudit = await db.auditLog.findFirstOrThrow({ where: { entityId: user.id, action: "MFA_OPERATOR_RECOVERY" } });
+  expect(recoveryAudit).toMatchObject({ actorId: "operator:owner-fixture", actorRole: "OPERATOR", organizationId: null });
+  expect(JSON.stringify(recoveryAudit.safeChanges)).not.toContain(recovery.evidenceReference);
+  expect(recoveryAudit.safeChanges).toMatchObject({ identityConfirmed: true, revokedSessions: result.revokedSessions });
   const restarted = await POST(request("sign-in/email", { email, password }));
   expect((await restarted.json() as { enrollmentRequired?: boolean }).enrollmentRequired).toBe(true);
   const restartCookie = restarted.headers.getSetCookie().map((item) => item.split(";", 1)[0]).join("; ");
