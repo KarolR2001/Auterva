@@ -22,3 +22,5 @@ Po autoryzacji wejścia współdzielą z auth limit **60 zapisów na ruchomą mi
 Odmowy: `400 INVALID_INPUT` lub `INVALID_ORGANIZATION_ID`, `422 INVALID_PAID_THROUGH` albo `PERIOD_PAYMENT_REQUIRED`/`PERIOD_ARCHIVED`, `409 PERIOD_VERSION_CONFLICT`/`PUBLIC_RESTORE_NOT_LOCKED`/`EVENT_KEY_CONFLICT`, `403 FORBIDDEN`, `404 NOT_FOUND`. Nieznane błędy dają neutralne `500 INTERNAL_ERROR`; klient nie powinien odtwarzać mutacji z lokalnego stanu po błędzie. Dane do widoku odczytu oraz UI, w tym odpowiedni stan formularza i komunikat D-11, należą do #27 i powiązanych modułów.
 
 Wersję okresu trzeba spiąć transakcyjnie z intencjami przypomnień według [kontraktu harmonogramu](service-periods-kpi-reminders.md); przyszłe przyznanie trialu przy rejestracji należy do konsumenta zaproszeń. Ten dokument określa regułę integracji, nie deklaruje wdrożenia tych przepływów, publicznych tras floty ani doręczenia poczty.
+
+Operacje archiwizacji i przywrócenia, które ustawiają te pola, opisuje [kontrakt #48](company-archive-restore.md).

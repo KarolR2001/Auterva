@@ -419,6 +419,24 @@
         "tests/integration/availability-http.test.ts",
         "tests/e2e/availability.spec.ts"
       ]
+    },
+    {
+      "issue": 48,
+      "scope": "Archiwizacja i przywrócenie firmy bez utraty danych: atomowe cofnięcie sesji i challenge MFA, blokada publiczna, wersja i audyt rzeczywistego superadmina; restore bez odnowienia okresu, odblokowanie wyłącznie przez istniejące unlockPublicAfterRestore. Bez UI i purge.",
+      "relatedRequirementIds": ["C-F073", "C-F074", "C-F075", "C-F075-T", "C-F076", "C-F077", "C-F078", "C-F079", "C-F080", "C-F126", "C-N011", "C-N046"],
+      "codePaths": [
+        "src/modules/organizations/archive.ts",
+        "src/modules/organizations/archive-http.ts",
+        "src/app/api/platform/companies/[organizationId]/archive/route.ts",
+        "src/app/api/platform/companies/[organizationId]/restore/route.ts",
+        "docs/contracts/company-archive-restore.md"
+      ],
+      "testPaths": [
+        "tests/integration/company-archive.test.ts",
+        "tests/integration/company-archive-realtime.test.ts",
+        "tests/integration/company-archive-media.test.ts",
+        "tests/e2e/company-archive.spec.ts"
+      ]
     }
   ],
   "sources": [
