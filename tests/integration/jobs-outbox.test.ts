@@ -26,10 +26,11 @@ test("invitation and encrypted outbox commit together, dedupe preserves original
   const token = randomUUID();
   await db.organization.create({ data: { id: organizationId, slug: `jobs-${organizationId}` } });
   await db.user.create({ data: { id: adminId, name: "Fixture admin", email: "qa@example.test",
-    role: "ADMIN_FIRMY", organizationId, emailVerified: true, twoFactorEnabled: true } });
+    role: "ADMIN_FIRMY", organizationId, emailVerified: false, twoFactorEnabled: false } });
   await db.hostMapping.create({ data: { organizationId, hostname, area: "COMPANY_ADMIN", status: "ACTIVE" } });
   const job = await db.$transaction(async (tx) => {
     await tx.invitation.create({ data: { id: invitationId, organizationId, recipientEmail: "qa@example.test",
+      issuedHost: hostname,
       tokenHash: createHash("sha256").update(token).digest("hex"), issueKey: randomUUID(),
       issuedAt: now, expiresAt: new Date(now.getTime() + 7 * 24 * 60 * 60_000) } });
     return enqueueMail(tx, { kind: "MAIL_INVITATION", organizationId, recipient: "qa@example.test",
@@ -50,6 +51,7 @@ test("invitation and encrypted outbox commit together, dedupe preserves original
   await expect(db.$transaction((tx) => enqueueMail(tx, { kind: "MAIL_INVITATION", organizationId,
     recipient: "qa@example.test", referenceId: invitationId, token: "different", runAt: now }, key))).rejects.toThrow();
   expect(await db.job.count({ where: { organizationId } })).toBe(1);
+  await db.user.update({ where: { id: adminId }, data: { emailVerified: true, twoFactorEnabled: true } });
   await expect(db.$transaction(async (tx) => {
     await enqueueMail(tx, { kind: "MAIL_REMINDER", organizationId, recipient: "qa@example.test",
       referenceId: "period-1", periodVersion: 2, runAt: now }, key);

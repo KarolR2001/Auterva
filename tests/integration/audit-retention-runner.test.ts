@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { chmod, mkdtemp, rm } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { expect, test } from "vitest";
 import { createPrismaClient } from "../../src/lib/prisma";
@@ -8,6 +8,7 @@ import { runAuditRetentionLoop } from "../../src/modules/audit/retention-runner"
 
 test("nonprivate export directory does not stop the independent purge job", async () => {
   const db = createPrismaClient(process.env.DATABASE_URL ?? "");
+  await mkdir(resolve(".local"), { recursive: true });
   const directory = await mkdtemp(resolve(".local/audit-retention-runner-"));
   const now = new Date("2026-10-27T18:00:00.000Z");
   const auditId = randomUUID();

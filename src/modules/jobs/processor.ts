@@ -23,8 +23,9 @@ async function isCurrent(db: PrismaClient, mail: MailPayload, now: Date): Promis
   if ((mail.scope === "PLATFORM") !== (mail.organizationId === null) ||
       (mail.scope === "PLATFORM" && mail.kind !== "MAIL_PASSWORD_RESET")) return false;
   if (mail.organizationId) {
-    const org = await db.organization.findUnique({ where: { id: mail.organizationId }, select: { archivedAt: true } });
-    if (!org || org.archivedAt) return false;
+    const org = await db.organization.findUnique({ where: { id: mail.organizationId },
+      select: { archivedAt: true, firstAdminRegisteredAt: true } });
+    if (!org || org.archivedAt || (mail.kind === "MAIL_INVITATION" && org.firstAdminRegisteredAt)) return false;
   }
   const parsed = new URL(mail.url);
   if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.port) return false;
@@ -35,8 +36,12 @@ async function isCurrent(db: PrismaClient, mail: MailPayload, now: Date): Promis
   if (mail.kind === "MAIL_INVITATION") {
     const invitation = await db.invitation.findUnique({ where: { id: mail.referenceId } });
     const token = decodeURIComponent(parsed.pathname.slice("/admin/zaproszenie/".length));
+    const pendingAdmin = await db.user.findFirst({ where: { organizationId: mail.organizationId!,
+      email: mail.recipient, role: "ADMIN_FIRMY", disabledAt: null, emailVerified: false,
+      accounts: { none: { providerId: "credential" } } }, select: { id: true } });
     return parsed.pathname.startsWith("/admin/zaproszenie/") && !!invitation &&
       invitation.organizationId === mail.organizationId && invitation.recipientEmail.toLowerCase() === mail.recipient &&
+      invitation.issuedHost === parsed.hostname && !!pendingAdmin &&
       invitation.tokenHash === createHash("sha256").update(token).digest("hex") &&
       invitation.expiresAt > now && !invitation.usedAt && !invitation.revokedAt;
   }
@@ -45,8 +50,9 @@ async function isCurrent(db: PrismaClient, mail: MailPayload, now: Date): Promis
     const pathPrefix = mail.scope === "PLATFORM" ? "/reset-hasla/" : "/admin/reset-hasla/";
     const token = decodeURIComponent(parsed.pathname.slice(pathPrefix.length));
     const user = await db.user.findUnique({ where: { email: mail.recipient },
-      select: { organizationId: true, role: true, disabledAt: true } });
-    return parsed.pathname.startsWith(pathPrefix) && !!verification && !!user && !user.disabledAt &&
+      select: { organizationId: true, role: true, disabledAt: true, emailVerified: true,
+        accounts: { where: { providerId: "credential", password: { not: null } }, select: { id: true }, take: 1 } } });
+    return parsed.pathname.startsWith(pathPrefix) && !!verification && !!user && !user.disabledAt && user.emailVerified && user.accounts.length === 1 &&
       user.organizationId === mail.organizationId &&
       user.role === (mail.scope === "PLATFORM" ? "SUPERADMIN_AUTERVA" : "ADMIN_FIRMY") &&
       verification.identifier === `password-reset:${mail.recipient}` &&

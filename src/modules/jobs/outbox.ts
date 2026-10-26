@@ -88,17 +88,22 @@ export async function enqueueMail(tx: Prisma.TransactionClient, input: MailInput
     const org = await tx.organization.findUnique({ where: { id: input.organizationId }, select: { archivedAt: true } });
     if (!org || org.archivedAt) throw new Error("Inactive mail organization");
   }
+  let boundInvitationHost: string | null = null;
   if (input.kind === "MAIL_INVITATION") {
     const invitation = await tx.invitation.findUnique({ where: { id: input.referenceId } });
     if (!invitation || invitation.organizationId !== input.organizationId ||
         invitation.recipientEmail.toLowerCase() !== input.recipient.toLowerCase() ||
-        invitation.tokenHash !== createHash("sha256").update(input.token!).digest("hex"))
+        invitation.tokenHash !== createHash("sha256").update(input.token!).digest("hex") ||
+        !invitation.issuedHost || normalizeHostname(invitation.issuedHost) !== invitation.issuedHost ||
+        invitation.usedAt || invitation.revokedAt || invitation.expiresAt <= input.runAt)
       throw new Error("Invitation does not match mail intent");
+    boundInvitationHost = invitation.issuedHost;
   }
   if (input.kind === "MAIL_PASSWORD_RESET") {
     const user = await tx.user.findUnique({ where: { email: input.recipient.toLowerCase() },
-      select: { organizationId: true, role: true, disabledAt: true } });
-    if (!user || user.disabledAt || user.organizationId !== input.organizationId ||
+      select: { organizationId: true, role: true, disabledAt: true, emailVerified: true,
+        accounts: { where: { providerId: "credential", password: { not: null } }, select: { id: true }, take: 1 } } });
+    if (!user || user.disabledAt || !user.emailVerified || user.accounts.length !== 1 || user.organizationId !== input.organizationId ||
         user.role !== (scope === "PLATFORM" ? "SUPERADMIN_AUTERVA" : "ADMIN_FIRMY")) {
       throw new Error("Reset recipient does not match mail scope");
     }
@@ -113,9 +118,11 @@ export async function enqueueMail(tx: Prisma.TransactionClient, input: MailInput
     throw new Error("Reminder recipient is not the current company administrator");
   }
   const host = await tx.hostMapping.findFirst({ where: { organizationId: input.organizationId,
-    area: scope, status: "ACTIVE" }, orderBy: { hostname: "asc" }, select: { hostname: true } });
+    area: scope, status: "ACTIVE",
+    ...(boundInvitationHost ? { hostname: { equals: boundInvitationHost, mode: "insensitive" as const } } : {}) },
+  orderBy: { hostname: "asc" }, select: { hostname: true } });
   const hostname = host && normalizeHostname(host.hostname);
-  if (!hostname) throw new Error("Missing active admin host");
+  if (!hostname || (boundInvitationHost && hostname !== boundInvitationHost)) throw new Error("Missing active admin host");
   const path = input.kind === "MAIL_INVITATION" ? `/admin/zaproszenie/${encodeURIComponent(input.token!)}`
     : input.kind === "MAIL_PASSWORD_RESET" ? `${scope === "PLATFORM" ? "" : "/admin"}/reset-hasla/${encodeURIComponent(input.token!)}` : "/admin/";
   const url = `https://${hostname}${path}`;

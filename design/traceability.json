@@ -3,6 +3,35 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 11,
+      "scope": "Podstawowe komponenty pierwszych ekranów na wspólnym scaffoldzie.",
+      "relatedRequirementIds": [
+        "C-N047",
+        "C-N049",
+        "C-N050",
+        "DS-N12",
+        "DS-N13",
+        "DS-N14",
+        "DS-N15",
+        "DS-N20",
+        "DS-N21"
+      ],
+      "referenceScreenIds": ["ADM-01", "ACC-07", "ADM-19"],
+      "components": [
+        { "itemId": "DS-ACT-001", "codePath": "src/components/ui/button.tsx" },
+        { "itemId": "DS-FRM-001", "codePath": "src/components/ui/form-field.tsx" },
+        { "itemId": "DS-FRM-002", "codePath": "src/components/ui/text-input.tsx" },
+        { "itemId": "DS-FRM-004", "codePath": "src/components/ui/password-input.tsx" },
+        { "itemId": "DS-FBK-001", "codePath": "src/components/ui/alert.tsx" },
+        { "itemId": "DS-FBK-014", "codePath": "src/components/ui/dialog.tsx" },
+        { "itemId": "DS-FBK-021", "codePath": "src/components/ui/announcement-region.tsx" },
+        { "itemId": "DS-NAV-001", "codePath": "src/components/ui/skip-link.tsx" }
+      ],
+      "stylePath": "src/components/ui/ui.module.css",
+      "testPath": "tests/unit/ui-foundations.test.tsx",
+      "fixturePath": "tests/fixtures/ui-check.tsx"
+    },
+    {
       "issue": 5,
       "scope": "Lokalna próba stosu i minimalne fixture; nie pełne moduły produktu.",
       "relatedRequirementIds": ["D-12", "C-R001", "C-N060"],
@@ -167,6 +196,39 @@
       "testPaths": ["tests/integration/prisma-timezone.test.ts"]
     },
     {
+      "issue": 18,
+      "scope": "Neutralny reset hasła, profil tylko nazwa, zmiana hasła z pełnym MFA i cofnięciem sesji; ekran należy do #19.",
+      "relatedRequirementIds": ["C-F041", "C-F042", "C-F044", "C-N015", "C-N016", "C-N017", "FR-ADM-006", "FR-ADM-080", "FR-ADM-082"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261026120000_password_reset_issue_18/migration.sql",
+        "src/modules/auth/account-operations.ts",
+        "src/app/api/auth/[...all]/route.ts",
+        "src/modules/audit/append.ts",
+        "src/modules/jobs/outbox.ts",
+        "src/modules/jobs/processor.ts"
+      ],
+      "testPaths": ["tests/integration/password-reset.test.ts", "tests/integration/password-lock-order.test.ts", "tests/integration/password-change-limit.test.ts", "tests/integration/auth-login-neutral-work.test.ts", "tests/isolated/bootstrap-superadmin.test.ts"]
+    },
+    {
+      "issue": 20,
+      "scope": "Prerejestracja firmy, jednorazowe zaproszenie i przypięcie aktywnego hosta; aktywacja konta i trialu należy do #22.",
+      "relatedRequirementIds": ["C-F015", "C-F019", "C-F020", "C-F021", "C-F022", "C-F023", "C-F024", "C-F025", "C-F028", "C-F030", "C-F034", "C-F035", "C-F036", "C-N014", "C-N018"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261026150000_company_onboarding_issue_20/migration.sql",
+        "src/modules/organizations/onboarding.ts",
+        "src/modules/invitations/issue.ts",
+        "src/modules/jobs/outbox.ts",
+        "src/modules/jobs/processor.ts",
+        "src/app/api/platform/companies/route.ts",
+        "src/app/api/platform/companies/[organizationId]/invitations/route.ts",
+        "src/app/api/platform/companies/[organizationId]/invitations/[invitationId]/route.ts",
+        "src/app/api/auth/invitation/[token]/route.ts"
+      ],
+      "testPaths": ["tests/integration/company-preregistration.test.ts", "tests/integration/jobs-outbox.test.ts", "tests/integration/jobs-worker.test.ts", "tests/integration/jobs-process.test.ts", "tests/e2e/company-onboarding.spec.ts"]
+    },
+    {
       "issue": 108,
       "scope": "Retencja audytu 365 dni w kolejce operatora; eksport wyłącznie lokalnej fixture, docelowy storage w #58/#60.",
       "relatedRequirementIds": ["D-10", "C-N019", "C-N037", "C-N040", "FR-ADM-070"],
@@ -209,6 +271,27 @@
         "tests/integration/service-period-public.test.ts",
         "tests/integration/service-period-mutation.test.ts",
         "tests/e2e/service-period.spec.ts"
+      ]
+    },
+    {
+      "issue": 33,
+      "scope": "Serwerowe odczyty dostępności, aktywność minus blokady, publiczny i prywatny kalendarz oraz predykat filtra #28; mutacje należą do kolejnych issue.",
+      "relatedRequirementIds": ["C-F094", "C-F102", "C-F105", "C-N028", "C-N029", "C-N030", "FR-PUB-023", "FR-PUB-024", "FR-PUB-025", "FR-PUB-026", "FR-ADM-010", "FR-ADM-021"],
+      "codePaths": [
+        "src/modules/availability/dates.ts",
+        "src/modules/availability/read.ts",
+        "src/modules/availability/http.ts",
+        "src/app/api/public/availability/check/route.ts",
+        "src/app/api/public/availability/batch/route.ts",
+        "src/app/api/public/vehicles/[slug]/calendar/route.ts",
+        "src/app/api/admin/vehicles/[id]/availability/route.ts",
+        "src/app/api/platform/companies/[organizationId]/vehicles/[id]/availability/route.ts"
+      ],
+      "testPaths": [
+        "tests/unit/availability.test.ts",
+        "tests/integration/availability-read.test.ts",
+        "tests/integration/availability-http.test.ts",
+        "tests/e2e/availability.spec.ts"
       ]
     }
   ],
@@ -496,7 +579,7 @@
       },
       {
         "id": "PLT-01-02",
-        "name": "Pulpit i lista firm",
+        "name": "Lista firm i KPI (wejścia / i /firmy)",
         "pageIds": {
           "mobile": "fb4e1683-f05f-8095-8008-c755dff0027c",
           "desktop": "fb4e1683-f05f-8095-8008-c755dff4dae6"
@@ -510,6 +593,55 @@
             "fb4e1683-f05f-8095-8008-c759e3b05202",
             "fb4e1683-f05f-8095-8008-c75e49caf56f"
           ]
+        },
+        "navigationContract": {
+          "issue": 102,
+          "requirementIds": ["C-R003", "C-R006", "C-R007"],
+          "routes": {
+            "homeAlias": "/",
+            "companies": "/firmy",
+            "messages": "/wiadomosci",
+            "account": "/konto"
+          },
+          "mobileNavInstanceIds": [
+            "fb4e1683-f05f-8095-8008-c7596662b376",
+            "01ccd025-5b85-80fe-8008-d034b6d49406",
+            "fb4e1683-f05f-8095-8008-c7717df95fbd",
+            "fb4e1683-f05f-8095-8008-c7725a47c378",
+            "43eeb5e5-a1c6-801a-8008-d026559e1626"
+          ],
+          "desktopSidebarInstanceIds": [
+            "fb4e1683-f05f-8095-8008-c759e3b60caf",
+            "fb4e1683-f05f-8095-8008-c760ae864575",
+            "fb4e1683-f05f-8095-8008-c772c973154e",
+            "43eeb5e5-a1c6-801a-8008-d025519202ec"
+          ],
+          "menuBoardIds": {
+            "mobile": "89433e5c-4f5c-80ad-8008-d910ad0b18fd",
+            "desktop": "89433e5c-4f5c-80ad-8008-d90d3f63bcb7"
+          },
+          "prototypeDestinations": {
+            "companies": {
+              "mobile": "fb4e1683-f05f-8095-8008-c7595a575f33",
+              "desktop": "fb4e1683-f05f-8095-8008-c759e3b05202"
+            },
+            "messages": {
+              "mobile": "fb4e1683-f05f-8095-8008-c76fcc42bde3",
+              "desktop": "fb4e1683-f05f-8095-8008-c772c96f234e"
+            },
+            "logoutAfterServerAction": {
+              "mobile": "fb4e1683-f05f-8095-8008-c75bec06c851",
+              "desktop": "fb4e1683-f05f-8095-8008-c75b5b2ee55c"
+            }
+          },
+          "nestedCompanyReturn": {
+            "mobileHitId": "43eeb5e5-a1c6-801a-8008-d0265908f175",
+            "mobileBoardId": "4e2ad814-13be-80ec-8008-ccaacecd969f",
+            "desktopHitId": "43eeb5e5-a1c6-801a-8008-d02563417960",
+            "desktopBoardId": "4e2ad814-13be-80ec-8008-ccadc80b0a41"
+          },
+          "accountBoardFollowUpIssue": 103,
+          "prototypeLogoutIsNotSessionInvalidation": true
         }
       },
       {
@@ -556,7 +688,8 @@
             "4e2ad814-13be-80ec-8008-cc90124ec8d8",
             "4e2ad814-13be-80ec-8008-cc8fff9637ac"
           ]
-        }
+        },
+        "navigationFollowUpIssue": 112
       },
       {
         "id": "ACC-04",
