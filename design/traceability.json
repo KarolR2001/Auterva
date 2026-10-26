@@ -134,6 +134,13 @@
         "scripts/recover-mfa.ts"
       ],
       "testPaths": ["tests/integration/audit-append.test.ts", "tests/integration/auth-http.test.ts", "tests/isolated/bootstrap-superadmin.test.ts"]
+    },
+    {
+      "issue": 114,
+      "scope": "UTC dla połączeń Prisma bez zmiany dat biznesowych Europe/Warsaw ani istniejących danych.",
+      "relatedRequirementIds": ["C-F050", "C-R022", "FR-ADM-071"],
+      "codePaths": ["src/lib/prisma.ts"],
+      "testPaths": ["tests/integration/prisma-timezone.test.ts"]
     }
   ],
   "sources": [
