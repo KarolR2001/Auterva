@@ -7,7 +7,7 @@ import { resolveServicePeriod } from "../../src/modules/service-period/state";
 import { getPlatformCompany, listPlatformCompanies } from "../../src/modules/organizations/read";
 import { GET as listHandler } from "../../src/app/api/platform/companies/route";
 import { GET as detailHandler } from "../../src/app/api/platform/companies/[organizationId]/route";
-import { verifiedFixtureSession } from "../fixtures/verified-session";
+import { ensureControlledFixtureAccess, verifiedFixtureSession } from "../fixtures/verified-session";
 
 const db = createPrismaClient(process.env.DATABASE_URL ?? "");
 const ids = Array.from({ length: 6 }, () => randomUUID());
@@ -64,6 +64,7 @@ beforeAll(async () => {
   await db.invitation.create({ data: { organizationId: ids[5], recipientEmail: `read-${adminIds[5]}@example.test`,
     issuedHost: `pending-${ids[5]}.example.test`, tokenHash: randomUUID(), issueKey: randomUUID(),
     issuedAt: now, expiresAt: new Date(now.getTime() + 7 * 86_400_000) } });
+  await ensureControlledFixtureAccess(db);
   platformSession = await verifiedFixtureSession(db, FIXTURE.users[2]);
   adminSession = await verifiedFixtureSession(db, FIXTURE.users[0]);
   const token = randomBytes(32).toString("base64url");
