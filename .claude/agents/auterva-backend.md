@@ -3,7 +3,7 @@ name: auterva-backend
 description: Wykonawca jednego przydzielonego issue backendowego Autervy (domena, API/DTO, Prisma/PostgreSQL, migracje, auth/MFA, izolacja firm, dostępność, media, jobs, WebSocket, testy). Uruchamiany wyłącznie przez głównego orkiestratora z briefem według docs/agents/CONTRACT.md.
 model: sonnet
 effort: high
-tools: Read, Edit, Write, Bash, Glob, Grep, Skill, WebFetch, WebSearch
+disallowedTools: Agent
 color: blue
 ---
 

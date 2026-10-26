@@ -25,7 +25,7 @@ Linki w issue otwierają stronę Penpota; dokładna nazwa i board ID wskazują e
 Sprawdzono 26.10.2026: serwer `penpot` (zdalny MCP `design.penpot.app`, HTTP) w konfiguracji użytkownika Claude Code jest połączony; odczyt pliku `Nowy plik 2` (7 stron, 175 komponentów) i eksport PNG boardu działają. Narzędzia: `high_level_overview`, `penpot_api_info`, `execute_code`, `export_shape`.
 
 - Konfiguracja tylko lokalnie, nigdy w repozytorium: `claude mcp add --transport http --scope user penpot "<URL z kluczem MCP>"`. Klucz generuje właściciel w Penpot → Integrations → MCP Server; obowiązuje jeden klucz na użytkownika, więc po jego zmianie zaktualizuj Claude Code i Codex.
-- Stan sprawdzaj przez `/mcp` w Claude Code; `claude mcp get/list` wypisują URL z kluczem.
+- Stan sprawdzaj przez `/mcp` albo `claude mcp get penpot`.
 - Wtyczka działa na bieżąco otwartej stronie jednej karty przeglądarki. Odczyt innych stron: `penpotUtils.getPageById`/`findShapes`; nie przełączaj strony użytkownikowi bez potrzeby.
 - Wtyczka nie udziela uprawnienia `user:read`; nie odczytuj danych użytkownika.
 

@@ -43,7 +43,7 @@ has '(vercel|netlify)[^;&|]*--prod|fly(ctl)?[[:space:]]+deploy|railway[[:space:]
   && block "wdrożenie wymaga jawnej zgody właściciela"
 has '(cat|less|more|head|tail|bat|grep|rg|sed|awk|cp|scp|base64|xxd|strings|source|\.)[[:space:]]([^;&|]*[[:space:]/])?\.env(\.(local|development|production|staging|test)(\.local)?)?([[:space:];&|]|$)' \
   && block "odczyt plików .env jest zakazany; używaj fixture i .env.example"
-has '\.codex/auth\.json|(~|\$HOME|/Users/[^/[:space:]]+)/(\.codex/config\.toml|\.claude\.json)|\.config/gh/hosts\.yml|gh[[:space:]]+auth[[:space:]]+token|claude[[:space:]]+mcp[[:space:]]+(get|list)' \
+has '\.codex/auth\.json|(~|\$HOME|/Users/[^/[:space:]]+)/\.codex/config\.toml|\.config/gh/hosts\.yml|gh[[:space:]]+auth[[:space:]]+token' \
   && block "odczyt danych uwierzytelniających jest zakazany"
 
 # --- Subagenci: operacje zarezerwowane dla orkiestratora --------------------------

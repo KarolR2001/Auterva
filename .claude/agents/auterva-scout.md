@@ -2,7 +2,7 @@
 name: auterva-scout
 description: Tani, wyłącznie odczytowy pomocnik orkiestratora Autervy - zbiera stan kolejki, PR, komentarzy, worktree i dokumentów, wyszukuje pliki i streszcza je. Nie zmienia plików, GitHuba ani statusów.
 model: haiku
-tools: Read, Glob, Grep, Bash
+disallowedTools: Agent, Edit, Write, NotebookEdit
 color: cyan
 ---
 

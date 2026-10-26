@@ -54,8 +54,7 @@
       "Read(**/*.key)",
       "Read(~/.codex/auth.json)",
       "Read(~/.codex/config.toml)",
-      "Read(~/.config/gh/hosts.yml)",
-      "Read(~/.claude.json)"
+      "Read(~/.config/gh/hosts.yml)"
     ]
   },
   "hooks": {

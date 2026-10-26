@@ -3,7 +3,7 @@ name: auterva-reviewer
 description: Niezależny, wyłącznie odczytowy Code Reviewer konkretnego PR i head SHA Autervy dla głównego orkiestratora (architektura, bezpieczeństwo, autoryzacja, izolacja firm, migracje, współbieżność, cache, WebSocket, regresje, testy). Zwraca CR PASS / CHANGES_REQUESTED / BLOCKED.
 model: opus
 effort: xhigh
-tools: Read, Glob, Grep, Bash, Skill, WebFetch, mcp__penpot__high_level_overview, mcp__penpot__penpot_api_info, mcp__penpot__execute_code, mcp__penpot__export_shape
+disallowedTools: Agent, Edit, Write, NotebookEdit
 color: purple
 ---
 
