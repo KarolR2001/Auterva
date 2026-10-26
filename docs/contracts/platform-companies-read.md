@@ -1,0 +1,11 @@
+# Odczyt firm w panelu superadmina (#24)
+
+`GET /api/platform/companies` zwraca `items`, `total`, `page`, `pageSize` i dwa globalne KPI. Parametry: `search` (nazwa, slug lub e-mail admina; bez rozróżniania wielkości liter), `includeArchived=true|false` (domyślnie `false`), `page` (od 1) i `pageSize` (1–100, domyślnie 20). Filtr archiwum dołącza firmy archiwalne; nigdy ich nie przywraca. `total` liczy wynik po search i filtrze przed paginacją. Dwa KPI liczą całą platformę, niezależnie od parametrów listy.
+
+`GET /api/platform/companies/{organizationId}` zwraca jedną kartę lub 404. Oba wejścia wymagają aktywnego hosta PLATFORM, aktualnego superadmina z pełnym MFA i wspólnego limitu odczytów. Wszystkie odpowiedzi mają `Cache-Control: no-store` i serwerowy `X-Request-Id`; błędne parametry otrzymują 400. Odczyt nie tworzy rozmowy: `conversationId` jest `null`, gdy jej nie ma. Nie udostępnia credential, tokenów zaproszenia, sekretów MFA ani payloadów poczty.
+
+DTO oddziela `registration`, `account`, `archivedAt`, `period`, `publication`, `hosts`, `invitation` i `conversationId`. `organizationVersion` dotyczy mutacji firmy, `period.periodVersion` mutacji okresu. `paidThrough` jest `YYYY-MM-DD`; chwile są ISO UTC. `hosts.status=PENDING` opisuje brak aktywnego routingu i nie stanowi potwierdzenia DNS/TLS. Publiczna widoczność jest obliczana z reguł okresu i aktywnego hosta, a stan panelu firmy jest od niej odrębny.
+
+Lista, `total` i KPI są czytane w jednej transakcji `RepeatableRead` i jednym `now`. Firmy sortowane są po nazwie i ID. KPI używają `resolveServicePeriod`: archiwum wykluczone; ważna opłata klasyfikuje firmę jako PAID także gdy późniejsza granica trialu stanowi `effectiveSource`; dopiero bez ważnej opłaty trial klasyfikuje jako TRIAL. Firma jest liczona raz. Ważność opłaconej daty kończy się o następnym lokalnym północy Warszawy; trial kończy się w dokładnym momencie po 336 h. Prerejestracja i nieaktywny host nie wykluczają ważnej opłaty z KPI.
+
+Transport nie jest jeszcze ekranem listy/karty. Konsument UI otrzymuje identyfikatory organizacji i opcjonalnej rozmowy; otwarcie/utworzenie rozmowy należy do #50.

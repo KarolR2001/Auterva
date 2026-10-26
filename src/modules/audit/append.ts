@@ -5,7 +5,7 @@ const actionEntity = {
   AUTH_LOGIN_COMPLETED: "User", AUTH_LOGOUT: "User", AUTH_PASSWORD_CHANGED: "User", AUTH_PROFILE_UPDATED: "User",
   AUTH_SESSIONS_REVOKED: "User",
   COMPANY_CREATED: "Organization", COMPANY_UPDATED: "Organization", COMPANY_ARCHIVED: "Organization",
-  INVITATION_CREATED: "Invitation", INVITATION_REVOKED: "Invitation",
+  INVITATION_CREATED: "Invitation", INVITATION_REVOKED: "Invitation", INVITATION_ACCEPTED: "Invitation",
   PERIOD_CHANGED: "ServicePeriod", DOMAIN_CHANGED: "HostMapping", BRANDING_CHANGED: "Organization",
   SETTINGS_CHANGED: "SiteSettings", VEHICLE_CREATED: "Vehicle", VEHICLE_UPDATED: "Vehicle",
   VEHICLE_PUBLISHED: "Vehicle", VEHICLE_HIDDEN: "Vehicle", VEHICLE_ARCHIVED: "Vehicle", MEDIA_CHANGED: "VehicleImage",
@@ -18,11 +18,11 @@ export const safeAuditFieldNames = new Set([
   "name", "status", "slug", "visibility", "publishedAt", "archivedAt", "paidThrough",
   "trialEndsAt", "hostname", "brandName", "phone", "email", "address", "seoTitle",
   "seoDescription", "availableFrom", "availableTo", "startDate", "endDate", "isCover",
-  "featured", "publicUnlockRequired", "version", "periodVersion",
+  "featured", "publicUnlockRequired", "sortOrder", "version", "periodVersion",
 ]);
 export const safeAuditValueFields = new Set(["status", "visibility", "archivedAt", "paidThrough", "trialEndsAt",
-  "availableFrom", "availableTo", "startDate", "endDate", "isCover", "featured", "publicUnlockRequired", "version", "periodVersion"]);
-const statusValues = new Set(["DRAFT", "PUBLISHED", "HIDDEN", "ARCHIVED", "ACTIVE", "INACTIVE", "PENDING", "BLOCKED", "SUSPENDED", "REVOKED", "EXPIRED"]);
+  "availableFrom", "availableTo", "startDate", "endDate", "isCover", "featured", "publicUnlockRequired", "sortOrder", "version", "periodVersion"]);
+const statusValues = new Set(["DRAFT", "PUBLISHED", "UNPUBLISHED", "HIDDEN", "ARCHIVED", "ACTIVE", "INACTIVE", "PENDING", "BLOCKED", "SUSPENDED", "REVOKED", "EXPIRED"]);
 const visibilityValues = new Set(["PUBLIC", "PRIVATE", "HIDDEN"]);
 function isLocalDate(value: unknown): value is string {
   return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)
@@ -37,7 +37,9 @@ export function isSafeAuditSnapshotValue(field: string, value: unknown): value i
   if (field === "status") return typeof value === "string" && statusValues.has(value);
   if (field === "visibility") return typeof value === "string" && visibilityValues.has(value);
   if (field === "isCover" || field === "featured" || field === "publicUnlockRequired") return typeof value === "boolean";
-  if (field === "version" || field === "periodVersion") return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+  if (field === "version" || field === "periodVersion" || field === "sortOrder") {
+    return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+  }
   if (field === "archivedAt" || field === "trialEndsAt") return value === null || isUtcInstant(value);
   if (["paidThrough", "availableFrom", "availableTo", "startDate", "endDate"].includes(field)) return value === null || isLocalDate(value);
   return false;

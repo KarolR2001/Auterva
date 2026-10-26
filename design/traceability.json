@@ -3,6 +3,32 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 28,
+      "scope": "Serwerowy CRUD floty, walidacja publikacji D-02, lista z filtrem dostępności #33 i wersjonowana kolejność; rzeczywisty upload i publiczna oferta w osobnych issue.",
+      "relatedRequirementIds": ["C-F095", "C-F096", "C-F097", "C-F104", "FR-ADM-020", "FR-ADM-021", "FR-ADM-022", "FR-ADM-030", "FR-ADM-032"],
+      "referenceScreenIds": ["ADM-05", "ADM-06"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261026144500_vehicle_status_updated_at_issue_28/migration.sql",
+        "prisma/migrations/20261026150000_vehicle_fuel_issue_28/migration.sql",
+        "src/modules/fleet/publication.ts",
+        "src/modules/fleet/read.ts",
+        "src/modules/fleet/mutations.ts",
+        "src/modules/fleet/http.ts",
+        "src/app/api/admin/vehicles/route.ts",
+        "src/app/api/platform/companies/[organizationId]/vehicles/route.ts"
+      ],
+      "testPaths": [
+        "tests/unit/fleet-publication.test.ts",
+        "tests/integration/fleet-migration.test.ts",
+        "tests/integration/fleet-list.test.ts",
+        "tests/integration/fleet-activity-race.test.ts",
+        "tests/integration/fleet-mutations.test.ts",
+        "tests/integration/audit-append.test.ts",
+        "tests/e2e/fleet.spec.ts"
+      ]
+    },
+    {
       "issue": 11,
       "scope": "Podstawowe komponenty pierwszych ekranów na wspólnym scaffoldzie.",
       "relatedRequirementIds": [
@@ -229,6 +255,17 @@
       "testPaths": ["tests/integration/company-preregistration.test.ts", "tests/integration/jobs-outbox.test.ts", "tests/integration/jobs-worker.test.ts", "tests/integration/jobs-process.test.ts", "tests/e2e/company-onboarding.spec.ts"]
     },
     {
+      "issue": 22,
+      "scope": "Jednorazowa aktywacja istniejącego zaproszonego admina i start przyznanego trialu; pełny dostęp wymaga późniejszego MFA.",
+      "relatedRequirementIds": ["C-F029", "C-F031", "C-F032", "C-F033", "C-F037", "C-F038", "C-F039", "C-F050", "C-F051", "C-F052", "C-F053", "C-F054", "C-N014", "C-N026"],
+      "codePaths": [
+        "src/modules/invitations/activate.ts",
+        "src/app/api/auth/invitation/[token]/route.ts",
+        "src/modules/audit/append.ts"
+      ],
+      "testPaths": ["tests/integration/company-activation.test.ts", "tests/e2e/company-onboarding.spec.ts"]
+    },
+    {
       "issue": 108,
       "scope": "Retencja audytu 365 dni w kolejce operatora; eksport wyłącznie lokalnej fixture, docelowy storage w #58/#60.",
       "relatedRequirementIds": ["D-10", "C-N019", "C-N037", "C-N040", "FR-ADM-070"],
@@ -272,6 +309,18 @@
         "tests/integration/service-period-mutation.test.ts",
         "tests/e2e/service-period.spec.ts"
       ]
+    },
+    {
+      "issue": 24,
+      "scope": "Odczyt listy i karty firm oraz dwa globalne KPI superadmina; ekran UI i tworzenie rozmowy są poza tym API.",
+      "relatedRequirementIds": ["C-F068", "C-F069", "C-F070", "C-F071", "C-F072", "C-F076", "C-F079", "C-R007"],
+      "codePaths": [
+        "src/modules/organizations/read.ts",
+        "src/modules/organizations/read-http.ts",
+        "src/app/api/platform/companies/route.ts",
+        "src/app/api/platform/companies/[organizationId]/route.ts"
+      ],
+      "testPaths": ["tests/integration/platform-companies-read.test.ts"]
     },
     {
       "issue": 33,

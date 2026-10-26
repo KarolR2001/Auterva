@@ -27,16 +27,46 @@ export async function ensureControlledSuperadminMfa(db: PrismaClient, userId: st
   }
   if (user.twoFactorEnabled) return;
   if (userId !== FIXTURE.users[2]) throw new Error("Refusing to change a non-fixture superadmin");
+  // The seeder touches A, B and platform. Validate every identity first.
+  await ensureControlledFixtureAccess(db);
+}
+
+/** The local access seeder touches A, B and platform; verify all identities first. */
+export async function ensureControlledFixtureAccess(db: PrismaClient) {
+  const expected = [
+    { id: FIXTURE.users[0], email: "admin-a@example.test", role: "ADMIN_FIRMY",
+      organizationId: FIXTURE.organizations[0], slug: "fixture-a" },
+    { id: FIXTURE.users[1], email: "admin-b@example.test", role: "ADMIN_FIRMY",
+      organizationId: FIXTURE.organizations[1], slug: "fixture-b" },
+    { id: FIXTURE.users[2], email: "superadmin@example.test", role: "SUPERADMIN_AUTERVA",
+      organizationId: null, slug: null },
+  ] as const;
+  const users = await db.user.findMany({ where: { id: { in: [...FIXTURE.users] } },
+    select: { id: true, email: true, role: true, organizationId: true, emailVerified: true,
+      disabledAt: true, organization: { select: { slug: true, archivedAt: true,
+        firstAdminRegisteredAt: true } } } });
+  const byId = new Map(users.map((user) => [user.id, user]));
+  for (const identity of expected) {
+    const user = byId.get(identity.id);
+    if (!user || user.email !== identity.email || user.role !== identity.role
+      || user.organizationId !== identity.organizationId || !user.emailVerified || user.disabledAt
+      || (identity.slug === null ? user.organization !== null
+        : user.organization?.slug !== identity.slug || user.organization.archivedAt
+          || !user.organization.firstAdminRegisteredAt)) {
+      throw new Error("Fixture identity mismatch");
+    }
+  }
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
-  try {
-    // The #9 integration suite resets its own users between tests. Re-enroll
-    // only that exact local fixture through its existing guarded setup path.
-    await seedLocalAccess(client, { ...process.env, AUTERVA_FIXTURE: "1" });
-  } finally {
-    await client.end();
+  try { await seedLocalAccess(client, { ...process.env, AUTERVA_FIXTURE: "1" }); }
+  finally { await client.end(); }
+  for (const identity of expected) {
+    const [user, credentials, factors] = await Promise.all([
+      db.user.findUniqueOrThrow({ where: { id: identity.id }, select: { twoFactorEnabled: true } }),
+      db.account.count({ where: { userId: identity.id, providerId: "credential", password: { not: null } } }),
+      db.twoFactor.count({ where: { userId: identity.id } }),
+    ]);
+    if (!user.twoFactorEnabled || credentials !== 1 || factors !== 1) throw new Error("Fixture access incomplete");
   }
-  if (!(await db.user.findUnique({ where: { id: userId }, select: { twoFactorEnabled: true } }))?.twoFactorEnabled) {
-    throw new Error("Controlled superadmin MFA enrollment failed");
-  }
+  return db.user.findUniqueOrThrow({ where: { id: FIXTURE.users[2] } });
 }
