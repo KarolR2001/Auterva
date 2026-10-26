@@ -93,7 +93,10 @@ export async function seedLocalFixture(db: Client, env: Record<string, string | 
       await db.query('DELETE FROM "VehicleImage" WHERE id = ANY($1::uuid[]) OR "vehicleId" = ANY($2::uuid[])', [[id(51), id(52), id(54)], FIXTURE.vehicles]);
       await db.query('DELETE FROM "AvailabilityBlock" WHERE id = ANY($1::uuid[])', [[id(41), id(42), id(43)]]);
       await db.query('DELETE FROM "Vehicle" WHERE id = ANY($1::uuid[])', [FIXTURE.vehicles]);
-      await db.query('DELETE FROM "AuditLog" WHERE id = ANY($1::uuid[])', [[id(91), id(92)]]);
+      // Local-fixture exception (target guarded by assertLocalFixtureTarget, identities verified above):
+      // uploads and other work append audit rows (e.g. MEDIA_CHANGED) whose FK would block removing the
+      // company. Only rows of the two fixture companies go; the app itself still never deletes audit.
+      await db.query('DELETE FROM "AuditLog" WHERE "organizationId" = ANY($1::uuid[])', [orgs]);
       await db.query('DELETE FROM "ServiceAccess" WHERE "organizationId" = ANY($1::uuid[])', [orgs]);
       await db.query('DELETE FROM "SiteSettings" WHERE "organizationId" = ANY($1::uuid[])', [orgs]);
       await db.query('DELETE FROM "HostMapping" WHERE id = ANY($1::uuid[])', [[id(81), id(82), id(83), id(84)]]);

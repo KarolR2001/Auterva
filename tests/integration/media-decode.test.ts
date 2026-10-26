@@ -1,6 +1,58 @@
-import { expect, test } from "vitest";
+import { afterEach, expect, test } from "vitest";
 import sharp from "sharp";
 import { decodeMedia } from "../../src/modules/media/decode";
+import { defaultRssKb, rssProbe } from "../../src/modules/media/rss";
+
+const realProbe = rssProbe.read;
+const realTmp = process.env.TMPDIR;
+afterEach(() => {
+  rssProbe.read = realProbe;
+  if (realTmp === undefined) delete process.env.TMPDIR; else process.env.TMPDIR = realTmp;
+});
+
+async function slowImage() {
+  const small = await sharp({ create: { width: 100, height: 100, channels: 3, background: "#808080",
+    noise: { type: "gaussian", mean: 128, sigma: 40 } } }).png().toBuffer();
+  return sharp(small).resize(9_000, 9_000, { kernel: "nearest" }).png({ compressionLevel: 9 }).toBuffer();
+}
+
+test("the real RSS probe measures the current process (procfs or ps)", async () => {
+  expect(await defaultRssKb(process.pid)).toBeGreaterThan(10_000);
+  expect(await defaultRssKb(2 ** 22 + 12_345)).toBeNull();
+});
+
+test("no RSS measurement refuses to decode instead of running without the limit", async () => {
+  const bytes = await sharp({ create: { width: 64, height: 64, channels: 3, background: "#123456" } }).png().toBuffer();
+  rssProbe.read = async () => null;
+  await expect(decodeMedia(bytes)).rejects.toThrow("MEDIA_DECODER_UNAVAILABLE");
+});
+
+test("measurement that fails while the decoder runs kills it and is non-final", async () => {
+  const bytes = await slowImage();
+  let calls = 0;
+  rssProbe.read = async () => (calls++ === 0 ? 1_000 : null);
+  await expect(decodeMedia(bytes)).rejects.toThrow("MEDIA_DECODER_UNAVAILABLE");
+}, 60_000);
+
+test("a decoder killed by a foreign signal (OOM-killer) is an environment error, not a verdict on the image", async () => {
+  const bytes = await slowImage();
+  let calls = 0;
+  rssProbe.read = async (pid) => { if (calls++ > 0) process.kill(pid, "SIGKILL"); return 1_000; };
+  await expect(decodeMedia(bytes)).rejects.toThrow("MEDIA_DECODER_UNAVAILABLE");
+}, 60_000);
+
+test("an over-limit RSS is still the deterministic MEDIA_MEMORY_LIMIT", async () => {
+  const bytes = await slowImage();
+  let calls = 0;
+  rssProbe.read = async () => (calls++ === 0 ? 1_000 : 3 * 1024 * 1024);
+  await expect(decodeMedia(bytes)).rejects.toThrow("MEDIA_MEMORY_LIMIT");
+}, 60_000);
+
+test("I/O failure of the temp directory (e.g. ENOSPC) is retryable", async () => {
+  const bytes = await sharp({ create: { width: 64, height: 64, channels: 3, background: "#123456" } }).png().toBuffer();
+  process.env.TMPDIR = "/nonexistent-auterva-tmp";
+  await expect(decodeMedia(bytes)).rejects.toThrow("MEDIA_DECODER_UNAVAILABLE");
+});
 
 test.each(["jpeg", "png", "webp"] as const)("isolated decoder accepts real %s pixels and creates bounded webp variants", async (format) => {
   const bytes = await sharp({ create: { width: 2400, height: 1600, channels: 3,
