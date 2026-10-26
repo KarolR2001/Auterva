@@ -12,6 +12,10 @@ export async function readUploadBody(request: Request): Promise<Buffer> {
   const chunks: Buffer[] = [];
   let total = 0;
   const deadline = Date.now() + totalTimeoutMs;
+  let rejectAbort!: (error: Error) => void;
+  const aborted = new Promise<never>((_, reject) => { rejectAbort = reject; });
+  const onAbort = () => rejectAbort(new Error("MEDIA_UPLOAD_ABORTED"));
+  request.signal.addEventListener("abort", onAbort, { once: true });
   try {
     while (true) {
       if (request.signal.aborted) throw new Error("MEDIA_UPLOAD_ABORTED");
@@ -20,6 +24,7 @@ export async function readUploadBody(request: Request): Promise<Buffer> {
       let timer: ReturnType<typeof setTimeout> | undefined;
       const result = await Promise.race([
         reader.read(),
+        aborted,
         new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error("MEDIA_UPLOAD_TIMEOUT")), remaining); }),
       ]).finally(() => { if (timer) clearTimeout(timer); });
       if (result.done) break;
@@ -30,9 +35,11 @@ export async function readUploadBody(request: Request): Promise<Buffer> {
     if (total === 0 || (stated !== null && total !== Number(stated))) throw new Error("MEDIA_INVALID_SIZE");
     return Buffer.concat(chunks, total);
   } catch (error) {
-    await reader.cancel().catch(() => {});
+    // A stalled producer may never settle cancel(); do not hold the response open.
+    void reader.cancel().catch(() => {});
     throw error;
   } finally {
+    request.signal.removeEventListener("abort", onAbort);
     reader.releaseLock();
   }
 }

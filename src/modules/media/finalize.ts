@@ -3,16 +3,21 @@ import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { appendAudit } from "@/modules/audit/append";
 import { requireAuditActor, requireAuditScope } from "@/modules/audit/actor";
 import { decodeMedia } from "./decode";
-import { putImmutable, readLimited, type MediaStorage } from "./storage";
+import { putImmutable, type MediaStorage } from "./storage";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export type FinalizeInput = { actorId: string; sessionId: string; organizationId: string;
-  vehicleId: string; uploadId: string; requestId: string; now: Date };
+  vehicleId: string; uploadId: string; requestId: string; now: Date; declaredMime?: string };
 
 async function lockedUpload(tx: Prisma.TransactionClient, input: FinalizeInput) {
   const actor = await requireAuditActor(tx, input.actorId, input.sessionId);
   requireAuditScope(actor, input.organizationId);
+  const company = await tx.$queryRaw<{ id: string }[]>`
+    SELECT id FROM "Organization" WHERE id = ${input.organizationId}::uuid
+      AND "archivedAt" IS NULL FOR NO KEY UPDATE
+  `;
+  if (company.length !== 1) throw new Error("MEDIA_ORGANIZATION_ARCHIVED");
   const vehicle = await tx.$queryRaw<{ id: string; status: string }[]>`
     SELECT id, status FROM "Vehicle" WHERE id = ${input.vehicleId}::uuid
       AND "organizationId" = ${input.organizationId}::uuid FOR UPDATE
@@ -24,21 +29,12 @@ async function lockedUpload(tx: Prisma.TransactionClient, input: FinalizeInput) 
   return upload;
 }
 
-export async function getUploadForBytes(db: PrismaClient, input: FinalizeInput) {
-  if (![input.organizationId, input.vehicleId, input.uploadId].every((value) => uuid.test(value)))
-    throw new Error("MEDIA_INVALID_INPUT");
-  return db.$transaction(async (tx) => {
-    const upload = await lockedUpload(tx, input);
-    if (upload.state !== "RESERVED" || upload.expiresAt <= input.now)
-      throw new Error("MEDIA_RESERVATION_EXPIRED");
-    return { stagingKey: upload.stagingKey };
-  });
-}
-
 /** Immutable raw bytes are the buffer just decoded, never a second copy from mutable staging. */
-export async function finalizeImageUpload(db: PrismaClient, storage: MediaStorage, input: FinalizeInput) {
+export async function finalizeImageUpload(db: PrismaClient, storage: MediaStorage, input: FinalizeInput,
+  bytes: Buffer) {
   if (![input.organizationId, input.vehicleId, input.uploadId, input.requestId].every((value) => uuid.test(value))
     || !Number.isFinite(input.now.getTime())) throw new Error("MEDIA_INVALID_INPUT");
+  const digest = createHash("sha256").update(bytes).digest("hex");
   const reserved = await db.$transaction(async (tx) => {
     const upload = await lockedUpload(tx, input);
     if (["READY", "PROCESSING"].includes(upload.state)) return upload;
@@ -46,24 +42,33 @@ export async function finalizeImageUpload(db: PrismaClient, storage: MediaStorag
       throw new Error("MEDIA_RESERVATION_EXPIRED");
     return upload;
   });
-  if (["READY", "PROCESSING"].includes(reserved.state)) return { imageId: reserved.imageId,
-    state: reserved.state };
-  const bytes = await readLimited(storage, reserved.stagingKey);
+  if (["READY", "PROCESSING"].includes(reserved.state)) {
+    if (reserved.rawSha256 !== digest) throw new Error("MEDIA_IDEMPOTENCY_CONFLICT");
+    if (input.declaredMime && reserved.mime !== input.declaredMime) throw new Error("MEDIA_MIME_MISMATCH");
+    return { imageId: reserved.imageId, state: reserved.state };
+  }
   const decoded = await decodeMedia(bytes);
-  const digest = createHash("sha256").update(bytes).digest("hex");
-  await db.$transaction(async (tx) => {
+  if (input.declaredMime && decoded.mime !== input.declaredMime) throw new Error("MEDIA_MIME_MISMATCH");
+  const claimed = await db.$transaction(async (tx) => {
     const upload = await lockedUpload(tx, input);
-    if (upload.state === "PROCESSING" || upload.state === "READY") return;
+    if (upload.state === "PROCESSING" || upload.state === "READY") {
+      if (upload.rawSha256 !== digest) throw new Error("MEDIA_IDEMPOTENCY_CONFLICT");
+      return false;
+    }
     if (!["RESERVED", "FINALIZING"].includes(upload.state) || upload.expiresAt <= new Date())
       throw new Error("MEDIA_RESERVATION_EXPIRED");
     await tx.imageUpload.update({ where: { id: upload.id }, data: { state: "FINALIZING",
       expiresAt: new Date(Date.now() + 15 * 60_000) } });
+    return true;
   });
+  if (!claimed) return { imageId: reserved.imageId, state: "PROCESSING" };
   await putImmutable(storage, reserved.rawKey, bytes, decoded.mime);
   return db.$transaction(async (tx) => {
     const upload = await lockedUpload(tx, input);
-    if (upload.state === "PROCESSING" || upload.state === "READY")
+    if (upload.state === "PROCESSING" || upload.state === "READY") {
+      if (upload.rawSha256 !== digest) throw new Error("MEDIA_IDEMPOTENCY_CONFLICT");
       return { imageId: upload.imageId, state: upload.state };
+    }
     if (upload.state !== "FINALIZING" || upload.expiresAt <= new Date())
       throw new Error("MEDIA_RESERVATION_EXPIRED");
     const updated = await tx.imageUpload.update({ where: { id: upload.id }, data: {

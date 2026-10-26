@@ -62,7 +62,18 @@ Firmy A i B mają hosty `company-a.localhost` / `admin.company-a.localhost` oraz
 
 Flota zawiera sześć aut: A ma wolny bus, auto z blokadą na jeden dzień i szkic; B ma opublikowane auto, ukryte i archiwalne. Daty aktywności i blokad obejmują oba przejścia DST Europe/Warsaw oraz dzień graniczny. A ma opłacony okres, B trial dokładnie 336 godzin. Historia audytu B zawiera archiwizację i przywrócenie, a bieżący stan obu firm jest aktywny, by można było sprawdzić izolację A/B. Obie mają oddzielne rozmowy. Test zegara używa `vi.setSystemTime`, bez zmiany zegara systemowego. Fixture nie uruchamia produkcyjnych modułów publikacji, archiwizacji ani host routingu.
 
-`pnpm dev --port 3305`, `pnpm dev:ws` i `pnpm dev:worker` uruchamiają trzy lokalne procesy na tej samej bazie. WS domyślnie słucha na porcie 3312; zmień `WS_PORT` w `.env` przy kolizji. Przed startem workera ustaw w ignorowanym `.env` własny `MAIL_PAYLOAD_KEY` (`openssl rand -hex 32`), `MAIL_ENVIRONMENT=development`, `MAIL_PROVIDER=sink` i jawny `MAIL_ALLOWED_RECIPIENTS` z adresami fixture. Sink nie wysyła wiadomości do skrzynki; testy procesowe używają własnego serwera HTTP na loopback. [Kontrakt outboxu i poczty](docs/contracts/jobs-mail-outbox.md) opisuje retry, szyfrowanie, statusy i wymagane późniejsze podłączenie domen #18/#19/#54. Scaffold nie realizuje jeszcze publicznego procesu rejestracji ani kompletnej floty. Wymagane kontrole dalszych zmian są w [quality gates](docs/quality-gates.md).
+`pnpm dev --port 3305`, `pnpm dev:ws` i `pnpm dev:worker` uruchamiają trzy lokalne procesy na tej samej bazie. WS domyślnie słucha na porcie 3312; zmień `WS_PORT` w `.env` przy kolizji. Przed startem workera ustaw w ignorowanym `.env` własny `MAIL_PAYLOAD_KEY` (`openssl rand -hex 32`), `MAIL_ENVIRONMENT=development`, `MAIL_PROVIDER=sink` i jawny `MAIL_ALLOWED_RECIPIENTS` z adresami fixture. Sink nie wysyła wiadomości do skrzynki; testy procesowe używają własnego serwera HTTP na loopback. [Kontrakt outboxu i poczty](docs/contracts/jobs-mail-outbox.md) opisuje retry, szyfrowanie, statusy i wymagane późniejsze podłączenie domen #18/#19/#54. Rejestracja klientów pozostaje poza MVP; status kolejnych modułów produktu śledzi GitHub Project. Wymagane kontrole dalszych zmian są w [quality gates](docs/quality-gates.md).
+
+Dla prywatnego uploadu #29 uruchom własną fixture z `scripts/local-fixture.sh seed-media`, a w powłoce procesu Next i osobnego workera wczytaj wygenerowane lokalnie zmienne S3 bez ich wypisywania:
+
+```sh
+set -a
+. .local/fixture-9/secrets.env
+set +a
+pnpm dev:media-worker
+```
+
+Serwer Next korzysta z tych samych zmiennych. Jeden upload to surowy obraz na prywatnym endpointzie z sesją MFA i `Idempotency-Key`; pełny kontrakt, statusy, retry oraz granice próby lokalnego S3 opisuje [kontrakt mediów](docs/contracts/media-upload-processing.md). `pnpm test:integration` wymaga działającego prywatnego S3 z tej fixture dla testów mediów; nie używa publicznych danych ani usług płatnych.
 
 ## Organizacja pracy
 

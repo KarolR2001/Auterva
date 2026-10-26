@@ -317,6 +317,7 @@ model ImageUpload {
   state          String   @default("RESERVED")
   expiresAt      DateTime @db.Timestamptz(6)
   leaseUntil     DateTime? @db.Timestamptz(6)
+  storageCleanedAt DateTime? @db.Timestamptz(6)
   rawSha256      String?  @db.VarChar(64)
   rawBytes       Int?
   mime           String?

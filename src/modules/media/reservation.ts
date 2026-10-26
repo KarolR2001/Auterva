@@ -16,11 +16,16 @@ export async function reserveVehicleImageUpload(db: PrismaClient, input: Reserve
   return db.$transaction(async (tx) => {
     const actor = await requireAuditActor(tx, input.actorId, input.sessionId);
     requireAuditScope(actor, input.organizationId);
-    const rows = await tx.$queryRaw<{ id: string }[]>`
-      SELECT id FROM "Vehicle" WHERE id = ${input.vehicleId}::uuid
+    const company = await tx.$queryRaw<{ id: string }[]>`
+      SELECT id FROM "Organization" WHERE id = ${input.organizationId}::uuid
+        AND "archivedAt" IS NULL FOR NO KEY UPDATE
+    `;
+    if (company.length !== 1) throw new Error("MEDIA_ORGANIZATION_ARCHIVED");
+    const rows = await tx.$queryRaw<{ id: string; status: string }[]>`
+      SELECT id, status FROM "Vehicle" WHERE id = ${input.vehicleId}::uuid
         AND "organizationId" = ${input.organizationId}::uuid FOR UPDATE
     `;
-    if (rows.length !== 1) throw new Error("MEDIA_VEHICLE_NOT_FOUND");
+    if (rows.length !== 1 || rows[0].status === "ARCHIVED") throw new Error("MEDIA_VEHICLE_NOT_FOUND");
     const existing = await tx.imageUpload.findUnique({ where: { organizationId_vehicleId_reservationKey: {
       organizationId: input.organizationId, vehicleId: input.vehicleId,
       reservationKey: input.reservationKey } } });
