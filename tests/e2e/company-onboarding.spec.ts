@@ -29,7 +29,7 @@ function onHost(port: number, host: string, path: string, method: string, cookie
   });
 }
 
-test("built ingress preregisters once, waits for admin host and serves a read-only bound invitation", async ({ baseURL }) => {
+test("built ingress preregisters once and activates the bound invitation without full MFA", async ({ baseURL }) => {
   if (!baseURL) throw new Error("Missing trusted ingress URL");
   const db = createPrismaClient(process.env.DATABASE_URL ?? "");
   const marker = randomUUID();
@@ -80,6 +80,32 @@ test("built ingress preregisters once, waits for admin host and serves a read-on
     expect((await onHost(port, adminHost, getPath, "GET")).status).toBe(200);
     expect((await db.invitation.findUniqueOrThrow({ where: { id: issued.body.invitationId } })).usedAt).toBeNull();
     expect((await db.organization.findUniqueOrThrow({ where: { id: organizationId } })).firstAdminRegisteredAt).toBeNull();
+    const activationPassword = "Onboarding password 9912!";
+    expect((await onHost(port, platformHost, getPath, "POST", undefined,
+      { password: activationPassword })).status).toBe(404);
+    expect((await onHost(port, adminHost, getPath, "POST", undefined,
+      { password: activationPassword }, "http://sibling.example.test")).status).toBe(403);
+    const activated = await onHost(port, adminHost, getPath, "POST", undefined,
+      { password: activationPassword });
+    expect(activated.status).toBe(200);
+    expect(activated.body).toMatchObject({ organizationId, siteState: "DOMAIN_PENDING",
+      signInRequired: true });
+    expect(activated.headers["set-cookie"]).toBeUndefined();
+    expect((await onHost(port, adminHost, getPath, "POST", undefined,
+      { password: "Different password 9922!" })).status).toBe(200);
+    const company = await db.organization.findUniqueOrThrow({ where: { id: organizationId } });
+    const access = await db.serviceAccess.findUniqueOrThrow({ where: { organizationId } });
+    expect(company.firstAdminRegisteredAt).not.toBeNull();
+    expect(access.trialStartedAt).toEqual(company.firstAdminRegisteredAt);
+    expect((access.trialEndsAt?.getTime() ?? NaN) - company.firstAdminRegisteredAt!.getTime())
+      .toBe(336 * 60 * 60_000);
+    expect(access.periodVersion).toBe(1);
+    expect(await db.auditLog.count({ where: { organizationId, action: "INVITATION_ACCEPTED" } })).toBe(1);
+    const login = await onHost(port, adminHost, "/api/auth/sign-in/email/", "POST", undefined,
+      { email, password: activationPassword });
+    expect(login.status).toBe(200);
+    expect(login.headers["set-cookie"]).toBeDefined();
+    expect(await db.auditLog.count({ where: { organizationId, action: "AUTH_LOGIN_COMPLETED" } })).toBe(0);
   } finally {
     if (organizationId) {
       await db.job.deleteMany({ where: { organizationId } });
