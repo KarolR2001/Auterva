@@ -183,6 +183,118 @@
         "scripts/recover-mfa.ts"
       ],
       "testPaths": ["tests/integration/audit-append.test.ts", "tests/integration/auth-http.test.ts", "tests/isolated/bootstrap-superadmin.test.ts"]
+    },
+    {
+      "issue": 17,
+      "scope": "Trwały outbox poczty, szyfrowany payload, worker PostgreSQL i okresowe usuwanie tylko wygasłych zdarzeń limitera; integracje domenowe w #18/#19/#54.",
+      "relatedRequirementIds": ["C-F025", "C-F035", "C-N004", "C-N016", "C-N017"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261026083100_job_leases_issue_17/migration.sql",
+        "src/modules/jobs/queue.ts",
+        "src/modules/jobs/outbox.ts",
+        "src/modules/jobs/processor.ts",
+        "src/modules/jobs/provider.ts",
+        "src/modules/jobs/runner.ts",
+        "src/server/worker.ts"
+      ],
+      "testPaths": [
+        "tests/integration/jobs-queue.test.ts",
+        "tests/integration/jobs-outbox.test.ts",
+        "tests/integration/jobs-worker.test.ts",
+        "tests/integration/jobs-process.test.ts",
+        "tests/integration/jobs-maintenance.test.ts",
+        "tests/unit/jobs-provider.test.ts",
+        "tests/unit/jobs-config.test.ts"
+      ]
+    },
+    {
+      "issue": 114,
+      "scope": "UTC dla połączeń Prisma bez zmiany dat biznesowych Europe/Warsaw ani istniejących danych.",
+      "relatedRequirementIds": ["C-F050", "C-R022", "FR-ADM-071"],
+      "codePaths": ["src/lib/prisma.ts"],
+      "testPaths": ["tests/integration/prisma-timezone.test.ts"]
+    },
+    {
+      "issue": 18,
+      "scope": "Neutralny reset hasła, profil tylko nazwa, zmiana hasła z pełnym MFA i cofnięciem sesji; ekran należy do #19.",
+      "relatedRequirementIds": ["C-F041", "C-F042", "C-F044", "C-N015", "C-N016", "C-N017", "FR-ADM-006", "FR-ADM-080", "FR-ADM-082"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261026120000_password_reset_issue_18/migration.sql",
+        "src/modules/auth/account-operations.ts",
+        "src/app/api/auth/[...all]/route.ts",
+        "src/modules/audit/append.ts",
+        "src/modules/jobs/outbox.ts",
+        "src/modules/jobs/processor.ts"
+      ],
+      "testPaths": ["tests/integration/password-reset.test.ts", "tests/integration/password-lock-order.test.ts", "tests/integration/password-change-limit.test.ts", "tests/integration/auth-login-neutral-work.test.ts", "tests/isolated/bootstrap-superadmin.test.ts"]
+    },
+    {
+      "issue": 108,
+      "scope": "Retencja audytu 365 dni w kolejce operatora; eksport wyłącznie lokalnej fixture, docelowy storage w #58/#60.",
+      "relatedRequirementIds": ["D-10", "C-N019", "C-N037", "C-N040", "FR-ADM-070"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261026100857_audit_retention_issue_108/migration.sql",
+        "prisma/migrations/20261026101214_audit_export_issue_108/migration.sql",
+        "src/modules/audit/retention.ts",
+        "src/modules/audit/retention-runner.ts",
+        "src/modules/audit/operator-export.ts",
+        "src/modules/audit/read.ts",
+        "src/modules/jobs/queue.ts",
+        "scripts/audit-retention.ts"
+      ],
+      "testPaths": [
+        "tests/unit/audit-retention.test.ts",
+        "tests/integration/audit-retention.test.ts",
+        "tests/integration/audit-retention-read.test.ts",
+        "tests/integration/audit-retention-process.test.ts",
+        "tests/integration/audit-export.test.ts"
+      ]
+    },
+    {
+      "issue": 21,
+      "scope": "Okres usługi i brama istniejącego wejścia publicznego, wersjonowane mutacje superadmina; przyszłe strony oferty, media i integracja zaproszeń pozostają osobnymi konsumentami.",
+      "relatedRequirementIds": ["C-F046", "C-F048", "C-F049", "C-F050", "C-F054", "C-F055", "C-F056", "C-F057", "C-F062", "C-F072", "C-F078"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261026094000_service_public_requires_paid_issue_21/migration.sql",
+        "src/modules/service-period/state.ts",
+        "src/modules/service-period/public.ts",
+        "src/modules/service-period/mutations.ts",
+        "src/app/page.tsx",
+        "src/app/api/platform/companies/[organizationId]/period/route.ts",
+        "src/app/api/platform/companies/[organizationId]/public-unlock/route.ts"
+      ],
+      "testPaths": [
+        "tests/unit/service-period.test.ts",
+        "tests/integration/service-period-migration.test.ts",
+        "tests/integration/service-period-public.test.ts",
+        "tests/integration/service-period-mutation.test.ts",
+        "tests/e2e/service-period.spec.ts"
+      ]
+    },
+    {
+      "issue": 33,
+      "scope": "Serwerowe odczyty dostępności, aktywność minus blokady, publiczny i prywatny kalendarz oraz predykat filtra #28; mutacje należą do kolejnych issue.",
+      "relatedRequirementIds": ["C-F094", "C-F102", "C-F105", "C-N028", "C-N029", "C-N030", "FR-PUB-023", "FR-PUB-024", "FR-PUB-025", "FR-PUB-026", "FR-ADM-010", "FR-ADM-021"],
+      "codePaths": [
+        "src/modules/availability/dates.ts",
+        "src/modules/availability/read.ts",
+        "src/modules/availability/http.ts",
+        "src/app/api/public/availability/check/route.ts",
+        "src/app/api/public/availability/batch/route.ts",
+        "src/app/api/public/vehicles/[slug]/calendar/route.ts",
+        "src/app/api/admin/vehicles/[id]/availability/route.ts",
+        "src/app/api/platform/companies/[organizationId]/vehicles/[id]/availability/route.ts"
+      ],
+      "testPaths": [
+        "tests/unit/availability.test.ts",
+        "tests/integration/availability-read.test.ts",
+        "tests/integration/availability-http.test.ts",
+        "tests/e2e/availability.spec.ts"
+      ]
     }
   ],
   "sources": [
