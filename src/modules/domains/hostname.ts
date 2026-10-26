@@ -8,7 +8,7 @@ export type HostnameCheck = { ok: true; hostname: string } | { ok: false };
 
 /** Accepts only a bare, ASCII, non-apex DNS name outside the Auterva base domains. */
 export function validateCustomHostname(input: unknown, reservedBases: readonly string[]): HostnameCheck {
-  if (typeof input !== "string" || input.length > 254) return { ok: false };
+  if (typeof input !== "string" || input.length > 254 || input !== input.trim()) return { ok: false };
   const hostname = normalizeHostname(input);
   if (!hostname) return { ok: false };
   const labels = hostname.split(".");

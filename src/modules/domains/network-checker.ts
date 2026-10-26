@@ -5,7 +5,12 @@ import type { CheckOutcome, DomainChecker, FailureCode } from "./checker";
 import { ownershipRecordName, ownershipRecordValue, WELL_KNOWN_CHECK_PATH } from "./proof";
 import { normalizeHostname } from "@/modules/tenancy/host-registry";
 
-export type DnsClient = Pick<Resolver, "resolveTxt" | "resolveCname" | "resolve4" | "resolve6">;
+export type DnsClient = {
+  resolveTxt(name: string): Promise<string[][]>;
+  resolveCname(name: string): Promise<string[]>;
+  resolve4(name: string): Promise<string[]>;
+  resolve6(name: string): Promise<string[]>;
+};
 
 export type NetworkCheckerOptions = {
   dns: DnsClient;
