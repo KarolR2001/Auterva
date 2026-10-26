@@ -43,6 +43,8 @@ export function mediaFailure(error: unknown, requestId: string) {
   if (["MEDIA_MEMORY_LIMIT", "MEDIA_DECODE_TIMEOUT"].includes(code))
     return response({ code: "IMAGE_TOO_COMPLEX" }, 422, requestId);
   if (code === "MEDIA_BUSY") return response({ code: "MEDIA_BUSY" }, 503, requestId, 5);
+  // Environment failure (no RSS measurement, decoder killed by a foreign signal, I/O such as ENOSPC): not the image's fault.
+  if (code === "MEDIA_DECODER_UNAVAILABLE") return response({ code }, 503, requestId, 30);
   if (code === "MEDIA_UPLOAD_REJECTED") return response({ code }, 409, requestId);
   if (code === "Audit actor is not authorized") return response({ code: "UNAUTHORIZED" }, 401, requestId);
   if (code === "Audit tenant mismatch" || code === "MEDIA_FORBIDDEN") return response({ code: "FORBIDDEN" }, 403, requestId);

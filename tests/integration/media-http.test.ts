@@ -6,6 +6,7 @@ import { afterAll, beforeAll, expect, test } from "vitest";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { POST as uploadPost } from "../../src/app/api/admin/vehicles/[id]/images/route";
 import { POST as platformPost } from "../../src/app/api/platform/companies/[organizationId]/vehicles/[id]/images/route";
+import { rssProbe } from "../../src/modules/media/rss";
 import { mediaFailure } from "../../src/modules/media/http";
 import { createMediaStorage, removeObject } from "../../src/modules/media/storage";
 import { ensureControlledSuperadminMfa, verifiedFixtureSession } from "../fixtures/verified-session";
@@ -196,4 +197,36 @@ test("decoder resource limits are the client's invalid input (422), a busy decod
   expect(busy.status).toBe(503);
   expect(busy.headers.get("retry-after")).toBe("5");
   expect(mediaFailure(new Error("Audit actor is not authorized"), randomUUID()).status).toBe(401);
+});
+
+test("decoder killed by a foreign signal gives retryable 503; reservation stays and the same key succeeds", async () => {
+  const bytes = await sharp(await sharp({ create: { width: 100, height: 100, channels: 3, background: "#808080",
+    noise: { type: "gaussian", mean: 128, sigma: 40 } } }).png().toBuffer())
+    .resize(9_000, 9_000, { kernel: "nearest" }).png({ compressionLevel: 9 }).toBuffer();
+  const key = randomUUID();
+  const original = rssProbe.read;
+  let calls = 0;
+  rssProbe.read = async (pid) => { if (calls++ > 0) process.kill(pid, "SIGKILL"); return 1_000; };
+  let first: Response;
+  try { first = await uploadPost(request(host, vehicleId, bytes, key), { params: Promise.resolve({ id: vehicleId }) }); }
+  finally { rssProbe.read = original; }
+  expect(first.status).toBe(503);
+  expect(await first.json()).toEqual({ code: "MEDIA_DECODER_UNAVAILABLE" });
+  expect(first.headers.get("retry-after")).toBe("30");
+  expect((await db.imageUpload.findFirstOrThrow({ where: { reservationKey: key } })).state).toBe("RESERVED");
+  const retry = await uploadPost(request(host, vehicleId, bytes, key), { params: Promise.resolve({ id: vehicleId }) });
+  expect(retry.status).toBe(202);
+}, 90_000);
+
+test("without any RSS measurement the upload is refused (503) and the place stays reserved", async () => {
+  const png = await sharp({ create: { width: 90, height: 60, channels: 3, background: "#99aa11" } }).png().toBuffer();
+  const key = randomUUID();
+  const original = rssProbe.read;
+  rssProbe.read = async () => null;
+  let res: Response;
+  try { res = await uploadPost(request(host, vehicleId, png, key), { params: Promise.resolve({ id: vehicleId }) }); }
+  finally { rssProbe.read = original; }
+  expect(res.status).toBe(503);
+  expect((await db.imageUpload.findFirstOrThrow({ where: { reservationKey: key } })).state).toBe("RESERVED");
+  expect((await uploadPost(request(host, vehicleId, png, key), { params: Promise.resolve({ id: vehicleId }) })).status).toBe(202);
 });
