@@ -343,6 +343,7 @@ export function MfaFlow({
       });
       if (response.ok) {
         if (
+          recoveryIntent ||
           ["setup", "restoreFactor", "restorePassword"].includes(uncertainFrom)
         )
           enterRestore();

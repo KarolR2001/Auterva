@@ -156,6 +156,33 @@ describe("obowiązkowe MFA", () => {
     expect(request).toHaveBeenCalledTimes(2);
   });
 
+  it("po utracie odpowiedzi powtórnego challenge zachowuje zamiar odzyskania kodów", async () => {
+    const request = vi
+      .spyOn(globalThis, "fetch")
+      .mockRejectedValueOnce(new TypeError("challenge response lost"))
+      .mockResolvedValueOnce(Response.json({ session: { id: "s1" } }));
+    const user = userEvent.setup();
+    render(<MfaFlow area="company" initialMode="challenge" recoverCodes />);
+    await user.type(
+      screen.getByRole("textbox", { name: "Kod z aplikacji" }),
+      "123456",
+    );
+    await user.click(screen.getByRole("button", { name: "Potwierdź kod" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Sprawdź stan" }),
+    );
+    expect(
+      await screen.findByRole("heading", {
+        name: "Wydaj nowe kody odzyskania",
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("textbox", { name: "Nowy kod z aplikacji" }),
+    ).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Potwierdź kod" })).toBeNull();
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
   it("po utracie odpowiedzi recovery nie zużywa drugi raz kodu", async () => {
     const request = vi
       .spyOn(globalThis, "fetch")
