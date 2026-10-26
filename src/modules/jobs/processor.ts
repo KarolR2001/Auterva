@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { normalizeHostname } from "@/modules/tenancy/host-registry";
-import { decryptMailPayload, type MailPayload } from "./outbox";
+import { decryptMailPayload, isCurrentReminderRecipient, type MailPayload } from "./outbox";
 import { failJob, quarantineMailJob, startMailAttempt, type ClaimedJob } from "./queue";
 
 export type MailProviderResult = { kind: "accepted"; providerId: string } |
@@ -52,7 +52,8 @@ async function isCurrent(db: PrismaClient, mail: MailPayload, now: Date): Promis
   }
   if (!mail.organizationId) return false;
   const period = await db.serviceAccess.findUnique({ where: { organizationId: mail.organizationId }, select: { periodVersion: true } });
-  return parsed.pathname === "/admin/" && !!period && period.periodVersion === mail.periodVersion;
+  return parsed.pathname === "/admin/" && !!period && period.periodVersion === mail.periodVersion
+    && await isCurrentReminderRecipient(db, mail.organizationId, mail.recipient);
 }
 
 async function skip(db: PrismaClient, claim: ClaimedJob, now: Date, code: string): Promise<void> {

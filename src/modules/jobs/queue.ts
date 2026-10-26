@@ -19,7 +19,9 @@ export async function claimNextJob(db: PrismaClient, now: Date, leaseMs: number,
     throw new Error("Invalid job lease");
   }
   const quarantined = await db.job.updateMany({
-    where: { kind: { startsWith: "MAIL_" }, status: { in: ["PENDING", "RUNNING"] },
+    where: { kind: mailOnly
+      ? { in: ["MAIL_INVITATION", "MAIL_PASSWORD_RESET", "MAIL_REMINDER"] }
+      : { startsWith: "MAIL_" }, status: { in: ["PENDING", "RUNNING"] },
       firstSendAt: { lte: new Date(now.getTime() - 24 * 60 * 60_000) },
       OR: [{ status: "PENDING" }, { status: "RUNNING", lockedUntil: { lte: now } }] },
     data: { status: "UNCERTAIN", errorCode: "MAIL_OUTCOME_UNKNOWN", leaseToken: null, lockedUntil: null },
@@ -34,6 +36,7 @@ export async function claimNextJob(db: PrismaClient, now: Date, leaseMs: number,
       payload = CASE WHEN kind LIKE 'MAIL\\_%' ESCAPE '\\' AND "firstSendAt" IS NOT NULL
         THEN payload ELSE jsonb_build_object('digest', payload->>'digest') END
     WHERE status = 'RUNNING' AND "lockedUntil" <= ${now}
+      AND (${mailOnly} = false OR kind IN ('MAIL_INVITATION', 'MAIL_PASSWORD_RESET', 'MAIL_REMINDER'))
       AND attempts >= "maxAttempts"
   `;
   if (quarantined.count > 0 || exhausted > 0) await syncInvitationOutcomes(db);

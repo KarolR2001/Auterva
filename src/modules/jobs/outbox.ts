@@ -1,8 +1,18 @@
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes } from "node:crypto";
-import type { Prisma } from "@/generated/prisma/client";
+import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { normalizeHostname } from "@/modules/tenancy/host-registry";
 
 export type MailKind = "MAIL_INVITATION" | "MAIL_PASSWORD_RESET" | "MAIL_REMINDER";
+type MailDb = Prisma.TransactionClient | PrismaClient;
+
+export async function isCurrentReminderRecipient(db: MailDb, organizationId: string, recipient: string): Promise<boolean> {
+  const user = await db.user.findFirst({ where: { email: { equals: recipient, mode: "insensitive" } },
+    select: { email: true, role: true, organizationId: true, disabledAt: true,
+      emailVerified: true, twoFactorEnabled: true } });
+  return !!user && user.email.toLowerCase() === recipient.toLowerCase()
+    && user.role === "ADMIN_FIRMY" && user.organizationId === organizationId
+    && !user.disabledAt && user.emailVerified && user.twoFactorEnabled === true;
+}
 export type MailPayload = {
   kind: MailKind;
   scope: "PLATFORM" | "COMPANY_ADMIN";
@@ -98,6 +108,10 @@ export async function enqueueMail(tx: Prisma.TransactionClient, input: MailInput
       throw new Error("Reset proof does not match mail intent");
     }
   }
+  if (input.kind === "MAIL_REMINDER" && (!input.organizationId
+    || !(await isCurrentReminderRecipient(tx, input.organizationId, input.recipient)))) {
+    throw new Error("Reminder recipient is not the current company administrator");
+  }
   const host = await tx.hostMapping.findFirst({ where: { organizationId: input.organizationId,
     area: scope, status: "ACTIVE" }, orderBy: { hostname: "asc" }, select: { hostname: true } });
   const hostname = host && normalizeHostname(host.hostname);
@@ -127,13 +141,25 @@ export async function enqueueMail(tx: Prisma.TransactionClient, input: MailInput
 export async function rebindReminder(tx: Prisma.TransactionClient, organizationId: string,
   referenceId: string, periodVersion: number, key: Buffer) {
   if (!Number.isSafeInteger(periodVersion) || periodVersion < 0) throw new Error("Invalid reminder version");
-  const job = await tx.job.findFirstOrThrow({ where: { organizationId, dedupeKey: `MAIL_REMINDER:${referenceId}` } });
-  if (job.kind !== "MAIL_REMINDER" || job.status === "SENT") return job;
-  if (job.status !== "PENDING" && job.status !== "RUNNING") return job;
-  const payload = decryptMailPayload(job.payload, key);
-  if (payload.kind !== "MAIL_REMINDER" || payload.organizationId !== organizationId || payload.referenceId !== referenceId)
-    throw new Error("Reminder intent mismatch");
-  const sealed = seal({ ...payload, periodVersion }, key);
-  return tx.job.update({ where: { id: job.id }, data: { payload: sealed,
-    status: "PENDING", leaseToken: null, lockedUntil: null } });
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const job = await tx.job.findFirstOrThrow({ where: { organizationId, dedupeKey: `MAIL_REMINDER:${referenceId}` } });
+    if (job.kind !== "MAIL_REMINDER" || (job.status !== "PENDING" && job.status !== "RUNNING")) return job;
+    const payload = decryptMailPayload(job.payload, key);
+    if (payload.kind !== "MAIL_REMINDER" || payload.organizationId !== organizationId || payload.referenceId !== referenceId)
+      throw new Error("Reminder intent mismatch");
+    const exhausted = job.attempts >= job.maxAttempts;
+    const terminal = exhausted && (job.status === "PENDING" || job.firstSendAt === null);
+    const status = terminal ? (job.firstSendAt ? "UNCERTAIN" : "FAILED")
+      : job.status === "RUNNING" && job.firstSendAt === null ? "PENDING" : job.status;
+    const payloadUpdate = terminal && !job.firstSendAt
+      ? { digest: (job.payload as { digest?: unknown }).digest ?? null }
+      : seal({ ...payload, periodVersion }, key);
+    const changed = await tx.job.updateMany({ where: { id: job.id, status: job.status,
+      leaseToken: job.leaseToken, attempts: job.attempts, firstSendAt: job.firstSendAt },
+    data: { payload: payloadUpdate, status, ...(status === "PENDING" && job.status === "RUNNING" || terminal
+      ? { leaseToken: null, lockedUntil: null } : {}),
+    ...(terminal ? { errorCode: job.firstSendAt ? "MAIL_OUTCOME_UNKNOWN" : "LEASE_EXHAUSTED" } : {}) } });
+    if (changed.count === 1) return tx.job.findUniqueOrThrow({ where: { id: job.id } });
+  }
+  throw new Error("Reminder rebind conflict");
 }

@@ -9,10 +9,12 @@ import { processClaimedJob } from "../../src/modules/jobs/processor";
 const db = createPrismaClient(process.env.DATABASE_URL ?? "");
 const key = randomBytes(32);
 const organizationId = randomUUID();
+const adminId = randomUUID();
 const hostname = `${randomUUID()}.example.test`;
 afterAll(async () => {
   await db.job.deleteMany({ where: { organizationId } });
   await db.invitation.deleteMany({ where: { organizationId } });
+  await db.user.deleteMany({ where: { id: adminId } });
   await db.hostMapping.deleteMany({ where: { organizationId } });
   await db.organization.deleteMany({ where: { id: organizationId } });
   await db.$disconnect();
@@ -23,6 +25,8 @@ test("invitation and encrypted outbox commit together, dedupe preserves original
   const invitationId = randomUUID();
   const token = randomUUID();
   await db.organization.create({ data: { id: organizationId, slug: `jobs-${organizationId}` } });
+  await db.user.create({ data: { id: adminId, name: "Fixture admin", email: "qa@example.test",
+    role: "ADMIN_FIRMY", organizationId, emailVerified: true, twoFactorEnabled: true } });
   await db.hostMapping.create({ data: { organizationId, hostname, area: "COMPANY_ADMIN", status: "ACTIVE" } });
   const job = await db.$transaction(async (tx) => {
     await tx.invitation.create({ data: { id: invitationId, organizationId, recipientEmail: "qa@example.test",

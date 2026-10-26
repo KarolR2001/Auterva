@@ -105,3 +105,24 @@ test("mail worker leaves unsupported future job kinds untouched", async () => {
   expect(claim?.id).toBe(mail.id);
   expect(await first.job.findUniqueOrThrow({ where: { id: media.id } })).toMatchObject({ status: "PENDING", attempts: 0 });
 });
+
+test("mail-only recovery leaves an expired non-mail lease and its payload untouched", async () => {
+  const now = new Date("2026-10-26T10:00:00.000Z");
+  const media = await first.job.create({ data: { kind: "MEDIA_PROCESS", dedupeKey: `${prefix}expired-media`,
+    payload: { storageKey: "fixture-private-object" }, runAt: now, maxAttempts: 1 } });
+  const futureMail = await first.job.create({ data: { kind: "MAIL_FUTURE", dedupeKey: `${prefix}expired-future-mail`,
+    payload: { encrypted: "future-consumer" }, runAt: new Date(now.getTime() + 1), maxAttempts: 1 } });
+  const mediaClaim = await claimNextJob(first, now, 1_000);
+  expect(mediaClaim?.id).toBe(media.id);
+  const futureClaim = await claimNextJob(first, new Date(now.getTime() + 1), 1_000);
+  expect(futureClaim?.id).toBe(futureMail.id);
+  expect(await claimNextJob(second, new Date(now.getTime() + 2_000), 1_000, true)).toBeNull();
+  expect(await first.job.findUniqueOrThrow({ where: { id: media.id } })).toMatchObject({
+    status: "RUNNING", attempts: 1, payload: { storageKey: "fixture-private-object" },
+    leaseToken: mediaClaim!.leaseToken,
+  });
+  expect(await first.job.findUniqueOrThrow({ where: { id: futureMail.id } })).toMatchObject({
+    status: "RUNNING", attempts: 1, payload: { encrypted: "future-consumer" },
+    leaseToken: futureClaim!.leaseToken,
+  });
+});

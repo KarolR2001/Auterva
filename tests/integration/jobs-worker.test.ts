@@ -8,12 +8,14 @@ import { processClaimedJob } from "../../src/modules/jobs/processor";
 const db = createPrismaClient(process.env.DATABASE_URL ?? "");
 const key = randomBytes(32);
 const organizationId = randomUUID();
+const adminId = randomUUID();
 const host = `${randomUUID()}.example.test`;
 const now = new Date("2026-10-26T10:00:00.000Z");
 afterAll(async () => {
   await db.job.deleteMany({ where: { organizationId } });
   await db.invitation.deleteMany({ where: { organizationId } });
   await db.serviceAccess.deleteMany({ where: { organizationId } });
+  await db.user.deleteMany({ where: { id: adminId } });
   await db.hostMapping.deleteMany({ where: { organizationId } });
   await db.organization.deleteMany({ where: { id: organizationId } });
   await db.$disconnect();
@@ -23,6 +25,8 @@ test("stale reminder version is skipped before external mail", async () => {
   await db.organization.upsert({ where: { id: organizationId }, create: { id: organizationId, slug: `jobs-${organizationId}` }, update: { archivedAt: null } });
   await db.hostMapping.upsert({ where: { hostname: host }, create: { organizationId, hostname: host, area: "COMPANY_ADMIN", status: "ACTIVE" }, update: { status: "ACTIVE" } });
   await db.serviceAccess.upsert({ where: { organizationId }, create: { organizationId, periodVersion: 1 }, update: { periodVersion: 1 } });
+  await db.user.create({ data: { id: adminId, name: "Reminder admin", email: "reminder@example.test",
+    role: "ADMIN_FIRMY", organizationId, emailVerified: true, twoFactorEnabled: true } });
   const job = await db.$transaction((tx) => enqueueMail(tx, { kind: "MAIL_REMINDER", organizationId,
     recipient: "reminder@example.test", referenceId: randomUUID(), periodVersion: 1, runAt: now }, key));
   await db.serviceAccess.update({ where: { organizationId }, data: { periodVersion: 2 } });
@@ -38,6 +42,7 @@ test("unchanged reminder slot is rebound to a new period version without a secon
   await db.organization.upsert({ where: { id: organizationId }, create: { id: organizationId, slug: `jobs-${organizationId}` }, update: { archivedAt: null } });
   await db.hostMapping.upsert({ where: { hostname: host }, create: { organizationId, hostname: host, area: "COMPANY_ADMIN", status: "ACTIVE" }, update: { status: "ACTIVE" } });
   await db.serviceAccess.upsert({ where: { organizationId }, create: { organizationId, periodVersion: 3 }, update: { periodVersion: 3 } });
+  await db.user.update({ where: { id: adminId }, data: { email: "same-slot@example.test" } });
   const referenceId = randomUUID();
   const job = await db.$transaction((tx) => enqueueMail(tx, { kind: "MAIL_REMINDER", organizationId,
     recipient: "same-slot@example.test", referenceId, periodVersion: 3, runAt: new Date(now.getTime() - 60_000) }, key));
