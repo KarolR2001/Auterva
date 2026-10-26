@@ -420,3 +420,24 @@ test("archived companies are read-only for settings and media", async () => {
     expect((await platformGet(platform("GET", settingsPath(orgB)), orgCtx(orgB))).status).toBe(200);
   } finally { await db.organization.update({ where: { id: orgB }, data: { archivedAt: null } }); }
 });
+
+test("real archive (#48) closes writes and public reads; restore without unlock keeps public settings and media hidden", async () => {
+  const { archiveCompany, restoreCompany } = await import("../../src/modules/organizations/archive");
+  const media = await db.publicMedia.create({ data: { organizationId: orgB, kind: "BRAND", storageKey: `private/${orgB}/arch/${randomUUID()}`,
+    status: "READY", variants: { large: "x", thumb: "y" } } });
+  const op = async (fn: (d: typeof db, i: Parameters<typeof archiveCompany>[1]) => Promise<unknown>) => {
+    const org = await db.organization.findUniqueOrThrow({ where: { id: orgB } });
+    return fn(db, { actorId: superId, sessionId: (await db.session.findFirstOrThrow({ where: { userId: superId },
+      orderBy: { createdAt: "desc" } })).id, organizationId: orgB, expectedVersion: org.version,
+    eventKey: randomUUID(), requestId: randomUUID() });
+  };
+  await op(archiveCompany);
+  expect((await write(orgB, "seo", { seoTitle: "x" }, await version(orgB))).status).toBe(409);
+  expect((await pub(publicHost[1], publicSettings)).status).toBe(404);
+  expect((await media_(publicHost[1], media.id)).status).toBe(404);
+  await op(restoreCompany);
+  expect((await write(orgB, "seo", { seoTitle: "po przywróceniu" }, await version(orgB))).status).toBe(200);
+  expect((await pub(publicHost[1], publicSettings)).status).toBe(404);
+  expect((await media_(publicHost[1], media.id)).status).toBe(404);
+});
+const media_ = (host: string, id: string) => media(host, id, "large");

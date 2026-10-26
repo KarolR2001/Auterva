@@ -38,7 +38,7 @@ ALTER TABLE "PublicMedia"
 -- Race-proof replacement: at most one live logo per company.
 CREATE UNIQUE INDEX "PublicMedia_one_logo_key" ON "PublicMedia"("organizationId")
   WHERE "kind" = 'LOGO' AND "status" <> 'DELETED';
-CREATE INDEX "PublicMedia_cleanup_idx" ON "PublicMedia"("status", "storageCleanedAt");
+CREATE INDEX "PublicMedia_status_storageCleanedAt_idx" ON "PublicMedia"("status", "storageCleanedAt");
 
 -- The upload pipeline of #29 serves company media too: a NULL vehicle marks a company upload.
 ALTER TABLE "ImageUpload" ALTER COLUMN "vehicleId" DROP NOT NULL;
