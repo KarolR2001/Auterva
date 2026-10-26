@@ -1,13 +1,24 @@
 import type { PrismaClient } from "../../generated/prisma/client";
 import type { auth } from "../../lib/auth";
+import { requireAuthorizedActor } from "../auth/authorization";
+import { resolveHostMapping } from "../tenancy/host-registry";
 
-export async function resolveRealtimeTenant(db: PrismaClient, instance: typeof auth, headers: Headers, allowedOrigin: string, expectedHost: string) {
-  if (headers.get("origin") !== allowedOrigin || headers.get("host") !== expectedHost) return null;
-  const session = await instance.api.getSession({ headers });
-  if (!session) return null;
-  const [proof, user] = await Promise.all([
-    db.session.findUnique({ where: { id: session.session.id }, select: { mfaVerifiedAt: true } }),
-    db.user.findUnique({ where: { id: session.user.id }, select: { organizationId: true, twoFactorEnabled: true } }),
-  ]);
-  return proof?.mfaVerifiedAt && user?.twoFactorEnabled ? user.organizationId : null;
+export async function resolveRealtimeTenant(db: PrismaClient, instance: typeof auth, headers: Headers, expectedHost: string) {
+  if (headers.get("host") !== expectedHost) return null;
+  const suppliedOrigin = headers.get("origin");
+  let origin: URL;
+  try {
+    if (!suppliedOrigin) return null;
+    origin = new URL(suppliedOrigin);
+  } catch {
+    return null;
+  }
+  if (origin.origin !== suppliedOrigin || !["http:", "https:"].includes(origin.protocol)
+    || (process.env.NODE_ENV === "production" && origin.protocol !== "https:")) return null;
+  const mapping = await resolveHostMapping(db, origin.host);
+  if (mapping?.area !== "COMPANY_ADMIN" || !mapping.organizationId) return null;
+  const actor = await requireAuthorizedActor(db, instance, headers, {
+    area: "COMPANY_ADMIN", organizationId: mapping.organizationId,
+  });
+  return actor?.organizationId ?? null;
 }

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-10-23",
+  "updatedAt": "2026-10-25",
   "note": "Repozytorium dokumentacji i kontraktów MVP 3.1. Źródłowe treści PRD zachowano dosłownie pod jawnymi preambułami. Dokumenty syntezy i SPEC zaktualizowano jawnie; historyczne materiały V2/V30 i artefakty designu nie są zależnościami implementacji.",
   "sources": [
     {
@@ -25,8 +25,8 @@
       "path": "docs/design/SPEC.md",
       "role": "current-design-contract",
       "originalSha256": "57f6591f985e33c7ea225f84b9fa2ac298ff852c2843fb1c54994991608b2027",
-      "sha256": "31444bc54e09d40aa217b2f3894799be852aa1bdff6b52335b891a5ad1428ad7",
-      "transformation": "Dodano nadrzędny kontrakt 3.1 i DEC-013–020, aktualne strony Penpota, obowiązkowe MFA, granice ustawień i status prototypów; zachowano fundamenty/komponenty i przeniesiono reguły motion/copy bez historycznych wyników QA."
+      "sha256": "a201d58feb95be0009c35d8b41985872f087c2201fa9511f9c6d8b8b3119f2af",
+      "transformation": "Dodano nadrzędny kontrakt 3.1 i DEC-013–020, aktualne strony Penpota, obowiązkowe MFA, granice ustawień i status prototypów; zachowano fundamenty/komponenty i przeniesiono reguły motion/copy bez historycznych wyników QA. Doprecyzowano cele nawigacji panelu firmy dla MVP w #94."
     }
   ],
   "derivedDocuments": [
@@ -36,7 +36,7 @@
     },
     {
       "path": "docs/ARCHITEKTURA_AUTERVA.md",
-      "sha256": "d39c1551eaf606742b42f333334505ea19bfb4539dc77a79db3b84b4209bf3a6"
+      "sha256": "5c745811dd53029956b96dc8967c03aa61ab009cda40c4da9ea117cf4821e665"
     },
     {
       "path": "docs/adr/0001-penpot.md",
@@ -60,11 +60,19 @@
     },
     {
       "path": "docs/contracts/technical-limits-and-mfa-bootstrap.md",
-      "sha256": "0f7fc1711e52b92fbc1ea9323e48f7499b4d1597a0a89880660a5523f9a108c9"
+      "sha256": "aa8dceaa19719ab4bdddab8a514b0823cdaa3dff8d9b66f1ca51342883366775"
     },
     {
       "path": "docs/contracts/data-model-and-migrations.md",
       "sha256": "3df3a9f1632d7c13ee9456165cc4ac2c45f06c1abeb79006e30deed117a01b1a"
+    },
+    {
+      "path": "docs/contracts/audit-append-and-access.md",
+      "sha256": "d858ed1fbbd0c5e2fe8eaf18e721b39098a90476b109c44598c613e62dac1381"
+    },
+    {
+      "path": "docs/contracts/account-operations.md",
+      "sha256": "624c57d69caf3d4c5567a2f39e291625555ff2f87365b26ced302eddfaf7fa26"
     }
   ],
   "historicalSourcesOutsideRepository": [

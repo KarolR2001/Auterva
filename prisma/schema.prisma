@@ -14,6 +14,7 @@ model Organization {
   firstAdminRegisteredAt DateTime?          @db.Timestamptz(6)
   archivedAt             DateTime?          @db.Timestamptz(6)
   publicUnlockRequired   Boolean            @default(false)
+  publicRequiresPaid     Boolean            @default(false)
   version                Int                @default(0)
   vehicles               Vehicle[]
   messages               ChatMessage[]
@@ -176,6 +177,34 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+model PasswordResetRequest {
+  id              String    @id @default(uuid()) @db.Uuid
+  requestKeyHash  String    @unique @db.VarChar(64)
+  inputHash       String    @db.VarChar(64)
+  userId          String?
+  verificationId  String?   @unique
+  hostname        String    @db.VarChar(253)
+  area            String    @db.VarChar(32)
+  organizationId  String?   @db.Uuid
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  expiresAt       DateTime  @db.Timestamptz(6)
+  consumedAt      DateTime? @db.Timestamptz(6)
+
+  @@index([expiresAt])
+  @@index([userId, createdAt])
+}
+
+model RateLimitEvent {
+  id         String   @id @default(uuid()) @db.Uuid
+  keyHash    String   @db.VarChar(64)
+  occurredAt DateTime @db.Timestamptz(6)
+  expiresAt  DateTime @db.Timestamptz(6)
+  state      String   @default("COMMITTED")
+
+  @@index([keyHash, occurredAt])
+  @@index([expiresAt])
 }
 
 model TwoFactor {
@@ -353,6 +382,7 @@ model ConversationReadCursor {
 
 model AuditLog {
   id             String        @id @default(uuid()) @db.Uuid
+  eventKey       String?       @unique @db.Uuid
   organizationId String?       @db.Uuid
   actorId        String
   actorRole      String
@@ -365,6 +395,7 @@ model AuditLog {
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
   @@index([organizationId, createdAt])
+  @@index([createdAt, id])
   @@index([requestId])
 }
 
@@ -379,13 +410,49 @@ model Job {
   maxAttempts    Int           @default(5)
   status         String        @default("PENDING")
   lockedUntil    DateTime?     @db.Timestamptz(6)
+  leaseToken     String?       @db.Uuid
+  firstSendAt    DateTime?     @db.Timestamptz(6)
+  providerId     String?
   completedAt    DateTime?     @db.Timestamptz(6)
   errorCode      String?
   createdAt      DateTime      @default(now()) @db.Timestamptz(6)
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  retentionManifests AuditRetentionManifest[]
 
   @@unique([organizationId, dedupeKey])
   @@index([status, runAt])
+  @@index([status, lockedUntil])
+}
+
+model AuditRetentionManifest {
+  id        String   @id @default(uuid()) @db.Uuid
+  jobId     String   @db.Uuid
+  batch     Int
+  count     Int
+  oldestAt  DateTime @db.Timestamptz(6)
+  newestAt  DateTime @db.Timestamptz(6)
+  digest    String
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Restrict)
+
+  @@unique([jobId, batch])
+}
+
+model AuditOperatorExport {
+  id           String    @id @default(uuid()) @db.Uuid
+  fromAt       DateTime  @db.Timestamptz(6)
+  toAt         DateTime  @db.Timestamptz(6)
+  count        Int
+  digest       String?
+  artifactName String    @unique
+  expiresAt    DateTime  @db.Timestamptz(6)
+  status       String    @default("PENDING")
+  createdAt    DateTime  @default(now()) @db.Timestamptz(6)
+  completedAt  DateTime? @db.Timestamptz(6)
+  deletedAt    DateTime? @db.Timestamptz(6)
+  errorCode    String?
+
+  @@index([status, expiresAt])
 }
 
 model OperationReceipt {

@@ -552,7 +552,7 @@ Zmiana breakpointu może zmienić układ i komponent prezentacyjny, ale nie moż
 - dodawania i edycji blokady,
 - filtrowania i wyszukiwania,
 - publikacji, ukrycia i archiwizacji,
-- dostępu do ustawień, konta, sesji i logów,
+- dostępu do ustawień i konta (sesje i ekran logów dopiero po wdrożeniu odpowiednich funkcji SHOULD),
 - informacji o błędzie, konflikcie i stanie offline.
 
 ### 5.2. Safe area dla PWA
@@ -604,8 +604,8 @@ Każdy komponent musi mieć wariant mobilny i desktopowy, jeżeli sposób prezen
 | `DS-NAV-006` | `Breadcrumbs` | public, admin, collapsed | pierwszy + bieżący | pełna ścieżka | overflow, current page |
 | `DS-NAV-007` | `AdminSidebar` | expanded, collapsed | nie występuje | 240/72 px | active, hover, badge, disabled |
 | `DS-NAV-008` | `AdminTopbar` | with search, with status | tytuł + user/menu | breadcrumbs + user menu | online/offline/update |
-| `DS-NAV-009` | `AdminBottomNavigation` | 4 główne + „Więcej” | stała | nie występuje | active, notification dot |
-| `DS-NAV-010` | `AdminMoreMenu` | sheet/drawer | pełna lista modułów | dropdown/user menu | open, active |
+| `DS-NAV-009` | `AdminBottomNavigation` | Start, Pojazdy, Czat, Więcej | stała | nie występuje | active, notification dot |
+| `DS-NAV-010` | `AdminMoreMenu` | sheet/drawer | status usługi, ustawienia, konto, warunkowa instalacja PWA, wylogowanie | dropdown przy przycisku użytkownika w topbarze, z tymi samymi celami | open, active |
 | `DS-NAV-011` | `UserMenu` | profile, account, logout | sheet | dropdown | current session, logout |
 | `DS-NAV-012` | `Tabs` | underline, contained, scrollable | przewijane poziomo | pełne | default, active, disabled, badge |
 | `DS-NAV-013` | `SegmentedControl` | 2–4 opcje | fill width | hug content | selected, focus |
@@ -1041,12 +1041,11 @@ Sidebar zawiera:
 
 1. Dashboard,
 2. Pojazdy,
-3. Kalendarz,
+3. Czat z Autervą,
 4. Ustawienia,
-5. Dziennik zmian,
-6. Konto.
+5. Konto.
 
-Na dole: status online/PWA, użytkownik i wylogowanie.
+Na dole: status online/PWA, użytkownik i wylogowanie. „Czat z Autervą” prowadzi do `/admin/czat` i pokazuje tekstowo dostępny wskaźnik nowych wiadomości. Na dashboardzie przycisk użytkownika w topbarze otwiera desktopowy `DS-NAV-010` (`desktop-dropdown/open`); pozycja „Status usługi” prowadzi do `/admin/usluga`. `DS-NAV-011` służy profilowi/sesji i nie zastępuje tego wejścia.
 
 #### Mobile
 
@@ -1054,10 +1053,14 @@ Dolna nawigacja:
 
 1. Start,
 2. Pojazdy,
-3. Kalendarz,
+3. Czat,
 4. Więcej.
 
-„Więcej” otwiera ustawienia, dziennik, konto, instalację PWA i wylogowanie. Główna akcja kontekstowa „Dodaj pojazd” lub „Dodaj blokadę” jest umieszczona w nagłówku albo jako dostępny FAB, ale nie może zasłaniać treści.
+Start prowadzi do `/admin`, Pojazdy do `/admin/pojazdy`, a Czat do `/admin/czat`. Pozycja Czat sygnalizuje nowe wiadomości także przy zamkniętym menu; sama kropka nie zastępuje dostępnej nazwy/stanu. „Więcej” otwiera status usługi (`/admin/usluga`), ustawienia (`/admin/ustawienia`), konto (`/admin/konto`), warunkową instalację PWA i akcję wylogowania. Nie pokazuje w MVP opcjonalnych ekranów dziennika zmian ani przeglądu sesji.
+
+Kalendarz w MVP zawsze dotyczy wybranego pojazdu: Pojazdy → widoczna akcja „Kalendarz”/„Terminy” na jego wierszu lub karcie → `/admin/pojazdy/[id]/kalendarz`. Bez wskazanego pojazdu nie ma aktywnego celu kalendarza; `/admin/kalendarz` (ADM-10) pozostaje SHOULD. W pustej flocie lista prowadzi do dodania pierwszego pojazdu. Główna akcja kontekstowa „Dodaj pojazd” lub „Dodaj blokadę” jest umieszczona w nagłówku albo jako dostępny FAB, ale nie może zasłaniać treści.
+
+W zagnieżdżonej obsłudze firmy superadmin zachowuje własną nawigację platformową i stały kontekst wybranej firmy; powrót prowadzi do jej karty PLT-03, bez przełączenia aktora i bez globalnej floty w koncie firmy.
 
 ### 7.12. `DS-CNT-002 ContactSheet`
 
@@ -1133,20 +1136,20 @@ Nie pokazuje komunikatu sukcesu dla niezapisanej operacji i nie tworzy kolejki z
 | `ADM-01` | `/admin/login` | Logowanie | MUST | redirect z chronionej trasy, start PWA | dashboard, reset hasła |
 | `ADM-02` | `/admin/reset-hasla` | Prośba o reset hasła | SHOULD/P1 | logowanie | potwierdzenie neutralne, logowanie |
 | `ADM-03` | `/admin/reset-hasla/[token]` | Ustawienie nowego hasła | SHOULD/P1 | link e-mail | sukces, logowanie |
-| `ADM-04` | `/admin` | Dashboard | MUST | logowanie, start PWA | pojazdy, nowy pojazd, blokada, kalendarz |
+| `ADM-04` | `/admin` | Dashboard | MUST | logowanie, start PWA | pojazdy, nowy pojazd, blokada, czat, kalendarz konkretnego pojazdu |
 | `ADM-05` | `/admin/pojazdy` | Lista pojazdów | MUST | sidebar/bottom nav, dashboard | nowy pojazd, edycja, kalendarz, podgląd |
 | `ADM-06` | `/admin/pojazdy/nowy` | Dodawanie pojazdu | MUST | dashboard, lista | szkic, podgląd, publikacja, lista |
 | `ADM-07` | `/admin/pojazdy/[id]` | Edycja pojazdu | MUST | lista, dashboard, kalendarz | podgląd, kalendarz, publikacja, lista |
 | `ADM-08` | chroniony preview | Podgląd szkicu / pojazdu | SHOULD | formularz pojazdu | powrót do edycji, publikacja |
 | `ADM-09` | `/admin/pojazdy/[id]/kalendarz` | Kalendarz pojazdu | MUST | lista, edycja, dashboard | dodaj/edytuj blokadę, pojazd |
-| `ADM-10` | `/admin/kalendarz` | Kalendarz całej floty | SHOULD | nav, dashboard | pojazd, jego kalendarz, szybka blokada |
+| `ADM-10` | `/admin/kalendarz` | Kalendarz całej floty | SHOULD | przyszłe wejście po #65/#66 | pojazd, jego kalendarz, szybka blokada |
 | `ADM-11` | `/admin/ustawienia` | Ustawienia — dane firmy | MUST | nav | kontakt, prezentacja/SEO, prawne |
 | `ADM-12` | `/admin/ustawienia?sekcja=kontakt` | Ustawienia — kanały kontaktu | MUST | ustawienia | zapis, publiczny kontakt |
 | `ADM-13` | `/admin/ustawienia?sekcja=prezentacja` | Ustawienia — prezentacja i SEO | MUST | ustawienia | zapis, podgląd publiczny |
 | `ADM-14` | `/admin/ustawienia?sekcja=prawne` | Ustawienia — treści prawne | MUST/CONDITIONAL | ustawienia | podgląd polityki/regulaminu |
-| `ADM-15` | `/admin/konto` | Konto i zmiana hasła | MUST | menu użytkownika/nav | aktywne sesje, wylogowanie |
-| `ADM-16` | `/admin/konto?sekcja=sesje` | Aktywne sesje | SHOULD | konto | zakończenie sesji, konto |
-| `ADM-17` | `/admin/logi` | Dziennik zmian | SHOULD | nav/menu | szczegóły wpisu, encja źródłowa |
+| `ADM-15` | `/admin/konto` | Konto i zmiana hasła | MUST | menu użytkownika/nav | wylogowanie; sesje po wdrożeniu SHOULD |
+| `ADM-16` | `/admin/konto?sekcja=sesje` | Aktywne sesje | SHOULD | przyszłe wejście po #72/#73 | zakończenie sesji, konto |
+| `ADM-17` | `/admin/logi` | Dziennik zmian | SHOULD | przyszłe wejście po #74/#75 | szczegóły wpisu, encja źródłowa |
 | `ADM-18` | `/admin/offline` | Ekran offline PWA | MUST | brak sieci, start PWA | ponów, cached shell |
 | `ADM-19` | global | Brak uprawnień / sesja wygasła | MUST | nieuprawnione wejście, wygaśnięcie sesji | logowanie, bezpieczny powrót |
 | `ADM-20` | global | Nie znaleziono strony panelu | MUST | błędna trasa admin | dashboard, poprzednia strona |
@@ -1172,7 +1175,7 @@ Nie pokazuje komunikatu sukcesu dla niezapisanej operacji i nie tworzy kolejki z
 | `OVR-14` | Sesja wygasła | krytyczny dialog | krytyczny dialog | odpowiedź 401 / timeout |
 | `OVR-15` | Instalacja PWA | sheet/instrukcja | banner/dialog | możliwość instalacji/menu |
 | `OVR-16` | Aktualizacja PWA | banner/sheet | toast/dialog | nowy service worker |
-| `OVR-17` | User menu / Więcej | sheet | dropdown | avatar / bottom nav |
+| `OVR-17` | User menu / Więcej | sheet `DS-NAV-010` | dropdown `DS-NAV-010` | przycisk użytkownika w topbarze / „Więcej” w dolnej nawigacji |
 | `OVR-18` | Szczegóły wpisu audytu | sheet | expandable row/dialog | wpis logu |
 | `OVR-19` | Zakończ sesję | dialog | dialog | karta sesji |
 | `OVR-20` | Podgląd SEO | card/sheet | panel | ustawienia SEO |
@@ -1438,7 +1441,7 @@ Jeżeli reset nie zostanie wdrożony w MVP, makiety pozostają w bibliotece P1, 
 - szybkie akcje „Dodaj pojazd” i „Dodaj blokadę”,
 - najbliższe blokady,
 - ostrzeżenia jakości danych,
-- skrót do kalendarza całej floty,
+- skrót do listy pojazdów i kalendarza konkretnego pojazdu przy znanej najbliższej blokadzie,
 - status połączenia/PWA.
 
 ### Mobile
@@ -1844,7 +1847,7 @@ flowchart TD
     DASH -->|Pojazdy| VEHICLES
     DASH -->|Dodaj pojazd| NEW
     DASH -->|Dodaj blokadę| BLOCK_CREATE
-    DASH -->|Kalendarz| FCAL
+    DASH -->|Kalendarz wskazanego pojazdu| VCAL
 
     VEHICLES -->|Nowy| NEW
     VEHICLES -->|Edytuj| EDIT
@@ -1862,7 +1865,7 @@ flowchart TD
 
     VCAL -->|Dodaj zakres| BLOCK_CREATE
     VCAL -->|Wybierz blokadę| BLOCK_EDIT
-    VCAL -->|Flota| FCAL
+    VCAL -. przyszłe SHOULD: flota .-> FCAL
     FCAL -->|Pojazd| VCAL
     FCAL -->|Szybka blokada| BLOCK_CREATE
     BLOCK_CREATE -->|Konflikt| CONFLICT
@@ -1872,8 +1875,8 @@ flowchart TD
 
     DASH --> SETTINGS
     DASH --> ACCOUNT
-    DASH --> LOGS
-    ACCOUNT --> SESSIONS
+    DASH -. przyszłe SHOULD .-> LOGS
+    ACCOUNT -. przyszłe SHOULD .-> SESSIONS
     LOGS -->|Encja pojazdu| EDIT
     LOGS -->|Encja blokady| VCAL
 

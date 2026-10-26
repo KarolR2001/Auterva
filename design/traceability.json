@@ -67,6 +67,193 @@
         "prisma/migrations/20261023222000_schema_boundaries_issue_8/migration.sql"
       ],
       "testPaths": ["tests/integration/schema-contract.test.ts"]
+    },
+    {
+      "issue": 9,
+      "scope": "Izolowane usługi lokalne i deterministyczna fixture A/B; pełne przepływy produktu należą do kolejnych modułów.",
+      "relatedRequirementIds": ["C-N061", "C-N062"],
+      "codePaths": [
+        "scripts/local-fixture.sh",
+        "scripts/fixture-safety.ts",
+        "scripts/fixture-ids.ts",
+        "scripts/seed-local-fixture.ts",
+        "scripts/seed-local-access.ts"
+      ],
+      "testPaths": ["tests/unit/local-fixture.test.ts", "tests/integration/local-fixture.test.ts"]
+    },
+    {
+      "issue": 12,
+      "scope": "Bootstrap superadmina, host-bound login, obowiązkowe MFA, limity i cofanie sesji; produkcyjny ingress pozostaje zależnością #13.",
+      "relatedRequirementIds": ["C-F008", "C-F009", "C-F010", "C-F011", "C-F013", "C-F014", "C-F040", "C-F044", "C-N009", "C-N010", "C-N011", "C-N018"],
+      "codePaths": [
+        "scripts/bootstrap-superadmin.ts",
+        "scripts/recover-mfa.ts",
+        "src/app/api/auth/[...all]/route.ts",
+        "src/modules/auth/authorization.ts",
+        "src/modules/auth/mfa-factor-lock.ts",
+        "src/modules/auth/rate-limit.ts",
+        "src/modules/chat/resolve-tenant.ts",
+        "src/modules/chat/realtime.ts",
+        "prisma/migrations/20261023225000_auth_rate_limit_issue_12/migration.sql"
+      ],
+      "testPaths": [
+        "tests/isolated/bootstrap-superadmin.test.ts",
+        "tests/integration/auth-http.test.ts",
+        "tests/integration/rate-limit.test.ts",
+        "tests/integration/realtime.test.ts",
+        "tests/e2e/auth-host.spec.ts",
+        "tests/e2e/auth-production.spec.ts"
+      ]
+    },
+    {
+      "issue": 13,
+      "scope": "Aktywny host wybiera obszar; serwer sprawdza aktora i firmę, lokalny ingress dostarcza adres klienta, a wspólny limiter chroni uwierzytelnione API. Brzeg dostawcy pozostaje do odbioru przed stagingiem.",
+      "relatedRequirementIds": ["C-N002", "C-N003", "C-N005", "C-N007", "C-N008", "C-N009", "C-N012", "C-N013", "C-N024"],
+      "codePaths": [
+        "src/proxy.ts",
+        "src/modules/tenancy/host-registry.ts",
+        "src/modules/tenancy/host-route-policy.ts",
+        "src/modules/tenancy/request-context.ts",
+        "src/modules/tenancy/api-rate-limit.ts",
+        "src/modules/tenancy/request-id.ts",
+        "src/modules/ingress/client-address.ts",
+        "scripts/start-local-ingress.ts",
+        "src/app/api/auth/[...all]/route.ts",
+        "src/modules/chat/resolve-tenant.ts"
+      ],
+      "testPaths": [
+        "tests/unit/host-route-policy.test.ts",
+        "tests/integration/host-proxy.test.ts",
+        "tests/integration/request-context.test.ts",
+        "tests/integration/authenticated-api-limit.test.ts",
+        "tests/integration/realtime.test.ts",
+        "tests/e2e/auth-trusted.spec.ts",
+        "tests/e2e/auth-production.spec.ts"
+      ]
+    },
+    {
+      "issue": 104,
+      "scope": "Jedna transakcja dla operacji czynnika MFA i szybka odmowa konkurentów bez wyczerpania puli PostgreSQL.",
+      "relatedRequirementIds": ["C-F011", "C-F013", "C-F014", "C-N009", "C-N011"],
+      "codePaths": [
+        "src/modules/auth/mfa-factor-lock.ts",
+        "src/app/api/auth/[...all]/route.ts",
+        "src/lib/auth.ts",
+        "src/lib/mfa-session.ts",
+        "src/modules/auth/authorization.ts"
+      ],
+      "testPaths": [
+        "tests/integration/mfa-factor-lock.test.ts",
+        "tests/integration/auth-http.test.ts",
+        "tests/isolated/bootstrap-superadmin.test.ts"
+      ]
+    },
+    {
+      "issue": 16,
+      "scope": "Transakcyjny audyt append-only, bezpieczny odczyt A/B i obecni konsumenci auth/operatora; przyszłe mutacje domenowe wymagają własnej integracji.",
+      "relatedRequirementIds": ["C-F151", "C-N019", "C-N037", "C-N039", "C-N040", "FR-ADM-070", "FR-ADM-071"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261024101500_audit_event_key_issue_16/migration.sql",
+        "src/modules/audit/append.ts",
+        "src/modules/audit/actor.ts",
+        "src/modules/audit/read.ts",
+        "src/modules/audit/operator.ts",
+        "src/app/api/auth/[...all]/route.ts",
+        "scripts/recover-mfa.ts"
+      ],
+      "testPaths": ["tests/integration/audit-append.test.ts", "tests/integration/auth-http.test.ts", "tests/isolated/bootstrap-superadmin.test.ts"]
+    },
+    {
+      "issue": 17,
+      "scope": "Trwały outbox poczty, szyfrowany payload, worker PostgreSQL i okresowe usuwanie tylko wygasłych zdarzeń limitera; integracje domenowe w #18/#19/#54.",
+      "relatedRequirementIds": ["C-F025", "C-F035", "C-N004", "C-N016", "C-N017"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261026083100_job_leases_issue_17/migration.sql",
+        "src/modules/jobs/queue.ts",
+        "src/modules/jobs/outbox.ts",
+        "src/modules/jobs/processor.ts",
+        "src/modules/jobs/provider.ts",
+        "src/modules/jobs/runner.ts",
+        "src/server/worker.ts"
+      ],
+      "testPaths": [
+        "tests/integration/jobs-queue.test.ts",
+        "tests/integration/jobs-outbox.test.ts",
+        "tests/integration/jobs-worker.test.ts",
+        "tests/integration/jobs-process.test.ts",
+        "tests/integration/jobs-maintenance.test.ts",
+        "tests/unit/jobs-provider.test.ts",
+        "tests/unit/jobs-config.test.ts"
+      ]
+    },
+    {
+      "issue": 114,
+      "scope": "UTC dla połączeń Prisma bez zmiany dat biznesowych Europe/Warsaw ani istniejących danych.",
+      "relatedRequirementIds": ["C-F050", "C-R022", "FR-ADM-071"],
+      "codePaths": ["src/lib/prisma.ts"],
+      "testPaths": ["tests/integration/prisma-timezone.test.ts"]
+    },
+    {
+      "issue": 18,
+      "scope": "Neutralny reset hasła, profil tylko nazwa, zmiana hasła z pełnym MFA i cofnięciem sesji; ekran należy do #19.",
+      "relatedRequirementIds": ["C-F041", "C-F042", "C-F044", "C-N015", "C-N016", "C-N017", "FR-ADM-006", "FR-ADM-080", "FR-ADM-082"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261026120000_password_reset_issue_18/migration.sql",
+        "src/modules/auth/account-operations.ts",
+        "src/app/api/auth/[...all]/route.ts",
+        "src/modules/audit/append.ts",
+        "src/modules/jobs/outbox.ts",
+        "src/modules/jobs/processor.ts"
+      ],
+      "testPaths": ["tests/integration/password-reset.test.ts", "tests/integration/password-lock-order.test.ts", "tests/integration/password-change-limit.test.ts", "tests/integration/auth-login-neutral-work.test.ts", "tests/isolated/bootstrap-superadmin.test.ts"]
+    },
+    {
+      "issue": 108,
+      "scope": "Retencja audytu 365 dni w kolejce operatora; eksport wyłącznie lokalnej fixture, docelowy storage w #58/#60.",
+      "relatedRequirementIds": ["D-10", "C-N019", "C-N037", "C-N040", "FR-ADM-070"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261026100857_audit_retention_issue_108/migration.sql",
+        "prisma/migrations/20261026101214_audit_export_issue_108/migration.sql",
+        "src/modules/audit/retention.ts",
+        "src/modules/audit/retention-runner.ts",
+        "src/modules/audit/operator-export.ts",
+        "src/modules/audit/read.ts",
+        "src/modules/jobs/queue.ts",
+        "scripts/audit-retention.ts"
+      ],
+      "testPaths": [
+        "tests/unit/audit-retention.test.ts",
+        "tests/integration/audit-retention.test.ts",
+        "tests/integration/audit-retention-read.test.ts",
+        "tests/integration/audit-retention-process.test.ts",
+        "tests/integration/audit-export.test.ts"
+      ]
+    },
+    {
+      "issue": 21,
+      "scope": "Okres usługi i brama istniejącego wejścia publicznego, wersjonowane mutacje superadmina; przyszłe strony oferty, media i integracja zaproszeń pozostają osobnymi konsumentami.",
+      "relatedRequirementIds": ["C-F046", "C-F048", "C-F049", "C-F050", "C-F054", "C-F055", "C-F056", "C-F057", "C-F062", "C-F072", "C-F078"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261026094000_service_public_requires_paid_issue_21/migration.sql",
+        "src/modules/service-period/state.ts",
+        "src/modules/service-period/public.ts",
+        "src/modules/service-period/mutations.ts",
+        "src/app/page.tsx",
+        "src/app/api/platform/companies/[organizationId]/period/route.ts",
+        "src/app/api/platform/companies/[organizationId]/public-unlock/route.ts"
+      ],
+      "testPaths": [
+        "tests/unit/service-period.test.ts",
+        "tests/integration/service-period-migration.test.ts",
+        "tests/integration/service-period-public.test.ts",
+        "tests/integration/service-period-mutation.test.ts",
+        "tests/e2e/service-period.spec.ts"
+      ]
     }
   ],
   "sources": [
@@ -177,7 +364,7 @@
         "obsoleteBoardId": "1e066793-8858-8051-8008-cf43e509c242"
       }
     ],
-    "resolution": "OVR-14/15/17 zachowują wymagania, ale nie mają boardów o historycznych ID ani nowych boardów o tych nazwach. Istnieją ekran ADM-19 i źródła komponentowe DS-FBK-020, DS-PWA-001, DS-NAV-011; decyzja o osobnych overlayach i odbiór designu pozostają otwarte.",
+    "resolution": "Historyczne ID boardów OVR-14/15/17 pozostają nieobecne. OVR-17 mobile i desktop mają instancje DS-NAV-010 na stronie panelu firmy; desktop otwiera przycisk użytkownika w topbarze ADM-04. OVR-14/15 nie zostały rozwiązane w #94.",
     "emptyInteractionTargets": {
       "count": 52,
       "mobileScenarioPage": 28,
@@ -799,6 +986,14 @@
           "desktop": "a4abf4c9-2e1f-80fd-8008-afc9717d55df"
         }
       },
+      "navigationContract": {
+        "issue": 94,
+        "mobileMoreOverlayId": "89433e5c-4f5c-80ad-8008-d5edfc7920c7",
+        "mobileChatBoardId": "1e066793-8858-8051-8008-cf3e9d8915b2",
+        "desktopChatBoardId": "269b07ba-69e5-8066-8008-c84b98452b8c",
+        "vehicleCalendarPath": "/admin/pojazdy/[id]/kalendarz",
+        "fleetCalendarScope": "SHOULD; bez wejścia w MVP"
+      },
       "prototypeIds": [
         "A-01",
         "A-02"
@@ -828,6 +1023,35 @@
           "mobile": "a4abf4c9-2e1f-80fd-8008-afc9717d55df",
           "desktop": "a4abf4c9-2e1f-80fd-8008-afc9717d55df"
         }
+      },
+      "navigationContract": {
+        "issue": 94,
+        "menuActionsFollowUpIssue": 107,
+        "vehicleCalendarPath": "/admin/pojazdy/[id]/kalendarz",
+        "referenceVehicleSlug": "mercedes-klasa-v",
+        "referenceActions": {
+          "mobile": {
+            "editHitId": "1e066793-8858-8051-8008-cf3e7dc97aab",
+            "calendarHitId": "89433e5c-4f5c-80ad-8008-d6707fe1bad2",
+            "moreHitId": "89433e5c-4f5c-80ad-8008-d6708003560b",
+            "calendarBoardId": "1e066793-8858-8051-8008-cf3e7dc9ddb2"
+          },
+          "desktop": {
+            "editHitId": "92bfc32e-2dd6-801a-8008-bf076f901154",
+            "calendarHitId": "89433e5c-4f5c-80ad-8008-d672ef95b971",
+            "moreHitId": "89433e5c-4f5c-80ad-8008-d672f7b7b77c",
+            "calendarBoardId": "a4abf4c9-2e1f-80fd-8008-aff31c0f597d"
+          }
+        },
+        "vehicleActionsOverlayId": "89433e5c-4f5c-80ad-8008-d67038a557ec",
+        "userMenuTriggers": {
+          "mobile": "1e066793-8858-8051-8008-cf3e7dc97ab1",
+          "desktop": "92bfc32e-2dd6-801a-8008-bf076fbebf9b"
+        },
+        "mvpMenuOptions": ["Ukryj", "Archiwizuj"],
+        "menuActionTargets": ["OVR-10", "OVR-11"],
+        "menuActionState": "Statyczny wzorzec; kontekst vehicleId i potwierdzenia przed #34/#35 domyka #107.",
+        "otherVehicleActions": "Osobne cele Edytuj i Kalendarz używają trasy danego pojazdu; statyczny ADM-09 przedstawia wyłącznie Mercedesa."
       },
       "assetIds": [
         "demo-v01-front-3q",
@@ -6088,7 +6312,7 @@
         "section": "6.2. Nawigacja"
       },
       "originalPriority": "UNSPECIFIED",
-      "variantsSpec": "4 główne + „Więcej”",
+      "variantsSpec": "Start, Pojazdy, Czat, Więcej",
       "statesSpec": "active, notification dot",
       "penpot": {
         "pageId": "a4abf4c9-2e1f-80fd-8008-afc9717972ba",
@@ -7331,9 +7555,16 @@
       "statesSpec": "Wywołanie: avatar / bottom nav",
       "penpot": {
         "targetPageId": "a4abf4c9-2e1f-80fd-8008-afc9717d55df",
-        "sourceComponentItemId": "DS-NAV-011",
+        "sourceComponentItemIds": ["DS-NAV-010"],
         "sourceComponentPageId": "a4abf4c9-2e1f-80fd-8008-afc9717972ba",
-        "componentId": "9425204d-c5c4-807f-8008-b597a3e742ba"
+        "mobileComponentId": "9425204d-c5c4-807f-8008-b5942c34f856",
+        "desktopComponentId": "9425204d-c5c4-807f-8008-b5942c39e014",
+        "desktopTriggerShapeId": "37f3ef1b-03c6-808f-8008-c344268aba06",
+        "desktopServiceStatusTargetId": "269b07ba-69e5-8066-8008-c84b97fb8699",
+        "boardIds": {
+          "mobile": "89433e5c-4f5c-80ad-8008-d5edfc7920c7",
+          "desktop": "89433e5c-4f5c-80ad-8008-d5f3a39ca891"
+        }
       },
       "prototypeIds": [
         "A-01",
@@ -7341,7 +7572,7 @@
         "A-03",
         "A-04"
       ],
-      "mappingState": "missing_overlay_boards"
+      "mappingState": "mobile_and_desktop_overlay_present"
     },
     {
       "id": "OVR-18",
