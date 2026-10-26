@@ -1,5 +1,6 @@
 import { createHmac, randomUUID } from "node:crypto";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
+import { z } from "zod";
 import { getServerEnv } from "@/lib/env";
 import { appendAudit } from "@/modules/audit/append";
 import { requireAuditActor } from "@/modules/audit/actor";
@@ -10,7 +11,7 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const slugPattern = /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$/;
 const reservedSlugs = new Set(["admin", "api", "app", "auth", "assets", "cdn", "mail",
   "marketing", "platform", "static", "status", "support", "www"]);
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const adminEmailSchema = z.email().max(254);
 
 type PreregisterInput = {
   actorId: string; sessionId: string; name: string; slug: string; adminEmail: string;
@@ -36,7 +37,7 @@ function normalizedInput(input: PreregisterInput) {
   if (!input.actorId || input.actorId.length > 128 || !input.sessionId || input.sessionId.length > 128
     || !uuid.test(input.idempotencyKey)
     || !uuid.test(input.requestId) || !name || name.length > 120 || !slugPattern.test(slug)
-    || reservedSlugs.has(slug) || !emailPattern.test(adminEmail) || adminEmail.length > 254
+    || reservedSlugs.has(slug) || !adminEmailSchema.safeParse(adminEmail).success
     || !adminBase || !publicBase || adminBase === publicBase
     || !adminBase.includes(".") || !publicBase.includes(".")
     || typeof input.trialGranted !== "boolean") throw new Error("COMPANY_INVALID_INPUT");

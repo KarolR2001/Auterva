@@ -105,6 +105,28 @@ test("concurrent retry has one company and mismatched input cannot reuse its rec
   expect(await db.organization.count({ where: { slug: nextSlug } })).toBe(1);
 });
 
+test("audit failure rolls back company, pending user, hosts, period and receipt", async () => {
+  const failedSlug = `audit-${marker.slice(0, 8)}`;
+  const failedEmail = `audit-${marker}@example.test`;
+  const beforeAudit = await db.auditLog.count({ where: { actorId, action: "COMPANY_CREATED" } });
+  const failingAudit = db.$extends({ query: { auditLog: {
+    async create() { throw new Error("injected company audit failure"); },
+  } } });
+  await expect(preregisterCompany(failingAudit as typeof db, { actorId, sessionId,
+    name: "Failed audit company", slug: failedSlug, adminEmail: failedEmail,
+    adminBaseDomain: "sites.example.test", publicBaseDomain: "public.example.test",
+    trialGranted: true, paidThrough: null, idempotencyKey: randomUUID(),
+    requestId: randomUUID() })).rejects.toThrow("injected company audit failure");
+  expect(await db.organization.count({ where: { slug: failedSlug } })).toBe(0);
+  expect(await db.user.count({ where: { email: failedEmail } })).toBe(0);
+  expect(await db.hostMapping.count({ where: { hostname: { in: [
+    `${failedSlug}.sites.example.test`, `${failedSlug}.public.example.test`] } } })).toBe(0);
+  expect(await db.serviceAccess.count({ where: { organization: { slug: failedSlug } } })).toBe(0);
+  expect(await db.operationReceipt.count({ where: { actorId, operation: "CREATE_COMPANY",
+    organization: { slug: failedSlug } } })).toBe(0);
+  expect(await db.auditLog.count({ where: { actorId, action: "COMPANY_CREATED" } })).toBe(beforeAudit);
+});
+
 test("global email and occupied host refuse creation without changing their owner", async () => {
   const emailSlug = `email-${marker.slice(0, 8)}`;
   const base = { actorId, sessionId, name: "Conflicting company", slug: emailSlug,
@@ -179,6 +201,20 @@ test("invitation waits for a verified admin host; issue, retry, resend and GET p
   expect(await issueCompanyInvitation(db, { ...input, now: new Date(now.getTime() + 60_000),
     requestId: randomUUID() })).toEqual(first);
   expect(await db.invitation.count({ where: { organizationId } })).toBe(1);
+  for (const failingDb of [
+    db.$extends({ query: { auditLog: { async create() { throw new Error("injected invitation audit failure"); } } } }),
+    db.$extends({ query: { job: { async createMany() { throw new Error("injected invitation queue failure"); } } } }),
+  ]) {
+    const beforeAudit = await db.auditLog.count({ where: { organizationId } });
+    await expect(issueCompanyInvitation(failingDb as typeof db, { ...input,
+      idempotencyKey: randomUUID(), requestId: randomUUID(),
+      now: new Date(now.getTime() + 60_000) })).rejects.toThrow(/injected invitation/);
+    expect(await db.invitation.count({ where: { organizationId } })).toBe(1);
+    expect(await inspectCompanyInvitation(db, { token, hostname: adminHostname,
+      now: new Date(now.getTime() + 60_000) })).toMatchObject({ organizationId });
+    expect(await db.job.count({ where: { organizationId, kind: "MAIL_INVITATION" } })).toBe(1);
+    expect(await db.auditLog.count({ where: { organizationId } })).toBe(beforeAudit);
+  }
   const resentAt = new Date(now.getTime() + 60_000);
   const second = await issueCompanyInvitation(db, { ...input, idempotencyKey: randomUUID(),
     requestId: randomUUID(), now: resentAt });
@@ -204,7 +240,9 @@ test("HTTP scopes preregistration and invitation to verified platform and bound 
       cookie: session.cookie, "content-type": "application/json" }, body: JSON.stringify(body) });
   const slugHttp = `http-${marker.slice(0, 8)}`;
   const fixtureIp = `10.${parseInt(marker.slice(0, 2), 16)}.${parseInt(marker.slice(2, 4), 16)}.${parseInt(marker.slice(4, 6), 16)}`;
-  const body = { name: "HTTP company", slug: slugHttp, adminEmail: `http-${marker}@example.test`,
+  const canonicalEmail = `http-${marker}@example.test`;
+  const body = { name: "HTTP company", slug: slugHttp,
+    adminEmail: `  HTTP-${marker}@EXAMPLE.TEST  `,
     trialGranted: true, paidThrough: null, idempotencyKey: randomUUID() };
   try {
     expect((await postCompany(request("/api/platform/companies", body, `${slug}.sites.example.test`,
@@ -212,12 +250,30 @@ test("HTTP scopes preregistration and invitation to verified platform and bound 
     expect((await postCompany(request("/api/platform/companies", body, platformHost,
       "http://sibling.example.test"))).status).toBe(403);
     expect((await postCompany(request("/api/platform/companies", { ...body, paidThrough: "2026-13-01" }))).status).toBe(422);
+    for (const [index, email] of [`a..b-${marker}@example.test`, `a<b-${marker}@example.test`].entries()) {
+      const badSlug = `invalid${index}-${marker.slice(0, 8)}`;
+      const beforeAudit = await db.auditLog.count({ where: { actorId, action: "COMPANY_CREATED" } });
+      const beforeReceipt = await db.operationReceipt.count({ where: { actorId, operation: "CREATE_COMPANY" } });
+      const response = await postCompany(request("/api/platform/companies", { ...body,
+        slug: badSlug, adminEmail: email, idempotencyKey: randomUUID() }));
+      if (response.status === 200) ids.push((await response.json() as { organizationId: string }).organizationId);
+      expect(response.status).toBe(400);
+      expect(await db.organization.count({ where: { slug: badSlug } })).toBe(0);
+      expect(await db.user.count({ where: { email } })).toBe(0);
+      expect(await db.operationReceipt.count({ where: { actorId, operation: "CREATE_COMPANY" } })).toBe(beforeReceipt);
+      expect(await db.auditLog.count({ where: { actorId, action: "COMPANY_CREATED" } })).toBe(beforeAudit);
+    }
     const created = await postCompany(request("/api/platform/companies", body));
     expect(created.status).toBe(200);
     expect(created.headers.get("cache-control")).toBe("no-store");
     expect(created.headers.get("x-request-id")).toMatch(/^[0-9a-f-]{36}$/);
     const company = await created.json() as { organizationId: string; adminHostname: string };
     ids.push(company.organizationId);
+    expect((await db.user.findFirstOrThrow({ where: { organizationId: company.organizationId } })).email)
+      .toBe(canonicalEmail);
+    expect((await postCompany(request("/api/platform/companies", { ...body,
+      slug: `dupe-${marker.slice(0, 8)}`, adminEmail: canonicalEmail,
+      idempotencyKey: randomUUID() }))).status).toBe(409);
     expect((await postCompany(request("/api/platform/companies", body))).status).toBe(200);
     const invitePath = `/api/platform/companies/${company.organizationId}/invitations`;
     const params = { params: Promise.resolve({ organizationId: company.organizationId }) };
