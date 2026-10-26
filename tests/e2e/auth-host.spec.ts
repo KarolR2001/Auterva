@@ -40,8 +40,10 @@ test("an active company host requires TOTP and revokes the old cookie on logout"
     const session = await sessionResponse.json() as { session: { id: string }; user: { email: string } };
     expect(session.user.email).toBe(email);
     expect((await db.session.findUnique({ where: { id: session.session.id }, select: { mfaVerifiedAt: true } }))?.mfaVerifiedAt).not.toBeNull();
+    expect(await db.auditLog.count({ where: { organizationId: company, action: "AUTH_LOGIN_COMPLETED" } })).toBe(1);
 
     expect((await request.post("/api/auth/sign-out/", { headers: { origin: baseURL }, data: {} })).status()).toBe(200);
+    expect(await db.auditLog.count({ where: { organizationId: company, action: "AUTH_LOGOUT" } })).toBe(1);
     expect((await request.get("/api/auth/get-session/")).status()).toBe(401);
     const login = await request.post("/api/auth/sign-in/email/", { headers: { origin: baseURL }, data: { email, password } });
     expect(await login.json()).toHaveProperty("twoFactorRedirect", true);
@@ -53,6 +55,7 @@ test("an active company host requires TOTP and revokes the old cookie on logout"
     if (user) await db.verification.deleteMany({ where: { OR: [
       { value: user.id }, { value: { contains: `"userId":"${user.id}"` } },
     ] } });
+    await db.auditLog.deleteMany({ where: { organizationId: company } });
     await db.user.deleteMany({ where: { email } });
     await db.hostMapping.deleteMany({ where: { hostname } });
     await db.organization.delete({ where: { id: company } });

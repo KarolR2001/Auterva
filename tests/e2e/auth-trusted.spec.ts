@@ -73,10 +73,12 @@ test("built auth uses socket ingress for MFA; spoofed headers cannot merge two c
   const company = randomUUID();
   const hostname = new URL(baseURL).hostname;
   const host = new URL(baseURL).host;
+  const adminHost = `admin-${company}.example.test`;
   const email = `trusted-${randomUUID()}@example.test`;
   const password = "Fixture password 9384!";
   await db.organization.create({ data: { id: company, slug: `trusted-${company}` } });
   await db.hostMapping.create({ data: { hostname, area: "COMPANY_ADMIN", organizationId: company, status: "ACTIVE" } });
+  await db.hostMapping.create({ data: { hostname: adminHost, area: "COMPANY_ADMIN", organizationId: company, status: "ACTIVE" } });
   try {
     const registered = await fixtureAuth.api.signUpEmail({ body: { name: "Fixture", email, password } });
     await db.user.update({ where: { id: registered.user.id }, data: { organizationId: company, role: "ADMIN_FIRMY", emailVerified: true } });
@@ -85,6 +87,18 @@ test("built auth uses socket ingress for MFA; spoofed headers cannot merge two c
 
     const first = await request.post("/api/auth/sign-in/email/", { headers: { origin: baseURL, "x-forwarded-for": "203.0.113.61" }, data: { email, password } });
     expect(first.status()).toBe(200);
+    const limitedCookie = (await request.storageState()).cookies.map(({ name, value }) => `${name}=${value}`).join("; ");
+    const limitedSession = await fixtureAuth.api.getSession({ headers: new Headers({ cookie: limitedCookie }) });
+    expect(limitedSession?.user.id).toBe(registered.user.id);
+    expect((await onHost(Number(new URL(baseURL).port), `${adminHost}.:${new URL(baseURL).port}`, "/api/auth/sign-out/", {
+      method: "POST", origin: `http://${adminHost}.:${new URL(baseURL).port}`, cookie: limitedCookie, body: {},
+    })).status).toBe(200);
+    expect(await db.session.findUnique({ where: { id: limitedSession!.session.id } })).toBeNull();
+    expect((await onHost(Number(new URL(baseURL).port), adminHost, "/api/auth/get-session/", {
+      cookie: limitedCookie,
+    })).status).toBe(401);
+    expect(await db.auditLog.count({ where: { actorId: registered.user.id, action: "AUTH_LOGOUT" } })).toBe(0);
+    expect((await request.post("/api/auth/sign-in/email/", { headers: { origin: baseURL }, data: { email, password } })).status()).toBe(200);
     expect((await request.get("/admin/")).status()).toBe(404);
     const enrollment = await request.post("/api/auth/two-factor/enable/", { headers: { origin: baseURL }, data: { password, method: "totp" } });
     expect(enrollment.status()).toBe(200);
@@ -93,6 +107,10 @@ test("built auth uses socket ingress for MFA; spoofed headers cannot merge two c
     if (!(totp instanceof OTPAuth.TOTP)) throw new Error("Expected TOTP URI");
     const confirmed = await request.post("/api/auth/two-factor/verify-totp/", { headers: { origin: baseURL }, data: { code: totp.generate(), trustDevice: false } });
     expect(confirmed.status()).toBe(200);
+    const fullCookie = (await request.storageState()).cookies.map(({ name, value }) => `${name}=${value}`).join("; ");
+    expect((await onHost(Number(new URL(baseURL).port), adminHost, "/api/auth/get-session/", {
+      cookie: fullCookie,
+    })).status).toBe(200);
     expect((await request.get("/api/auth/get-session/")).status()).toBe(200);
     expect((await request.get("/admin/")).status()).toBe(200);
     const sisterOrigin = await request.post("/api/auth/sign-out/", { headers: { origin: `http://sister.${hostname}` } });
@@ -120,6 +138,15 @@ test("built auth uses socket ingress for MFA; spoofed headers cannot merge two c
     const limitedWrite = await request.post("/api/auth/mfa/rotate-backup-codes/", { headers: { origin: baseURL }, data: { proof: "bad", password: "bad" } });
     expect(limitedWrite.status()).toBe(429);
     expect(Number(limitedWrite.headers()["retry-after"])).toBeGreaterThan(0);
+    await db.rateLimitEvent.deleteMany({ where: { keyHash: { in: [readKey, writeKey] } } });
+    const dottedLogout = await onHost(Number(new URL(baseURL).port), `${adminHost}.:${new URL(baseURL).port}`, "/api/auth/sign-out/", {
+      method: "POST", origin: `http://${adminHost}.:${new URL(baseURL).port}`, cookie: fullCookie, body: {},
+    });
+    expect(dottedLogout.status).toBe(200);
+    expect((await onHost(Number(new URL(baseURL).port), adminHost, "/api/auth/get-session/", {
+      cookie: fullCookie,
+    })).status).toBe(401);
+    expect(await db.auditLog.count({ where: { actorId: registered.user.id, action: "AUTH_LOGOUT" } })).toBe(1);
 
     const secret = process.env.BETTER_AUTH_SECRET ?? "";
     const hash = (address: string) => createHmac("sha256", secret).update(`auth:ip:${address}`).digest("hex");
@@ -139,8 +166,9 @@ test("built auth uses socket ingress for MFA; spoofed headers cannot merge two c
     if (user) await db.rateLimitEvent.deleteMany({ where: { keyHash: { in: ["read", "write"].map((operation) =>
       createHmac("sha256", process.env.BETTER_AUTH_SECRET ?? "").update(`api:${operation}:${user.id}:${company}`).digest("hex")) } } });
     if (user) await db.verification.deleteMany({ where: { value: { contains: `"userId":"${user.id}"` } } });
+    await db.auditLog.deleteMany({ where: { organizationId: company } });
     await db.user.deleteMany({ where: { email } });
-    await db.hostMapping.deleteMany({ where: { hostname } });
+    await db.hostMapping.deleteMany({ where: { organizationId: company, hostname: { in: [hostname, adminHost] } } });
     await db.organization.delete({ where: { id: company } });
     await db.$disconnect();
   }
@@ -230,6 +258,7 @@ test("one built ingress isolates two real company hosts, platform and public hos
     expect((await onHost(port, hosts.a, "/api/auth/get-session/", { cookie: cookies[1] })).status).toBe(401);
   } finally {
     if (platform) await platform.dispose();
+    await db.auditLog.deleteMany({ where: { organizationId: { in: companies } } });
     await db.user.deleteMany({ where: { email: { in: emails } } });
     await db.hostMapping.deleteMany({ where: { hostname: { in: Object.values(hosts) } } });
     await db.organization.deleteMany({ where: { id: { in: companies } } });
