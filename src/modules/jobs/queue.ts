@@ -14,11 +14,13 @@ async function syncInvitationOutcomes(db: PrismaClient): Promise<void> {
   `;
 }
 
-export async function claimNextJob(db: PrismaClient, now: Date, leaseMs: number, mailOnly = false): Promise<ClaimedJob | null> {
+export async function claimNextJob(db: PrismaClient, now: Date, leaseMs: number, mailOnly = false,
+  onlyKind?: "AUDIT_RETENTION"): Promise<ClaimedJob | null> {
   if (!Number.isSafeInteger(leaseMs) || leaseMs < 1_000 || leaseMs > 600_000 || !Number.isFinite(now.getTime())) {
     throw new Error("Invalid job lease");
   }
-  const quarantined = await db.job.updateMany({
+  if (mailOnly && onlyKind) throw new Error("Conflicting job filters");
+  const quarantined = onlyKind ? { count: 0 } : await db.job.updateMany({
     where: { kind: mailOnly
       ? { in: ["MAIL_INVITATION", "MAIL_PASSWORD_RESET", "MAIL_REMINDER"] }
       : { startsWith: "MAIL_" }, status: { in: ["PENDING", "RUNNING"] },
@@ -33,13 +35,15 @@ export async function claimNextJob(db: PrismaClient, now: Date, leaseMs: number,
       "errorCode" = CASE WHEN kind LIKE 'MAIL\\_%' ESCAPE '\\' AND "firstSendAt" IS NOT NULL
         THEN 'MAIL_OUTCOME_UNKNOWN' ELSE 'LEASE_EXHAUSTED' END,
       "leaseToken" = NULL, "lockedUntil" = NULL,
-      payload = CASE WHEN kind LIKE 'MAIL\\_%' ESCAPE '\\' AND "firstSendAt" IS NOT NULL
+      payload = CASE WHEN kind = 'AUDIT_RETENTION' OR
+        (kind LIKE 'MAIL\\_%' ESCAPE '\\' AND "firstSendAt" IS NOT NULL)
         THEN payload ELSE jsonb_build_object('digest', payload->>'digest') END
     WHERE status = 'RUNNING' AND "lockedUntil" <= ${now}
       AND (${mailOnly} = false OR kind IN ('MAIL_INVITATION', 'MAIL_PASSWORD_RESET', 'MAIL_REMINDER'))
+      AND (${onlyKind ?? null}::text IS NULL OR kind = ${onlyKind ?? null})
       AND attempts >= "maxAttempts"
   `;
-  if (quarantined.count > 0 || exhausted > 0) await syncInvitationOutcomes(db);
+  if (!onlyKind && (quarantined.count > 0 || exhausted > 0)) await syncInvitationOutcomes(db);
   const token = randomUUID();
   const until = new Date(now.getTime() + leaseMs);
   const rows = await db.$queryRaw<ClaimedJob[]>`
@@ -47,6 +51,7 @@ export async function claimNextJob(db: PrismaClient, now: Date, leaseMs: number,
       SELECT id FROM "Job"
       WHERE attempts < "maxAttempts"
         AND (${mailOnly} = false OR kind IN ('MAIL_INVITATION', 'MAIL_PASSWORD_RESET', 'MAIL_REMINDER'))
+        AND (${onlyKind ?? null}::text IS NULL OR kind = ${onlyKind ?? null})
         AND ((status = 'PENDING' AND "runAt" <= ${now})
           OR (status = 'RUNNING' AND "lockedUntil" <= ${now}))
       ORDER BY "runAt", id

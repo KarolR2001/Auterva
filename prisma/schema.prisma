@@ -395,6 +395,7 @@ model AuditLog {
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
   @@index([organizationId, createdAt])
+  @@index([createdAt, id])
   @@index([requestId])
 }
 
@@ -416,10 +417,42 @@ model Job {
   errorCode      String?
   createdAt      DateTime      @default(now()) @db.Timestamptz(6)
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  retentionManifests AuditRetentionManifest[]
 
   @@unique([organizationId, dedupeKey])
   @@index([status, runAt])
   @@index([status, lockedUntil])
+}
+
+model AuditRetentionManifest {
+  id        String   @id @default(uuid()) @db.Uuid
+  jobId     String   @db.Uuid
+  batch     Int
+  count     Int
+  oldestAt  DateTime @db.Timestamptz(6)
+  newestAt  DateTime @db.Timestamptz(6)
+  digest    String
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Restrict)
+
+  @@unique([jobId, batch])
+}
+
+model AuditOperatorExport {
+  id           String    @id @default(uuid()) @db.Uuid
+  fromAt       DateTime  @db.Timestamptz(6)
+  toAt         DateTime  @db.Timestamptz(6)
+  count        Int
+  digest       String?
+  artifactName String    @unique
+  expiresAt    DateTime  @db.Timestamptz(6)
+  status       String    @default("PENDING")
+  createdAt    DateTime  @default(now()) @db.Timestamptz(6)
+  completedAt  DateTime? @db.Timestamptz(6)
+  deletedAt    DateTime? @db.Timestamptz(6)
+  errorCode    String?
+
+  @@index([status, expiresAt])
 }
 
 model OperationReceipt {
