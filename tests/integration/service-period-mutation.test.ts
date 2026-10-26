@@ -5,7 +5,7 @@ import { changePaidThrough, unlockPublicAfterRestore } from "../../src/modules/s
 import { resolvePublicVisibility } from "../../src/modules/service-period/public";
 import { PATCH as patchPeriod } from "../../src/app/api/platform/companies/[organizationId]/period/route";
 import { POST as postUnlock } from "../../src/app/api/platform/companies/[organizationId]/public-unlock/route";
-import { verifiedFixtureSession } from "../fixtures/verified-session";
+import { ensureControlledSuperadminMfa, verifiedFixtureSession } from "../fixtures/verified-session";
 import { auth } from "../../src/lib/auth";
 import { requireRequestContext } from "../../src/modules/tenancy/request-context";
 
@@ -19,29 +19,26 @@ const companyAdmin = randomUUID();
 const companySession = randomUUID();
 let platformUserId: string;
 let createdPlatformUser = false;
-let priorMfa: boolean | null = null;
 let httpSession: Awaited<ReturnType<typeof verifiedFixtureSession>>;
 let adminHttpSession: Awaited<ReturnType<typeof verifiedFixtureSession>>;
 
 beforeAll(async () => {
+  const existing = await db.user.findFirst({ where: { role: "SUPERADMIN_AUTERVA" },
+    select: { id: true } });
+  platformUserId = existing?.id ?? randomUUID();
+  if (existing) await ensureControlledSuperadminMfa(db, platformUserId);
+  else {
+    await db.user.create({ data: { id: platformUserId, name: "Period operator",
+      email: `period-${platformUserId}@example.test`, emailVerified: true,
+      twoFactorEnabled: true, role: "SUPERADMIN_AUTERVA" } });
+    createdPlatformUser = true;
+  }
   await db.organization.createMany({ data: companies.map((id) => ({ id, slug: `period-mutation-${id}` })) });
   await db.hostMapping.createMany({ data: companies.map((id, index) => ({ organizationId: id,
     hostname: hosts[index], area: "COMPANY_PUBLIC", status: "ACTIVE" })) });
   await db.hostMapping.create({ data: { hostname: platformHost, area: "PLATFORM", status: "ACTIVE" } });
   await db.hostMapping.create({ data: { hostname: adminHost, area: "COMPANY_ADMIN",
     organizationId: companies[0], status: "ACTIVE" } });
-  const existing = await db.user.findFirst({ where: { role: "SUPERADMIN_AUTERVA" },
-    select: { id: true, twoFactorEnabled: true } });
-  platformUserId = existing?.id ?? randomUUID();
-  if (!existing) {
-    await db.user.create({ data: { id: platformUserId, name: "Period operator",
-      email: `period-${platformUserId}@example.test`, emailVerified: true,
-      twoFactorEnabled: true, role: "SUPERADMIN_AUTERVA" } });
-    createdPlatformUser = true;
-  } else {
-    priorMfa = existing.twoFactorEnabled;
-    await db.user.update({ where: { id: platformUserId }, data: { twoFactorEnabled: true } });
-  }
   await db.session.create({ data: { id: platformSession, userId: platformUserId, token: randomUUID(),
     expiresAt: new Date(Date.now() + 60_000), mfaVerifiedAt: new Date() } });
   httpSession = await verifiedFixtureSession(db, platformUserId);
@@ -64,7 +61,6 @@ afterAll(async () => {
   await db.session.deleteMany({ where: { id: { in: [platformSession, companySession] } } });
   await db.user.deleteMany({ where: { id: companyAdmin } });
   if (createdPlatformUser) await db.user.deleteMany({ where: { id: platformUserId } });
-  else if (platformUserId) await db.user.update({ where: { id: platformUserId }, data: { twoFactorEnabled: priorMfa } });
   await db.organization.deleteMany({ where: { id: { in: companies } } });
   await db.$disconnect();
 });
