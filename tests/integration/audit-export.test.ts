@@ -1,4 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
+import { spawn, type ChildProcess } from "node:child_process";
+import { once } from "node:events";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { afterAll, expect, test } from "vitest";
@@ -81,3 +83,98 @@ test("failed and interrupted exports never report READY and are swept", async ()
   expect((await db.auditOperatorExport.findUniqueOrThrow({ where: { id: orphan.id } })).status).toBe("DELETED");
   await expect(stat(resolve(directory, orphan.artifactName))).rejects.toMatchObject({ code: "ENOENT" });
 });
+
+test("sweep cannot remove an export that becomes READY after candidate selection", async () => {
+  const ownDirectory = await mkdtemp(resolve(".local/audit-export-race-"));
+  let releaseWriter!: () => void;
+  let writerReached!: () => void;
+  const writerReady = new Promise<void>((resolveReady) => { writerReached = resolveReady; });
+  const writerGate = new Promise<void>((resolveGate) => { releaseWriter = resolveGate; });
+  let releaseSweep!: () => void;
+  let sweepReached!: () => void;
+  const sweepReady = new Promise<void>((resolveReady) => { sweepReached = resolveReady; });
+  const sweepGate = new Promise<void>((resolveGate) => { releaseSweep = resolveGate; });
+  try {
+    const writer = exportAuditRange(db, { from: new Date(cutoff.getTime() + 60_000),
+      to: new Date(cutoff.getTime() + 4 * 60 * 60_000), now, key, directory: ownDirectory,
+      clock: () => now, afterWrite: async () => { writerReached(); await writerGate; } });
+    await writerReady;
+    const pending = await db.auditOperatorExport.findFirstOrThrow({ where: { status: "PENDING",
+      fromAt: new Date(cutoff.getTime() + 60_000) }, orderBy: { createdAt: "desc" } });
+    exportIds.push(pending.id);
+    await db.auditOperatorExport.update({ where: { id: pending.id },
+      data: { createdAt: new Date(now.getTime() - 6 * 60_000) } });
+    const sweep = sweepExpiredAuditExports(db, { now, directory: ownDirectory,
+      afterCandidatesRead: async () => { sweepReached(); await sweepGate; } });
+    await sweepReady;
+    releaseWriter();
+    const receipt = await writer;
+    expect(receipt.status).toBe("READY");
+    releaseSweep();
+    expect(await sweep).toBe(0);
+    expect(await readAuditExport(db, receipt.id, { now, key, directory: ownDirectory })).toBeInstanceOf(Array);
+  } finally {
+    releaseWriter?.(); releaseSweep?.();
+    await rm(ownDirectory, { recursive: true, force: true });
+  }
+});
+
+test("later sweep removes bytes written after a receipt was deleted", async () => {
+  const ownDirectory = await mkdtemp(resolve(".local/audit-export-late-"));
+  const id = randomUUID();
+  exportIds.push(id);
+  try {
+    await db.auditOperatorExport.create({ data: { id, artifactName: `${id}.bin`,
+      fromAt: new Date(cutoff.getTime() + 60_000), toAt: now, count: 0,
+      expiresAt: new Date(now.getTime() + 60_000),
+      createdAt: new Date(now.getTime() - 6 * 60_000), status: "PENDING" } });
+    expect(await sweepExpiredAuditExports(db, { now, directory: ownDirectory })).toBe(1);
+    const artifact = resolve(ownDirectory, `${id}.bin`);
+    await writeFile(artifact, randomBytes(32), { mode: 0o600 });
+    expect(await sweepExpiredAuditExports(db, { now, directory: ownDirectory })).toBe(0);
+    await expect(stat(artifact)).rejects.toMatchObject({ code: "ENOENT" });
+  } finally {
+    await rm(ownDirectory, { recursive: true, force: true });
+  }
+});
+
+function waitExportMessage(child: ChildProcess, event: string): Promise<{ id: string }> {
+  return new Promise((resolveMessage, reject) => {
+    const timeout = setTimeout(() => { cleanup(); reject(new Error(`Exporter did not report ${event}`)); }, 5_000);
+    const onMessage = (message: unknown) => {
+      const value = message as { event?: string; id?: string };
+      if (value.event === event && value.id) { cleanup(); resolveMessage({ id: value.id }); }
+    };
+    const onClose = () => { cleanup(); reject(new Error(`Exporter closed before ${event}`)); };
+    const cleanup = () => { clearTimeout(timeout); child.off("message", onMessage); child.off("close", onClose); };
+    child.on("message", onMessage);
+    child.on("close", onClose);
+  });
+}
+
+test("SIGKILL after a late write leaves no READY receipt and next sweep removes the orphan", async () => {
+  const ownDirectory = await mkdtemp(resolve(".local/audit-export-process-"));
+  const child = spawn(process.execPath, ["--import", "tsx", "tests/fixtures/audit-export-process.ts"], {
+    cwd: process.cwd(), env: { ...process.env, TEST_EXPORT_DIRECTORY: ownDirectory },
+    stdio: ["ignore", "pipe", "pipe", "ipc"],
+  });
+  try {
+    const { id } = await waitExportMessage(child, "pending");
+    exportIds.push(id);
+    const sweptAt = new Date(now.getTime() + 6 * 60_000);
+    expect(await sweepExpiredAuditExports(db, { now: sweptAt, directory: ownDirectory })).toBe(1);
+    const written = waitExportMessage(child, "written");
+    child.send("write");
+    expect((await written).id).toBe(id);
+    child.kill("SIGKILL");
+    await once(child, "close");
+    expect((await db.auditOperatorExport.findUniqueOrThrow({ where: { id } })).status).toBe("DELETED");
+    const artifact = resolve(ownDirectory, `${id}.bin`);
+    expect((await stat(artifact)).size).toBeGreaterThan(0);
+    expect(await sweepExpiredAuditExports(db, { now: sweptAt, directory: ownDirectory })).toBe(0);
+    await expect(stat(artifact)).rejects.toMatchObject({ code: "ENOENT" });
+  } finally {
+    child.kill("SIGKILL");
+    await rm(ownDirectory, { recursive: true, force: true });
+  }
+}, 15_000);

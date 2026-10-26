@@ -39,8 +39,13 @@ export async function runAuditRetentionLoop(options: AuditRetentionRunnerOptions
         scheduledDay = day;
       }
       if (now.getTime() >= nextSweepAt) {
-        await sweepExpiredAuditExports(options.db, { now, directory: options.directory });
-        nextSweepAt = now.getTime() + 60_000;
+        try {
+          await sweepExpiredAuditExports(options.db, { now, directory: options.directory });
+          nextSweepAt = now.getTime() + 60_000;
+        } catch {
+          // Storage recovery is independent of the durable audit purge.
+          process.stderr.write("Audit export cleanup failed; retrying\n");
+        }
       }
       const claim = await claimNextJob(options.db, now, leaseMs, false, "AUDIT_RETENTION");
       if (claim) {

@@ -34,7 +34,7 @@ test("audit purge keeps exact cutoff and younger rows, with an atomic bounded ma
   expect(await claimNextJob(db, now, 30_000, true)).toBeNull();
   const claim = await claimNextJob(db, now, 30_000, false, "AUDIT_RETENTION");
   expect(claim?.id).toBe(job.id);
-  expect(await processAuditRetentionJob(db, claim!, now, 2)).toMatchObject({ deleted: 1, remaining: false });
+  expect(await processAuditRetentionJob(db, claim!, now, 2, () => now)).toMatchObject({ deleted: 1, remaining: false });
   expect(await db.auditLog.findUnique({ where: { id: older.id } })).toBeNull();
   expect(await db.auditLog.findUnique({ where: { id: boundary.id } })).not.toBeNull();
   expect(await db.auditLog.findUnique({ where: { id: younger.id } })).not.toBeNull();

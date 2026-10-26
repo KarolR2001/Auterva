@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from "node:crypto";
-import { chmod, lstat, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { chmod, lstat, mkdir, readFile, readdir, rename, unlink, writeFile } from "node:fs/promises";
 import { resolve, sep } from "node:path";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { auditRetentionCutoff } from "./retention";
@@ -38,7 +38,8 @@ function validateKey(key: Buffer): void {
 
 export type ExportAuditInput = {
   from: Date; to: Date; now: Date; key: Buffer; directory: string;
-  afterWrite?: () => Promise<void>;
+  beforeWrite?: (id: string) => Promise<void>;
+  afterWrite?: (id: string) => Promise<void>;
   clock?: () => Date;
 };
 
@@ -73,10 +74,11 @@ export async function exportAuditRange(db: PrismaClient, input: ExportAuditInput
     const ciphertext = Buffer.concat([cipher.update(JSON.stringify(records), "utf8"), cipher.final()]);
     const bytes = Buffer.concat([Buffer.from("AUR1"), nonce, cipher.getAuthTag(), ciphertext]);
     const digest = createHash("sha256").update(bytes).digest("hex");
+    await input.beforeWrite?.(id);
     await writeFile(partialPath, bytes, { flag: "wx", mode: 0o600 });
     await chmod(partialPath, 0o600);
     await rename(partialPath, finalPath);
-    await input.afterWrite?.();
+    await input.afterWrite?.(id);
     const finishedAt = input.clock?.() ?? new Date();
     if (!Number.isFinite(finishedAt.getTime()) || finishedAt >= expiresAt) throw new Error("AUDIT_EXPORT_EXPIRED");
     const updated = await db.auditOperatorExport.updateMany({ where: { id, status: "PENDING" },
@@ -111,9 +113,9 @@ export async function readAuditExport(db: PrismaClient, id: string, input: {
   return JSON.parse(plaintext.toString("utf8")) as unknown[];
 }
 
-/** Delete bytes first, then mark the receipt. A crash before the mark is safe to retry. */
+/** A deleted receipt can never become READY. Repeated scans collect files from a late or killed writer. */
 export async function sweepExpiredAuditExports(db: PrismaClient, input: {
-  now: Date; directory: string;
+  now: Date; directory: string; afterCandidatesRead?: () => Promise<void>;
 }): Promise<number> {
   if (!Number.isFinite(input.now.getTime())) throw new Error("Invalid audit export clock");
   const directory = await ensurePrivateStore(input.directory);
@@ -121,15 +123,35 @@ export async function sweepExpiredAuditExports(db: PrismaClient, input: {
   const rows = await db.auditOperatorExport.findMany({ where: { status: { in: ["PENDING", "FAILED", "READY"] },
     OR: [{ expiresAt: { lte: input.now } }, { status: { in: ["PENDING", "FAILED"] }, createdAt: { lte: abandonedBefore } }] },
     orderBy: [{ expiresAt: "asc" }, { id: "asc" }], take: 100 });
+  await input.afterCandidatesRead?.();
   let deleted = 0;
   for (const row of rows) {
     if (row.artifactName !== artifactName(row.id)) throw new Error("AUDIT_EXPORT_INVALID_ARTIFACT");
+    const updated = await db.auditOperatorExport.updateMany({ where: { id: row.id, status: row.status },
+      data: { status: "DELETED", deletedAt: input.now } });
+    if (updated.count !== 1) continue;
     const finalPath = resolve(directory, row.artifactName);
     await removeIfPresent(`${finalPath}.part`);
     await removeIfPresent(finalPath);
-    const updated = await db.auditOperatorExport.updateMany({ where: { id: row.id, status: row.status },
-      data: { status: "DELETED", deletedAt: input.now } });
-    deleted += updated.count;
+    deleted++;
+  }
+  // DB and filesystem have no shared commit. A process may die after the state change,
+  // or an old writer may create bytes after it. Scan every run, including DELETED rows.
+  const names = (await readdir(directory)).filter((name) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.bin(?:\.part)?$/.test(name));
+  const namesById = new Map<string, string[]>();
+  for (const name of names) {
+    const id = name.slice(0, 36);
+    namesById.set(id, [...(namesById.get(id) ?? []), name]);
+  }
+  const ids = [...namesById.keys()];
+  for (let offset = 0; offset < ids.length; offset += 500) {
+    const chunk = ids.slice(offset, offset + 500);
+    const receipts = await db.auditOperatorExport.findMany({ where: { id: { in: chunk }, status: "DELETED" },
+      select: { id: true } });
+    for (const receipt of receipts) {
+      for (const name of namesById.get(receipt.id) ?? []) await removeIfPresent(resolve(directory, name));
+    }
   }
   return deleted;
 }
