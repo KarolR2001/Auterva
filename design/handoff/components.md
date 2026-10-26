@@ -1601,6 +1601,10 @@ Kontrakt: mapowanie `layout=row` wspólnego komponentu `VehicleAdminItem`. `DS-D
 
 Wiersz ma warianty `default`, `selected`, `menu-open` i `updating`. Każdy zawiera kolejność, miniaturę, nazwę/kategorię, osobny status publikacji i dostępności, datę zmiany oraz akcje „Edycja”, „Terminy” i „Więcej”. Selected ma jawny znak i obramowanie; menu pokazuje „Podgląd”, „Ukryj” i „Archiwizuj”; updating składa rzeczywistą instancję `Spinner`.
 
+Na `ADM-05` trzy widoczne akcje każdego wiersza/karty mają osobne cele: Edytuj → `ADM-07`, Terminy/Kalendarz → `/admin/pojazdy/[id]/kalendarz` (`ADM-09`), Więcej → overlay menu. Referencyjny Mercedes Klasa V przechodzi do istniejącego boardu `ADM-09` z tym samym pojazdem; pozostałe demonstracyjne wiersze mają własne trasy pojazdów, a nie sześć kopii statycznego kalendarza. Overlay MVP `89433e5c-4f5c-80ad-8008-d67038a557ec` pokazuje Ukryj i Archiwizuj. Źródłowy wariant biblioteczny zachowuje Podgląd dla odłożonego `ADM-08` (SHOULD), lecz ta opcja nie jest wejściem MVP.
+
+Otwarcie menu jest interakcją prototypu; same Ukryj/Archiwizuj są tu statycznym kontraktem `onHide(vehicleId)`/`onArchive(vehicleId)` z właściwymi `OVR-10`/`OVR-11`, nie potwierdzonym wykonaniem mutacji ani przejściem wszystkich danych. [#107](https://github.com/KarolR2001/Auterva/issues/107) domyka kontekst wybranego pojazdu, stany i referencyjne potwierdzenia przed implementacją listy i cyklu publikacji (#34/#35). Nie kierujemy żadnej z tych akcji do `/admin/pojazdy/[id]/akcje`.
+
 Na mobile nie ściskamy wiersza tabeli. Rodzic przełącza ten sam model danych na `layout=card`, czyli kontrakt `DS-DAT-005`. W implementacji desktopowy wariant renderuje semantyczny `<tr>` z komórkami, `aria-selected` przy zaznaczeniu i prawdziwymi przyciskami akcji. Zmiana kolejności wymaga alternatywy klawiaturowej obok drag and drop.
 
 ## DS-DAT-005 — VehicleCardAdmin
@@ -1631,6 +1635,7 @@ type VehicleAdminItemProps = {
 ```
 
 - Mobile zachowuje wszystkie szybkie akcje i oba statusy. Nie ujawnia danych publicznych w innym zakresie niż desktop, ale może pokazać administracyjne ostrzeżenie jakości danych.
+- `onOpenCalendar` zawsze dotyczy `vehicle.id` z tego wiersza/karty i prowadzi do `/admin/pojazdy/[id]/kalendarz`. Lista `/admin/pojazdy` jest wejściem do kalendarzy MVP; nie kierujemy akcji do `/admin/kalendarz` ani do osobnych „Terminów” bez pojazdu.
 - Karta jest `<li>`/`<article>` wewnątrz listy, a akcje są osobnymi przyciskami. Nie czynimy całej karty klikalną, gdy zawiera te kontrolki.
 - Otwarty menu ma zarządzany fokus, Escape i zwrot fokusu do „Więcej”. Stan updating blokuje podwójną mutację i używa `aria-busy=true`.
 - Statyczny Penpot potwierdza strukturę i geometrię. Sortowanie klawiaturą, fokus menu i blokadę double-submit trzeba potwierdzić w demonstratorze.
@@ -2497,14 +2502,15 @@ type AdminVehicleCalendarProps = {
 ```ts
 type AdminSidebarProps = {
   mode?: "expanded" | "collapsed";
-  activeItem: "dashboard" | "vehicles" | "availability" | "settings" | "account";
-  vehicleBadgeCount?: number;
+  activeItem: "dashboard" | "vehicles" | "chat" | "settings" | "account";
+  unreadChatCount?: number;
 };
 ```
 
 - Szerokości wynoszą odpowiednio 240 i 72 px.
+- Cele MVP: Dashboard → `/admin`, Pojazdy → `/admin/pojazdy`, Czat z Autervą → `/admin/czat`, Ustawienia → `/admin/ustawienia`, Konto → `/admin/konto`. Nie ma osobnego celu „Dostępność” bez pojazdu; jego kalendarz otwiera widoczna akcja w `VehicleAdminItem`.
 - Active używa powierzchni, wagi tekstu i ikony, nie wyłącznie koloru.
-- Badge expanded pokazuje liczbę; collapsed używa notification dot z dostępną nazwą.
+- Badge przy Czat z Autervą w expanded pokazuje liczbę nowych wiadomości; collapsed używa notification dot z dostępną nazwą. Gdy liczba nie jest znana, pokazujemy sam opisany stan nowych wiadomości.
 - Po zwinięciu każda ikona wymaga tooltipu i czytelnej nazwy dla AT.
 
 ## DS-NAV-008 — AdminTopbar
@@ -2538,18 +2544,19 @@ type AdminTopbarProps = {
 
 | Oś | Wartości w katalogu |
 |---|---|
-| `active` | `dashboard`, `vehicles`, `availability`, `calendar`, `more` |
+| `active` | `dashboard`, `vehicles`, `chat`, `more` |
 | `notification` | `none`, `dot` |
 
 ```ts
 type AdminBottomNavigationProps = {
-  active: "dashboard" | "vehicles" | "availability" | "calendar" | "more";
-  showMoreNotification?: boolean;
+  active: "dashboard" | "vehicles" | "chat" | "more";
+  hasUnreadChat?: boolean;
 };
 ```
 
-- Pięć celów ma stałe etykiety: Start, Pojazdy, Terminy, Kalendarz, Więcej.
-- Active jest oznaczony wagą tekstu i ikoną; dot nie jest jedynym nośnikiem ważnej informacji.
+- Cztery cele mają stałe etykiety: Start (`/admin`), Pojazdy (`/admin/pojazdy`), Czat (`/admin/czat`) i Więcej (otwarcie menu, nie link). Kalendarz konkretnego pojazdu jest dostępny przez akcję na liście; ADM-10 pozostaje SHOULD poza nawigacją MVP.
+- W ośmiu wariantach Penpota są dokładnie cztery widoczne itemy; etykiety są wyśrodkowane pod ikonami także po rozszerzeniu komórki do 97,5 px w `ADM-04` mobile.
+- Active jest oznaczony wagą tekstu i ikoną; dot na Czat nie jest jedynym nośnikiem informacji o nowych wiadomościach i ma nazwę dostępną.
 - Komponent respektuje dolny safe area i nie zasłania ostatniego elementu formularza.
 
 ## DS-AVL-009 — AdminDayCell
@@ -4188,7 +4195,7 @@ Kontrakt: projekt i kontrakt komponentu; zachowanie fokusu wymaga testu implemen
 type AdminMoreMenuProps = {
   mode: "mobile-sheet" | "desktop-dropdown";
   open: boolean;
-  activePath?: "/admin/ustawienia" | "/admin/logi" | "/admin/konto";
+  activePath?: "/admin/usluga" | "/admin/ustawienia" | "/admin/konto";
   canInstallPwa: boolean;
   onInstallPwa?: () => void;
   onLogout: () => void;
@@ -4196,13 +4203,14 @@ type AdminMoreMenuProps = {
 };
 ```
 
-- Lista ma pięć pozycji wynikających ze SPEC: Ustawienia (`/admin/ustawienia`), Dziennik zmian (`/admin/logi`), Konto (`/admin/konto`), warunkową instalację PWA i Wyloguj. Aktywna trasa jest propem runtime; nie tworzy osobnych wariantów dla każdego modułu.
+- Lista MVP ma pięć pozycji: Status usługi (`/admin/usluga`), Ustawienia (`/admin/ustawienia`), Konto (`/admin/konto`), warunkową instalację PWA i Wyloguj. Dziennik zmian (`/admin/logi`) jest przyszłym SHOULD i nie pojawia się jako martwe wejście. Aktywna trasa jest propem runtime; nie tworzy osobnych wariantów dla każdego modułu.
 - Instalacja PWA pojawia się tylko wtedy, gdy istnieje obsługiwany prompt albo właściwa instrukcja platformowa. W przeciwnym razie pozycję należy pominąć, a nie renderować jako martwą/disabled.
 - Wyloguj jest akcją, nie linkiem. Po sukcesie unieważnia bieżącą sesję i prowadzi do logowania. Komponent nie wykonuje tej operacji samodzielnie.
 - Mobile używa modalnego dialogu/sheetu z nazwą „Więcej — menu administratora”, przyciskiem Zamknij i bezpiecznym dolnym insetem. Desktop jest menu/dropdownem zakotwiczonym w triggerze topbara. Escape i kliknięcie poza zamykają oba tryby, a fokus wraca do triggera.
 - Każda pozycja ma ikonę Lucide i tekst. Stan active używa jednocześnie `surface.selected`, obramowania `border.strong`, semibold oraz `aria-current="page"`; kolor nie jest jedynym sygnałem.
 - Mobile ma 390×408 px i reflow przy 320/430 px; wiersze mają 55–56 px. Desktop ma 320×313 px i wszystkie cele 48 px. Rooty korzystają z `surface.default`, `border.subtle` i `shadow.md`.
-- `OVR-17 User menu / Więcej` używa mobilnej instancji tego komponentu na stronie prototypów (`9425204d-c5c4-807f-8008-b6ccfd8c33f6`) i ma status `created`. Nie oznacza to działającego focus trapu ani gotowego wylogowania.
+- Mobilne `OVR-17 User menu / Więcej` używa instancji `89433e5c-4f5c-80ad-8008-d5edfc7920c7` na stronie panelu firmy. Cel „Więcej” w `ADM-04` otwiera ją interakcją `open-overlay`; linki do statusu usługi, ustawień i konta prowadzą do istniejących boardów mobilnych, a Zamknij zamyka overlay. Stary identyfikator `9425204d-c5c4-807f-8008-b6ccfd8c33f6` nie występuje live. Instalacja PWA i wylogowanie wymagają akcji runtime; makieta nie dowodzi działania focus trapu ani unieważnienia sesji.
+- Desktopowy `OVR-17` na stronie panelu firmy używa instancji `89433e5c-4f5c-80ad-8008-d5f3a39ca891` istniejącego wariantu `desktop-dropdown/open` (`9425204d-c5c4-807f-8008-b5942c39e014`). Widoczny przycisk użytkownika w topbarze `ADM-04` (`37f3ef1b-03c6-808f-8008-c344268aba06`) otwiera ją interakcją `open-overlay`; „Status usługi” prowadzi do desktopowego `TEN-04` (`/admin/usluga`), a Ustawienia i Konto do swoich boardów. Stary `open-url` `/admin?overlay=user-menu` na szerszym obszarze topbara usunięto. Instalacja PWA i wylogowanie pozostają akcjami runtime; prototyp nie potwierdza ich działania ani obsługi fokusu.
 
 ## DS-NAV-011 — UserMenu
 
@@ -4226,13 +4234,13 @@ type UserMenuProps = {
 };
 ```
 
-- Komponent ma wspólną anatomię: profil, jawny status „Bieżąca sesja”, link Konto i hasło (`/admin/konto`), link Aktywne sesje (`/admin/konto?sekcja=sesje`) oraz akcję Wyloguj. Nie tworzy się osobnych osi dla tych elementów ani danych użytkownika.
+- Komponent MVP ma wspólną anatomię: profil, jawny status „Bieżąca sesja”, link Konto i hasło (`/admin/konto`) oraz akcję Wyloguj. Przegląd aktywnych sesji (`/admin/konto?sekcja=sesje`) jest przyszłym SHOULD i nie jest aktywną pozycją menu MVP. Nie tworzy się osobnych osi dla tych elementów ani danych użytkownika.
 - `AD` jest wyłącznie placeholderem `DEMO`; implementacja podstawia inicjały i nazwę uwierzytelnionego użytkownika. Nie wolno utrwalać danych osobowych w bibliotece komponentów.
 - Wyloguj jest przyciskiem, nie linkiem. Po sukcesie unieważnia bieżącą sesję i prowadzi do `/admin/login`; sam komponent nie wykonuje logiki serwerowej.
 - Mobile jest modalnym dialogiem/sheetem z przyciskiem Zamknij i safe area. Desktop jest menu/dropdownem zakotwiczonym w triggerze. Escape i kliknięcie poza zamykają menu, a fokus wraca do triggera.
 - Status sesji używa ikony Lucide i tekstu, więc kolor nie jest jedynym sygnałem. Wiersze mobile mają 55–56 px, desktop 48 px.
-- Mobile ma 390×376 px i został sprawdzony również jako świeże instancje 320 i 430 px. Desktop ma 320×257 px. Rooty korzystają z `surface.default`, `border.subtle` i `shadow.md`; teksty i ikony mają semantyczne bindingi.
-- Desktopowy `OVR-17 User menu / Więcej` jest instancją tego wariantu na stronie prototypów (`9425204d-c5c4-807f-8008-b6ccfd9712a5`) i ma status `created`. Statyczny Penpot nie dowodzi focus trapu, Escape, kliknięcia poza, zwrotu fokusu ani unieważnienia sesji.
+- Mobile po usunięciu wejścia do przeglądu sesji ma 390×320 px, desktop 320×209 px; reflow 320/430 px wymaga ponownego odbioru po tej korekcie. Rooty korzystają z `surface.default`, `border.subtle` i `shadow.md`; teksty i ikony mają semantyczne bindingi.
+- Historyczna desktopowa instancja `DS-NAV-011` o ID `9425204d-c5c4-807f-8008-b6ccfd9712a5` nie występuje live i nie jest źródłem `OVR-17` w MVP. `DS-NAV-011` zachowuje odrębny wzorzec profilu/sesji; statyczny Penpot nie dowodzi focus trapu, Escape, kliknięcia poza, zwrotu fokusu ani unieważnienia sesji.
 
 ## DS-NAV-013 — SegmentedControl
 
