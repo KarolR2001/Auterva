@@ -1,12 +1,18 @@
 import { getServerEnv } from "../lib/env";
 import { prisma } from "../lib/prisma";
+import { getWorkerMailContext } from "../modules/jobs/config";
+import { runWorkerLoop } from "../modules/jobs/runner";
 
 getServerEnv();
-await prisma.$queryRaw`SELECT 1`;
-process.stdout.write("Worker entrypoint ready; business handlers are not installed yet\n");
+const context = getWorkerMailContext();
+const controller = new AbortController();
+process.once("SIGINT", () => controller.abort());
+process.once("SIGTERM", () => controller.abort());
 
-await new Promise<void>((resolve) => {
-  process.once("SIGINT", resolve);
-  process.once("SIGTERM", resolve);
-});
-await prisma.$disconnect();
+try {
+  await prisma.$queryRaw`SELECT 1`;
+  process.stdout.write("Worker ready\n");
+  await runWorkerLoop({ db: prisma, context, signal: controller.signal });
+} finally {
+  await prisma.$disconnect();
+}
