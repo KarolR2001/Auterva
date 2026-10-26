@@ -81,6 +81,10 @@
     {
       "path": "docs/contracts/company-onboarding-invitations.md",
       "sha256": "db962853b49f998daffd4603252d9d9b391a74aeeb69fdb9e472af499edb0f74"
+    },
+    {
+      "path": "docs/contracts/company-invitation-activation.md",
+      "sha256": "a44c3ff5297a0428f6ade0f8560a5395e1680e5273c9e27be39720d28fed2b30"
     }
   ],
   "historicalSourcesOutsideRepository": [

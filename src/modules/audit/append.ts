@@ -5,7 +5,7 @@ const actionEntity = {
   AUTH_LOGIN_COMPLETED: "User", AUTH_LOGOUT: "User", AUTH_PASSWORD_CHANGED: "User", AUTH_PROFILE_UPDATED: "User",
   AUTH_SESSIONS_REVOKED: "User",
   COMPANY_CREATED: "Organization", COMPANY_UPDATED: "Organization", COMPANY_ARCHIVED: "Organization",
-  INVITATION_CREATED: "Invitation", INVITATION_REVOKED: "Invitation",
+  INVITATION_CREATED: "Invitation", INVITATION_REVOKED: "Invitation", INVITATION_ACCEPTED: "Invitation",
   PERIOD_CHANGED: "ServicePeriod", DOMAIN_CHANGED: "HostMapping", BRANDING_CHANGED: "Organization",
   SETTINGS_CHANGED: "SiteSettings", VEHICLE_CREATED: "Vehicle", VEHICLE_UPDATED: "Vehicle",
   VEHICLE_PUBLISHED: "Vehicle", VEHICLE_HIDDEN: "Vehicle", VEHICLE_ARCHIVED: "Vehicle", MEDIA_CHANGED: "VehicleImage",
