@@ -52,17 +52,18 @@ const resetBody = z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
 const profileBody = z.object({ name: z.string().trim().min(1).max(100) }).strict();
 const passwordChangeBody = z.object({ currentPassword: z.string().min(1).max(256),
   newPassword: z.string().min(12).max(256) }).strict();
+const signInBody = z.object({ email: z.email(), password: z.string().max(256) }).strict();
 const noStore = { "Cache-Control": "no-store" };
 class SignInScopeDenied extends Error {}
 
 async function loginCredentials(request: Request) {
-  const body = await request.clone().json().catch(() => null) as { email?: unknown; password?: unknown } | null;
+  const body = await request.clone().json().catch(() => null) as { email?: unknown } | null;
   const email = typeof body?.email === "string" ? body.email : "";
-  // Match Better Auth's schema and maximum-length checks before choosing a
-  // neutral KDF path; malformed input is a fast rejection for every account.
-  const password = z.email().safeParse(email).success && typeof body?.password === "string"
-    && body.password.length <= 256 ? body.password : null;
-  return { email, password };
+  // The gateway supports only email/password. Validate the entire DTO before
+  // choosing an account-dependent KDF path; Better Auth checks optional fields
+  // earlier than credentials and would otherwise expose an inverse timing gap.
+  const parsed = signInBody.safeParse(body);
+  return { email, password: parsed.success ? parsed.data.password : null, valid: parsed.success };
 }
 
 function challengeCookie(header: string | null) {
@@ -337,7 +338,7 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
   if (reservation && !reservation.allowed) {
     return Response.json({ code: "RATE_LIMITED" }, { status: 429, headers: { "Cache-Control": "no-store", "Retry-After": String(reservation.retryAfter) } });
   }
-  if (invalidEnable || invalidMfa) {
+  if (invalidEnable || invalidMfa || (credentials && !credentials.valid)) {
     if (reservation?.allowed) await completeAuthAttempt(prisma, reservation.reservationId, true);
     return invalidMfa
       ? Response.json({ code: "INVALID_MFA_PROBE" }, { status: 400, headers: { "Cache-Control": "no-store" } })

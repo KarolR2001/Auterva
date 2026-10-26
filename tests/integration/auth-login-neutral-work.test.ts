@@ -50,10 +50,21 @@ afterAll(async () => {
 });
 
 function login(host: string, address: string, password: unknown = "Wrong fixture password 9384!") {
+  return loginBody(host, { email: address, password });
+}
+
+function loginBody(host: string, body: Record<string, unknown>) {
   return runWithTrustedClientAddress(sourceIp, () => POST(new Request(`https://${host}/api/auth/sign-in/email`, {
     method: "POST", headers: { host, origin: `https://${host}`, "content-type": "application/json" },
-    body: JSON.stringify({ email: address, password }),
+    body: JSON.stringify(body),
   })));
+}
+
+async function clearFixtureAttempts() {
+  const secret = getServerEnv().BETTER_AUTH_SECRET;
+  const keys = [`auth:account:${email}`, `auth:account:${missing}`, `auth:ip:${sourceIp}`]
+    .map((key) => createHmac("sha256", secret).update(key).digest("hex"));
+  await db.rateLimitEvent.deleteMany({ where: { keyHash: { in: keys } } });
 }
 
 test("unknown and wrong-scope login perform Better Auth KDF work after limiter without a session", async () => {
@@ -72,6 +83,13 @@ test("unknown and wrong-scope login perform Better Auth KDF work after limiter w
   expect(work.hashes).toBeGreaterThan(0);
 });
 
+test("supported email/password input still reaches the MFA challenge", async () => {
+  await clearFixtureAttempts();
+  const response = await login(hostA, email, "Correct fixture password 9384!");
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ twoFactorRedirect: true });
+});
+
 test("malformed passwords take the same fast rejection path for known and missing accounts", async () => {
   for (const malformed of [null, 42, "x".repeat(257)]) {
     work.hashes = 0;
@@ -80,5 +98,24 @@ test("malformed passwords take the same fast rejection path for known and missin
     work.hashes = 0;
     expect((await login(hostA, missing, malformed)).status).toBe(401);
     expect(work.hashes).toBe(0);
+  }
+});
+
+test("unsupported sign-in options reject before KDF for known, absent and wrong-scope accounts", async () => {
+  for (const options of [
+    { rememberMe: "false" },
+    { rememberMe: true },
+    { callbackURL: 42 },
+    { callbackURL: `https://${hostA}/admin/` },
+    { callbackURL: "https://foreign.example.test/admin/" },
+  ]) {
+    await clearFixtureAttempts();
+    for (const [host, address] of [[hostA, email], [hostA, missing], [hostB, email]]) {
+      work.hashes = 0;
+      const response = await loginBody(host, { email: address, password: "Wrong fixture password 9384!", ...options });
+      expect(response.status).toBe(401);
+      expect(response.headers.getSetCookie()).toEqual([]);
+      expect(work.hashes).toBe(0);
+    }
   }
 });
