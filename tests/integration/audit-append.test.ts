@@ -3,6 +3,7 @@ import { afterAll, beforeAll, expect, test } from "vitest";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { appendAudit } from "../../src/modules/audit/append";
 import { listAudit } from "../../src/modules/audit/read";
+import { ensureControlledSuperadminMfa } from "../fixtures/verified-session";
 
 const db = createPrismaClient(process.env.DATABASE_URL ?? "");
 const organizations = [randomUUID(), randomUUID()];
@@ -13,9 +14,16 @@ const auditIds: string[] = [];
 const platformSession = randomUUID();
 let platformUserId: string;
 let createdPlatformUser = false;
-let priorPlatformMfa: boolean | null = null;
 
 beforeAll(async () => {
+  const existingPlatform = await db.user.findFirst({ where: { role: "SUPERADMIN_AUTERVA" }, select: { id: true } });
+  platformUserId = existingPlatform?.id ?? randomUUID();
+  if (existingPlatform) await ensureControlledSuperadminMfa(db, platformUserId);
+  else {
+    await db.user.create({ data: { id: platformUserId, name: "Audit platform", email: `audit-${platformUserId}@example.test`,
+      emailVerified: true, twoFactorEnabled: true, role: "SUPERADMIN_AUTERVA" } });
+    createdPlatformUser = true;
+  }
   await db.organization.createMany({ data: organizations.map((id) => ({ id, slug: `audit-${id}` })) });
   for (const index of [0, 1]) {
     await db.vehicle.create({ data: { id: vehicles[index], organizationId: organizations[index], name: `Audit car ${index}` } });
@@ -28,16 +36,6 @@ beforeAll(async () => {
       expiresAt: new Date(Date.now() + 60_000), mfaVerifiedAt: new Date(),
     } });
   }
-  const existingPlatform = await db.user.findFirst({ where: { role: "SUPERADMIN_AUTERVA" }, select: { id: true, twoFactorEnabled: true } });
-  platformUserId = existingPlatform?.id ?? randomUUID();
-  if (!existingPlatform) {
-    await db.user.create({ data: { id: platformUserId, name: "Audit platform", email: `audit-${platformUserId}@example.test`,
-      emailVerified: true, twoFactorEnabled: true, role: "SUPERADMIN_AUTERVA" } });
-    createdPlatformUser = true;
-  } else {
-    priorPlatformMfa = existingPlatform.twoFactorEnabled;
-    await db.user.update({ where: { id: platformUserId }, data: { twoFactorEnabled: true } });
-  }
   await db.session.create({ data: { id: platformSession, userId: platformUserId, token: randomUUID(),
     expiresAt: new Date(Date.now() + 60_000), mfaVerifiedAt: new Date() } });
 });
@@ -46,7 +44,6 @@ afterAll(async () => {
   await db.auditLog.deleteMany({ where: { organizationId: { in: organizations } } });
   await db.session.deleteMany({ where: { id: { in: sessions } } });
   await db.session.deleteMany({ where: { id: platformSession } });
-  if (!createdPlatformUser) await db.user.update({ where: { id: platformUserId }, data: { twoFactorEnabled: priorPlatformMfa } });
   await db.user.deleteMany({ where: { id: { in: admins } } });
   if (createdPlatformUser) await db.user.delete({ where: { id: platformUserId } });
   await db.vehicle.deleteMany({ where: { id: { in: vehicles } } });
