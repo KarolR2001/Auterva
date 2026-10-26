@@ -20,7 +20,7 @@ export default defineConfig({
   projects: [
     { name: "production", testMatch: /auth-production\.spec\.ts/, use: { baseURL: productionURL } },
     { name: "auth-local", testMatch: /auth-host\.spec\.ts/, use: { baseURL: developmentURL } },
-    { name: "trusted-ingress", testMatch: /(?:auth-trusted|pwa|service-period|availability)\.spec\.ts/, use: { baseURL: trustedURL } },
+    { name: "trusted-ingress", testMatch: /(?:auth-trusted|pwa|service-period|availability|company-onboarding)\.spec\.ts/, use: { baseURL: trustedURL } },
   ],
   webServer: [
     {
@@ -36,7 +36,8 @@ export default defineConfig({
     {
       command: "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx scripts/start-local-ingress.ts",
       url: `${trustedURL}/api/health/`, reuseExistingServer: false, timeout: 30_000,
-      env: { NEXT_TELEMETRY_DISABLED: "1", NODE_ENV: "production", PORT: String(trustedPort), BETTER_AUTH_URL: trustedURL, AUTERVA_LOCAL_IPV6: "1" },
+      env: { NEXT_TELEMETRY_DISABLED: "1", NODE_ENV: "production", PORT: String(trustedPort), BETTER_AUTH_URL: trustedURL,
+        AUTERVA_LOCAL_IPV6: "1", AUTERVA_ADMIN_BASE_DOMAIN: "sites.example.test", AUTERVA_PUBLIC_BASE_DOMAIN: "public.example.test" },
     },
   ],
 });
