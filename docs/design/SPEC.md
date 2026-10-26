@@ -1062,6 +1062,14 @@ Kalendarz w MVP zawsze dotyczy wybranego pojazdu: Pojazdy → widoczna akcja „
 
 W zagnieżdżonej obsłudze firmy superadmin zachowuje własną nawigację platformową i stały kontekst wybranej firmy; powrót prowadzi do jej karty PLT-03, bez przełączenia aktora i bez globalnej floty w koncie firmy.
 
+### 7.11A. Nawigacja superadmina
+
+Główną nawigację platformy tworzą „Firmy” (`/firmy`) i „Wiadomości” (`/wiadomosci`). Wejście `/` pokazuje ten sam widok listy firm z dwoma KPI — firmy z aktywnym opłaconym okresem i firmy w trialu — nad listą. „Pulpit” nie jest osobnym modułem ani pozycją menu. Nie istnieje moduł ani trasa ustawień platformy.
+
+Na kanonicznych wzorcach mobile dolna nawigacja udostępnia „Firmy”, „Wiadomości” i „Więcej”; na desktopie sidebar udostępnia dwie główne sekcje i trigger menu profilu. Menu profilu superadmina zawiera „Konto” (`/konto`) i akcję „Wyloguj”, odrębną od nawigacji panelu firmy. „Więcej” i desktopowe „Konto” otwierają odpowiednio mobilny i desktopowy wariant `DS-NAV-011 UserMenu`. Prototypowy cel ekranu `/konto` uzupełnia #103, więc jego pozycja nie ma pozornego przejścia do innego boardu. Prototypowe „Wyloguj” prowadzi do istniejącego PLT-08; aplikacja musi wcześniej unieważnić sesję po stronie serwera. Statyczna interakcja nie dowodzi tego unieważnienia.
+
+W zagnieżdżonej obsłudze firmy nawigacja platformy pozostaje dostępna, lecz ekran pokazuje nazwę wybranej firmy i „Wróć do karty firmy”. Link nie zmienia aktora na administratora klienta i nie prowadzi do globalnej floty.
+
 ### 7.12. `DS-CNT-002 ContactSheet`
 
 - otwiera się po „Skontaktuj się”,

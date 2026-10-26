@@ -1,9 +1,9 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
-import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { afterAll, expect, test } from "vitest";
+import { afterAll, beforeAll, expect, test } from "vitest";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { exportAuditRange, readAuditExport, sweepExpiredAuditExports } from "../../src/modules/audit/operator-export";
 
@@ -14,6 +14,10 @@ const key = randomBytes(32);
 const auditIds: string[] = [];
 const exportIds: string[] = [];
 let directory: string;
+
+beforeAll(async () => {
+  await mkdir(resolve(".local"), { recursive: true });
+});
 
 afterAll(async () => {
   await db.auditOperatorExport.deleteMany({ where: { id: { in: exportIds } } });
