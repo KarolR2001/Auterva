@@ -167,6 +167,29 @@
       "testPaths": ["tests/integration/prisma-timezone.test.ts"]
     },
     {
+      "issue": 108,
+      "scope": "Retencja audytu 365 dni w kolejce operatora; eksport wyłącznie lokalnej fixture, docelowy storage w #58/#60.",
+      "relatedRequirementIds": ["D-10", "C-N019", "C-N037", "C-N040", "FR-ADM-070"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261026100857_audit_retention_issue_108/migration.sql",
+        "prisma/migrations/20261026101214_audit_export_issue_108/migration.sql",
+        "src/modules/audit/retention.ts",
+        "src/modules/audit/retention-runner.ts",
+        "src/modules/audit/operator-export.ts",
+        "src/modules/audit/read.ts",
+        "src/modules/jobs/queue.ts",
+        "scripts/audit-retention.ts"
+      ],
+      "testPaths": [
+        "tests/unit/audit-retention.test.ts",
+        "tests/integration/audit-retention.test.ts",
+        "tests/integration/audit-retention-read.test.ts",
+        "tests/integration/audit-retention-process.test.ts",
+        "tests/integration/audit-export.test.ts"
+      ]
+    },
+    {
       "issue": 21,
       "scope": "Okres usługi i brama istniejącego wejścia publicznego, wersjonowane mutacje superadmina; przyszłe strony oferty, media i integracja zaproszeń pozostają osobnymi konsumentami.",
       "relatedRequirementIds": ["C-F046", "C-F048", "C-F049", "C-F050", "C-F054", "C-F055", "C-F056", "C-F057", "C-F062", "C-F072", "C-F078"],
