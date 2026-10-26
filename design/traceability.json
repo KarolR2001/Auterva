@@ -616,13 +616,25 @@
             "mobile": "4e2ad814-13be-80ec-8008-cc98e7641a9a",
             "desktop": "4e2ad814-13be-80ec-8008-cc95e2b4b5f4"
           },
-          "recovery": {
+          "manualRecovery": {
             "mobile": "4e2ad814-13be-80ec-8008-cc98f6937664",
             "desktop": "4e2ad814-13be-80ec-8008-cc96bbba80bb"
           },
-          "sharedMfa": {
+          "historicalCompositeEnrollment": {
             "mobile": "4e2ad814-13be-80ec-8008-cc9fbbe9363e",
-            "desktop": "4e2ad814-13be-80ec-8008-cc9f9f862e0d"
+            "desktop": "4e2ad814-13be-80ec-8008-cc9f9f862e0d",
+            "canonical": false,
+            "reason": "Historyczny złożony enrollment z CTA bez aktualnej ścieżki kodów; wzorcem MVP jest 07 → 07G, a weryfikację pokazuje ACC-07."
+          },
+          "prototypeRecoveryEntry": {
+            "mobile": {
+              "boardId": "4e2ad814-13be-80ec-8008-cc98f67cd79b",
+              "triggerId": "4e2ad814-13be-80ec-8008-cc98f67cd7a2"
+            },
+            "desktop": {
+              "boardId": "4e2ad814-13be-80ec-8008-cc95e2db8769",
+              "triggerId": "4e2ad814-13be-80ec-8008-cc95e2db876f"
+            }
           },
           "recoveryCode": {
             "mobile": {
