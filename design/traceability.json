@@ -7,7 +7,7 @@
       "scope": "Logowanie obu ról, obowiązkowe MFA i bezpieczna kontynuacja po niepewnym wyniku na hostach właściwego obszaru.",
       "relatedRequirementIds": ["C-F010", "C-F011", "C-F013", "C-F014", "C-F040", "C-F044", "FR-ADM-001", "FR-ADM-002", "FR-ADM-003", "FR-ADM-004", "FR-ADM-005", "FR-ADM-007"],
       "referenceScreenIds": ["ADM-01", "PLT-08", "ACC-07"],
-      "unmappedStates": ["Niepewny wynik POST MFA oraz ponowne wydanie utraconych kodów: brak potwierdzonego odrębnego boardu Penpota; istniejące komponenty nie stanowią porównania wizualnego tych stanów."],
+      "unmappedStates": ["Niepewny wynik POST MFA, posiadany kod odzyskania i ponowne wydanie utraconych kodów: wzorce M/D są uzupełniane w #132, ale ich końcowe przejścia i render nie są jeszcze odebrane."],
       "components": [
         { "itemId": "DS-AUT-001", "codePath": "src/components/auth/auth-flow.tsx" },
         { "itemId": "DS-AUT-005", "codePath": "src/components/auth/auth-flow.tsx" }
@@ -15,13 +15,14 @@
       "codePaths": [
         "src/components/auth/auth-page.tsx",
         "src/components/auth/auth-destination.ts",
+        "src/components/auth/mfa-qr.tsx",
         "src/components/auth/auth.module.css",
         "src/app/login/page.tsx",
         "src/app/mfa/page.tsx",
         "src/app/admin/login/page.tsx",
         "src/app/admin/mfa/page.tsx"
       ],
-      "testPaths": ["tests/unit/auth-flow.test.tsx", "tests/unit/auth-page.test.tsx", "tests/unit/auth-destination.test.ts"]
+      "testPaths": ["tests/unit/auth-flow.test.tsx", "tests/unit/auth-page.test.tsx", "tests/unit/auth-destination.test.ts", "tests/unit/mfa-qr.test.ts"]
     },
     {
       "issue": 11,

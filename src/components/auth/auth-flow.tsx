@@ -12,6 +12,7 @@ import { FormField } from "../ui/form-field";
 import { PasswordInput } from "../ui/password-input";
 import { TextInput } from "../ui/text-input";
 import { safeReturnTo, type AuthArea } from "./auth-destination";
+import { MfaQr } from "./mfa-qr";
 import styles from "./auth.module.css";
 
 type AuthProps = {
@@ -146,24 +147,32 @@ function useAuthRequest() {
 
 function AuthFrame({
   area,
-  companyName,
   title,
+  context,
+  view,
+  step,
+  footer,
   children,
-}: AuthProps & { title: string; children: React.ReactNode }) {
+}: AuthProps & {
+  title: string;
+  context?: string;
+  view: "login" | "mfa";
+  step?: string;
+  footer?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <main className={styles.page}>
+    <main className={styles.page} data-area={area} data-view={view} data-step={step}>
+      <p className={styles.brand}>{area === "platform" ? "A AUTERVA" : "AUTERVA"}</p>
       <section className={styles.card} aria-labelledby="auth-title">
-        <p className={styles.brand}>Auterva</p>
-        <p className={styles.context}>
-          {area === "company"
-            ? (companyName ?? "Panel firmy")
-            : "Panel platformy"}
-        </p>
+        {context && <p className={styles.context}>{context}</p>}
         <h1 id="auth-title" tabIndex={-1}>
           {title}
         </h1>
         {children}
+        {(area === "platform" || (view === "mfa" && step !== "challenge")) && footer && <p className={styles.footer}>{footer}</p>}
       </section>
+      {area === "company" && (view === "login" || step === "challenge") && footer && <p className={styles.footer}>{footer}</p>}
     </main>
   );
 }
@@ -185,7 +194,6 @@ function ErrorNotice({
 
 export function LoginForm({
   area,
-  companyName,
   returnTo,
   recoverCodes,
 }: AuthProps) {
@@ -199,12 +207,18 @@ export function LoginForm({
   return (
     <AuthFrame
       area={area}
-      companyName={companyName}
-      title="Zaloguj się do panelu"
+      view="login"
+      title={area === "company" ? "Zaloguj się do panelu" : "Zaloguj się"}
+      context={area === "company" ? "Panel administratora" : "Panel Auterva"}
+      footer={area === "company"
+        ? "MFA wymagane • brak publicznej rejestracji"
+        : "Chroniony panel Autervy"}
     >
-      <p>Podaj adres e-mail i hasło administratora.</p>
+      <p className={styles.intro}>{area === "company"
+        ? "Zarządzaj flotą i dostępnością. Po haśle potwierdzisz logowanie kodem MFA."
+        : "Dostęp dla operatorów Autervy • po haśle wymagany drugi składnik MFA."}</p>
       <form
-        className={styles.form}
+        className={`${styles.form} ${styles.loginForm}`}
         noValidate
         onSubmit={form.handleSubmit((values) =>
           request.run("sign-in/email", values, "login", (data) => {
@@ -225,14 +239,16 @@ export function LoginForm({
       >
         <FormField
           id="auth-email"
-          label="Adres e-mail"
+          label={area === "company" ? "E-mail" : "Adres e-mail"}
           required
+          hint={area === "company" ? "Adres przypisany do konta" : "Użyj adresu administratora."}
           error={form.formState.errors.email?.message}
         >
           <TextInput
             type="email"
             autoComplete="username"
             inputMode="email"
+            aria-label="Adres e-mail"
             {...form.register("email")}
           />
         </FormField>
@@ -240,6 +256,8 @@ export function LoginForm({
           id="auth-password"
           label="Hasło"
           autoComplete="current-password"
+          placeholder={area === "platform" ? "Wpisz hasło" : undefined}
+          hint={area === "platform" ? "Wielkość liter ma znaczenie." : undefined}
           visibility={visibility}
           onVisibilityChange={setVisibility}
           error={form.formState.errors.password?.message}
@@ -253,7 +271,7 @@ export function LoginForm({
           loadingLabel="Logowanie…"
           disabled={request.cooldown > 0}
         >
-          Zaloguj
+          Zaloguj się
         </Button>
       </form>
     </AuthFrame>
@@ -268,7 +286,8 @@ type MfaStep =
   | "recovery"
   | "uncertain"
   | "restoreFactor"
-  | "restorePassword";
+  | "restorePassword"
+  | "manual";
 export function MfaFlow({
   area,
   companyName,
@@ -289,6 +308,7 @@ export function MfaFlow({
   const [proof, setProof] = useState("");
   const [recoveryIntent, setRecoveryIntent] = useState(Boolean(recoverCodes));
   const [secret, setSecret] = useState("");
+  const [totpUri, setTotpUri] = useState("");
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
   const [visibility, setVisibility] = useState<"hidden" | "shown">("hidden");
   const request = useAuthRequest();
@@ -321,6 +341,7 @@ export function MfaFlow({
   };
   const enterRestore = () => {
     setSecret("");
+    setTotpUri("");
     setProof("");
     codeForm.reset();
     passwordForm.reset();
@@ -373,17 +394,38 @@ export function MfaFlow({
         : "Kod z aplikacji";
   const title =
     step === "password" || step === "setup"
-      ? "Skonfiguruj MFA"
+      ? "Włącz dodatkową ochronę"
       : step === "codes"
         ? "Zapisz kody odzyskania"
         : step === "restoreFactor" || step === "restorePassword"
           ? "Wydaj nowe kody odzyskania"
           : step === "uncertain"
             ? "Sprawdź stan MFA"
+            : step === "manual"
+              ? "Nie masz dostępu do kodów?"
+              : step === "recovery"
+                ? "Użyj kodu odzyskania"
             : "Potwierdź logowanie";
   const loginPath = area === "company" ? "/admin/login" : "/login";
   return (
-    <AuthFrame area={area} companyName={companyName} title={title}>
+    <AuthFrame
+      area={area}
+      companyName={companyName}
+      view="mfa"
+      step={step}
+      title={title}
+      context={step === "challenge" ? "Weryfikacja MFA" : undefined}
+      footer={["challenge", "setup", "manual"].includes(step)
+        ? "MFA wymagane dla kont administratorów • kod jednorazowy"
+        : undefined}
+    >
+      {step === "challenge" && <p className={styles.intro}>Wpisz 6-cyfrowy kod z aplikacji uwierzytelniającej.</p>}
+      {step === "manual" && (
+        <>
+          <p className={styles.intro}>Skontaktuj się z pomocą Autervy. Odzyskanie dostępu wymaga ręcznego potwierdzenia tożsamości przez właściciela. Sam reset hasła nie wyłącza MFA.</p>
+          <Button variant="secondary" width="fill" className={styles.manualAction} onClick={() => setStep("recovery")}>Wróć do kodu odzyskania</Button>
+        </>
+      )}
       {step === "password" && (
         <form
           className={styles.form}
@@ -404,6 +446,7 @@ export function MfaFlow({
                     );
                     if (value) {
                       setSecret(value);
+                      setTotpUri(data.totpURI);
                       passwordForm.reset();
                       setStep("setup");
                       return true;
@@ -472,6 +515,7 @@ export function MfaFlow({
                   if (codes.length) {
                     setBackupCodes(codes);
                     setSecret("");
+                    setTotpUri("");
                     codeForm.reset();
                     setStep("codes");
                     return true;
@@ -493,13 +537,13 @@ export function MfaFlow({
           })}
         >
           {step === "setup" && (
-            <p>
-              Wpisz ten klucz w aplikacji uwierzytelniającej, a następnie
-              potwierdź kod: <code className={styles.secret}>{secret}</code>
-            </p>
-          )}
-          {step === "challenge" && (
-            <p>Wpisz kod z aplikacji uwierzytelniającej.</p>
+            <div>
+              <p>Zeskanuj kod w aplikacji uwierzytelniającej, a następnie wpisz otrzymany kod.</p>
+              {totpUri && <MfaQr uri={totpUri} />}
+              <p>Nie możesz zeskanować kodu? Wpisz klucz ręcznie:
+                <code className={styles.secret}>{secret}</code>
+              </p>
+            </div>
           )}
           {step === "recovery" && (
             <p>
@@ -509,13 +553,16 @@ export function MfaFlow({
           )}
           <FormField
             id="mfa-code"
-            label={codeLabel}
+            label={step === "recovery" ? "Kod odzyskania" : "Kod MFA"}
             required
+            hint={step === "recovery" ? "Kod jest jednorazowy" : "Kod jest ważny tylko przez krótki czas"}
             error={codeForm.formState.errors.code?.message}
           >
             <TextInput
               autoComplete="one-time-code"
               inputMode={step === "recovery" ? "text" : "numeric"}
+              aria-label={codeLabel}
+              placeholder={step === "recovery" ? "Wpisz kod odzyskania" : "000 000"}
               {...codeForm.register("code")}
             />
           </FormField>
@@ -526,26 +573,27 @@ export function MfaFlow({
             loadingLabel="Sprawdzanie…"
             disabled={request.cooldown > 0}
           >
-            {step === "setup" ? "Potwierdź MFA" : "Potwierdź kod"}
+            {step === "setup" ? "Włącz MFA i pokaż kody" : "Potwierdź kod"}
           </Button>
           {step !== "setup" && (
             <Button
-              variant="tertiary"
+              variant="secondary"
+              width="fill"
               onClick={() => {
                 request.clearError();
                 codeForm.reset();
                 setStep(step === "recovery" ? "challenge" : "recovery");
               }}
             >
-              {step === "recovery" ? "Użyj aplikacji" : "Użyj kodu odzyskania"}
+              {step === "recovery" ? "Użyj aplikacji" : "Nie mam dostępu do aplikacji"}
             </Button>
           )}
         </form>
       )}
       {step === "uncertain" && (
         <div className={styles.form}>
-          <Alert tone="warning" title="Nie wiadomo, czy kod został przyjęty">
-            Nie wysyłaj go ponownie. Sprawdź stan sesji, aby bezpiecznie
+          <Alert tone="warning" title="Nie wiadomo, czy operacja została zakończona">
+            Nie ponawiaj teraz tej próby. Sprawdź stan sesji, aby bezpiecznie
             kontynuować.
           </Alert>
           {checkError && <ErrorNotice message={checkError} cooldown={0} />}
@@ -684,7 +732,7 @@ export function MfaFlow({
           <Button onClick={finish}>Zapisałem kody</Button>
         </div>
       )}
-      {step === "challenge" || step === "recovery" ? (
+      {["challenge", "recovery", "setup", "manual"].includes(step) ? (
         <Link
           className={styles.loginLink}
           href={`${loginPath}?returnTo=${encodeURIComponent(safeReturnTo(area, returnTo))}${recoveryIntent ? "&recoverCodes=1" : ""}`}
@@ -692,10 +740,20 @@ export function MfaFlow({
           Wróć do logowania
         </Link>
       ) : null}
-      <p className={styles.help}>
-        Nie masz dostępu do aplikacji ani kodów? Skorzystaj z ręcznej procedury
-        odzyskania prowadzonej przez właściciela Autervy.
-      </p>
+      {step === "recovery" && (
+        <Button
+          variant="tertiary"
+          width="fill"
+          className={styles.manualAction}
+          onClick={() => {
+            request.clearError();
+            codeForm.reset();
+            setStep("manual");
+          }}
+        >
+          Nie mam aplikacji ani kodów
+        </Button>
+      )}
     </AuthFrame>
   );
 }

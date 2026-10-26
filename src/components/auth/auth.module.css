@@ -1,49 +1,64 @@
 .page {
   min-height: 100dvh;
-  display: grid;
-  place-items: center;
-  padding: var(--space-4);
+  padding: var(--space-6);
   background: var(--surface-canvas);
   color: var(--text-primary);
 }
-.card {
-  width: min(100%, 440px);
-  padding: clamp(var(--space-5), 4vw, var(--space-10));
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  background: var(--surface-default);
-}
-.card h1 {
-  font-size: var(--font-size-24);
-  line-height: var(--line-height-32);
-  margin: var(--space-4) 0;
-}
-.card p {
-  line-height: 1.5;
-}
 .brand {
-  font-size: var(--font-size-20);
-  font-weight: 700;
   margin: 0;
+  font-size: var(--font-size-20);
+  line-height: 28px;
+  font-weight: 700;
+}
+.page[data-area="platform"] .brand {
+  text-align: center;
+  font-size: var(--font-size-18);
+}
+.page[data-area="platform"][data-view="login"] {
+  padding-top: 36px;
+}
+.card {
+  width: min(100%, 480px);
+  margin: var(--space-8) auto 0;
 }
 .context {
-  color: var(--text-secondary);
-  margin: var(--space-2) 0 0;
+  margin: 0 0 var(--space-6);
+  font-size: var(--font-size-12);
+  font-weight: 700;
+  line-height: 16px;
+  text-transform: uppercase;
+}
+.card h1 {
+  margin: 0 0 var(--space-6);
+  font-size: var(--font-size-32);
+  line-height: 40px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.card p {
+  line-height: 1.4;
+}
+.intro {
+  margin: 0;
 }
 .form {
   display: grid;
-  gap: var(--space-4);
-  margin-top: var(--space-6);
+  gap: var(--space-6);
+  margin-top: var(--space-8);
 }
 .form button {
   max-width: 100%;
 }
+.footer {
+  margin: var(--space-8) 0 0;
+  font-size: var(--font-size-14);
+  font-weight: 600;
+}
 .secret {
   display: block;
-  padding: var(--space-3);
-  margin-top: var(--space-2);
+  margin-top: var(--space-3);
   overflow-wrap: anywhere;
-  background: var(--surface-subtle);
+  font-weight: 700;
 }
 .codes {
   display: grid;
@@ -57,21 +72,131 @@
   padding: var(--space-2);
   background: var(--surface-subtle);
 }
-.help {
-  color: var(--text-secondary);
-  font-size: var(--font-size-14);
+.manualAction {
   margin-top: var(--space-6);
 }
 .loginLink {
-  display: inline-block;
-  margin-top: var(--space-4);
-  color: var(--text-link);
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  display: block;
+  margin-top: var(--space-6);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
 }
 .loginLink:focus-visible {
   outline: 2px solid var(--border-strong);
   outline-offset: 3px;
+}
+.page[data-area="company"][data-view="login"] .card {
+  margin-top: var(--space-2);
+}
+.page[data-area="platform"][data-view="login"] .context {
+  margin-bottom: var(--space-3);
+}
+.page[data-area="company"][data-view="login"] .card h1 {
+  margin-bottom: 84px;
+}
+.page[data-area="platform"][data-view="login"] .card h1 {
+  margin-bottom: var(--space-20);
+}
+.loginForm {
+  gap: var(--space-12);
+  margin-top: var(--space-10);
+}
+.page[data-area="platform"] .loginForm {
+  margin-top: 0;
+}
+.loginForm > div:nth-of-type(-n + 2) {
+  margin-inline: var(--space-5);
+}
+.loginForm label[for="auth-password"]::after {
+  content: " *";
+}
+.loginForm > button {
+  margin-top: var(--space-8);
+}
+.page[data-area="platform"] .loginForm > button {
+  margin-top: var(--space-5);
+}
+.page[data-area="company"][data-view="login"] .footer {
+  margin-top: var(--space-20);
+}
+.page[data-area="platform"][data-view="login"] .footer {
+  margin-top: 76px;
+}
+@media (max-width: 767px) {
+  .page[data-view="mfa"] .context {
+    display: none;
+  }
+  .page[data-step="setup"] {
+    padding-top: var(--space-12);
+  }
+}
+@media (min-width: 768px) {
+  .page {
+    padding: 56px 64px;
+  }
+  .page[data-area="platform"][data-view="login"] {
+    padding-top: 120px;
+  }
+  .card {
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: var(--space-10);
+    min-height: 640px;
+  }
+  .page[data-area="platform"] .card {
+    margin-top: var(--space-10);
+    padding-top: 0;
+    min-height: 720px;
+  }
+  .page[data-area="platform"] .brand {
+    font-size: var(--font-size-20);
+  }
+  .page[data-area="company"][data-view="login"] .card {
+    margin-top: 60px;
+    min-height: 660px;
+  }
+  .page[data-area="company"][data-view="login"] .card h1,
+  .page[data-area="platform"][data-view="login"] .card h1 {
+    margin-bottom: var(--space-6);
+  }
+  .page[data-area="company"] .loginForm {
+    margin-top: var(--space-12);
+  }
+  .page[data-area="platform"] .loginForm {
+    margin-top: var(--space-8);
+  }
+  .page[data-area="company"][data-view="login"] .footer {
+    margin-top: var(--space-12);
+    text-align: center;
+  }
+  .page[data-view="mfa"][data-step="challenge"] .card {
+    margin-top: 60px;
+    min-height: 660px;
+  }
+  .page[data-view="mfa"][data-step="challenge"] .form {
+    margin-top: var(--space-16);
+    gap: var(--space-12);
+  }
+  .page[data-area="company"][data-view="mfa"][data-step="challenge"] .footer {
+    margin-top: var(--space-12);
+    text-align: center;
+  }
+  .page[data-view="mfa"]:not([data-step="challenge"]) .brand {
+    width: min(100%, 440px);
+    margin: 52px auto 0;
+  }
+  .page[data-view="mfa"]:not([data-step="challenge"]) .card {
+    width: min(100%, 440px);
+    margin-top: var(--space-8);
+    padding: 0;
+    border: 0;
+    min-height: 0;
+  }
 }
 @media (max-width: 359px) {
   .codes {
