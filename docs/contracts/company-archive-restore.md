@@ -24,12 +24,14 @@ Jedna transakcja (awaria audytu cofa całość):
 
 Kolejność blokad: wiersz `Organization` w trybie `FOR NO KEY UPDATE`, potem wiersze `account` (credential) użytkowników firmy. Login, weryfikacja MFA i zmiana hasła trzymają wiersz `account` i dopiero potem czytają `archivedAt` oraz tworzą sesję/challenge. Skutek: login zatwierdzony przed archiwizacją zostaje cofnięty (archiwizacja czeka na jego commit i usuwa wynik); login po archiwizacji czeka i jest odmówiony bez sesji. Tryb `NO KEY UPDATE` jest celowy: zakończenie MFA wstawia wiersz audytu (FK do organizacji, `FOR KEY SHARE`), a `FOR UPDATE` dawało deadlock `account → organization` kontra `organization → account`. Konkurencyjne zapisy okresu, odblokowania i floty używają `FOR UPDATE` na tym samym wierszu, więc nadal się z archiwizacją wykluczają. Archiwizacja i przywrócenie serializują się na wierszu organizacji; wersja decyduje o jednym zwycięzcy, przegrany dostaje `COMPANY_VERSION_CONFLICT`. Nowe operacje blokujące wiersz organizacji po wierszu `account` są zabronione.
 
+Zapisy mediów (#29) i blokad dostępności (#38, PR #139) też blokują `Organization` w trybie `FOR NO KEY UPDATE`; razem z archiwizacją wzajemnie się wykluczają i nie tworzą cyklu z wierszem `account`. Po archiwizacji nowy upload obrazu jest odmawiany (sesja cofnięta; rezerwacja superadmina daje `MEDIA_ORGANIZATION_ARCHIVED`), a przetwarzany obraz kończy `MEDIA_SCOPE_INACTIVE` bez `VehicleImage` (`tests/integration/company-archive-media.test.ts`).
+
 ## WebSocket (mechanizm dla #51)
 
 Serwer realtime (`src/server/realtime.ts`, `src/modules/chat/realtime.ts`) już autoryzuje upgrade i każde połączenie przez `resolveRealtimeTenant` (`requireAuthorizedActor`: sesja, MFA, rola, host i `archivedAt`). Połączenie jest rewalidowane co 1 s oraz przy każdej wiadomości i zamykane kodem `4401`. Archiwizacja kasuje sesję, więc aktywne połączenie administratora firmy zamyka się najpóźniej po około 1 s, a nowe upgrade'y są odrzucane (także po przywróceniu, dopóki administrator nie zaloguje się ponownie). #51 musi zachować ten model: każdy nowy typ połączenia wywołuje `resolveRealtimeTenant`, nie cache'uje wyniku między komunikatami i nie omija rewalidacji. Brak czatu w tym issue.
 
 ## Poza zakresem i znane ograniczenia
 
-- Publiczne aliasy/domena własna (#137) i media (#136) dostaną odmowę przez `resolvePublicVisibility`; ich testy należą do tamtych PR.
+- Media są sprawdzone na main (#136). Publiczny alias i domena własna (#137) nie są jeszcze na main: dostaną odmowę przez `resolvePublicVisibility`, lecz test na ich ścieżkach należy do integracji po scaleniu #137.
 - Oczekujące zaproszenie firmy bez administratora nie jest unieważniane przy archiwizacji; aktywacja i wysyłka są odmawiane, gdy firma jest zarchiwizowana, i znów możliwe po przywróceniu w ważnym terminie zaproszenia.
 - UI listy firm, filtra archiwum i dialogów należy do frontendu; odczyt `includeArchived` istnieje w `platform-companies-read.md`.

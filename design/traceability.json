@@ -392,6 +392,7 @@
       "testPaths": [
         "tests/integration/company-archive.test.ts",
         "tests/integration/company-archive-realtime.test.ts",
+        "tests/integration/company-archive-media.test.ts",
         "tests/e2e/company-archive.spec.ts"
       ]
     }
