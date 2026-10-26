@@ -390,6 +390,9 @@ model Job {
   maxAttempts    Int           @default(5)
   status         String        @default("PENDING")
   lockedUntil    DateTime?     @db.Timestamptz(6)
+  leaseToken     String?       @db.Uuid
+  firstSendAt    DateTime?     @db.Timestamptz(6)
+  providerId     String?
   completedAt    DateTime?     @db.Timestamptz(6)
   errorCode      String?
   createdAt      DateTime      @default(now()) @db.Timestamptz(6)
@@ -397,6 +400,7 @@ model Job {
 
   @@unique([organizationId, dedupeKey])
   @@index([status, runAt])
+  @@index([status, lockedUntil])
 }
 
 model OperationReceipt {
