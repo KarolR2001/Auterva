@@ -20,7 +20,7 @@ export default defineConfig({
   projects: [
     { name: "production", testMatch: /auth-production\.spec\.ts/, use: { baseURL: productionURL } },
     { name: "auth-local", testMatch: /auth-host\.spec\.ts/, use: { baseURL: developmentURL } },
-    { name: "trusted-ingress", testMatch: /(?:auth-trusted|pwa|service-period|availability|company-onboarding)\.spec\.ts/, use: { baseURL: trustedURL } },
+    { name: "trusted-ingress", testMatch: /(?:auth-trusted|pwa|service-period|availability|company-onboarding|fleet)\.spec\.ts/, use: { baseURL: trustedURL } },
   ],
   webServer: [
     {
