@@ -301,6 +301,31 @@
       "testPaths": ["tests/integration/company-activation.test.ts", "tests/e2e/company-onboarding.spec.ts"]
     },
     {
+      "issue": 23,
+      "scope": "Cykl domeny własnej (własność TXT, CNAME, adresy publiczne, TLS i routing), osobny host panelu i neutralny nieznany host, przekierowanie aliasu po bramce widoczności; provisioning DNS/TLS i cykliczna kontrola w #10/#58.",
+      "relatedRequirementIds": ["C-F004", "C-F086", "C-F087", "C-F088", "C-F089", "C-N008", "C-N024", "C-N058"],
+      "codePaths": [
+        "docs/contracts/custom-domain-lifecycle.md",
+        "prisma/schema.prisma",
+        "prisma/migrations/20261026162000_custom_domain_issue_23/migration.sql",
+        "src/modules/domains/hostname.ts",
+        "src/modules/domains/address-policy.ts",
+        "src/modules/domains/network-checker.ts",
+        "src/modules/domains/lifecycle.ts",
+        "src/modules/domains/routing.ts",
+        "src/modules/domains/http.ts",
+        "src/proxy.ts",
+        "src/app/.well-known/auterva-domain-check/route.ts",
+        "src/app/api/platform/companies/[organizationId]/domains/route.ts"
+      ],
+      "testPaths": [
+        "tests/unit/custom-domain-validation.test.ts",
+        "tests/integration/custom-domain-network.test.ts",
+        "tests/integration/custom-domain-lifecycle.test.ts",
+        "tests/e2e/custom-domain.spec.ts"
+      ]
+    },
+    {
       "issue": 108,
       "scope": "Retencja audytu 365 dni w kolejce operatora; eksport wyłącznie lokalnej fixture, docelowy storage w #58/#60.",
       "relatedRequirementIds": ["D-10", "C-N019", "C-N037", "C-N040", "FR-ADM-070"],
