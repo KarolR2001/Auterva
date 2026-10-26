@@ -1,0 +1,38 @@
+# Flota firmy: odczyt, zapis, publikacja i kolejność (#28)
+
+Źródła: PRD 3.1 U3/U4, WYMAGANIA C-F095–097 i FR-ADM-020–032, [D-02](company-settings-and-vehicle-publication.md), [dostępność #33](availability-reads.md). Ten kontrakt opisuje implementowane wejścia serwerowe; UI i rzeczywisty upload należą do odrębnych issue.
+
+## Wejścia i uprawnienia
+
+Te same use case obsługują admina firmy na aktywnym hoście `COMPANY_ADMIN` oraz superadmina na hoście `PLATFORM` w jawnie wybranej firmie:
+
+| Panel firmy | Platforma | Metoda |
+| --- | --- | --- |
+| `/api/admin/vehicles` | `/api/platform/companies/{organizationId}/vehicles` | GET lista, POST szkic |
+| `/api/admin/vehicles/{id}` | `/api/platform/companies/{organizationId}/vehicles/{id}` | GET szczegóły, PATCH pola |
+| `/api/admin/vehicles/{id}/{publish\|unpublish\|archive}` | `/api/platform/companies/{organizationId}/vehicles/{id}/{publish\|unpublish\|archive}` | POST status |
+| `/api/admin/vehicles/reorder` | `/api/platform/companies/{organizationId}/vehicles/reorder` | POST kolejność |
+
+Każde wejście sprawdza host, pełną sesję MFA, rolę i firmę. Zapisy wymagają zgodnego Origin; odpowiedzi mają `Cache-Control: no-store` i serwerowy `X-Request-Id`. Nie ma zapisu na hoście publicznym. Po zwykłym wygaśnięciu okresu panel i zapis pozostają dostępne, lecz centralna bramka nadal odmawia publicznego odczytu. Archiwizacja firmy blokuje sesję/zapis. ID obcej firmy lub pojazdu zwraca kontrolowaną odmowę bez ujawniania rekordu.
+
+`GET` lista: `search`, `status`, `categoryId`, `activeToday`, `availableToday`, `page` (od 1), `pageSize` (1–100). Dziś oznacza lokalną datę Europe/Warsaw. Wyszukiwanie obejmuje nazwę, markę, model, wariant i slug. Wspólny predykat `availabilityVehicleWhere` (#33) jest stosowany przed `count` i paginacją; oba odczyty korzystają z jednego snapshotu. Sortowanie jest stabilne: `sortOrder ASC, id ASC`. Miniatura to ID/alt gotowego cover; DTO listy nie zawiera powodu ani technicznych danych blokady. `GET` szczegóły zwraca prywatne pola auta, wyposażenie oraz metadane zdjęć bez klucza storage.
+
+## Zapis
+
+`POST` tworzy wyłącznie `DRAFT`; `fields` może być niekompletne, ale ma ścisłą allowlistę typów i zakresów. `PATCH` przyjmuje `expectedVersion`, `fields` oraz `confirmSlugChange` przy zmianie slugu opublikowanego auta. Slug jest normalizowany do małych liter i unikalny w firmie; zmiana opublikowanego slugu wymaga świadomego potwierdzenia. Historia przekierowań jest opcjonalnym zakresem #69, a przyszła publiczna oferta należy do #40. Wyposażenie w `fields.features` jest zastępowane atomowo. Cena jest decimal string albo `null`, nigdy automatyczne zero.
+
+Gdy przy tworzeniu podano nazwę, lecz pominięto slug, serwer generuje go z nazwy; jawny slug ma pierwszeństwo, a zmiana samej nazwy istniejącego auta nie zmienia slugu. Pusty szkic może mieć `slug=null`. `fuel` (rodzaj paliwa) i `drive` (napęd) to odrębne opcjonalne pola, zgodnie z FR-ADM-030 i bazową definicją floty; addytywna kolumna `fuel` nie ma backfillu ani wartości domyślnej.
+
+`description` jest niezaufanym tekstem/Markdown. Walidacja publikacji traktuje pusty markup jako pustą treść, lecz sam zapis nie nadaje HTML uprawnień do renderowania. Konsument publiczny #40 musi renderować tekst bez wykonywania surowego HTML albo użyć rygorystycznej sanitacji zgodnej z bazowym kontraktem §bezpieczeństwo.
+
+`POST .../publish|unpublish|archive` przyjmuje `expectedVersion`. Publikacja ponownie sprawdza aktualny zapis, kategorię, daty i gotowy cover według D-02; brak wymagań daje `409 PUBLISHING_REQUIREMENTS_NOT_MET` z `fieldErrors` i pozostawia poprzedni stan. Zmiana opublikowanego auta, która usunęłaby wymagane pole, także cofa się w całości. `UNPUBLISHED` i `ARCHIVED` usuwają publiczną widoczność bez kasowania danych, blokad lub audytu. `ARCHIVED` nie jest cicho przywracany przez PATCH. Wcześniejsze `HIDDEN` z zasiedlonej bazy migrują do `UNPUBLISHED`; historyczny audyt `VEHICLE_HIDDEN` i jego starszy snapshot pozostają czytelne.
+
+`POST .../reorder` przyjmuje `items: [{ id, expectedVersion, sortOrder }]` (1–100). Wszystkie ID są unikalne i należą do jednej firmy; jakikolwiek konflikt wersji wycofuje całą partię. Każda zmieniona pozycja zwiększa wersję i zapisuje audyt. Wszystkie mutacje blokują najpierw firmę, potem wiersze pojazdów według ID; przyszły konsument zdjęć #32 i blokad #38 musi blokować ten sam wiersz `Vehicle` przed zmianą zależnych danych. Aktualna edycja aktywności pod tą blokadą odmawia zakresu, który pozostawiłby istniejącą blokadę poza aktywnością. Obie role korzystają z tej samej atomowej operacji i rzeczywistego aktora w audycie.
+
+Kontrolowany test na dwóch połączeniach PostgreSQL dowodzi obu kolejności: gdy pisarz bloku trzyma `Vehicle FOR UPDATE`, edycja #28 czeka, następnie widzi dopisany blok i odmawia niespójnego zakresu; gdy edycja #28 trzyma blokadę, pisarz bloku czeka i po jej zwolnieniu odczytuje nową aktywność. Druga połowa jest protokołem przyszłego #38 na fixture, a nie testem gotowego API blokad; jego mutator musi ponownie sprawdzać zakres po zdobyciu blokady.
+
+## Dane i rollout
+
+Migracja dodaje `Vehicle.updatedAt TIMESTAMPTZ`, konwertuje bieżące `HIDDEN` na `UNPUBLISHED` i wprowadza CHECK czterech statusów. `updatedAt` jest datą ostatniej zmiany w nowych operacjach; backfill bierze najnowszy audyt przypisany do **tego pojazdu i tej firmy**. Gdy brak takiego wpisu, wartość to czas migracji, techniczny punkt odniesienia, a nie deklarowana data historycznej edycji. Migrować po backupie i sprawdzić także zasiedloną bazę; bez przepisywania historii audytu. Nie jest to procedura produkcyjnego wdrożenia.
+
+API nie implementuje uploadu (#29/#32), mutacji blokad (#38), publicznej strony oferty (#40), opcjonalnych przekierowań starych slugów (#69) ani schedulera. Kontrolowany `VehicleImage READY` w testach dowodzi reguły publikacji, nie rzeczywistego przetwarzania pliku.
