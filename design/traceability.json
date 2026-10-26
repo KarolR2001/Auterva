@@ -20,6 +20,41 @@
       "testPaths": ["tests/integration/availability-blocks.test.ts", "tests/e2e/availability.spec.ts"]
     },
     {
+      "issue": 29,
+      "scope": "Prywatny upload obrazów, rezerwacja 30 miejsc, walidacja i izolowany dekoder, niezmienna finalizacja, odzyskiwalny worker i cleanup; publiczne odczyty mediów należą do konsumentów.",
+      "relatedRequirementIds": ["C-F098", "C-N034", "C-N035", "FR-ADM-040", "FR-ADM-041", "FR-ADM-042", "NFR-PERF-004"],
+      "referenceScreenIds": ["ADM-06"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261026143000_image_upload_issue_29/migration.sql",
+        "prisma/migrations/20261026143100_image_upload_fk_alignment/migration.sql",
+        "prisma/migrations/20261026161000_image_upload_cleanup_marker/migration.sql",
+        "src/modules/media/reservation.ts",
+        "src/modules/media/http.ts",
+        "src/modules/media/stream.ts",
+        "src/modules/media/finalize.ts",
+        "src/modules/media/decode.ts",
+        "src/modules/media/storage.ts",
+        "src/modules/media/worker.ts",
+        "src/proxy.ts",
+        "src/server/media-worker.ts",
+        "src/app/api/admin/vehicles/[id]/images/route.ts",
+        "src/app/api/platform/companies/[organizationId]/vehicles/[id]/images/route.ts"
+      ],
+      "testPaths": [
+        "tests/unit/media-stream.test.ts",
+        "tests/unit/media-storage-config.test.ts",
+        "tests/integration/media-reservation.test.ts",
+        "tests/integration/media-http.test.ts",
+        "tests/integration/media-flow.test.ts",
+        "tests/integration/media-storage.test.ts",
+        "tests/integration/media-decode.test.ts",
+        "tests/integration/media-process-lifecycle.test.ts",
+        "tests/integration/media-cleanup.test.ts",
+        "tests/e2e/media.spec.ts"
+      ]
+    },
+    {
       "issue": 28,
       "scope": "Serwerowy CRUD floty, walidacja publikacji D-02, lista z filtrem dostępności #33 i wersjonowana kolejność; rzeczywisty upload i publiczna oferta w osobnych issue.",
       "relatedRequirementIds": ["C-F095", "C-F096", "C-F097", "C-F104", "FR-ADM-020", "FR-ADM-021", "FR-ADM-022", "FR-ADM-030", "FR-ADM-032"],
