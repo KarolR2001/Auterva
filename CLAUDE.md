@@ -27,7 +27,8 @@ Odpowiadają rolom Codexa z `.codex/agents/`. Zmieniając zasady roli, zaktualiz
 ## Skille i MCP
 
 - Skille projektu leżą w `.agents/skills/`; `.claude/skills/<nazwa>` to dowiązania do nich. Nowy skill dodaj do `.agents/skills/` i `skills-lock.json`, potem dowiązanie.
-- Penpot MCP musi być skonfigurowany lokalnie przez użytkownika (zakres user, poza repozytorium). Brak serwera oznacza niewykonane porównanie z Penpotem, nie PASS.
+- Penpot MCP: serwer `penpot` w zakresie user (poza repozytorium), konfiguracja w [GITHUB_ACCESS](docs/development/GITHUB_ACCESS.md#penpot-mcp-w-claude-code). Przed użyciem przeczytaj `high_level_overview`. Brak połączenia z plikiem oznacza niewykonane porównanie, nie PASS.
+- Zapis do Penpota: tylko `auterva-frontend` wyznaczony w briefie albo sesja `AUTERVA_PENPOT_WRITE=1 claude`; hook `.claude/hooks/guard-penpot.sh` blokuje pozostałym kod modyfikujący. Dane pomocnicze trzymaj w `storage`.
 
 ## Zakazy
 

@@ -20,6 +20,15 @@ Otwórz plik `Nowy plik 2`, ID `b564c72c-f31f-81ec-8008-af198a313438`, i połąc
 
 Linki w issue otwierają stronę Penpota; dokładna nazwa i board ID wskazują ekran. Przy braku połączenia zgłoś niewykonane bieżące porównanie, zachowując możliwość testowania aplikacji.
 
+### Penpot MCP w Claude Code
+
+Sprawdzono 26.10.2026: serwer `penpot` (zdalny MCP `design.penpot.app`, HTTP) w konfiguracji użytkownika Claude Code jest połączony; odczyt pliku `Nowy plik 2` (7 stron, 175 komponentów) i eksport PNG boardu działają. Narzędzia: `high_level_overview`, `penpot_api_info`, `execute_code`, `export_shape`.
+
+- Konfiguracja tylko lokalnie, nigdy w repozytorium: `claude mcp add --transport http --scope user penpot "<URL z kluczem MCP>"`. Klucz generuje właściciel w Penpot → Integrations → MCP Server; obowiązuje jeden klucz na użytkownika, więc po jego zmianie zaktualizuj Claude Code i Codex.
+- Stan sprawdzaj przez `/mcp` w Claude Code; `claude mcp get/list` wypisują URL z kluczem.
+- Wtyczka działa na bieżąco otwartej stronie jednej karty przeglądarki. Odczyt innych stron: `penpotUtils.getPageById`/`findShapes`; nie przełączaj strony użytkownikowi bez potrzeby.
+- Wtyczka nie udziela uprawnienia `user:read`; nie odczytuj danych użytkownika.
+
 ## Utrzymanie dostępu
 
 CLI ma zakresy repo/workflow/project. W razie utraty dostępu Projects użyj `gh auth refresh -h github.com -s project` i zatwierdź w przeglądarce. Nie zapisuj tokenów w repo, issue ani udostępnianych konfiguracjach.

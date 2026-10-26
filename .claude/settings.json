@@ -29,7 +29,10 @@
       "Bash(pnpm test:unit *)",
       "Bash(pnpm test:integration *)",
       "Bash(pnpm test:e2e *)",
-      "Bash(pnpm build *)"
+      "Bash(pnpm build *)",
+      "mcp__penpot__high_level_overview",
+      "mcp__penpot__penpot_api_info",
+      "mcp__penpot__export_shape"
     ],
     "deny": [
       "Bash(git push --force *)",
@@ -51,7 +54,8 @@
       "Read(**/*.key)",
       "Read(~/.codex/auth.json)",
       "Read(~/.codex/config.toml)",
-      "Read(~/.config/gh/hosts.yml)"
+      "Read(~/.config/gh/hosts.yml)",
+      "Read(~/.claude.json)"
     ]
   },
   "hooks": {
@@ -62,6 +66,16 @@
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-bash.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__penpot__execute_code",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-penpot.sh",
             "timeout": 10
           }
         ]
