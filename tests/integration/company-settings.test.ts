@@ -12,6 +12,7 @@ import { GET as publicMedia } from "../../src/app/api/public/media/[mediaId]/[va
 import { runWithTrustedClientAddress } from "../../src/modules/ingress/client-address";
 import { claimNextJob } from "../../src/modules/jobs/queue";
 import { createMediaStorage, readLimited, removeObject } from "../../src/modules/media/storage";
+import { rssProbe } from "../../src/modules/media/rss";
 import { cleanupDeletedPublicMedia, processMediaClaim } from "../../src/modules/media/worker";
 import { ensureControlledSuperadminMfa, verifiedFixtureSession } from "../fixtures/verified-session";
 
@@ -250,7 +251,8 @@ test("two clients writing the same version produce one success and one conflict,
   expect([stored.seoTitle === "Klient 1", stored.phone === "+48 700 000 001"].filter(Boolean)).toHaveLength(1);
   const stale = await write(orgA, "seo", { seoTitle: "Spóźniony" }, v);
   expect(stale.status).toBe(409);
-  expect((await write(orgA, "seo", { seoTitle: "Spóźniony" }, -1)).status).toBe(409);
+  expect((await write(orgA, "seo", { seoTitle: "Spóźniony" }, -1)).status).toBe(400);
+  expect((await write(orgA, "seo", { seoTitle: "Spóźniony" }, 1.5)).status).toBe(400);
   // retry with a reused audit key and a different change is a conflict, not a second mutation
   const key = randomUUID();
   const first = await platformPatch(platform("PATCH", settingsPath(orgA), { group: "seo", expectedVersion: v + 1,
@@ -441,3 +443,31 @@ test("real archive (#48) closes writes and public reads; restore without unlock 
   expect((await media_(publicHost[1], media.id)).status).toBe(404);
 });
 const media_ = (host: string, id: string) => media(host, id, "large");
+
+test("hidden control and bidirectional characters are refused in single- and multi-line fields and never served", async () => {
+  const v = await version(orgA);
+  for (const bad of ["a\u0085b", "a\u009Bb", "a\u202Eb", "a\u2066b", "a\u2029b", "a\u0000b"]) {
+    expect([bad, (await write(orgA, "seo", { seoTitle: bad }, v)).status]).toEqual([bad, 400]);
+    expect([bad, (await write(orgA, "legal", { privacyText: bad }, v)).status]).toEqual([bad, 400]);
+  }
+  expect((await write(orgA, "legal", { privacyText: "linia 1\r\n\tlinia 2" }, v)).status).toBe(200);
+  const dto = JSON.stringify(await (await pub(publicHost[0], publicSettings)).json());
+  expect(dto).not.toMatch(/[\u0085\u009B\u202A-\u202E\u2066-\u2069\u2029]/u);
+});
+
+test("company uploads inherit the fail-closed decoder: no RSS measurement gives 503, reservation stays, retry is accepted", async () => {
+  const bytes = await png("#0a0b0c");
+  const key = randomUUID();
+  const original = rssProbe.read;
+  rssProbe.read = async () => null;
+  try {
+    const refused = await upload(orgA, "brand", bytes, superSession.cookie, platformHost, key);
+    expect(refused.status).toBe(503);
+    expect(await refused.json()).toEqual({ code: "MEDIA_DECODER_UNAVAILABLE" });
+  } finally { rssProbe.read = original; }
+  expect((await db.imageUpload.findFirstOrThrow({ where: { organizationId: orgA, reservationKey: key, vehicleId: null } })).state)
+    .toBe("RESERVED");
+  expect((await upload(orgA, "brand", bytes, superSession.cookie, platformHost, key)).status).toBe(202);
+  await processAll(orgA);
+  expect(await db.publicMedia.count({ where: { organizationId: orgA, kind: "BRAND", status: "READY" } })).toBe(1);
+});

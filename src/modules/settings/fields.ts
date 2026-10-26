@@ -15,15 +15,17 @@ export const readOnlyFieldNames = new Set(["slug", "hostname", "host", "hosts", 
   "color", "colors", "font", "fonts", "icon", "icons", "css", "html", "script", "customCss", "customHtml",
   "customJs"]);
 
-const control = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u2028\u2029]/;
-const singleLineControl = /[\u0000-\u001F\u007F\u2028\u2029]/;
+// Cc (C0 and C1, including NEL and CSI), line/paragraph separators and bidirectional controls.
+const hidden = "\\u202A-\\u202E\\u2066-\\u2069\\u2028\\u2029";
+const singleLineControl = new RegExp(`[\\p{Cc}${hidden}]`, "u");
+const multilineControl = new RegExp(`(?![\\t\\n\\r])[\\p{Cc}${hidden}]`, "u");
 const markup = /<\s*\/?\s*[a-z!?][^>]*>?/i;
 
 function text(max: number, multiline = false) {
   return z.string().transform((value, ctx) => {
     const normalized = value.normalize("NFC").trim();
     if (normalized.length > max) ctx.addIssue({ code: "custom", message: "TOO_LONG" });
-    else if ((multiline ? control : singleLineControl).test(normalized))
+    else if ((multiline ? multilineControl : singleLineControl).test(normalized))
       ctx.addIssue({ code: "custom", message: "CONTROL_CHARACTERS" });
     else if (markup.test(normalized)) ctx.addIssue({ code: "custom", message: "MARKUP_NOT_ALLOWED" });
     return normalized === "" ? null : normalized;

@@ -47,7 +47,7 @@ function plain(row: Record<string, unknown> | null, key: string): string | numbe
 export async function updateCompanySettings(db: PrismaClient, input: PlatformOperation & {
   group: SettingsGroup; expectedVersion: number; fields: unknown;
 }) {
-  if (!versionOk(input.expectedVersion)) throw new SettingsConflictError(-1);
+  if (!versionOk(input.expectedVersion)) throw new SettingsValidationError({ expectedVersion: "INVALID" });
   const parsed = parseGroupFields(input.group, input.fields);
   if (!parsed.ok) throw parsed.status === 403 ? new Error("FORBIDDEN") : new SettingsValidationError(parsed.fieldErrors);
   const incoming = parsed.data;
@@ -107,7 +107,7 @@ async function liveMedia(tx: Prisma.TransactionClient, organizationId: string, m
 export async function updatePublicMedia(db: PrismaClient, input: PlatformOperation & {
   mediaId: string; expectedVersion: number; alt?: unknown; position?: unknown;
 }) {
-  if (!versionOk(input.expectedVersion)) throw new SettingsConflictError(-1);
+  if (!versionOk(input.expectedVersion)) throw new SettingsValidationError({ expectedVersion: "INVALID" });
   const errors: FieldErrors = {};
   let alt: string | null | undefined;
   if (input.alt !== undefined) {
@@ -144,7 +144,7 @@ export async function updatePublicMedia(db: PrismaClient, input: PlatformOperati
 export async function deletePublicMedia(db: PrismaClient, input: PlatformOperation & {
   mediaId: string; expectedVersion: number;
 }) {
-  if (!versionOk(input.expectedVersion)) throw new SettingsConflictError(-1);
+  if (!versionOk(input.expectedVersion)) throw new SettingsValidationError({ expectedVersion: "INVALID" });
   return db.$transaction(async (tx) => {
     await lockCompany(tx, input);
     const media = await liveMedia(tx, input.organizationId, input.mediaId);

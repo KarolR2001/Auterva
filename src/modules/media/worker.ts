@@ -56,8 +56,9 @@ export async function cleanupExpiredImageUploads(db: PrismaClient, storage: Medi
 
 /** Deleted company media loses its objects only after the row stopped being served (#30). */
 export async function cleanupDeletedPublicMedia(db: PrismaClient, storage: MediaStorage): Promise<number> {
-  const deleted = await db.publicMedia.findMany({ where: { status: "DELETED", storageCleanedAt: null },
-    orderBy: { createdAt: "asc" }, take: 100 });
+  // Random order so objects that can never be removed do not starve the rest of the batch.
+  const deleted = (await db.publicMedia.findMany({ where: { status: "DELETED", storageCleanedAt: null },
+    take: 300 })).sort(() => Math.random() - 0.5).slice(0, 100);
   let cleaned = 0;
   for (const media of deleted) {
     try {
