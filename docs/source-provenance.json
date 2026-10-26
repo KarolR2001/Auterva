@@ -75,6 +75,10 @@
       "sha256": "e820049a2665a8c38c2a3627d4e204abaec61e11b2424225c515b5377a425b87"
     },
     {
+      "path": "docs/contracts/fleet-crud-publication.md",
+      "sha256": "11c6eeb9a44b437ce3c50f57efdb91994d97c1c8c27e0def81fd3a48a89a2a36"
+    },
+    {
       "path": "docs/contracts/account-operations.md",
       "sha256": "624c57d69caf3d4c5567a2f39e291625555ff2f87365b26ced302eddfaf7fa26"
     }
