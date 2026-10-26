@@ -27,7 +27,7 @@ function validPassword(value: string): boolean {
   return value.length >= 12 && value.length <= 256;
 }
 
-async function revokeMfaChallenges(tx: Prisma.TransactionClient, userId: string) {
+export async function revokeMfaChallenges(tx: Prisma.TransactionClient, userId: string) {
   await tx.verification.deleteMany({ where: { identifier: { startsWith: "auterva:mfa:" },
     value: { contains: `"userId":"${userId}"` } } });
 }
