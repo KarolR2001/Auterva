@@ -23,6 +23,7 @@ test.afterAll(async ({ baseURL }) => {
   await db.rateLimitEvent.deleteMany({ where: { keyHash: ipKey } });
   const user = await db.user.findUnique({ where: { email }, select: { id: true } });
   if (user) await db.verification.deleteMany({ where: { value: { contains: `"userId":"${user.id}"` } } });
+  await db.auditLog.deleteMany({ where: { organizationId: company } });
   await db.user.deleteMany({ where: { email } });
   if (baseURL) await db.hostMapping.deleteMany({ where: { hostname: new URL(baseURL).hostname } });
   await db.organization.deleteMany({ where: { id: company } });

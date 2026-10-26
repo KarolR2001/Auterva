@@ -139,6 +139,7 @@ test("built auth uses socket ingress for MFA; spoofed headers cannot merge two c
     if (user) await db.rateLimitEvent.deleteMany({ where: { keyHash: { in: ["read", "write"].map((operation) =>
       createHmac("sha256", process.env.BETTER_AUTH_SECRET ?? "").update(`api:${operation}:${user.id}:${company}`).digest("hex")) } } });
     if (user) await db.verification.deleteMany({ where: { value: { contains: `"userId":"${user.id}"` } } });
+    await db.auditLog.deleteMany({ where: { organizationId: company } });
     await db.user.deleteMany({ where: { email } });
     await db.hostMapping.deleteMany({ where: { hostname } });
     await db.organization.delete({ where: { id: company } });
@@ -230,6 +231,7 @@ test("one built ingress isolates two real company hosts, platform and public hos
     expect((await onHost(port, hosts.a, "/api/auth/get-session/", { cookie: cookies[1] })).status).toBe(401);
   } finally {
     if (platform) await platform.dispose();
+    await db.auditLog.deleteMany({ where: { organizationId: { in: companies } } });
     await db.user.deleteMany({ where: { email: { in: emails } } });
     await db.hostMapping.deleteMany({ where: { hostname: { in: Object.values(hosts) } } });
     await db.organization.deleteMany({ where: { id: { in: companies } } });
