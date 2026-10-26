@@ -33,7 +33,8 @@ function normalizedInput(input: PreregisterInput) {
   const adminEmail = input.adminEmail.trim().toLowerCase();
   const adminBase = normalizeHostname(input.adminBaseDomain);
   const publicBase = normalizeHostname(input.publicBaseDomain);
-  if (!uuid.test(input.actorId) || !uuid.test(input.sessionId) || !uuid.test(input.idempotencyKey)
+  if (!input.actorId || input.actorId.length > 128 || !input.sessionId || input.sessionId.length > 128
+    || !uuid.test(input.idempotencyKey)
     || !uuid.test(input.requestId) || !name || name.length > 120 || !slugPattern.test(slug)
     || reservedSlugs.has(slug) || !emailPattern.test(adminEmail) || adminEmail.length > 254
     || !adminBase || !publicBase || adminBase === publicBase

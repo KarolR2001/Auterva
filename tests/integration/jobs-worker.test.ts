@@ -68,8 +68,11 @@ test("unchanged reminder slot is rebound to a new period version without a secon
 async function fixture(recipient = "qa@example.test") {
   await db.organization.upsert({ where: { id: organizationId }, create: { id: organizationId, slug: `jobs-${organizationId}` }, update: { archivedAt: null } });
   await db.hostMapping.upsert({ where: { hostname: host }, create: { organizationId, hostname: host, area: "COMPANY_ADMIN", status: "ACTIVE" }, update: { status: "ACTIVE" } });
+  await db.user.update({ where: { id: adminId }, data: { email: recipient,
+    emailVerified: false, twoFactorEnabled: false } });
   const token = randomUUID();
   const invitation = await db.invitation.create({ data: { organizationId, recipientEmail: recipient,
+    issuedHost: host,
     tokenHash: createHash("sha256").update(token).digest("hex"), issueKey: randomUUID(),
     issuedAt: now, expiresAt: new Date(now.getTime() + 7 * 24 * 60 * 60_000) } });
   const job = await db.$transaction((tx) => enqueueMail(tx, { kind: "MAIL_INVITATION", organizationId,

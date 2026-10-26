@@ -182,6 +182,24 @@
       "testPaths": ["tests/integration/password-reset.test.ts", "tests/integration/password-lock-order.test.ts", "tests/integration/password-change-limit.test.ts", "tests/integration/auth-login-neutral-work.test.ts", "tests/isolated/bootstrap-superadmin.test.ts"]
     },
     {
+      "issue": 20,
+      "scope": "Prerejestracja firmy, jednorazowe zaproszenie i przypięcie aktywnego hosta; aktywacja konta i trialu należy do #22.",
+      "relatedRequirementIds": ["C-F015", "C-F019", "C-F020", "C-F021", "C-F022", "C-F023", "C-F024", "C-F025", "C-F028", "C-F030", "C-F034", "C-F035", "C-F036", "C-N014", "C-N018"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261026150000_company_onboarding_issue_20/migration.sql",
+        "src/modules/organizations/onboarding.ts",
+        "src/modules/invitations/issue.ts",
+        "src/modules/jobs/outbox.ts",
+        "src/modules/jobs/processor.ts",
+        "src/app/api/platform/companies/route.ts",
+        "src/app/api/platform/companies/[organizationId]/invitations/route.ts",
+        "src/app/api/platform/companies/[organizationId]/invitations/[invitationId]/route.ts",
+        "src/app/api/auth/invitation/[token]/route.ts"
+      ],
+      "testPaths": ["tests/integration/company-preregistration.test.ts", "tests/integration/jobs-outbox.test.ts", "tests/integration/jobs-worker.test.ts", "tests/integration/jobs-process.test.ts", "tests/e2e/company-onboarding.spec.ts"]
+    },
+    {
       "issue": 108,
       "scope": "Retencja audytu 365 dni w kolejce operatora; eksport wyłącznie lokalnej fixture, docelowy storage w #58/#60.",
       "relatedRequirementIds": ["D-10", "C-N019", "C-N037", "C-N040", "FR-ADM-070"],
