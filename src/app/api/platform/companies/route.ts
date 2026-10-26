@@ -1,7 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { preregisterCompany } from "@/modules/organizations/onboarding";
+import { platformCompanyList } from "@/modules/organizations/read-http";
 import { accessFailure, onboardingFailure, onboardingRequestId, onboardingResponse,
   platformOnboardingActor, readOnboardingBody, uuid } from "@/modules/organizations/http";
+
+export const GET = platformCompanyList;
 
 export async function POST(request: Request) {
   const requestId = onboardingRequestId();

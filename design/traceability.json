@@ -274,6 +274,18 @@
       ]
     },
     {
+      "issue": 24,
+      "scope": "Odczyt listy i karty firm oraz dwa globalne KPI superadmina; ekran UI i tworzenie rozmowy są poza tym API.",
+      "relatedRequirementIds": ["C-F068", "C-F069", "C-F070", "C-F071", "C-F072", "C-F076", "C-F079", "C-R007"],
+      "codePaths": [
+        "src/modules/organizations/read.ts",
+        "src/modules/organizations/read-http.ts",
+        "src/app/api/platform/companies/route.ts",
+        "src/app/api/platform/companies/[organizationId]/route.ts"
+      ],
+      "testPaths": ["tests/integration/platform-companies-read.test.ts"]
+    },
+    {
       "issue": 33,
       "scope": "Serwerowe odczyty dostępności, aktywność minus blokady, publiczny i prywatny kalendarz oraz predykat filtra #28; mutacje należą do kolejnych issue.",
       "relatedRequirementIds": ["C-F094", "C-F102", "C-F105", "C-N028", "C-N029", "C-N030", "FR-PUB-023", "FR-PUB-024", "FR-PUB-025", "FR-PUB-026", "FR-ADM-010", "FR-ADM-021"],
