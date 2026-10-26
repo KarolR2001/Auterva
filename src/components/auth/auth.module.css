@@ -1,0 +1,80 @@
+.page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: var(--surface-canvas);
+  color: var(--text-primary);
+}
+.card {
+  width: min(100%, 440px);
+  padding: clamp(var(--space-5), 4vw, var(--space-10));
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-default);
+}
+.card h1 {
+  font-size: var(--font-size-24);
+  line-height: var(--line-height-32);
+  margin: var(--space-4) 0;
+}
+.card p {
+  line-height: 1.5;
+}
+.brand {
+  font-size: var(--font-size-20);
+  font-weight: 700;
+  margin: 0;
+}
+.context {
+  color: var(--text-secondary);
+  margin: var(--space-2) 0 0;
+}
+.form {
+  display: grid;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+}
+.form button {
+  max-width: 100%;
+}
+.secret {
+  display: block;
+  padding: var(--space-3);
+  margin-top: var(--space-2);
+  overflow-wrap: anywhere;
+  background: var(--surface-subtle);
+}
+.codes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+.codes li {
+  overflow-wrap: anywhere;
+  padding: var(--space-2);
+  background: var(--surface-subtle);
+}
+.help {
+  color: var(--text-secondary);
+  font-size: var(--font-size-14);
+  margin-top: var(--space-6);
+}
+.loginLink {
+  display: inline-block;
+  margin-top: var(--space-4);
+  color: var(--text-link);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.loginLink:focus-visible {
+  outline: 2px solid var(--border-strong);
+  outline-offset: 3px;
+}
+@media (max-width: 359px) {
+  .codes {
+    grid-template-columns: 1fr;
+  }
+}

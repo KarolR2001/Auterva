@@ -3,6 +3,26 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 15,
+      "scope": "Logowanie obu ról i obowiązkowe MFA na hostach właściwego obszaru.",
+      "relatedRequirementIds": ["C-F010", "C-F011", "C-F013", "C-F014", "C-F040", "C-F044", "FR-ADM-001", "FR-ADM-002", "FR-ADM-003", "FR-ADM-004", "FR-ADM-005", "FR-ADM-007"],
+      "referenceScreenIds": ["ADM-01", "PLT-08", "ACC-07"],
+      "components": [
+        { "itemId": "DS-AUT-001", "codePath": "src/components/auth/auth-flow.tsx" },
+        { "itemId": "DS-AUT-005", "codePath": "src/components/auth/auth-flow.tsx" }
+      ],
+      "codePaths": [
+        "src/components/auth/auth-page.tsx",
+        "src/components/auth/auth-destination.ts",
+        "src/components/auth/auth.module.css",
+        "src/app/login/page.tsx",
+        "src/app/mfa/page.tsx",
+        "src/app/admin/login/page.tsx",
+        "src/app/admin/mfa/page.tsx"
+      ],
+      "testPaths": ["tests/unit/auth-flow.test.tsx", "tests/unit/auth-page.test.tsx", "tests/unit/auth-destination.test.ts"]
+    },
+    {
       "issue": 11,
       "scope": "Podstawowe komponenty pierwszych ekranów na wspólnym scaffoldzie.",
       "relatedRequirementIds": [
