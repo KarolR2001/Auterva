@@ -169,6 +169,22 @@
         "tests/integration/auth-http.test.ts",
         "tests/isolated/bootstrap-superadmin.test.ts"
       ]
+    },
+    {
+      "issue": 16,
+      "scope": "Transakcyjny audyt append-only, bezpieczny odczyt A/B i obecni konsumenci auth/operatora; przyszłe mutacje domenowe wymagają własnej integracji.",
+      "relatedRequirementIds": ["C-F151", "C-N019", "C-N037", "C-N039", "C-N040", "FR-ADM-070", "FR-ADM-071"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261024101500_audit_event_key_issue_16/migration.sql",
+        "src/modules/audit/append.ts",
+        "src/modules/audit/actor.ts",
+        "src/modules/audit/read.ts",
+        "src/modules/audit/operator.ts",
+        "src/app/api/auth/[...all]/route.ts",
+        "scripts/recover-mfa.ts"
+      ],
+      "testPaths": ["tests/integration/audit-append.test.ts", "tests/integration/auth-http.test.ts", "tests/isolated/bootstrap-superadmin.test.ts"]
     }
   ],
   "sources": [
@@ -279,7 +295,7 @@
         "obsoleteBoardId": "1e066793-8858-8051-8008-cf43e509c242"
       }
     ],
-    "resolution": "OVR-14/15/17 zachowują wymagania, ale nie mają boardów o historycznych ID ani nowych boardów o tych nazwach. Istnieją ekran ADM-19 i źródła komponentowe DS-FBK-020, DS-PWA-001, DS-NAV-011; decyzja o osobnych overlayach i odbiór designu pozostają otwarte.",
+    "resolution": "Historyczne ID boardów OVR-14/15/17 pozostają nieobecne. OVR-17 mobile i desktop mają instancje DS-NAV-010 na stronie panelu firmy; desktop otwiera przycisk użytkownika w topbarze ADM-04. OVR-14/15 nie zostały rozwiązane w #94.",
     "emptyInteractionTargets": {
       "count": 52,
       "mobileScenarioPage": 28,
@@ -901,6 +917,14 @@
           "desktop": "a4abf4c9-2e1f-80fd-8008-afc9717d55df"
         }
       },
+      "navigationContract": {
+        "issue": 94,
+        "mobileMoreOverlayId": "89433e5c-4f5c-80ad-8008-d5edfc7920c7",
+        "mobileChatBoardId": "1e066793-8858-8051-8008-cf3e9d8915b2",
+        "desktopChatBoardId": "269b07ba-69e5-8066-8008-c84b98452b8c",
+        "vehicleCalendarPath": "/admin/pojazdy/[id]/kalendarz",
+        "fleetCalendarScope": "SHOULD; bez wejścia w MVP"
+      },
       "prototypeIds": [
         "A-01",
         "A-02"
@@ -930,6 +954,35 @@
           "mobile": "a4abf4c9-2e1f-80fd-8008-afc9717d55df",
           "desktop": "a4abf4c9-2e1f-80fd-8008-afc9717d55df"
         }
+      },
+      "navigationContract": {
+        "issue": 94,
+        "menuActionsFollowUpIssue": 107,
+        "vehicleCalendarPath": "/admin/pojazdy/[id]/kalendarz",
+        "referenceVehicleSlug": "mercedes-klasa-v",
+        "referenceActions": {
+          "mobile": {
+            "editHitId": "1e066793-8858-8051-8008-cf3e7dc97aab",
+            "calendarHitId": "89433e5c-4f5c-80ad-8008-d6707fe1bad2",
+            "moreHitId": "89433e5c-4f5c-80ad-8008-d6708003560b",
+            "calendarBoardId": "1e066793-8858-8051-8008-cf3e7dc9ddb2"
+          },
+          "desktop": {
+            "editHitId": "92bfc32e-2dd6-801a-8008-bf076f901154",
+            "calendarHitId": "89433e5c-4f5c-80ad-8008-d672ef95b971",
+            "moreHitId": "89433e5c-4f5c-80ad-8008-d672f7b7b77c",
+            "calendarBoardId": "a4abf4c9-2e1f-80fd-8008-aff31c0f597d"
+          }
+        },
+        "vehicleActionsOverlayId": "89433e5c-4f5c-80ad-8008-d67038a557ec",
+        "userMenuTriggers": {
+          "mobile": "1e066793-8858-8051-8008-cf3e7dc97ab1",
+          "desktop": "92bfc32e-2dd6-801a-8008-bf076fbebf9b"
+        },
+        "mvpMenuOptions": ["Ukryj", "Archiwizuj"],
+        "menuActionTargets": ["OVR-10", "OVR-11"],
+        "menuActionState": "Statyczny wzorzec; kontekst vehicleId i potwierdzenia przed #34/#35 domyka #107.",
+        "otherVehicleActions": "Osobne cele Edytuj i Kalendarz używają trasy danego pojazdu; statyczny ADM-09 przedstawia wyłącznie Mercedesa."
       },
       "assetIds": [
         "demo-v01-front-3q",
@@ -6190,7 +6243,7 @@
         "section": "6.2. Nawigacja"
       },
       "originalPriority": "UNSPECIFIED",
-      "variantsSpec": "4 główne + „Więcej”",
+      "variantsSpec": "Start, Pojazdy, Czat, Więcej",
       "statesSpec": "active, notification dot",
       "penpot": {
         "pageId": "a4abf4c9-2e1f-80fd-8008-afc9717972ba",
@@ -7433,9 +7486,16 @@
       "statesSpec": "Wywołanie: avatar / bottom nav",
       "penpot": {
         "targetPageId": "a4abf4c9-2e1f-80fd-8008-afc9717d55df",
-        "sourceComponentItemId": "DS-NAV-011",
+        "sourceComponentItemIds": ["DS-NAV-010"],
         "sourceComponentPageId": "a4abf4c9-2e1f-80fd-8008-afc9717972ba",
-        "componentId": "9425204d-c5c4-807f-8008-b597a3e742ba"
+        "mobileComponentId": "9425204d-c5c4-807f-8008-b5942c34f856",
+        "desktopComponentId": "9425204d-c5c4-807f-8008-b5942c39e014",
+        "desktopTriggerShapeId": "37f3ef1b-03c6-808f-8008-c344268aba06",
+        "desktopServiceStatusTargetId": "269b07ba-69e5-8066-8008-c84b97fb8699",
+        "boardIds": {
+          "mobile": "89433e5c-4f5c-80ad-8008-d5edfc7920c7",
+          "desktop": "89433e5c-4f5c-80ad-8008-d5f3a39ca891"
+        }
       },
       "prototypeIds": [
         "A-01",
@@ -7443,7 +7503,7 @@
         "A-03",
         "A-04"
       ],
-      "mappingState": "missing_overlay_boards"
+      "mappingState": "mobile_and_desktop_overlay_present"
     },
     {
       "id": "OVR-18",
