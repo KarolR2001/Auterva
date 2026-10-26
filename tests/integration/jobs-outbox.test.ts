@@ -1,8 +1,11 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { Client } from "pg";
 import { afterAll, expect, test } from "vitest";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { decryptMailPayload, enqueueMail } from "../../src/modules/jobs/outbox";
 import { FIXTURE } from "../../scripts/fixture-ids";
+import { seedLocalFixture } from "../../scripts/seed-local-fixture";
+import { ensureControlledSuperadminMfa } from "../fixtures/verified-session";
 import { claimNextJob } from "../../src/modules/jobs/queue";
 import { processClaimedJob } from "../../src/modules/jobs/processor";
 
@@ -11,6 +14,65 @@ const key = randomBytes(32);
 const organizationId = randomUUID();
 const adminId = randomUUID();
 const hostname = `${randomUUID()}.example.test`;
+
+async function preparedSuperadmin() {
+  // The shared seed can write credentials for all three users, so guard all
+  // three identities before allowing it to touch any of them.
+  const expected = [
+    { id: FIXTURE.users[0], email: "admin-a@example.test", role: "ADMIN_FIRMY",
+      organizationId: FIXTURE.organizations[0], slug: "fixture-a" },
+    { id: FIXTURE.users[1], email: "admin-b@example.test", role: "ADMIN_FIRMY",
+      organizationId: FIXTURE.organizations[1], slug: "fixture-b" },
+    { id: FIXTURE.users[2], email: "superadmin@example.test", role: "SUPERADMIN_AUTERVA",
+      organizationId: null, slug: null },
+  ] as const;
+  const users = await db.user.findMany({ where: { id: { in: [...FIXTURE.users] } },
+    select: { id: true, email: true, role: true, organizationId: true, emailVerified: true,
+      disabledAt: true, organization: { select: { slug: true, archivedAt: true,
+        firstAdminRegisteredAt: true } } } });
+  const byId = new Map(users.map((user) => [user.id, user]));
+  for (const identity of expected) {
+    const user = byId.get(identity.id);
+    if (!user || user.email !== identity.email || user.role !== identity.role
+      || user.organizationId !== identity.organizationId || !user.emailVerified || user.disabledAt
+      || (identity.slug === null ? user.organization !== null
+        : user.organization?.slug !== identity.slug || user.organization.archivedAt
+          || !user.organization.firstAdminRegisteredAt)) {
+      throw new Error("Fixture identity mismatch");
+    }
+  }
+  const superadmin = byId.get(FIXTURE.users[2])!;
+  await ensureControlledSuperadminMfa(db, superadmin.id);
+  if (await db.account.count({ where: { userId: superadmin.id,
+    providerId: "credential", password: { not: null } } }) !== 1) {
+    throw new Error("Fixture credential missing");
+  }
+  return superadmin;
+}
+
+test("foreign A or B identity refuses access setup without any fixture writes", async () => {
+  const raw = new Client({ connectionString: process.env.DATABASE_URL });
+  await raw.connect();
+  try {
+    for (const index of [0, 1]) {
+      await seedLocalFixture(raw, { ...process.env, AUTERVA_FIXTURE: "1" }, true);
+      const userId = FIXTURE.users[index];
+      const original = await db.user.findUniqueOrThrow({ where: { id: userId } });
+      await db.user.update({ where: { id: userId }, data: { email: `foreign-${randomUUID()}@example.test` } });
+      try {
+        await expect(preparedSuperadmin()).rejects.toThrow("Fixture identity mismatch");
+        expect(await db.account.count({ where: { userId: { in: [...FIXTURE.users] } } })).toBe(0);
+        expect(await db.twoFactor.count({ where: { userId: { in: [...FIXTURE.users] } } })).toBe(0);
+        expect(await db.session.count({ where: { userId: { in: [...FIXTURE.users] } } })).toBe(0);
+      } finally {
+        await db.user.update({ where: { id: userId }, data: { email: original.email } });
+      }
+    }
+  } finally {
+    await raw.end();
+  }
+});
+
 afterAll(async () => {
   await db.job.deleteMany({ where: { organizationId } });
   await db.invitation.deleteMany({ where: { organizationId } });
@@ -61,10 +123,9 @@ test("invitation and encrypted outbox commit together, dedupe preserves original
 });
 
 test("real superadmin reset uses PLATFORM; company A, B and platform scopes do not mix", async () => {
-  const superadmin = await db.user.findUniqueOrThrow({ where: { id: FIXTURE.users[2] } });
+  const superadmin = await preparedSuperadmin();
   const adminA = await db.user.findUniqueOrThrow({ where: { id: FIXTURE.users[0] } });
   const adminB = await db.user.findUniqueOrThrow({ where: { id: FIXTURE.users[1] } });
-  expect(superadmin).toMatchObject({ role: "SUPERADMIN_AUTERVA", organizationId: null });
   const platformHost = `${randomUUID()}.example.test`;
   const token = randomUUID();
   const verificationId = randomUUID();
