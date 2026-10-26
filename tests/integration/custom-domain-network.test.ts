@@ -33,7 +33,7 @@ async function serve(credentials: { key: string; cert: string }, status = 200, b
 }
 const checker = (port: number, options: { ca?: string; allowed?: (address: string) => boolean; resolver?: typeof dns.resolver } = {}) =>
   createNetworkDomainChecker({ dns: options.resolver ?? dns.resolver, isAddressAllowed: options.allowed ?? loopbackOnly,
-    tls: { port, timeoutMs: 2_500, ca: "ca" in options ? options.ca : pki.ca } });
+    tls: { port, timeoutMs: 2_500, ca: "ca" in options ? options.ca : pki.ca }, deadlineMs: 8_000 });
 const routing = (port: number, options?: Parameters<typeof checker>[1]) =>
   checker(port, options).checkRouting(host, { cnameTarget: target, proof });
 

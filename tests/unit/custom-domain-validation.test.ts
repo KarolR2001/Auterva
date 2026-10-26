@@ -29,7 +29,7 @@ describe("SSRF address policy", () => {
   test.each(["0.0.0.0", "10.1.2.3", "100.64.0.1", "127.0.0.1", "127.255.255.254", "169.254.169.254", "172.16.0.1",
     "172.31.255.255", "192.0.0.8", "192.168.1.1", "198.18.0.1", "224.0.0.1", "255.255.255.255", "::", "::1",
     "::ffff:127.0.0.1", "::ffff:10.0.0.1", "64:ff9b::7f00:1", "fc00::1", "fd12::1", "fe80::1", "ff02::1", "2001:db8::1",
-    "2002:c0a8:0101::1", "not-an-ip", "", "1.2.3"])("blocks %s", (address) => {
+    "2002:c0a8:0101::1", "::127.0.0.1", "::7f00:1", "::a00:1", "64:ff9b:1::a00:1", "64:ff9b:1::1", "fec0::1", "feff::1", "not-an-ip", "", "1.2.3"])("blocks %s", (address) => {
     expect(isPublicAddress(address)).toBe(false);
   });
   test.each(["93.184.216.34", "1.1.1.1", "8.8.8.8", "172.32.0.1", "2606:4700:4700::1111", "2a00:1450:4001::1"])("allows %s", (address) => {
@@ -45,8 +45,30 @@ describe("production checker", () => {
   test("never connects to a non-public answer even when ownership is proven", async () => {
     const dns = { resolveTxt: async () => [["x"]], resolveCname: async () => ["edge.auterva.example"],
       resolve4: async () => ["93.184.216.34", "127.0.0.1"], resolve6: async () => { throw Object.assign(new Error("none"), { code: "ENODATA" }); } };
-    const checker = createNetworkDomainChecker({ dns, isAddressAllowed: isPublicAddress, tls: { port: 1, timeoutMs: 200 } });
+    const checker = createNetworkDomainChecker({ dns, isAddressAllowed: isPublicAddress, tls: { port: 1, timeoutMs: 200 }, deadlineMs: 1_000 });
     expect(await checker.checkRouting("www.klient.pl", { cnameTarget: "edge.auterva.example",
       proof: routingProof("www.klient.pl", "t") })).toEqual({ ok: false, code: "ADDRESS_NOT_PUBLIC" });
+  });
+
+  test("an unresponsive resolver is cut off by the total deadline", async () => {
+    const never = () => new Promise<never>(() => undefined);
+    const dns = { resolveTxt: never, resolveCname: never, resolve4: never, resolve6: never };
+    const checker = createNetworkDomainChecker({ dns, isAddressAllowed: isPublicAddress,
+      tls: { port: 1, timeoutMs: 200 }, deadlineMs: 150 });
+    const started = Date.now();
+    expect(await checker.checkOwnership("www.klient.pl", "t")).toEqual({ ok: false, code: "DNS_ERROR" });
+    expect(await checker.checkRouting("www.klient.pl", { cnameTarget: "edge.auterva.example", proof: "p" }))
+      .toEqual({ ok: false, code: "TLS_UNREACHABLE" });
+    expect(Date.now() - started).toBeLessThan(2_000);
+  });
+
+  test("more than four addresses are refused instead of probed one by one", async () => {
+    const many = Array.from({ length: 5 }, (_, index) => `93.184.216.${index + 1}`);
+    const dns = { resolveTxt: async () => [["x"]], resolveCname: async () => ["edge.auterva.example"],
+      resolve4: async () => many, resolve6: async () => { throw Object.assign(new Error("none"), { code: "ENODATA" }); } };
+    const checker = createNetworkDomainChecker({ dns, isAddressAllowed: isPublicAddress,
+      tls: { port: 1, timeoutMs: 200 }, deadlineMs: 1_000 });
+    expect(await checker.checkRouting("www.klient.pl", { cnameTarget: "edge.auterva.example", proof: "p" }))
+      .toEqual({ ok: false, code: "DNS_ERROR" });
   });
 });

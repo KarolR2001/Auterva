@@ -25,6 +25,13 @@ export type DomainView = {
 
 const withHost = { include: { hostMapping: { select: { id: true, hostname: true } } } } as const;
 
+/** Monotonic per company: a deleted domain's version is never reused, so a stale card cannot hit a new domain. */
+async function nextDomainVersion(tx: Prisma.TransactionClient, organizationId: string): Promise<number> {
+  const row = await tx.organization.update({ where: { id: organizationId },
+    data: { domainVersion: { increment: 1 } }, select: { domainVersion: true } });
+  return row.domainVersion;
+}
+
 function validVersion(value: number): boolean {
   return Number.isSafeInteger(value) && value >= 0 && value < 2_147_483_647;
 }
@@ -80,15 +87,16 @@ async function clearAliasTarget(tx: Prisma.TransactionClient, organizationId: st
 }
 
 async function auditChange(tx: Prisma.TransactionClient, input: Operation, hostMappingId: string,
-  before: string | null, after: string | null) {
+  before: string | null, after: string | null, hostnameChanged: boolean) {
   await appendAudit(tx, { actorId: input.actorId, sessionId: input.sessionId,
     organizationId: input.organizationId, action: "DOMAIN_CHANGED", entityId: hostMappingId,
     eventKey: input.eventKey, requestId: input.requestId,
-    changes: { changedFields: ["hostname", "status"],
+    changes: { changedFields: hostnameChanged ? ["hostname", "status"] : ["status"],
       ...(before ? { before: { status: before } } : {}), ...(after ? { after: { status: after } } : {}) } });
 }
 
 async function removeExisting(tx: Prisma.TransactionClient, organizationId: string, existing: DomainRow) {
+  await nextDomainVersion(tx, organizationId);
   await clearAliasTarget(tx, organizationId, existing.hostMapping.hostname);
   await tx.customDomain.delete({ where: { id: existing.id } });
   await tx.hostMapping.delete({ where: { id: existing.hostMappingId } });
@@ -118,8 +126,8 @@ export async function registerDomain(db: PrismaClient, input: Operation & {
       throw error;
     }
     await tx.customDomain.create({ data: { organizationId: input.organizationId, hostMappingId,
-      verificationToken: newVerificationToken() } });
-    await auditChange(tx, input, hostMappingId, existing?.status ?? null, "PENDING_OWNERSHIP");
+      verificationToken: newVerificationToken(), version: await nextDomainVersion(tx, input.organizationId) } });
+    await auditChange(tx, input, hostMappingId, existing?.status ?? null, "PENDING_OWNERSHIP", true);
     return currentView(tx, input.organizationId, input.config);
   });
 }
@@ -133,7 +141,7 @@ export async function removeDomain(db: PrismaClient, input: Operation & { expect
     if (!existing) throw new Error("DOMAIN_NOT_FOUND");
     if (existing.version !== input.expectedVersion) throw new Error("DOMAIN_VERSION_CONFLICT");
     await removeExisting(tx, input.organizationId, existing);
-    await auditChange(tx, input, existing.hostMappingId, existing.status, null);
+    await auditChange(tx, input, existing.hostMappingId, existing.status, null, true);
     return currentView(tx, input.organizationId, input.config);
   });
 }
@@ -168,6 +176,7 @@ async function applyEvaluation(tx: Prisma.TransactionClient, input: Operation, s
     tlsVerifiedAt: ready ? (current.tlsVerifiedAt ?? now) : null,
   };
   const statusChanged = nextStatus !== current.status;
+  const version = statusChanged ? await nextDomainVersion(tx, input.organizationId) : current.version;
   if (current.status === "ACTIVE" && nextStatus !== "ACTIVE") {
     await tx.hostMapping.update({ where: { id: current.hostMappingId }, data: { status: "PENDING" } });
     await clearAliasTarget(tx, input.organizationId, current.hostMapping.hostname);
@@ -180,9 +189,9 @@ async function applyEvaluation(tx: Prisma.TransactionClient, input: Operation, s
   const updated = await tx.customDomain.updateMany({ where: { id: current.id, version: current.version },
     data: { status: nextStatus, ...proofs, checkedAt: now, lastFailureCode: evaluation.failureCode,
       activatedAt: nextStatus === "ACTIVE" ? (current.activatedAt ?? now) : null,
-      ...(statusChanged ? { version: { increment: 1 } } : {}) } });
+      version } });
   if (updated.count !== 1) throw new Error("DOMAIN_VERSION_CONFLICT");
-  if (statusChanged) await auditChange(tx, input, current.hostMappingId, current.status, nextStatus);
+  if (statusChanged) await auditChange(tx, input, current.hostMappingId, current.status, nextStatus, false);
   const row = await tx.customDomain.findUniqueOrThrow({ where: { id: current.id }, ...withHost });
   return { changed: statusChanged, row };
 }

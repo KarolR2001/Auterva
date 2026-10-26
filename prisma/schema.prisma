@@ -16,6 +16,7 @@ model Organization {
   publicUnlockRequired   Boolean            @default(false)
   publicRequiresPaid     Boolean            @default(false)
   version                Int                @default(0)
+  domainVersion          Int                @default(0)
   vehicles               Vehicle[]
   messages               ChatMessage[]
   users                  User[]

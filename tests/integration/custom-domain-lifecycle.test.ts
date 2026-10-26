@@ -31,6 +31,7 @@ let createdPlatformUser = false;
 let superCookie: Awaited<ReturnType<typeof verifiedFixtureSession>>;
 let adminCookie: Awaited<ReturnType<typeof verifiedFixtureSession>>;
 const hostFor = (label: string) => `www.${label}-${suffix}.klient.example.test`;
+const ver = async (organizationId: string) => (await readDomain(db, organizationId, config))!.domain!.version;
 const actor = () => ({ actorId: platformUserId, sessionId: platformSession });
 const op = (organizationId: string) => ({ ...actor(), organizationId, eventKey: randomUUID(), requestId: randomUUID() });
 
@@ -121,7 +122,7 @@ describe("registration and takeover", () => {
   test("typing a domain is not ready: host stays pending and invisible, alias keeps serving", async () => {
     const hostname = hostFor("pending");
     const state = await registerDomain(db, { ...op(orgA), hostname, expectedVersion: null, config });
-    expect(state.domain).toMatchObject({ hostname, status: "PENDING_OWNERSHIP", version: 0, lastFailureCode: null,
+    expect(state.domain).toMatchObject({ hostname, status: "PENDING_OWNERSHIP", version: expect.any(Number), lastFailureCode: null,
       instruction: { ownership: { type: "TXT", name: `_auterva-challenge.${hostname}` },
         routing: { type: "CNAME", name: hostname, value: "edge.auterva.test" } } });
     expect(state.domain!.instruction.ownership.value).toMatch(/^auterva-verification=[A-Za-z0-9_-]{43}$/);
@@ -138,7 +139,7 @@ describe("registration and takeover", () => {
     expect(probe.headers.get("cache-control")).toBe("no-store");
     const stranger = await probeRoute(new Request(`https://x-${hostname}/.well-known/auterva-domain-check/`, { headers: { host: `x-${hostname}` } }));
     expect(stranger.status).toBe(404);
-    await removeDomain(db, { ...op(orgA), expectedVersion: 0, config });
+    await removeDomain(db, { ...op(orgA), expectedVersion: await ver(orgA), config });
   });
 
   test("a host of another company, in any area, kind or state, cannot be claimed; the owner is not disclosed", async () => {
@@ -157,7 +158,7 @@ describe("registration and takeover", () => {
     // An existing domain cannot be overwritten without its version, and one company has at most one domain.
     await expect(registerDomain(db, { ...op(orgA), hostname: hostFor("second"), expectedVersion: null, config }))
       .rejects.toThrow("DOMAIN_VERSION_CONFLICT");
-    await removeDomain(db, { ...op(orgA), expectedVersion: 0, config });
+    await removeDomain(db, { ...op(orgA), expectedVersion: await ver(orgA), config });
   });
 
   test("two companies racing for the same new host: exactly one wins, the other is refused", async () => {
@@ -168,7 +169,7 @@ describe("registration and takeover", () => {
     const lost = results.find((result) => result.status === "rejected") as PromiseRejectedResult;
     expect(lost.reason.message).toBe("DOMAIN_TAKEN");
     const winner = (await db.hostMapping.findUniqueOrThrow({ where: { hostname } })).organizationId!;
-    await removeDomain(db, { ...op(winner), expectedVersion: 0, config });
+    await removeDomain(db, { ...op(winner), expectedVersion: await ver(winner), config });
   });
 
   test("after removal another company needs its own proof; the previous token proves nothing", async () => {
@@ -176,7 +177,7 @@ describe("registration and takeover", () => {
     const { checker } = scripted();
     await registerDomain(db, { ...op(orgA), hostname, expectedVersion: null, config });
     const oldToken = (await db.customDomain.findUniqueOrThrow({ where: { organizationId: orgA } })).verificationToken;
-    await removeDomain(db, { ...op(orgA), expectedVersion: 0, config });
+    await removeDomain(db, { ...op(orgA), expectedVersion: await ver(orgA), config });
     await registerDomain(db, { ...op(orgB), hostname, expectedVersion: null, config });
     const fresh = await db.customDomain.findUniqueOrThrow({ where: { organizationId: orgB } });
     expect(fresh.verificationToken).not.toBe(oldToken);
@@ -186,7 +187,7 @@ describe("registration and takeover", () => {
     const state = await verifyDomain(db, strict, { ...op(orgB), config });
     expect(seen).toEqual([fresh.verificationToken]);
     expect(state.domain).toMatchObject({ status: "PENDING_OWNERSHIP", lastFailureCode: "OWNERSHIP_TXT_MISMATCH" });
-    await removeDomain(db, { ...op(orgB), expectedVersion: 0, config });
+    await removeDomain(db, { ...op(orgB), expectedVersion: await ver(orgB), config });
   });
 
   test("only the platform actor may manage domains; a company admin is refused for A and for B", async () => {
@@ -208,14 +209,15 @@ describe("verification, activation and redirect", () => {
     await registerDomain(db, { ...op(orgA), hostname, expectedVersion: null, config });
     script.ownership = false;
     let state = await verifyDomain(db, checker, { ...op(orgA), config });
-    expect(state.domain).toMatchObject({ status: "PENDING_OWNERSHIP", lastFailureCode: "OWNERSHIP_TXT_MISMATCH", version: 0 });
+    expect(state.domain).toMatchObject({ status: "PENDING_OWNERSHIP", lastFailureCode: "OWNERSHIP_TXT_MISMATCH", version: expect.any(Number) });
+    const initial = state.domain!.version;
     // Without ownership proof the host is never probed.
     expect(script.calls.filter((call) => call.startsWith("route:"))).toHaveLength(0);
     script.ownership = true;
     script.routing = { ok: false, code: "TLS_INVALID" };
     state = await verifyDomain(db, checker, { ...op(orgA), config });
-    expect(state.domain).toMatchObject({ status: "PENDING_ROUTING", lastFailureCode: "TLS_INVALID", version: 1 });
-    await expect(activateDomain(db, checker, { ...op(orgA), expectedVersion: 1, config })).rejects.toThrow("DOMAIN_NOT_READY");
+    expect(state.domain).toMatchObject({ status: "PENDING_ROUTING", lastFailureCode: "TLS_INVALID", version: initial + 1 });
+    await expect(activateDomain(db, checker, { ...op(orgA), expectedVersion: state.domain!.version, config })).rejects.toThrow("DOMAIN_NOT_READY");
     expect(await db.hostMapping.findUniqueOrThrow({ where: { hostname } })).toMatchObject({ status: "PENDING", canonicalTarget: null });
     expect((await db.hostMapping.findUniqueOrThrow({ where: { hostname: alias.a } })).canonicalTarget).toBeNull();
     expect((await proxy(request(alias.a, "/pojazdy/"))).status).toBe(200);
@@ -333,9 +335,9 @@ describe("verification, activation and redirect", () => {
     const key = randomUUID();
     await removeDomain(db, { ...op(orgA), eventKey: key, expectedVersion: (await readDomain(db, orgA, config))!.domain!.version, config });
     await registerDomain(db, { ...op(orgA), hostname: hostFor("replay"), expectedVersion: null, config });
-    await expect(removeDomain(db, { ...op(orgA), eventKey: key, expectedVersion: 0, config })).rejects.toThrow();
+    await expect(removeDomain(db, { ...op(orgA), eventKey: key, expectedVersion: await ver(orgA), config })).rejects.toThrow();
     expect((await readDomain(db, orgA, config))!.domain).toMatchObject({ status: "PENDING_OWNERSHIP" });
-    await removeDomain(db, { ...op(orgA), expectedVersion: 0, config });
+    await removeDomain(db, { ...op(orgA), expectedVersion: await ver(orgA), config });
   });
 });
 
@@ -343,16 +345,17 @@ describe("concurrency", () => {
   test("a stale network result cannot be applied to a domain that was replaced meanwhile", async () => {
     const oldHost = hostFor("stale-old");
     await registerDomain(db, { ...op(orgA), hostname: oldHost, expectedVersion: null, config });
+    const oldVersion = await ver(orgA);
     const { checker, script } = scripted();
     let release!: () => void;
     script.gate = new Promise<void>((resolve) => { release = resolve; });
     const pending = verifyDomain(db, checker, { ...op(orgA), config });
     await new Promise((resolve) => setTimeout(resolve, 100));
-    await registerDomain(db, { ...op(orgA), hostname: hostFor("stale-new"), expectedVersion: 0, config });
+    await registerDomain(db, { ...op(orgA), hostname: hostFor("stale-new"), expectedVersion: oldVersion, config });
     release();
     await expect(pending).rejects.toThrow("DOMAIN_VERSION_CONFLICT");
     expect((await readDomain(db, orgA, config))!.domain).toMatchObject({ hostname: hostFor("stale-new"), status: "PENDING_OWNERSHIP", lastFailureCode: null });
-    await removeDomain(db, { ...op(orgA), expectedVersion: 0, config });
+    await removeDomain(db, { ...op(orgA), expectedVersion: await ver(orgA), config });
   });
 
   test("two parallel activations produce one active domain and one conflict", async () => {
@@ -368,6 +371,21 @@ describe("concurrency", () => {
     // Removing the domain drops the redirect in the same transaction.
     expect((await db.hostMapping.findUniqueOrThrow({ where: { hostname: alias.a } })).canonicalTarget).toBeNull();
     expect(await db.hostMapping.count({ where: { hostname } })).toBe(0);
+  });
+});
+
+describe("version monotonicity", () => {
+  test("a stale card cannot remove or replace a domain entered after a delete and re-create", async () => {
+    await registerDomain(db, { ...op(orgA), hostname: hostFor("aba-1"), expectedVersion: null, config });
+    const staleVersion = await ver(orgA);
+    await removeDomain(db, { ...op(orgA), expectedVersion: staleVersion, config });
+    await registerDomain(db, { ...op(orgA), hostname: hostFor("aba-2"), expectedVersion: null, config });
+    expect(await ver(orgA)).toBeGreaterThan(staleVersion);
+    await expect(removeDomain(db, { ...op(orgA), expectedVersion: staleVersion, config })).rejects.toThrow("DOMAIN_VERSION_CONFLICT");
+    await expect(registerDomain(db, { ...op(orgA), hostname: hostFor("aba-3"), expectedVersion: staleVersion, config }))
+      .rejects.toThrow("DOMAIN_VERSION_CONFLICT");
+    expect((await readDomain(db, orgA, config))!.domain!.hostname).toBe(hostFor("aba-2"));
+    await removeDomain(db, { ...op(orgA), expectedVersion: await ver(orgA), config });
   });
 });
 
@@ -416,15 +434,16 @@ describe("platform HTTP transport", () => {
     expect(body.domain.instruction.ownership.value).toMatch(/^auterva-verification=/);
     script.routing = { ok: true };
     const verified = await (await call("verify", orgA, { body: { eventKey: randomUUID() } })).json();
-    expect(verified.domain).toMatchObject({ status: "READY", version: 1 });
-    const stale = await call("activate", orgA, { body: { expectedVersion: 0, eventKey: randomUUID() } });
+    expect(verified.domain).toMatchObject({ status: "READY", version: body.domain.version + 1 });
+    const stale = await call("activate", orgA, { body: { expectedVersion: body.domain.version, eventKey: randomUUID() } });
     expect([stale.status, (await stale.json()).code]).toEqual([409, "DOMAIN_VERSION_CONFLICT"]);
-    const active = await call("activate", orgA, { body: { expectedVersion: 1, eventKey: randomUUID() } });
+    const active = await call("activate", orgA, { body: { expectedVersion: verified.domain.version, eventKey: randomUUID() } });
     expect(active.status).toBe(200);
-    expect((await active.json()).domain.status).toBe("ACTIVE");
+    const activeBody = await active.json();
+    expect(activeBody.domain.status).toBe("ACTIVE");
     const taken = await call("put", orgB, { body: { hostname, expectedVersion: null, eventKey: randomUUID() } });
     expect([taken.status, (await taken.json()).code]).toEqual([409, "DOMAIN_TAKEN"]);
-    const gone = await call("remove", orgA, { body: { expectedVersion: 2, eventKey: randomUUID() } });
+    const gone = await call("remove", orgA, { body: { expectedVersion: activeBody.domain.version, eventKey: randomUUID() } });
     expect(gone.status).toBe(200);
   });
 
@@ -474,7 +493,7 @@ describe("real DNS and real TLS through the application", () => {
     const good = await startHttpsServer(pki.issue(hostname), app);
     const wrong = await startHttpsServer(pki.issue(`other.${hostname}`), app);
     const checkerFor = (port: number) => createNetworkDomainChecker({ dns: dns.resolver,
-      isAddressAllowed: (address) => address === "127.0.0.1", tls: { port, timeoutMs: 3_000, ca: pki.ca } });
+      isAddressAllowed: (address) => address === "127.0.0.1", tls: { port, timeoutMs: 3_000, ca: pki.ca }, deadlineMs: 10_000 });
     try {
       const ready = await verifyDomain(db, checkerFor(good.port), { ...op(orgA), config });
       expect(ready.domain).toMatchObject({ status: "READY", lastFailureCode: null });
@@ -489,7 +508,7 @@ describe("real DNS and real TLS through the application", () => {
       await registerDomain(db, { ...op(orgB), hostname, expectedVersion: null, config });
       expect((await verifyDomain(db, checkerFor(good.port), { ...op(orgB), config })).domain)
         .toMatchObject({ status: "PENDING_OWNERSHIP", lastFailureCode: "OWNERSHIP_TXT_MISMATCH" });
-      await removeDomain(db, { ...op(orgB), expectedVersion: 0, config });
+      await removeDomain(db, { ...op(orgB), expectedVersion: await ver(orgB), config });
     } finally { await good.close(); await wrong.close(); dns.close(); pki.dispose(); }
   });
 });

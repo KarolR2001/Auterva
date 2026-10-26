@@ -12,10 +12,10 @@ Tylko `SUPERADMIN_AUTERVA` na hoście `PLATFORM` (własna tożsamość, MFA, zgo
 
 | Host | `kind` | `area` | `status` | `canonicalTarget` |
 |---|---|---|---|---|
-| Alias `{slug}.{publicDomainAutervy}` | `PROVIDER` | `COMPANY_PUBLIC` | `PENDING`/`ACTIVE` (aktywuje zaproszenie #22) | `null`, po aktywacji domeny własnej hostname domeny własnej |
+| Alias `{slug}.{publicDomainAutervy}` | `PROVIDER` | `COMPANY_PUBLIC` | `PENDING` po utworzeniu firmy (#20); `ACTIVE` ustawia operator w osobnej procedurze po potwierdzeniu DNS/TLS (kontrakt #20); aktywacja zaproszenia #22 tylko czyta aktywny host | `null`, po aktywacji domeny własnej hostname domeny własnej |
 | Domena własna | `CUSTOM` | `COMPANY_PUBLIC` | `PENDING` do aktywacji, potem `ACTIVE` | zawsze `null` |
 
-`CustomDomain` (1:1 z hostem `CUSTOM`, najwyżej jedna na firmę, złożone FK pilnuje tej samej firmy) trzyma stan cyklu, losowy token własności, znaczniki dowodów, ostatni kod niepowodzenia i `version`. DB chroni: `kind` ∈ `PROVIDER|CUSTOM`, `CUSTOM` tylko dla `COMPANY_PUBLIC`, `canonicalTarget` tylko dla aliasu `PROVIDER`, stan ∈ zbiór poniżej, `ACTIVE` wymaga kompletu dowodów i `activatedAt`.
+`CustomDomain` (1:1 z hostem `CUSTOM`, najwyżej jedna na firmę, złożone FK pilnuje tej samej firmy) trzyma stan cyklu, losowy token własności, znaczniki dowodów, ostatni kod niepowodzenia i `version`. Wersja pochodzi z monotonicznego licznika firmy `Organization.domainVersion` (rośnie przy wpisaniu, zmianie stanu i usunięciu), więc po usunięciu i ponownym wpisaniu nie wraca do dawnej wartości: nieaktualna karta dostaje `409 DOMAIN_VERSION_CONFLICT` zamiast usunąć lub zastąpić nową domenę. DB chroni: `kind` ∈ `PROVIDER|CUSTOM`, `CUSTOM` tylko dla `COMPANY_PUBLIC`, `canonicalTarget` tylko dla aliasu `PROVIDER`, stan ∈ zbiór poniżej, `ACTIVE` wymaga kompletu dowodów i `activatedAt`.
 
 ### Stany `CustomDomain.status`
 
@@ -47,9 +47,10 @@ Kolejność jest wiążąca: sprawdzenie własności jest warunkiem **jakiejkolw
 
 ### Bezpieczeństwo sprawdzaczy (SSRF)
 
-* Rozwiązane adresy A/AAAA muszą być publiczne. Zablokowane: `0.0.0.0/8`, `10/8`, `100.64/10`, `127/8`, `169.254/16`, `172.16/12`, `192.0.0/24`, `192.0.2/24`, `192.88.99/24`, `192.168/16`, `198.18/15`, `198.51.100/24`, `203.0.113/24`, `224/4`, `240/4`, IPv6 `::`, `::1`, `::ffff:0:0/96`, `64:ff9b::/96`, `100::/64`, `2001::/23`, `2001:db8::/32`, `2002::/16`, `fc00::/7`, `fe80::/10`, `ff00::/8`. Pusty wynik albo choćby jeden adres niepubliczny odrzuca całość (`ADDRESS_NOT_PUBLIC`).
+* Rozwiązane adresy A/AAAA muszą być publiczne. Zablokowane: `0.0.0.0/8`, `10/8`, `100.64/10`, `127/8`, `169.254/16`, `172.16/12`, `192.0.0/24`, `192.0.2/24`, `192.88.99/24`, `192.168/16`, `198.18/15`, `198.51.100/24`, `203.0.113/24`, `224/4`, `240/4`, IPv6 `::/96` (m.in. `::`, `::1` i zgodne z IPv4), `64:ff9b::/96`, `64:ff9b:1::/48`, `100::/64`, `2001::/23`, `2001:db8::/32`, `2002::/16`, `fc00::/7`, `fe80::/10`, `fec0::/10`, `ff00::/8`. Adresy IPv4-mapped (`::ffff:a.b.c.d`) są oceniane według reguł IPv4, a nie blokowane zbiorczo. Pusty wynik albo choćby jeden adres niepubliczny odrzuca całość (`ADDRESS_NOT_PUBLIC`).
 * Połączenie TLS idzie **na zwalidowany adres** (przypięty, bez ponownego rozwiązywania nazwy — brak DNS rebinding) z SNI i nagłówkiem `Host` równym hostowi. Bez śledzenia przekierowań, limit czasu 5 s, limit odpowiedzi 1 KiB, tylko `GET`, bez nagłówków uwierzytelniających. Weryfikacja certyfikatu jest zawsze włączona (łańcuch, termin, nazwa).
-* Polityka adresów jest parametrem konstruktora sprawdzacza. Fabryka produkcyjna `createProductionDomainChecker()` nie przyjmuje polityki, zaufanych CA ani portu i nie czyta ich ze zmiennych środowiska; testowe zaufanie certyfikatów i adresy loopback istnieją wyłącznie w konstruktorze używanym przez testy z jawnie wstrzykniętym resolverem. Test jednostkowy pilnuje, że fabryka produkcyjna odrzuca loopback.
+* Limity czasu: resolver DNS ma `timeout` 2 s i 2 próby, sprawdzane jest najwyżej 4 adresów (więcej daje `DNS_ERROR`), a każde `checkOwnership` i `checkRouting` ma łączny deadline 12 s (przekroczenie: `DNS_ERROR` dla własności, `TLS_UNREACHABLE` dla routingu). Jedno żądanie `verify`/`activate` trwa więc najwyżej ok. 24 s i nie wisi dłużej przy nieodpowiadającym resolverze.
+* Polityka adresów jest parametrem konstruktora sprawdzacza. Fabryka produkcyjna `createProductionDomainChecker()` nie przyjmuje polityki, zaufanych CA ani portu i nie czyta ich ze zmiennych środowiska; testowe zaufanie certyfikatów i adresy loopback istnieją wyłącznie w konstruktorze używanym przez testy z jawnie wstrzykniętym resolverem. Test jednostkowy pilnuje, że fabryka nie ma parametrów, a sprawdzacz z polityką `isPublicAddress` odrzuca loopback.
 
 ### Kody niepowodzenia (`lastFailureCode`, tylko dla superadmina)
 
@@ -67,7 +68,7 @@ Wszystkie ścieżki z końcowym `/`, `Cache-Control: no-store`, `X-Request-Id`; 
 | `POST …/domains/verify/` | `{ eventKey }` | stan po sprawdzeniu |
 | `POST …/domains/activate/` | `{ expectedVersion, eventKey }` | stan `ACTIVE` |
 
-Odmowy: `400 INVALID_INPUT|INVALID_ORGANIZATION_ID|INVALID_HOSTNAME`, `403 FORBIDDEN`, `404 NOT_FOUND`, `409 DOMAIN_TAKEN|DOMAIN_VERSION_CONFLICT|EVENT_KEY_CONFLICT`, `422 DOMAIN_NOT_READY|DOMAIN_CONFIG_MISSING`, `429 RATE_LIMITED`, `500 INTERNAL_ERROR`. `verify` nie wymaga wersji klienta, ale wynik sprawdzenia jest stosowany tylko wtedy, gdy host, token i wersja domeny są niezmienione od początku sprawdzenia (inaczej `409 DOMAIN_VERSION_CONFLICT`); sieć jest używana poza transakcją DB, zapis pod blokadą wiersza organizacji. `activate` powtarza pełne sprawdzenie bezpośrednio przed zapisem; niepełne daje `422 DOMAIN_NOT_READY` i zapisuje cofnięcie stanu. Każda zmiana stanu zapisuje audyt `DOMAIN_CHANGED` (pola `status`; hostname tylko jako nazwa zmienionego pola, bez wartości, jak wymaga allowlista audytu).
+Odmowy: `400 INVALID_INPUT|INVALID_ORGANIZATION_ID|INVALID_HOSTNAME`, `403 FORBIDDEN`, `404 NOT_FOUND`, `409 DOMAIN_TAKEN|DOMAIN_VERSION_CONFLICT|EVENT_KEY_CONFLICT`, `422 DOMAIN_NOT_READY` (brak celu CNAME to `lastFailureCode=DOMAIN_CONFIG_MISSING` w stanie, nie osobny błąd HTTP), `429 RATE_LIMITED`, `500 INTERNAL_ERROR`. `verify` nie wymaga wersji klienta, ale wynik sprawdzenia jest stosowany tylko wtedy, gdy host, token i wersja domeny są niezmienione od początku sprawdzenia (inaczej `409 DOMAIN_VERSION_CONFLICT`); sieć jest używana poza transakcją DB, zapis pod blokadą wiersza organizacji. `activate` powtarza pełne sprawdzenie bezpośrednio przed zapisem; niepełne daje `422 DOMAIN_NOT_READY` i zapisuje cofnięcie stanu. Każda zmiana stanu zapisuje audyt `DOMAIN_CHANGED` (`changedFields` odpowiada faktycznej zmianie: `status` przy zmianie stanu, `hostname` i `status` przy wpisaniu, zamianie i usunięciu; hostname tylko jako nazwa pola, bez wartości, jak wymaga allowlista audytu).
 
 ## Przekierowanie aliasu
 
@@ -80,6 +81,12 @@ Proxy po dopasowaniu aktywnego hosta i dozwolonej trasy obszaru, dla hosta `COMP
 Przy niewidocznej ofercie (koniec okresu, archiwum, blokada po przywróceniu, brak pierwszej rejestracji) lub niespójnym celu odpowiedź to neutralne `404` bez `Location`; alias z ustawionym celem nigdy nie serwuje treści sam. Tymczasowy `307` + `no-store` jest świadomy: stały `308` mógłby zostać zapamiętany przez przeglądarkę i prowadzić do wyłączonej domeny po cofnięciu aktywacji. Domena własna wywołuje tę samą bramę w swoich handlerach. Host panelu (`COMPANY_ADMIN`) i nieznany host nigdy nie są publicznym fallbackiem: `/` na panelu i na nieznanym hoście kończy się neutralnym `404`.
 
 Odbiór okresu (kryterium integracji z #21): rozgrzać alias i domenę własną, skrócić okres (`paidThrough`, także skrócenie opłaty przy trialu z `publicRequiresPaid`), sprawdzić ponownie oba adresy z tą samą ścieżką i query — oba `404`, żaden bez ujawnienia oferty ani `Location`.
+
+## Znane ryzyka (do #10/#58)
+
+* Dowód routingu to SHA-256 z publicznego tokenu, nie HMAC z sekretem serwera. Właściciel DNS kontrolujący zarazem TXT i cel może wystawić własny serwer HTTPS z takim skrótem; ochroną przed przejęciem cudzego hosta pozostaje dowód własności TXT, a HMAC z sekretem serwera i weryfikacja wyłącznie przez nasz brzeg to wzmocnienie do wdrożenia infrastruktury.
+* Brak cyklicznej kontroli domen w workerze; stan `ACTIVE` jest ponownie sprawdzany tylko przy `verify` superadmina.
+* Brak aplikacyjnej ścieżki aktywacji aliasu `PROVIDER` (robi to operator, #20): do triage jako osobne zadanie.
 
 ## Co jest poza tym zadaniem
 

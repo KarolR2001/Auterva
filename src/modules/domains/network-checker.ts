@@ -17,7 +17,11 @@ export type NetworkCheckerOptions = {
   /** SSRF policy for every address that may be contacted. Production passes isPublicAddress. */
   isAddressAllowed: (address: string) => boolean;
   tls: { port: number; timeoutMs: number; ca?: string | Buffer };
+  /** Total wall-clock budget of one checkOwnership or checkRouting call, including DNS retries. */
+  deadlineMs: number;
 };
+
+const MAX_ADDRESSES = 4;
 
 const MAX_BODY = 1024;
 const absent = new Set(["ENODATA", "ENOTFOUND", "ENOENT"]);
@@ -71,7 +75,12 @@ function probe(address: string, hostname: string, tls: NetworkCheckerOptions["tl
 
 export function createNetworkDomainChecker(options: NetworkCheckerOptions): DomainChecker {
   const { dns, isAddressAllowed, tls } = options;
-  return {
+  const bounded = <T,>(work: Promise<T>, onTimeout: T): Promise<T> => {
+    let timer: NodeJS.Timeout;
+    const expired = new Promise<T>((resolve) => { timer = setTimeout(() => resolve(onTimeout), options.deadlineMs); });
+    return Promise.race([work, expired]).finally(() => clearTimeout(timer));
+  };
+  const inner: DomainChecker = {
     async checkOwnership(hostname, token): Promise<CheckOutcome> {
       let records: string[][];
       try { records = await dns.resolveTxt(ownershipRecordName(hostname)); }
@@ -92,7 +101,7 @@ export function createNetworkDomainChecker(options: NetworkCheckerOptions): Doma
       if (cnames.length === 0) return { ok: false, code: "CNAME_MISSING" };
       if (!cnames.some((name) => normalizeHostname(name) === target)) return { ok: false, code: "CNAME_MISMATCH" };
       const addresses = await addressesOf(dns, hostname);
-      if (addresses === "DNS_ERROR" || addresses.length === 0) return { ok: false, code: "DNS_ERROR" };
+      if (addresses === "DNS_ERROR" || addresses.length === 0 || addresses.length > MAX_ADDRESSES) return { ok: false, code: "DNS_ERROR" };
       // One non-public answer taints the whole name: never connect to any of them.
       if (!addresses.every(isAddressAllowed)) return { ok: false, code: "ADDRESS_NOT_PUBLIC" };
       let last: FailureCode = "TLS_UNREACHABLE";
@@ -109,10 +118,14 @@ export function createNetworkDomainChecker(options: NetworkCheckerOptions): Doma
       return { ok: false, code: last };
     },
   };
+  return {
+    checkOwnership: (hostname, token) => bounded(inner.checkOwnership(hostname, token), { ok: false, code: "DNS_ERROR" }),
+    checkRouting: (hostname, expected) => bounded(inner.checkRouting(hostname, expected), { ok: false, code: "TLS_UNREACHABLE" }),
+  };
 }
 
 /** Production composition: public resolvers, public addresses only, port 443. No overrides by design. */
 export function createProductionDomainChecker(): DomainChecker {
-  return createNetworkDomainChecker({ dns: new Resolver(), isAddressAllowed: isPublicAddress,
-    tls: { port: 443, timeoutMs: 5_000 } });
+  return createNetworkDomainChecker({ dns: new Resolver({ timeout: 2_000, tries: 2 }), isAddressAllowed: isPublicAddress,
+    tls: { port: 443, timeoutMs: 5_000 }, deadlineMs: 12_000 });
 }
