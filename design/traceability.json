@@ -4,9 +4,10 @@
   "implementationRefs": [
     {
       "issue": 15,
-      "scope": "Logowanie obu ról i obowiązkowe MFA na hostach właściwego obszaru.",
+      "scope": "Logowanie obu ról, obowiązkowe MFA i bezpieczna kontynuacja po niepewnym wyniku na hostach właściwego obszaru.",
       "relatedRequirementIds": ["C-F010", "C-F011", "C-F013", "C-F014", "C-F040", "C-F044", "FR-ADM-001", "FR-ADM-002", "FR-ADM-003", "FR-ADM-004", "FR-ADM-005", "FR-ADM-007"],
       "referenceScreenIds": ["ADM-01", "PLT-08", "ACC-07"],
+      "unmappedStates": ["Niepewny wynik POST MFA oraz ponowne wydanie utraconych kodów: brak potwierdzonego odrębnego boardu Penpota; istniejące komponenty nie stanowią porównania wizualnego tych stanów."],
       "components": [
         { "itemId": "DS-AUT-001", "codePath": "src/components/auth/auth-flow.tsx" },
         { "itemId": "DS-AUT-005", "codePath": "src/components/auth/auth-flow.tsx" }

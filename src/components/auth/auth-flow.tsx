@@ -14,7 +14,12 @@ import { TextInput } from "../ui/text-input";
 import { safeReturnTo, type AuthArea } from "./auth-destination";
 import styles from "./auth.module.css";
 
-type AuthProps = { area: AuthArea; companyName?: string; returnTo?: string };
+type AuthProps = {
+  area: AuthArea;
+  companyName?: string;
+  returnTo?: string;
+  recoverCodes?: boolean;
+};
 type JsonResult = Record<string, unknown>;
 type ApiResult = { response: Response; data: JsonResult };
 const loginSchema = z.object({
@@ -42,7 +47,10 @@ async function postAuth(
       body: JSON.stringify(body),
       signal: controller.signal,
     });
-    const data = await response.json().catch(() => ({}));
+    const data = await response.json().catch(() => {
+      if (response.ok) throw new Error("Unreadable success response");
+      return {};
+    });
     return {
       response,
       data: data && typeof data === "object" ? (data as JsonResult) : {},
@@ -52,7 +60,10 @@ async function postAuth(
   }
 }
 
-function errorMessage(result: ApiResult, kind: "login" | "mfa"): string {
+function errorMessage(
+  result: ApiResult,
+  kind: "login" | "mfa" | "rotate",
+): string {
   const { response, data } = result;
   if (response.status === 429)
     return "Zbyt wiele prób. Odczekaj i spróbuj ponownie.";
@@ -63,6 +74,8 @@ function errorMessage(result: ApiResult, kind: "login" | "mfa"): string {
   if (response.status >= 500)
     return "Usługa chwilowo niedostępna. Spróbuj ponownie.";
   if (kind === "login") return "Adres e-mail lub hasło są nieprawidłowe.";
+  if (kind === "rotate")
+    return "Nie udało się wydać kodów. Ponów potwierdzenie czynnika i hasła.";
   return "Nie udało się potwierdzić kodu. Sprawdź go lub zaloguj się ponownie.";
 }
 
@@ -87,8 +100,10 @@ function useAuthRequest() {
   async function run(
     path: string,
     body: Record<string, unknown>,
-    kind: "login" | "mfa",
-    onSuccess: (data: JsonResult) => void,
+    kind: "login" | "mfa" | "rotate",
+    onSuccess: (data: JsonResult) => boolean | void,
+    onUncertain?: () => void,
+    onDenied?: (response: Response) => void,
   ) {
     if (pending.current || cooldown > 0) return;
     pending.current = true;
@@ -98,19 +113,22 @@ function useAuthRequest() {
       const result = await postAuth(path, body);
       if (!result.response.ok) {
         setError(errorMessage(result, kind));
+        onDenied?.(result.response);
         if ([409, 429, 503].includes(result.response.status)) {
           const seconds = Number(result.response.headers.get("Retry-After"));
           if (Number.isFinite(seconds) && seconds > 0) {
-            const delay = Math.min(seconds, 60);
+            const delay = Math.ceil(seconds);
             setCooldown(delay);
             setRetryUntil(Date.now() + delay * 1000);
           }
         }
-      } else onSuccess(result.data);
+      } else if (onSuccess(result.data) === false) onUncertain?.();
     } catch {
-      setError(
-        "Nie udało się połączyć. Sprawdź połączenie i spróbuj ponownie.",
-      );
+      if (onUncertain) onUncertain();
+      else
+        setError(
+          "Nie udało się połączyć. Sprawdź połączenie i spróbuj ponownie.",
+        );
     } finally {
       pending.current = false;
       setLoading(false);
@@ -141,7 +159,9 @@ function AuthFrame({
             ? (companyName ?? "Panel firmy")
             : "Panel platformy"}
         </p>
-        <h1 id="auth-title">{title}</h1>
+        <h1 id="auth-title" tabIndex={-1}>
+          {title}
+        </h1>
         {children}
       </section>
     </main>
@@ -163,7 +183,12 @@ function ErrorNotice({
   );
 }
 
-export function LoginForm({ area, companyName, returnTo }: AuthProps) {
+export function LoginForm({
+  area,
+  companyName,
+  returnTo,
+  recoverCodes,
+}: AuthProps) {
   const [visibility, setVisibility] = useState<"hidden" | "shown">("hidden");
   const request = useAuthRequest();
   const form = useForm<LoginValues>({
@@ -189,7 +214,7 @@ export function LoginForm({ area, companyName, returnTo }: AuthProps) {
             ) {
               const path = area === "company" ? "/admin/mfa" : "/mfa";
               window.location.replace(
-                `${path}?returnTo=${encodeURIComponent(destination)}`,
+                `${path}?returnTo=${encodeURIComponent(destination)}${recoverCodes ? "&recoverCodes=1" : ""}`,
               );
             } else
               request.setError(
@@ -235,20 +260,45 @@ export function LoginForm({ area, companyName, returnTo }: AuthProps) {
   );
 }
 
-type MfaStep = "password" | "setup" | "codes" | "challenge" | "recovery";
+type MfaStep =
+  | "password"
+  | "setup"
+  | "codes"
+  | "challenge"
+  | "recovery"
+  | "uncertain"
+  | "restoreFactor"
+  | "restorePassword";
 export function MfaFlow({
   area,
   companyName,
   initialMode,
   returnTo,
-}: AuthProps & { initialMode: "enroll" | "challenge" }) {
+  recoverCodes,
+}: AuthProps & { initialMode: "enroll" | "challenge" | "restore" }) {
   const [step, setStep] = useState<MfaStep>(
-    initialMode === "enroll" ? "password" : "challenge",
+    initialMode === "enroll"
+      ? "password"
+      : initialMode === "restore"
+        ? "restoreFactor"
+        : "challenge",
   );
+  const [uncertainFrom, setUncertainFrom] = useState<MfaStep>("challenge");
+  const [checking, setChecking] = useState(false);
+  const [checkError, setCheckError] = useState("");
+  const [proof, setProof] = useState("");
+  const [recoveryIntent, setRecoveryIntent] = useState(Boolean(recoverCodes));
   const [secret, setSecret] = useState("");
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
   const [visibility, setVisibility] = useState<"hidden" | "shown">("hidden");
   const request = useAuthRequest();
+  const previousStep = useRef(step);
+  useEffect(() => {
+    if (previousStep.current !== step) {
+      document.getElementById("auth-title")?.focus();
+      previousStep.current = step;
+    }
+  }, [step]);
   const passwordForm = useForm<PasswordValues>({
     resolver: zodResolver(passwordSchema),
     defaultValues: { password: "" },
@@ -258,13 +308,78 @@ export function MfaFlow({
     defaultValues: { code: "" },
   });
   const finish = () => window.location.replace(safeReturnTo(area, returnTo));
-  const codeLabel = step === "recovery" ? "Kod odzyskania" : "Kod z aplikacji";
+  const mfaPath = area === "company" ? "/admin/mfa" : "/mfa";
+  const mfaUrl = `${mfaPath}?returnTo=${encodeURIComponent(safeReturnTo(area, returnTo))}`;
+  const markUncertain = (from: MfaStep) => {
+    if (["setup", "restoreFactor", "restorePassword"].includes(from)) {
+      setRecoveryIntent(true);
+      window.history.replaceState(null, "", `${mfaUrl}&recoverCodes=1`);
+    }
+    setUncertainFrom(from);
+    setCheckError("");
+    setStep("uncertain");
+  };
+  const enterRestore = () => {
+    setSecret("");
+    setProof("");
+    codeForm.reset();
+    passwordForm.reset();
+    window.history.replaceState(null, "", `${mfaUrl}&recoverCodes=1`);
+    setRecoveryIntent(true);
+    setStep("restoreFactor");
+  };
+  const checkSession = async () => {
+    if (checking) return;
+    setChecking(true);
+    setCheckError("");
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    try {
+      const response = await fetch("/api/auth/get-session/", {
+        method: "GET",
+        credentials: "same-origin",
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      if (response.ok) {
+        if (
+          ["setup", "restoreFactor", "restorePassword"].includes(uncertainFrom)
+        )
+          enterRestore();
+        else finish();
+      } else if (response.status === 401)
+        window.location.replace(
+          `${mfaUrl}${recoveryIntent ? "&recoverCodes=1" : ""}`,
+        );
+      else
+        setCheckError(
+          "Nie można teraz sprawdzić sesji. Spróbuj ponownie po przywróceniu połączenia.",
+        );
+    } catch {
+      setCheckError(
+        "Nie można teraz sprawdzić sesji. Spróbuj ponownie po przywróceniu połączenia.",
+      );
+    } finally {
+      clearTimeout(timeout);
+      setChecking(false);
+    }
+  };
+  const codeLabel =
+    step === "recovery"
+      ? "Kod odzyskania"
+      : step === "restoreFactor"
+        ? "Nowy kod z aplikacji"
+        : "Kod z aplikacji";
   const title =
     step === "password" || step === "setup"
       ? "Skonfiguruj MFA"
       : step === "codes"
         ? "Zapisz kody odzyskania"
-        : "Potwierdź logowanie";
+        : step === "restoreFactor" || step === "restorePassword"
+          ? "Wydaj nowe kody odzyskania"
+          : step === "uncertain"
+            ? "Sprawdź stan MFA"
+            : "Potwierdź logowanie";
   const loginPath = area === "company" ? "/admin/login" : "/login";
   return (
     <AuthFrame area={area} companyName={companyName} title={title}>
@@ -290,16 +405,15 @@ export function MfaFlow({
                       setSecret(value);
                       passwordForm.reset();
                       setStep("setup");
-                      return;
+                      return true;
                     }
                   } catch {
                     /* an invalid response cannot start enrollment */
                   }
                 }
-                request.setError(
-                  "Nie udało się przygotować MFA. Spróbuj ponownie.",
-                );
+                return false;
               },
+              () => markUncertain("password"),
             ),
           )}
         >
@@ -346,7 +460,7 @@ export function MfaFlow({
                 if (step === "recovery" && data.enrollmentRequired === true) {
                   codeForm.reset();
                   setStep("password");
-                  return;
+                  return true;
                 }
                 if (step === "setup") {
                   const codes = Array.isArray(data.backupCodes)
@@ -359,18 +473,21 @@ export function MfaFlow({
                     setSecret("");
                     codeForm.reset();
                     setStep("codes");
-                  } else
-                    request.setError(
-                      "Nie udało się pobrać kodów odzyskania. Spróbuj ponownie.",
-                    );
-                  return;
+                    return true;
+                  }
+                  return false;
                 }
-                if (data.status === true) finish();
-                else
-                  request.setError(
-                    "Nie udało się potwierdzić MFA. Spróbuj ponownie.",
+                if (data.status === true) {
+                  window.location.replace(
+                    recoveryIntent
+                      ? `${mfaUrl}&recoverCodes=1`
+                      : safeReturnTo(area, returnTo),
                   );
+                  return true;
+                }
+                return false;
               },
+              () => markUncertain(step),
             );
           })}
         >
@@ -424,6 +541,132 @@ export function MfaFlow({
           )}
         </form>
       )}
+      {step === "uncertain" && (
+        <div className={styles.form}>
+          <Alert tone="warning" title="Nie wiadomo, czy kod został przyjęty">
+            Nie wysyłaj go ponownie. Sprawdź stan sesji, aby bezpiecznie
+            kontynuować.
+          </Alert>
+          {checkError && <ErrorNotice message={checkError} cooldown={0} />}
+          <Button
+            onClick={() => void checkSession()}
+            loading={checking}
+            loadingLabel="Sprawdzanie…"
+          >
+            Sprawdź stan
+          </Button>
+        </div>
+      )}
+      {step === "restoreFactor" && (
+        <form
+          className={styles.form}
+          noValidate
+          onSubmit={codeForm.handleSubmit(({ code }) => {
+            if (!/^\d{6}$/.test(code)) {
+              request.setError("Kod z aplikacji musi mieć 6 cyfr.");
+              return;
+            }
+            void request.run(
+              "mfa/reauth",
+              { method: "totp", code },
+              "mfa",
+              (data) => {
+                if (
+                  typeof data.proof !== "string" ||
+                  !/^[a-f0-9]{64}$/.test(data.proof)
+                )
+                  return false;
+                setProof(data.proof);
+                codeForm.reset();
+                setStep("restorePassword");
+                return true;
+              },
+              () => markUncertain("restoreFactor"),
+            );
+          })}
+        >
+          <p>
+            Kody mogły zostać wydane, ale odpowiedź nie dotarła. Aby otrzymać
+            nową listę, potwierdź świeży kod z aplikacji i hasło. Poprzednie
+            kody stracą ważność.
+          </p>
+          <FormField
+            id="mfa-restore-code"
+            label="Nowy kod z aplikacji"
+            required
+            error={codeForm.formState.errors.code?.message}
+          >
+            <TextInput
+              autoComplete="one-time-code"
+              inputMode="numeric"
+              {...codeForm.register("code")}
+            />
+          </FormField>
+          <ErrorNotice message={request.error} cooldown={request.cooldown} />
+          <Button
+            type="submit"
+            loading={request.loading}
+            loadingLabel="Sprawdzanie…"
+            disabled={request.cooldown > 0}
+          >
+            Potwierdź czynnik
+          </Button>
+        </form>
+      )}
+      {step === "restorePassword" && (
+        <form
+          className={styles.form}
+          noValidate
+          onSubmit={passwordForm.handleSubmit(({ password }) => {
+            void request.run(
+              "mfa/rotate-backup-codes",
+              { password, proof },
+              "rotate",
+              (data) => {
+                const codes = Array.isArray(data.backupCodes)
+                  ? data.backupCodes.filter(
+                      (v): v is string => typeof v === "string",
+                    )
+                  : [];
+                if (data.status !== true || !codes.length) return false;
+                setBackupCodes(codes);
+                setProof("");
+                passwordForm.reset();
+                setStep("codes");
+                return true;
+              },
+              () => markUncertain("restorePassword"),
+              (response) => {
+                if (response.status === 401) {
+                  setProof("");
+                  passwordForm.reset();
+                  setStep("restoreFactor");
+                }
+              },
+            );
+          })}
+        >
+          <p>Potwierdź hasło, aby wydać nowe jednorazowe kody odzyskania.</p>
+          <PasswordInput
+            id="mfa-restore-password"
+            label="Potwierdź hasło"
+            autoComplete="current-password"
+            visibility={visibility}
+            onVisibilityChange={setVisibility}
+            error={passwordForm.formState.errors.password?.message}
+            {...passwordForm.register("password")}
+          />
+          <ErrorNotice message={request.error} cooldown={request.cooldown} />
+          <Button
+            type="submit"
+            loading={request.loading}
+            loadingLabel="Wydawanie…"
+            disabled={request.cooldown > 0}
+          >
+            Wydaj nowe kody
+          </Button>
+        </form>
+      )}
       {step === "codes" && (
         <div className={styles.form}>
           <p>
@@ -443,7 +686,7 @@ export function MfaFlow({
       {step === "challenge" || step === "recovery" ? (
         <Link
           className={styles.loginLink}
-          href={`${loginPath}?returnTo=${encodeURIComponent(safeReturnTo(area, returnTo))}`}
+          href={`${loginPath}?returnTo=${encodeURIComponent(safeReturnTo(area, returnTo))}${recoveryIntent ? "&recoverCodes=1" : ""}`}
         >
           Wróć do logowania
         </Link>
