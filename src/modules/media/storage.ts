@@ -12,8 +12,15 @@ function required(value: string | undefined, key: string): string {
   return value;
 }
 
-export function createMediaStorage(input = process.env) {
+export function createMediaStorage(input: Record<string, string | undefined> = process.env) {
   const endpoint = required(input.S3_ENDPOINT, "ENDPOINT");
+  let url: URL;
+  try { url = new URL(endpoint); } catch { throw new Error("MEDIA_STORAGE_ENDPOINT_INVALID"); }
+  const localFixture = input.AUTERVA_FIXTURE === "1"
+    && (url.hostname === "127.0.0.1" || url.hostname === "[::1]");
+  if ((url.protocol !== "https:" && !(localFixture && url.protocol === "http:"))
+    || url.username || url.password || url.search || url.hash || url.pathname !== "/")
+    throw new Error("MEDIA_STORAGE_ENDPOINT_INVALID");
   const bucket = required(input.S3_BUCKET, "BUCKET");
   const client = new S3Client({ endpoint, region: input.S3_REGION ?? "auto", forcePathStyle: true,
     credentials: { accessKeyId: required(input.S3_ACCESS_KEY_ID, "ACCESS_KEY"),

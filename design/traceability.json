@@ -25,6 +25,7 @@
       ],
       "testPaths": [
         "tests/unit/media-stream.test.ts",
+        "tests/unit/media-storage-config.test.ts",
         "tests/integration/media-reservation.test.ts",
         "tests/integration/media-http.test.ts",
         "tests/integration/media-flow.test.ts",
