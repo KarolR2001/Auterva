@@ -4,6 +4,7 @@ import { requireAuditActor } from "../audit/actor";
 import { takeRateLimitWithin } from "../auth/rate-limit";
 import { decodeCursor, encodeCursor } from "./cursor";
 import { ChatError } from "./errors";
+import { unreadColumn, unreadJoins } from "./platform-inbox";
 import { notifyChat } from "./signal";
 import { normalizeChatBody } from "./text";
 
@@ -238,14 +239,20 @@ export type ConversationListItem = {
   organizationName: string | null;
   archived: boolean;
   activityAt: string;
+  lastSeq: number;
+  /** Messages of the company after the superadmin's read cursor. Always 0 for an archived company (D-23). */
+  unread: number;
   lastMessage: { id: string; senderRole: string | null; createdAt: string; preview: string; truncated: boolean } | null;
 };
 
 export type ConversationPage = { conversations: ConversationListItem[]; nextCursor: string | null };
 
-/** Platform inbox: superadmin only, ordered by last activity, cursor-paged. Includes archived companies. */
+/**
+ * Platform inbox: superadmin only, ordered by last activity, cursor-paged. Archived companies are left out unless
+ * `includeArchived` (same filter as the company list); their `unread` is then 0 because chat is read-only there (D-23).
+ */
 export async function listPlatformConversations(db: PrismaClient, actor: { actorId: string; sessionId: string },
-  input: { limit?: number; cursor?: string } = {}): Promise<ConversationPage> {
+  input: { limit?: number; cursor?: string; includeArchived?: boolean } = {}): Promise<ConversationPage> {
   const limit = input.limit ?? DEFAULT_PAGE_SIZE;
   if (!Number.isInteger(limit) || limit < 1 || limit > MAX_PAGE_SIZE) throw new ChatError("CHAT_INVALID_INPUT");
   const cursor = input.cursor ? decodeCursor(input.cursor) : null;
@@ -259,12 +266,14 @@ export async function listPlatformConversations(db: PrismaClient, actor: { actor
     if (who.role !== "SUPERADMIN_AUTERVA") throw new ChatError("CHAT_FORBIDDEN");
     // Millisecond truncation makes the sort key identical to what the cursor can carry.
     const rows = await tx.$queryRaw<{ id: string; organizationId: string; name: string | null; archivedAt: Date | null;
-      at: Date; lastSeq: number }[]>`
-      SELECT c.id, c."organizationId", o.name, o."archivedAt", date_trunc('milliseconds', c."activityAt") AS at, c."lastSeq"
-      FROM "Conversation" c JOIN "Organization" o ON o.id = c."organizationId"
-      WHERE ${cursor === null}::boolean OR (date_trunc('milliseconds', c."activityAt"), c.id)
+      at: Date; lastSeq: number; unread: number }[]>`
+      SELECT c.id, c."organizationId", o.name, o."archivedAt", date_trunc('milliseconds', c."activityAt") AS at, c."lastSeq",
+        ${unreadColumn(actor.actorId)}
+      FROM "Conversation" c JOIN "Organization" o ON o.id = c."organizationId" ${unreadJoins(actor.actorId)}
+      WHERE (${input.includeArchived === true}::boolean OR o."archivedAt" IS NULL)
+        AND (${cursor === null}::boolean OR (date_trunc('milliseconds', c."activityAt"), c.id)
         < (${cursor?.kind === "conv" ? cursor.at : "1970-01-01T00:00:00.000Z"}::timestamptz,
-           ${cursor?.kind === "conv" ? cursor.id : "00000000-0000-0000-0000-000000000000"}::uuid)
+           ${cursor?.kind === "conv" ? cursor.id : "00000000-0000-0000-0000-000000000000"}::uuid))
       ORDER BY at DESC, c.id DESC LIMIT ${limit + 1}`;
     const page = rows.slice(0, limit);
     const lasts = page.length ? await tx.chatMessage.findMany({
@@ -276,6 +285,7 @@ export async function listPlatformConversations(db: PrismaClient, actor: { actor
       const chars = last ? Array.from(last.body) : [];
       return { conversationId: row.id, organizationId: row.organizationId, organizationName: row.name,
         archived: row.archivedAt !== null, activityAt: row.at.toISOString(),
+        lastSeq: row.lastSeq, unread: row.unread,
         lastMessage: last ? { id: last.id, senderRole: last.sender?.role ?? null, createdAt: last.createdAt.toISOString(),
           preview: chars.slice(0, PREVIEW_CODE_POINTS).join(""), truncated: chars.length > PREVIEW_CODE_POINTS } : null };
     });

@@ -426,7 +426,11 @@ test("platform conversation list: superadmin only, last activity first, cursor-p
   expect((await platformList(http("GET", "/api/platform/chat/conversations?cursor=zzz", platformHost, platformCookie))).status).toBe(400);
   await archiveCompany(db, { actorId: platformId, sessionId: platformSessionId, organizationId: y.organizationId,
     expectedVersion: 0, eventKey: randomUUID(), requestId: randomUUID() });
-  const after = (await listPlatformConversations(db, scope, { limit: 100 })).conversations.find((item) => item.organizationId === y.organizationId);
+  // Archived companies are left out by default (same filter as the company list) and shown only on request.
+  expect((await listPlatformConversations(db, scope, { limit: 100 })).conversations
+    .some((item) => item.organizationId === y.organizationId)).toBe(false);
+  const after = (await listPlatformConversations(db, scope, { limit: 100, includeArchived: true })).conversations
+    .find((item) => item.organizationId === y.organizationId);
   expect(after).toMatchObject({ archived: true });
   expect(after?.lastMessage?.preview).toHaveLength(160);
 });
