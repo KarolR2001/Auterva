@@ -38,10 +38,10 @@ Role: operator (wykonuje), właściciel/orkiestrator (zatwierdza przełączenie 
 
 1. Zatrzymaj produkcyjne workery i WS. Wybierz najnowszą kompletną kopię (`verify`).
 2. Utwórz **nową** bazę i **nowy, pusty** bucket w izolowanym środowisku bez dostępu do nadawców poczty i publicznych hostów.
-3. `RESTORE_DATABASE_URL=<nowa baza> RESTORE_S3_BUCKET=<nowy bucket> pnpm exec tsx scripts/backup-restore.ts restore --backup=<katalog> [--create-bucket]`.
+3. `RESTORE_DATABASE_URL=<nowa baza> RESTORE_S3_BUCKET=<nowy bucket> pnpm exec tsx scripts/backup-restore.ts restore --backup=<katalog> [--create-bucket]`. Kopia z mediami bez `RESTORE_S3_BUCKET` kończy się `RESTORE_MEDIA_TARGET_REQUIRED` przed utworzeniem bazy; tylko wewnętrzna baza robocza restore firmy pomija media na tym etapie.
 4. Skrypt: weryfikuje MAC i sumy, stosuje strażnika celu, tworzy bazę, `pg_restore`, wgrywa media, uruchamia kontrole integralności (migracje, liczby wierszy per tabela i firma, zestaw ograniczeń, brak sierot FK i naruszeń CHECK, istnienie kluczy mediów o zgodnym rozmiarze), po czym unieważnia dziedziczone poświadczenia i zadania (niżej) i dopisuje audyt `BACKUP_RESTORED` operatora. Wynik `ok=false` lub kod ≠ 0 oznacza: nie przełączać ruchu.
 5. Jeśli ostrzeżenie mówi, że schemat jest za nowszą wersją kodu: `prisma migrate deploy`. Wersja nieznana kodowi: nie uruchamiać tego buildu.
-6. Przełącz aplikację na nową bazę i bucket, **zmień `BETTER_AUTH_SECRET`**, uruchom WWW, potem worker i WS. Sprawdź logowanie z MFA, widoczność firm A/B i publiczną ofertę.
+6. Przełącz aplikację na nową bazę i bucket, zachowując **ten sam `BETTER_AUTH_SECRET`**, który szyfrował dane MFA w kopii. Uruchom WWW, potem worker i WS. Sprawdź logowanie z MFA, widoczność firm A/B i publiczną ofertę. Dawne sesje i challenge są unieważnione w kroku 4.
 
 ### Strażnik celu
 
@@ -49,6 +49,7 @@ Restore zawsze tworzy nową bazę. Odmawia: celu będącego bazą źródłową k
 
 ### Po restore
 
+- `BETTER_AUTH_SECRET` jest potrzebny do odszyfrowania zapisanych sekretów TOTP i kodów odzyskania Better Auth. Nie zmieniaj go podczas restore bez osobnej, przetestowanej migracji zaszyfrowanych danych MFA i procedury odzyskania dostępu do konta superadmina. Utrata starego sekretu wymaga ręcznego odzyskania MFA według D-05; samo ustawienie nowego sekretu nie naprawi logowania. Test integracyjny tworzy MFA przed kopią i potwierdza logowanie TOTP po odtworzeniu bazy z zachowanym sekretem.
 - Usunięte: wszystkie sesje, rekordy `verification` (reset hasła, challenge MFA), wszystkie otwarte zaproszenia unieważnione (`revokedAt`), otwarte `PasswordResetRequest` skonsumowane.
 - Jobs: `PENDING/RUNNING/UNCERTAIN` (poza `AUDIT_RETENTION`) mają status `SKIPPED` i `errorCode=RESTORE_QUARANTINED`; payload maili redukowany do digestu, więc nie da się go wysłać. Intenty przypomnień `QUEUED/UNCERTAIN` i przeterminowane `PENDING` są `SKIPPED`. Restore sam nie wysyła poczty ani nie wywołuje workerów.
 - Uzgodnienie: operator porównuje wpisy kwarantanny z aktualną DB i audytem i wystawia ponownie tylko potrzebne akcje zwykłymi ścieżkami aplikacji (nowe zaproszenie, reset); nie ma „odblokowania” starych jobów.
@@ -76,5 +77,5 @@ Test `tests/integration/backup-restore.test.ts` wypisuje czasy etapów. Wynik z 
 - Synchronizacja kopii do R2, blokada bucketa 30 dni, wersjonowanie R2, osobne klucze i uprawnienia restore.
 - PITR zarządzanego PostgreSQL i dobór punktu PITR z odpowiadającą kopią mediów.
 - Retencja logów aplikacji 30 dni i audytu 365 dni na rzeczywistym storage, oraz odbiór eksportu/usuwania audytu po restore (#108).
-- Restore na środowisku nieprodukcyjnym u dostawcy z pomiarem RTO i rotacja `BETTER_AUTH_SECRET` w nim.
+- Restore na środowisku nieprodukcyjnym u dostawcy z pomiarem RTO i próbą logowania MFA z zachowanym sekretem. Ewentualna rotacja sekretu wymaga odrębnej migracji danych MFA i odbioru; nie jest częścią tego skryptu.
 - Test współbieżny uploadu/usunięcia obrazu podczas transferu snapshotu (wymaga blokady GC z kontraktu środowisk).

@@ -5,6 +5,9 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { CreateBucketCommand, DeleteBucketCommand, DeleteObjectCommand, ListObjectsV2Command, PutObjectCommand } from "@aws-sdk/client-s3";
 import { afterAll, beforeAll, expect, test } from "vitest";
+import * as OTPAuth from "otpauth";
+import { createAuth } from "../../src/lib/auth";
+import { createPrismaClient } from "../../src/lib/prisma";
 import { backupAge, createBackup, pruneBackups } from "../../src/modules/backup/backup";
 import { assertCompanyTablesClassified, restoreCompany } from "../../src/modules/backup/company";
 import { connect, quote, withDatabase } from "../../src/modules/backup/core";
@@ -147,6 +150,25 @@ test("every table is classified for company restore", async () => {
 });
 
 test("full restore into a new database and bucket passes integrity, revokes credentials and quarantines mail", async () => {
+  const sourceClient = createPrismaClient(databaseUrl);
+  const sourceAuth = createAuth(sourceClient, true);
+  const email = `bk-mfa-${tag}@example.test`;
+  const password = "Fixture password 9384!";
+  let totp: OTPAuth.TOTP;
+  try {
+    const registered = await sourceAuth.api.signUpEmail({ body: { name: "Backup MFA", email, password }, returnHeaders: true });
+    const initialCookie = registered.headers.getSetCookie().map((value) => value.split(";", 1)[0]).join("; ");
+    const enabled = await sourceAuth.api.enableTwoFactor({ body: { password, method: "totp" },
+      headers: new Headers({ cookie: initialCookie }) });
+    if (enabled.method !== "totp") throw new Error("Expected TOTP enrollment");
+    const enrolled = OTPAuth.URI.parse(enabled.totpURI);
+    if (!(enrolled instanceof OTPAuth.TOTP)) throw new Error("Expected TOTP URI");
+    totp = enrolled;
+    await sourceAuth.api.verifyTOTP({ body: { code: totp.generate(), trustDevice: false },
+      headers: new Headers({ cookie: initialCookie }) });
+  } finally {
+    await sourceClient.$disconnect();
+  }
   const started = Date.now();
   const { dir, manifest } = await createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" });
   const backupMs = Date.now() - started;
@@ -185,15 +207,41 @@ test("full restore into a new database and bucket passes integrity, revokes cred
   } finally {
     await restored.end();
   }
+  const restoredClient = createPrismaClient(target);
+  try {
+    const restoredAuth = createAuth(restoredClient, true);
+    const signIn = await restoredAuth.api.signInEmail({ body: { email, password }, returnHeaders: true });
+    expect(signIn.response).toHaveProperty("twoFactorRedirect", true);
+    const challengeCookie = signIn.headers.getSetCookie().map((value) => value.split(";", 1)[0]).join("; ");
+    const secondFactor = await restoredAuth.api.verifyTOTP({ body: { code: totp.generate(), trustDevice: false },
+      headers: new Headers({ cookie: challengeCookie }), returnHeaders: true });
+    const sessionCookie = secondFactor.headers.getSetCookie().map((value) => value.split(";", 1)[0]).join("; ");
+    expect((await restoredAuth.api.getSession({ headers: new Headers({ cookie: sessionCookie }) }))?.user.email).toBe(email);
+  } finally {
+    await restoredClient.$disconnect();
+  }
   const mailAfter = await fetch(`${process.env.MAILPIT_URL}/api/v1/messages`).then((r) => r.json()).catch(() => null);
   expect(mailAfter?.total ?? 0).toBe(mailBefore?.total ?? 0);
   // The source is untouched by a restore into another database.
   expect((await live.query(`SELECT count(*)::int AS n FROM "session" WHERE "userId" = $1`, [ids.adminA])).rows[0].n).toBe(1);
 });
 
+test("full restore refuses a backup with media when no target bucket is configured", async () => {
+  const { dir } = await createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" });
+  const target = targetUrl();
+  await expect(restoreFull({ backupDir: dir, key, targetUrl: target, repoDir, operatorId: operator, mediaTarget: null }))
+    .rejects.toMatchObject({ code: "RESTORE_MEDIA_TARGET_REQUIRED" });
+  const control = await connect(withDatabase(target, "postgres"));
+  try {
+    expect((await control.query("SELECT 1 FROM pg_database WHERE datname = $1", [new URL(target).pathname.slice(1)])).rowCount).toBe(0);
+  } finally {
+    await control.end();
+  }
+});
+
 test("the guard refuses in-place, production, existing and foreign-cluster targets; a bad sum or key is refused", async () => {
   const { dir } = await createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" });
-  const base = { backupDir: dir, key, repoDir, operatorId: operator, mediaTarget: null };
+  const base = { backupDir: dir, key, repoDir, operatorId: operator, mediaTarget: null, databaseOnly: true };
   await expect(restoreFull({ ...base, targetUrl: databaseUrl })).rejects.toMatchObject({ code: "RESTORE_IN_PLACE_REFUSED" });
   await expect(restoreFull({ ...base, targetUrl: databaseUrl, replaceExisting: true })).rejects.toMatchObject({ code: "RESTORE_IN_PLACE_REFUSED" });
   await expect(restoreFull({ ...base, targetUrl: withDatabase(sharedUrl, "postgres") })).rejects.toMatchObject({ code: "RESTORE_TARGET_EXISTS" });

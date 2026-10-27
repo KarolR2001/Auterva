@@ -123,7 +123,8 @@ export async function restoreCompany(input: {
   let full;
   try {
     full = await restoreFull({ backupDir: input.backupDir, key: input.key, targetUrl: scratchUrl, repoDir: input.repoDir,
-      operatorId: input.operatorId, mediaTarget: null, allowRemote: input.allowRemote, now: input.now });
+      operatorId: input.operatorId, mediaTarget: null, databaseOnly: true,
+      allowRemote: input.allowRemote, now: input.now });
     if (!full.ok) throw new BackupError("RESTORE_SCRATCH_INTEGRITY_FAILED", "Scratch restore failed integrity checks");
   } catch (error) {
     if (!input.keepScratch) await dropScratch();

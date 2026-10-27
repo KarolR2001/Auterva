@@ -222,7 +222,8 @@ export type RestoreReport = {
 /** Full restore into a NEW database and a NEW (empty) bucket. */
 export async function restoreFull(input: {
   backupDir: string; key: Buffer; targetUrl: string; repoDir: string; operatorId: string;
-  mediaTarget: MediaStorage | null; createBucket?: boolean; replaceExisting?: boolean; allowRemote?: boolean; now?: Date;
+  mediaTarget: MediaStorage | null; databaseOnly?: boolean; createBucket?: boolean;
+  replaceExisting?: boolean; allowRemote?: boolean; now?: Date;
 }): Promise<RestoreReport> {
   const steps: RestoreReport["steps"] = [];
   const started = Date.now();
@@ -230,6 +231,9 @@ export async function restoreFull(input: {
   const lap = (step: string) => { const at = Date.now(); steps.push({ step, ms: at - mark }); mark = at; };
   const manifest = await readManifest(input.backupDir, input.key);
   await assertFilesMatchManifest(input.backupDir, manifest);
+  if (manifest.media.objects.length > 0 && !input.mediaTarget && !input.databaseOnly) {
+    throw new BackupError("RESTORE_MEDIA_TARGET_REQUIRED", "A full restore with media requires a target bucket");
+  }
   lap("verify manifest and checksums");
   await assertRestoreTarget({ targetUrl: input.targetUrl, manifest, repoDir: input.repoDir,
     replaceExisting: input.replaceExisting ?? false, allowRemote: input.allowRemote ?? false });
