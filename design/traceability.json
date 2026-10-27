@@ -165,6 +165,22 @@
       ]
     },
     {
+      "issue": 167,
+      "scope": "Wskaźnik nieprzeczytanych i odświeżanie listy rozmów superadmina: unread z kursora odczytu superadmina jednym zapytaniem na stronę, domyślne pominięcie archiwum (unread 0 przy includeArchived, D-23), kanał platformy /ws/platform z licznikami bez treści, autoryzacja i rewalidacja jak w #51. Bez UI skrzynki (#53).",
+      "relatedRequirementIds": ["C-F119", "C-F121", "C-F127", "C-F134", "C-N004", "D-08", "D-23"],
+      "referenceScreenIds": ["PLT-09"],
+      "codePaths": [
+        "docs/contracts/chat-conversations-messages.md",
+        "docs/contracts/chat-realtime.md",
+        "src/modules/chat/platform-inbox.ts",
+        "src/modules/chat/service.ts",
+        "src/modules/chat/http.ts",
+        "src/modules/chat/realtime.ts",
+        "src/modules/chat/resolve-tenant.ts"
+      ],
+      "testPaths": ["tests/integration/chat-inbox.test.ts", "tests/integration/chat.test.ts"]
+    },
+    {
       "issue": 159,
       "scope": "Konfigurowalny nasłuch i allowlista hostów serwera WebSocket w kontenerze (WS_HOST, WS_PORT, WS_ALLOWED_HOSTS) walidowane przy starcie; domyślnie loopback, bez trybu dowolnego hosta.",
       "relatedRequirementIds": ["C-N004", "C-N059"],
