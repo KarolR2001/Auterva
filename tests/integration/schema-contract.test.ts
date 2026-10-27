@@ -88,7 +88,7 @@ test("one vehicle cannot have two cover images", async () => inRollback(async (d
   const a = await organization(db);
   const vehicle = randomUUID();
   await db.query('INSERT INTO "Vehicle" (id, "organizationId") VALUES ($1, $2)', [vehicle, a]);
-  const addCover = () => db.query('INSERT INTO "VehicleImage" (id, "organizationId", "vehicleId", "storageKey", mime, width, height, bytes, "isCover") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)', [randomUUID(), a, vehicle, `fixture/${randomUUID()}`, "image/webp", 800, 600, 1024]);
+  const addCover = () => db.query('INSERT INTO "VehicleImage" (id, "organizationId", "vehicleId", "storageKey", mime, width, height, bytes, "isCover", status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, $9)', [randomUUID(), a, vehicle, `fixture/${randomUUID()}`, "image/webp", 800, 600, 1024, "READY"]);
   await addCover();
   await expect(addCover()).rejects.toMatchObject({ code: "23505" });
 }));

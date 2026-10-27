@@ -3,6 +3,37 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 32,
+      "scope": "Zdjecia pojazdu: cover, kolejnosc, alt i usuwanie z wersja, blokada Vehicle i audytem; dokladnie jeden cover; kontrolowany odczyt wariantow (publiczny przez resolvePublicVisibility i PUBLISHED, prywatny preview po sesji), no-store i blokada optymalizatora next/image. UI w osobnym issue.",
+      "relatedRequirementIds": ["C-F098", "C-F061", "C-N006", "C-N033", "C-N035", "FR-ADM-043", "FR-ADM-044", "FR-ADM-045", "FR-ADM-046"],
+      "referenceScreenIds": ["ADM-06"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261027120000_vehicle_image_cover_issue_32/migration.sql",
+        "src/modules/media/vehicle-images.ts",
+        "src/modules/media/vehicle-images-http.ts",
+        "src/modules/media/serve.ts",
+        "src/modules/media/worker.ts",
+        "src/modules/media/reservation.ts",
+        "src/modules/settings/read.ts",
+        "src/modules/settings/http.ts",
+        "src/modules/fleet/http.ts",
+        "next.config.mjs",
+        "src/app/api/admin/vehicles/[id]/images/[imageId]/route.ts",
+        "src/app/api/admin/vehicles/[id]/images/[imageId]/[variant]/route.ts",
+        "src/app/api/admin/vehicles/[id]/images/order/route.ts",
+        "src/app/api/platform/companies/[organizationId]/vehicles/[id]/images/[imageId]/route.ts",
+        "src/app/api/platform/companies/[organizationId]/vehicles/[id]/images/[imageId]/[variant]/route.ts",
+        "src/app/api/platform/companies/[organizationId]/vehicles/[id]/images/order/route.ts"
+      ],
+      "testPaths": [
+        "tests/unit/proxy-matcher.test.ts",
+        "tests/integration/vehicle-images.test.ts",
+        "tests/integration/vehicle-images-migration.test.ts",
+        "tests/e2e/vehicle-images.spec.ts"
+      ]
+    },
+    {
       "issue": 30,
       "scope": "Ustawienia firmy per organizacja z macierzą D-01: odczyt admina, zapis grup tylko superadmin z allowlistą, wersją i audytem; logo/hero przez pipeline mediów #29; publiczna projekcja i media przez resolvePublicVisibility. UI ustawień w osobnym issue.",
       "relatedRequirementIds": ["C-F023", "C-F081", "C-F082", "C-F083", "C-F084", "C-F085", "C-N025", "C-N034", "C-N048", "FR-ADM-060", "FR-ADM-061", "FR-ADM-062", "FR-ADM-063", "D-01"],
