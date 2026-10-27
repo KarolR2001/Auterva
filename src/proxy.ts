@@ -4,9 +4,23 @@ import { isCustomDomainHost, resolveAliasRedirect } from "./modules/domains/rout
 import { parseHostAuthority, resolveHostMapping } from "./modules/tenancy/host-registry";
 import { routeAllowedForArea } from "./modules/tenancy/host-route-policy";
 import { documentCsp, isDocumentPath, newNonce } from "./modules/tenancy/csp";
+import { bodyLimitForPath } from "./modules/tenancy/json-body";
 import { withErrorRequestId } from "./modules/tenancy/request-id";
 
 export async function proxy(request: NextRequest) {
+  // #57: Next buffers a bounded copy of every non-GET body before this function runs and, for a chunked body, drops a
+  // chunk that does not fit, so a handler could see only a prefix. A body with no declared length is refused here
+  // (a request without any body and without Content-Length, such as fetch DELETE, passes), and a declared length above
+  // the route limit is refused before any further work. Upload routes are outside the matcher.
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    if (request.headers.has("transfer-encoding")) {
+      return withErrorRequestId(NextResponse.json({ code: "LENGTH_REQUIRED" }, { status: 411, headers: { "Cache-Control": "no-store" } }));
+    }
+    const declared = request.headers.get("content-length");
+    if (declared !== null && (!/^\d{1,15}$/.test(declared) || Number(declared) > bodyLimitForPath(request.nextUrl.pathname))) {
+      return withErrorRequestId(NextResponse.json({ code: "PAYLOAD_TOO_LARGE" }, { status: 413, headers: { "Cache-Control": "no-store" } }));
+    }
+  }
   if (request.nextUrl.pathname.replace(/\/$/, "") === "/api/health") return NextResponse.next();
   const authority = request.headers.get("host");
   const refuse = () => withErrorRequestId(new NextResponse(null, { status: 404, headers: { "Cache-Control": "no-store" } }));

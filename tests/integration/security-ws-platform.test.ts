@@ -1,6 +1,6 @@
 // #57: isolation of the platform WebSocket (/ws/platform, #167) beyond chat-inbox.test.ts: every other host kind,
 // one-way channel, frame flood, and no company or message content on the wire.
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { auth } from "../../src/lib/auth";
 import { createPrismaClient } from "../../src/lib/prisma";
@@ -57,7 +57,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await server?.close().catch(() => undefined);
   const both = { organizationId: { in: [orgs.a, orgs.b] } };
-  await db.rateLimitEvent.deleteMany();
+  await resetBudgets();
   await db.conversationReadCursor.deleteMany({ where: both });
   await db.chatMessage.deleteMany({ where: both });
   await db.conversation.deleteMany({ where: both });
@@ -67,6 +67,13 @@ afterAll(async () => {
   await db.organization.deleteMany({ where: { id: { in: [orgs.a, orgs.b] } } });
   await db.$disconnect();
 });
+
+/** Clears only the counters of this file's actors (the superadmin is shared with other test files). */
+async function resetBudgets() {
+  const keys = [[users.a, orgs.a], [users.b, orgs.b], [superId, "platform"]].flatMap(([actor, scope]) => [
+    ...["read", "write", "media"].map((kind) => `api:${kind}:${actor}:${scope}`), `chat:send:burst:${actor}`, `chat:send:minute:${actor}`]);
+  await db.rateLimitEvent.deleteMany({ where: { keyHash: { in: keys.map((key) => createHmac("sha256", process.env.BETTER_AUTH_SECRET!).update(key).digest("hex")) } } });
+}
 
 const platformPath = { path: "/ws/platform", query: "" };
 
@@ -89,7 +96,7 @@ test("the platform channel is one-way, floods are cut, and the wire carries coun
   expect((await socket.takeType("error")).code).toBe("INVALID_FRAME");
   expect(await db.chatMessage.count({ where: { organizationId: { in: [orgs.a, orgs.b] } } })).toBe(0);
   // A message of company A reaches the platform as a counter frame: identifiers and numbers, never text.
-  await db.rateLimitEvent.deleteMany();
+  await resetBudgets();
   const sent = await sendMessage(db, { actorId: users.a, sessionId: (await db.session.findFirstOrThrow({ where: { userId: users.a } })).id, organizationId: orgs.a },
     { clientMessageId: randomUUID(), body: `TAJNA-${tag}` }, new Date());
   const frame = await socket.take((item) => item.type === "conversation" && item.organizationId === orgs.a, 5_000);

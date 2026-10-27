@@ -1,6 +1,7 @@
 import { pathToFileURL } from "node:url";
 import { join } from "node:path";
 import { expect, test } from "vitest";
+import { bodyLimitForPath, MAX_AUTH_BODY_BYTES, MAX_JSON_BODY_BYTES, MAX_SETTINGS_BODY_BYTES, MAX_VEHICLE_BODY_BYTES } from "../../src/modules/tenancy/json-body";
 import { documentCsp, isDocumentPath, newNonce } from "../../src/modules/tenancy/csp";
 import { routeAllowedForArea } from "../../src/modules/tenancy/host-route-policy";
 
@@ -96,12 +97,27 @@ test("TEST-MVP-01/09: each area serves only its own paths, and path tricks never
   }
 });
 
-test("B1: Next buffers no more of a non-GET body than slightly above the JSON limit", async () => {
+test("B1: Next buffers no more of a non-GET body than just above the largest route limit", async () => {
   const config = (await import(pathToFileURL(join(process.cwd(), "next.config.mjs")).href)).default as { experimental?: { proxyClientMaxBodySize?: string } };
   const configured = config.experimental?.proxyClientMaxBodySize;
   expect(configured).toMatch(/^\d+kb$/);
   const bytes = Number.parseInt(configured!, 10) * 1024;
-  // Above the handler limit (so a truncated body is still refused there), far below the 10 MB default.
-  expect(bytes).toBeGreaterThan(64 * 1024);
-  expect(bytes).toBeLessThanOrEqual(128 * 1024);
+  const largest = Math.max(MAX_JSON_BODY_BYTES, MAX_SETTINGS_BODY_BYTES, MAX_VEHICLE_BODY_BYTES);
+  // A body at a route limit must fit the buffer whole (else a chunk is dropped); far below the 10 MB default.
+  expect(bytes).toBeGreaterThanOrEqual(largest);
+  expect(bytes).toBeLessThanOrEqual(largest + 16 * 1024);
+});
+
+test("N7: per-route body limits are derived from field limits at 3 bytes per unit, 64 KiB by default", () => {
+  expect(bodyLimitForPath("/api/admin/vehicles/")).toBe(MAX_VEHICLE_BODY_BYTES);
+  expect(bodyLimitForPath("/api/admin/vehicles/0b0c0000-0000-4000-8000-000000000000/")).toBe(MAX_VEHICLE_BODY_BYTES);
+  expect(bodyLimitForPath("/api/platform/companies/x/vehicles/y")).toBe(MAX_VEHICLE_BODY_BYTES);
+  expect(bodyLimitForPath("/api/platform/companies/x/settings/")).toBe(MAX_SETTINGS_BODY_BYTES);
+  expect(bodyLimitForPath("/api/admin/vehicles/x/blocks/")).toBe(MAX_JSON_BODY_BYTES);
+  expect(bodyLimitForPath("/api/admin/chat/messages/")).toBe(MAX_JSON_BODY_BYTES);
+  expect(bodyLimitForPath("/api/auth/sign-in/email/")).toBe(MAX_AUTH_BODY_BYTES);
+  expect(bodyLimitForPath("/api/auth/invitation/abc/")).toBe(MAX_AUTH_BODY_BYTES);
+  // Worst valid data fits with room, and the limits are not larger than needed by more than the envelope slack.
+  expect(41_000 * 3 + 2 * 2_048).toBeLessThan(MAX_SETTINGS_BODY_BYTES);
+  expect(80_100 * 3 + 8_000).toBeLessThan(MAX_VEHICLE_BODY_BYTES);
 });

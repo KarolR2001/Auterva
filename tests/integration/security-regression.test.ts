@@ -158,6 +158,8 @@ afterAll(async () => {
   await db.auditLog.deleteMany({ where: { organizationId: { in: [ids.a.org, ids.b.org] } } }).catch(() => {});
   await db.availabilityBlock.deleteMany({ where: { organizationId: { in: [ids.a.org, ids.b.org] } } });
   await db.vehicleImage.deleteMany({ where: { organizationId: { in: [ids.a.org, ids.b.org] } } });
+  await db.vehicleFeature.deleteMany({ where: { organizationId: { in: [ids.a.org, ids.b.org] } } });
+  await db.slugRedirect.deleteMany({ where: { organizationId: { in: [ids.a.org, ids.b.org] } } });
   await db.vehicle.deleteMany({ where: { organizationId: { in: [ids.a.org, ids.b.org] } } });
   await db.siteSettings.deleteMany({ where: { organizationId: { in: [ids.a.org, ids.b.org] } } });
   await db.serviceAccess.deleteMany({ where: { organizationId: { in: [ids.a.org, ids.b.org] } } });
@@ -372,7 +374,7 @@ test("TEST-MVP-32: markup in a description or a chat message is stored and retur
   expect(before).toBeTruthy();
 });
 
-test("bounded bodies: a valid JSON padded beyond 64 KiB is refused before any write on every JSON entry", async () => {
+test("bounded bodies: a valid JSON padded beyond its route limit is refused before any write on every JSON entry", async () => {
   await resetBudgets();
   const pad = " ".repeat(70_000);
   const before = await snapshot();
@@ -387,7 +389,7 @@ test("bounded bodies: a valid JSON padded beyond 64 KiB is refused before any wr
   for (const [path, method, hostname, cookie, payload] of attempts) {
     const route = routes.find((item) => path.replace(ids.a.org, "[organizationId]") === item.url)!;
     const request = new Request(`http://${hostname}${path}`, { method, headers: { host: hostname, cookie, origin: `http://${hostname}`,
-      "content-type": "application/json" }, body: JSON.stringify(payload) + pad });
+      "content-type": "application/json" }, body: JSON.stringify(payload) + (path.includes("/vehicles") ? " ".repeat(270_000) : path.endsWith("/settings/") ? " ".repeat(140_000) : pad) });
     const reply = await runWithTrustedClientAddress(`10.${randomBytes(3).join(".")}`, async () =>
       route.methods[method as "POST"]!(request, { params: Promise.resolve({ organizationId: ids.a.org }) }));
     expect(reply.status, `${method} ${path}`).toBe(400);
@@ -551,4 +553,50 @@ test("every public route with a path parameter or a slug in the body answers NUL
     }
   }
   expect(failures).toEqual([]);
+});
+
+// N7: the body limit must never be lower than the largest VALID data (3-byte characters), nor hide a real field limit.
+test("body limits per route: the largest valid vehicle form and legal settings pass with 3-byte characters, one character more is a field error", async () => {
+  await resetBudgets();
+  const euro = (count: number) => "€".repeat(count);
+  let vehicleId = "";
+  const send = async (url: string, method: string, hostname: string, cookie: string, payload: object) => {
+    const text = JSON.stringify(payload);
+    const request = new Request(`http://${hostname}${url}`, { method, headers: { host: hostname, cookie, origin: `http://${hostname}`, "content-type": "application/json" }, body: text });
+    const route = routes.find((item) => url.replace(ids.a.org, "[organizationId]").replace(/\/[0-9a-f-]{36}\//, "/[id]/") === item.url)!;
+    const reply = await runWithTrustedClientAddress("10.7.7.7", async () => route.methods[method as "POST"]!(request, { params: Promise.resolve({ organizationId: ids.a.org, id: vehicleId }) }));
+    return { status: reply.status, bytes: new TextEncoder().encode(text).length, body: await reply.text() } as { status: number; bytes: number; body: string };
+  };
+  const features = (valueLength: number) => Array.from({ length: 100 }, (_, i) => ({ code: `f${String(i).padStart(2, "0")}${"x".repeat(77)}`, value: euro(valueLength) }));
+  const fields = (description: number, extra: object = {}) => ({ name: euro(120), brand: euro(120), model: euro(120), variant: euro(120),
+    shortDescription: euro(500), description: euro(description), transmission: euro(80), drive: euro(80), fuel: euro(80), color: euro(80),
+    luggage: euro(120), priceUnit: euro(40), features: features(500), ...extra });
+  // Vehicle: the maximum form is far above 64 KiB and below the route limit.
+  const created = await send("/api/admin/vehicles/", "POST", host.adminA, cookieAdminA, { fields: fields(20_000) });
+  expect(created.bytes).toBeGreaterThan(200_000);
+  expect(created.bytes).toBeLessThan(256 * 1024);
+  expect(created.status, created.body.slice(0, 120)).toBe(201);
+  vehicleId = (JSON.parse(created.body) as { id: string }).id;
+  const tooLong = await send("/api/admin/vehicles/", "POST", host.adminA, cookieAdminA, { fields: fields(20_001) });
+  expect(tooLong.status).toBe(400);
+  expect(JSON.parse(tooLong.body).code).toBe("INVALID_INPUT");
+  const tooManyFeatures = await send("/api/admin/vehicles/", "POST", host.adminA, cookieAdminA, { fields: fields(20_000, { features: [...features(500), { code: "extra", value: "x" }] }) });
+  expect(tooManyFeatures.status).toBe(400);
+  // Legal settings: both long texts, the notice and two links.
+  const link = `https://a.example/${"a".repeat(2_048 - "https://a.example/".length)}`;
+  const legal = (privacy: number) => ({ availabilityNotice: euro(1_000), privacyText: euro(privacy), termsText: euro(20_000), privacyUrl: link, termsUrl: link });
+  const version = (await db.siteSettings.findUniqueOrThrow({ where: { organizationId: ids.a.org } })).version;
+  const path = `/api/platform/companies/${ids.a.org}/settings/`;
+  const okLegal = await send(path, "PATCH", host.platform, cookieSuper, { group: "legal", expectedVersion: version, eventKey: randomUUID(), fields: legal(20_000) });
+  expect(okLegal.bytes).toBeGreaterThan(64 * 1024);
+  expect(okLegal.bytes).toBeLessThan(128 * 1024);
+  expect(okLegal.status, okLegal.body.slice(0, 160)).toBe(200);
+  const longLegal = await send(path, "PATCH", host.platform, cookieSuper, { group: "legal", expectedVersion: version + 1, eventKey: randomUUID(), fields: legal(20_001) });
+  expect(longLegal.status).toBe(400);
+  expect(JSON.parse(longLegal.body).fieldErrors).toEqual({ privacyText: "TOO_LONG" });
+  // Any other route still stops at 64 KiB: the same maximum form on a block is refused for size, not accepted.
+  const block = await send(`/api/admin/vehicles/${vehicleId}/blocks/`, "POST", host.adminA, cookieAdminA, { fields: { from: availabilityToday(), to: availabilityToday(), type: "MAINTENANCE", internalNote: euro(30_000) } });
+  expect(block.bytes).toBeGreaterThan(64 * 1024);
+  expect(block.status).toBe(400);
+  await db.siteSettings.update({ where: { organizationId: ids.a.org }, data: { privacyText: null, termsText: null, availabilityNotice: null, privacyUrl: null, termsUrl: null } });
 });

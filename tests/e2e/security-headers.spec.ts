@@ -238,39 +238,58 @@ test("auth cookies are HttpOnly, SameSite and host-only, and the response is nev
   }
 });
 
-function sendChunked(port: number, host: string, path: string, megabytes: number): Promise<number> {
+/** A chunked POST: a valid JSON in the first chunk, then 80 kB of spaces in the second (the prefix Next would keep). */
+function sendChunked(port: number, host: string, path: string, headers: Record<string, string> = {}): Promise<number> {
   return new Promise((resolve, reject) => {
     const request = httpRequest({ hostname: "127.0.0.1", port, path, method: "POST",
-      headers: { Host: host, "content-type": "application/json", "transfer-encoding": "chunked" } }, (response) => {
+      headers: { Host: host, "content-type": "application/json", "transfer-encoding": "chunked", ...headers } }, (response) => {
       response.resume();
       response.on("end", () => resolve(response.statusCode ?? 0));
     });
     request.on("error", reject);
-    request.write('{"slug":"x","pad":"');
-    const chunk = "y".repeat(64 * 1024);
-    for (let sent = 0; sent < megabytes * 1024 * 1024; sent += chunk.length) request.write(chunk);
-    request.end('"}');
+    request.write(`{"slug":"x","from":"2030-01-01","to":"2030-01-01"}`);
+    request.end(" ".repeat(80 * 1024));
   });
 }
 
-// B1: Proxy buffers non-GET bodies; the buffer is capped near the JSON limit, so a megabyte is refused cheaply.
-test("a chunked megabyte to a public route, an unknown host and the auth gateway is refused with a client error (#57)", async ({ baseURL }) => {
+// B1': Proxy buffers non-GET bodies and drops a chunk that does not fit, so a handler could be handed only the prefix.
+// A body without a declared length is refused (411); a declared length above the route limit is refused (413).
+test("Proxy refuses a chunked body (411) and an oversized declared length (413); a body-less DELETE and uploads pass (#57)", async ({ baseURL }) => {
   if (!baseURL) throw new Error("Missing trusted ingress URL");
   const db = createPrismaClient(process.env.DATABASE_URL ?? "");
   const port = Number(new URL(baseURL).port);
   const organizationId = randomUUID();
+  const userId = randomUUID();
   const hostname = `sec-e2e-chunk-${organizationId}.example.test`;
+  let session: Awaited<ReturnType<typeof verifiedFixtureSession>> | undefined;
   try {
     await db.organization.create({ data: { id: organizationId, slug: `sec-chunk-${organizationId}`, firstAdminRegisteredAt: new Date() } });
+    await db.user.create({ data: { id: userId, name: "Chunk admin", role: "ADMIN_FIRMY", organizationId, email: `sec-chunk-${userId}@example.test`, emailVerified: true, twoFactorEnabled: true } });
     await db.hostMapping.createMany({ data: [{ hostname, area: "COMPANY_PUBLIC", organizationId, status: "ACTIVE" },
       { hostname: `admin-${hostname}`, area: "COMPANY_ADMIN", organizationId, status: "ACTIVE" }] });
+    session = await verifiedFixtureSession(db, userId);
     for (const [host, path] of [[hostname, "/api/public/availability/check/"], [`unknown-${hostname}`, "/api/public/availability/check/"],
-      [`admin-${hostname}`, "/api/auth/sign-in/email/"], [hostname, "/api/admin/vehicles/"]]) {
-      const status = await sendChunked(port, `${host}:${port}`, path, 1);
-      expect(status, `${host} ${path}`).toBeGreaterThanOrEqual(400);
-      expect(status, `${host} ${path}`).toBeLessThan(500);
+      [`admin-${hostname}`, "/api/auth/sign-in/email/"], [`admin-${hostname}`, "/api/admin/vehicles/"], [`admin-${hostname}`, "/api/auth/invitation/" + "A".repeat(43) + "/"]]) {
+      expect(await sendChunked(port, `${host}:${port}`, path, { cookie: session.cookie, origin: `http://${host}:${port}` }), `${host} ${path}`).toBe(411);
     }
+    // A declared length above the route limit is refused before anything else (413): public route, vehicle form, auth gateway.
+    for (const [host, path, bytes] of [[hostname, "/api/public/availability/check/", 70 * 1024], [`admin-${hostname}`, "/api/admin/vehicles/", 270 * 1024],
+      [`admin-${hostname}`, "/api/auth/sign-in/email/", 20 * 1024]] as const) {
+      const reply = await send(port, `${host}:${port}`, path, { method: "POST", headers: { "content-type": "application/json", cookie: session.cookie, origin: `http://${host}:${port}` },
+        body: JSON.stringify({ pad: "y".repeat(bytes) }) });
+      expect(reply.status, `${path} ${bytes}`).toBe(413);
+      expect(reply.text).not.toContain("y".repeat(20));
+    }
+    // A body-less DELETE (fetch sends neither a body nor Content-Length) passes the Proxy and reaches the handler.
+    const del = await send(port, `admin-${hostname}:${port}`, `/api/admin/vehicles/${randomUUID()}/blocks/${randomUUID()}/`, { method: "DELETE",
+      headers: { cookie: session.cookie, origin: `http://admin-${hostname}:${port}` } });
+    expect([400, 404], `DELETE ${del.text}`).toContain(del.status);
+    // The upload route is outside the Proxy matcher: a chunked image body is judged by the handler, not refused with 411.
+    const upload = await sendChunked(port, `admin-${hostname}:${port}`, `/api/admin/vehicles/${randomUUID()}/images/`, { cookie: session.cookie, origin: `http://admin-${hostname}:${port}` });
+    expect(upload).not.toBe(411);
   } finally {
+    if (session) await session.dispose();
+    await db.user.deleteMany({ where: { id: userId } });
     await db.hostMapping.deleteMany({ where: { organizationId } });
     await db.organization.deleteMany({ where: { id: organizationId } });
     await db.$disconnect();
@@ -291,7 +310,7 @@ test("RSC and prefetch requests for the panels give 404 without panel content in
   const noMfaIds: string[] = [];
   try {
     for (const key of ["a", "b"] as const) {
-      await db.organization.create({ data: { id: org[key], slug: `sec-rsc-${key}-${tag}`, firstAdminRegisteredAt: new Date() } });
+      await db.organization.create({ data: { id: org[key], slug: `sec-rsc-${key}-${tag}`, name: `RSC-SEKRET-${key}-${tag}`, firstAdminRegisteredAt: new Date() } });
       await db.user.create({ data: { id: user[key], name: `RSC ${key}`, email: `sec-rsc-${key}-${tag}@example.test`, role: "ADMIN_FIRMY",
         organizationId: org[key], emailVerified: true, twoFactorEnabled: true } });
       sessions.push(await verifiedFixtureSession(db, user[key]));
@@ -338,6 +357,8 @@ test("RSC and prefetch requests for the panels give 404 without panel content in
           if (reply.status === 200 && !form.startsWith("Next-Router-Prefetch")) expect(reply.text, name).toContain("NEXT_HTTP_ERROR_FALLBACK;404");
         }
         expect(reply.text, name).not.toMatch(/Panel Auterva|Platforma Auterva|jest w przygotowaniu/);
+        // Company markers: nothing of either company (name, id, slug, e-mail) may appear in a denied answer.
+        for (const marker of [`RSC-SEKRET-a-${tag}`, `RSC-SEKRET-b-${tag}`, org.a, org.b, `sec-rsc-a-${tag}`, `sec-rsc-b-${tag}`]) expect(reply.text, `${name} ${marker}`).not.toContain(marker);
         expect(header(reply, "cache-control"), name).toMatch(/no-store|private/);
       }
     }
