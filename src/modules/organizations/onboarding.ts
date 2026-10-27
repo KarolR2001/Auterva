@@ -10,7 +10,8 @@ import { normalizeHostname } from "@/modules/tenancy/host-registry";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const slugPattern = /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$/;
 const reservedSlugs = new Set(["admin", "api", "app", "auth", "assets", "cdn", "mail",
-  "marketing", "platform", "static", "status", "support", "www"]);
+  "marketing", "platform", "static", "status", "support", "www",
+  "staging", "preview", "dev", "mail", "smtp", "mx"]);
 const adminEmailSchema = z.email().max(254);
 
 type PreregisterInput = {
@@ -37,9 +38,11 @@ function normalizedInput(input: PreregisterInput) {
   if (!input.actorId || input.actorId.length > 128 || !input.sessionId || input.sessionId.length > 128
     || !uuid.test(input.idempotencyKey)
     || !uuid.test(input.requestId) || !name || name.length > 120 || !slugPattern.test(slug)
-    || reservedSlugs.has(slug) || !adminEmailSchema.safeParse(adminEmail).success
+    || reservedSlugs.has(slug) || slug.startsWith("xn--") || !adminEmailSchema.safeParse(adminEmail).success
     || !adminBase || !publicBase || adminBase === publicBase
     || !adminBase.includes(".") || !publicBase.includes(".")
+    // The first label of either configured base (e.g. `sites`) is infrastructure, never a company slug.
+    || slug === adminBase.split(".")[0] || slug === publicBase.split(".")[0]
     || typeof input.trialGranted !== "boolean") throw new Error("COMPANY_INVALID_INPUT");
   if (input.paidThrough !== null) paidEndExclusive(input.paidThrough);
   const adminHostname = normalizeHostname(`${slug}.${adminBase}`);
@@ -74,9 +77,11 @@ export async function preregisterCompany(db: PrismaClient, input: PreregisterInp
     await tx.user.create({ data: { id: userId, name: "Administrator firmy",
       email: normalized.adminEmail, role: "ADMIN_FIRMY", organizationId,
       emailVerified: false, twoFactorEnabled: false } });
+    // D-26: both hosts are subdomains of the configured Auterva bases (operator-provided wildcard
+    // DNS/TLS), so they are ACTIVE at once. Publication still needs a valid period (public gate).
     await tx.hostMapping.createMany({ data: [
-      { organizationId, hostname: normalized.adminHostname, area: "COMPANY_ADMIN", status: "PENDING" },
-      { organizationId, hostname: normalized.publicHostname, area: "COMPANY_PUBLIC", status: "PENDING" },
+      { organizationId, hostname: normalized.adminHostname, area: "COMPANY_ADMIN", kind: "PROVIDER", status: "ACTIVE" },
+      { organizationId, hostname: normalized.publicHostname, area: "COMPANY_PUBLIC", kind: "PROVIDER", status: "ACTIVE" },
     ] });
     await tx.serviceAccess.create({ data: { organizationId,
       trialGranted: normalized.trialGranted,
