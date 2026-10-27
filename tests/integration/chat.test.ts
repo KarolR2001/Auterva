@@ -417,3 +417,22 @@ test("platform conversation list: superadmin only, last activity first, cursor-p
   expect(after).toMatchObject({ archived: true });
   expect(after?.lastMessage?.preview).toHaveLength(160);
 });
+
+test("sequence trigger: parallel inserts without seq never share a number and mix cleanly with service sends", async () => {
+  const company = await makeCompany("trigger");
+  const { conversationId } = await openConversation(db, company.admin);
+  const insertRaw = (body: string) => db.chatMessage.create({ data: { organizationId: company.organizationId,
+    conversationId, senderId: company.adminId, clientMessageId: randomUUID(), body }, select: { seq: true } });
+  const raw = await Promise.all(Array.from({ length: 12 }, (_, i) => insertRaw(`bez seq ${i}`)));
+  expect(raw.map((row) => row.seq).sort((a, b) => (a ?? 0) - (b ?? 0))).toEqual(Array.from({ length: 12 }, (_, i) => i + 1));
+  const base = nextBase();
+  const [viaService, viaRaw] = await Promise.all([
+    sendMessage(db, company.admin, { clientMessageId: randomUUID(), body: "usługa" }, new Date(base)),
+    insertRaw("surowy"),
+  ]);
+  const rows = await db.chatMessage.findMany({ where: { conversationId }, select: { seq: true } });
+  expect(rows.map((row) => row.seq).sort((a, b) => (a ?? 0) - (b ?? 0))).toEqual(Array.from({ length: 14 }, (_, i) => i + 1));
+  expect(viaService.message.id).toBeTruthy();
+  expect(viaRaw.seq).toBeGreaterThan(12);
+  expect((await db.conversation.findUniqueOrThrow({ where: { id: conversationId } })).lastSeq).toBe(14);
+});
