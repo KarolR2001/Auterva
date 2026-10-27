@@ -1,5 +1,6 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { afterAll, expect, test } from "vitest";
+import { bindReminderIntent } from "../fixtures/reminder-intent";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { enqueueMail, rebindReminder } from "../../src/modules/jobs/outbox";
 import { claimNextJob, finishJob, startMailAttempt } from "../../src/modules/jobs/queue";
@@ -36,33 +37,6 @@ test("stale reminder version is skipped before external mail", async () => {
     allowedRecipients: new Set(["reminder@example.test"]),
     provider: { send: async () => { throw new Error("stale reminder escaped"); } } });
   expect(await db.job.findUniqueOrThrow({ where: { id: job.id } })).toMatchObject({ status: "SKIPPED", errorCode: "STALE_INTENT" });
-});
-
-test("unchanged reminder slot is rebound to a new period version without a second job", async () => {
-  await db.organization.upsert({ where: { id: organizationId }, create: { id: organizationId, slug: `jobs-${organizationId}` }, update: { archivedAt: null } });
-  await db.hostMapping.upsert({ where: { hostname: host }, create: { organizationId, hostname: host, area: "COMPANY_ADMIN", status: "ACTIVE" }, update: { status: "ACTIVE" } });
-  await db.serviceAccess.upsert({ where: { organizationId }, create: { organizationId, periodVersion: 3 }, update: { periodVersion: 3 } });
-  await db.user.update({ where: { id: adminId }, data: { email: "same-slot@example.test" } });
-  const referenceId = randomUUID();
-  const job = await db.$transaction((tx) => enqueueMail(tx, { kind: "MAIL_REMINDER", organizationId,
-    recipient: "same-slot@example.test", referenceId, periodVersion: 3, runAt: new Date(now.getTime() - 60_000) }, key));
-  const oldClaim = await claimNextJob(db, now, 30_000);
-  expect(oldClaim?.id).toBe(job.id);
-  await db.$transaction(async (tx) => {
-    await tx.serviceAccess.update({ where: { organizationId }, data: { periodVersion: 4 } });
-    await rebindReminder(tx, organizationId, referenceId, 4, key);
-  });
-  expect(await finishJob(db, oldClaim!, "SENT", now, "stale-owner")).toBe(false);
-  expect(await db.job.count({ where: { organizationId, dedupeKey: `MAIL_REMINDER:${referenceId}` } })).toBe(1);
-  const claim = await claimNextJob(db, now, 30_000);
-  expect(claim?.id).toBe(job.id);
-  let calls = 0;
-  await processClaimedJob(db, claim!, { key, now, mode: "development",
-    allowedRecipients: new Set(["same-slot@example.test"]), provider: { send: async () => {
-      calls++; return { kind: "accepted", providerId: "same-slot" };
-    } } });
-  expect(calls).toBe(1);
-  expect(await db.job.findUniqueOrThrow({ where: { id: job.id } })).toMatchObject({ status: "SENT" });
 });
 
 async function fixture(recipient = "qa@example.test") {
@@ -164,4 +138,34 @@ test("mail failure keeps the company and records a safe retry state", async () =
   const stored = await db.job.findUniqueOrThrow({ where: { id: job.id } });
   expect(stored).toMatchObject({ status: "FAILED", errorCode: "MAIL_PERMANENT" });
   expect(JSON.stringify(stored)).not.toContain("failure@example.test");
+});
+
+// Last on purpose: binding an intent registers the shared company, which would make the invitation tests above stale.
+test("unchanged reminder slot is rebound to a new period version without a second job", async () => {
+  await db.organization.upsert({ where: { id: organizationId }, create: { id: organizationId, slug: `jobs-${organizationId}` }, update: { archivedAt: null } });
+  await db.hostMapping.upsert({ where: { hostname: host }, create: { organizationId, hostname: host, area: "COMPANY_ADMIN", status: "ACTIVE" }, update: { status: "ACTIVE" } });
+  await db.serviceAccess.upsert({ where: { organizationId }, create: { organizationId, periodVersion: 3 }, update: { periodVersion: 3 } });
+  await db.user.update({ where: { id: adminId }, data: { email: "same-slot@example.test",
+    emailVerified: true, twoFactorEnabled: true } });
+  const referenceId = randomUUID();
+  const job = await db.$transaction((tx) => enqueueMail(tx, { kind: "MAIL_REMINDER", organizationId,
+    recipient: "same-slot@example.test", referenceId, periodVersion: 3, runAt: new Date(now.getTime() - 60_000) }, key));
+  await bindReminderIntent(db, organizationId, referenceId, job.id);
+  const oldClaim = await claimNextJob(db, now, 30_000);
+  expect(oldClaim?.id).toBe(job.id);
+  await db.$transaction(async (tx) => {
+    await tx.serviceAccess.update({ where: { organizationId }, data: { periodVersion: 4 } });
+    await rebindReminder(tx, organizationId, referenceId, 4, key);
+  });
+  expect(await finishJob(db, oldClaim!, "SENT", now, "stale-owner")).toBe(false);
+  expect(await db.job.count({ where: { organizationId, dedupeKey: `MAIL_REMINDER:${referenceId}` } })).toBe(1);
+  const claim = await claimNextJob(db, now, 30_000);
+  expect(claim?.id).toBe(job.id);
+  let calls = 0;
+  await processClaimedJob(db, claim!, { key, now, mode: "development",
+    allowedRecipients: new Set(["same-slot@example.test"]), provider: { send: async () => {
+      calls++; return { kind: "accepted", providerId: "same-slot" };
+    } } });
+  expect(calls).toBe(1);
+  expect(await db.job.findUniqueOrThrow({ where: { id: job.id } })).toMatchObject({ status: "SENT" });
 });

@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@/generated/prisma/client";
 import { sweepExpiredRateLimits } from "./maintenance";
 import { processClaimedJob, type WorkerContext } from "./processor";
+import { processDueReminders } from "@/modules/reminders/deliver";
 import { claimNextJob, type ClaimedJob } from "./queue";
 
 export type RunnerOptions = {
@@ -35,6 +36,7 @@ export async function runWorkerLoop(options: RunnerOptions): Promise<void> {
         await sweepExpiredRateLimits(options.db, now);
         nextSweepAt = now.getTime() + 60 * 60_000;
       }
+      await processDueReminders(options.db, now, options.context.key);
       const claim = await claimNextJob(options.db, now, leaseMs, true);
       if (claim) {
         await options.afterClaim?.(claim);

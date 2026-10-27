@@ -32,6 +32,8 @@ type MailInput = {
   referenceId: string;
   token?: string;
   periodVersion?: number;
+  /** MAIL_REMINDER only: current-state text built by the reminder module; the link is appended by the outbox. */
+  copy?: { subject: string; text: (url: string) => string };
   runAt: Date;
 };
 
@@ -76,6 +78,7 @@ export async function enqueueMail(tx: Prisma.TransactionClient, input: MailInput
   assertKey(key);
   if (!Number.isFinite(input.runAt.getTime()) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.recipient) ||
       !/^[a-zA-Z0-9:_-]{1,160}$/.test(input.referenceId)) throw new Error("Invalid mail intent");
+  if (input.copy && input.kind !== "MAIL_REMINDER") throw new Error("Invalid mail copy");
   if (input.kind === "MAIL_REMINDER") {
     if (input.token !== undefined || !Number.isSafeInteger(input.periodVersion) || input.periodVersion! < 0) throw new Error("Invalid reminder intent");
   } else if (!input.token || input.token.length > 512 || input.periodVersion !== undefined) {
@@ -130,7 +133,8 @@ export async function enqueueMail(tx: Prisma.TransactionClient, input: MailInput
     ? { subject: "Zaproszenie do Autervy", text: `Otwórz zaproszenie: ${url}` }
     : input.kind === "MAIL_PASSWORD_RESET"
       ? { subject: "Reset hasła Autervy", text: `Ustaw nowe hasło: ${url}` }
-      : { subject: "Przypomnienie o okresie usługi Autervy", text: `Sprawdź okres usługi w panelu: ${url}` };
+      : input.copy ? { subject: input.copy.subject, text: input.copy.text(url) }
+        : { subject: "Przypomnienie o okresie usługi Autervy", text: `Sprawdź okres usługi w panelu: ${url}` };
   const payload: MailPayload = { kind: input.kind, scope, organizationId: input.organizationId,
     recipient: input.recipient.toLowerCase(), referenceId: input.referenceId, url, ...copy,
     ...(input.periodVersion === undefined ? {} : { periodVersion: input.periodVersion }) };
