@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { appendAudit } from "@/modules/audit/append";
 import { requireAuditActor } from "@/modules/audit/actor";
+import { lockCompanyForWrite } from "@/modules/organizations/write-lock";
 import { altText, parseGroupFields, type FieldErrors, type SettingsGroup } from "./fields";
 
 export class SettingsValidationError extends Error {
@@ -15,14 +16,12 @@ type PlatformOperation = { actorId: string; sessionId: string; organizationId: s
 
 const versionOk = (value: number) => Number.isSafeInteger(value) && value >= 0 && value < 2_147_483_647;
 
-/** Settings and media writes serialize on the company row; archived companies are read-only. */
+/** Settings and media writes serialize on the company row; archived companies stay writable for the superadmin (D-23). */
 async function lockCompany(tx: Prisma.TransactionClient, input: PlatformOperation) {
   const actor = await requireAuditActor(tx, input.actorId, input.sessionId);
   if (actor.role !== "SUPERADMIN_AUTERVA") throw new Error("FORBIDDEN");
-  const rows = await tx.$queryRaw<{ archivedAt: Date | null }[]>`
-    SELECT "archivedAt" FROM "Organization" WHERE id = ${input.organizationId}::uuid FOR UPDATE`;
-  if (rows.length !== 1) throw new Error("SETTINGS_COMPANY_NOT_FOUND");
-  if (rows[0].archivedAt) throw new Error("SETTINGS_COMPANY_ARCHIVED");
+  // D-23: the superadmin writes into an archived company as into an active one (the lock is the same).
+  if (!(await lockCompanyForWrite(tx, actor, input.organizationId, "UPDATE"))) throw new Error("SETTINGS_COMPANY_NOT_FOUND");
 }
 
 const columnsByGroup: Record<SettingsGroup, readonly string[]> = {

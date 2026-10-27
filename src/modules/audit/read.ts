@@ -1,6 +1,6 @@
 import type { PrismaClient, Prisma } from "@/generated/prisma/client";
 import { requireAuditActor, requireAuditScope } from "./actor";
-import { safeAuditFieldNames, safeAuditValueFields, isSafeAuditSnapshotValue } from "./append";
+import { ARCHIVED_COMPANY_CONTEXT, safeAuditFieldNames, safeAuditValueFields, isSafeAuditSnapshotValue } from "./append";
 import { auditRetentionCutoff } from "./retention";
 
 export function safeAuditView(value: Prisma.JsonValue | null): Prisma.JsonObject | null {
@@ -15,6 +15,7 @@ export function safeAuditView(value: Prisma.JsonValue | null): Prisma.JsonObject
     const count = input[key];
     if (typeof count === "number" && Number.isSafeInteger(count) && count >= 0) output[key] = count;
   }
+  if (input.context === ARCHIVED_COMPANY_CONTEXT) output.context = ARCHIVED_COMPANY_CONTEXT;
   if (typeof input.evidenceDigest === "string" && /^[a-f0-9]{64}$/.test(input.evidenceDigest)) {
     output.evidenceDigest = input.evidenceDigest;
   }

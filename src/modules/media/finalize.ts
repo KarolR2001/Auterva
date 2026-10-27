@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { appendAudit } from "@/modules/audit/append";
 import { requireAuditActor, requireAuditScope } from "@/modules/audit/actor";
+import { lockCompanyForWrite } from "@/modules/organizations/write-lock";
 import { decodeMedia } from "./decode";
 import { putImmutable, type MediaStorage } from "./storage";
 
@@ -14,11 +15,8 @@ export type FinalizeInput = { actorId: string; sessionId: string; organizationId
 async function lockedUpload(tx: Prisma.TransactionClient, input: FinalizeInput) {
   const actor = await requireAuditActor(tx, input.actorId, input.sessionId);
   requireAuditScope(actor, input.organizationId);
-  const company = await tx.$queryRaw<{ id: string }[]>`
-    SELECT id FROM "Organization" WHERE id = ${input.organizationId}::uuid
-      AND "archivedAt" IS NULL FOR NO KEY UPDATE
-  `;
-  if (company.length !== 1) throw new Error("MEDIA_ORGANIZATION_ARCHIVED");
+  if (!(await lockCompanyForWrite(tx, actor, input.organizationId, "NO_KEY_UPDATE")))
+    throw new Error("MEDIA_ORGANIZATION_ARCHIVED");
   if (input.vehicleId) {
     const vehicle = await tx.$queryRaw<{ id: string; status: string }[]>`
       SELECT id, status FROM "Vehicle" WHERE id = ${input.vehicleId}::uuid

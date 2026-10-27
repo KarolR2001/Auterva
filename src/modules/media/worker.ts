@@ -151,7 +151,9 @@ export async function processMediaClaim(db: PrismaClient, storage: MediaStorage,
         organizationId: upload.organizationId, vehicleId: upload.vehicleId,
         state: "PROCESSING", rawSha256: upload.rawSha256 } });
       if (!current) return false;
-      if (company.length !== 1 || company[0].archivedAt
+      // D-23: a PROCESSING upload passed the actor and company checks at finalize; an archived company does not
+      // reject it (the superadmin writes there). A missing company or an archived vehicle still does.
+      if (company.length !== 1
         || (vehicle !== null && (vehicle.length !== 1 || vehicle[0].status === "ARCHIVED"))) {
         await tx.imageUpload.update({ where: { id: upload.id }, data: { state: "FAILED" } });
         await tx.job.update({ where: { id: claim.id }, data: { status: "FAILED",

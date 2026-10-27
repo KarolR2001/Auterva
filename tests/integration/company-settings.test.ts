@@ -415,17 +415,18 @@ test("logo replacement, metadata, foreign ids and deletion are version-checked a
   expect((await upload(orgA, "hero", await png("#fedcba"))).status).toBe(409);
 });
 
-test("archived companies are read-only for settings and media", async () => {
+test("archived companies stay writable for the superadmin (D-23); the company admin is still denied", async () => {
   await db.organization.update({ where: { id: orgB }, data: { archivedAt: new Date() } });
   try {
-    expect((await write(orgB, "seo", { seoTitle: "x" }, await version(orgB))).status).toBe(409);
-    expect((await upload(orgB, "logo", await png("#445566"))).status).toBe(404);
+    expect((await write(orgB, "seo", { seoTitle: "x" }, await version(orgB))).status).toBe(200);
+    expect((await upload(orgB, "logo", await png("#445566"))).status).toBe(202);
+    await processAll(orgB);
     expect((await adminGet(admin(1, "GET"))).status).toBe(403);
     expect((await platformGet(platform("GET", settingsPath(orgB)), orgCtx(orgB))).status).toBe(200);
   } finally { await db.organization.update({ where: { id: orgB }, data: { archivedAt: null } }); }
 });
 
-test("real archive (#48) closes writes and public reads; restore without unlock keeps public settings and media hidden", async () => {
+test("real archive (#48) closes public reads and admin access, the superadmin still writes (D-23); restore without unlock keeps public settings and media hidden", async () => {
   const { archiveCompany, restoreCompany } = await import("../../src/modules/organizations/archive");
   const media = await db.publicMedia.create({ data: { organizationId: orgB, kind: "BRAND", storageKey: `private/${orgB}/arch/${randomUUID()}`,
     status: "READY", variants: { large: "x", thumb: "y" } } });
@@ -436,7 +437,7 @@ test("real archive (#48) closes writes and public reads; restore without unlock 
     eventKey: randomUUID(), requestId: randomUUID() });
   };
   await op(archiveCompany);
-  expect((await write(orgB, "seo", { seoTitle: "x" }, await version(orgB))).status).toBe(409);
+  expect((await write(orgB, "seo", { seoTitle: "x" }, await version(orgB))).status).toBe(200);
   expect((await pub(publicHost[1], publicSettings)).status).toBe(404);
   expect((await media_(publicHost[1], media.id)).status).toBe(404);
   await op(restoreCompany);
