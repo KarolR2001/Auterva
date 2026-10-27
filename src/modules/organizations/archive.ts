@@ -3,6 +3,7 @@ import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { appendAudit } from "@/modules/audit/append";
 import { requireAuditActor } from "@/modules/audit/actor";
 import { revokeMfaChallenges } from "@/modules/auth/account-operations";
+import { reconcileReminders } from "@/modules/reminders/reconcile";
 
 export type CompanyArchiveOperation = {
   actorId: string;
@@ -72,6 +73,7 @@ export async function archiveCompany(db: PrismaClient, input: CompanyArchiveOper
       publicRequiresPaid: true, publicUnlockRequired: true, version: { increment: 1 } } });
     if (changed.count !== 1) throw new Error("COMPANY_VERSION_CONFLICT");
     const period = await bumpPeriodVersion(tx, input.organizationId, input.actorId);
+    await reconcileReminders(tx, input.organizationId, { now });
     const users = await tx.user.findMany({ where: { organizationId: input.organizationId },
       select: { id: true, email: true }, orderBy: { id: "asc" } });
     let revokedSessions = 0;
@@ -118,6 +120,7 @@ export async function restoreCompany(db: PrismaClient, input: CompanyArchiveOper
       publicRequiresPaid: true, publicUnlockRequired: true, version: { increment: 1 } } });
     if (changed.count !== 1) throw new Error("COMPANY_VERSION_CONFLICT");
     const period = await bumpPeriodVersion(tx, input.organizationId, input.actorId);
+    await reconcileReminders(tx, input.organizationId, { now: input.now ?? new Date() });
     await appendAudit(tx, { actorId: input.actorId, sessionId: input.sessionId,
       organizationId: input.organizationId, action: "COMPANY_UPDATED", entityId: input.organizationId,
       eventKey: input.eventKey, requestId: input.requestId,

@@ -112,6 +112,8 @@ test("built ingress preregisters once and activates the bound invitation without
       await db.invitation.deleteMany({ where: { organizationId } });
       await db.auditLog.deleteMany({ where: { organizationId } });
       await db.operationReceipt.deleteMany({ where: { organizationId } });
+      await db.reminderIntent.deleteMany({ where: { organizationId } });
+      await db.reminderPlan.deleteMany({ where: { organizationId } });
       await db.serviceAccess.deleteMany({ where: { organizationId } });
       await db.user.deleteMany({ where: { organizationId } });
       await db.hostMapping.deleteMany({ where: { organizationId } });

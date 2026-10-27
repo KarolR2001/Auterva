@@ -49,6 +49,8 @@ afterAll(async () => {
   if (createdPlatform) await db.user.deleteMany({ where: { id: platformId } });
   await db.hostMapping.deleteMany({ where: { hostname: adminHost } });
   await db.serviceAccess.deleteMany({ where: { organizationId } });
+  await db.reminderIntent.deleteMany({ where: { organizationId: organizationId } });
+  await db.reminderPlan.deleteMany({ where: { organizationId: organizationId } });
   await db.organization.deleteMany({ where: { id: organizationId } });
   await db.$disconnect();
 });

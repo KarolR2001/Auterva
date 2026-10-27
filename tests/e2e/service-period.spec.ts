@@ -96,6 +96,8 @@ test("built platform HTTP versions payment and requires a paid restore unlock", 
     expect(await db.auditLog.count({ where: { organizationId, action: "COMPANY_UPDATED" } })).toBe(1);
   } finally {
     await db.auditLog.deleteMany({ where: { organizationId } });
+    await db.reminderIntent.deleteMany({ where: { organizationId } });
+    await db.reminderPlan.deleteMany({ where: { organizationId } });
     await db.serviceAccess.deleteMany({ where: { organizationId } });
     if (session) await session.dispose();
     if (ownedSuperadmin) await db.user.delete({ where: { id: ownedSuperadmin } });

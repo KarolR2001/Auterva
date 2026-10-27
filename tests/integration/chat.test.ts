@@ -71,6 +71,8 @@ afterAll(async () => {
   await db.auditLog.deleteMany({ where: { organizationId } });
   await db.job.deleteMany({ where: { organizationId } });
   await db.hostMapping.deleteMany({ where: { OR: [{ hostname: platformHost }, { organizationId }] } });
+  await db.reminderIntent.deleteMany({ where: { organizationId } });
+  await db.reminderPlan.deleteMany({ where: { organizationId } });
   await db.serviceAccess.deleteMany({ where: { organizationId } });
   for (const session of sessions) await session.dispose();
   await db.user.deleteMany({ where: { id: { in: [...created.map((company) => company.adminId), ...(ownedPlatformId ? [ownedPlatformId] : [])] } } });

@@ -59,6 +59,8 @@ afterAll(async () => {
   await db.serviceAccess.deleteMany({ where: { organizationId: { in: organizations } } });
   await db.user.deleteMany({ where: { organizationId: { in: organizations } } });
   await db.hostMapping.deleteMany({ where: { organizationId: { in: organizations } } });
+  await db.reminderIntent.deleteMany({ where: { organizationId: { in: organizations } } });
+  await db.reminderPlan.deleteMany({ where: { organizationId: { in: organizations } } });
   await db.organization.deleteMany({ where: { id: { in: organizations } } });
   await db.$disconnect();
 });

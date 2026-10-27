@@ -61,6 +61,8 @@ afterAll(async () => {
   await db.session.deleteMany({ where: { id: { in: [platformSession, companySession] } } });
   await db.user.deleteMany({ where: { id: companyAdmin } });
   if (createdPlatformUser) await db.user.deleteMany({ where: { id: platformUserId } });
+  await db.reminderIntent.deleteMany({ where: { organizationId: { in: companies } } });
+  await db.reminderPlan.deleteMany({ where: { organizationId: { in: companies } } });
   await db.organization.deleteMany({ where: { id: { in: companies } } });
   await db.$disconnect();
 });

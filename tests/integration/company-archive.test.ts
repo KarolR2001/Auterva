@@ -167,6 +167,8 @@ afterAll(async () => {
   await db.hostMapping.deleteMany({ where: { hostname: { in: [adminHostA, adminHostB, publicHostA, platformHost] } } });
   await platformCookie.dispose();
   if (createdPlatform) await db.user.deleteMany({ where: { id: platformId } });
+  await db.reminderIntent.deleteMany({ where: { organizationId: { in: [orgA, orgB] } } });
+  await db.reminderPlan.deleteMany({ where: { organizationId: { in: [orgA, orgB] } } });
   await db.organization.deleteMany({ where: { id: { in: [orgA, orgB] } } });
   await db.rateLimitEvent.deleteMany();
   await db.$disconnect();
