@@ -83,7 +83,7 @@ const BACKOFF_CAP_MS = 30 * 60_000;
 
 /**
  * Permanent refusals (MailIntentError) finish the intent as FAILED at once. Any other error is treated
- * as transient: exponential backoff (30 s doubling to 30 min, about 5 h in total over 12 tries) and only
+ * as transient: exponential backoff (30 s doubling to 30 min, about 3 h in total over 12 tries) and only
  * then FAILED. `seen` is the attempt count the sweep read, so parallel workers count one failure once.
  */
 async function recordFailure(db: PrismaClient, intentId: string, seen: number, permanent: boolean, now: Date): Promise<void> {
