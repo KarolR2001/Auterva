@@ -94,18 +94,20 @@ export function reminderMessage(input: ReminderCopyInput): { subject: string; bo
     : `${pl(warsawLocalDate(input.endsAt))} o ${warsawClock(input.endsAt)}`;
   let subject: string;
   let body: string;
+  // The relative phrase comes from the Warsaw calendar distance between `now` and the end date,
+  // never from the slot's offset: a banner shown later or a mail sent after an outage stays true.
+  const days = Math.round((Date.parse(`${input.source === "PAID" ? input.endDate : warsawLocalDate(input.endsAt)}T00:00:00.000Z`)
+    - Date.parse(`${warsawLocalDate(input.now)}T00:00:00.000Z`)) / 86_400_000);
+  const phrase = days <= 0 ? "dziś" : days === 1 ? "jutro" : `za ${days} dni`;
   if (input.source === "PAID") {
     subject = expired ? "Opłacony okres usługi Autervy zakończył się" : "Opłacony okres usługi Autervy wkrótce się kończy";
     body = expired ? `Opłacony okres usługi zakończył się ${when} (ostatni opłacony dzień).`
-      : input.offset === 7 ? `Opłacony okres usługi kończy się za 7 dni. Ostatni opłacony dzień: ${when}.`
-        : input.offset === 1 ? `Opłacony okres usługi kończy się jutro. Ostatni opłacony dzień: ${when}.`
-          : `Dziś jest ostatni opłacony dzień usługi: ${when}.`;
+      : days <= 0 ? `Dziś jest ostatni opłacony dzień usługi: ${when}.`
+        : `Opłacony okres usługi kończy się ${phrase}. Ostatni opłacony dzień: ${when}.`;
   } else {
     subject = expired ? "Trial Autervy już wygasł" : "Trial Autervy wkrótce się kończy";
     body = expired ? `Trial już wygasł (${when}).`
-      : input.offset === 7 ? `Trial kończy się ${when} (za 7 dni).`
-        : input.offset === 1 ? `Trial kończy się ${when} (jutro).`
-          : `Trial kończy się dziś: ${when}.`;
+      : days <= 0 ? `Trial kończy się dziś: ${when}.` : `Trial kończy się ${when} (${phrase}).`;
   }
   const notes: string[] = [];
   if (expired) notes.push(EXPIRED_NOTICE);

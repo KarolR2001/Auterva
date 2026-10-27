@@ -89,3 +89,20 @@ test("message describes the state now, not the state at scheduling", () => {
   expect(paid.body).toContain("do odblokowania");
   expect(paid.body).toContain("Konfiguracja strony w toku");
 });
+
+test("a -7 banner read later speaks from the calendar distance to the end date (also across DST)", () => {
+  const paid = { source: "PAID" as const, endsAt: at("2026-03-29T22:00:00.000Z"), endDate: "2026-03-29",
+    offset: 7 as const, publicUnlockRequired: false, domainReady: true };
+  const read = (now: string) => reminderMessage({ ...paid, now: at(now) }).body;
+  expect(read("2026-03-22T08:00:00.000Z")).toContain("kończy się za 7 dni");
+  expect(read("2026-03-26T08:00:00.000Z")).toContain("kończy się za 3 dni");
+  expect(read("2026-03-28T08:00:00.000Z")).toContain("kończy się jutro");
+  expect(read("2026-03-28T23:30:00.000Z")).toContain("Dziś jest ostatni opłacony dzień");
+  expect(read("2026-03-26T08:00:00.000Z")).not.toContain("7 dni");
+  const trialEnds = at("2026-04-05T11:00:00.000Z");
+  const trial = (now: string) => reminderMessage({ source: "TRIAL", endsAt: trialEnds, endDate: "2026-04-05",
+    offset: 7, now: at(now), publicUnlockRequired: false, domainReady: true }).body;
+  expect(trial("2026-04-02T07:00:00.000Z")).toContain("(za 3 dni)");
+  expect(trial("2026-04-04T07:00:00.000Z")).toContain("(jutro)");
+  expect(trial("2026-04-05T07:00:00.000Z")).toContain("Trial kończy się dziś");
+});

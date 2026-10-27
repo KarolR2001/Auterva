@@ -29,6 +29,7 @@ let platformHttp: Awaited<ReturnType<typeof verifiedFixtureSession>>;
 const sessions: Array<Awaited<ReturnType<typeof verifiedFixtureSession>>> = [];
 const platformHost = `reminders-platform-${randomUUID()}.example.test`;
 
+type Company = Awaited<ReturnType<typeof company>>;
 const at = (value: string) => new Date(value);
 const slotKeys = (rows: { offsetDays: number; channel: string; slotAt: Date }[]) =>
   rows.map((row) => `${row.channel}:${row.offsetDays}:${row.slotAt.toISOString()}`).sort();
@@ -501,4 +502,34 @@ test("a failing item does not starve the rest of the sweep and stays retryable",
   await tick(due, w); // the outbox recovers: both e-mails go out once
   expect(sentTo(w, broken)).toHaveLength(1);
   expect(sentTo(w, healthy)).toHaveLength(1);
+});
+
+test("catch-up before expiry speaks from the send day: a -7 mail sent the day before the end says tomorrow", async () => {
+  const registered = at("2026-10-18T10:00:00.000Z"); // trial ends 01.11 10:00Z; -7 was due 25.10
+  const c = await company({ registeredAt: registered, trial: true });
+  await plan(c.organizationId, registered);
+  const w = worker();
+  await tick(at("2026-10-31T10:00:00.000Z"), w); // the worker was down from -7 to the eve of the end
+  const mails = sentTo(w, c);
+  expect(mails.length).toBeGreaterThanOrEqual(2); // -7 and -1 overdue, sent separately
+  expect(mails.every((mail) => mail.text.includes("(jutro)") && !mail.text.includes("za 7 dni"))).toBe(true);
+});
+
+test("persistently failing intents become FAILED and cannot starve a healthy one beyond the batch", async () => {
+  const start = at("2026-10-18T10:00:00.000Z");
+  const bad: Company[] = [];
+  for (let index = 0; index < 51; index++) {
+    const c = await company({ registeredAt: new Date(start.getTime() - (60 - index) * 60_000), trial: true });
+    // Passes the recipient pre-check but the outbox refuses the address: a permanent enqueue error.
+    await db.user.update({ where: { id: c.userId }, data: { email: `broken ${index}@example.test` } });
+    bad.push(c);
+  }
+  const good = await company({ registeredAt: start, trial: true });
+  const ids = [...bad, good].map((c) => c.organizationId);
+  for (const id of ids) await plan(id, start);
+  const due = at("2026-11-01T10:00:00.000Z"); // every slot overdue; bad ones sort first by slotAt
+  for (let pass = 0; pass < 30; pass++) await processDueReminders(db, due, key, ids);
+  expect(await db.reminderIntent.count({ where: { organizationId: { in: bad.map((c) => c.organizationId) },
+    channel: "EMAIL", status: "FAILED", errorCode: "DELIVERY_ERROR" } })).toBe(51 * 3);
+  expect(await intents(good.organizationId, { channel: "EMAIL", status: "QUEUED" })).toHaveLength(3);
 });

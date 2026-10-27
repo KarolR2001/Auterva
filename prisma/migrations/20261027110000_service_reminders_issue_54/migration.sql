@@ -26,6 +26,7 @@ CREATE TABLE "ReminderIntent" (
   "jobId" UUID,
   "deliveredAt" TIMESTAMPTZ(6),
   "errorCode" TEXT,
+  "attempts" INTEGER NOT NULL DEFAULT 0,
   "createdAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "ReminderIntent_pkey" PRIMARY KEY ("id"),

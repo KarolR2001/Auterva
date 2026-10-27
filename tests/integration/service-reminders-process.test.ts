@@ -78,7 +78,11 @@ test("two real worker processes and a restart deliver a due reminder exactly onc
   expect(jobs[0]).toMatchObject({ status: "SENT", attempts: 1, providerId: `sink:${jobs[0].id}` });
   // Restart: the delivered key is final; a new worker and a direct sweep add nothing.
   const third = startWorker();
-  await waitFor(async () => { await processDueReminders(db, new Date(), key, [organizationId]); return true; }, "restart sweep");
+  await new Promise<void>((resolve, reject) => {
+    third.stdout?.on("data", (chunk: Buffer) => { if (chunk.toString().includes("Worker ready")) resolve(); });
+    third.once("close", () => reject(new Error("Restarted worker exited early")));
+  });
+  await processDueReminders(db, new Date(), key, [organizationId]);
   third.kill("SIGTERM");
   await once(third, "close");
   expect(await db.job.count({ where: { organizationId } })).toBe(1);

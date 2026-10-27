@@ -77,6 +77,17 @@ async function deliverOne(db: PrismaClient, intentId: string, organizationId: st
   });
 }
 
+const MAX_DELIVERY_ATTEMPTS = 5;
+
+/** A persistently failing intent becomes FAILED (DELIVERY_ERROR) so it cannot occupy the batch forever. */
+async function recordFailure(db: PrismaClient, intentId: string): Promise<void> {
+  await db.$executeRaw`
+    UPDATE "ReminderIntent" SET attempts = attempts + 1, "updatedAt" = now(),
+      status = CASE WHEN attempts + 1 >= ${MAX_DELIVERY_ATTEMPTS} THEN 'FAILED' ELSE status END,
+      "errorCode" = CASE WHEN attempts + 1 >= ${MAX_DELIVERY_ATTEMPTS} THEN 'DELIVERY_ERROR' ELSE "errorCode" END
+    WHERE id = ${intentId}::uuid AND status = 'PENDING'`;
+}
+
 /** Mirrors the final mail outcome onto the intent (SENT means accepted by the provider). */
 async function syncOutcomes(db: PrismaClient, only: readonly string[] | null): Promise<void> {
   const rows = await db.$queryRaw<{ id: string; organizationId: string }[]>`
@@ -113,7 +124,13 @@ export async function processDueReminders(db: PrismaClient, now: Date, key: Buff
     ...(only ? { organizationId: { in: only } } : {}) },
     orderBy: [{ slotAt: "asc" }, { id: "asc" }], take: BATCH,
     select: { id: true, organizationId: true } });
-  for (const item of due) await isolated(() => deliverOne(db, item.id, item.organizationId, now, key));
+  for (const item of due) {
+    try { await deliverOne(db, item.id, item.organizationId, now, key); }
+    catch {
+      process.stderr.write("Reminder delivery failed; will retry\n");
+      await isolated(() => recordFailure(db, item.id));
+    }
+  }
   await isolated(() => syncOutcomes(db, only));
   return due.length;
 }

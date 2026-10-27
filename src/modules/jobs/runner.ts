@@ -29,6 +29,7 @@ export async function runWorkerLoop(options: RunnerOptions): Promise<void> {
   const pollMs = options.pollMs ?? 1_000;
   if (!Number.isSafeInteger(pollMs) || pollMs < 100 || pollMs > 60_000) throw new Error("Invalid worker poll interval");
   let nextSweepAt = 0;
+  let nextReminderAt = 0;
   while (!options.signal.aborted) {
     const now = clock();
     try {
@@ -36,7 +37,11 @@ export async function runWorkerLoop(options: RunnerOptions): Promise<void> {
         await sweepExpiredRateLimits(options.db, now);
         nextSweepAt = now.getTime() + 60 * 60_000;
       }
-      await processDueReminders(options.db, now, options.context.key);
+      if (now.getTime() >= nextReminderAt) {
+        // At most once per poll interval, also while a backlog of jobs keeps the loop busy.
+        nextReminderAt = now.getTime() + pollMs;
+        await processDueReminders(options.db, now, options.context.key);
+      }
       const claim = await claimNextJob(options.db, now, leaseMs, true);
       if (claim) {
         await options.afterClaim?.(claim);

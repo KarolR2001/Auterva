@@ -84,7 +84,7 @@ test("built panel shows the 7-day reminder only after the worker clock passes th
     const shown = await read();
     expect(shown.body.reminders).toHaveLength(1);
     expect(shown.body.reminders).toMatchObject([{ offsetDays: 7, source: "PAID" }]);
-    expect(JSON.stringify(shown.body)).toContain("kończy się za 7 dni");
+    expect(JSON.stringify(shown.body)).toMatch(/kończy się za \d+ dni/);
     // Another company's admin host never serves this company's notice.
     expect((await call(port, "GET", publicHost, statusPath, adminSession.cookie)).status).toBe(404);
     // Extension: the previous period's notice must be gone immediately.
