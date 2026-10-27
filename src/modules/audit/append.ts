@@ -56,6 +56,15 @@ const platformOnly = new Set<AuditAction>([
   "COMPANY_CREATED", "COMPANY_UPDATED", "COMPANY_ARCHIVED", "INVITATION_CREATED", "INVITATION_REVOKED",
   "PERIOD_CHANGED", "DOMAIN_CHANGED", "BRANDING_CHANGED", "SETTINGS_CHANGED",
 ]);
+/**
+ * D-23 (#151): a superadmin write into an archived company carries `context: "ARCHIVED_COMPANY"` in safeChanges.
+ * Derived under the caller's Organization row lock, only for the write actions a superadmin may perform there, so
+ * the archive/restore events themselves and the revoked-session audits are never labelled.
+ */
+export const ARCHIVED_COMPANY_CONTEXT = "ARCHIVED_COMPANY";
+const archiveWriteActions = new Set<AuditAction>(["SETTINGS_CHANGED", "BRANDING_CHANGED", "VEHICLE_CREATED",
+  "VEHICLE_UPDATED", "VEHICLE_PUBLISHED", "VEHICLE_HIDDEN", "VEHICLE_ARCHIVED", "MEDIA_CHANGED",
+  "BLOCK_CREATED", "BLOCK_UPDATED", "BLOCK_DELETED"]);
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type AuditAction = keyof typeof actionEntity;
@@ -100,10 +109,17 @@ export async function appendAudit(tx: Prisma.TransactionClient, input: AppendAud
   const actor = await requireAuditActor(tx, input.actorId, input.sessionId);
   requireAuditScope(actor, input.organizationId);
   if (platformOnly.has(input.action) && actor.role !== "SUPERADMIN_AUTERVA") throw new Error("Audit action requires platform actor");
+  let archivedContext = false;
+  if (actor.role === "SUPERADMIN_AUTERVA" && input.organizationId && archiveWriteActions.has(input.action)) {
+    const company = await tx.organization.findUnique({ where: { id: input.organizationId },
+      select: { archivedAt: true } });
+    archivedContext = company?.archivedAt != null;
+  }
+  const safeChanges = input.changes ?? (input.revokedSessions === undefined ? undefined : { revokedSessions: input.revokedSessions });
   return tx.auditLog.create({ data: {
     eventKey: input.eventKey, organizationId: input.organizationId, actorId: input.actorId,
     actorRole: actor.role, action: input.action, entityType: actionEntity[input.action],
     entityId: input.entityId, requestId: input.requestId,
-    safeChanges: input.changes ?? (input.revokedSessions === undefined ? undefined : { revokedSessions: input.revokedSessions }),
+    safeChanges: archivedContext ? { ...safeChanges, context: ARCHIVED_COMPANY_CONTEXT } : safeChanges,
   } });
 }

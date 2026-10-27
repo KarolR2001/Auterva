@@ -4,6 +4,7 @@ import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { appendAudit } from "@/modules/audit/append";
 import { requireAuditActor } from "@/modules/audit/actor";
 import { localDate, sqlDate } from "@/modules/availability/dates";
+import { lockCompanyForWrite } from "@/modules/organizations/write-lock";
 import { validateVehiclePublication } from "./publication";
 
 const uuid = z.uuid();
@@ -66,9 +67,8 @@ export function checkOperation(input: Operation) {
 export async function authorizedCompany(tx: Prisma.TransactionClient, input: Operation) {
   const actor = await requireAuditActor(tx, input.actorId, input.sessionId);
   if (actor.role === "ADMIN_FIRMY" && actor.organizationId !== input.organizationId) throw new Error("FLEET_NOT_FOUND");
-  const rows = await tx.$queryRaw<{ id: string }[]>`
-    SELECT id FROM "Organization" WHERE id = ${input.organizationId}::uuid AND "archivedAt" IS NULL FOR UPDATE`;
-  if (rows.length !== 1) throw new Error("FLEET_NOT_FOUND");
+  // D-23: a superadmin writes into an archived company too; the administrator is denied under the lock.
+  if (!(await lockCompanyForWrite(tx, actor, input.organizationId, "UPDATE"))) throw new Error("FLEET_NOT_FOUND");
 }
 
 export async function lockVehicle(tx: Prisma.TransactionClient, organizationId: string, vehicleId: string) {

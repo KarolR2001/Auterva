@@ -48,7 +48,7 @@
     },
     {
       "path": "docs/contracts/company-settings-and-vehicle-publication.md",
-      "sha256": "67050b6c8eb931c662c7bc1505155b35deaf075f371aa2ed2727ecfa8e4ae39e"
+      "sha256": "9d1fea239ba7fcb3d7c4c3447af42837fd7edc8a35596fc7dfd8652340efcacf"
     },
     {
       "path": "docs/contracts/service-periods-kpi-reminders.md",
@@ -68,7 +68,7 @@
     },
     {
       "path": "docs/contracts/audit-append-and-access.md",
-      "sha256": "d858ed1fbbd0c5e2fe8eaf18e721b39098a90476b109c44598c613e62dac1381"
+      "sha256": "f18b00b8eb2e1d907baaa1a46250065571be0c838f11f045378f930a12454318"
     },
     {
       "path": "docs/contracts/availability-reads.md",
@@ -76,7 +76,7 @@
     },
     {
       "path": "docs/contracts/fleet-crud-publication.md",
-      "sha256": "ecd56409d2ca2e7427041bf50d83fcad066927b22cdcdce68df75e982fc0926c"
+      "sha256": "2f90e283ec673fae4a374b553b965d980129cd683690ec4ae1418b501705fa38"
     },
     {
       "path": "docs/contracts/account-operations.md",
@@ -96,7 +96,7 @@
     },
     {
       "path": "docs/contracts/media-upload-processing.md",
-      "sha256": "fa48304924821c8a84977cb1dbca4f834b2f240d967640e1eaed8d6a3019fd60"
+      "sha256": "d68c3f07eac0e3f030f65815a45bf6ac9af3b69695a4f18813950f616dc355b3"
     }
   ],
   "historicalSourcesOutsideRepository": [

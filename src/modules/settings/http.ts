@@ -21,7 +21,6 @@ function failure(error: unknown, requestId: string) {
   const code = error instanceof Error ? error.message : "";
   if (code === "SETTINGS_COMPANY_NOT_FOUND" || code === "SETTINGS_MEDIA_NOT_FOUND")
     return response({ code: "NOT_FOUND" }, 404, requestId);
-  if (code === "SETTINGS_COMPANY_ARCHIVED") return response({ code }, 409, requestId);
   if (code === "FORBIDDEN" || code === "Audit actor is not authorized") return response({ code: "FORBIDDEN" }, 403, requestId);
   if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002")
     return response({ code: "EVENT_KEY_CONFLICT" }, 409, requestId);
