@@ -3,13 +3,14 @@ import { enqueueMail, MailIntentError } from "@/modules/jobs/outbox";
 import { companyBoundary, loadReminderCompany } from "./current";
 import { lockReminderCompany, reconcileReminders } from "./reconcile";
 import { reminderMessage, type ReminderOffset } from "./slots";
+import { logFailure } from "@/modules/observability/log";
 
 const BATCH = 50;
 const TX = { maxWait: 10_000, timeout: 30_000 } as const;
 
 /** One broken company must not starve the others or the mail queue behind this step; no details are logged. */
 async function isolated(work: () => Promise<unknown>): Promise<void> {
-  try { await work(); } catch { process.stderr.write("Reminder sweep item failed; will retry\n"); }
+  try { await work(); } catch (error) { logFailure("reminders.sweep_item_failed", error, { operation: "reminders.sweep" }); }
 }
 
 async function inCompany<T>(db: PrismaClient, organizationId: string,
@@ -135,7 +136,7 @@ export async function processDueReminders(db: PrismaClient, now: Date, key: Buff
   for (const item of due) {
     try { await deliverOne(db, item.id, item.organizationId, now, key); }
     catch (error) {
-      process.stderr.write("Reminder delivery failed; will retry or stop\n");
+      logFailure("reminders.delivery_failed", error, { operation: "reminders.deliver", jobKind: "MAIL_REMINDER" });
       await isolated(() => recordFailure(db, item.id, item.attempts, error instanceof MailIntentError, now));
     }
   }

@@ -4,6 +4,7 @@ import { normalizeHostname } from "@/modules/tenancy/host-registry";
 import { isReminderIntentCurrent } from "@/modules/reminders/current";
 import { decryptMailPayload, isCurrentReminderRecipient, type MailPayload } from "./outbox";
 import { failJob, quarantineMailJob, startMailAttempt, type ClaimedJob } from "./queue";
+import { metrics, names } from "@/modules/observability/metrics";
 
 export type MailProviderResult = { kind: "accepted"; providerId: string } |
   { kind: "transient" | "permanent" };
@@ -118,6 +119,7 @@ export async function processClaimedJob(db: PrismaClient, claim: ClaimedJob, con
   let result: MailProviderResult;
   try { result = await context.provider.send(mail, job.id); }
   catch { result = { kind: "transient" }; }
+  metrics.inc(names.mail, "Mail provider outcomes", { kind: job.kind, result: result.kind });
   await context.afterProviderResponse?.();
   const completedAt = currentTime();
   if (result.kind === "accepted") {

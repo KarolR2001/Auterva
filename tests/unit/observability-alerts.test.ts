@@ -1,0 +1,179 @@
+import { mkdtemp, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { expect, test } from "vitest";
+import { createFileSink, createMailpitSink, renderText, subjectOf } from "../../src/modules/observability/alert-sinks";
+import { AlertEngine, rules, type AlertRule, type Notification } from "../../src/modules/observability/alerts";
+import type { Sample } from "../../src/modules/observability/metrics";
+
+const t0 = Date.UTC(2026, 9, 28, 12, 0, 0);
+const at = (minutes: number) => new Date(t0 + minutes * 60_000);
+const s = (name: string, value: number, labels: Record<string, string> = {}): Sample => ({ name, labels, value });
+const up = (collector: string, value = 1) => s("auterva_collector_up", value, { collector });
+
+/** Runs one evaluation per minute and returns every notification produced. */
+function drive(engine: AlertEngine, minutes: number, make: (minute: number) => Sample[], start = 0): Notification[] {
+  const out: Notification[] = [];
+  for (let m = start; m < start + minutes; m++) {
+    engine.evaluate(make(m), at(m));
+    out.push(...engine.takeNotifications(at(m)));
+  }
+  return out;
+}
+
+test("every rule has an owner, a runbook anchor, a group and sane thresholds", () => {
+  const ids = new Set<string>();
+  for (const rule of rules) {
+    expect(ids.has(rule.id)).toBe(false);
+    ids.add(rule.id);
+    expect(["operator", "owner"]).toContain(rule.owner);
+    expect(rule.runbook).toMatch(/^#[a-z0-9-]+$/);
+    expect(rule.group).toMatch(/^[a-z]+$/);
+    expect(rule.forEvaluations).toBeGreaterThanOrEqual(1);
+    expect(rule.clearAfter).toBeGreaterThanOrEqual(1);
+  }
+  for (const required of ["TARGET_DOWN", "READY_DATABASE", "READY_STORAGE", "HTTP_5XX_BURN_FAST", "LOGIN_SERVER_ERRORS", "MAIL_DELIVERY_FAILED",
+    "JOBS_STALLED", "AUDIT_RETENTION_FAILED", "AUDIT_RETENTION_STALLED", "AUDIT_PURGE_DELAYED", "AUDIT_EXPORT_FAILED",
+    "AUDIT_EXPORT_CLEANUP_OVERDUE", "BACKUP_STALE", "BACKUP_RUN_FAILED", "MIGRATIONS_NOT_APPLIED"]) expect(ids.has(required)).toBe(true);
+});
+
+test("hysteresis: a single bad sample does not fire, two do; one healthy sample does not clear, two do", () => {
+  const engine = new AlertEngine(rules, { groupWindowMs: 0 });
+  const bad = (m: number) => [s("auterva_ready_check", m === 1 ? 0 : 1, { check: "database" })];
+  expect(drive(engine, 4, bad)).toEqual([]); // one blip
+  const sustained = (m: number) => [s("auterva_ready_check", m >= 10 && m < 14 ? 0 : 1, { check: "database" })];
+  const out = drive(engine, 10, sustained, 10);
+  expect(out.flatMap((n) => n.firing.map((a) => a.id))).toEqual(["READY_DATABASE"]);
+  expect(out.flatMap((n) => n.resolved.map((a) => a.id))).toEqual(["READY_DATABASE"]);
+  expect(engine.firing()).toEqual([]);
+});
+
+test("no data never clears or fires an alert", () => {
+  const engine = new AlertEngine(rules, { groupWindowMs: 0 });
+  drive(engine, 3, () => [s("auterva_ready_check", 0, { check: "storage" })]);
+  expect(engine.firing().map((a) => a.id)).toEqual(["READY_STORAGE"]);
+  drive(engine, 10, () => [], 3); // scrape produced nothing
+  expect(engine.firing().map((a) => a.id)).toEqual(["READY_STORAGE"]);
+});
+
+test("5xx burn rule uses the increase over the window and needs a minimum number of requests", () => {
+  const engine = new AlertEngine(rules, { groupWindowMs: 0 });
+  // 6 minutes healthy: 100 requests/min, 0 errors. Then 30% errors.
+  let requests = 0; let errors = 0;
+  const make = (m: number) => {
+    requests += 100;
+    if (m >= 6) errors += 30;
+    return [s("auterva_http_requests_total", requests), s("auterva_http_responses_total", errors, { class: "5xx" })];
+  };
+  const out = drive(engine, 16, make);
+  const fired = out.flatMap((n) => n.firing.map((a) => a.id));
+  expect(fired).toContain("HTTP_5XX_BURN_FAST");
+  expect(fired.filter((id) => id === "HTTP_5XX_BURN_FAST")).toHaveLength(1);
+  // A trickle below 20 requests never pages.
+  const quiet = new AlertEngine(rules, { groupWindowMs: 0 });
+  let q = 0; let e = 0;
+  const trickle = drive(quiet, 12, () => { q += 1; e += 1; return [s("auterva_http_requests_total", q), s("auterva_http_responses_total", e, { class: "5xx" })]; });
+  expect(trickle.flatMap((n) => n.firing)).toEqual([]);
+});
+
+test("counter reset (process restart) is not read as a negative or huge increase", () => {
+  const engine = new AlertEngine(rules, { groupWindowMs: 0 });
+  let requests = 5000; let errors = 0;
+  const out = drive(engine, 14, (m) => { if (m === 7) { requests = 0; errors = 0; } requests += 100; return [s("auterva_http_requests_total", requests), s("auterva_http_responses_total", errors, { class: "5xx" })]; });
+  expect(out.flatMap((n) => n.firing)).toEqual([]);
+});
+
+test("grouping: related alerts leave in one notification per group inside the grouping window", () => {
+  const engine = new AlertEngine(rules, { groupWindowMs: 120_000 });
+  const make = () => [up("jobs"), s("auterva_jobs_terminal_failures", 1, { kind: "AUDIT_RETENTION" }), s("auterva_jobs_oldest_due_age_seconds", 2000, { kind: "AUDIT_RETENTION" }),
+    s("auterva_audit_export_failures_24h", 2), up("audit")];
+  const out = drive(engine, 6, make);
+  expect(out).toHaveLength(1);
+  expect(out[0].groups).toEqual(["audit"]);
+  expect(out[0].firing.map((a) => a.id).sort()).toEqual(["AUDIT_EXPORT_FAILED", "AUDIT_RETENTION_FAILED", "AUDIT_RETENTION_STALLED"]);
+});
+
+test("a flap inside the grouping window sends nothing", () => {
+  const engine = new AlertEngine(rules, { groupWindowMs: 5 * 60_000 });
+  const out = drive(engine, 8, (m) => [s("auterva_backup_last_run_ok", m === 0 ? 0 : 1), up("backup")]);
+  expect(out.flatMap((n) => [...n.firing, ...n.resolved])).toEqual([]);
+});
+
+test("storm guard: 30 simultaneous alerts become a bounded number of messages, pages first, nothing lost", () => {
+  const stormRules: AlertRule[] = Array.from({ length: 30 }, (_, i) => ({
+    id: `STORM_${i}`, title: `storm ${i}`, severity: i === 29 ? "page" : "ticket", owner: "operator", group: `g${i}`, runbook: "#x",
+    forEvaluations: 1, clearAfter: 1, breached: () => true }));
+  const engine = new AlertEngine(stormRules, { groupWindowMs: 0, maxPerWindow: 3 });
+  const out = drive(engine, 5, () => []);
+  expect(out.length).toBeLessThanOrEqual(4); // 3 within the cap + one summary
+  expect(out[0].severity).toBe("page"); // the page group is not pushed out by tickets
+  const summary = out.find((n) => n.suppressedGroups);
+  expect(summary).toBeDefined();
+  const delivered = new Set(out.flatMap((n) => n.firing.map((a) => a.id)));
+  expect(delivered.size).toBe(30); // every alert is named in some message
+  expect(subjectOf(summary!)).toContain("STORM-GUARD");
+});
+
+test("reminders repeat a still-firing page hourly, not every evaluation", () => {
+  const engine = new AlertEngine(rules, { groupWindowMs: 0 });
+  const out = drive(engine, 130, () => [s("auterva_backup_newest_complete_age_seconds", 30 * 3600), up("backup")]);
+  expect(out.flatMap((n) => n.firing)).toHaveLength(1);
+  expect(out.flatMap((n) => n.reminders).length).toBe(2); // at +60 and +120 minutes
+});
+
+test("a failed delivery is requeued, does not burn the cap and is retried", () => {
+  const engine = new AlertEngine(rules, { groupWindowMs: 60_000, maxPerWindow: 1 });
+  const make = () => [up("migrations"), s("auterva_migrations_failed", 1), s("auterva_migrations_pending", 0)];
+  const first = drive(engine, 3, make);
+  expect(first).toHaveLength(1);
+  engine.requeue(first[0], at(3));
+  expect(engine.takeNotifications(at(3))).toEqual([]); // waits one grouping window
+  const retried = engine.takeNotifications(at(4));
+  expect(retried).toHaveLength(1);
+  expect(retried[0].firing.map((a) => a.id)).toEqual(["MIGRATIONS_NOT_APPLIED"]);
+});
+
+test("#108 signals are separate alerts: failed job, stalled job, delayed purge, failed export, overdue cleanup", () => {
+  const engine = new AlertEngine(rules, { groupWindowMs: 0 });
+  const make = () => [up("jobs"), up("audit"),
+    s("auterva_jobs_terminal_failures", 1, { kind: "AUDIT_RETENTION" }),
+    s("auterva_jobs_oldest_due_age_seconds", 1200, { kind: "AUDIT_RETENTION" }),
+    s("auterva_audit_retention_overdue_seconds", 40 * 3600),
+    s("auterva_audit_export_failures_24h", 1),
+    s("auterva_audit_export_cleanup_overdue", 1, { state: "expired_ready" })];
+  drive(engine, 3, make);
+  expect(engine.firing().map((a) => a.id).sort()).toEqual(["AUDIT_EXPORT_CLEANUP_OVERDUE", "AUDIT_EXPORT_FAILED", "AUDIT_PURGE_DELAYED",
+    "AUDIT_RETENTION_FAILED", "AUDIT_RETENTION_STALLED"]);
+  // A purge that succeeds does not hide a failed export: only the purge-related alerts clear.
+  const healedPurge = (m: number) => [up("jobs"), up("audit"), s("auterva_audit_retention_overdue_seconds", 0), s("auterva_audit_export_failures_24h", 1),
+    s("auterva_audit_export_cleanup_overdue", 1, { state: "expired_ready" })];
+  drive(engine, 3, healedPurge, 3);
+  expect(engine.firing().map((a) => a.id).sort()).toEqual(["AUDIT_EXPORT_CLEANUP_OVERDUE", "AUDIT_EXPORT_FAILED"]);
+});
+
+test("stale collector data does not clear an alert: a failing collector keeps the verdict unknown", () => {
+  const engine = new AlertEngine(rules, { groupWindowMs: 0 });
+  drive(engine, 2, () => [up("jobs"), s("auterva_jobs_oldest_due_age_seconds", 900, { kind: "MAIL_INVITATION" })]);
+  expect(engine.firing().map((a) => a.id)).toContain("JOBS_STALLED");
+  drive(engine, 6, () => [up("jobs", 0)], 2);
+  expect(engine.firing().map((a) => a.id)).toContain("JOBS_STALLED");
+  expect(engine.firing().map((a) => a.id)).toContain("COLLECTOR_DOWN");
+});
+
+test("rendered notifications carry ids, owners, numbers and runbook links, and nothing else", async () => {
+  const engine = new AlertEngine(rules, { groupWindowMs: 0 });
+  const out = drive(engine, 4, () => [up("backup"), s("auterva_backup_newest_complete_age_seconds", 30 * 3600)]);
+  const text = renderText(out[0]);
+  expect(text).toContain("BACKUP_STALE");
+  expect(text).toContain("owner: operator");
+  expect(text).toContain("docs/runbooks/monitoring-incidents.md#backup");
+  const dir = await mkdtemp(join(tmpdir(), "alerts-"));
+  await createFileSink(join(dir, "alerts.jsonl")).deliver(out[0]);
+  const written = JSON.parse((await readFile(join(dir, "alerts.jsonl"), "utf8")).trim());
+  expect(written.subject).toContain("[PAGE]");
+});
+
+test("the mail sink refuses anything but a loopback recipient endpoint", () => {
+  expect(() => createMailpitSink("https://mail.example.com", "oncall@example.test")).toThrow("ALERT_SINK_NOT_LOOPBACK");
+  expect(() => createMailpitSink("http://127.0.0.1:8025", "oncall@example.test")).not.toThrow();
+});
