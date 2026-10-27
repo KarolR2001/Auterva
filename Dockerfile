@@ -38,7 +38,9 @@ COPY --from=build --chown=node:node /app /app
 USER node
 
 FROM runtime-ts AS ws
-ENV WS_PORT=3101
+# Listens on every interface of the container; WS_ALLOWED_HOSTS (the Host values the trusted proxy forwards) is
+# required at runtime and the process refuses to start without it. There is no any-host mode.
+ENV WS_PORT=3101 WS_HOST=0.0.0.0
 EXPOSE 3101
 CMD ["node_modules/.bin/tsx", "src/server/realtime.ts"]
 

@@ -4,6 +4,7 @@ import { requireAuditActor } from "../audit/actor";
 import { takeRateLimitWithin } from "../auth/rate-limit";
 import { decodeCursor, encodeCursor } from "./cursor";
 import { ChatError } from "./errors";
+import { notifyChat } from "./signal";
 import { normalizeChatBody } from "./text";
 
 export const DEFAULT_PAGE_SIZE = 30;
@@ -32,7 +33,7 @@ export type ChatMessageDto = {
 
 type Actor = Awaited<ReturnType<typeof requireAuditActor>>;
 
-async function authorize(tx: Prisma.TransactionClient, scope: ChatScope): Promise<Actor> {
+export async function authorize(tx: Prisma.TransactionClient, scope: ChatScope): Promise<Actor> {
   let actor: Actor;
   try {
     actor = await requireAuditActor(tx, scope.actorId, scope.sessionId);
@@ -50,7 +51,7 @@ async function authorize(tx: Prisma.TransactionClient, scope: ChatScope): Promis
  * revalidated AFTER the lock, so an archive that commits first refuses the admin and one that waits is revoked
  * by this transaction's commit. The lock also serialises every chat writer of the company.
  */
-async function lockedWrite<T>(db: PrismaClient, scope: ChatScope, work: (tx: Prisma.TransactionClient, archived: boolean) => Promise<T>,
+export async function lockedWrite<T>(db: PrismaClient, scope: ChatScope, work: (tx: Prisma.TransactionClient, archived: boolean) => Promise<T>,
   allowArchived = false) {
   return db.$transaction(async (tx) => {
     await authorize(tx, scope);
@@ -112,19 +113,21 @@ export async function findConversation(db: PrismaClient, scope: ChatScope) {
 type MessageRow = { id: string; clientMessageId: string; body: string; createdAt: Date; senderId: string | null;
   sender: { role: string | null } | null };
 
-function messageDto(row: MessageRow, actorId: string): ChatMessageDto {
+export function messageDto(row: MessageRow, actorId: string): ChatMessageDto {
   const own = row.senderId === actorId;
   const role = row.sender?.role;
   return { id: row.id, clientMessageId: own ? row.clientMessageId : null, body: row.body,
     senderRole: role === "SUPERADMIN_AUTERVA" || role === "ADMIN_FIRMY" ? role : null, own,
     createdAt: row.createdAt.toISOString() };
 }
-const messageSelect = { id: true, clientMessageId: true, body: true, createdAt: true, senderId: true,
+export const messageSelect = { id: true, clientMessageId: true, body: true, createdAt: true, senderId: true,
   sender: { select: { role: true } } } as const;
 
 export type SendInput = { clientMessageId: unknown; body: unknown; conversationId?: string };
 
-export type SendResult = { message: ChatMessageDto; conversationId: string; deduplicated: boolean };
+export type SendResult = { message: ChatMessageDto; conversationId: string; deduplicated: boolean;
+  /** Position in the conversation (the cursor basis); never part of the HTTP response. */
+  seq: number | null };
 
 /**
  * Persists one text message. Success is returned only after the transaction commits. The same
@@ -142,12 +145,13 @@ export async function sendMessage(db: PrismaClient, scope: ChatScope, input: Sen
     checkConversationId(input.conversationId, conversation.id);
     const existing = await tx.chatMessage.findUnique({
       where: { organizationId_clientMessageId: { organizationId: scope.organizationId, clientMessageId } },
-      select: { ...messageSelect, conversationId: true } });
+      select: { ...messageSelect, conversationId: true, seq: true } });
     if (existing) {
       if (existing.senderId !== scope.actorId || existing.body !== body || existing.conversationId !== conversation.id) {
         throw new ChatError("CLIENT_MESSAGE_ID_CONFLICT");
       }
-      return { message: messageDto(existing, scope.actorId), conversationId: conversation.id, deduplicated: true };
+      return { message: messageDto(existing, scope.actorId), conversationId: conversation.id, deduplicated: true,
+        seq: existing.seq };
     }
     const limit = await takeRateLimitWithin(tx, sendWindows(scope.actorId), now);
     // Throwing rolls back a conversation created by this very attempt: a refused send leaves nothing behind.
@@ -159,7 +163,9 @@ export async function sendMessage(db: PrismaClient, scope: ChatScope, input: Sen
     const saved = await tx.chatMessage.create({ data: { organizationId: scope.organizationId,
       conversationId: conversation.id, senderId: scope.actorId, clientMessageId, seq: lastSeq,
       body, createdAt: now }, select: messageSelect });
-    return { message: messageDto(saved, scope.actorId), conversationId: conversation.id, deduplicated: false };
+    // Delivered by PostgreSQL only if this transaction commits, so a signal never announces a rolled-back message.
+    await notifyChat(tx, { k: "m", o: scope.organizationId, c: conversation.id, s: lastSeq });
+    return { message: messageDto(saved, scope.actorId), conversationId: conversation.id, deduplicated: false, seq: lastSeq };
   });
   return outcome;
 }

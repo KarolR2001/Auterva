@@ -143,6 +143,42 @@
       "testPaths": ["tests/unit/chat-text.test.ts", "tests/integration/chat.test.ts", "tests/integration/chat-migration.test.ts", "tests/e2e/chat.spec.ts"]
     },
     {
+      "issue": 51,
+      "scope": "Serwer WebSocket czatu: handshake z Origin z rejestru HostMapping, sesją MFA i firmą, zdarzenia message/read/typing, sygnał w transakcji sendMessage (pg_notify bez treści), odzyskiwanie z kursorem i po zerwaniu LISTEN, backpressure, rewalidacja i pomiar p95. Bez UI, szkicu, widoczności 500 ms po stronie klienta (#52) i załączników.",
+      "relatedRequirementIds": ["C-F118", "C-F119", "C-F120", "C-F121", "C-F127", "C-F130", "C-F131", "C-F132", "C-N004", "C-N059", "D-08"],
+      "referenceScreenIds": ["TEN-11", "PLT-09"],
+      "codePaths": [
+        "docs/contracts/chat-realtime.md",
+        "src/modules/chat/realtime.ts",
+        "src/modules/chat/realtime-listener.ts",
+        "src/modules/chat/read-state.ts",
+        "src/modules/chat/signal.ts",
+        "src/modules/chat/resolve-tenant.ts",
+        "src/modules/chat/service.ts",
+        "src/server/realtime.ts"
+      ],
+      "testPaths": [
+        "tests/integration/chat-realtime.test.ts",
+        "tests/integration/realtime.test.ts",
+        "tests/integration/company-archive-realtime.test.ts",
+        "tests/fixtures/realtime-client.ts"
+      ]
+    },
+    {
+      "issue": 159,
+      "scope": "Konfigurowalny nasłuch i allowlista hostów serwera WebSocket w kontenerze (WS_HOST, WS_PORT, WS_ALLOWED_HOSTS) walidowane przy starcie; domyślnie loopback, bez trybu dowolnego hosta.",
+      "relatedRequirementIds": ["C-N004", "C-N059"],
+      "codePaths": [
+        "docs/contracts/chat-realtime.md",
+        "src/modules/chat/realtime-config.ts",
+        "src/server/realtime.ts",
+        "Dockerfile",
+        ".env.example",
+        "docs/development/CI.md"
+      ],
+      "testPaths": ["tests/unit/realtime-config.test.ts", "tests/integration/realtime-process.test.ts"]
+    },
+    {
       "issue": 30,
       "scope": "Ustawienia firmy per organizacja z macierzą D-01: odczyt admina, zapis grup tylko superadmin z allowlistą, wersją i audytem; logo/hero przez pipeline mediów #29; publiczna projekcja i media przez resolvePublicVisibility. UI ustawień w osobnym issue.",
       "relatedRequirementIds": ["C-F023", "C-F081", "C-F082", "C-F083", "C-F084", "C-F085", "C-N025", "C-N034", "C-N048", "FR-ADM-060", "FR-ADM-061", "FR-ADM-062", "FR-ADM-063", "D-01"],
