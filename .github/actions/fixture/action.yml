@@ -16,6 +16,9 @@ runs:
         sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
         sudo apt-get install -y -qq postgresql-18
         echo /usr/lib/postgresql/18/bin >> "$GITHUB_PATH"
+        # Backup/restore tests (#60) run pg_dump and pg_restore; the client must match the PostgreSQL 18 server.
+        /usr/lib/postgresql/18/bin/pg_dump --version | grep -q 'PostgreSQL) 18\.'
+        /usr/lib/postgresql/18/bin/pg_restore --version | grep -q 'PostgreSQL) 18\.'
     - name: Start fixture services, migrate and seed
       shell: bash
       run: |
