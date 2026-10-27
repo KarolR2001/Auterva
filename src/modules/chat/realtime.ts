@@ -69,6 +69,7 @@ type Conn = {
   alive: boolean;
   pumping: boolean;
   pumpAgain: boolean;
+  pumpRun: Promise<void> | null;
   chain: Promise<void>;
   queued: number;
   windowStart: number;
@@ -175,21 +176,27 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
     }
   }
 
-  /** One delivery loop per socket; signals only wake it, and a signal during a pass triggers one more pass. */
-  async function pump(conn: Conn) {
-    if (conn.closed || !conn.ready) return;
-    if (conn.pumping) { conn.pumpAgain = true; return; }
+  /**
+   * One delivery loop per socket; signals only wake it, and a signal during a pass triggers one more pass.
+   * The returned promise settles when the running loop (including a requested extra pass) has finished.
+   */
+  function pump(conn: Conn): Promise<void> {
+    if (conn.closed || !conn.ready) return Promise.resolve();
+    if (conn.pumping) { conn.pumpAgain = true; return conn.pumpRun!; }
     conn.pumping = true;
-    try {
-      do {
-        conn.pumpAgain = false;
-        await deliver(conn);
-      } while (conn.pumpAgain && !conn.closed);
-    } catch {
-      log("deliver-failed");
-    } finally {
-      conn.pumping = false;
-    }
+    conn.pumpRun = (async () => {
+      try {
+        do {
+          conn.pumpAgain = false;
+          await deliver(conn);
+        } while (conn.pumpAgain && !conn.closed);
+      } catch {
+        log("deliver-failed");
+      } finally {
+        conn.pumping = false;
+      }
+    })();
+    return conn.pumpRun;
   }
 
   const applyOwnRead = (conn: Conn, seq: number, messageId: string | null, unread: number | null, conversationId: string) => {
@@ -284,10 +291,13 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
           conn.acked.add(sent.message.id);
           if (conn.acked.size > ACK_MEMORY) conn.acked.delete(conn.acked.values().next().value!);
         }
-        const cursor = sent.seq ? encodeCursor({ kind: "msg", conversationId: sent.conversationId, seq: sent.seq }) : null;
+        // Everything below this message is delivered by the same loop first, so `sent.cursor` is a safe resume point:
+        // a client dropped right after `sent` and resuming with it cannot miss an earlier message.
+        await pump(conn);
+        const cursor = sent.seq && conn.lastSeq >= sent.seq
+          ? encodeCursor({ kind: "msg", conversationId: sent.conversationId, seq: sent.seq }) : null;
         emit(conn, { type: "sent", clientMessageId: data.clientMessageId.toLowerCase(), conversationId: sent.conversationId,
           message: sent.message, deduplicated: sent.deduplicated, cursor });
-        void pump(conn);
       } catch (error) {
         reportError(conn, error, data.clientMessageId);
       }
@@ -317,7 +327,7 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
 
   function attach(ws: WebSocket, principal: RealtimePrincipal, start: { conversationId: string | null; lastSeq: number; backlog: "none" | "replay" | "refetch" }) {
     const conn: Conn = { ws, principal, conversationId: start.conversationId, lastSeq: start.lastSeq, ownSeq: 0, peerSeq: 0,
-      ready: false, closed: false, alive: true, pumping: false, pumpAgain: false, chain: Promise.resolve(), queued: 0,
+      ready: false, closed: false, alive: true, pumping: false, pumpAgain: false, pumpRun: null, chain: Promise.resolve(), queued: 0,
       windowStart: Date.now(), windowCount: 0, acked: new Set(), typingTimers: new Map(), typingSeen: new Map() };
     connections += 1;
     const actorKey = `${principal.actorId}:${principal.organizationId}`;
@@ -403,7 +413,8 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
       if (behind > limits.maxBacklog) backlog = "refetch";
       else { lastSeq = Math.min(position.seq, conversation.lastSeq); backlog = behind > 0 ? "replay" : "none"; }
     }
-    if (socket.destroyed || stopped) return;
+    if (socket.destroyed) return;
+    if (stopped) return refuse(socket, 503);
     sockets.handleUpgrade(request, socket, head, (ws) => attach(ws, principal, { conversationId: conversation?.id ?? null, lastSeq, backlog }));
   }
 

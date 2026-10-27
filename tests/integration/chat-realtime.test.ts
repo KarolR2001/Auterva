@@ -313,6 +313,41 @@ test("a lost LISTEN loses nothing: rebuilt connection and the periodic reconcile
   operator.ws.close();
 });
 
+test("sent.cursor is a safe resume point: an earlier message is delivered before sent, with a lost LISTEN or without any signal", async () => {
+  const server = await startServer({ listenRetryMs: 2_000, pollMs: 60_000, reconcileMs: 60_000 });
+  for (const variant of ["lost-listen", "no-signal"] as const) {
+    const company = await makeCompany(`cursor-${variant}`);
+    const admin = await adminSocket(company, { server });
+    await admin.takeType("ready");
+    await say(company.admin, "pierwsza");
+    await admin.takeType("message");
+    await sleep(200);
+    if (variant === "lost-listen") {
+      await db.$executeRaw`SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE application_name = ${LISTENER_APPLICATION_NAME}`;
+      await say(company.operator, "druga strona, sygnał zgubiony");
+    } else {
+      const conversation = await db.conversation.findUniqueOrThrow({ where: { organizationId: company.organizationId } });
+      await db.chatMessage.create({ data: { organizationId: company.organizationId, conversationId: conversation.id,
+        senderId: platformId, clientMessageId: randomUUID(), body: "druga strona, bez sygnału" } });
+    }
+    await resetLimits(company.adminId);
+    admin.send({ type: "send", clientMessageId: randomUUID(), body: "moja" });
+    const sent = await admin.takeType("sent");
+    const order = admin.frames.map((frame) => (frame.type === "message" ? `m:${frame.message.body}` : frame.type));
+    expect(order.indexOf(`m:${variant === "lost-listen" ? "druga strona, sygnał zgubiony" : "druga strona, bez sygnału"}`))
+      .toBeGreaterThan(-1);
+    expect(order.findIndex((entry) => entry.startsWith("m:druga"))).toBeLessThan(order.indexOf("sent"));
+    expect(sent.cursor).not.toBeNull();
+    admin.ws.terminate();
+    await admin.closed;
+    const resumed = await adminSocket(company, { after: sent.cursor, server });
+    expect(await resumed.takeType("ready")).toMatchObject({ backlog: "none" });
+    expect(await resumed.drain(isMessage, 400)).toEqual([]);
+    resumed.ws.close();
+    await sleep(2_300);
+  }
+}, 30_000);
+
 test("several instances: message, read and typing cross between servers; no duplicates", async () => {
   const company = await makeCompany("multi");
   const [one, two] = [main, await startServer()];

@@ -18,7 +18,7 @@ Odczytywana i walidowana raz przy starcie (`src/modules/chat/realtime-config.ts`
 | `WS_HOST` | Adres nasłuchu (literał IPv4/IPv6), domyślnie `127.0.0.1`. Kontener ustawia `0.0.0.0` (obraz `ws` robi to w `Dockerfile`). |
 | `WS_ALLOWED_HOSTS` | Lista dokładnych wartości nagłówka `Host`, rozdzielona przecinkami (`host` albo `host:port`, małe litery, bez schematu, ścieżki i `*`; najwyżej 50). Zastępuje domyślną wartość. Gdy pusta, a nasłuch nie jest loopbackiem, proces **nie startuje**. Domyślnie `127.0.0.1:<WS_PORT>`. |
 
-Nie ma trybu „dowolny host”. `WS_ALLOWED_HOSTS` to host, pod którym zaufany proxy przekazuje WS (przy tym samym hoście co panel: host panelu firmy lub platformy z portem, jeśli jest). Dodatkowo **Origin** przeglądarki musi być aktywnym wpisem `HostMapping`: `COMPANY_ADMIN` firmy z żądania albo `PLATFORM`. To ochrona przed cross-site WebSocket: sam `Host` jej nie zastępuje. Nagłówków `X-Forwarded-*` serwer nie używa. W produkcji Origin musi mieć `https:` (transport `wss`, C-N059); TLS kończy proxy.
+W produkcji proxy zwykle przepisuje `Host` na stały host usługi WS, więc `WS_ALLOWED_HOSTS` zawiera host usługi, nie hosty paneli firm (te sprawdza Origin). Nie ma trybu „dowolny host”. `WS_ALLOWED_HOSTS` to host, który zaufany proxy przekazuje do procesu WS. Dodatkowo **Origin** przeglądarki musi być aktywnym wpisem `HostMapping`: `COMPANY_ADMIN` firmy z żądania albo `PLATFORM`. To ochrona przed cross-site WebSocket: sam `Host` jej nie zastępuje. Nagłówków `X-Forwarded-*` serwer nie używa. W produkcji Origin musi mieć `https:` (transport `wss`, C-N059); TLS kończy proxy.
 
 ## Handshake
 
@@ -41,7 +41,7 @@ Serwer → klient:
 | Ramka | Znaczenie |
 |---|---|
 | `ready` | `{protocol:1, role, conversationId\|null, cursor\|null, backlog:"none"\|"replay"\|"refetch", state}`. Pierwsza ramka. `state` = `{ownMessageId, ownSeq, peerMessageId, peerSeq, unread}`: dokąd przeczytał użytkownik i druga strona oraz liczba nieprzeczytanych wiadomości drugiej strony. **Samo połączenie, `ready` i odtworzenie nie zmieniają żadnego kursora** (ukryta karta, preload, dashboard nie kasują `unread`). |
-| `message` | `{conversationId, message, cursor}`; `message` ma kształt DTO z kontraktu #50 (`own`, `senderRole`, `clientMessageId` tylko własne; bez `senderId` i e-maila). Kolejność rosnąca po `seq`. Własne wiadomości z tego samego gniazda przychodzą w `sent`, nie ponownie w `message`; własne z innego urządzenia przychodzą z `own:true`. |
+| `message` | `{conversationId, message, cursor}`; `message` ma kształt DTO z kontraktu #50 (`own`, `senderRole`, `clientMessageId` tylko własne; bez `senderId` i e-maila). Kolejność rosnąca po `seq`. Własne wiadomości z tego samego gniazda przychodzą w `sent`, zwykle bez powtórzenia w `message`; przy wyścigu sygnału może przyjść także `message` z `own:true`, a własne z innego urządzenia zawsze mają `own:true`. Klient deduplikuje po `id`. |
 | `sent` | Potwierdzenie `send` po trwałym zapisie: `{clientMessageId, conversationId, message, deduplicated, cursor}` (C-F130). Ponowienie tego samego `clientMessageId` i tekstu daje `deduplicated:true`, bez drugiego wiersza (C-F131). |
 | `read` | `{conversationId, own, readerRole, messageId, unread}`. `own:false`: druga strona przeczytała do `messageId` (status „odczytano”, C-F121). `own:true`: kursor tego konta przesunięto (też z innego urządzenia lub potwierdzenie własnego `read`); `unread` aktualna liczba. Przy `own:false` brak `unread`. |
 | `typing` | `{conversationId, senderRole, active}`. `active:true` przy pierwszym sygnale i najwyżej raz na sekundę; `active:false` serwer wysyła 3 s po ostatnim sygnale albo od razu po wiadomości tej strony. Nie dotyczy własnych sygnałów. |
@@ -65,13 +65,15 @@ Ramki jednego gniazda są wykonywane po kolei. Limit ruchu ramek: 60 na 10 s i 2
 
 Kursor to podpisany, związany z rozmową token z kontraktu #50 (`message.cursor`, `sent.cursor`, `ready.cursor`; `newerCursor` z `GET …/messages/`). Jego pozycja to `ChatMessage.seq`, numer przydzielany pod blokadą firmy, więc równy kolejności commitów.
 
-- **Reconnect:** `…/ws?organizationId=…&after=<ostatni kursor>`. Serwer dociąga z bazy wszystko po `seq` kursora (`ready.backlog:"replay"`), po kolei, bez braków i powtórzeń, a potem przechodzi na tryb na żywo. Ostatni kursor pochodzi z ostatniego `message`/`sent`/`ready` klienta. Własne wiadomości z `sent` mają `cursor`, więc klient nie cofa się za nie.
+- **Reconnect:** `…/ws?organizationId=…&after=<ostatni kursor>`. Serwer dociąga z bazy wszystko po `seq` kursora (`ready.backlog:"replay"`), po kolei, bez braków i powtórzeń, a potem przechodzi na tryb na żywo. Ostatni kursor pochodzi z ostatniego `message`/`sent`/`ready` klienta. `sent.cursor` jest bezpiecznym punktem wznowienia: serwer wysyła `sent` dopiero po dostarczeniu na tym gnieździe wszystkich wiadomości o niższym `seq` (ta sama pętla gniazda; wiadomość o niższym `seq` przychodzi przed `sent`), a gdy się to nie uda, `cursor` jest `null` i klient używa kursora z historii HTTP.
 - **Bez `after`:** brak odtwarzania; tryb na żywo od bieżącej pozycji. Klient pobiera historię przez HTTP (`GET …/messages/`). Aby nie mieć luki między HTTP a WS, łączy się z `after=newerCursor` z odpowiedzi HTTP albo najpierw łączy się, potem pobiera i deduplikuje po `message.id`.
 - **Za daleko za serwerem** (ponad 200 wiadomości): `ready.backlog:"refetch"`, serwer nic nie odtwarza. Klient pobiera historię przez HTTP (`after`) i ewentualnie łączy się ponownie z nowym kursorem.
 - Nieprawidłowy, sfałszowany `after` lub z innej rozmowy: `400` przy handshake.
 - Klient deduplikuje po `message.id`; serwer nie wysyła tej samej wiadomości dwa razy na jednym gnieździe.
 
 ## Sygnał i rozsyłanie między instancjami
+
+`LISTEN` wymaga bezpośredniego połączenia z PostgreSQL (`DATABASE_URL` procesu WS); pooler w trybie transakcyjnym (PgBouncer) go nie obsługuje.
 
 `sendMessage` wykonuje `pg_notify('auterva_chat', …)` **w tej samej transakcji** co zapis wiadomości, więc PostgreSQL dostarcza sygnał dopiero po commicie i nigdy dla wycofanej wiadomości. Ładunek to wyłącznie identyfikatory i pozycja (`{k:"m", o, c, s}`), bez treści. `read` zapisuje kursor i wysyła sygnał w jednej transakcji; `typing` jest tylko sygnałem (bez zapisu).
 
@@ -83,7 +85,7 @@ Przed każdą ramką sprawdzany jest bufor wyjściowy gniazda. Powyżej 1 MiB ra
 
 ## Rewalidacja
 
-Autoryzacja jest sprawdzana: przy handshake; co 1 s zbiorczo jednym zapytaniem dla wszystkich połączeń; przed każdą partią dostarczanych wiadomości; przy `send`/`read` ponownie pod blokadą firmy w transakcji (kontrakt #50); przy `typing`. Nie ma cache wyniku między ramkami. Unieważniają: usunięcie sesji (wylogowanie, cofnięcie, archiwizacja), `expiresAt`, brak dowodu MFA, wyłączone konto, zmiana roli lub firmy, `archivedAt` firmy admina. Zamknięcie następuje do około 1 s, a po zatwierdzonym cofnięciu żadna dalsza ramka nie jest wykonana. **Koniec okresu usługi nie rozłącza czatu i nie blokuje wysyłki.** Superadmin w kontekście zarchiwizowanej firmy zostaje połączony, ale `send`, `read` i `typing` dają `CHAT_ORGANIZATION_ARCHIVED` (D-23). Gdy baza jest niedostępna, połączenia nie są zamykane (nic nie jest wtedy dostarczane ani zapisywane).
+Autoryzacja jest sprawdzana: przy handshake; co 1 s zbiorczo dwoma zapytaniami dla wszystkich połączeń (sesje z użytkownikami i firmy superadmina); przed każdą partią dostarczanych wiadomości; przy `send`/`read` ponownie pod blokadą firmy w transakcji (kontrakt #50); przy `typing`. Nie ma cache wyniku między ramkami. Unieważniają: usunięcie sesji (wylogowanie, cofnięcie, archiwizacja), `expiresAt`, brak dowodu MFA, wyłączone konto, zmiana roli lub firmy, `archivedAt` firmy admina. Zamknięcie następuje do około 1 s, a po zatwierdzonym cofnięciu żadna dalsza ramka nie jest wykonana. **Koniec okresu usługi nie rozłącza czatu i nie blokuje wysyłki.** Superadmin w kontekście zarchiwizowanej firmy zostaje połączony, ale `send`, `read` i `typing` dają `CHAT_ORGANIZATION_ARCHIVED` (D-23). Gdy baza jest niedostępna, połączenia nie są zamykane (nic nie jest wtedy dostarczane ani zapisywane).
 
 ## Wydajność
 
