@@ -37,7 +37,7 @@ Statusy audytu: zmiany okresu, archiwizacji i aktywacji są audytowane jak dotą
 
 Odpowiedź 200: `organizationId`, `periodVersion`, `serverTime`, `period` (`headline` PAID/TRIAL/EXPIRED/NOT_STARTED — przy obu ważnych PAID; `paidThrough`, `paidValid`, `trialEndsAt`, `trialValid`, `effectiveEndsAt`, `effectiveSource`), `site` (`state`: VISIBLE, ARCHIVED, PERIOD_EXPIRED, DOMAIN_PENDING, RESTORE_LOCKED, REGISTRATION_PENDING; `publicVisible`), `expiredNotice` (dokładny komunikat D-11 po wygaśnięciu wszystkich okresów, inaczej `null`) oraz `reminders` — doręczone powiadomienia panelowe **bieżącej** granicy (`id`, `offsetDays`, `effectiveEndsAt`, `source`, `deliveredAt`, `message`). Po przedłużeniu lub skróceniu poprzednie powiadomienia znikają natychmiast; treść jest liczona dla chwili odczytu, a fraza względna („za N dni”, „jutro”, „dziś”) wynika z różnicy dat kalendarzowych Europe/Warsaw między chwilą odczytu lub wysyłki a datą końca, nie z offsetu slotu. Wygaśnięcie nie zwraca błędu ani nie blokuje panelu. Błędy: `400 INVALID_INPUT`/`INVALID_ID`, `403 FORBIDDEN`, `404 NOT_FOUND`, `429 RATE_LIMITED`, `500 INTERNAL_ERROR`. Odczyt nie jest cache'owany ani publiczny; nie zawiera danych innej firmy, adresu odbiorcy ani treści e-maila.
 
-## Decyzje do potwierdzenia przez właściciela
+## Decyzje właściciela (D-24, 27.10.2026)
 
 - Brak jedynego zweryfikowanego administratora z MFA lub aktywnego hosta panelu w chwili slotu kończy intencję jako `SKIPPED` (`RECIPIENT_INVALID`, `ADMIN_HOST_MISSING`) bez ponowienia (test: `service-reminders.test.ts`).
 - Przyznanie trialu przy tworzeniu firmy (#20) nie uzgadnia przypomnień, bo przed rejestracją nie ma granicy; harmonogram powstaje przy aktywacji konta.

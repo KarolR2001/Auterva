@@ -49,11 +49,11 @@ Budżet odczytu preview używa `actor()` floty (klucz `api:read:{actor}:platform
 - **Zarchiwizowana firma**: admin traci sesję i dostęp, a superadmin nadal czyta preview — PRD §9.5 (`docs/product/PRD.md`): firma jest „ponownie dostępna do odnalezienia i podglądu przez superadmina”.
 - **Inne metody niż `GET`**: Next.js odpowiada `405` z pustym ciałem (bez danych firmy); to jedyny wyjątek od nagłówków `private, no-store` na tych trasach.
 
-## Decyzje do potwierdzenia (needs:decision)
+## Decyzje właściciela (D-20, 27.10.2026)
 
-1. **Zakres preview oferty**: katalog i strona główna pokazują wyłącznie to, co zobaczyłaby publiczność (`PUBLISHED`); szkice i ukryte pojazdy są widoczne tylko w widoku pojedynczego pojazdu po id. Inny wariant (lista wszystkich niezarchiwizowanych w katalogu preview) wymaga decyzji produktowej.
-2. **Archiwalny pojazd** nie ma preview (`404`), bo wypada z oferty. Podgląd archiwum wymaga decyzji.
-3. **Preview bez `seo`**: brak podglądu snippetu SEO; `OVR-20`/`ADM-13` korzysta z danych ustawień, nie z preview.
+1. **Zakres preview oferty**: katalog i strona główna pokazują wyłącznie to, co zobaczyłaby publiczność (`PUBLISHED`); szkice i ukryte pojazdy są widoczne tylko w widoku pojedynczego pojazdu po id.
+2. **Archiwalny pojazd** nie ma preview (`404`), bo wypada z oferty.
+3. **Preview bez `seo`**: podgląd snippetu SEO (`OVR-20`/`ADM-13`) należy do ustawień firmy, nie do preview.
 
 ## Testy
 

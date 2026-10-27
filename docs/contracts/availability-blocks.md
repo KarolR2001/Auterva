@@ -14,7 +14,7 @@ Transakcja: aktor → blokada `Organization FOR NO KEY UPDATE` → `Vehicle FOR 
 
 ## Odmowy (wszystkie atomowe, bez częściowej mutacji i audytu)
 
-`400 INVALID_INPUT` (także znak NUL w `reference`/`internalNote`); `404 NOT_FOUND` (obca firma/pojazd/blokada, brak ujawnienia); `409 BLOCK_OVERLAP` z `conflict:{id,from,to,type,version}` istniejącego wpisu (tylko uwierzytelniony aktor tej firmy); `409 BLOCK_OUTSIDE_ACTIVITY` (aktywność bez początku, przed początkiem lub po końcu); `409 BLOCK_VERSION_CONFLICT`; `409 BLOCK_VEHICLE_ARCHIVED` (zapis i edycja; usunięcie pozostaje dozwolone); `422 BLOCK_DATA_INVALID` (naruszenie CHECK 23514, np. stary wiersz z `reference` > 120 przy edycji samego typu — popraw tekst i zapisz ponownie); `403 FORBIDDEN`; `429 RATE_LIMITED`.
+`400 INVALID_INPUT` (także znak NUL w `reference`/`internalNote`); `404 NOT_FOUND` (obca firma/pojazd/blokada, brak ujawnienia); `409 BLOCK_OVERLAP` z `conflict:{id,from,to,type,version}` istniejącego wpisu (tylko uwierzytelniony aktor tej firmy); `409 BLOCK_OUTSIDE_ACTIVITY` (aktywność bez początku, przed początkiem lub po końcu); `409 BLOCK_VERSION_CONFLICT`; `409 BLOCK_VEHICLE_ARCHIVED` (zapis i edycja; usunięcie pozostaje dozwolone — D-21); `422 BLOCK_DATA_INVALID` (naruszenie CHECK 23514, np. stary wiersz z `reference` > 120 przy edycji samego typu — popraw tekst i zapisz ponownie); `403 FORBIDDEN`; `429 RATE_LIMITED`.
 
 ## Aktualność publiczna i okres usługi
 

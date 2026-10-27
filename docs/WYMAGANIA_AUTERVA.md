@@ -573,6 +573,7 @@ Historyczne scenariusze v2 (15): UC-SAS-01 assisted startup; 02 multi-company; 0
 - MFA jest obowiązkowe dla obu ról; wcześniejsze P1 oraz stary router auth nie wyznaczają aktualnego priorytetu.
 - Konto firmy pozostaje jedno; starsza otwarta decyzja o wielu administratorach z handoffu została rozstrzygnięta przez V31.
 - Decyzje właściciela z 23.10.2026 rozstrzygają D-01, D-02, D-04 i D-05. Szczegóły macierzy, publikacji, limitów i bootstrapu są kanoniczne dla implementacji MVP 3.1.
+- Decyzje właściciela z 27.10.2026 rozstrzygają D-16–D-27 (środowiska, materiały, limity, preview, archiwum, przypomnienia, SEO, hosty i przekierowania).
 
 ### Do ustalenia przed implementacją danego obszaru
 
@@ -592,6 +593,23 @@ Historyczne scenariusze v2 (15): UC-SAS-01 assisted startup; 02 multi-company; 0
 - **D-14 — rozstrzygnięte 23.10.2026:** firma jest publiczna, jeśli ma ważny trial lub ważny okres opłacony. Przy obu okresach główny stan pokazuje „opłacono do”; firma jest liczona tylko raz w KPI, a przypomnienia dotyczą okresu wyznaczającego faktyczną datę wygaśnięcia. Wygaśnięcie trialu nie odcina ważnej opłaty. [Reguła efektywnej granicy](contracts/service-periods-kpi-reminders.md).
 - **D-15 — nazwa typu blokady:** B1, komponenty i traceability używają `MAINTENANCE`, natomiast `SERVICE` było rozbieżną etykietą historycznego scenariusza makiety (dawny handoff ekranów, usunięty z repozytorium). Kanoniczny typ domenowy to `MAINTENANCE`, etykieta UI „Serwis”; nie dodawać drugiego typu tylko z powodu makiety.
 
+#### Decyzje właściciela z 27.10.2026
+
+Rozstrzygają pytania zebrane podczas CR/QA Stage 3. Gdy decyzja zmienia zachowanie, wskazane issue zmienia kod i kontrakt razem; do tego czasu kontrakt opisuje stan bieżący.
+
+- **D-16 — środowiska (#90, #10):** CI (GitHub Actions z pełnymi bramkami), ochrona `main` i darmowe krótkotrwałe preview powstają w #10 bez czekania na budżet. Płatny staging i produkcja wymagają osobnej zgody właściciela na wariant i budżet w #90 przed pierwszym zakupem; #90 nie blokuje #10.
+- **D-17 — materiały (#81, #6):** materiały Autervy i pierwszej firmy pochodzą z Penpota; czego tam nie ma, Frontend generuje zgodnie z PRD 3.1 i makietami (teksty, kategorie, meta/alt, robocze dokumenty prawne, syntetyczne zdjęcia/logo). Pakiet jest zaakceptowany jako treść MVP do implementacji i stagingu; matryca oznacza źródło („Penpot” / „wygenerowane wg PRD”). Bez fikcyjnych opinii, wyników, rezerwacji i płatności. Publikacja produkcyjna nadal wymaga osobnej zgody na wdrożenie.
+- **D-18 — domena:** do wdrożenia produkcyjnego używany jest darmowy host dostawcy (uzupełnia D-09); właściciel wpisze domenę produkcyjną przed wdrożeniem.
+- **D-19 — budżet odczytu superadmina (#150):** jeden klucz `api:read:{actor}:platform` niezależnie od firmy, w której kontekście pracuje superadmin; osobny konfigurowalny budżet bajtów zdjęć w panelu i preview. Zmienia [kontrakt D-04/D-05](contracts/technical-limits-and-mfa-bootstrap.md) w #150.
+- **D-20 — preview (#46):** katalog i strona główna podglądu pokazują tylko `PUBLISHED`; szkic i ukryty pojazd mają podgląd pojedynczego pojazdu; zarchiwizowany pojazd nie ma podglądu. [Kontrakt preview](contracts/preview.md).
+- **D-21 — blokady archiwalnego pojazdu (#38):** dodanie i edycja dają `409 BLOCK_VEHICLE_ARCHIVED`; usunięcie jest dozwolone i audytowane. [Kontrakt blokad](contracts/availability-blocks.md).
+- **D-22 — media publiczne firmy (#30):** logo 1 (nowe zastępuje poprzednie), hero do 5, zdjęcia marki do 12, `featuredVehicleCount` 0–12.
+- **D-23 — zarchiwizowana firma (#151):** superadmin w jej kontekście zapisuje ustawienia, media publiczne, flotę, zdjęcia i blokady, z audytem wskazującym archiwum. Czat pozostaje tylko do odczytu (`409 CHAT_ORGANIZATION_ARCHIVED`). Administrator nadal nie loguje się, strona publiczna pozostaje wyłączona.
+- **D-24 — przypomnienia (#54):** brak administratora z MFA lub aktywnego hosta panelu w chwili slotu kończy intencję jako `SKIPPED` bez ponowień; doręczenie zapisuje status intencji/zadania, nie `AuditLog`; okno ponowień przy częściowej awarii wynosi około 3 h. [Kontrakt przypomnień](contracts/service-reminders.md).
+- **D-25 — publiczne SEO i ruch (#40, #154):** limity 120/min/IP dla oferty i 600/min/IP dla mediów, konfigurowalne i weryfikowane w teście obciążenia; schema.org `AutoRental` oraz `["Product","Car"]` bez `offers`; `noindex` dla list z filtrem/sortem/kursorem, pustej oferty i stron prawnych bez tekstu. Media publiczne są indeksowane (bez `X-Robots-Tag`), a host marketingu ma `robots.txt` i `sitemap.xml` — realizuje #154. [Kontrakt SEO](contracts/public-offer-seo.md).
+- **D-26 — hosty nowej firmy (#152):** host panelu i publiczny alias pod domenami Autervy są aktywne od prerejestracji; operator zapewnia wildcard DNS/TLS obu baz. Domena własna klienta nadal wymaga weryfikacji i jawnej aktywacji (#23).
+- **D-27 — przekierowanie sluga (#153):** zmiana sluga opublikowanego pojazdu zapisuje przekierowanie 308 ze starego adresu (FR-ADM-035 w MVP).
+
 ## 10. Co warto dodać — propozycje, poza obowiązkowym zakresem
 
 - **Najpierw: kontrola jakości oferty.** Lista brakujących zdjęć/opisów/kontaktu i przypomnienie o weryfikacji dostępności. Rozwija opcjonalny FR-ADM-011 i ogranicza błędne zapytania klientów.
@@ -606,6 +624,6 @@ Historyczne scenariusze v2 (15): UC-SAS-01 assisted startup; 02 multi-company; 0
 
 - Analiza źródłowa objęła pięć plików PRD, z czterema różnymi treściami. Repozytorium zachowuje kanoniczny V31 i BASELINE_FLEET; historia V2/V30 nie jest zależnością implementacji. Zachowane i wycofane wymagania są rozliczone w tym dokumencie.
 - Katalog zachowuje 71 identyfikatorów bazowych FR, 10 UC, 4 NFR-PERF oraz odniesienia do 31 REQ-MVP i 55 scenariuszy TEST-MVP z V31 §20. Scenariusze testowe są planem odbioru, nie wynikami testów.
-- Pełne pokrycie katalogu nie oznacza gotowości wszystkich kontraktów do implementacji: D-03, D-06–D-14 pozostają decyzjami zależnymi od konkretnych obszarów. D-01, D-02, D-04 i D-05 mają rozstrzygnięcie z 23.10.2026.
+- Pełne pokrycie katalogu nie oznacza gotowości wszystkich kontraktów do implementacji: D-03, D-06–D-14 pozostają decyzjami zależnymi od konkretnych obszarów. D-01, D-02, D-04 i D-05 mają rozstrzygnięcie z 23.10.2026, a D-16–D-27 z 27.10.2026.
 - Dla każdego wdrażanego przekroju uzupełnić mapowanie wymaganie → board Penpota → kod → trwały test w `design/traceability.json`. Aktualny dokument nie dopisuje fikcyjnych ścieżek kodu ani zaliczonych testów.
 - Odbiór aplikacji wymaga [quality gates](quality-gates.md), w tym rzeczywistego PostgreSQL, izolacji firm, współbieżności, MFA, poczty, WebSocket, hostów i PWA production build.
