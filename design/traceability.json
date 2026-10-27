@@ -3,6 +3,28 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 50,
+      "scope": "Trwała rozmowa firmy z Autervą: idempotentne otwarcie, wysyłka tekstu z deduplikacją clientMessageId i rewalidacją pod blokadą firmy, historia z kursorem po sekwencji commit, lista rozmów platformy. Bez realtime/typing/read/unread (#51/#52), UI (#53/#27), załączników i e-maili czatu.",
+      "relatedRequirementIds": ["C-F115", "C-F116", "C-F117", "C-F125", "C-F126", "C-F129", "C-F130", "C-F131", "C-F134", "C-F135", "C-N036", "C-N037", "C-N038", "C-R016", "D-04"],
+      "referenceScreenIds": ["TEN-11", "PLT-09"],
+      "codePaths": [
+        "prisma/migrations/20261027100000_chat_messages_issue_50/migration.sql",
+        "src/modules/chat/errors.ts",
+        "src/lib/text-policy.ts",
+        "src/modules/chat/text.ts",
+        "src/modules/chat/cursor.ts",
+        "src/modules/chat/service.ts",
+        "src/modules/chat/http.ts",
+        "src/modules/auth/rate-limit.ts",
+        "src/app/api/admin/chat/conversation/route.ts",
+        "src/app/api/admin/chat/messages/route.ts",
+        "src/app/api/platform/chat/conversations/route.ts",
+        "src/app/api/platform/companies/[organizationId]/chat/conversation/route.ts",
+        "src/app/api/platform/companies/[organizationId]/chat/messages/route.ts"
+      ],
+      "testPaths": ["tests/unit/chat-text.test.ts", "tests/integration/chat.test.ts", "tests/integration/chat-migration.test.ts", "tests/e2e/chat.spec.ts"]
+    },
+    {
       "issue": 30,
       "scope": "Ustawienia firmy per organizacja z macierzą D-01: odczyt admina, zapis grup tylko superadmin z allowlistą, wersją i audytem; logo/hero przez pipeline mediów #29; publiczna projekcja i media przez resolvePublicVisibility. UI ustawień w osobnym issue.",
       "relatedRequirementIds": ["C-F023", "C-F081", "C-F082", "C-F083", "C-F084", "C-F085", "C-N025", "C-N034", "C-N048", "FR-ADM-060", "FR-ADM-061", "FR-ADM-062", "FR-ADM-063", "D-01"],
@@ -10,6 +32,7 @@
       "codePaths": [
         "prisma/schema.prisma",
         "prisma/migrations/20261027090000_company_settings_issue_30/migration.sql",
+        "src/lib/text-policy.ts",
         "src/modules/settings/fields.ts",
         "src/modules/settings/mutations.ts",
         "src/modules/settings/read.ts",
