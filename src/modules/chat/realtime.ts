@@ -282,7 +282,9 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
 
   function onSignal(signal: ChatSignal) {
     // The inbox only changes with new messages and with the superadmin's own read cursor (any device or company socket).
-    if (signal.k === "m" || (signal.k === "r" && signal.r === "SUPERADMIN_AUTERVA")) queueInbox(signal.o);
+    // Archive and restore change the list (`archived`, unread 0) but are no event for company sockets.
+    if (signal.k === "m" || signal.k === "o" || (signal.k === "r" && signal.r === "SUPERADMIN_AUTERVA")) queueInbox(signal.o);
+    if (signal.k === "o") return;
     const group = byOrganization.get(signal.o);
     if (!group) return;
     for (const conn of group) {
@@ -552,9 +554,8 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
       sweeping = true;
       const open = everyConn().filter((conn) => !conn.closed);
       const platformOpen = [...platformConns].filter((conn) => !conn.closed);
-      Promise.all([authority.revalidate(open.map((conn) => conn.principal)),
-        authority.revalidatePlatform(platformOpen.map((conn) => conn.principal))])
-        .then(([verdicts, platformVerdicts]) => {
+      authority.revalidateAll(open.map((conn) => conn.principal), platformOpen.map((conn) => conn.principal))
+        .then(({ company: verdicts, platform: platformVerdicts }) => {
           verdicts.forEach((valid, index) => { if (!valid) closeConn(open[index], CLOSE.UNAUTHORIZED, "UNAUTHORIZED"); });
           platformVerdicts.forEach((valid, index) => { if (!valid) closeConn(platformOpen[index], CLOSE.UNAUTHORIZED, "UNAUTHORIZED"); });
         })
@@ -573,7 +574,8 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
     }, limits.heartbeatMs),
     // Safety net for the inbox: a lost signal can at worst delay a counter by this long.
     setInterval(() => { reconcileAll(false); refreshAll(); }, limits.reconcileMs),
-    setInterval(() => { if (!listener.healthy()) reconcileAll(false); }, limits.pollMs),
+    // Without LISTEN no signal arrives: company sockets read the database and the platform inbox refetches, each pollMs.
+    setInterval(() => { if (!listener.healthy()) { reconcileAll(false); refreshAll(); } }, limits.pollMs),
   ];
   for (const timer of timers) timer.unref();
 
