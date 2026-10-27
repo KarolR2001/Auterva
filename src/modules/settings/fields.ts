@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { multilineControl, singleLineControl } from "@/lib/text-policy";
 
 /**
  * D-01 allowlists for the platform-only settings mutation. A group owns an atomic set of fields;
@@ -15,10 +16,6 @@ export const readOnlyFieldNames = new Set(["slug", "hostname", "host", "hosts", 
   "color", "colors", "font", "fonts", "icon", "icons", "css", "html", "script", "customCss", "customHtml",
   "customJs"]);
 
-// Cc (C0 and C1, including NEL and CSI), line/paragraph separators and bidirectional controls.
-const hidden = "\\u202A-\\u202E\\u2066-\\u2069\\u2028\\u2029";
-const singleLineControl = new RegExp(`[\\p{Cc}${hidden}]`, "u");
-const multilineControl = new RegExp(`(?![\\t\\n\\r])[\\p{Cc}${hidden}]`, "u");
 const markup = /<\s*\/?\s*[a-z!?][^>]*>?/i;
 
 function text(max: number, multiline = false) {
