@@ -193,12 +193,13 @@ export async function editVehicle(db: PrismaClient, input: Operation & { vehicle
       if (before.status === "PUBLISHED") {
         const errors = await publicationErrors(tx, input.organizationId, input.vehicleId);
         if (Object.keys(errors).length) throw new PublishingRequirementsError(errors);
-        // The redirect points at the vehicle, not at a slug: A->B->C is one hop from A and cannot loop or branch.
-        if (slugChanged && before.slug) {
-          await tx.slugRedirect.upsert({ where: { organizationId_oldSlug: { organizationId: input.organizationId,
-            oldSlug: before.slug } }, create: { organizationId: input.organizationId, vehicleId: input.vehicleId,
-            oldSlug: before.slug }, update: { vehicleId: input.vehicleId } });
-        }
+      }
+      // A vehicle that was published once (PUBLISHED or hidden) keeps its old address for the next publication.
+      // The redirect points at the vehicle, not at a slug: A->B->C is one hop from A and cannot loop or branch.
+      if (slugChanged && before.slug && before.status !== "DRAFT") {
+        await tx.slugRedirect.upsert({ where: { organizationId_oldSlug: { organizationId: input.organizationId,
+          oldSlug: before.slug } }, create: { organizationId: input.organizationId, vehicleId: input.vehicleId,
+          oldSlug: before.slug }, update: { vehicleId: input.vehicleId } });
       }
       const after = await tx.vehicle.findUniqueOrThrow({ where: { id: input.vehicleId } });
       await appendAudit(tx, { actorId: input.actorId, sessionId: input.sessionId,

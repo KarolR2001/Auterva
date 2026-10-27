@@ -54,4 +54,4 @@ Strony i komponenty (#41–#44), kalendarz i wynik dostępności w UI, zapis lea
 
 ## Przekierowanie starego sluga (#153)
 
-Wpis `SlugRedirect` wskazuje pojazd, więc stary slug z dowolnego ogniwa łańcucha trafia jednym skokiem na aktualny slug (strona: wynik `REDIRECT` z `path` `/pojazdy/{aktualny}/`, API: `308` z zachowanym query). Aktywny slug `PUBLISHED` ma pierwszeństwo przed wpisem, a pojazd `DRAFT`, `UNPUBLISHED` lub `ARCHIVED` nie jest celem: odczyt daje `404`. Reguły zapisu: `fleet-crud-publication.md`.
+Wpis `SlugRedirect` wskazuje pojazd, więc stary slug z dowolnego ogniwa łańcucha trafia jednym skokiem na aktualny slug (strona: wynik `REDIRECT` z `path` `/pojazdy/{aktualny}/`, API: `308` z zachowanym query). Aktywny slug w dowolnym statusie ma pierwszeństwo przed wpisem (wpis jest usuwany przy zapisie sluga), a pojazd `DRAFT`, `UNPUBLISHED` lub `ARCHIVED` nie jest celem: odczyt daje `404`. Reguły zapisu: `fleet-crud-publication.md`.

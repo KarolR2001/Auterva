@@ -1,4 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
+import { setImmediate } from "node:timers/promises";
+import { Client } from "pg";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { sqlDate } from "../../src/modules/availability/dates";
@@ -155,19 +157,27 @@ test("an active slug beats a redirect of another vehicle, on edit and on create"
   await expectConsistent(0);
 });
 
-test("redirects never point at an unpublished, hidden or archived vehicle; drafts and hidden renames store none", async () => {
+test("redirects never point at an unpublished, hidden or archived vehicle; a hidden rename keeps the old address, a draft stores none", async () => {
   const [a, b] = [`pub-a-${uid()}`, `pub-b-${uid()}`];
   const vehicle = await published(0, a);
   await rename(0, vehicle.id, b, 0);
   const hide = await setVehicleStatus(db, { ...actor(), vehicleId: vehicle.id, expectedVersion: 1, status: "UNPUBLISHED" });
   expect(await read(0, a)).toEqual(NOT_FOUND);
+  const hiddenSlug = `ukryty-${uid()}`;
   const hiddenRename = await editVehicle(db, { ...actor(), vehicleId: vehicle.id, expectedVersion: hide.version,
-    fields: { slug: `ukryty-${uid()}` } }); // no confirmation needed, and no redirect for a non-public address
-  expect((await redirects(0)).map((row) => row.oldSlug)).not.toContain(b);
+    fields: { slug: hiddenSlug } }); // no confirmation needed for a hidden vehicle
+  expect((await redirects(0)).filter((row) => row.vehicleId === vehicle.id).map((row) => row.oldSlug).sort())
+    .toEqual([a, b].sort());
+  expect(await read(0, a)).toEqual(NOT_FOUND);
+  expect(await read(0, b)).toEqual(NOT_FOUND);
   const again = await setVehicleStatus(db, { ...actor(), vehicleId: vehicle.id, expectedVersion: hiddenRename.version,
     status: "PUBLISHED" });
-  expect(await read(0, a)).toMatchObject({ kind: "REDIRECT", slug: hiddenRename.slug });
-  expect(await read(0, b)).toEqual(NOT_FOUND);
+  expect(await read(0, a)).toEqual({ kind: "REDIRECT", slug: hiddenSlug, path: `/pojazdy/${hiddenSlug}/` });
+  expect(await read(0, b)).toMatchObject({ kind: "REDIRECT", slug: hiddenSlug });
+  const moved = await call(() => readVehicle(new Request(`https://${hosts[0]}/api/public/vehicles/${a}/?x=1`,
+    { headers: { host: hosts[0] } }), a));
+  expect(moved.status).toBe(308);
+  expect(moved.headers.get("location")).toBe(`/api/public/vehicles/${hiddenSlug}/?x=1`);
   await setVehicleStatus(db, { ...actor(), vehicleId: vehicle.id, expectedVersion: again.version, status: "ARCHIVED" });
   expect(await read(0, a)).toEqual(NOT_FOUND);
   const draft = await createVehicle(db, { ...actor(), fields: { name: "Szkic", slug: `szkic-${uid()}` } });
@@ -194,48 +204,97 @@ test("company A redirects do not exist for company B, and the same old slug is i
     .rejects.toThrow("FLEET_NOT_FOUND");
 });
 
-test("parallel renames of two vehicles to one slug leave one winner and no duplicate or shadowing redirect", async () => {
-  const clients = [createPrismaClient(process.env.DATABASE_URL ?? ""), createPrismaClient(process.env.DATABASE_URL ?? "")];
+/**
+ * Holds the company row lock on a third connection, starts the operations in the given order, waits until each one is a
+ * PostgreSQL lock waiter, then releases the lock. The lock queue is FIFO, so the execution order is deterministic.
+ */
+async function inOrder(company: number, operations: ((client: ReturnType<typeof createPrismaClient>) => Promise<unknown>)[]) {
+  const holder = new Client({ connectionString: process.env.DATABASE_URL });
+  const observer = new Client({ connectionString: process.env.DATABASE_URL });
+  const clients = operations.map(() => createPrismaClient(process.env.DATABASE_URL ?? ""));
+  await Promise.all([holder.connect(), observer.connect()]);
+  const holderPid = Number((await holder.query<{ pid: number }>("SELECT pg_backend_pid() AS pid")).rows[0].pid);
+  let locked = false;
   try {
-    for (let round = 0; round < 5; round++) {
-      const target = `cel-${round}-${uid()}`;
-      const [p, q] = [await published(0, `p-${round}-${uid()}`), await published(0, `q-${round}-${uid()}`)];
-      const outcomes = await Promise.allSettled([rename(0, p.id, target, 0, clients[0]), rename(0, q.id, target, 0, clients[1])]);
-      expect(outcomes.filter((o) => o.status === "fulfilled")).toHaveLength(1);
-      const loser = outcomes.find((o) => o.status === "rejected") as PromiseRejectedResult;
-      expect(loser.reason.message).toBe("FLEET_SLUG_CONFLICT");
-      const [afterP, afterQ] = await Promise.all([p, q].map((v) => db.vehicle.findUniqueOrThrow({ where: { id: v.id } })));
-      const [winner, lost] = afterP.slug === target ? [afterP, afterQ] : [afterQ, afterP];
-      expect(winner.slug).toBe(target);
-      expect(lost.version).toBe(0);
-      expect(await db.slugRedirect.count({ where: { vehicleId: lost.id } })).toBe(0);
-      expect(await db.slugRedirect.count({ where: { vehicleId: winner.id } })).toBe(1);
-      expect(await db.slugRedirect.count({ where: { organizationId: organizations[0], oldSlug: target } })).toBe(0);
-      await expectConsistent(0);
+    await holder.query("BEGIN");
+    locked = true;
+    await holder.query('SELECT id FROM "Organization" WHERE id = $1 FOR UPDATE', [organizations[company]]);
+    const running: Promise<unknown>[] = [];
+    for (const [index, operation] of operations.entries()) {
+      running.push(operation(clients[index]));
+      const until = Date.now() + 5_000;
+      for (;;) {
+        const waiting = await observer.query<{ n: number }>(
+          `SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND pid <> $1
+            AND wait_event_type = 'Lock' AND query LIKE '%"Organization"%'`, [holderPid]);
+        if (waiting.rows[0].n === index + 1) break;
+        if (Date.now() > until) throw new Error("Expected PostgreSQL row-lock waiter was not observed");
+        await setImmediate();
+      }
     }
-  } finally { await Promise.all(clients.map((client) => client.$disconnect())); }
+    await holder.query("COMMIT");
+    locked = false;
+    return await Promise.allSettled(running);
+  } finally {
+    if (locked) await holder.query("ROLLBACK");
+    await Promise.all([holder.end(), observer.end(), ...clients.map((client) => client.$disconnect())]);
+  }
+}
+const failure = (outcome: PromiseSettledResult<unknown>) =>
+  outcome.status === "rejected" ? (outcome.reason as Error).message : null;
+
+test("two renames to one slug: the first in the lock queue wins in both orders, the second gets a conflict", async () => {
+  for (const firstIsP of [true, false]) {
+    const target = `cel-${uid()}`;
+    const [p, q] = [await published(0, `p-${uid()}`), await published(0, `q-${uid()}`)];
+    const ops = [(client: typeof db) => rename(0, p.id, target, 0, client), (client: typeof db) => rename(0, q.id, target, 0, client)];
+    const outcomes = await inOrder(0, firstIsP ? ops : [ops[1], ops[0]]);
+    expect(outcomes.map(failure)).toEqual([null, "FLEET_SLUG_CONFLICT"]);
+    const [winner, loser] = firstIsP ? [p, q] : [q, p];
+    expect((await db.vehicle.findUniqueOrThrow({ where: { id: winner.id } })).slug).toBe(target);
+    const lost = await db.vehicle.findUniqueOrThrow({ where: { id: loser.id } });
+    expect(lost).toMatchObject({ slug: loser.slug, version: 0 });
+    expect(await db.slugRedirect.count({ where: { vehicleId: loser.id } })).toBe(0);
+    expect(await redirects(0).then((rows) => rows.filter((row) => row.vehicleId === winner.id))).toEqual([
+      { oldSlug: winner.slug, vehicleId: winner.id }]);
+    await expectConsistent(0);
+  }
 });
 
-test("a rename racing a create on the freed slug ends consistent in either order", async () => {
-  const clients = [createPrismaClient(process.env.DATABASE_URL ?? ""), createPrismaClient(process.env.DATABASE_URL ?? "")];
-  try {
-    for (let round = 0; round < 5; round++) {
-      const old = `wolny-${round}-${uid()}`;
-      const vehicle = await published(0, old);
-      const next = `po-${round}-${uid()}`;
-      const outcomes = await Promise.allSettled([
-        rename(0, vehicle.id, next, 0, clients[0]),
-        createVehicle(clients[1], { ...actor(), fields: { name: "Nowy", slug: old } }),
-      ]);
-      const renamed = outcomes[0].status === "fulfilled";
-      const created = outcomes[1].status === "fulfilled";
-      expect(renamed).toBe(true);
-      if (!created) expect((outcomes[1] as PromiseRejectedResult).reason.message).toBe("FLEET_SLUG_CONFLICT");
-      // Create first: the slug was still taken (conflict) and the redirect exists. Rename first: the create took the
-      // slug and deleted the new redirect. Never both an active slug and a redirect, never two active slugs.
-      expect(await db.vehicle.count({ where: { organizationId: organizations[0], slug: old } })).toBe(created ? 1 : 0);
-      expect(await db.slugRedirect.count({ where: { organizationId: organizations[0], oldSlug: old } })).toBe(created ? 0 : 1);
-      await expectConsistent(0);
-    }
-  } finally { await Promise.all(clients.map((client) => client.$disconnect())); }
+test("a rename and a create on the freed slug end deterministically in both orders", async () => {
+  const renameOp = (id: string, next: string) => (client: typeof db) => rename(0, id, next, 0, client);
+  const createOp = (slug: string) => (client: typeof db) => createVehicle(client, { ...actor(), fields: { name: "Nowy", slug } });
+  // Rename first: the create takes the freed slug and deletes the redirect that the rename just wrote.
+  const [oldA, nextA] = [`wolny-a-${uid()}`, `po-a-${uid()}`];
+  const first = await published(0, oldA);
+  expect((await inOrder(0, [renameOp(first.id, nextA), createOp(oldA)])).map(failure)).toEqual([null, null]);
+  expect(await db.vehicle.count({ where: { organizationId: organizations[0], slug: oldA } })).toBe(1);
+  expect(await db.slugRedirect.count({ where: { organizationId: organizations[0], oldSlug: oldA } })).toBe(0);
+  expect(await read(0, oldA)).toEqual(NOT_FOUND); // the new vehicle is a draft
+  await expectConsistent(0);
+  // Create first: the slug is still held by the vehicle (conflict, nothing written); the rename then keeps its redirect.
+  const [oldB, nextB] = [`wolny-b-${uid()}`, `po-b-${uid()}`];
+  const second = await published(0, oldB);
+  expect((await inOrder(0, [createOp(oldB), renameOp(second.id, nextB)])).map(failure)).toEqual(["FLEET_SLUG_CONFLICT", null]);
+  expect(await db.vehicle.count({ where: { organizationId: organizations[0], slug: oldB } })).toBe(0);
+  expect(await db.slugRedirect.count({ where: { organizationId: organizations[0], oldSlug: oldB } })).toBe(1);
+  expect(await read(0, oldB)).toMatchObject({ kind: "REDIRECT", slug: nextB });
+  await expectConsistent(0);
+});
+
+test("unpublish and rename of one vehicle in both orders keep the redirect and the vehicle hidden", async () => {
+  for (const renameFirst of [true, false]) {
+    const old = `un-${uid()}`;
+    const next = `un-po-${uid()}`;
+    const vehicle = await published(0, old);
+    const renameOp = (client: typeof db) => rename(0, vehicle.id, next, renameFirst ? 0 : 1, client);
+    const hideOp = (client: typeof db) => setVehicleStatus(client, { ...actor(), vehicleId: vehicle.id,
+      expectedVersion: renameFirst ? 1 : 0, status: "UNPUBLISHED" });
+    expect((await inOrder(0, renameFirst ? [renameOp, hideOp] : [hideOp, renameOp])).map(failure)).toEqual([null, null]);
+    expect(await db.vehicle.findUniqueOrThrow({ where: { id: vehicle.id } })).toMatchObject({ slug: next, status: "UNPUBLISHED", version: 2 });
+    expect(await redirects(0).then((rows) => rows.filter((row) => row.vehicleId === vehicle.id))).toEqual([
+      { oldSlug: old, vehicleId: vehicle.id }]);
+    expect(await read(0, old)).toEqual(NOT_FOUND);
+    await expectConsistent(0);
+  }
 });
