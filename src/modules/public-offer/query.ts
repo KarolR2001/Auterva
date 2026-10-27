@@ -73,7 +73,7 @@ const decimalKey = /^\d{1,10}(?:\.\d{1,2})?$/;
 /** The key must have the type of the sort field; a forged one is an invalid cursor, never a database error. */
 function keyMatchesSort(key: CatalogCursor["k"], sort: CatalogSort): boolean {
   if (sort === "recommended") return typeof key === "number" && Number.isSafeInteger(key) && key >= 0 && key <= 2_147_483_647;
-  if (sort === "name") return key === null || (typeof key === "string" && key.length <= 200 && !control.test(key));
+  if (sort === "name") return key === null || (typeof key === "string" && key.length <= 200);
   return key === null || (typeof key === "string" && decimalKey.test(key));
 }
 

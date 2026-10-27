@@ -458,3 +458,14 @@ test("the JSON API keeps a moved vehicle on the JSON resource, with the query", 
   expect(response.headers.get("location")).toBe(`/api/public/vehicles/alfa-${a}/?from=${day(1)}&to=${day(2)}`);
   expect(await response.json()).toEqual({ code: "MOVED", path: `/pojazdy/alfa-${a}/` });
 });
+
+test("a vehicle name with a tab does not break the name cursor", async () => {
+  await db.vehicle.update({ where: { id: ids[0] }, data: { name: "Aaa\tTab" } });
+  try {
+    const first = items(await listPublicVehicles(db, hostA, q("sort=name&limit=1")));
+    expect(first.items[0].name).toBe("Aaa\tTab");
+    const response = await call(() => readCatalog(get(hostA, `/api/public/vehicles/?sort=name&limit=1&cursor=${first.nextCursor}`)));
+    expect(response.status).toBe(200);
+    expect(((await response.json()) as { items: { name: string }[] }).items[0].name).toBe("Beta");
+  } finally { await db.vehicle.update({ where: { id: ids[0] }, data: { name: "Alfa" } }); }
+});
