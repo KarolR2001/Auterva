@@ -76,7 +76,7 @@
     },
     {
       "path": "docs/contracts/fleet-crud-publication.md",
-      "sha256": "f3f595f2f253248448f5996613419b00f6a2a8900bdc1730cfa3c181a87b0bdb"
+      "sha256": "a173ccea8617a1fb10ff259d63e707fed68e04022b62bd8cf31b5de54356a413"
     },
     {
       "path": "docs/contracts/account-operations.md",
@@ -96,7 +96,7 @@
     },
     {
       "path": "docs/contracts/media-upload-processing.md",
-      "sha256": "033737833d8e846d4645a4d824f5c5c5dd224be299db6ba77eb39b434b86df53"
+      "sha256": "b122219c1fab273835f0e1e6b8bff5a38bd85d46e42172b4758ed91542ea70ab"
     }
   ],
   "historicalSourcesOutsideRepository": [

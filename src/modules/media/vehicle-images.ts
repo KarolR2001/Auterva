@@ -15,6 +15,16 @@ export class ImageConflictError extends Error {
 
 type Scope = Operation & { vehicleId: string };
 type Tx = Prisma.TransactionClient;
+/**
+ * FR-ADM-045: an image without an explicit alt gets the vehicle name plus its ordinal. Names are untrusted
+ * text, so markup and control characters are dropped and the result stays within the 200-character alt limit.
+ */
+export function defaultImageAlt(vehicleName: string | null | undefined, position: number): string {
+  const name = (vehicleName ?? "").normalize("NFC").replace(/[<>\p{Cc}\u2028\u2029\u202A-\u202E\u2066-\u2069]/gu, " ")
+    .replace(/\s+/g, " ").trim().slice(0, 150).trim();
+  return name ? `${name}, zdjęcie ${position + 1}` : `Zdjęcie pojazdu ${position + 1}`;
+}
+
 export type VehicleImageView = { id: string; version: number; alt: string | null; position: number;
   isCover: boolean };
 
@@ -92,7 +102,7 @@ export async function updateVehicleImage(db: PrismaClient, input: Scope & { imag
     await audit(tx, input, image.id, changeCover
       ? { changedFields: [...(changeAlt ? ["alt"] : []), "isCover", "version"],
         before: { isCover: false, version: image.version }, after: { isCover: true, version: image.version + 1 } }
-      : { changedFields: ["alt"] });
+      : { changedFields: ["alt", "version"], before: { version: image.version }, after: { version: image.version + 1 } });
     return view(await tx.vehicleImage.findUniqueOrThrow({ where: { id: image.id } }));
   });
 }
@@ -139,18 +149,20 @@ export async function deleteVehicleImage(db: PrismaClient, input: Scope & { imag
     if (!image) throw new Error("MEDIA_IMAGE_NOT_FOUND");
     if (image.version !== input.expectedVersion) throw new ImageConflictError(image.version);
     const others = live.filter((candidate) => candidate.id !== image.id);
-    if (!image.isCover && input.replacementCoverId !== undefined) throw new Error("FLEET_INVALID_INPUT");
     let replacement: (typeof others)[number] | undefined;
-    if (image.isCover && others.length > 0) {
-      if (input.replacementCoverId !== undefined) {
-        replacement = others.find((candidate) => candidate.id === input.replacementCoverId);
-        if (!replacement) throw new Error("MEDIA_REPLACEMENT_INVALID");
-      } else if (vehicle.status === "PUBLISHED") throw new Error("MEDIA_COVER_REPLACEMENT_REQUIRED");
+    // A replacement that cannot apply (not the cover, nothing left, or not another live photo) is refused, never ignored.
+    if (input.replacementCoverId !== undefined) {
+      replacement = others.find((candidate) => candidate.id === input.replacementCoverId);
+      if (!replacement || !image.isCover) throw new Error("MEDIA_REPLACEMENT_INVALID");
+    }
+    if (image.isCover && others.length > 0 && !replacement) {
+      if (vehicle.status === "PUBLISHED") throw new Error("MEDIA_COVER_REPLACEMENT_REQUIRED");
       else replacement = others[0];
     }
     if (image.isCover && others.length === 0 && vehicle.status === "PUBLISHED") throw new Error("MEDIA_COVER_REQUIRED");
     await bump(tx, input, image.id, image.version, { status: "DELETED", isCover: false });
-    await audit(tx, input, image.id, { changedFields: ["media"] });
+    await audit(tx, input, image.id, { changedFields: ["media", "version"],
+      before: { version: image.version }, after: { version: image.version + 1 } });
     if (replacement) {
       await bump(tx, input, replacement.id, replacement.version, { isCover: true });
       await audit(tx, input, replacement.id, { changedFields: ["isCover", "version"],

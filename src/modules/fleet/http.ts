@@ -7,6 +7,7 @@ import { parseHostAuthority } from "@/modules/tenancy/host-registry";
 import { requireRequestContext, resolveRequestArea } from "@/modules/tenancy/request-context";
 import { createVehicle, editVehicle, PublishingRequirementsError, reorderVehicles,
   setVehicleStatus, type VehicleFields } from "./mutations";
+import { defaultImageAlt } from "@/modules/media/vehicle-images";
 import { listCompanyVehicles, type VehicleListFilters } from "./read";
 
 export const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -128,6 +129,7 @@ export async function getVehicle(request: Request, area: Area, vehicleId: string
       ? `/api/platform/companies/${access.organizationId}/vehicles/${vehicle.id}/images`
       : `/api/admin/vehicles/${vehicle.id}/images`;
     return response({ ...vehicle, images: vehicle.images.map((image) => ({ ...image,
+      alt: image.alt ?? defaultImageAlt(vehicle.name, image.position),
       urls: { large: `${previewBase}/${image.id}/large/`, thumb: `${previewBase}/${image.id}/thumb/` } })), price: vehicle.price?.toString() ?? null,
       availableFrom: vehicle.availableFrom ? localDate(vehicle.availableFrom) : null,
       availableTo: vehicle.availableTo ? localDate(vehicle.availableTo) : null }, 200, requestId);

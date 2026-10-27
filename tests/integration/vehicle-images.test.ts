@@ -17,7 +17,7 @@ import { finalizeImageUpload } from "../../src/modules/media/finalize";
 import { reserveVehicleImageUpload } from "../../src/modules/media/reservation";
 import { createMediaStorage, putImmutable, readLimited, removeObject } from "../../src/modules/media/storage";
 import { cleanupDeletedVehicleImages, processMediaClaim } from "../../src/modules/media/worker";
-import { deleteVehicleImage, ImageConflictError, reorderVehicleImages, updateVehicleImage } from "../../src/modules/media/vehicle-images";
+import { defaultImageAlt, deleteVehicleImage, ImageConflictError, reorderVehicleImages, updateVehicleImage } from "../../src/modules/media/vehicle-images";
 import { setVehicleStatus } from "../../src/modules/fleet/mutations";
 import { archiveCompany } from "../../src/modules/organizations/archive";
 import { ensureControlledSuperadminMfa, verifiedFixtureSession } from "../fixtures/verified-session";
@@ -159,6 +159,14 @@ test("a real upload becomes the cover when the vehicle has none, later uploads g
   } finally { storage.client.destroy(); }
   const rows = await live(vehicleId);
   expect(rows.map((row) => [row.id, row.isCover, row.position])).toEqual([[ids[0], true, 0], [ids[1], false, 1]]);
+  // FR-ADM-045: default alt = vehicle name + ordinal, editable afterwards; markup in the name never reaches alt
+  expect(rows.map((row) => row.alt)).toEqual(["Auto, zdjęcie 1", "Auto, zdjęcie 2"]);
+  expect(defaultImageAlt("<b>Bus</b>\u202E  9", 2)).toBe("b Bus /b 9, zdjęcie 3");
+  expect(defaultImageAlt(null, 0)).toBe("Zdjęcie pojazdu 1");
+  expect(defaultImageAlt("x".repeat(500), 0).length).toBeLessThanOrEqual(200);
+  await db.vehicleImage.update({ where: { id: ids[1] }, data: { alt: null } });
+  const detail = await vehicleGet(admin(0, "GET", `/api/admin/vehicles/${vehicleId}/`), { params: Promise.resolve({ id: vehicleId }) });
+  expect((await detail.json()).images.map((image: { alt: string }) => image.alt)).toEqual(["Auto, zdjęcie 1", "Auto, zdjęcie 2"]);
 });
 
 test("cover moves atomically, stale versions conflict, alt and order persist, audit names the actor", async () => {
@@ -222,7 +230,7 @@ test("the only cover of a published vehicle cannot be deleted; a replacement or 
   await expect(deleteVehicleImage(db, { ...actor(0, vehicleId), imageId: only, expectedVersion: 0, replacementCoverId: randomUUID() })).rejects.toThrow("MEDIA_REPLACEMENT_INVALID");
   // a non-cover image can be removed without a replacement, and replacing a non-cover is invalid
   const spare = await image(orgA, vehicleId, { position: 2 });
-  await expect(deleteVehicleImage(db, { ...actor(0, vehicleId), imageId: spare, expectedVersion: 0, replacementCoverId: other })).rejects.toThrow("FLEET_INVALID_INPUT");
+  await expect(deleteVehicleImage(db, { ...actor(0, vehicleId), imageId: spare, expectedVersion: 0, replacementCoverId: other })).rejects.toThrow("MEDIA_REPLACEMENT_INVALID");
   expect(await deleteVehicleImage(db, { ...actor(0, vehicleId), imageId: spare, expectedVersion: 0 })).toMatchObject({ deleted: true, coverImageId: null });
   expect(await deleteVehicleImage(db, { ...actor(0, vehicleId), imageId: only, expectedVersion: 0, replacementCoverId: other }))
     .toMatchObject({ deleted: true, coverImageId: other });
@@ -232,6 +240,13 @@ test("the only cover of a published vehicle cannot be deleted; a replacement or 
   await setVehicleStatus(db, { ...actor(0, vehicleId), expectedVersion: v.version, status: "UNPUBLISHED" });
   expect(await deleteVehicleImage(db, { ...actor(0, vehicleId), imageId: other, expectedVersion: 1 })).toMatchObject({ deleted: true });
   expect(await live(vehicleId)).toHaveLength(0);
+  // a replacement that does not apply is refused, never silently ignored
+  const lone = await vehicle(orgA);
+  const loneCover = await image(orgA, lone, { cover: true });
+  await expect(deleteVehicleImage(db, { ...actor(0, lone), imageId: loneCover, expectedVersion: 0, replacementCoverId: randomUUID() })).rejects.toThrow("MEDIA_REPLACEMENT_INVALID");
+  const foreignImage = await image(orgA, await vehicle(orgA), { cover: true });
+  await expect(deleteVehicleImage(db, { ...actor(0, lone), imageId: loneCover, expectedVersion: 0, replacementCoverId: foreignImage })).rejects.toThrow("MEDIA_REPLACEMENT_INVALID");
+  expect((await db.vehicleImage.findUniqueOrThrow({ where: { id: loneCover } })).status).toBe("READY");
   // a draft or unpublished vehicle may be without photos; deleting a cover promotes the next image
   const draft = await vehicle(orgA);
   const [d1, d2] = [await image(orgA, draft, { cover: true }), await image(orgA, draft, { position: 1 })];
