@@ -74,9 +74,11 @@ export async function preregisterCompany(db: PrismaClient, input: PreregisterInp
     await tx.user.create({ data: { id: userId, name: "Administrator firmy",
       email: normalized.adminEmail, role: "ADMIN_FIRMY", organizationId,
       emailVerified: false, twoFactorEnabled: false } });
+    // D-26: both hosts are subdomains of the configured Auterva bases (operator-provided wildcard
+    // DNS/TLS), so they are ACTIVE at once. Publication still needs a valid period (public gate).
     await tx.hostMapping.createMany({ data: [
-      { organizationId, hostname: normalized.adminHostname, area: "COMPANY_ADMIN", status: "PENDING" },
-      { organizationId, hostname: normalized.publicHostname, area: "COMPANY_PUBLIC", status: "PENDING" },
+      { organizationId, hostname: normalized.adminHostname, area: "COMPANY_ADMIN", kind: "PROVIDER", status: "ACTIVE" },
+      { organizationId, hostname: normalized.publicHostname, area: "COMPANY_PUBLIC", kind: "PROVIDER", status: "ACTIVE" },
     ] });
     await tx.serviceAccess.create({ data: { organizationId,
       trialGranted: normalized.trialGranted,
