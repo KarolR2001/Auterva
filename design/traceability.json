@@ -703,6 +703,24 @@
         "tests/integration/preview.test.ts",
         "tests/e2e/preview.spec.ts"
       ]
+    },
+    {
+      "issue": 152,
+      "scope": "Host panelu i publiczny alias PROVIDER nowej firmy sa ACTIVE od prerejestracji (D-26); skrypt operatora (podglad/--apply) aktywuje oczekujace hosty istniejacych firm pod skonfigurowanymi bazami. Domena CUSTOM (#23) i bramka okresu/archiwum bez zmian. Bez UI.",
+      "relatedRequirementIds": ["C-F003", "C-F004", "C-F015", "C-F022", "C-F025", "C-F026", "D-26"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "scripts/activate-provider-hosts.ts",
+        "src/modules/organizations/onboarding.ts",
+        "docs/contracts/company-onboarding-invitations.md",
+        "docs/contracts/environments-hosts-operations.md"
+      ],
+      "testPaths": [
+        "tests/integration/company-hosts-activation.test.ts",
+        "tests/integration/company-hosts-activation-script.test.ts",
+        "tests/integration/company-preregistration.test.ts",
+        "tests/e2e/company-onboarding.spec.ts"
+      ]
     }
   ],
   "sources": [

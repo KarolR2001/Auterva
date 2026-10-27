@@ -64,9 +64,9 @@ test("built ingress preregisters once and activates the bound invitation without
     expect((await onHost(port, platformHost, "/api/platform/companies/", "POST", session.cookie, create)).body)
       .toEqual(first.body);
     const invitePath = `/api/platform/companies/${organizationId}/invitations/`;
-    expect((await onHost(port, platformHost, invitePath, "POST", session.cookie,
-      { idempotencyKey: randomUUID() })).status).toBe(409);
-    await db.hostMapping.update({ where: { hostname: adminHost }, data: { status: "ACTIVE" } });
+    // D-26: preregistration activates both Auterva-domain hosts, so no manual activation is needed.
+    expect((await db.hostMapping.findMany({ where: { organizationId }, select: { status: true, kind: true } })))
+      .toEqual([{ status: "ACTIVE", kind: "PROVIDER" }, { status: "ACTIVE", kind: "PROVIDER" }]);
     const issued = await onHost(port, platformHost, invitePath, "POST", session.cookie,
       { idempotencyKey: randomUUID() });
     expect(issued.status).toBe(201);
@@ -88,7 +88,7 @@ test("built ingress preregisters once and activates the bound invitation without
     const activated = await onHost(port, adminHost, getPath, "POST", undefined,
       { password: activationPassword });
     expect(activated.status).toBe(200);
-    expect(activated.body).toMatchObject({ organizationId, siteState: "DOMAIN_PENDING",
+    expect(activated.body).toMatchObject({ organizationId, siteState: "READY",
       signInRequired: true });
     expect(activated.headers["set-cookie"]).toBeUndefined();
     expect((await onHost(port, adminHost, getPath, "POST", undefined,

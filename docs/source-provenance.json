@@ -56,7 +56,7 @@
     },
     {
       "path": "docs/contracts/environments-hosts-operations.md",
-      "sha256": "9e0579ff084489f3ec934021be2e26d6dd0a02546df3502a2c602adacc8968a1"
+      "sha256": "56e872ac27f04eb722ecf0105ac510ae8e71b1c5e800631584a1f45d4214455e"
     },
     {
       "path": "docs/contracts/technical-limits-and-mfa-bootstrap.md",
@@ -84,7 +84,7 @@
     },
     {
       "path": "docs/contracts/company-onboarding-invitations.md",
-      "sha256": "db962853b49f998daffd4603252d9d9b391a74aeeb69fdb9e472af499edb0f74"
+      "sha256": "9b66e0275bbcdd2ae55984ebaa5487a14a6494d0ac57168ba0e4addcbe1a16ee"
     },
     {
       "path": "docs/contracts/company-invitation-activation.md",

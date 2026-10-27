@@ -77,8 +77,8 @@ test("preregistration reserves one global email without credentials, trial start
   expect(organization.serviceAccess).toMatchObject({ trialGranted: true,
     trialStartedAt: null, trialEndsAt: null, paidThrough: null });
   expect(organization.hosts).toEqual(expect.arrayContaining([
-    expect.objectContaining({ hostname: `${slug}.sites.example.test`, area: "COMPANY_ADMIN", status: "PENDING" }),
-    expect.objectContaining({ hostname: `${slug}.public.example.test`, area: "COMPANY_PUBLIC", status: "PENDING" }),
+    expect.objectContaining({ hostname: `${slug}.sites.example.test`, area: "COMPANY_ADMIN", kind: "PROVIDER", status: "ACTIVE" }),
+    expect.objectContaining({ hostname: `${slug}.public.example.test`, area: "COMPANY_PUBLIC", kind: "PROVIDER", status: "ACTIVE" }),
   ]));
   expect(await db.invitation.count({ where: { organizationId: created.organizationId } })).toBe(0);
   expect(await db.auditLog.count({ where: { organizationId: created.organizationId, action: "COMPANY_CREATED" } })).toBe(1);
@@ -149,13 +149,15 @@ test("global email and occupied host refuse creation without changing their owne
   }
 });
 
-test("invitation waits for a verified admin host; issue, retry, resend and GET preserve 168h and no activation", async () => {
+test("invitation is issued without manual host activation; issue, retry, resend and GET preserve 168h and no activation", async () => {
   const organizationId = ids[0];
   const adminHostname = `${slug}.sites.example.test`;
   const now = new Date();
   const input = { actorId, sessionId, organizationId,
     adminBaseDomain: "sites.example.test", idempotencyKey: randomUUID(),
     requestId: randomUUID(), now, mailKey };
+  // A still-pending host (e.g. legacy data) keeps refusing the invitation; nothing is issued.
+  await db.hostMapping.update({ where: { hostname: adminHostname }, data: { status: "PENDING" } });
   await expect(issueCompanyInvitation(db, input)).rejects.toThrow("INVITATION_HOST_NOT_READY");
   expect(await db.invitation.count({ where: { organizationId } })).toBe(0);
   await db.hostMapping.update({ where: { hostname: adminHostname }, data: { status: "ACTIVE" } });
@@ -279,6 +281,7 @@ test("HTTP scopes preregistration and invitation to verified platform and bound 
     const params = { params: Promise.resolve({ organizationId: company.organizationId }) };
     const issue = (key = randomUUID()) => runWithTrustedClientAddress(fixtureIp,
       () => postInvitation(request(invitePath, { idempotencyKey: key }), params));
+    await db.hostMapping.update({ where: { hostname: company.adminHostname }, data: { status: "PENDING" } });
     expect((await issue()).status).toBe(409);
     await db.hostMapping.update({ where: { hostname: company.adminHostname }, data: { status: "ACTIVE" } });
     const invited = await issue();
