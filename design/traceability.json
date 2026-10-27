@@ -846,7 +846,7 @@
     },
     {
       "issue": 57,
-      "scope": "Zabezpieczenia serwera i regresja izolacji przed wydaniem: nagłówki i CSP z nonce, jeden ograniczony parser JSON, odrzucenie NUL w filtrach, limit anonimowego odczytu zaproszenia, macierz negatywna po wszystkich handlerach (TEST-MVP-01..10, 32, 33, 34, 45, 47, 53) i macierz OWASP z dowodami, bez deklaracji certyfikacji. Pentest staging not-run (zależy od #90); izolacja WS /ws/platform po scaleniu #170.",
+      "scope": "Zabezpieczenia serwera i regresja izolacji przed wydaniem: nagłówki i CSP z nonce, jeden ograniczony parser JSON, odrzucenie NUL w filtrach, limit anonimowego odczytu zaproszenia, macierz negatywna po wszystkich handlerach (TEST-MVP-01..10, 32, 33, 34, 45, 47, 53) i macierz OWASP z dowodami, bez deklaracji certyfikacji. Pentest staging not-run (zależy od #90); izolacja WS /ws/platform w security-ws-platform.test.ts.",
       "relatedRequirementIds": [
         "C-N001", "C-N006", "C-N007", "C-N029", "C-N032", "C-N036", "C-N044", "C-N057", "C-N059", "C-N061", "C-N062",
         "TEST-MVP-01", "TEST-MVP-02", "TEST-MVP-03", "TEST-MVP-04", "TEST-MVP-05", "TEST-MVP-06", "TEST-MVP-07", "TEST-MVP-08",
@@ -873,6 +873,7 @@
       ],
       "testPaths": [
         "tests/integration/security-regression.test.ts",
+        "tests/integration/security-ws-platform.test.ts",
         "tests/e2e/security-headers.spec.ts",
         "tests/unit/security-headers.test.ts",
         "tests/unit/json-body.test.ts"

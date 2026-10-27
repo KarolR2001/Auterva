@@ -107,7 +107,7 @@ Znalezione poza zakresem tego przebiegu (zgłoszone orkiestratorowi, bez zmian k
 | Cache | wszystkie publiczne odpowiedzi `no-store`; po zmianie blokady kolejny odczyt jest świeży; rozgrzanie A nie wpływa na B | `security-regression`, `availability-http`, `service-period-public` |
 | Jobs | zadanie niesie firmę; przy wykonaniu sprawdzany jest aktualny administrator, firma i wersja okresu; zarchiwizowana firma nie dostaje poczty | `jobs-review-regressions`, `jobs-worker`, `service-reminders` |
 | WS `/ws` | Origin, host, rola, firma; zdarzenia nie przechodzą między firmami; cofnięcie sesji i archiwizacja zamykają połączenie, kolejne ramki odmówione | `chat-realtime` |
-| WS `/ws/platform` | **do dopisania po scaleniu #170**: odrzucenie admina firmy, publicznego Origin i sesji bez MFA; zdarzenia platformy poza połączeniami A/B; cofnięcie sesji superadmina zamyka kanał; limity ramek i połączeń | planowane |
+| WS `/ws/platform` (#167, scalone) | Origin tylko z hosta `PLATFORM` i tylko superadmin; admin firmy, publiczny, marketingowy i obcy Origin, sesja bez MFA, brak sesji: 403; kanał jednokierunkowy (`INVALID_FRAME`), powódź ramek `4429`, limit 5 połączeń, `4401` po cofnięciu sesji; ramka niesie liczniki bez treści; gniazdo firmy nie dostaje ramek platformy | `chat-inbox`, `security-ws-platform` |
 
 ## 8. Pentest na stagingu: `not-run` (zależy od #90)
 

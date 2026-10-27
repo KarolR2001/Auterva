@@ -13,5 +13,5 @@ Cel: domknąć nagłówki/CSP, Origin/CSRF, limity wejść, bezpieczne parsowani
 ## Poza zakresem tego przebiegu (zapisane)
 
 - Pentest staging: zależy od #90 (płatne środowiska, D-16). Lista przypadków w macierzy.
-- Izolacja WS dla kanału `/ws/platform` i listy rozmów superadmina (#167, PR #170): testy A/B dopisać po scaleniu #170. Przypadki: handshake `/ws/platform` odrzuca admina firmy, nieznany/publiczny Origin i sesję bez MFA; zdarzenia platformy nie trafiają do połączeń firmy A/B; cofnięcie sesji superadmina zamyka kanał; limity ramek i połączeń jak w `/ws`.
-- Kopie i odtwarzanie (#60, PR #168): izolacja kopii poza tym przebiegiem.
+- Izolacja WS `/ws/platform` (#167): dopisana po scaleniu #170 w `tests/integration/security-ws-platform.test.ts` (uzupełnia `chat-inbox.test.ts`).
+- Kopie i odtwarzanie (#60): scalone; izolacja odtworzenia poza tym przebiegiem.
