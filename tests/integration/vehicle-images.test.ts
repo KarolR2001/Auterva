@@ -134,8 +134,8 @@ function admin(index: 0 | 1, method: string, path: string, body?: unknown, cooki
   return new Request(`https://${host}${path}`, { method, headers: { host, origin: `https://${host}`, cookie,
     "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
 }
-const ctx = (vehicleId: string, imageId: string, variant?: string) =>
-  ({ params: Promise.resolve({ id: vehicleId, imageId, ...(variant ? { variant } : {}) }) });
+const ctx = (vehicleId: string, imageId: string, variant = "large") =>
+  ({ params: Promise.resolve({ id: vehicleId, imageId, variant }) });
 function pub(host: string, imageId: string, variant: string) {
   return runWithTrustedClientAddress(`203.0.113.${Math.floor(Math.random() * 200) + 1}`, () =>
     publicMedia(new Request(`https://${host}/api/public/media/${imageId}/${variant}/`, { headers: { host } }),
@@ -285,7 +285,7 @@ test("private preview: session required, no cache, large and thumb only, never r
   for (const variant of ["raw", "original", "x"])
     expect((await imagePreview(admin(0, "GET", `/api/admin/vehicles/${vehicleId}/images/${id}/${variant}/`), ctx(vehicleId, id, variant))).status).toBe(404);
   // platform: superadmin in company A context; admin session on the platform host is refused
-  const platformRequest = (cookie: string, org = orgA) => new Request(`https://${platformHost}/x/`, { headers: { host: platformHost, cookie } });
+  const platformRequest = (cookie: string) => new Request(`https://${platformHost}/x/`, { headers: { host: platformHost, cookie } });
   const platformCtx = (org: string) => ({ params: Promise.resolve({ organizationId: org, id: vehicleId, imageId: id, variant: "large" }) });
   const viaPlatform = await platformPreview(platformRequest(superSession.cookie), platformCtx(orgA));
   expect(viaPlatform.status).toBe(200);
