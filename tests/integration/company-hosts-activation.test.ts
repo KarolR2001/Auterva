@@ -146,3 +146,11 @@ test("custom domain is untouched: it stays PENDING and unrouted until explicit v
   expect(await db.hostMapping.findUniqueOrThrow({ where: { hostname: company.publicHostname } }))
     .toMatchObject({ kind: "PROVIDER", status: "ACTIVE", canonicalTarget: null });
 });
+
+test("infrastructure slugs are refused: reserved names, punycode prefix and the first label of either base", async () => {
+  const before = await db.organization.count();
+  for (const slug of ["staging", "preview", "dev", "mail", "smtp", "xn--abc", "sites", "public"]) {
+    await expect(create(slug)).rejects.toThrow("COMPANY_INVALID_INPUT");
+  }
+  expect(await db.organization.count()).toBe(before);
+});
