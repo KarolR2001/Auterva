@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@/generated/prisma/client";
+import { resolveCompanyPublicVisibility } from "@/modules/service-period/public";
 import { variantKey } from "@/modules/media/serve";
 import { buildCatalog, buildContact, buildHome, buildLegal, buildVehicleFound, detailSelect,
   type ContactInput, type LegalKind, type OfferContext } from "@/modules/public-offer/read";
@@ -49,7 +50,8 @@ export async function getPreviewCatalog(db: PrismaClient, organizationId: string
 }
 
 /** A draft, hidden or published vehicle by id (a fresh draft has no slug yet). Foreign and archived: `null`. */
-export async function getPreviewVehicle(db: PrismaClient, organizationId: string, vehicleId: string, base: string) {
+export async function getPreviewVehicle(db: PrismaClient, organizationId: string, vehicleId: string, base: string,
+  now = new Date()) {
   const context = await loadPreviewContext(db, organizationId);
   if (!context) return null;
   const row = await db.vehicle.findFirst({ where: { id: vehicleId, organizationId,
@@ -57,7 +59,8 @@ export async function getPreviewVehicle(db: PrismaClient, organizationId: string
   if (!row) return null;
   const { vehicle, ...found } = withoutSeo(buildVehicleFound(context, row, previewMediaUrls(base)));
   return { preview: { mode: "VEHICLE" as const, vehicle: { id: row.id, status: row.status, version: row.version,
-    public: row.status === "PUBLISHED" } }, ...found,
+    // Informational only: the offer is public when the vehicle is PUBLISHED and the company passes the public gate.
+    public: row.status === "PUBLISHED" && (await resolveCompanyPublicVisibility(db, organizationId, now)) !== null } }, ...found,
   vehicle: { ...vehicle, slug: row.slug, path: row.slug ? vehicle.path : null } };
 }
 

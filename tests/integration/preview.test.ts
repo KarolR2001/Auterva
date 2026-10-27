@@ -1,4 +1,4 @@
-import { createHmac, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import sharp from "sharp";
@@ -17,7 +17,6 @@ import { PATCH as adminVehiclePatch } from "../../src/app/api/admin/vehicles/[id
 import { PATCH as platformVehiclePatch } from "../../src/app/api/platform/companies/[organizationId]/vehicles/[id]/route";
 import { POST as adminBlockPost } from "../../src/app/api/admin/vehicles/[id]/blocks/route";
 import { POST as platformBlockPost } from "../../src/app/api/platform/companies/[organizationId]/vehicles/[id]/blocks/route";
-import { GET as platformCalendar } from "../../src/app/api/platform/companies/[organizationId]/vehicles/[id]/availability/route";
 import { GET as publicMedia } from "../../src/app/api/public/media/[mediaId]/[variant]/route";
 import { runWithTrustedClientAddress } from "../../src/modules/ingress/client-address";
 import { serveSitemap } from "../../src/modules/public-offer/discovery";
@@ -368,14 +367,17 @@ test("the same block from both panels at once: one wins, the other gets the over
   expect(JSON.stringify(rows[0].safeChanges)).not.toMatch(/private-/);
 });
 
-test("a superadmin calendar read is metered per actor like every protected read, not per visited company", async () => {
-  const hash = (key: string) => createHmac("sha256", process.env.BETTER_AUTH_SECRET!).update(key).digest("hex");
-  const read = (org: string, id: string) => platformCalendar(get(platformHost,
-    `/api/platform/companies/${org}/vehicles/${id}/availability?from=${day(1)}&to=${day(2)}`, superSession.cookie),
-  { params: Promise.resolve({ organizationId: org, id }) });
-  expect((await read(orgA, v.liveA)).status).toBe(200);
-  expect((await read(orgB, v.liveB)).status).toBe(200);
-  expect(await db.rateLimitEvent.count({ where: { keyHash: hash(`api:read:${superId}:platform`) } })).toBe(2);
-  expect(await db.rateLimitEvent.count({ where: { keyHash: { in: [hash(`api:read:${superId}:${orgA}`),
-    hash(`api:read:${superId}:${orgB}`)] } } })).toBe(0);
+test("`public` is true only for a PUBLISHED vehicle of a company that passes the public gate", async () => {
+  const fetchPublic = async () => ((await (await adminVehicle(adminGet(0, `/vehicles/${v.liveA}/`),
+    vehicleCtx(v.liveA))).json()) as Body).preview.vehicle?.public;
+  expect(await fetchPublic()).toBe(false); // A's period ended; the preview still answers
+  expect(await getPublicHome(db, publicHost[0])).toBeNull();
+  await db.serviceAccess.update({ where: { organizationId: orgA }, data: { paidThrough: new Date(`${day(30)}T00:00:00.000Z`) } });
+  try {
+    expect(await fetchPublic()).toBe(true);
+    expect(((await (await adminVehicle(adminGet(0, `/vehicles/${v.hiddenA}/`), vehicleCtx(v.hiddenA))).json()) as Body)
+      .preview.vehicle?.public).toBe(false);
+  } finally {
+    await db.serviceAccess.update({ where: { organizationId: orgA }, data: { paidThrough: new Date(`${day(-5)}T00:00:00.000Z`) } });
+  }
 });

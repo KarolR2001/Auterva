@@ -6,7 +6,12 @@ import { resolveServicePeriod } from "./state";
 export async function resolvePublicVisibility(db: PrismaClient, authority: string, now = new Date()) {
   const host = await resolveHostMapping(db, authority);
   if (host?.area !== "COMPANY_PUBLIC" || !host.organizationId) return null;
-  const company = await db.organization.findUnique({ where: { id: host.organizationId },
+  return resolveCompanyPublicVisibility(db, host.organizationId, now);
+}
+
+/** The same rule as the public host gate, for a company already identified (protected preview, informational only). */
+export async function resolveCompanyPublicVisibility(db: PrismaClient, organizationId: string, now = new Date()) {
+  const company = await db.organization.findUnique({ where: { id: organizationId },
     select: { id: true, firstAdminRegisteredAt: true, archivedAt: true,
       publicUnlockRequired: true, publicRequiresPaid: true,
       serviceAccess: { select: { paidThrough: true, trialGranted: true, trialStartedAt: true, trialEndsAt: true } } } });
