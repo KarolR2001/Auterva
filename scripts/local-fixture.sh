@@ -38,14 +38,20 @@ download_checked() {
 
 install_tools() {
   require_local_tools
-  if [[ "$(uname -s)/$(uname -m)" != "Darwin/arm64" ]]; then
-    echo "Pinned local binaries currently target macOS arm64; install compatible SeaweedFS 4.49 and Mailpit 1.32.0 into .local/bin." >&2
-    exit 2
-  fi
-  download_checked "https://github.com/seaweedfs/seaweedfs/releases/download/4.49/darwin_arm64.tar.gz" \
-    "darwin_arm64.tar.gz" "ca708ea2b91c278a5678c16376b472162df2ccda54ecff72c7b53aaa6fb4af48" weed
-  download_checked "https://github.com/axllent/mailpit/releases/download/v1.32.0/mailpit-darwin-arm64.tar.gz" \
-    "mailpit-darwin-arm64.tar.gz" "23709bd727f20da2290de6a2a40c4685c48a3127586d77370efd1a3a595f9ef6" mailpit
+  local platform="$(uname -s)/$(uname -m)" weed_name weed_digest mailpit_name mailpit_digest
+  case "$platform" in
+    Darwin/arm64)
+      weed_name="darwin_arm64.tar.gz"; weed_digest="ca708ea2b91c278a5678c16376b472162df2ccda54ecff72c7b53aaa6fb4af48"
+      mailpit_name="mailpit-darwin-arm64.tar.gz"; mailpit_digest="23709bd727f20da2290de6a2a40c4685c48a3127586d77370efd1a3a595f9ef6" ;;
+    Linux/x86_64)
+      weed_name="linux_amd64.tar.gz"; weed_digest="3d10545b2317adc1587be02594f97e63420fe1aa7a5ba2af9c9760804574e397"
+      mailpit_name="mailpit-linux-amd64.tar.gz"; mailpit_digest="4b5993c978e8604c70d43927e2ad103b311bba3b1822fa0cf1d4ee4ec890a93c" ;;
+    *)
+      echo "Pinned local binaries target macOS arm64 and Linux x86_64; install compatible SeaweedFS 4.49 and Mailpit 1.32.0 into .local/bin." >&2
+      exit 2 ;;
+  esac
+  download_checked "https://github.com/seaweedfs/seaweedfs/releases/download/4.49/$weed_name" "$weed_name" "$weed_digest" weed
+  download_checked "https://github.com/axllent/mailpit/releases/download/v1.32.0/$mailpit_name" "$mailpit_name" "$mailpit_digest" mailpit
 }
 
 owned_process() {

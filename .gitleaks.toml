@@ -1,0 +1,17 @@
+# Default gitleaks rules plus reviewed false positives (CI job "Secret scan").
+# Each entry names why it is not a secret; add new entries only after reviewing the finding.
+title = "Auterva gitleaks"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Reviewed false positives"
+paths = [
+  # SHA-256 digests of skill files, not credentials.
+  '''\.agents/installed-skills\.snapshot\.json''',
+]
+regexes = [
+  # Obvious placeholder TOTP secret in a UI unit test.
+  '''ABCDEF123456''',
+]

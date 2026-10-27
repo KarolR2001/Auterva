@@ -11,7 +11,7 @@ Repozytorium zawiera minimalny lokalny scaffold Next.js, PostgreSQL, auth, WebSo
 - [Architektura](docs/ARCHITEKTURA_AUTERVA.md) — moduły, model danych, hosty, API, testy i dokładne ścieżki Penpota.
 - [Design System](docs/design/SPEC.md) i [kontrakt Penpota](design/README.md) — tokeny, komponenty, ekrany i mapowanie.
 - [Instrukcje agentów](AGENTS.md), [workflow GitHub](docs/development/WORKFLOW.md), [tablica projektu](https://github.com/users/KarolR2001/projects/1), [quality gates](docs/quality-gates.md).
-- [Stan dostępu GitHub](docs/development/GITHUB_ACCESS.md).
+- [Stan dostępu GitHub](docs/development/GITHUB_ACCESS.md), [CI, obrazy i preview](docs/development/CI.md).
 
 ## Lokalny scaffold
 
@@ -42,7 +42,7 @@ Opcjonalnie można uruchomić odrębny lokalny klaster PostgreSQL bez globalnego
 
 ## Lokalne usługi i fixture dwóch firm (#9)
 
-Na macOS arm64 potrzebne są Node.js 24, pnpm, PostgreSQL 18 (`initdb`, `pg_ctl`, `psql`, `createdb`, `pg_isready`), `curl`, `shasum`, `tar` i `lsof`. `scripts/local-fixture.sh install` pobiera do ignorowanego `.local/bin` przypięte SeaweedFS 4.49 i Mailpit 1.32.0, weryfikując SHA-256 archiwów przed rozpakowaniem. Skrypt nie instaluje usług globalnie. Na innych platformach użyj zgodnych binariów w `.local/bin` i lokalnego PostgreSQL; automatyczny `install/start` jest obecnie ograniczony do macOS arm64, więc taki wariant wymaga własnego startu usług.
+Na macOS arm64 i Linux x86_64 potrzebne są Node.js 24, pnpm, PostgreSQL 18 (`initdb`, `pg_ctl`, `psql`, `createdb`, `pg_isready`), `curl`, `shasum`, `tar` i `lsof`. `scripts/local-fixture.sh install` pobiera do ignorowanego `.local/bin` przypięte SeaweedFS 4.49 i Mailpit 1.32.0, weryfikując SHA-256 archiwów przed rozpakowaniem. Skrypt nie instaluje usług globalnie. Skrypt obsługuje też Linux x86_64 (używa go CI); na innych platformach użyj zgodnych binariów w `.local/bin` i własnego startu usług.
 
 ```sh
 pnpm install --frozen-lockfile
