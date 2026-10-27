@@ -24,7 +24,7 @@ export default defineConfig({
   projects: [
     { name: "production", testMatch: /auth-production\.spec\.ts/, use: { baseURL: productionURL } },
     { name: "auth-local", testMatch: /auth-host\.spec\.ts/, use: { baseURL: developmentURL } },
-    { name: "trusted-ingress", testMatch: /(?:auth-trusted|pwa|service-period|availability|company-onboarding|fleet|media|custom-domain|company-archive|company-settings|chat|vehicle-images)\.spec\.ts/, use: { baseURL: trustedURL } },
+    { name: "trusted-ingress", testMatch: /(?:auth-trusted|pwa|service-period|availability|company-onboarding|fleet|media|custom-domain|company-archive|company-settings|chat|vehicle-images|public-offer)\.spec\.ts/, use: { baseURL: trustedURL } },
   ],
   webServer: [
     {
