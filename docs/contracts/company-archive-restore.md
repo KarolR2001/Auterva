@@ -27,9 +27,9 @@ Kolejność blokad: wiersz `Organization` w trybie `FOR NO KEY UPDATE`, potem wi
 
 Zapisy mediów (#29) i blokad dostępności (#38, PR #139) też blokują `Organization` w trybie `FOR NO KEY UPDATE`; razem z archiwizacją wzajemnie się wykluczają i nie tworzą cyklu z wierszem `account`. Po archiwizacji nowy upload obrazu jest odmawiany (sesja cofnięta; rezerwacja superadmina daje `MEDIA_ORGANIZATION_ARCHIVED`), a przetwarzany obraz kończy `MEDIA_SCOPE_INACTIVE` bez `VehicleImage` (`tests/integration/company-archive-media.test.ts`).
 
-## WebSocket (mechanizm dla #51)
+## WebSocket
 
-Serwer realtime (`src/server/realtime.ts`, `src/modules/chat/realtime.ts`) już autoryzuje upgrade i każde połączenie przez `resolveRealtimeTenant` (`requireAuthorizedActor`: sesja, MFA, rola, host i `archivedAt`). Połączenie jest rewalidowane co 1 s oraz przy każdej wiadomości i zamykane kodem `4401`. Archiwizacja kasuje sesję, więc aktywne połączenie administratora firmy zamyka się najpóźniej po około 1 s, a nowe upgrade'y są odrzucane (także po przywróceniu, dopóki administrator nie zaloguje się ponownie). #51 musi zachować ten model: każdy nowy typ połączenia wywołuje `resolveRealtimeTenant`, nie cache'uje wyniku między komunikatami i nie omija rewalidacji. Brak czatu w tym issue.
+Serwer realtime (`src/server/realtime.ts`, `src/modules/chat/realtime.ts`) autoryzuje upgrade (`createRealtimeAuthority`: sesja, MFA, rola, host, `archivedAt`) i rewaliduje każde połączenie zbiorczo co 1 s oraz przed każdą akcją, zamykając je kodem `4401`. Archiwizacja kasuje sesje, więc połączenie administratora firmy zamyka się najpóźniej po około 1 s, a nowe upgrade'y dostają `403` (także po przywróceniu, dopóki administrator nie zaloguje się ponownie). Superadmin w kontekście zarchiwizowanej firmy zostaje połączony, ale nie zapisuje. Szczegóły: [kontrakt realtime](chat-realtime.md), test `tests/integration/company-archive-realtime.test.ts`.
 
 ## Poza zakresem i znane ograniczenia
 
