@@ -856,6 +856,10 @@
       "codePaths": [
         "security-headers.mjs",
         "next.config.mjs",
+        "src/app/layout.tsx",
+        "src/app/not-found.tsx",
+        "docs/contracts/company-invitation-activation.md",
+        "docs/contracts/technical-limits-and-mfa-bootstrap.md",
         "src/proxy.ts",
         "src/modules/tenancy/csp.ts",
         "src/modules/tenancy/json-body.ts",

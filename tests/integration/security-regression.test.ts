@@ -1,7 +1,7 @@
 // #57: negative regression over EVERY route handler of the application (TEST-MVP-01..10, 32, 33, 34, 45, 47, 53).
 // Handlers are discovered from the file system, so a new route cannot ship without passing the matrix or being
 // classified here on purpose. Real PostgreSQL, real sessions (with and without the MFA proof), two companies.
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { readdirSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { afterAll, beforeAll, expect, test } from "vitest";
@@ -11,7 +11,7 @@ import { runWithTrustedClientAddress } from "../../src/modules/ingress/client-ad
 import { ensureControlledSuperadminMfa, verifiedFixtureSession } from "../fixtures/verified-session";
 
 const db = createPrismaClient(process.env.DATABASE_URL ?? "");
-const apiRoot = join(process.cwd(), "src/app/api");
+const appRoot = join(process.cwd(), "src/app");
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
@@ -26,8 +26,8 @@ function routeFiles(dir: string): string[] {
 }
 
 const ids = {
-  a: { org: randomUUID(), vehicle: randomUUID(), block: randomUUID(), image: randomUUID(), user: randomUUID(), invitation: randomUUID() },
-  b: { org: randomUUID(), vehicle: randomUUID(), block: randomUUID(), image: randomUUID(), user: randomUUID(), invitation: randomUUID() },
+  a: { org: randomUUID(), vehicle: randomUUID(), block: randomUUID(), image: randomUUID(), user: randomUUID(), invitation: randomUUID(), conv: randomUUID() },
+  b: { org: randomUUID(), vehicle: randomUUID(), block: randomUUID(), image: randomUUID(), user: randomUUID(), invitation: randomUUID(), conv: randomUUID() },
 };
 type Tenant = keyof typeof ids;
 const tag = randomUUID().slice(0, 8);
@@ -44,6 +44,7 @@ let cookieSuper = "";
 let cookieAdminANoMfa = "";
 let cookieSuperNoMfa = "";
 let ownedSuperId: string | null = null;
+let superId = "";
 const sessionRows: string[] = [];
 const routes: Route[] = [];
 
@@ -77,15 +78,26 @@ const observed: Array<{ label: string; status: number; text: string }> = [];
 
 const DENIED = [401, 403, 404];
 
+/** Clears only the budgets of the actors this file uses (other test files' counters stay untouched). */
+async function resetBudgets() {
+  const actors: Array<[string, string]> = [[ids.a.user, ids.a.org], [ids.b.user, ids.b.org], [superId, "platform"]];
+  const keys = actors.flatMap(([actor, scope]) => [
+    ...["read", "write", "media"].map((kind) => `api:${kind}:${actor}:${scope}`),
+    `chat:send:burst:${actor}`, `chat:send:minute:${actor}`]);
+  await db.rateLimitEvent.deleteMany({ where: { keyHash: { in: keys.map((key) =>
+    createHmac("sha256", process.env.BETTER_AUTH_SECRET!).update(key).digest("hex")) } } });
+}
+
 beforeAll(async () => {
-  for (const file of routeFiles(apiRoot)) {
+  for (const file of routeFiles(appRoot)) {
     const loaded = await import(/* @vite-ignore */ file) as Record<string, unknown>;
-    const rel = relative(apiRoot, file).split(sep).slice(0, -1);
+    const rel = relative(appRoot, file).split(sep).slice(0, -1);
     const methods: Route["methods"] = {};
     for (const method of METHODS) if (typeof loaded[method] === "function") methods[method] = loaded[method] as Handler;
-    routes.push({ file, url: `/api/${rel.join("/")}/`, group: rel[0], methods });
+    // Routes under api/ are grouped by their first segment; the rest (robots, sitemap, .well-known) is "discovery".
+    routes.push({ file, url: `/${rel.join("/")}/`, group: rel[0] === "api" ? rel[1] : "discovery", methods });
   }
-  await db.rateLimitEvent.deleteMany();
+  await resetBudgets();
   const now = new Date();
   for (const tenant of ["a", "b"] as const) {
     const t = ids[tenant];
@@ -99,6 +111,7 @@ beforeAll(async () => {
       availableFrom: sqlDate(availabilityToday()), shortDescription: marker[tenant], description: marker[tenant] } });
     await db.availabilityBlock.create({ data: { id: t.block, organizationId: t.org, vehicleId: t.vehicle, from: sqlDate(availabilityToday()),
       to: sqlDate(availabilityToday()), type: "MAINTENANCE", reference: `REF-${marker[tenant]}`, internalNote: `INT-${marker[tenant]}` } });
+    await db.conversation.create({ data: { id: t.conv, organizationId: t.org } });
     await db.vehicleImage.create({ data: { id: t.image, organizationId: t.org, vehicleId: t.vehicle, storageKey: `sec-${tenant}-${tag}`,
       mime: "image/webp", width: 10, height: 10, bytes: 10, status: "READY", isCover: true,
       variants: { large: { key: `sec-large-${tenant}-${tag}`, width: 10, height: 10, bytes: 10 }, thumb: { key: `sec-thumb-${tenant}-${tag}`, width: 10, height: 10, bytes: 10 } } } });
@@ -112,7 +125,7 @@ beforeAll(async () => {
     { hostname: host.marketing, area: "MARKETING", status: "ACTIVE" },
   ] });
   const existing = await db.user.findFirst({ where: { role: "SUPERADMIN_AUTERVA" }, select: { id: true } });
-  let superId = existing?.id;
+  superId = existing?.id ?? "";
   if (superId) await ensureControlledSuperadminMfa(db, superId);
   else {
     superId = randomUUID(); ownedSuperId = superId;
@@ -128,7 +141,6 @@ beforeAll(async () => {
     const token = randomBytes(32).toString("base64url");
     const row = await db.session.create({ data: { id: randomUUID(), userId, token, expiresAt: new Date(Date.now() + 3_600_000) } });
     sessionRows.push(row.id);
-    const { createHmac } = await import("node:crypto");
     return `better-auth.session_token=${token}.${createHmac("sha256", process.env.BETTER_AUTH_SECRET!).update(token).digest("base64")}`;
   };
   cookieAdminANoMfa = await noMfa(ids.a.user);
@@ -169,10 +181,14 @@ async function snapshot() {
 }
 
 test("route inventory: every group is classified and the matrix covers every private handler", () => {
-  expect(new Set(routes.map((route) => route.group))).toEqual(new Set(["admin", "auth", "health", "platform", "public"]));
+  expect(new Set(routes.map((route) => route.group))).toEqual(new Set(["admin", "auth", "discovery", "health", "platform", "public"]));
   const handlers = privateRoutes().reduce((sum, route) => sum + Object.keys(route.methods).length, 0);
   expect(privateRoutes().length).toBeGreaterThanOrEqual(45);
   expect(handlers).toBeGreaterThanOrEqual(60);
+  // Discovery routes (outside api/) are explicitly classified: read-only, public and neutral.
+  expect(routes.filter((route) => route.group === "discovery").map((route) => route.url).sort())
+    .toEqual(["/.well-known/auterva-domain-check/", "/robots.txt/", "/sitemap.xml/"]);
+  for (const route of routes.filter((item) => item.group === "discovery")) expect(Object.keys(route.methods), route.file).toEqual(["GET"]);
   // Public data routes are read only except the two availability checks (POST, read-only semantics).
   for (const route of routes.filter((item) => item.group === "public")) {
     const mutating = Object.keys(route.methods).filter((method) => MUTATING.has(method));
@@ -280,7 +296,7 @@ test("TEST-MVP-34: every mutation refuses a missing, foreign, sibling-subdomain 
 }, 240_000);
 
 test("TEST-MVP-33: warmed public reads of company A never show A to B and the reverse, and every public answer is uncacheable", async () => {
-  const publicRoutes = routes.filter((route) => route.group === "public");
+  const publicRoutes = routes.filter((route) => route.group === "public" || route.group === "discovery");
   const seen: Record<Tenant, string> = { a: "", b: "" };
   for (const round of [["a", "b"], ["b", "a"], ["a", "b"]] as const) {
     for (const tenant of round) {
@@ -306,7 +322,7 @@ test("TEST-MVP-33: warmed public reads of company A never show A to B and the re
 
 test("TEST-MVP-09/10: public routes on panel, marketing and unmapped hosts answer a neutral refusal without any company data", async () => {
   const failures: string[] = [];
-  for (const route of routes.filter((item) => item.group === "public")) {
+  for (const route of routes.filter((item) => item.group === "public" || item.group === "discovery")) {
     for (const method of ["GET", "POST"] as const) {
       if (!route.methods[method]) continue;
       for (const wrong of [host.adminA, host.platform, host.marketing, host.unknown]) {
@@ -330,7 +346,7 @@ test("TEST-MVP-45: a second company administrator or an invitation for a registe
 });
 
 test("TEST-MVP-32: markup in a description or a chat message is stored and returned only as JSON text, never as a document", async () => {
-  await db.rateLimitEvent.deleteMany();
+  await resetBudgets();
   const payload = `<script>alert('${tag}')</script><img src=x onerror=alert(1)>`;
   const vehicles = routes.find((route) => route.url === "/api/admin/vehicles/")!;
   const created = await call(vehicles, "POST", { tenant: "a", host: host.adminA, cookie: cookieAdminA });
@@ -357,7 +373,7 @@ test("TEST-MVP-32: markup in a description or a chat message is stored and retur
 });
 
 test("bounded bodies: a valid JSON padded beyond 64 KiB is refused before any write on every JSON entry", async () => {
-  await db.rateLimitEvent.deleteMany();
+  await resetBudgets();
   const pad = " ".repeat(70_000);
   const before = await snapshot();
   const attempts: Array<[string, string, string, string, object]> = [
@@ -399,7 +415,7 @@ test("safe parsing: malformed bodies and query strings on every private handler 
   const before = await snapshot();
   const failures: string[] = [];
   for (const route of privateRoutes()) {
-    await db.rateLimitEvent.deleteMany();
+    await resetBudgets();
     const platform = route.group === "platform";
     const cookie = platform ? cookieSuper : cookieAdminA;
     const own = platform ? host.platform : host.adminA;
@@ -420,7 +436,7 @@ test("safe parsing: malformed bodies and query strings on every private handler 
     }
   }
   // The public read side takes the same junk without a crash (rate limited per address, so a fresh one per call).
-  for (const route of routes.filter((item) => item.group === "public" && item.methods.GET)) {
+  for (const route of routes.filter((item) => (item.group === "public" || item.group === "discovery") && item.methods.GET)) {
     for (const query of queries) {
       const reply = await runWithTrustedClientAddress(`10.${randomBytes(3).join(".")}`, async () => route.methods.GET!(new Request(
         `http://${host.publicA}${fill(route, "a", "GET")}${query}`, { headers: { host: host.publicA } }), { params: Promise.resolve(params("a", route, "GET")) }));
@@ -448,7 +464,7 @@ test("error redaction: no refusal or failure ever carries a stack, SQL, a file p
 });
 
 test("rate limit: the anonymous invitation inspection is throttled per source address (60/min) and keeps its neutral answer", async () => {
-  await db.rateLimitEvent.deleteMany();
+  await resetBudgets();
   const route = routes.find((item) => item.url === "/api/auth/invitation/[token]/")!;
   const address = `10.${randomBytes(3).join(".")}`;
   const get = (source: string) => runWithTrustedClientAddress(source, async () => route.methods.GET!(new Request(`http://${host.adminA}/api/auth/invitation/${"A".repeat(43)}/`,
@@ -458,4 +474,81 @@ test("rate limit: the anonymous invitation inspection is throttled per source ad
   expect(limited.status).toBe(429);
   expect(Number(limited.headers.get("retry-after"))).toBeGreaterThanOrEqual(1);
   expect((await get(`10.${randomBytes(3).join(".")}`)).status).toBe(404);
+});
+
+// N3: the IDOR proof needs a body that would be ACCEPTED for the caller's own company, otherwise a 400 from
+// validation could hide a missing tenant check. Every id in these calls belongs to company B.
+function validBody(route: Route, method: string): object | undefined {
+  const day = availabilityToday();
+  const table: Record<string, object> = {
+    "POST /api/admin/vehicles/[id]/[action]/": { expectedVersion: 0 },
+    "PATCH /api/admin/vehicles/[id]/": { expectedVersion: 0, fields: { name: "IDOR probe" } },
+    "POST /api/admin/vehicles/[id]/blocks/": { fields: { from: day, to: day, type: "MAINTENANCE" } },
+    "PATCH /api/admin/vehicles/[id]/blocks/[blockId]/": { expectedVersion: 0, fields: { reference: "IDOR probe" } },
+    "DELETE /api/admin/vehicles/[id]/blocks/[blockId]/": { expectedVersion: 0 },
+    "PATCH /api/admin/vehicles/[id]/images/[imageId]/": { expectedVersion: 0, alt: "IDOR probe" },
+    "DELETE /api/admin/vehicles/[id]/images/[imageId]/": { expectedVersion: 0 },
+    "PUT /api/admin/vehicles/[id]/images/order/": { items: [{ id: ids.b.image, expectedVersion: 0 }] },
+    "POST /api/admin/vehicles/reorder/": { items: [{ id: ids.b.vehicle, expectedVersion: 0, sortOrder: 1 }] },
+    "POST /api/admin/chat/messages/": { clientMessageId: randomUUID(), body: "IDOR probe", conversationId: ids.b.conv },
+  };
+  return table[`${method} ${route.url}`];
+}
+
+test("TEST-MVP-05/06/07: with a body valid for the caller, another company's vehicle, block, image and conversation answer 404 and change nothing", async () => {
+  await resetBudgets();
+  const before = await snapshot();
+  const failures: string[] = [];
+  const covered = new Set<string>();
+  for (const route of routes.filter((item) => item.group === "admin" || item.group === "platform")) {
+    for (const method of Object.keys(route.methods) as (typeof METHODS)[number][]) {
+      if (!MUTATING.has(method)) continue;
+      const platform = route.group === "platform";
+      // Admin A on host A addressing B's ids; the superadmin on company A's path addressing B's vehicle ids.
+      const body = validBody(route.group === "admin" ? route : { ...route, url: route.url.replace("/api/platform/companies/[organizationId]/", "/api/admin/") }, method);
+      if (!body || (platform && route.url.includes("/chat/"))) continue;
+      const own = platform ? host.platform : host.adminA;
+      const url = `http://${own}${fill(route, "b", method).replace(ids.b.org, ids.a.org)}`;
+      const request = new Request(url, { method, headers: { host: own, cookie: platform ? cookieSuper : cookieAdminA, origin: `http://${own}`,
+        "content-type": "application/json" }, body: JSON.stringify(body) });
+      const reply = await runWithTrustedClientAddress("10.9.9.9", async () => route.methods[method]!(request, { params: Promise.resolve({ ...params("b", route, method), organizationId: ids.a.org }) }));
+      covered.add(`${platform ? "P" : "A"} ${method} ${route.url}`);
+      if (reply.status !== 404) failures.push(`${platform ? "platform" : "admin"} ${method} ${route.url} -> ${reply.status} ${(await reply.text()).slice(0, 60)}`);
+    }
+  }
+  expect(failures).toEqual([]);
+  expect([...covered].filter((item) => item.startsWith("A ")).length).toBeGreaterThanOrEqual(9);
+  expect([...covered].filter((item) => item.startsWith("P ")).length).toBeGreaterThanOrEqual(8);
+  expect(await snapshot()).toBe(before);
+});
+
+// B2: a parameter or body value that cannot be a slug or an id (NUL especially) never reaches PostgreSQL.
+test("every public route with a path parameter or a slug in the body answers NUL and %00 with a client error, never a crash", async () => {
+  const failures: string[] = [];
+  const day = availabilityToday();
+  const hostile = ["\u0000", "a\u0000b", "%00", "..%2f", "a".repeat(500), "\u202e"];
+  const publicParam = routes.filter((route) => (route.group === "public" || route.group === "discovery") && route.url.includes("["));
+  expect(publicParam.map((route) => route.url).sort()).toEqual(["/api/public/legal/[kind]/", "/api/public/media/[mediaId]/[variant]/",
+    "/api/public/vehicles/[slug]/", "/api/public/vehicles/[slug]/calendar/"]);
+  for (const route of publicParam) {
+    for (const value of hostile) {
+      const names = [...route.url.matchAll(/\[([A-Za-z]+)\]/g)].map((match) => match[1]);
+      const values = Object.fromEntries(names.map((name) => [name, value]));
+      const url = route.url.replace(/\[([A-Za-z]+)\]/g, encodeURIComponent(value).replaceAll("%2500", "%00")) + `?from=${day}&to=${day}`;
+      const reply = await runWithTrustedClientAddress(`10.${randomBytes(3).join(".")}`, async () => route.methods.GET!(new Request(`http://${host.publicA}${url}`,
+        { headers: { host: host.publicA } }), { params: Promise.resolve(values) }));
+      observed.push({ label: `GET ${route.url}`, status: reply.status, text: await reply.clone().text() });
+      if (reply.status >= 500 || reply.status === 200) failures.push(`GET ${route.url} ${JSON.stringify(value).slice(0, 12)} -> ${reply.status}`);
+    }
+  }
+  const check = routes.find((route) => route.url === "/api/public/availability/check/")!;
+  const batch = routes.find((route) => route.url === "/api/public/availability/batch/")!;
+  for (const value of hostile) {
+    for (const [route, body] of [[check, { slug: value, from: day, to: day }], [batch, { slugs: [value], from: day, to: day }], [batch, { slugs: [`slug-${tag}`, value], from: day, to: day }]] as const) {
+      const reply = await runWithTrustedClientAddress(`10.${randomBytes(3).join(".")}`, async () => route.methods.POST!(new Request(`http://${host.publicA}${route.url}`,
+        { method: "POST", headers: { host: host.publicA, "content-type": "application/json" }, body: JSON.stringify(body) }), { params: Promise.resolve({}) }));
+      if (reply.status !== 400 && reply.status !== 404) failures.push(`POST ${route.url} ${JSON.stringify(value).slice(0, 12)} -> ${reply.status}`);
+    }
+  }
+  expect(failures).toEqual([]);
 });

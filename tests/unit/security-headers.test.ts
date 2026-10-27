@@ -95,3 +95,13 @@ test("TEST-MVP-01/09: each area serves only its own paths, and path tricks never
     }
   }
 });
+
+test("B1: Next buffers no more of a non-GET body than slightly above the JSON limit", async () => {
+  const config = (await import(pathToFileURL(join(process.cwd(), "next.config.mjs")).href)).default as { experimental?: { proxyClientMaxBodySize?: string } };
+  const configured = config.experimental?.proxyClientMaxBodySize;
+  expect(configured).toMatch(/^\d+kb$/);
+  const bytes = Number.parseInt(configured!, 10) * 1024;
+  // Above the handler limit (so a truncated body is still refused there), far below the 10 MB default.
+  expect(bytes).toBeGreaterThan(64 * 1024);
+  expect(bytes).toBeLessThanOrEqual(128 * 1024);
+});

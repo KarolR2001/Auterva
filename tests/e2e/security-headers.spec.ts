@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { request as httpRequest, type IncomingHttpHeaders } from "node:http";
@@ -177,6 +177,13 @@ test("a real browser runs only nonce-tagged scripts and reports no CSP violation
     expect(response?.status()).toBe(200);
     await page.waitForLoadState("networkidle");
     expect(await page.evaluate(() => document.querySelectorAll("script[nonce]").length)).toBeGreaterThan(0);
+    // N1: the static not-found page of Next (an allowed path without a page) must not break under the nonce policy either.
+    const missing = await page.goto(`http://${hostname}:${port}/polityka-prywatnosci/`);
+    expect(missing?.status()).toBe(404);
+    await page.waitForLoadState("networkidle");
+    expect(violations).toEqual([]);
+    expect(await page.evaluate(() => (window as unknown as { __violations: string[] }).__violations)).toEqual([]);
+    await page.goto(`http://${hostname}:${port}/`);
     expect(violations).toEqual([]);
     expect(await page.evaluate(() => (window as unknown as { __violations: string[] }).__violations)).toEqual([]);
     // Injected markup carrying an inline handler does not run it (no unsafe-inline). CDP evaluation itself is exempt
@@ -227,6 +234,124 @@ test("auth cookies are HttpOnly, SameSite and host-only, and the response is nev
     await db.user.deleteMany({ where: { email } });
     await db.hostMapping.deleteMany({ where: { hostname } });
     await db.organization.deleteMany({ where: { id: organizationId } });
+    await db.$disconnect();
+  }
+});
+
+function sendChunked(port: number, host: string, path: string, megabytes: number): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const request = httpRequest({ hostname: "127.0.0.1", port, path, method: "POST",
+      headers: { Host: host, "content-type": "application/json", "transfer-encoding": "chunked" } }, (response) => {
+      response.resume();
+      response.on("end", () => resolve(response.statusCode ?? 0));
+    });
+    request.on("error", reject);
+    request.write('{"slug":"x","pad":"');
+    const chunk = "y".repeat(64 * 1024);
+    for (let sent = 0; sent < megabytes * 1024 * 1024; sent += chunk.length) request.write(chunk);
+    request.end('"}');
+  });
+}
+
+// B1: Proxy buffers non-GET bodies; the buffer is capped near the JSON limit, so a megabyte is refused cheaply.
+test("a chunked megabyte to a public route, an unknown host and the auth gateway is refused with a client error (#57)", async ({ baseURL }) => {
+  if (!baseURL) throw new Error("Missing trusted ingress URL");
+  const db = createPrismaClient(process.env.DATABASE_URL ?? "");
+  const port = Number(new URL(baseURL).port);
+  const organizationId = randomUUID();
+  const hostname = `sec-e2e-chunk-${organizationId}.example.test`;
+  try {
+    await db.organization.create({ data: { id: organizationId, slug: `sec-chunk-${organizationId}`, firstAdminRegisteredAt: new Date() } });
+    await db.hostMapping.createMany({ data: [{ hostname, area: "COMPANY_PUBLIC", organizationId, status: "ACTIVE" },
+      { hostname: `admin-${hostname}`, area: "COMPANY_ADMIN", organizationId, status: "ACTIVE" }] });
+    for (const [host, path] of [[hostname, "/api/public/availability/check/"], [`unknown-${hostname}`, "/api/public/availability/check/"],
+      [`admin-${hostname}`, "/api/auth/sign-in/email/"], [hostname, "/api/admin/vehicles/"]]) {
+      const status = await sendChunked(port, `${host}:${port}`, path, 1);
+      expect(status, `${host} ${path}`).toBeGreaterThanOrEqual(400);
+      expect(status, `${host} ${path}`).toBeLessThan(500);
+    }
+  } finally {
+    await db.hostMapping.deleteMany({ where: { organizationId } });
+    await db.organization.deleteMany({ where: { id: organizationId } });
+    await db.$disconnect();
+  }
+});
+
+// B3: RSC and prefetch requests are ordinary requests to the same handlers; they must not bypass the area and session gate.
+test("RSC and prefetch requests for the panels give 404 without panel content in every denied variant (#57)", async ({ baseURL }) => {
+  if (!baseURL) throw new Error("Missing trusted ingress URL");
+  const db = createPrismaClient(process.env.DATABASE_URL ?? "");
+  const port = Number(new URL(baseURL).port);
+  const tag = randomUUID().slice(0, 8);
+  const org = { a: randomUUID(), b: randomUUID() };
+  const user = { a: randomUUID(), b: randomUUID() };
+  const host = { adminA: `sec-rsc-a-${tag}.example.test:${port}`, adminB: `sec-rsc-b-${tag}.example.test:${port}`, platform: `sec-rsc-p-${tag}.example.test:${port}` };
+  const bare = (value: string) => value.split(":")[0];
+  const sessions: Awaited<ReturnType<typeof verifiedFixtureSession>>[] = [];
+  const noMfaIds: string[] = [];
+  try {
+    for (const key of ["a", "b"] as const) {
+      await db.organization.create({ data: { id: org[key], slug: `sec-rsc-${key}-${tag}`, firstAdminRegisteredAt: new Date() } });
+      await db.user.create({ data: { id: user[key], name: `RSC ${key}`, email: `sec-rsc-${key}-${tag}@example.test`, role: "ADMIN_FIRMY",
+        organizationId: org[key], emailVerified: true, twoFactorEnabled: true } });
+      sessions.push(await verifiedFixtureSession(db, user[key]));
+    }
+    await db.hostMapping.createMany({ data: [
+      { hostname: bare(host.adminA), area: "COMPANY_ADMIN", organizationId: org.a, status: "ACTIVE" },
+      { hostname: bare(host.adminB), area: "COMPANY_ADMIN", organizationId: org.b, status: "ACTIVE" },
+      { hostname: bare(host.platform), area: "PLATFORM", status: "ACTIVE" }] });
+    const token = randomBytes(32).toString("base64url");
+    const row = await db.session.create({ data: { id: randomUUID(), userId: user.a, token, expiresAt: new Date(Date.now() + 3_600_000) } });
+    noMfaIds.push(row.id);
+    const noMfaA = `better-auth.session_token=${token}.${createHmac("sha256", process.env.BETTER_AUTH_SECRET!).update(token).digest("base64")}`;
+    const [cookieA, cookieB] = [sessions[0].cookie, sessions[1].cookie];
+    const variants: Array<[string, string, string, string]> = [
+      ["anonymous admin A", host.adminA, "/admin/", ""], ["no-MFA session admin A", host.adminA, "/admin/", noMfaA],
+      ["cookie B on host A", host.adminA, "/admin/", cookieB], ["cookie A on host B", host.adminB, "/admin/", cookieA],
+      ["anonymous admin B", host.adminB, "/admin/", ""],
+      ["anonymous platform", host.platform, "/", ""], ["no-MFA session on platform", host.platform, "/", noMfaA], ["admin cookie on platform", host.platform, "/", cookieA],
+    ];
+    const forms: Array<[string, (path: string) => string, Record<string, string>]> = [
+      ["RSC: 1", (path) => path, { RSC: "1" }],
+      ["Next-Router-Prefetch: 1", (path) => path, { RSC: "1", "Next-Router-Prefetch": "1" }],
+      ["?_rsc=x", (path) => `${path}?_rsc=x`, { RSC: "1" }],
+      ["plain document", (path) => path, {}],
+    ];
+    for (const [label, authority, path, cookie] of variants) {
+      for (const [form, build, extra] of forms) {
+        const headers = { ...extra, ...(cookie ? { cookie } : {}) };
+        let target = build(path);
+        let reply = await send(port, authority, target, { headers });
+        const name = `${label} / ${form}`;
+        // Next answers an RSC request without its cache-busting hash with a same-path redirect; follow it, never off the path.
+        for (let hop = 0; hop < 2 && reply.status === 307; hop += 1) {
+          target = header(reply, "location");
+          expect(target.split("?")[0], name).toBe(path);
+          reply = await send(port, authority, target, { headers });
+        }
+        // A document is a real 404. An RSC flight starts streaming before the page decides, so Next sends 200 with the
+        // not-found digest in the payload; either way the panel content is absent and the digest says 404.
+        if (form === "plain document") expect(reply.status, name).toBe(404);
+        else {
+          expect([200, 404], name).toContain(reply.status);
+          // A prefetch answers with a content-free segment shell instead of the digest.
+          if (reply.status === 200 && !form.startsWith("Next-Router-Prefetch")) expect(reply.text, name).toContain("NEXT_HTTP_ERROR_FALLBACK;404");
+        }
+        expect(reply.text, name).not.toMatch(/Panel Auterva|Platforma Auterva|jest w przygotowaniu/);
+        expect(header(reply, "cache-control"), name).toMatch(/no-store|private/);
+      }
+    }
+    // Control: the same request with the right session does carry the panel, so the assertions above can fail.
+    const allowed = await send(port, host.adminA, "/admin/?_rsc", { headers: { RSC: "1", cookie: cookieA } });
+    expect(allowed.status).toBe(200);
+    expect(allowed.text).toMatch(/Panel Auterva/);
+    expect(allowed.text).not.toContain("NEXT_HTTP_ERROR_FALLBACK");
+  } finally {
+    await db.session.deleteMany({ where: { id: { in: noMfaIds } } });
+    for (const session of sessions) await session.dispose();
+    await db.hostMapping.deleteMany({ where: { OR: [{ organizationId: { in: [org.a, org.b] } }, { hostname: bare(host.platform) }] } });
+    await db.user.deleteMany({ where: { id: { in: [user.a, user.b] } } });
+    await db.organization.deleteMany({ where: { id: { in: [org.a, org.b] } } });
     await db.$disconnect();
   }
 });

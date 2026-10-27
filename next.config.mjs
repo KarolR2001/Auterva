@@ -19,5 +19,9 @@ export default withSerwist({
   // so it must never fetch media routes. Only an explicit static asset folder may be optimized; the
   // controlled media routes (/api/public/media, /api/admin, /api/platform) answer /_next/image with 400.
   images: { localPatterns: [{ pathname: "/static-images/**", search: "" }], remotePatterns: [] },
+  // #57: Next buffers a copy of every non-GET body that Proxy sees (default 10 MB) before any handler runs. The JSON
+  // limit is 64 KiB (src/modules/tenancy/json-body.ts), so buffer only slightly more: a longer body is truncated, stays
+  // above the handler limit and is refused there. Upload routes are outside the Proxy matcher and keep their own 10 MB stream.
+  experimental: { proxyClientMaxBodySize: "72kb" },
   distDir: process.env.AUTERVA_NEXT_DIST_DIR ?? ".next",
 });

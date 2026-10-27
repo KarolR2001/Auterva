@@ -60,7 +60,7 @@
     },
     {
       "path": "docs/contracts/technical-limits-and-mfa-bootstrap.md",
-      "sha256": "eb53881e8970933ed0f0addad3474acb86ccd95456d15a18548220fe5be4e7bb"
+      "sha256": "a1adb2bb8ea34eb5f2541ef00ef31a59780fc7e98224a5fad9866343fae26fb5"
     },
     {
       "path": "docs/contracts/data-model-and-migrations.md",
@@ -88,7 +88,7 @@
     },
     {
       "path": "docs/contracts/company-invitation-activation.md",
-      "sha256": "a44c3ff5297a0428f6ade0f8560a5395e1680e5273c9e27be39720d28fed2b30"
+      "sha256": "d39a5e24a1f005fb5902bee0fc282cbcecaeddaaca7ae9d663d95780324908c5"
     },
     {
       "path": "docs/contracts/platform-companies-read.md",
