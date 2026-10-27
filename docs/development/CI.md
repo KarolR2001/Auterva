@@ -29,6 +29,10 @@ Przy porażce `Integration` i `Build and E2E` zapisują artefakty na 7 dni: rapo
 2. Wyeksportuj zmienne, które CI ustawia w `GITHUB_ENV`: `export MAIL_PAYLOAD_KEY="$(openssl rand -hex 32)"` oraz `export BOOTSTRAP_TEST_DATABASE_URL="postgresql://<user>@127.0.0.1:<LOCAL_PORT_BASE>/auterva_bootstrap_12"` (host `127.0.0.1`, nazwa bazy dokładnie `auterva_bootstrap_12`, bez parametrów URL; port jak PostgreSQL fixture). Nie wpisuj tych wartości do repozytorium.
 3. `LOCAL_PORT_BASE=<port> scripts/local-fixture.sh start`, migracje i seed według README, potem `pnpm test:integration`, `pnpm build`, `pnpm test:e2e`. Po pracy `scripts/local-fixture.sh stop`. Reset danych tylko przez `pnpm exec tsx scripts/seed-local-fixture.ts --reset`, nigdy `prisma migrate reset`.
 
+### Testy bezpieczeństwa (#57)
+
+`pnpm test:unit` i `pnpm test:integration` obejmują `tests/integration/security-regression.test.ts` (macierz negatywna po wszystkich handlerach `src/app/api` na PostgreSQL, firmy A/B, sesje z MFA i bez), a `Build and E2E` uruchamia `tests/e2e/security-headers.spec.ts` na zbudowanej aplikacji (nagłówki, CSP z nonce w Chromium, siostrzana subdomena, ograniczone ciała, ciasteczka, skan bundla pod kątem sekretów). Macierz kontroli, lista przypadków pentestu staging (`not-run`, #90) i znaleziska są w [OWASP_CONTROLS](../security/OWASP_CONTROLS.md). Lokalnie gitleaks nie jest instalowany; skan sekretów wykonuje tylko job `Secret scan`.
+
 ### Przypięcie akcji
 
 Akcje zewnętrzne są przypięte do pełnego SHA commita z komentarzem wersji (`checkout` v7.0.1, `pnpm/action-setup` v6.1.0, `setup-node` v7.1.0, `upload-artifact` v7.0.2). Wybrano SHA, bo tag można przesunąć, a workflow ma dostęp do kodu. Aktualizacja: sprawdź wydanie, zmień SHA i komentarz razem. Gitleaks nie używa `gitleaks-action` (licencja dla organizacji), tylko pobranego z weryfikacją sumy pliku wykonywalnego. Obraz bazowy Dockera jest przypięty tagiem `node:24.20.0-bookworm-slim`; digest przypnij po wyborze rejestru.

@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "node:crypto";
 import { parseHostAuthority } from "@/modules/tenancy/host-registry";
+import { readJsonObject } from "@/modules/tenancy/json-body";
 import { takeAuthenticatedApiLimit } from "@/modules/tenancy/api-rate-limit";
 import { requireRequestContext, resolveRequestArea } from "@/modules/tenancy/request-context";
 
@@ -55,12 +56,7 @@ export function periodResponse(body: object, status = 200, requestId?: string): 
 }
 
 export async function readPeriodBody(request: Request): Promise<Record<string, unknown> | null> {
-  if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) return null;
-  try {
-    const body: unknown = await request.json();
-    return body && typeof body === "object" && !Array.isArray(body)
-      ? body as Record<string, unknown> : null;
-  } catch { return null; }
+  return readJsonObject(request);
 }
 
 export function periodFailure(error: unknown, requestId: string): Response {

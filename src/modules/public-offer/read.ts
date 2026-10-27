@@ -377,7 +377,8 @@ export async function buildContact(db: PrismaClient, context: Context, input: Co
   vehicleStatuses: readonly string[]) {
   const { settings } = context;
   let vehicle: { slug: string; name: string } | null = null;
-  if (input.vehicleSlug) {
+  // A slug that cannot exist (also NUL, which PostgreSQL refuses to store) is simply not a chosen vehicle.
+  if (input.vehicleSlug && input.vehicleSlug.length <= 120 && slugPattern.test(input.vehicleSlug)) {
     const row = await db.vehicle.findFirst({ where: { organizationId: context.organizationId,
       slug: input.vehicleSlug, status: { in: [...vehicleStatuses] } }, select: { slug: true, name: true } });
     if (row?.slug && row.name) vehicle = { slug: row.slug, name: row.name };

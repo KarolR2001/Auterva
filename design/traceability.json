@@ -845,6 +845,45 @@
       ]
     },
     {
+      "issue": 57,
+      "scope": "Zabezpieczenia serwera i regresja izolacji przed wydaniem: nagłówki i CSP z nonce, jeden ograniczony parser JSON, odrzucenie NUL w filtrach, limit anonimowego odczytu zaproszenia, macierz negatywna po wszystkich handlerach (TEST-MVP-01..10, 32, 33, 34, 45, 47, 53) i macierz OWASP z dowodami, bez deklaracji certyfikacji. Pentest staging not-run (zależy od #90); izolacja WS /ws/platform w security-ws-platform.test.ts.",
+      "relatedRequirementIds": [
+        "C-N001", "C-N006", "C-N007", "C-N029", "C-N032", "C-N036", "C-N044", "C-N057", "C-N059", "C-N061", "C-N062",
+        "TEST-MVP-01", "TEST-MVP-02", "TEST-MVP-03", "TEST-MVP-04", "TEST-MVP-05", "TEST-MVP-06", "TEST-MVP-07", "TEST-MVP-08",
+        "TEST-MVP-09", "TEST-MVP-10", "TEST-MVP-32", "TEST-MVP-33", "TEST-MVP-34", "TEST-MVP-45", "TEST-MVP-47", "TEST-MVP-53"
+      ],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "security-headers.mjs",
+        "next.config.mjs",
+        "src/app/layout.tsx",
+        "src/app/not-found.tsx",
+        "docs/contracts/company-invitation-activation.md",
+        "docs/contracts/technical-limits-and-mfa-bootstrap.md",
+        "src/proxy.ts",
+        "src/modules/tenancy/csp.ts",
+        "src/modules/tenancy/json-body.ts",
+        "src/modules/fleet/http.ts",
+        "src/modules/fleet/read.ts",
+        "src/modules/service-period/http.ts",
+        "src/modules/organizations/http.ts",
+        "src/modules/organizations/read-http.ts",
+        "src/modules/availability/http.ts",
+        "src/modules/public-offer/read.ts",
+        "src/app/api/auth/[...all]/route.ts",
+        "src/app/api/auth/invitation/[token]/route.ts",
+        "docs/security/OWASP_CONTROLS.md",
+        "docs/plans/57-security-regression.md"
+      ],
+      "testPaths": [
+        "tests/integration/security-regression.test.ts",
+        "tests/integration/security-ws-platform.test.ts",
+        "tests/e2e/security-headers.spec.ts",
+        "tests/unit/security-headers.test.ts",
+        "tests/unit/json-body.test.ts"
+      ]
+    },
+    {
       "issue": 60,
       "scope": "Kopia DB i mediow (szyfrowana, snapshot, manifest z MAC), restore pelny do nowej bazy i bucketa ze straznikiem celu, kontrola integralnosci, kwarantanna sesji, tokenow i jobow po restore, odtworzenie jednej firmy bez zmiany innych oraz runbook. Zmierzone lokalnie na fixture; konfiguracja dostawcy, PITR i alerty produkcyjne not-run (#90). Bez UI.",
       "relatedRequirementIds": ["C-N041", "C-N042", "C-N046", "D-10", "D-16"],

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { singleLineControl } from "@/lib/text-policy";
 import { requireAuthorizedActor } from "@/modules/auth/authorization";
 import { takeAuthenticatedApiLimit } from "@/modules/tenancy/api-rate-limit";
 import { resolveRequestArea } from "@/modules/tenancy/request-context";
@@ -37,7 +38,7 @@ export async function platformCompanyList(request: Request): Promise<Response> {
     const archive = query.get("includeArchived") ?? "false";
     const pageRaw = query.get("page") ?? "1";
     const sizeRaw = query.get("pageSize") ?? "20";
-    if (search.length > 120 || !["true", "false"].includes(archive)
+    if (search.length > 120 || singleLineControl.test(search) || !["true", "false"].includes(archive)
       || !/^[1-9]\d*$/.test(pageRaw) || !/^[1-9]\d*$/.test(sizeRaw))
       return respond({ code: "INVALID_INPUT" }, 400, requestId);
     const page = Number(pageRaw);
