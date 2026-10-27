@@ -49,8 +49,10 @@ async function makeCompany(label: string, options: { expiredPeriod?: boolean } =
     firstAdminRegisteredAt: new Date() } });
   await db.hostMapping.create({ data: { hostname: host, organizationId, area: "COMPANY_ADMIN", status: "ACTIVE" } });
   if (options.expiredPeriod) {
+    // One instant: the trial must last exactly 336 h (a second Date.now() call can differ by a millisecond).
+    const trialStartedAt = new Date(Date.now() - 400 * 3_600_000);
     await db.serviceAccess.create({ data: { organizationId, trialGranted: true,
-      trialStartedAt: new Date(Date.now() - 400 * 3_600_000), trialEndsAt: new Date(Date.now() - 64 * 3_600_000),
+      trialStartedAt, trialEndsAt: new Date(trialStartedAt.getTime() + 336 * 3_600_000),
       paidThrough: new Date("2026-01-01T00:00:00Z"), changedById: platformId } });
   }
   await db.user.create({ data: { id: adminId, name: `Admin ${label}`, email: `rt-${adminId}@example.test`,
