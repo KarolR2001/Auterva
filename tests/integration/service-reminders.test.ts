@@ -109,7 +109,7 @@ function worker(): Worker {
 }
 /** One worker pass with a controlled clock: sweep, deliver claimed mail, sweep outcomes. */
 async function tick(now: Date, w: Worker, client = db, emails?: string[]) {
-  await processDueReminders(client, now, key);
+  await processDueReminders(client, now, key, organizations);
   for (;;) {
     const claim = await claimNextJob(client, now, 30_000, true);
     if (!claim) break;
@@ -117,7 +117,7 @@ async function tick(now: Date, w: Worker, client = db, emails?: string[]) {
       allowedRecipients: new Set(emails ?? organizations.map((id) => `reminder-${id}@example.test`)),
       provider: w.provider });
   }
-  await processDueReminders(client, now, key);
+  await processDueReminders(client, now, key, organizations);
 }
 const intents = (organizationId: string, where: object = {}) => db.reminderIntent.findMany({
   where: { organizationId, ...where }, orderBy: [{ slotAt: "asc" }, { channel: "asc" }] });
@@ -192,8 +192,8 @@ test("two concurrent sweeps on separate connections create exactly one job per d
   const c = await company({ registeredAt: registered, trial: true });
   await plan(c.organizationId, registered);
   const late = at("2026-11-16T09:00:00.000Z"); // 7 and 1 and trial end, all overdue: three separate slots
-  await Promise.all([processDueReminders(db, late, key), processDueReminders(secondDb, late, key),
-    processDueReminders(db, late, key)]);
+  await Promise.all([processDueReminders(db, late, key, organizations), processDueReminders(secondDb, late, key, organizations),
+    processDueReminders(db, late, key, organizations)]);
   const jobs = await db.job.findMany({ where: { organizationId: c.organizationId } });
   expect(jobs).toHaveLength(3);
   expect(new Set(jobs.map((job) => job.dedupeKey)).size).toBe(3);
@@ -226,7 +226,7 @@ test("extension changes the plan: queued old mail is skipped, old banners disapp
     "EMAIL:0:2026-10-25T08:00:00.000Z", "EMAIL:1:2026-10-24T07:00:00.000Z", "EMAIL:7:2026-10-18T07:00:00.000Z"]);
   const w = worker();
   const first = at("2026-10-18T07:00:00.000Z");
-  await processDueReminders(db, first, key); // panel shown, e-mail queued but not yet sent
+  await processDueReminders(db, first, key, organizations); // panel shown, e-mail queued but not yet sent
   expect((await getServiceStatus(db, c.organizationId, first))!.reminders).toHaveLength(1);
   const queued = await db.job.findFirstOrThrow({ where: { organizationId: c.organizationId } });
   await changePaidThrough(db, { ...op(c.organizationId, new Date(first.getTime() + 600_000)),
@@ -272,7 +272,7 @@ test("unchanged boundary keeps an overdue intent and rebinds a queued mail to th
   const c = await company({ registeredAt: start, trial: true });
   await plan(c.organizationId, start);
   const due = at("2026-10-25T08:00:00.000Z");
-  await processDueReminders(db, due, key); // -7 materialized (queued mail) but the worker "crashes" before sending
+  await processDueReminders(db, due, key, organizations); // -7 materialized (queued mail) but the worker "crashes" before sending
   const before = await db.job.findFirstOrThrow({ where: { organizationId: c.organizationId } });
   expect(decryptMailPayload(before.payload, key).periodVersion).toBe(1);
   // 25.10 10:00 CET: payment to 30.10 ends 30.10 23:00Z, earlier than the trial: the boundary stays.
@@ -300,7 +300,7 @@ test("unchanged boundary keeps an overdue intent and rebinds a queued mail to th
   const c2 = await company({ registeredAt: start, trial: true });
   await plan(c2.organizationId, start);
   await changePaidThrough(db, { ...op(c2.organizationId, due), expectedVersion: 1, paidThrough: "2026-10-30" });
-  await processDueReminders(db, new Date(due.getTime() + 1_000), key);
+  await processDueReminders(db, new Date(due.getTime() + 1_000), key, organizations);
   expect(await intents(c2.organizationId, { channel: "PANEL", offsetDays: 7, status: "DELIVERED" })).toHaveLength(1);
 });
 
@@ -339,7 +339,7 @@ test("archive supersedes pending and queued intents; restore re-plans only futur
   const start = at("2026-10-01T10:00:00.000Z");
   const c = await company({ registeredAt: start, paidThrough: "2026-11-10" }); // -7 = 03.11 08:00Z, -1 = 09.11, 0 = 10.11
   await plan(c.organizationId, start);
-  await processDueReminders(db, at("2026-11-03T08:00:00.000Z"), key); // -7 delivered/queued
+  await processDueReminders(db, at("2026-11-03T08:00:00.000Z"), key, organizations); // -7 delivered/queued
   const queued = await db.job.findFirstOrThrow({ where: { organizationId: c.organizationId } });
   const org = await db.organization.findUniqueOrThrow({ where: { id: c.organizationId } });
   const archived = await archiveCompany(db, { ...op(c.organizationId, at("2026-11-03T08:30:00.000Z")), expectedVersion: org.version });
@@ -367,7 +367,7 @@ test("a company archived after its job was queued never sends, even if the stale
   const start = at("2026-10-01T10:00:00.000Z");
   const c = await company({ registeredAt: start, paidThrough: "2026-11-10" });
   await plan(c.organizationId, start);
-  await processDueReminders(db, at("2026-11-03T08:00:00.000Z"), key);
+  await processDueReminders(db, at("2026-11-03T08:00:00.000Z"), key, organizations);
   const claim = await claimNextJob(db, at("2026-11-03T08:00:01.000Z"), 30_000, true);
   expect(claim).not.toBeNull();
   const org = await db.organization.findUniqueOrThrow({ where: { id: c.organizationId } });
@@ -383,13 +383,13 @@ test("an uncertain provider outcome is mirrored on the intent and never retried 
   const c = await company({ registeredAt: start, trial: true });
   await plan(c.organizationId, start);
   const due = at("2026-10-25T08:00:00.000Z");
-  await processDueReminders(db, due, key);
+  await processDueReminders(db, due, key, organizations);
   await db.job.updateMany({ where: { organizationId: c.organizationId }, data: { maxAttempts: 1 } });
   let calls = 0;
   const timeout: MailProvider = { send: async () => { calls++; return { kind: "transient" }; } };
   const claim = await claimNextJob(db, due, 30_000, true);
   await processClaimedJob(db, claim!, { key, now: due, mode: "development", allowedRecipients: new Set([c.email]), provider: timeout });
-  await processDueReminders(db, due, key);
+  await processDueReminders(db, due, key, organizations);
   const row = await db.reminderIntent.findFirstOrThrow({ where: { organizationId: c.organizationId, channel: "EMAIL", offsetDays: 7 } });
   expect(row.status).toBe("UNCERTAIN");
   const w = worker();
@@ -420,7 +420,7 @@ test("companies planned before this feature are reconciled by the sweep, future 
   const c = await company({ registeredAt: start, trial: true });
   expect(await db.reminderPlan.findUnique({ where: { organizationId: c.organizationId } })).toBeNull();
   const now = at("2026-10-31T07:00:00.000Z"); // -7 is already past, -1 (08:00Z) and 0 are still ahead
-  await processDueReminders(db, now, key);
+  await processDueReminders(db, now, key, organizations);
   expect(await db.reminderPlan.findUniqueOrThrow({ where: { organizationId: c.organizationId } })).toMatchObject({ periodVersion: 1 });
   expect((await intents(c.organizationId)).map((row) => row.offsetDays).sort()).toEqual([0, 0, 1, 1]);
 });
@@ -444,7 +444,7 @@ test("panel API: admin reads own company only, superadmin reads a company card, 
   const b = await company({ registeredAt: start, trial: true });
   await plan(a.organizationId, start);
   await plan(b.organizationId, start);
-  await processDueReminders(db, at("2026-10-25T08:00:00.000Z"), key);
+  await processDueReminders(db, at("2026-10-25T08:00:00.000Z"), key, organizations);
   const adminSession = await verifiedFixtureSession(db, a.userId);
   sessions.push(adminSession);
   const call = (host: string, cookie: string, path = "/api/admin/service-period") =>
@@ -490,7 +490,7 @@ test("a failing item does not starve the rest of the sweep and stays retryable",
   await plan(healthy.organizationId, start);
   const due = at("2026-10-25T08:00:00.000Z");
   const failing = db.$extends({ query: { job: { async createMany() { throw new Error("injected outbox failure"); } } } });
-  await processDueReminders(failing as typeof db, due, key);
+  await processDueReminders(failing as typeof db, due, key, organizations);
   for (const c of [broken, healthy]) {
     expect(await intents(c.organizationId, { channel: "PANEL", offsetDays: 7, status: "DELIVERED" })).toHaveLength(1);
     expect(await intents(c.organizationId, { channel: "EMAIL", offsetDays: 7, status: "PENDING" })).toHaveLength(1);

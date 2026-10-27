@@ -77,10 +77,10 @@ test("built panel shows the 7-day reminder only after the worker clock passes th
     expect(before.headers["cache-control"]).toBe("no-store");
     expect(before.body).toMatchObject({ period: { headline: "PAID", paidThrough }, reminders: [] });
     // Worker clock one second before the slot: nothing is due.
-    await processDueReminders(db, new Date(slot.getTime() - 1_000), key);
+    await processDueReminders(db, new Date(slot.getTime() - 1_000), key, [organizationId]);
     expect((await read()).body.reminders).toEqual([]);
     // Worker clock at 09:00 Warsaw seven days before the last paid day: the panel notice appears.
-    await processDueReminders(db, slot, key);
+    await processDueReminders(db, slot, key, [organizationId]);
     const shown = await read();
     expect(shown.body.reminders).toHaveLength(1);
     expect(shown.body.reminders).toMatchObject([{ offsetDays: 7, source: "PAID" }]);

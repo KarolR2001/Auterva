@@ -3,6 +3,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
 import { afterAll, expect, test } from "vitest";
 import { createPrismaClient } from "../../src/lib/prisma";
+import { FIXTURE } from "../../scripts/fixture-ids";
 import { processDueReminders } from "../../src/modules/reminders/deliver";
 import { lockReminderCompany, reconcileReminders } from "../../src/modules/reminders/reconcile";
 
@@ -15,6 +16,10 @@ const children = new Set<ChildProcess>();
 
 afterAll(async () => {
   for (const child of children) child.kill("SIGKILL");
+  // The real worker sweeps every company, including the seeded fixture ones; leave no reminder residue there.
+  await db.job.deleteMany({ where: { kind: "MAIL_REMINDER", organizationId: { in: [...FIXTURE.organizations] } } });
+  await db.reminderIntent.deleteMany({ where: { organizationId: { in: [...FIXTURE.organizations] } } });
+  await db.reminderPlan.deleteMany({ where: { organizationId: { in: [...FIXTURE.organizations] } } });
   await db.job.deleteMany({ where: { organizationId } });
   await db.serviceAccess.deleteMany({ where: { organizationId } });
   await db.user.deleteMany({ where: { id: userId } });
@@ -71,7 +76,7 @@ test("two real worker processes and a restart deliver a due reminder exactly onc
   expect(jobs[0]).toMatchObject({ status: "SENT", attempts: 1, providerId: `sink:${jobs[0].id}` });
   // Restart: the delivered key is final; a new worker and a direct sweep add nothing.
   const third = startWorker();
-  await waitFor(async () => { await processDueReminders(db, new Date(), key); return true; }, "restart sweep");
+  await waitFor(async () => { await processDueReminders(db, new Date(), key, [organizationId]); return true; }, "restart sweep");
   third.kill("SIGTERM");
   await once(third, "close");
   expect(await db.job.count({ where: { organizationId } })).toBe(1);

@@ -18,11 +18,12 @@ async function inCompany<T>(db: PrismaClient, organizationId: string,
 }
 
 /** Companies whose schedule was never reconciled or is behind periodVersion (pre-#54 data, missed hook). */
-async function healPlans(db: PrismaClient, now: Date, key: Buffer): Promise<number> {
+async function healPlans(db: PrismaClient, now: Date, key: Buffer, only: readonly string[] | null): Promise<number> {
   const rows = await db.$queryRaw<{ organizationId: string }[]>`
     SELECT sa."organizationId" FROM "ServiceAccess" sa
       LEFT JOIN "ReminderPlan" p ON p."organizationId" = sa."organizationId"
-     WHERE p."organizationId" IS NULL OR p."periodVersion" <> sa."periodVersion"
+     WHERE (p."organizationId" IS NULL OR p."periodVersion" <> sa."periodVersion")
+       AND (${only}::uuid[] IS NULL OR sa."organizationId" = ANY(${only}::uuid[]))
      ORDER BY sa."organizationId" LIMIT ${BATCH}`;
   for (const row of rows) {
     await isolated(() => inCompany(db, row.organizationId, async (tx) => {
@@ -77,10 +78,11 @@ async function deliverOne(db: PrismaClient, intentId: string, organizationId: st
 }
 
 /** Mirrors the final mail outcome onto the intent (SENT means accepted by the provider). */
-async function syncOutcomes(db: PrismaClient): Promise<void> {
+async function syncOutcomes(db: PrismaClient, only: readonly string[] | null): Promise<void> {
   const rows = await db.$queryRaw<{ id: string; organizationId: string }[]>`
     SELECT i.id, i."organizationId" FROM "ReminderIntent" i JOIN "Job" j ON j.id = i."jobId"
      WHERE i.status = 'QUEUED' AND j.status IN ('SENT', 'FAILED', 'UNCERTAIN', 'SKIPPED')
+       AND (${only}::uuid[] IS NULL OR i."organizationId" = ANY(${only}::uuid[]))
      ORDER BY i.id LIMIT ${BATCH}`;
   for (const row of rows) {
     await isolated(() => inCompany(db, row.organizationId, async (tx) => {
@@ -102,12 +104,16 @@ async function syncOutcomes(db: PrismaClient): Promise<void> {
  * state and recipient, so a stale series never delivers. A slot that became due while the
  * worker was down is still handled once per channel; the unique intent key prevents repeats.
  */
-export async function processDueReminders(db: PrismaClient, now: Date, key: Buffer) {
-  await isolated(() => healPlans(db, now, key));
-  const due = await db.reminderIntent.findMany({ where: { status: "PENDING", slotAt: { lte: now } },
+export async function processDueReminders(db: PrismaClient, now: Date, key: Buffer,
+  /** Restricts the sweep to these companies (tests and operators); the worker passes nothing. */
+  onlyOrganizations?: readonly string[]) {
+  const only = onlyOrganizations ? [...onlyOrganizations] : null;
+  await isolated(() => healPlans(db, now, key, only));
+  const due = await db.reminderIntent.findMany({ where: { status: "PENDING", slotAt: { lte: now },
+    ...(only ? { organizationId: { in: only } } : {}) },
     orderBy: [{ slotAt: "asc" }, { id: "asc" }], take: BATCH,
     select: { id: true, organizationId: true } });
   for (const item of due) await isolated(() => deliverOne(db, item.id, item.organizationId, now, key));
-  await isolated(() => syncOutcomes(db));
+  await isolated(() => syncOutcomes(db, only));
   return due.length;
 }
