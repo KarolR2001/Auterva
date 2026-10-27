@@ -42,18 +42,21 @@ Adres z DTO jest chroniony tak samo jak strona: bez sesji, z sesją obcego admin
 
 Zapisy floty, zdjęć, blokad i ustawień w `/api/platform/companies/{organizationId}/…` i `/api/admin/…` to cienkie adaptery tego samego use case (`createVehicle`, `editVehicle`, `setVehicleStatus`, `reorderVehicles`, mutacje zdjęć i blokad, `updateCompanySettings`): te same walidacje Zod, ograniczenia, wersje i konflikty (`FLEET_VERSION_CONFLICT`, `BLOCK_OVERLAP`, `MEDIA_VERSION_CONFLICT`, `SETTINGS_VERSION_CONFLICT`), te same blokady wiersza `Organization` → `Vehicle` i ten sam audyt z rzeczywistym aktorem (`actorId`, `actorRole`) oraz `organizationId` wybranej firmy; `requireAuditActor`/`requireAuditScope` powtarzają sprawdzenie sesji, MFA i firmy wewnątrz transakcji. Ustawienia zapisuje tylko superadmin (D-01); admin dostaje odczyt i odmowę zapisu.
 
-Budżet odczytu preview używa `actor()` floty (klucz `api:read:{actor}:platform` dla superadmina), co odbiega od kontraktu [technical-limits-and-mfa-bootstrap.md](technical-limits-and-mfa-bootstrap.md) (#4: operacje w kontekście firmy mają ID firmy). `privateCalendar` zachowuje klucz zgodny z kontraktem. Rozbieżność rozstrzyga #150.
+Budżet odczytu preview używa `actor()` floty (klucz `api:read:{actor}:platform` dla superadmina), co odbiega od kontraktu [technical-limits-and-mfa-bootstrap.md](technical-limits-and-mfa-bootstrap.md) (#4: operacje w kontekście firmy mają ID firmy). `privateCalendar` zachowuje klucz zgodny z kontraktem. Rozbieżność rozstrzyga D-19 (wspólny klucz `platform`), realizuje #150.
 
 ## Reguły ze źródeł
 
 - **Zarchiwizowana firma**: admin traci sesję i dostęp, a superadmin nadal czyta preview — PRD §9.5 (`docs/product/PRD.md`): firma jest „ponownie dostępna do odnalezienia i podglądu przez superadmina”.
 - **Inne metody niż `GET`**: Next.js odpowiada `405` z pustym ciałem (bez danych firmy); to jedyny wyjątek od nagłówków `private, no-store` na tych trasach.
 
-## Decyzje do potwierdzenia (needs:decision)
+## Decyzje właściciela (D-20, 27.10.2026)
 
-1. **Zakres preview oferty**: katalog i strona główna pokazują wyłącznie to, co zobaczyłaby publiczność (`PUBLISHED`); szkice i ukryte pojazdy są widoczne tylko w widoku pojedynczego pojazdu po id. Inny wariant (lista wszystkich niezarchiwizowanych w katalogu preview) wymaga decyzji produktowej.
-2. **Archiwalny pojazd** nie ma preview (`404`), bo wypada z oferty. Podgląd archiwum wymaga decyzji.
-3. **Preview bez `seo`**: brak podglądu snippetu SEO; `OVR-20`/`ADM-13` korzysta z danych ustawień, nie z preview.
+1. **Zakres preview oferty**: katalog i strona główna pokazują wyłącznie to, co zobaczyłaby publiczność (`PUBLISHED`); szkice i ukryte pojazdy są widoczne tylko w widoku pojedynczego pojazdu po id.
+2. **Archiwalny pojazd** nie ma preview (`404`), bo wypada z oferty.
+
+## Reguły implementacyjne
+
+- **Preview bez `seo`**: brak podglądu snippetu SEO; `OVR-20`/`ADM-13` korzysta z danych ustawień, nie z preview.
 
 ## Testy
 
