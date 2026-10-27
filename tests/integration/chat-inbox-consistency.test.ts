@@ -6,6 +6,7 @@ import { createPrismaClient } from "../../src/lib/prisma";
 import { startRealtimeServer } from "../../src/modules/chat/realtime";
 import { markRead, readState } from "../../src/modules/chat/read-state";
 import { createRealtimeAuthority } from "../../src/modules/chat/resolve-tenant";
+import { notifyChat } from "../../src/modules/chat/signal";
 import { LISTENER_APPLICATION_NAME } from "../../src/modules/chat/realtime-listener";
 import { listPlatformConversations, sendMessage, type ChatScope } from "../../src/modules/chat/service";
 import { GET as platformList } from "../../src/app/api/platform/chat/conversations/route";
@@ -55,9 +56,12 @@ async function say(scope: ChatScope, body: string) {
   return sendMessage(db, scope, { clientMessageId: randomUUID(), body });
 }
 
+const extraClients: ReturnType<typeof createPrismaClient>[] = [];
+/** A client of its own, so spies and call counts never see another server's traffic. */
+const ownClient = () => { const client = createPrismaClient(databaseUrl); extraClients.push(client); return client; };
 const start = async (limits: Parameters<typeof startRealtimeServer>[0]["limits"], authority = createRealtimeAuthority(db, auth),
-  url = databaseUrl) => {
-  const started = await startRealtimeServer({ db, config: { host: "127.0.0.1", port: 0, allowedHosts: new Set() }, databaseUrl: url,
+  url = databaseUrl, client = db) => {
+  const started = await startRealtimeServer({ db: client, config: { host: "127.0.0.1", port: 0, allowedHosts: new Set() }, databaseUrl: url,
     authority, limits: { listenRetryMs: 200, ...limits } });
   servers.push(started);
   return started;
@@ -108,6 +112,7 @@ afterAll(async () => {
   await db.reminderPlan.deleteMany({ where: { organizationId } });
   await db.organization.deleteMany({ where: { id: organizationId } });
   await db.$disconnect();
+  for (const client of extraClients) await client.$disconnect();
 });
 
 test("readSeq: list and platform frame carry the cursor position, and (lastSeq, readSeq) orders states so a late HTTP answer loses", async () => {
@@ -117,7 +122,7 @@ test("readSeq: list and platform frame carry the cursor position, and (lastSeq, 
   await say(company.admin, "r1");
   const second = await say(company.admin, "r2");
   const first = await socket.take((f) => mine(company)(f) && f.lastSeq === 2);
-  expect(first).toMatchObject({ unread: 2, readSeq: 0 });
+  expect(first).toMatchObject({ unread: 2, readSeq: 0, version: 0 });
   // Second device reads; the HTTP answer taken just before it is the stale one.
   const staleHttp = await find(company);
   expect(staleHttp).toMatchObject({ unread: 2, lastSeq: 2, readSeq: 0 });
@@ -166,35 +171,127 @@ test("archive and restore reach the platform inbox at once, and company sockets 
   const superadminInCompany = await companySocket(company);
   await superadminInCompany.takeType("ready");
   const op = { actorId: platformId, sessionId: platformSessionId, organizationId: company.organizationId };
+  const before = await find(company);
+  expect(before).toMatchObject({ version: 0, archived: false });
   await archiveCompany(db, { ...op, expectedVersion: 0, eventKey: randomUUID(), requestId: randomUUID() });
   // Well within the 30 s safety refresh: the signal came with the commit.
-  expect(await socket.take(mine(company), 3_000)).toMatchObject({ archived: true, unread: 0, lastSeq: 1 });
+  const archivedFrame = await socket.take(mine(company), 3_000);
+  expect(archivedFrame).toMatchObject({ archived: true, unread: 0, lastSeq: 1, readSeq: 0, version: 1 });
+  // Same (lastSeq, readSeq) as the HTTP answer taken before: only `version` tells the newer state.
+  expect(archivedFrame.lastSeq).toBe(before.lastSeq);
+  expect(archivedFrame.readSeq).toBe(before.readSeq);
   await restoreCompany(db, { ...op, expectedVersion: 1, eventKey: randomUUID(), requestId: randomUUID() });
-  expect(await socket.take((f) => mine(company)(f) && f.archived === false, 3_000)).toMatchObject({ unread: 1 });
+  expect(await socket.take((f) => mine(company)(f) && f.archived === false, 3_000)).toMatchObject({ unread: 1, version: 2 });
   expect(await superadminInCompany.drain((frame) => frame.type !== "sync", 300)).toEqual([]);
-  // Nothing is announced for a rolled-back transaction.
+  // Nothing is announced for a rolled-back transaction: the failure comes AFTER the notify inside the same transaction.
+  await expect(db.$transaction(async (tx) => {
+    await notifyChat(tx, { k: "o", o: company.organizationId });
+    throw new Error("rolled back after notify");
+  })).rejects.toThrow("rolled back after notify");
   await expect(archiveCompany(db, { ...op, expectedVersion: 99, eventKey: randomUUID(), requestId: randomUUID() })).rejects.toThrow();
   expect(await socket.drain(mine(company), 300)).toEqual([]);
   socket.ws.close();
   superadminInCompany.ws.close();
 });
 
-test("an unhealthy LISTEN makes the platform channel refetch every pollMs, not only every 30 s", async () => {
-  // A listener that can never connect: no signal ever arrives, only the polling fallback can tell the client.
-  const broken = await start({ pollMs: 100, reconcileMs: 3_600_000 }, undefined, "postgresql://127.0.0.1:1/none");
-  expect(broken.listenerHealthy()).toBe(false);
-  const socket = await platformSocket(broken);
-  await socket.takeType("ready");
-  await socket.takeType("refresh", 2_000);
-  await socket.takeType("refresh", 2_000);
+/** A server whose LISTEN never connects: no signal ever arrives, only the instance's own poll can tell the inbox. */
+const brokenListen = (limits = {}) => {
+  const client = ownClient();
+  const fingerprintCalls: number[] = [];
+  let failing = false;
+  const original = client.$queryRaw.bind(client) as (...args: unknown[]) => Promise<unknown>;
+  vi.spyOn(client, "$queryRaw").mockImplementation(((...args: unknown[]) => {
+    const text = Array.isArray(args[0]) ? (args[0] as string[]).join("") : "";
+    if (!text.includes("fingerprint")) return original(...args);
+    fingerprintCalls.push(Date.now());
+    return failing ? Promise.reject(new Error("database unreachable")) : original(...args);
+  }) as never);
+  return { client, fingerprintCalls, fail: (value: boolean) => { failing = value; },
+    server: start({ pollMs: 100, reconcileMs: 3_600_000, ...limits }, undefined, "postgresql://127.0.0.1:1/none", client) };
+};
+
+test("unhealthy LISTEN: the instance polls once per pollMs, whatever the sockets, and the inbox gets frames, not refresh", async () => {
+  const broken = brokenListen();
+  const polling = await broken.server;
+  expect(polling.listenerHealthy()).toBe(false);
+  const company = await makeCompany("failover");
+  for (const count of [2, 5]) {
+    const sockets = await Promise.all(Array.from({ length: count }, () => platformSocket(polling)));
+    for (const socket of sockets) await socket.takeType("ready");
+    // Baseline of the episode: exactly one refresh (only the first episode run has no snapshot), then settled.
+    await vi.waitFor(() => expect(broken.fingerprintCalls.length).toBeGreaterThanOrEqual(2));
+    const settled = (await Promise.all(sockets.map((socket) => socket.drain(() => true, 300)))).flat();
+    if (count === 2) expect(settled.filter((f) => f.type === "refresh").length).toBe(count);
+    const calls = broken.fingerprintCalls.length;
+    // A change during the outage reaches every socket as a counter frame (no HTTP list involved).
+    const sent = await say(company.admin, `awaria ${count}`);
+    const frames = await Promise.all(sockets.map((socket) => socket.take((f) => mine(company)(f) && f.lastSeq === sent.seq, 2_000)));
+    for (const frame of frames) expect(frame).toMatchObject({ archived: false });
+    // After the baseline there is no further refresh: clients do not refetch, so the shared read limit is not spent.
+    for (const socket of sockets) expect(await socket.drain((f) => f.type === "refresh", 300)).toEqual([]);
+    // One query per run per instance: `count` sockets do not multiply it (a per-socket poll would be count times faster).
+    const started = broken.fingerprintCalls.at(-1)!;
+    const seen = broken.fingerprintCalls.length;
+    await vi.waitFor(() => expect(broken.fingerprintCalls.length).toBeGreaterThanOrEqual(seen + 3));
+    expect(broken.fingerprintCalls.at(-1)! - started).toBeGreaterThanOrEqual(3 * 100 * 0.8);
+    expect(broken.fingerprintCalls.length - calls).toBeGreaterThan(0);
+    for (const socket of sockets) socket.ws.close();
+    await vi.waitFor(() => expect(polling.platformConnectionCount()).toBe(0));
+  }
+  // The shared read limit of the superadmin is untouched: HTTP lists still succeed.
+  const get = await platformList(new Request("http://127.0.0.1:3381/api/platform/chat/conversations",
+    { headers: { host: platformHost, origin: platformOrigin, cookie: platformCookie } }));
+  expect(get.status).toBe(200);
+  await polling.close();
+});
+
+test("unhealthy LISTEN: read cursor, archive and restore during the outage arrive as counters within the contract time", async () => {
+  const broken = brokenListen();
+  const polling = await broken.server;
+  const company = await makeCompany("failover-changes");
+  const sent = await say(company.admin, "a");
+  const socket = await platformSocket(polling);
+  await socket.takeType("refresh", 3_000);
+  await markRead(db, company.operator, sent.message.id);
+  expect(await socket.take((f) => mine(company)(f) && f.readSeq === 1 && f.unread === 0, 2_000)).toMatchObject({ lastSeq: 1 });
+  const op = { actorId: platformId, sessionId: platformSessionId, organizationId: company.organizationId };
+  await archiveCompany(db, { ...op, expectedVersion: 0, eventKey: randomUUID(), requestId: randomUUID() });
+  expect(await socket.take((f) => mine(company)(f) && f.archived === true, 2_000)).toMatchObject({ unread: 0, version: 1 });
+  await restoreCompany(db, { ...op, expectedVersion: 1, eventKey: randomUUID(), requestId: randomUUID() });
+  expect(await socket.take((f) => mine(company)(f) && f.archived === false, 2_000)).toMatchObject({ version: 2 });
   socket.ws.close();
-  // Healthy LISTEN: the same limits produce no periodic refresh.
-  const healthy = await start({ pollMs: 100, reconcileMs: 3_600_000 });
+  await polling.close();
+});
+
+test("unhealthy LISTEN with an unreachable database: no refresh every second; the first successful run reports the gap", async () => {
+  const broken = brokenListen();
+  broken.fail(true);
+  const polling = await broken.server;
+  const company = await makeCompany("failover-down");
+  const socket = await platformSocket(polling);
+  await socket.takeType("ready");
+  await vi.waitFor(() => expect(broken.fingerprintCalls.length).toBeGreaterThanOrEqual(6));
+  expect(await socket.drain((f) => f.type === "refresh" || f.type === "conversation", 200)).toEqual([]);
+  broken.fail(false);
+  await socket.takeType("refresh", 3_000);
+  await say(company.admin, "po awarii");
+  await socket.take(mine(company), 2_000);
+  expect(await socket.drain((f) => f.type === "refresh", 300)).toEqual([]);
+  socket.ws.close();
+  await polling.close();
+});
+
+test("a healthy LISTEN neither polls nor refreshes periodically", async () => {
+  const client = ownClient();
+  const spy = vi.spyOn(client, "$queryRaw");
+  const healthy = await start({ pollMs: 50, reconcileMs: 3_600_000 }, undefined, databaseUrl, client);
   await vi.waitFor(() => expect(healthy.listenerHealthy()).toBe(true));
   const quiet = await platformSocket(healthy);
   await quiet.takeType("ready");
-  expect(await quiet.drain((frame) => frame.type === "refresh", 500)).toEqual([]);
+  expect(await quiet.drain((frame) => frame.type === "refresh", 400)).toEqual([]);
+  expect(spy).not.toHaveBeenCalled();
   quiet.ws.close();
+  await healthy.close();
 });
 
 test("refresh paths: rebuilt LISTEN, more than 100 companies in one burst, and a failed counter read", async () => {
@@ -262,11 +359,13 @@ test("the sweep revalidates company and platform sockets in one pass, and still 
 });
 
 test("authority: a platform-only sweep skips the company query; a mixed one makes one session and one company query", async () => {
-  const real = createRealtimeAuthority(db, auth);
+  // Own client: the sweeps of servers from other tests cannot add to the counts.
+  const client = ownClient();
+  const real = createRealtimeAuthority(client, auth);
   const company = await makeCompany("verdicts");
   const principal = { actorId: platformId, sessionId: platformSessionId, role: "SUPERADMIN_AUTERVA" as const };
-  const sessionQuery = vi.spyOn(db.session, "findMany");
-  const companyQuery = vi.spyOn(db.organization, "findMany");
+  const sessionQuery = vi.spyOn(client.session, "findMany");
+  const companyQuery = vi.spyOn(client.organization, "findMany");
   expect(await real.revalidateAll([], [principal])).toEqual({ company: [], platform: [true] });
   expect(sessionQuery).toHaveBeenCalledTimes(1);
   expect(companyQuery).not.toHaveBeenCalled();

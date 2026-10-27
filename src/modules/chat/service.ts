@@ -244,6 +244,8 @@ export type ConversationListItem = {
   unread: number;
   /** Superadmin read cursor position (0 without one); `(lastSeq, readSeq)` only grows, so a client keeps the larger pair. */
   readSeq: number;
+  /** `Organization.version`: archive and restore raise it, so it is the third element of the state key. */
+  version: number;
   lastMessage: { id: string; senderRole: string | null; createdAt: string; preview: string; truncated: boolean } | null;
 };
 
@@ -268,7 +270,7 @@ export async function listPlatformConversations(db: PrismaClient, actor: { actor
     if (who.role !== "SUPERADMIN_AUTERVA") throw new ChatError("CHAT_FORBIDDEN");
     // Millisecond truncation makes the sort key identical to what the cursor can carry.
     const rows = await tx.$queryRaw<{ id: string; organizationId: string; name: string | null; archivedAt: Date | null;
-      at: Date; lastSeq: number; unread: number; readSeq: number }[]>`
+      at: Date; lastSeq: number; unread: number; readSeq: number; version: number }[]>`
       SELECT c.id, c."organizationId", o.name, o."archivedAt", date_trunc('milliseconds', c."activityAt") AS at, c."lastSeq",
         ${unreadColumn(actor.actorId)}
       FROM "Conversation" c JOIN "Organization" o ON o.id = c."organizationId" ${unreadJoins(actor.actorId)}
@@ -287,7 +289,7 @@ export async function listPlatformConversations(db: PrismaClient, actor: { actor
       const chars = last ? Array.from(last.body) : [];
       return { conversationId: row.id, organizationId: row.organizationId, organizationName: row.name,
         archived: row.archivedAt !== null, activityAt: row.at.toISOString(),
-        lastSeq: row.lastSeq, readSeq: row.readSeq, unread: row.unread,
+        lastSeq: row.lastSeq, readSeq: row.readSeq, version: row.version, unread: row.unread,
         lastMessage: last ? { id: last.id, senderRole: last.sender?.role ?? null, createdAt: last.createdAt.toISOString(),
           preview: chars.slice(0, PREVIEW_CODE_POINTS).join(""), truncated: chars.length > PREVIEW_CODE_POINTS } : null };
     });

@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { PrismaClient } from "../../generated/prisma/client";
 import { decodeCursor, encodeCursor } from "./cursor";
 import { ChatError } from "./errors";
-import { inboxSummaries, MAX_SUMMARY_ORGANIZATIONS } from "./platform-inbox";
+import { inboxFingerprints, inboxSummaries, MAX_SUMMARY_ORGANIZATIONS } from "./platform-inbox";
 import { markRead, readState } from "./read-state";
 import type { PlatformPrincipal, RealtimeAuthority, RealtimePrincipal } from "./resolve-tenant";
 import type { RealtimeConfig } from "./realtime-config";
@@ -125,6 +125,9 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
   let inboxOverflow = false;
   let inboxTimer: NodeJS.Timeout | null = null;
   let inboxFlushing = false;
+  // Fallback state while LISTEN is down: what the last poll saw per company. Null means "no baseline yet".
+  let inboxSnapshot: Map<string, string> | null = null;
+  let inboxPolling = false;
   let connections = 0;
   let handshakes = 0;
   let stopped = false;
@@ -280,6 +283,29 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
     }
   }
 
+  /**
+   * LISTEN down: nothing announces changes, so this instance reads one fingerprint per conversation every `pollMs`
+   * (a single query whatever the number of sockets) and queues the companies that differ from the previous run.
+   * Clients then receive `conversation` frames with no HTTP request, so the shared read limit is never spent.
+   * The first run of an episode only sets the baseline and tells clients to refetch once; an unreachable database
+   * sends nothing (and keeps the baseline, so the next successful run reports what changed meanwhile).
+   */
+  async function pollInbox() {
+    if (inboxPolling || platformConns.size === 0) { if (platformConns.size === 0) inboxSnapshot = null; return; }
+    inboxPolling = true;
+    try {
+      const next = await inboxFingerprints(db);
+      const previous = inboxSnapshot;
+      inboxSnapshot = next;
+      if (previous === null) { refreshAll(); return; }
+      for (const [organizationId, fingerprint] of next) if (previous.get(organizationId) !== fingerprint) queueInbox(organizationId);
+    } catch {
+      log("inbox-poll-failed");
+    } finally {
+      inboxPolling = false;
+    }
+  }
+
   function onSignal(signal: ChatSignal) {
     // The inbox only changes with new messages and with the superadmin's own read cursor (any device or company socket).
     // Archive and restore change the list (`archived`, unread 0) but are no event for company sockets.
@@ -337,8 +363,8 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
     retryMs: limits.listenRetryMs,
     onSignal,
     // Signals sent while LISTEN was down are gone: every open socket is brought up to date from the database.
-    onListening: (recovered) => { if (recovered) { log("listen-recovered"); reconcileAll(true); refreshAll(); } },
-    onUnhealthy: () => log("listen-lost"),
+    onListening: (recovered) => { inboxSnapshot = null; if (recovered) { log("listen-recovered"); reconcileAll(true); refreshAll(); } },
+    onUnhealthy: () => { inboxSnapshot = null; log("listen-lost"); },
   });
 
   function attachPlatform(ws: WebSocket, principal: PlatformPrincipal) {
@@ -574,8 +600,8 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
     }, limits.heartbeatMs),
     // Safety net for the inbox: a lost signal can at worst delay a counter by this long.
     setInterval(() => { reconcileAll(false); refreshAll(); }, limits.reconcileMs),
-    // Without LISTEN no signal arrives: company sockets read the database and the platform inbox refetches, each pollMs.
-    setInterval(() => { if (!listener.healthy()) { reconcileAll(false); refreshAll(); } }, limits.pollMs),
+    // Without LISTEN no signal arrives: company sockets read the database and the platform inbox is polled, each pollMs.
+    setInterval(() => { if (!listener.healthy()) { reconcileAll(false); void pollInbox(); } }, limits.pollMs),
   ];
   for (const timer of timers) timer.unref();
 
