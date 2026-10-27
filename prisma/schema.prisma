@@ -327,9 +327,12 @@ model VehicleImage {
   isCover        Boolean @default(false)
   status         String  @default("PENDING")
   variants       Json?
+  version        Int     @default(0)
+  storageCleanedAt DateTime? @db.Timestamptz(6)
   vehicle        Vehicle @relation(fields: [organizationId, vehicleId], references: [organizationId, id])
 
   @@index([organizationId, vehicleId, position])
+  @@index([status, storageCleanedAt])
 }
 
 model ImageUpload {

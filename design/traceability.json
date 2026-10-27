@@ -3,6 +3,37 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 32,
+      "scope": "Zdjecia pojazdu: cover, kolejnosc, alt i usuwanie z wersja, blokada Vehicle i audytem; dokladnie jeden cover; kontrolowany odczyt wariantow (publiczny przez resolvePublicVisibility i PUBLISHED, prywatny preview po sesji), no-store i blokada optymalizatora next/image. UI w osobnym issue.",
+      "relatedRequirementIds": ["C-F098", "C-F061", "C-N006", "C-N033", "C-N035", "FR-ADM-043", "FR-ADM-044", "FR-ADM-045", "FR-ADM-046"],
+      "referenceScreenIds": ["ADM-06"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261027120000_vehicle_image_cover_issue_32/migration.sql",
+        "src/modules/media/vehicle-images.ts",
+        "src/modules/media/vehicle-images-http.ts",
+        "src/modules/media/serve.ts",
+        "src/modules/media/worker.ts",
+        "src/modules/media/reservation.ts",
+        "src/modules/settings/read.ts",
+        "src/modules/settings/http.ts",
+        "src/modules/fleet/http.ts",
+        "next.config.mjs",
+        "src/app/api/admin/vehicles/[id]/images/[imageId]/route.ts",
+        "src/app/api/admin/vehicles/[id]/images/[imageId]/[variant]/route.ts",
+        "src/app/api/admin/vehicles/[id]/images/order/route.ts",
+        "src/app/api/platform/companies/[organizationId]/vehicles/[id]/images/[imageId]/route.ts",
+        "src/app/api/platform/companies/[organizationId]/vehicles/[id]/images/[imageId]/[variant]/route.ts",
+        "src/app/api/platform/companies/[organizationId]/vehicles/[id]/images/order/route.ts"
+      ],
+      "testPaths": [
+        "tests/unit/proxy-matcher.test.ts",
+        "tests/integration/vehicle-images.test.ts",
+        "tests/integration/vehicle-images-migration.test.ts",
+        "tests/e2e/vehicle-images.spec.ts"
+      ]
+    },
+    {
       "issue": 50,
       "scope": "Trwała rozmowa firmy z Autervą: idempotentne otwarcie, wysyłka tekstu z deduplikacją clientMessageId i rewalidacją pod blokadą firmy, historia z kursorem po sekwencji commit, lista rozmów platformy. Bez realtime/typing/read/unread (#51/#52), UI (#53/#27), załączników i e-maili czatu.",
       "relatedRequirementIds": ["C-F115", "C-F116", "C-F117", "C-F125", "C-F126", "C-F129", "C-F130", "C-F131", "C-F134", "C-F135", "C-N036", "C-N037", "C-N038", "C-R016", "D-04"],

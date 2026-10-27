@@ -30,7 +30,9 @@ export async function reserveVehicleImageUpload(db: PrismaClient, input: Reserve
       organizationId: input.organizationId, vehicleId: input.vehicleId,
       reservationKey: input.reservationKey } } });
     if (existing) return existing;
-    const images = await tx.vehicleImage.count({ where: { organizationId: input.organizationId, vehicleId: input.vehicleId } });
+    // A deleted photo frees its slot at once, like a rejected reservation.
+    const images = await tx.vehicleImage.count({ where: { organizationId: input.organizationId,
+      vehicleId: input.vehicleId, status: { not: "DELETED" } } });
     const reservations = await tx.imageUpload.count({ where: { organizationId: input.organizationId, vehicleId: input.vehicleId,
       state: { in: active }, expiresAt: { gt: input.now } } });
     if (images + reservations >= 30) throw new Error("MEDIA_IMAGE_LIMIT");

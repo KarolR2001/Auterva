@@ -4,7 +4,7 @@ import { takeRateLimit } from "@/modules/auth/rate-limit";
 import { trustedClientAddress } from "@/modules/auth/trusted-address";
 import { currentTrustedClientAddress } from "@/modules/ingress/client-address";
 import { actor, body, only, response, uuid } from "@/modules/fleet/http";
-import { createMediaStorage, readLimited } from "@/modules/media/storage";
+import { serveStoredVariant } from "@/modules/media/serve";
 import { apiRateLimitResponse } from "@/modules/tenancy/api-rate-limit";
 import { withErrorRequestId } from "@/modules/tenancy/request-id";
 import { isSettingsGroup } from "./fields";
@@ -147,16 +147,6 @@ export async function readPublicMedia(request: Request, mediaId: string, variant
     if (limited) return limited;
     const key = await resolvePublicMediaVariant(prisma, request.headers.get("host") ?? "", mediaId, variant);
     if (!key) return response({ code: "NOT_FOUND" }, 404, requestId);
-    const storage = createMediaStorage();
-    try {
-      // A cleanup race can remove the object after the gate; that is "not found", not a server fault.
-      const bytes = await readLimited(storage, key).catch((error: unknown) => {
-        if (error instanceof Error && ["NoSuchKey", "NotFound"].includes(error.name)) return null;
-        throw error;
-      });
-      if (!bytes) return response({ code: "NOT_FOUND" }, 404, requestId);
-      return new Response(new Uint8Array(bytes), { status: 200, headers: { "Content-Type": "image/webp",
-        "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "X-Request-Id": requestId } });
-    } finally { storage.client.destroy(); }
+    return await serveStoredVariant(key, requestId, "no-store");
   } catch (error) { return failure(error, requestId); }
 }

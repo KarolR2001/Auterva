@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { claimNextJob, type ClaimedJob } from "@/modules/jobs/queue";
 import { decodeMedia } from "./decode";
+import { defaultImageAlt } from "./vehicle-images";
 import { putImmutable, readLimited, removeObject, type MediaStorage } from "./storage";
 
 const leaseMs = 90_000;
@@ -72,6 +73,23 @@ export async function cleanupDeletedPublicMedia(db: PrismaClient, storage: Media
   return cleaned;
 }
 
+/** Deleted vehicle photos stop being served at the delete; their objects are removed afterwards (#32). */
+export async function cleanupDeletedVehicleImages(db: PrismaClient, storage: MediaStorage): Promise<number> {
+  const deleted = (await db.vehicleImage.findMany({ where: { status: "DELETED", storageCleanedAt: null },
+    take: 300 })).sort(() => Math.random() - 0.5).slice(0, 100);
+  let cleaned = 0;
+  for (const image of deleted) {
+    try {
+      for (const key of [image.storageKey, `${image.storageKey}/large.webp`, `${image.storageKey}/thumb.webp`])
+        await removeObject(storage, key);
+      await db.vehicleImage.updateMany({ where: { id: image.id, status: "DELETED", storageCleanedAt: null },
+        data: { storageCleanedAt: new Date() } });
+      cleaned++;
+    } catch { console.warn("Vehicle image cleanup failed; retrying"); }
+  }
+  return cleaned;
+}
+
 export async function reconcileMediaFailures(db: PrismaClient): Promise<number> {
   return db.$executeRaw`
     UPDATE "ImageUpload" AS upload SET state = 'FAILED'
@@ -122,8 +140,8 @@ export async function processMediaClaim(db: PrismaClient, storage: MediaStorage,
     const committed = await db.$transaction(async (tx) => {
       const company = await tx.$queryRaw<{ id: string; archivedAt: Date | null }[]>`
         SELECT id, "archivedAt" FROM "Organization" WHERE id = ${upload.organizationId}::uuid FOR NO KEY UPDATE`;
-      const vehicle = upload.vehicleId ? await tx.$queryRaw<{ id: string; status: string }[]>`
-        SELECT id, status FROM "Vehicle" WHERE id = ${upload.vehicleId}::uuid
+      const vehicle = upload.vehicleId ? await tx.$queryRaw<{ id: string; status: string; name: string | null }[]>`
+        SELECT id, status, name FROM "Vehicle" WHERE id = ${upload.vehicleId}::uuid
           AND "organizationId" = ${upload.organizationId}::uuid FOR UPDATE` : null;
       const activeJob = await tx.$queryRaw<{ id: string }[]>`
         SELECT id FROM "Job" WHERE id = ${claim.id}::uuid AND kind = 'MEDIA_PROCESS'
@@ -142,9 +160,16 @@ export async function processMediaClaim(db: PrismaClient, storage: MediaStorage,
         return false;
       }
       if (upload.vehicleId) {
+        // Under the Vehicle lock: the first live image becomes the cover and new images go last (#32).
+        const where = { organizationId: upload.organizationId, vehicleId: upload.vehicleId };
+        const last = await tx.vehicleImage.aggregate({ where: { ...where, status: { not: "DELETED" } },
+          _max: { position: true } });
+        const hasCover = await tx.vehicleImage.count({ where: { ...where, isCover: true } }) > 0;
+        const position = (last._max.position ?? -1) + 1;
         await tx.vehicleImage.create({ data: { id: upload.imageId, organizationId: upload.organizationId,
           vehicleId: upload.vehicleId, storageKey: upload.rawKey, mime: decoded.mime,
-          width: decoded.width, height: decoded.height, bytes: bytes.length, status: "READY", variants } });
+          width: decoded.width, height: decoded.height, bytes: bytes.length, status: "READY", variants,
+          position, isCover: !hasCover, alt: defaultImageAlt(vehicle?.[0]?.name, position) } });
       } else {
         const kind = upload.publicKind ?? "";
         // A new logo replaces the old one inside the same transaction; its objects are cleaned later.
@@ -184,6 +209,7 @@ export async function runMediaWorkerLoop(db: PrismaClient, storage: MediaStorage
       await reconcileMediaFailures(db);
       await cleanupExpiredImageUploads(db, storage, now);
       await cleanupDeletedPublicMedia(db, storage);
+      await cleanupDeletedVehicleImages(db, storage);
       const claim = await claimNextJob(db, now, leaseMs, false, "MEDIA_PROCESS");
       if (claim) {
         await processMediaClaim(db, storage, claim, clock);

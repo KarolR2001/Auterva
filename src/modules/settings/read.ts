@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
+import { resolvePublicVehicleImageKey, variantKey } from "@/modules/media/serve";
 import { resolvePublicVisibility } from "@/modules/service-period/public";
 
 const decimal = (value: Prisma.Decimal | null) => (value === null ? null : value.toNumber());
@@ -86,8 +87,8 @@ export async function resolvePublicMediaVariant(db: PrismaClient, authority: str
   if (!visible) return null;
   const media = await db.publicMedia.findFirst({ where: { id: mediaId,
     organizationId: visible.organizationId, status: "READY" }, select: { variants: true } });
-  const variants = media?.variants;
-  if (!variants || typeof variants !== "object" || Array.isArray(variants)) return null;
-  const key = (variants as Record<string, unknown>)[variant];
-  return typeof key === "string" ? key : null;
+  const key = variantKey(media?.variants, variant);
+  if (key) return key;
+  // Vehicle photos share the public media URL space (#32) and the same gate; ids never collide.
+  return resolvePublicVehicleImageKey(db, visible.organizationId, mediaId, variant);
 }
