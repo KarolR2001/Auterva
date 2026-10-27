@@ -119,10 +119,16 @@ export async function getVehicle(request: Request, area: Area, vehicleId: string
       organizationId: access.organizationId!, id: vehicleId } }, include: {
       category: { select: { id: true, name: true, requiresSeats: true } },
       features: { select: { code: true, value: true } },
-      images: { select: { id: true, status: true, alt: true, position: true, isCover: true } },
+      images: { where: { status: { not: "DELETED" } }, orderBy: [{ position: "asc" }, { id: "asc" }],
+        select: { id: true, status: true, alt: true, position: true, isCover: true, version: true,
+          width: true, height: true } },
     } });
     if (!vehicle) return response({ code: "NOT_FOUND" }, 404, requestId);
-    return response({ ...vehicle, price: vehicle.price?.toString() ?? null,
+    const previewBase = area === "PLATFORM"
+      ? `/api/platform/companies/${access.organizationId}/vehicles/${vehicle.id}/images`
+      : `/api/admin/vehicles/${vehicle.id}/images`;
+    return response({ ...vehicle, images: vehicle.images.map((image) => ({ ...image,
+      urls: { large: `${previewBase}/${image.id}/large/`, thumb: `${previewBase}/${image.id}/thumb/` } })), price: vehicle.price?.toString() ?? null,
       availableFrom: vehicle.availableFrom ? localDate(vehicle.availableFrom) : null,
       availableTo: vehicle.availableTo ? localDate(vehicle.availableTo) : null }, 200, requestId);
   } catch (error) { return failure(error, requestId); }
