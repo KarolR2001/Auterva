@@ -18,10 +18,11 @@ function harden(result: Response): Response {
 
 /** Authorization (host, session, MFA, role, company, account state, budget) precedes any company read. */
 async function run(request: Request, area: Area, targetOrganizationId: string | undefined,
-  read: (organizationId: string, base: string, requestId: string) => Promise<Response | null>): Promise<Response> {
+  read: (organizationId: string, base: string, requestId: string) => Promise<Response | null>,
+  budget?: "media"): Promise<Response> {
   const requestId = randomUUID();
   try {
-    const access = await actor(request, area, targetOrganizationId, false, requestId);
+    const access = await actor(request, area, targetOrganizationId, false, requestId, budget);
     if (access.error) return harden(access.error);
     const organizationId = access.organizationId!;
     return harden(await read(organizationId, previewBase(area, organizationId), requestId)
@@ -73,5 +74,5 @@ export function previewMedia(request: Request, area: Area, mediaId: string, vari
   return run(request, area, organizationId, async (org, _base, id) => {
     const key = await resolvePreviewMediaKey(prisma, org, mediaId, variant);
     return key ? serveStoredVariant(key, id, "private, no-store") : null;
-  });
+  }, "media");
 }

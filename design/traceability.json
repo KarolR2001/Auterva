@@ -3,6 +3,27 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 150,
+      "scope": "Budżet odczytu superadmina (D-19): jeden klucz api:read:{actor}:platform we wszystkich firmach i w prywatnym kalendarzu, administratorzy z osobnymi licznikami oraz osobny konfigurowalny budżet pobierania bajtów zdjęć w panelu i preview (AUTERVA_MEDIA_RATE_LIMIT, domyślnie 600/min, błędna wartość to błąd startu).",
+      "relatedRequirementIds": ["D-04", "D-19"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/lib/env.ts",
+        "src/modules/tenancy/api-rate-limit.ts",
+        "src/modules/fleet/http.ts",
+        "src/modules/availability/http.ts",
+        "src/modules/preview/http.ts",
+        "src/modules/media/vehicle-images-http.ts",
+        "docs/contracts/technical-limits-and-mfa-bootstrap.md",
+        "docs/contracts/preview.md",
+        "docs/contracts/media-upload-processing.md"
+      ],
+      "testPaths": [
+        "tests/integration/authenticated-read-budget.test.ts",
+        "tests/unit/env.test.ts"
+      ]
+    },
+    {
       "issue": 154,
       "scope": "Indeksowanie mediów publicznych bez X-Robots-Tag oraz robots.txt i sitemap.xml hosta marketingu (D-25): wyjątek Proxy tylko dla wariantów large/thumb na hoście firmy, pozostałe API, panele, platforma i preview noindex, 404 dla wyłączonej firmy, marketing bez danych firm.",
       "relatedRequirementIds": ["D-25"],
