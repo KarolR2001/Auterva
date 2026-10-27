@@ -96,7 +96,9 @@ export async function privateCalendar(request: Request, vehicleId: string,
   if (!organizationId) return respond({ code: "NOT_FOUND" }, 404, requestId);
   const actor = await requireRequestContext(prisma, auth, request.headers, organizationId);
   if (!actor) return respond({ code: "FORBIDDEN" }, 403, requestId);
-  const limited = await takeAuthenticatedApiLimit(prisma, actor, "read");
+  // Same budget key as every other protected read: a superadmin is metered per actor, not per visited company.
+  const limited = await takeAuthenticatedApiLimit(prisma, { actorId: actor.actorId,
+    organizationId: expectedArea === "PLATFORM" ? null : organizationId }, "read");
   if (!limited.allowed) return withErrorRequestId(apiRateLimitResponse(limited.retryAfter), requestId);
   const url = new URL(request.url);
   const from = url.searchParams.get("from");

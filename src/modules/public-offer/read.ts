@@ -5,7 +5,7 @@ import { resolveAliasRedirect } from "@/modules/domains/routing";
 import { resolvePublicVisibility } from "@/modules/service-period/public";
 import { parseHostAuthority, resolveHostMapping } from "@/modules/tenancy/host-registry";
 import { resolveImageAlt } from "@/modules/media/vehicle-images";
-import { hasBothVariants, mediaUrls } from "./images";
+import { hasBothVariants, mediaUrls, type MediaUrls } from "./images";
 import { decodeCursor, encodeCursor, filterFingerprint, parseCatalogQuery, type CatalogCursor,
   type CatalogSort, type QueryError } from "./query";
 import { buildSeo, clip, compact, pageTitle, publicOrigin, type PublicSeo } from "./seo";
@@ -20,6 +20,8 @@ import { buildSeo, clip, compact, pageTitle, publicOrigin, type PublicSeo } from
 
 type Settings = Prisma.SiteSettingsGetPayload<Record<string, never>>;
 type Context = { organizationId: string; origin: string; name: string; settings: Settings | null };
+
+export type OfferContext = Context;
 
 export async function loadPublicContext(db: PrismaClient, authority: string, now: Date): Promise<Context | null> {
   const visible = await resolvePublicVisibility(db, authority, now);
@@ -58,10 +60,10 @@ function priceDto(price: Prisma.Decimal | null, unit: string | null, showPrices:
 type ImageRow = { id: string; alt: string | null; position: number; isCover: boolean; width: number; height: number;
   variants: Prisma.JsonValue };
 /** Only servable images, numbered by their place in this gallery (no gaps after a deletion); alt is read-time. */
-function gallery(images: ImageRow[], vehicleName: string | null) {
+function gallery(images: ImageRow[], vehicleName: string | null, urls: MediaUrls) {
   return images.filter((image) => hasBothVariants(image.variants)).map((image, index) => ({ id: image.id,
     alt: resolveImageAlt(image.alt, vehicleName, index), position: image.position, isCover: image.isCover,
-    width: image.width, height: image.height, urls: mediaUrls(image.id) }));
+    width: image.width, height: image.height, urls: urls(image.id) }));
 }
 const coverOf = <T extends { isCover: boolean }>(images: T[]) => images.find((image) => image.isCover) ?? images[0] ?? null;
 
@@ -75,12 +77,12 @@ const cardSelect = {
 type CardRow = Prisma.VehicleGetPayload<{ select: typeof cardSelect }>;
 
 export type PublicVehicleCard = ReturnType<typeof cardDto>;
-function cardDto(vehicle: CardRow, showPrices: boolean) {
+function cardDto(vehicle: CardRow, showPrices: boolean, urls: MediaUrls) {
   return { slug: vehicle.slug!, name: vehicle.name, brand: vehicle.brand, model: vehicle.model, year: vehicle.year,
     category: vehicle.category, seats: vehicle.seats, doors: vehicle.doors, transmission: vehicle.transmission,
     fuel: vehicle.fuel, drive: vehicle.drive, shortDescription: vehicle.shortDescription,
     price: priceDto(vehicle.price, vehicle.priceUnit, showPrices), featured: vehicle.featured,
-    cover: coverOf(gallery(vehicle.images, vehicle.name)), path: `/pojazdy/${vehicle.slug}/` };
+    cover: coverOf(gallery(vehicle.images, vehicle.name, urls)), path: `/pojazdy/${vehicle.slug}/` };
 }
 
 const channelOrder = ["PHONE", "WHATSAPP", "EMAIL"] as const;
@@ -108,13 +110,13 @@ const addressDto = (settings: Settings | null) => ({ line: settings?.addressLine
   map: settings && settings.mapLatitude !== null && settings.mapLongitude !== null
     ? { latitude: decimal(settings.mapLatitude), longitude: decimal(settings.mapLongitude) } : null });
 
-async function brandMedia(db: PrismaClient, organizationId: string) {
+async function brandMedia(db: PrismaClient, organizationId: string, urls: MediaUrls) {
   const rows = await db.publicMedia.findMany({ where: { organizationId, status: "READY",
     kind: { in: ["LOGO", "HERO", "BRAND"] } }, orderBy: [{ kind: "asc" }, { position: "asc" }, { id: "asc" }],
     select: { id: true, kind: true, alt: true, width: true, height: true, variants: true } });
   const pick = (kind: string) => {
     const row = rows.find((entry) => entry.kind === kind && hasBothVariants(entry.variants));
-    return row ? { id: row.id, alt: row.alt, width: row.width, height: row.height, urls: mediaUrls(row.id) } : null;
+    return row ? { id: row.id, alt: row.alt, width: row.width, height: row.height, urls: urls(row.id) } : null;
   };
   return { logo: pick("LOGO"), hero: pick("HERO") };
 }
@@ -142,7 +144,11 @@ const ogImage = (origin: string, image: { urls: { large: string }; width: number
 
 export async function getPublicHome(db: PrismaClient, authority: string, now = new Date()) {
   const context = await loadPublicContext(db, authority, now);
-  if (!context) return null;
+  return context ? buildHome(db, context, mediaUrls) : null;
+}
+
+/** Shared by the public gate and the protected preview (#46); the caller has already authorized `context`. */
+export async function buildHome(db: PrismaClient, context: Context, urls: MediaUrls) {
   const { organizationId, settings } = context;
   const showPrices = settings?.showPrices ?? false;
   const featuredCount = settings?.featuredVehicleCount ?? 0;
@@ -150,7 +156,7 @@ export async function getPublicHome(db: PrismaClient, authority: string, now = n
     db.vehicle.count({ where: { organizationId, status: "PUBLISHED" } }),
     featuredCount > 0 ? db.vehicle.findMany({ where: { organizationId, status: "PUBLISHED", featured: true },
       orderBy: [{ sortOrder: "asc" }, { id: "asc" }], take: featuredCount, select: cardSelect }) : [],
-    brandMedia(db, organizationId),
+    brandMedia(db, organizationId, urls),
   ]);
   const description = orgDescription(context);
   // An explicit SEO title is the owner's wording and is used as is.
@@ -160,7 +166,7 @@ export async function getPublicHome(db: PrismaClient, authority: string, now = n
     offerState: publishedCount === 0 ? "EMPTY" as const : "HAS_VEHICLES" as const,
     company: { name: context.name, shortDescription: settings?.shortDescription ?? null,
       serviceArea: settings?.serviceArea ?? null, heroText: settings?.heroText ?? null, ...media },
-    featured: publishedCount === 0 ? [] : featured.map((vehicle) => cardDto(vehicle, showPrices)),
+    featured: publishedCount === 0 ? [] : featured.map((vehicle) => cardDto(vehicle, showPrices, urls)),
     contact: contactSummary(settings), availabilityNotice: settings?.availabilityNotice ?? null,
     display: { showPrices },
     seo: buildSeo({ origin: context.origin, path: "/", title, description, siteName: context.name,
@@ -217,7 +223,12 @@ export type CatalogResult =
 export async function listPublicVehicles(db: PrismaClient, authority: string, params: URLSearchParams,
   now = new Date()): Promise<CatalogResult | null> {
   const context = await loadPublicContext(db, authority, now);
-  if (!context) return null;
+  return context ? buildCatalog(db, context, params, now, mediaUrls) : null;
+}
+
+/** The catalog of what the public offer shows (PUBLISHED only), for an already authorized context. */
+export async function buildCatalog(db: PrismaClient, context: Context, params: URLSearchParams, now: Date,
+  urls: MediaUrls): Promise<CatalogResult> {
   const parsed = parseCatalogQuery(params, now);
   if (!parsed.ok) return parsed;
   const { filters, sort, limit } = parsed.query;
@@ -265,7 +276,7 @@ export async function listPublicVehicles(db: PrismaClient, authority: string, pa
   const description = clip(context.settings?.seoDescription ?? context.settings?.shortDescription, 160)
     ?? `Pojazdy do wynajęcia: ${context.name}.`;
   return { ok: true, state,
-    items: page.map((vehicle) => cardDto(vehicle, showPrices)), total, limit,
+    items: page.map((vehicle) => cardDto(vehicle, showPrices, urls)), total, limit,
     nextCursor: rows.length > limit && last ? encodeCursor({ v: 1, f: fingerprint, k: keyOf(sort, last), i: last.id }) : null,
     applied: { category: filters.category, seats: filters.minSeats, transmission: filters.transmission,
       from: filters.range?.from ?? null, to: filters.range?.to ?? null, sort },
@@ -288,15 +299,16 @@ export type VehicleDetailResult =
   | { kind: "REDIRECT"; slug: string; path: string }
   | { kind: "NOT_FOUND"; offerPath: "/" };
 
-const detailSelect = { ...cardSelect, description: true, color: true, luggage: true, seoTitle: true,
+export const detailSelect = { ...cardSelect, description: true, color: true, luggage: true, seoTitle: true,
   seoDescription: true, updatedAt: true,
   features: { orderBy: { code: "asc" }, select: { code: true, value: true } },
   images: { where: { status: "READY" }, orderBy: [{ position: "asc" }, { id: "asc" }],
     select: { id: true, alt: true, position: true, isCover: true, width: true, height: true, variants: true } },
 } satisfies Prisma.VehicleSelect;
 
-function detailDto(vehicle: Prisma.VehicleGetPayload<{ select: typeof detailSelect }>, showPrices: boolean) {
-  const photos = gallery(vehicle.images, vehicle.name);
+type DetailRow = Prisma.VehicleGetPayload<{ select: typeof detailSelect }>;
+function detailDto(vehicle: DetailRow, showPrices: boolean, urls: MediaUrls) {
+  const photos = gallery(vehicle.images, vehicle.name, urls);
   return { slug: vehicle.slug!, name: vehicle.name, brand: vehicle.brand, model: vehicle.model, year: vehicle.year,
     category: vehicle.category, seats: vehicle.seats, doors: vehicle.doors, transmission: vehicle.transmission,
     fuel: vehicle.fuel, drive: vehicle.drive, color: vehicle.color, luggage: vehicle.luggage,
@@ -316,8 +328,7 @@ export async function getPublicVehicle(db: PrismaClient, authority: string, slug
   if (!context) return null;
   const notFound = { kind: "NOT_FOUND", offerPath: "/" } as const;
   if (slug.length > 120 || !slugPattern.test(slug)) return notFound;
-  const { organizationId, settings } = context;
-  const showPrices = settings?.showPrices ?? false;
+  const { organizationId } = context;
   const row = await db.vehicle.findFirst({ where: { organizationId, slug, status: "PUBLISHED" }, select: detailSelect });
   if (!row) {
     const old = await db.slugRedirect.findUnique({ where: { organizationId_oldSlug: { organizationId, oldSlug: slug } },
@@ -325,7 +336,14 @@ export async function getPublicVehicle(db: PrismaClient, authority: string, slug
     return old?.vehicle.status === "PUBLISHED" && old.vehicle.slug
       ? { kind: "REDIRECT", slug: old.vehicle.slug, path: `/pojazdy/${old.vehicle.slug}/` } : notFound;
   }
-  const vehicle = detailDto(row, showPrices);
+  return buildVehicleFound(context, row, mediaUrls);
+}
+
+/** One loaded vehicle row as the public detail DTO; the caller decides which rows may be shown. */
+export function buildVehicleFound(context: Context, row: DetailRow, urls: MediaUrls) {
+  const showPrices = context.settings?.showPrices ?? false;
+  const settings = context.settings;
+  const vehicle = detailDto(row, showPrices, urls);
   const title = row.seoTitle ?? pageTitle(row.name ?? "Pojazd", context.name);
   const description = clip(row.seoDescription, 160) ?? clip(row.shortDescription, 160)
     ?? `${row.name ?? "Pojazd"} do wynajęcia: ${context.name}.`;
@@ -337,7 +355,7 @@ export async function getPublicVehicle(db: PrismaClient, authority: string, slug
     vehicleModelDate: row.year === null ? null : String(row.year), vehicleSeatingCapacity: row.seats,
     numberOfDoors: row.doors, vehicleTransmission: row.transmission, fuelType: row.fuel,
     driveWheelConfiguration: row.drive, color: row.color, category: row.category?.name ?? null });
-  return { kind: "FOUND", vehicle, availabilityNotice: settings?.availabilityNotice ?? null,
+  return { kind: "FOUND" as const, vehicle, availabilityNotice: settings?.availabilityNotice ?? null,
     contact: contactSummary(settings), display: { showPrices },
     seo: buildSeo({ origin: context.origin, path: vehicle.path, title, description, siteName: context.name,
       images: ogImage(context.origin, cover, row.name ?? context.name), jsonLd: [jsonLd] }) };
@@ -351,12 +369,17 @@ export type ContactInput = { vehicleSlug?: string | null; from?: string | null; 
 export async function getPublicContact(db: PrismaClient, authority: string, input: ContactInput = {},
   now = new Date()) {
   const context = await loadPublicContext(db, authority, now);
-  if (!context) return null;
+  return context ? buildContact(db, context, input, now, ["PUBLISHED"]) : null;
+}
+
+/** `vehicleStatuses` is the only difference between the public page and the protected preview. */
+export async function buildContact(db: PrismaClient, context: Context, input: ContactInput, now: Date,
+  vehicleStatuses: readonly string[]) {
   const { settings } = context;
   let vehicle: { slug: string; name: string } | null = null;
   if (input.vehicleSlug) {
     const row = await db.vehicle.findFirst({ where: { organizationId: context.organizationId,
-      slug: input.vehicleSlug, status: "PUBLISHED" }, select: { slug: true, name: true } });
+      slug: input.vehicleSlug, status: { in: [...vehicleStatuses] } }, select: { slug: true, name: true } });
     if (row?.slug && row.name) vehicle = { slug: row.slug, name: row.name };
   }
   let range: { from: string; to: string } | null = null;
@@ -385,7 +408,10 @@ export const legalPaths: Record<LegalKind, string> = { privacy: "/polityka-prywa
 
 export async function getPublicLegal(db: PrismaClient, authority: string, kind: LegalKind, now = new Date()) {
   const context = await loadPublicContext(db, authority, now);
-  if (!context) return null;
+  return context ? buildLegal(context, kind) : null;
+}
+
+export function buildLegal(context: Context, kind: LegalKind) {
   const s = context.settings;
   const text = (kind === "privacy" ? s?.privacyText : s?.termsText) ?? null;
   const url = (kind === "privacy" ? s?.privacyUrl : s?.termsUrl) ?? null;

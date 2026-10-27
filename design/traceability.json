@@ -657,6 +657,36 @@
         "tests/integration/image-alt-migration.test.ts",
         "tests/e2e/public-offer.spec.ts"
       ]
+    },
+    {
+      "issue": 46,
+      "scope": "Chroniony preview szkicu, ukrytego pojazdu i oferty firmy (admin swojej firmy lub superadmin w kontekscie firmy, takze po koncu okresu; private no-store, noindex, bez SEO, poza sitemap, zasoby tylko po autoryzacji) oraz ujednolicenie budzetu odczytu kalendarza superadmina z adapterami admin/platform. Zapisy zagniezdzone korzystaja z tych samych use case co firmowe. Bez UI (ADM-08 to Frontend).",
+      "relatedRequirementIds": ["C-F016", "C-F017", "C-F018", "C-F058", "C-F099", "C-N030", "FR-ADM-034"],
+      "referenceScreenIds": ["ADM-08"],
+      "codePaths": [
+        "src/modules/preview/read.ts",
+        "src/modules/preview/http.ts",
+        "src/modules/public-offer/read.ts",
+        "src/modules/public-offer/images.ts",
+        "src/modules/availability/http.ts",
+        "src/app/api/admin/preview/route.ts",
+        "src/app/api/admin/preview/vehicles/route.ts",
+        "src/app/api/admin/preview/vehicles/[id]/route.ts",
+        "src/app/api/admin/preview/contact/route.ts",
+        "src/app/api/admin/preview/legal/[kind]/route.ts",
+        "src/app/api/admin/preview/media/[mediaId]/[variant]/route.ts",
+        "src/app/api/platform/companies/[organizationId]/preview/route.ts",
+        "src/app/api/platform/companies/[organizationId]/preview/vehicles/route.ts",
+        "src/app/api/platform/companies/[organizationId]/preview/vehicles/[id]/route.ts",
+        "src/app/api/platform/companies/[organizationId]/preview/contact/route.ts",
+        "src/app/api/platform/companies/[organizationId]/preview/legal/[kind]/route.ts",
+        "src/app/api/platform/companies/[organizationId]/preview/media/[mediaId]/[variant]/route.ts",
+        "docs/contracts/preview.md"
+      ],
+      "testPaths": [
+        "tests/integration/preview.test.ts",
+        "tests/e2e/preview.spec.ts"
+      ]
     }
   ],
   "sources": [
