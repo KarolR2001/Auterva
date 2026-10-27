@@ -154,7 +154,8 @@ test("published edits reject loss of required fields; both roles use CAS, tenant
   const renamed = await editVehicle(db, { ...platformActor(), vehicleId: id, expectedVersion: 2,
     confirmSlugChange: true, fields: { name: "Bus 10", slug: `bus-new-${id}` } });
   expect(renamed.version).toBe(3);
-  expect(await db.slugRedirect.count({ where: { organizationId: organizations[0], vehicleId: id } })).toBe(0);
+  // D-27: the old public address of a published vehicle now redirects to the vehicle.
+  expect(await db.slugRedirect.count({ where: { organizationId: organizations[0], vehicleId: id } })).toBe(1);
   await expect(editVehicle(db, { ...actor(), vehicleId: id, expectedVersion: 2,
     fields: { name: "Przestarzała zmiana" } })).rejects.toThrow("FLEET_VERSION_CONFLICT");
   const hidden = await setVehicleStatus(db, { ...actor(), vehicleId: id,

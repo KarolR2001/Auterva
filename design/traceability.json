@@ -3,6 +3,22 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 153,
+      "scope": "Zapis przekierowania starego sluga opublikowanego pojazdu (D-27, FR-ADM-035): wpis wskazuje pojazd w transakcji zmiany sluga z audytem, łańcuch jednym skokiem, pierwszeństwo aktywnego sluga, 404 dla pojazdu nieopublikowanego, izolacja firm i równoległe zapisy.",
+      "relatedRequirementIds": ["FR-ADM-035", "D-27"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/fleet/mutations.ts",
+        "src/modules/public-offer/read.ts",
+        "docs/contracts/fleet-crud-publication.md",
+        "docs/contracts/public-offer-seo.md"
+      ],
+      "testPaths": [
+        "tests/integration/slug-redirect.test.ts",
+        "tests/integration/fleet-mutations.test.ts"
+      ]
+    },
+    {
       "issue": 54,
       "scope": "Harmonogram przypomnień 7/1/0 (panel i e-mail) z trwałymi intencjami, uzgadnianiem przy każdej zmianie okresu, rewalidacją przed doręczeniem i prywatnym API statusu usługi dla panelu firmy (UI w #55).",
       "relatedRequirementIds": ["C-F067", "C-N004", "C-F058", "C-F062", "D-07", "D-14"],

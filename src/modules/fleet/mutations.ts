@@ -107,6 +107,15 @@ function normalizeError(error: unknown): never {
   throw error;
 }
 
+/**
+ * Active slug wins over any redirect (D-27): a redirect whose old slug becomes an active slug of any vehicle of the
+ * company is deleted in the caller's transaction. Callers hold the Organization row lock (`authorizedCompany`), so
+ * two slug writes of one company are serialized and never interleave this delete with a redirect insert.
+ */
+async function releaseRedirectsOf(tx: Prisma.TransactionClient, organizationId: string, slug: string | null) {
+  if (slug) await tx.slugRedirect.deleteMany({ where: { organizationId, oldSlug: slug } });
+}
+
 function slugFromName(name: string | null | undefined): string | null {
   if (!name?.trim()) return null;
   return name.trim().toLowerCase().replace(/ł/g, "l").normalize("NFD")
@@ -126,6 +135,7 @@ export async function createVehicle(db: PrismaClient, input: Operation & { field
     return await db.$transaction(async (tx) => {
       await authorizedCompany(tx, input);
       await validateCategory(tx, typeof fields.categoryId === "string" ? fields.categoryId : null);
+      await releaseRedirectsOf(tx, input.organizationId, typeof fields.slug === "string" ? fields.slug : null);
       const vehicle = await tx.vehicle.create({ data: { ...fields as Prisma.VehicleUncheckedCreateInput,
         organizationId: input.organizationId, status: "DRAFT" } });
       if (features?.length) await tx.vehicleFeature.createMany({ data: features.map((feature) => ({
@@ -168,6 +178,8 @@ export async function editVehicle(db: PrismaClient, input: Operation & { vehicle
       if (before.status === "PUBLISHED" && nextSlug !== before.slug && !input.confirmSlugChange) {
         throw new Error("FLEET_SLUG_CONFIRMATION_REQUIRED");
       }
+      const slugChanged = nextSlug !== before.slug;
+      if (slugChanged) await releaseRedirectsOf(tx, input.organizationId, nextSlug);
       const changed = await tx.vehicle.updateMany({ where: { id: input.vehicleId,
         organizationId: input.organizationId, version: input.expectedVersion },
       data: { ...fields, version: { increment: 1 } } });
@@ -182,11 +194,18 @@ export async function editVehicle(db: PrismaClient, input: Operation & { vehicle
         const errors = await publicationErrors(tx, input.organizationId, input.vehicleId);
         if (Object.keys(errors).length) throw new PublishingRequirementsError(errors);
       }
+      // A vehicle that was published once (PUBLISHED or hidden) keeps its old address for the next publication.
+      // The redirect points at the vehicle, not at a slug: A->B->C is one hop from A and cannot loop or branch.
+      if (slugChanged && before.slug && before.status !== "DRAFT") {
+        await tx.slugRedirect.upsert({ where: { organizationId_oldSlug: { organizationId: input.organizationId,
+          oldSlug: before.slug } }, create: { organizationId: input.organizationId, vehicleId: input.vehicleId,
+          oldSlug: before.slug }, update: { vehicleId: input.vehicleId } });
+      }
       const after = await tx.vehicle.findUniqueOrThrow({ where: { id: input.vehicleId } });
       await appendAudit(tx, { actorId: input.actorId, sessionId: input.sessionId,
         organizationId: input.organizationId, action: "VEHICLE_UPDATED", entityId: input.vehicleId,
         eventKey: randomUUID(), requestId: input.requestId,
-        changes: { changedFields: ["version"], before: { version: before.version },
+        changes: { changedFields: slugChanged ? ["slug", "version"] : ["version"], before: { version: before.version },
           after: { version: after.version } } });
       return projection(after);
     });
