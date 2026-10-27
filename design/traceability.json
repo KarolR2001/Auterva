@@ -165,6 +165,22 @@
       ]
     },
     {
+      "issue": 167,
+      "scope": "Wskaźnik nieprzeczytanych i odświeżanie listy rozmów superadmina: unread z kursora odczytu superadmina jednym zapytaniem na stronę, domyślne pominięcie archiwum (unread 0 przy includeArchived, D-23), kanał platformy /ws/platform z licznikami bez treści, autoryzacja i rewalidacja jak w #51. Bez UI skrzynki (#53).",
+      "relatedRequirementIds": ["C-F119", "C-F121", "C-F127", "C-F134", "C-N004", "D-08", "D-23"],
+      "referenceScreenIds": ["PLT-09"],
+      "codePaths": [
+        "docs/contracts/chat-conversations-messages.md",
+        "docs/contracts/chat-realtime.md",
+        "src/modules/chat/platform-inbox.ts",
+        "src/modules/chat/service.ts",
+        "src/modules/chat/http.ts",
+        "src/modules/chat/realtime.ts",
+        "src/modules/chat/resolve-tenant.ts"
+      ],
+      "testPaths": ["tests/integration/chat-inbox.test.ts", "tests/integration/chat.test.ts"]
+    },
+    {
       "issue": 159,
       "scope": "Konfigurowalny nasłuch i allowlista hostów serwera WebSocket w kontenerze (WS_HOST, WS_PORT, WS_ALLOWED_HOSTS) walidowane przy starcie; domyślnie loopback, bez trybu dowolnego hosta.",
       "relatedRequirementIds": ["C-N004", "C-N059"],
@@ -860,6 +876,28 @@
         "tests/e2e/security-headers.spec.ts",
         "tests/unit/security-headers.test.ts",
         "tests/unit/json-body.test.ts"
+      ]
+    },
+    {
+      "issue": 60,
+      "scope": "Kopia DB i mediow (szyfrowana, snapshot, manifest z MAC), restore pelny do nowej bazy i bucketa ze straznikiem celu, kontrola integralnosci, kwarantanna sesji, tokenow i jobow po restore, odtworzenie jednej firmy bez zmiany innych oraz runbook. Zmierzone lokalnie na fixture; konfiguracja dostawcy, PITR i alerty produkcyjne not-run (#90). Bez UI.",
+      "relatedRequirementIds": ["C-N041", "C-N042", "C-N046", "D-10", "D-16"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/backup/crypto.ts",
+        "src/modules/backup/core.ts",
+        "src/modules/backup/backup.ts",
+        "src/modules/backup/restore.ts",
+        "src/modules/backup/company.ts",
+        "scripts/backup-restore.ts",
+        "scripts/recover-mfa.ts",
+        "src/modules/audit/operator.ts",
+        "docs/runbooks/backup-restore.md",
+        "docs/contracts/environments-hosts-operations.md"
+      ],
+      "testPaths": [
+        "tests/unit/backup-crypto.test.ts",
+        "tests/integration/backup-restore.test.ts"
       ]
     }
   ],

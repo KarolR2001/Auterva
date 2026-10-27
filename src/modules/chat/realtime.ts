@@ -5,8 +5,9 @@ import { z } from "zod";
 import type { PrismaClient } from "../../generated/prisma/client";
 import { decodeCursor, encodeCursor } from "./cursor";
 import { ChatError } from "./errors";
+import { inboxSummaries, MAX_SUMMARY_ORGANIZATIONS } from "./platform-inbox";
 import { markRead, readState } from "./read-state";
-import type { RealtimeAuthority, RealtimePrincipal } from "./resolve-tenant";
+import type { PlatformPrincipal, RealtimeAuthority, RealtimePrincipal } from "./resolve-tenant";
 import type { RealtimeConfig } from "./realtime-config";
 import { startSignalListener } from "./realtime-listener";
 import { messageDto, messageSelect, sendMessage } from "./service";
@@ -38,13 +39,15 @@ export type RealtimeLimits = {
   reconcileMs: number;
   pollMs: number;
   listenRetryMs: number;
+  /** Platform inbox: signals of one burst are merged into one database read after this delay. */
+  inboxDebounceMs: number;
 };
 
 export const DEFAULT_LIMITS: RealtimeLimits = {
   maxPayloadBytes: 65_536, maxConnections: 2_000, maxConnectionsPerActor: 5, maxBufferedBytes: 1_048_576,
   maxBacklog: 200, frameWindowMs: 10_000, maxFramesPerWindow: 60, maxQueuedFrames: 20, typingExpiryMs: 3_000,
   typingIntervalMs: 1_000, revalidateMs: 1_000, heartbeatMs: 30_000, reconcileMs: 30_000, pollMs: 1_000,
-  listenRetryMs: 250,
+  listenRetryMs: 250, inboxDebounceMs: 25,
 };
 
 const BATCH = 100;
@@ -79,6 +82,17 @@ type Conn = {
   typingSeen: Map<string, number>;
 };
 
+/** The superadmin's single platform-level connection: hints for the inbox list, no per-conversation traffic. */
+type PlatformConn = {
+  ws: WebSocket;
+  principal: PlatformPrincipal;
+  ready: boolean;
+  closed: boolean;
+  alive: boolean;
+  windowStart: number;
+  windowCount: number;
+};
+
 type Options = {
   db: PrismaClient;
   config: RealtimeConfig;
@@ -106,6 +120,11 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
   const byOrganization = new Map<string, Set<Conn>>();
   const perActor = new Map<string, number>();
   const typingGate = new Map<string, number>();
+  const platformConns = new Set<PlatformConn>();
+  const pendingInbox = new Set<string>();
+  let inboxOverflow = false;
+  let inboxTimer: NodeJS.Timeout | null = null;
+  let inboxFlushing = false;
   let connections = 0;
   let handshakes = 0;
   let stopped = false;
@@ -116,7 +135,7 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
     socket.destroy();
   };
 
-  function emit(conn: Conn, value: Record<string, unknown>, droppable = false): boolean {
+  function emit(conn: Pick<Conn, "ws" | "closed">, value: Record<string, unknown>, droppable = false): boolean {
     if (conn.closed || conn.ws.readyState !== conn.ws.OPEN) return false;
     if (conn.ws.bufferedAmount > limits.maxBufferedBytes) {
       if (!droppable) { log("slow-client"); closeConn(conn, CLOSE.SLOW_CLIENT, "SLOW_CLIENT"); }
@@ -126,7 +145,7 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
     return true;
   }
 
-  function closeConn(conn: Conn, code: number, reason: string) {
+  function closeConn(conn: Pick<Conn, "ws" | "closed">, code: number, reason: string) {
     if (conn.closed) return;
     conn.closed = true;
     try { conn.ws.close(code, reason); } catch { conn.ws.terminate(); return; }
@@ -206,7 +225,64 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
     emit(conn, { type: "read", conversationId, own: true, readerRole: conn.principal.role, messageId, unread });
   };
 
+  const PLATFORM_ACTOR_FRAMES = limits.maxFramesPerWindow;
+
+  function queueInbox(organizationId: string) {
+    if (platformConns.size === 0) return;
+    if (pendingInbox.size >= MAX_SUMMARY_ORGANIZATIONS) inboxOverflow = true; else pendingInbox.add(organizationId);
+    armInbox();
+  }
+
+  function armInbox() {
+    if (inboxTimer || stopped) return;
+    inboxTimer = setTimeout(() => { inboxTimer = null; void flushInbox(); }, limits.inboxDebounceMs);
+    inboxTimer.unref();
+  }
+
+  const refreshAll = () => { for (const conn of platformConns) if (conn.ready) emit(conn, { type: "refresh" }); };
+
+  /**
+   * One read per burst: authorization of every platform socket first (nothing is sent after a committed revocation),
+   * then the counters of the changed companies, computed from the superadmin's own read cursor. Frames carry
+   * identifiers and counters only. If the read fails the client is told to refetch the list instead.
+   */
+  async function flushInbox() {
+    if (inboxFlushing) return;
+    inboxFlushing = true;
+    const ids = [...pendingInbox];
+    const overflow = inboxOverflow;
+    pendingInbox.clear();
+    inboxOverflow = false;
+    try {
+      const open = [...platformConns].filter((conn) => conn.ready && !conn.closed);
+      const verdicts = await authority.revalidatePlatform(open.map((conn) => conn.principal));
+      const live = open.filter((conn, index) => {
+        if (verdicts[index]) return !conn.closed;
+        closeConn(conn, CLOSE.UNAUTHORIZED, "UNAUTHORIZED");
+        return false;
+      });
+      if (overflow) { for (const conn of live) emit(conn, { type: "refresh" }); }
+      else {
+        for (const actorId of new Set(live.map((conn) => conn.principal.actorId))) {
+          const items = await inboxSummaries(db, actorId, ids);
+          for (const conn of live) {
+            if (conn.principal.actorId !== actorId || conn.closed) continue;
+            for (const item of items) emit(conn, { type: "conversation", ...item });
+          }
+        }
+      }
+    } catch {
+      log("inbox-failed");
+      refreshAll();
+    } finally {
+      inboxFlushing = false;
+      if (pendingInbox.size > 0 || inboxOverflow) armInbox();
+    }
+  }
+
   function onSignal(signal: ChatSignal) {
+    // The inbox only changes with new messages and with the superadmin's own read cursor (any device or company socket).
+    if (signal.k === "m" || (signal.k === "r" && signal.r === "SUPERADMIN_AUTERVA")) queueInbox(signal.o);
     const group = byOrganization.get(signal.o);
     if (!group) return;
     for (const conn of group) {
@@ -259,9 +335,52 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
     retryMs: limits.listenRetryMs,
     onSignal,
     // Signals sent while LISTEN was down are gone: every open socket is brought up to date from the database.
-    onListening: (recovered) => { if (recovered) { log("listen-recovered"); reconcileAll(true); } },
+    onListening: (recovered) => { if (recovered) { log("listen-recovered"); reconcileAll(true); refreshAll(); } },
     onUnhealthy: () => log("listen-lost"),
   });
+
+  function attachPlatform(ws: WebSocket, principal: PlatformPrincipal) {
+    const conn: PlatformConn = { ws, principal, ready: false, closed: false, alive: true, windowStart: Date.now(), windowCount: 0 };
+    connections += 1;
+    const actorKey = `${principal.actorId}:platform`;
+    perActor.set(actorKey, (perActor.get(actorKey) ?? 0) + 1);
+    platformConns.add(conn);
+    ws.on("error", () => undefined);
+    ws.on("pong", () => { conn.alive = true; });
+    // The platform channel is one-way: any client frame is refused, and a flood closes the socket.
+    ws.on("message", () => {
+      const now = Date.now();
+      if (now - conn.windowStart >= limits.frameWindowMs) { conn.windowStart = now; conn.windowCount = 0; }
+      conn.windowCount += 1;
+      if (conn.windowCount > PLATFORM_ACTOR_FRAMES) { closeConn(conn, CLOSE.RATE_LIMITED, "RATE_LIMITED"); return; }
+      emit(conn, { type: "error", code: "INVALID_FRAME" }, true);
+    });
+    ws.once("close", () => {
+      conn.closed = true;
+      connections -= 1;
+      const left = (perActor.get(actorKey) ?? 1) - 1;
+      if (left <= 0) perActor.delete(actorKey); else perActor.set(actorKey, left);
+      platformConns.delete(conn);
+    });
+    emit(conn, { type: "ready", protocol: 1, scope: "platform", role: principal.role });
+    conn.ready = true;
+  }
+
+  async function handshakePlatform(request: IncomingMessage, socket: Duplex, head: Buffer, host: string, hasQuery: boolean) {
+    if (hasQuery) return refuse(socket, 400);
+    if (stopped || connections + handshakes >= limits.maxConnections) return refuse(socket, 503);
+    const headers = new Headers({ host });
+    if (request.headers.cookie) headers.set("cookie", request.headers.cookie);
+    if (request.headers.origin) headers.set("origin", request.headers.origin);
+    handshakes += 1;
+    let principal: PlatformPrincipal | null;
+    try { principal = await authority.authorizePlatform(headers); } finally { handshakes -= 1; }
+    if (!principal) return refuse(socket, 403);
+    if ((perActor.get(`${principal.actorId}:platform`) ?? 0) >= limits.maxConnectionsPerActor) return refuse(socket, 429);
+    if (socket.destroyed) return;
+    if (stopped) return refuse(socket, 503);
+    sockets.handleUpgrade(request, socket, head, (ws) => attachPlatform(ws, principal));
+  }
 
   function reportError(conn: Conn, error: unknown, ref?: string) {
     if (error instanceof ChatError) {
@@ -382,9 +501,10 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
 
   async function handshake(request: IncomingMessage, socket: Duplex, head: Buffer) {
     const url = new URL(request.url ?? "/", "http://localhost");
-    if (request.method !== "GET" || url.pathname !== "/ws") return refuse(socket, 404);
+    if (request.method !== "GET" || (url.pathname !== "/ws" && url.pathname !== "/ws/platform")) return refuse(socket, 404);
     const host = request.headers.host?.toLowerCase();
     if (!host || !allowedHosts.has(host)) return refuse(socket, 403);
+    if (url.pathname === "/ws/platform") return handshakePlatform(request, socket, head, host, url.search !== "");
     const keys = [...url.searchParams.keys()];
     const organizationId = url.searchParams.get("organizationId");
     const after = url.searchParams.get("after");
@@ -431,14 +551,19 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
       if (sweeping) return;
       sweeping = true;
       const open = everyConn().filter((conn) => !conn.closed);
-      authority.revalidate(open.map((conn) => conn.principal))
-        .then((verdicts) => verdicts.forEach((valid, index) => { if (!valid) closeConn(open[index], CLOSE.UNAUTHORIZED, "UNAUTHORIZED"); }))
+      const platformOpen = [...platformConns].filter((conn) => !conn.closed);
+      Promise.all([authority.revalidate(open.map((conn) => conn.principal)),
+        authority.revalidatePlatform(platformOpen.map((conn) => conn.principal))])
+        .then(([verdicts, platformVerdicts]) => {
+          verdicts.forEach((valid, index) => { if (!valid) closeConn(open[index], CLOSE.UNAUTHORIZED, "UNAUTHORIZED"); });
+          platformVerdicts.forEach((valid, index) => { if (!valid) closeConn(platformOpen[index], CLOSE.UNAUTHORIZED, "UNAUTHORIZED"); });
+        })
         // With the database unreachable nothing can be delivered or written, so connections are kept rather than dropped.
         .catch(() => log("revalidate-failed"))
         .finally(() => { sweeping = false; });
     }, limits.revalidateMs),
     setInterval(() => {
-      for (const conn of everyConn()) {
+      for (const conn of [...everyConn(), ...platformConns]) {
         if (!conn.alive) { conn.ws.terminate(); continue; }
         conn.alive = false;
         conn.ws.ping();
@@ -446,7 +571,8 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
       const stale = Date.now() - 10 * limits.typingIntervalMs;
       for (const [key, at] of typingGate) if (at < stale) typingGate.delete(key);
     }, limits.heartbeatMs),
-    setInterval(() => reconcileAll(false), limits.reconcileMs),
+    // Safety net for the inbox: a lost signal can at worst delay a counter by this long.
+    setInterval(() => { reconcileAll(false); refreshAll(); }, limits.reconcileMs),
     setInterval(() => { if (!listener.healthy()) reconcileAll(false); }, limits.pollMs),
   ];
   for (const timer of timers) timer.unref();
@@ -464,10 +590,13 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
     port: address.port,
     listenerHealthy: () => listener.healthy(),
     connectionCount: () => connections,
+    platformConnectionCount: () => platformConns.size,
     async close(code: number = CLOSE.SHUTDOWN) {
       stopped = true;
       for (const timer of timers) clearInterval(timer);
+      if (inboxTimer) clearTimeout(inboxTimer);
       await listener.close();
+      for (const conn of platformConns) { conn.closed = true; conn.ws.close(code, "SHUTDOWN"); }
       for (const conn of everyConn()) {
         for (const timer of conn.typingTimers.values()) clearTimeout(timer);
         conn.closed = true;

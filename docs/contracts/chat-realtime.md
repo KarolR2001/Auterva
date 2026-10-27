@@ -91,6 +91,20 @@ Autoryzacja jest sprawdzana: przy handshake; co 1 s zbiorczo dwoma zapytaniami d
 
 Cel: p95 dostarczenia ≤ 2 s (D-08). Test `tests/integration/chat-realtime.test.ts` (opóźnienie) mierzy lokalnie, na prawdziwym PostgreSQL i prawdziwych gniazdach, czas od rozpoczęcia `sendMessage` (zapis i commit) do odebrania `message` przez 3 gniazda (urządzenie admina i superadmin), 150 wysyłek, 300 próbek. Lokalny wynik: p50 ok. 2 ms, p95 ok. 4 ms, max ok. 20 ms. Wynik laboratoryjny nie dowodzi p95 w produkcji ani przy obciążeniu wielu firm (brak uzgodnionego profilu).
 
+## Kanał platformy (skrzynka superadmina, #167)
+
+Odświeżanie listy rozmów superadmina bez N połączeń: **jedno** połączenie platformy zamiast jednego na firmę. Wybrano sygnał po WebSocket, a nie odpytywanie: istniejący `pg_notify('auterva_chat')` już niesie `{k:"m", o, c, s}` (nowa wiadomość) i `{k:"r"…}` (przesunięcie kursora), więc nie powstaje druga pętla dostarczania, nowy kanał ani nowe zapytania w tle. Koszt: jedno odczytanie kilku wierszy na serię sygnałów (scalane przez 25 ms) tylko wtedy, gdy ktoś jest połączony.
+
+`GET /ws/platform` (bez parametrów, inne to `400`; ta sama allowlista `Host` i limity: 2000 połączeń łącznie, 5 na konto, `429`/`503`). Origin musi być aktywnym wpisem `HostMapping` obszaru `PLATFORM`, sesja z dowodem MFA, rola `SUPERADMIN_AUTERVA` bez firmy (`requireAuthorizedActor`); administrator firmy, brak sesji i Origin panelu firmy dają `403`. Rewalidacja jak w #51: co 1 s zbiorczo (to samo zapytanie o sesje; wylogowanie, cofnięcie, wygaśnięcie, wyłączone konto, utrata MFA zamykają kodem `4401` do około 1 s) i przed każdym wysłaniem partii liczników. Kanał jest jednokierunkowy: ramka klienta to `error INVALID_FRAME`, powódź ramek (60/10 s) zamyka `4429`.
+
+| Ramka serwera | Znaczenie |
+|---|---|
+| `ready` | `{protocol:1, scope:"platform", role}`. Klient najpierw łączy się, potem pobiera listę HTTP (bez luki) i deduplikuje po stanie z ramek. |
+| `conversation` | `{organizationId, conversationId, archived, unread, lastSeq, activityAt}`: aktualne liczniki jednej firmy po nowej wiadomości lub po zapisie kursora odczytu superadmina (też z innego urządzenia/gniazda firmy). Wyłącznie identyfikatory i liczniki, nigdy treść; `unread` z tego samego zapytania co lista (kursor superadmina, 0 dla archiwum). Klient podmienia wiersz i przesuwa go według `activityAt`; nieznaną firmę dociąga listą. |
+| `refresh` | Klient odświeża listę od pierwszej strony: po odbudowie `LISTEN`, więcej niż 100 firm w jednej serii, błędzie odczytu liczników oraz co 30 s jako zabezpieczenie (zgubiony sygnał opóźni licznik najwyżej o tyle; to też moment, w którym nowo zarchiwizowana firma znika z domyślnej listy). |
+
+Ramki są nieodrzucalne jak w #51: przekroczenie bufora 1 MiB zamyka `4408`, a klient łączy się ponownie i odświeża listę. Pomiar: `tests/integration/chat-inbox.test.ts` (60 wysyłek, lokalnie, prawdziwy PostgreSQL i gniazdo) od startu zapisu do ramki `conversation` p50 ok. 34 ms, p95 ok. 36 ms; cel p95 ≤ 2 s (D-08); wynik laboratoryjny, nie dowodzi produkcji.
+
 ## Granice
 
-Brak załączników, e-maili o czacie, statusu „online”, reakcji. Jedno połączenie obsługuje jedną firmę (superadmin łączy się osobno z każdą rozmową); zbiorczy kanał skrzynki platformy (wskaźnik nowych w liście rozmów) nie istnieje: lista pochodzi z `GET /api/platform/chat/conversations/`, a `unread` z `ready`/`sync`. `typing` ma limit na instancję i dodatkowy próg po stronie odbiorcy; przy kilku instancjach nadawca może przez krótko przekroczyć 1/s, odbiorca dostaje najwyżej 1/s na nadawcę.
+Brak załączników, e-maili o czacie, statusu „online”, reakcji. Jedno połączenie obsługuje jedną firmę (superadmin łączy się osobno z każdą rozmową); zbiorczy kanał skrzynki platformy opisuje sekcja „Kanał platformy” (#167); `unread` jednej rozmowy pochodzi z `ready`/`sync`, a listy z `GET /api/platform/chat/conversations/`. `typing` ma limit na instancję i dodatkowy próg po stronie odbiorcy; przy kilku instancjach nadawca może przez krótko przekroczyć 1/s, odbiorca dostaje najwyżej 1/s na nadawcę.

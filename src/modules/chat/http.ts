@@ -121,10 +121,13 @@ export async function getPlatformConversations(request: Request) {
     }
     const limitResult = await takeAuthenticatedApiLimit(prisma, { actorId: session.userId, organizationId: null }, "read");
     if (!limitResult.allowed) return response({ code: "RATE_LIMITED" }, 429, requestId, limitResult.retryAfter);
-    const params = query(request, ["limit", "cursor"]);
+    const params = query(request, ["limit", "cursor", "includeArchived"]);
     const limit = params ? pageSize(params.get("limit")) : null;
-    if (!params || limit === null) return response({ code: "INVALID_INPUT" }, 400, requestId);
+    const archived = params?.get("includeArchived") ?? null;
+    if (!params || limit === null || !(archived === null || archived === "true" || archived === "false")) {
+      return response({ code: "INVALID_INPUT" }, 400, requestId);
+    }
     return response(await listPlatformConversations(prisma, { actorId: session.userId, sessionId: session.sessionId },
-      { limit, cursor: params.get("cursor") ?? undefined }), 200, requestId);
+      { limit, cursor: params.get("cursor") ?? undefined, includeArchived: archived === "true" }), 200, requestId);
   } catch (error) { return failure(error, requestId); }
 }
