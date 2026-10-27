@@ -6,7 +6,8 @@ import { parseHostAuthority } from "@/modules/tenancy/host-registry";
 import { routeAllowedForArea } from "@/modules/tenancy/host-route-policy";
 import { requireRequestContext, resolveRequestArea } from "@/modules/tenancy/request-context";
 import { finalizeImageUpload } from "./finalize";
-import { rejectImageUpload, reserveVehicleImageUpload } from "./reservation";
+import { publicMediaKinds, rejectImageUpload, reservePublicMediaUpload, reserveVehicleImageUpload,
+  type PublicMediaKind } from "./reservation";
 import { createMediaStorage, stageBytes } from "./storage";
 import { declaredUploadLength, readUploadBody } from "./stream";
 
@@ -46,7 +47,7 @@ export function mediaFailure(error: unknown, requestId: string) {
   if (code === "MEDIA_DECODER_UNAVAILABLE") return response({ code }, 503, requestId, 30);
   if (code === "MEDIA_UPLOAD_REJECTED") return response({ code }, 409, requestId);
   if (code === "Audit actor is not authorized") return response({ code: "UNAUTHORIZED" }, 401, requestId);
-  if (code === "Audit tenant mismatch") return response({ code: "FORBIDDEN" }, 403, requestId);
+  if (code === "Audit tenant mismatch" || code === "MEDIA_FORBIDDEN") return response({ code: "FORBIDDEN" }, 403, requestId);
   if (code === "MEDIA_UPLOAD_TIMEOUT") return response({ code }, 408, requestId);
   if (code === "MEDIA_UPLOAD_ABORTED") return response({ code }, 400, requestId);
   if (["MEDIA_UNSUPPORTED_TYPE", "MEDIA_INVALID_IMAGE", "MEDIA_DECODE_FAILED", "MEDIA_MIME_MISMATCH"].includes(code))
@@ -58,11 +59,29 @@ export function mediaFailure(error: unknown, requestId: string) {
 const rejecting = new Set(["MEDIA_INVALID_SIZE", "MEDIA_UNSUPPORTED_TYPE", "MEDIA_INVALID_IMAGE",
   "MEDIA_DECODE_FAILED", "MEDIA_MIME_MISMATCH", "MEDIA_MEMORY_LIMIT", "MEDIA_DECODE_TIMEOUT"]);
 
+type UploadSubject = { vehicleId: string } | { kind: PublicMediaKind };
+
 /** This endpoint receives bytes only after scope, MFA, Origin and rate limit checks. */
 export async function uploadVehicleImage(request: Request, area: Area, vehicleId: string,
   targetOrganizationId?: string) {
+  return uploadImage(request, area, { vehicleId }, targetOrganizationId);
+}
+
+/** Company logo/hero/brand images reuse the vehicle pipeline; only the platform area may write them. */
+export async function uploadPublicMedia(request: Request, kind: string, targetOrganizationId: string) {
+  const upper = kind.toUpperCase();
   const requestId = randomUUID();
-  if (!uuid.test(vehicleId) || (area === "PLATFORM" && (!targetOrganizationId || !uuid.test(targetOrganizationId))))
+  if (kind !== kind.toLowerCase() || !publicMediaKinds.includes(upper as PublicMediaKind))
+    return response({ code: "INVALID_ID" }, 400, requestId);
+  return uploadImage(request, "PLATFORM", { kind: upper as PublicMediaKind }, targetOrganizationId, requestId);
+}
+
+async function uploadImage(request: Request, area: Area, subject: UploadSubject,
+  targetOrganizationId?: string, knownRequestId?: string) {
+  const requestId = knownRequestId ?? randomUUID();
+  const vehicleId = "vehicleId" in subject ? subject.vehicleId : undefined;
+  if ((vehicleId !== undefined && !uuid.test(vehicleId))
+    || (area === "PLATFORM" && (!targetOrganizationId || !uuid.test(targetOrganizationId))))
     return response({ code: "INVALID_ID" }, 400, requestId);
   try {
     const mapping = await resolveRequestArea(prisma, request.headers.get("host"));
@@ -83,8 +102,11 @@ export async function uploadVehicleImage(request: Request, area: Area, vehicleId
       "application/octet-stream"].includes(mime ?? "")) return response({ code: "INVALID_INPUT" }, 400, requestId);
     declaredUploadLength(request);
     const now = new Date();
-    const upload = await reserveVehicleImageUpload(prisma, { actorId: context.actorId,
-      sessionId: context.sessionId, organizationId, vehicleId, reservationKey, now });
+    const base = { actorId: context.actorId, sessionId: context.sessionId, organizationId,
+      reservationKey, now };
+    const upload = "kind" in subject
+      ? await reservePublicMediaUpload(prisma, { ...base, kind: subject.kind })
+      : await reserveVehicleImageUpload(prisma, { ...base, vehicleId: vehicleId! });
     if (upload.state === "REJECTED") return response({ code: "MEDIA_UPLOAD_REJECTED" }, 409, requestId);
     const storage = createMediaStorage();
     try {

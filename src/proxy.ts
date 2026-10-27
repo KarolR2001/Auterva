@@ -44,5 +44,6 @@ export async function proxy(request: NextRequest) {
 // Upload routes must reach their handler unbuffered: Next buffers the request body for
 // Proxy. Their handler repeats the host, area, route-policy, Origin and session checks.
 export const config = {
-  matcher: ["/((?!api/admin/vehicles/[^/]+/images/?$|api/platform/companies/[^/]+/vehicles/[^/]+/images/?$).*)"],
+  // The matcher must stay one static literal: Next cannot evaluate concatenation here.
+  matcher: ["/((?!api/admin/vehicles/[^/]+/images/?$|api/platform/companies/[^/]+/vehicles/[^/]+/images/?$|api/platform/companies/[^/]+/public-media/(?:logo|hero|brand)/?$).*)"],
 };
