@@ -1,5 +1,5 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
-import { enqueueMail } from "@/modules/jobs/outbox";
+import { enqueueMail, MailIntentError } from "@/modules/jobs/outbox";
 import { companyBoundary, loadReminderCompany } from "./current";
 import { lockReminderCompany, reconcileReminders } from "./reconcile";
 import { reminderMessage, type ReminderOffset } from "./slots";
@@ -77,15 +77,22 @@ async function deliverOne(db: PrismaClient, intentId: string, organizationId: st
   });
 }
 
-const MAX_DELIVERY_ATTEMPTS = 5;
+const MAX_TRANSIENT_ATTEMPTS = 12;
+const BACKOFF_BASE_MS = 30_000;
+const BACKOFF_CAP_MS = 30 * 60_000;
 
-/** A persistently failing intent becomes FAILED (DELIVERY_ERROR) so it cannot occupy the batch forever. */
-async function recordFailure(db: PrismaClient, intentId: string): Promise<void> {
-  await db.$executeRaw`
-    UPDATE "ReminderIntent" SET attempts = attempts + 1, "updatedAt" = now(),
-      status = CASE WHEN attempts + 1 >= ${MAX_DELIVERY_ATTEMPTS} THEN 'FAILED' ELSE status END,
-      "errorCode" = CASE WHEN attempts + 1 >= ${MAX_DELIVERY_ATTEMPTS} THEN 'DELIVERY_ERROR' ELSE "errorCode" END
-    WHERE id = ${intentId}::uuid AND status = 'PENDING'`;
+/**
+ * Permanent refusals (MailIntentError) finish the intent as FAILED at once. Any other error is treated
+ * as transient: exponential backoff (30 s doubling to 30 min, about 5 h in total over 12 tries) and only
+ * then FAILED. `seen` is the attempt count the sweep read, so parallel workers count one failure once.
+ */
+async function recordFailure(db: PrismaClient, intentId: string, seen: number, permanent: boolean, now: Date): Promise<void> {
+  const exhausted = permanent || seen + 1 >= MAX_TRANSIENT_ATTEMPTS;
+  const nextAt = new Date(now.getTime() + Math.min(BACKOFF_BASE_MS * 2 ** seen, BACKOFF_CAP_MS));
+  await db.reminderIntent.updateMany({ where: { id: intentId, status: "PENDING", attempts: seen },
+    data: exhausted
+      ? { status: "FAILED", attempts: seen + 1, errorCode: permanent ? "DELIVERY_REJECTED" : "DELIVERY_ERROR" }
+      : { attempts: seen + 1, nextAttemptAt: nextAt } });
 }
 
 /** Mirrors the final mail outcome onto the intent (SENT means accepted by the provider). */
@@ -121,14 +128,15 @@ export async function processDueReminders(db: PrismaClient, now: Date, key: Buff
   const only = onlyOrganizations ? [...onlyOrganizations] : null;
   await isolated(() => healPlans(db, now, key, only));
   const due = await db.reminderIntent.findMany({ where: { status: "PENDING", slotAt: { lte: now },
+    OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
     ...(only ? { organizationId: { in: only } } : {}) },
-    orderBy: [{ slotAt: "asc" }, { id: "asc" }], take: BATCH,
-    select: { id: true, organizationId: true } });
+  orderBy: [{ slotAt: "asc" }, { id: "asc" }], take: BATCH,
+  select: { id: true, organizationId: true, attempts: true } });
   for (const item of due) {
     try { await deliverOne(db, item.id, item.organizationId, now, key); }
-    catch {
-      process.stderr.write("Reminder delivery failed; will retry\n");
-      await isolated(() => recordFailure(db, item.id));
+    catch (error) {
+      process.stderr.write("Reminder delivery failed; will retry or stop\n");
+      await isolated(() => recordFailure(db, item.id, item.attempts, error instanceof MailIntentError, now));
     }
   }
   await isolated(() => syncOutcomes(db, only));

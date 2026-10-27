@@ -580,6 +580,7 @@ model ReminderIntent {
   deliveredAt     DateTime?    @db.Timestamptz(6)
   errorCode       String?
   attempts        Int          @default(0)
+  nextAttemptAt   DateTime?    @db.Timestamptz(6)
   createdAt       DateTime     @default(now()) @db.Timestamptz(6)
   updatedAt       DateTime     @default(now()) @updatedAt @db.Timestamptz(6)
   organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)

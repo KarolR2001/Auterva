@@ -27,6 +27,7 @@ CREATE TABLE "ReminderIntent" (
   "deliveredAt" TIMESTAMPTZ(6),
   "errorCode" TEXT,
   "attempts" INTEGER NOT NULL DEFAULT 0,
+  "nextAttemptAt" TIMESTAMPTZ(6),
   "createdAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "ReminderIntent_pkey" PRIMARY KEY ("id"),

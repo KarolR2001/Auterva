@@ -499,7 +499,7 @@ test("a failing item does not starve the rest of the sweep and stays retryable",
     expect(await intents(c.organizationId, { channel: "EMAIL", offsetDays: 7, status: "PENDING" })).toHaveLength(1);
   }
   const w = worker();
-  await tick(due, w); // the outbox recovers: both e-mails go out once
+  await tick(new Date(due.getTime() + 60_000), w); // outbox recovered and the 30 s backoff has passed: both go out once
   expect(sentTo(w, broken)).toHaveLength(1);
   expect(sentTo(w, healthy)).toHaveLength(1);
 });
@@ -515,7 +515,7 @@ test("catch-up before expiry speaks from the send day: a -7 mail sent the day be
   expect(mails.every((mail) => mail.text.includes("(jutro)") && !mail.text.includes("za 7 dni"))).toBe(true);
 });
 
-test("persistently failing intents become FAILED and cannot starve a healthy one beyond the batch", async () => {
+test("permanently rejected intents become FAILED at once and cannot starve a healthy one beyond the batch", async () => {
   const start = at("2026-10-18T10:00:00.000Z");
   const bad: Company[] = [];
   for (let index = 0; index < 51; index++) {
@@ -530,6 +530,45 @@ test("persistently failing intents become FAILED and cannot starve a healthy one
   const due = at("2026-11-01T10:00:00.000Z"); // every slot overdue; bad ones sort first by slotAt
   for (let pass = 0; pass < 30; pass++) await processDueReminders(db, due, key, ids);
   expect(await db.reminderIntent.count({ where: { organizationId: { in: bad.map((c) => c.organizationId) },
-    channel: "EMAIL", status: "FAILED", errorCode: "DELIVERY_ERROR" } })).toBe(51 * 3);
+    channel: "EMAIL", status: "FAILED", errorCode: "DELIVERY_REJECTED" } })).toBe(51 * 3);
   expect(await intents(good.organizationId, { channel: "EMAIL", status: "QUEUED" })).toHaveLength(3);
+});
+
+test("transient failures back off and recover to exactly one delivery without ever turning FAILED", async () => {
+  const start = at("2026-10-18T10:00:00.000Z");
+  const c = await company({ registeredAt: start, trial: true });
+  await plan(c.organizationId, start);
+  const due = at("2026-10-25T08:00:00.000Z");
+  const failing = db.$extends({ query: { job: { async createMany() { throw new Error("connection reset"); } } } }) as typeof db;
+  const row = () => db.reminderIntent.findFirstOrThrow({ where: { organizationId: c.organizationId, channel: "EMAIL", offsetDays: 7 } });
+  await processDueReminders(failing, due, key, [c.organizationId]);
+  expect(await row()).toMatchObject({ status: "PENDING", attempts: 1 });
+  await processDueReminders(failing, new Date(due.getTime() + 5_000), key, [c.organizationId]); // inside backoff: skipped
+  expect((await row()).attempts).toBe(1);
+  for (const minutes of [1, 3, 8]) await processDueReminders(failing, new Date(due.getTime() + minutes * 60_000), key, [c.organizationId]);
+  expect(await row()).toMatchObject({ status: "PENDING", attempts: 4 });
+  const w = worker();
+  await tick(new Date(due.getTime() + 60 * 60_000), w); // outbox healthy again
+  await tick(new Date(due.getTime() + 61 * 60_000), w);
+  expect(sentTo(w, c)).toHaveLength(1);
+  expect(await db.job.count({ where: { organizationId: c.organizationId } })).toBe(1);
+  expect((await row()).status).toBe("DELIVERED");
+});
+
+test("a persistent transient-looking failure ends FAILED only after the whole backoff window; parallel sweeps count once", async () => {
+  const start = at("2026-10-18T10:00:00.000Z");
+  const c = await company({ registeredAt: start, trial: true });
+  await plan(c.organizationId, start);
+  const due = at("2026-10-25T08:00:00.000Z");
+  const failing = db.$extends({ query: { job: { async createMany() { throw new Error("pool timeout"); } } } }) as typeof db;
+  const failingSecond = secondDb.$extends({ query: { job: { async createMany() { throw new Error("pool timeout"); } } } }) as typeof db;
+  const row = () => db.reminderIntent.findFirstOrThrow({ where: { organizationId: c.organizationId, channel: "EMAIL", offsetDays: 7 } });
+  await Promise.all([processDueReminders(failing, due, key, [c.organizationId]),
+    processDueReminders(failingSecond, due, key, [c.organizationId])]);
+  expect((await row()).attempts).toBe(1);
+  for (let index = 1; index < 12; index++) {
+    expect((await row()).status).toBe("PENDING");
+    await processDueReminders(failing, new Date(due.getTime() + index * 2 * HOUR), key, [c.organizationId]);
+  }
+  expect(await row()).toMatchObject({ status: "FAILED", errorCode: "DELIVERY_ERROR", attempts: 12 });
 });
