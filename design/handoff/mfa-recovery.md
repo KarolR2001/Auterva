@@ -49,3 +49,10 @@ Istniejący 07C pozostaje wyłącznie ręczną procedurą po utracie obu czynnik
 - FLOW-MVP-03/05 M/D jest historyczną kompozycją enrollmentu z QR i dawnym CTA obiecującym wejście prosto do panelu. Nie jest wzorcem implementacji #15 ani punktem wejścia do posiadanego kodu. Kanoniczny enrollment to FLOW-MVP-02/07 M/D z rzeczywistym przejściem do 07G. W `traceability.json` historyczny board jest jawnie niekanoniczny.
 
 Punkty odtworzenia przed zmianą istniejących boardów: mobilny 07 `89433e5c-4f5c-80ad-8008-d97b37d40aed`, desktopowy 07 `89433e5c-4f5c-80ad-8008-d9828ebb77b1`, mobilny 07B `89433e5c-4f5c-80ad-8008-d9850d4478d6`, desktopowy 07B `89433e5c-4f5c-80ad-8008-d9852ee48871`. Są ukrytymi kopiami właściwych boardów w tym samym pliku; ich odtworzenie nie wymaga cofnięcia całego pliku. Dodane stany M/D używają wyłącznie pięciu zatwierdzonych kolorów oraz Inter; finalne rendery 390/1440 px sprawdzono w Chromium z załadowanym fontem.
+
+## Odczyt live i korekty (Frontend, #132)
+
+- Odczyt interakcji M i D potwierdził pełny graf: 07D/07D1/07D3 → 07E (07D1 → 07D2), 07E → 07 → 07G → panel; 07I → 07J → 07G, 07J1 → 07I; 07D2 bez akcji (disabled). Zgodne z listą M i D.
+- Korekta: przycisk „Potwierdź kod” w 07B (M i D) miał pusty cel `navigate-to`; ustawiono panel FLOW-MVP-02 08 (M `4e2ad814-13be-80ec-8008-cc9917133544`, D `4e2ad814-13be-80ec-8008-cc9750a70b0f`). W M/07B API wtyczki nie usunęło starej, pustej akcji, więc przycisk ma dwie akcje o tym samym celu; do sprzątnięcia ręcznie.
+- Wynik dynamicznej weryfikacji TOTP nadal rozstrzyga serwer; prototyp pokazuje tylko ścieżkę sukcesu.
+- Otwarte: etykiety przycisków w nowych boardach (x+76/80, wyrównanie do lewej) są przesunięte względem środka przycisku; zamierzone `align: center` nie zostało potwierdzone zapisem (timeout), wymaga odczytu i poprawy.
