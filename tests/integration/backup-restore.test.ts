@@ -325,6 +325,10 @@ test("a missing required media object invalidates the backup set and alarms inst
 });
 
 test("restoring company A returns A to the backup state while B keeps its newer state and audit is never overwritten", async () => {
+  // In the backup the second user is the ACTIVE administrator (the first one is disabled), so the restore itself,
+  // not the seed, must lock the recreated account.
+  await live.query(`UPDATE "user" SET "disabledAt" = now() WHERE id = $1`, [ids.adminA]);
+  await live.query(`UPDATE "user" SET "disabledAt" = NULL WHERE id = $1`, [ids.adminA2]);
   const { dir } = await createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" });
   const aAtBackup = await company(live, A);
 
@@ -341,6 +345,9 @@ test("restoring company A returns A to the backup state while B keeps its newer 
   await live.query(`UPDATE "account" SET password = 'rotated-live-hash' WHERE "userId" = $1`, [ids.adminA]);
   await live.query(`UPDATE "twoFactor" SET secret = 'rotated-secret', "failedVerificationCount" = 3, "lockedUntil" = now() + interval '1 hour' WHERE "userId" = $1`, [ids.adminA]);
   await live.query(`DELETE FROM "user" WHERE id = $1`, [ids.adminA2]);
+  // B7: the payment change after the backup produced intents for the new boundary; they must outlive the restore.
+  await live.query(`INSERT INTO "ReminderIntent" (id, "organizationId", "effectiveEndsAt", "offsetDays", channel, "slotAt", source, "periodVersion", status)
+    VALUES ($1, $2, now() + interval '60 days', 7, 'EMAIL', now() + interval '53 days', 'PAID', 5, 'PENDING')`, [randomUUID(), A]);
   // N5: an idempotency receipt of A and one of B.
   for (const org of [A, B]) {
     await live.query(`INSERT INTO "OperationReceipt" (id, "organizationId", "actorId", area, operation, "idempotencyKey", "inputHash", result)
@@ -379,12 +386,15 @@ test("restoring company A returns A to the backup state while B keeps its newer 
   expect((await live.query(`SELECT password FROM "account" WHERE "userId" = $1`, [ids.adminA])).rows).toEqual([{ password: "rotated-live-hash" }]);
   expect((await live.query(`SELECT secret, "failedVerificationCount" AS f, "lockedUntil" IS NOT NULL AS locked FROM "twoFactor" WHERE "userId" = $1`, [ids.adminA])).rows)
     .toEqual([{ secret: "rotated-secret", f: 3, locked: true }]);
-  const recreated = (await live.query(`SELECT a.password, u."twoFactorEnabled" AS mfa FROM "user" u JOIN "account" a ON a."userId" = u.id WHERE u.id = $1`, [ids.adminA2])).rows;
-  expect(recreated).toHaveLength(1);
-  expect(recreated[0].password).not.toContain("backup-hash");
-  expect(recreated[0].password).toMatch(/^[0-9a-f]{32}:[0-9a-f]{128}$/);
-  expect(recreated[0].mfa).toBe(false);
+  // B6: the recreated user is locked: disabled, no credential account at all, no MFA factor, MFA flag off.
+  const recreated = (await live.query(`SELECT "disabledAt" IS NOT NULL AS locked, "twoFactorEnabled" AS mfa FROM "user" WHERE id = $1`, [ids.adminA2])).rows;
+  expect(recreated).toEqual([{ locked: true, mfa: false }]);
+  expect((await live.query(`SELECT count(*)::int AS n FROM "account" WHERE "userId" = $1`, [ids.adminA2])).rows[0].n).toBe(0);
   expect((await live.query(`SELECT count(*)::int AS n FROM "twoFactor" WHERE "userId" = $1`, [ids.adminA2])).rows[0].n).toBe(0);
+  expect(report.usersLocked).toEqual([ids.adminA2]);
+  // B7: intents of the new boundary survive (plan stays live); the quarantine still skips the stale queued one.
+  expect((await live.query(`SELECT status FROM "ReminderIntent" WHERE "organizationId" = $1 ORDER BY status`, [A])).rows)
+    .toEqual([{ status: "PENDING" }, { status: "SKIPPED" }]);
   // N5: A's receipt is gone, B's stays. B2: the platform reset request stays open.
   expect((await live.query(`SELECT count(*)::int AS n FROM "OperationReceipt" WHERE "organizationId" = $1`, [A])).rows[0].n).toBe(0);
   expect((await live.query(`SELECT count(*)::int AS n FROM "OperationReceipt" WHERE "organizationId" = $1`, [B])).rows[0].n).toBe(1);
@@ -434,6 +444,8 @@ test("a slug or host taken by another company aborts the company restore and rol
   await expect(restoreCompany({ backupDir: dir, key, organizationId: A, targetUrl: databaseUrl, repoDir, operatorId: operator, storage }))
     .rejects.toMatchObject({ code: "RESTORE_HOST_CONFLICT" });
   await live.query(`UPDATE "HostMapping" SET hostname = $2 WHERE "organizationId" = $1`, [B, `bk-b-${tag}.example.test`]);
+  await live.query(`UPDATE "HostMapping" SET hostname = $2 WHERE "organizationId" = $1`, [A, `bk-a-${tag}.example.test`]);
+  await live.query(`UPDATE "Organization" SET slug = $2 WHERE id = $1`, [A, `bk-a-${tag}`]);
   await expect(restoreCompany({ backupDir: dir, key, organizationId: randomUUID(), targetUrl: databaseUrl, repoDir, operatorId: operator, storage }))
     .rejects.toMatchObject({ code: "RESTORE_COMPANY_NOT_IN_BACKUP" });
 });
@@ -526,6 +538,77 @@ test("N7/N8/N9: unreadable old sets are pruned, child tools get no secrets, a fo
     const env = pgEnv("postgresql://u:p@127.0.0.1:1/db").env;
     expect(Object.keys(env).sort()).toEqual(["LANG", "PATH", "PGDATABASE", "PGHOST", "PGPASSWORD", "PGPORT", "PGUSER"]);
   } finally { delete process.env.BACKUP_ENCRYPTION_KEY; }
+});
+
+test("B6: a user recreated by a restore cannot reset the password or sign in; the audited operator procedure restores access", async () => {
+  const { createPrismaClient } = await import("../../src/lib/prisma");
+  const { requestPasswordReset } = await import("../../src/modules/auth/account-operations");
+  const { recoverMfaByOperator } = await import("../../scripts/recover-mfa");
+  const db = createPrismaClient(databaseUrl);
+  const email = `bk-a2-${tag}@example.test`;
+  const reset = () => requestPasswordReset(db, { email, idempotencyKey: randomUUID(), scope: { area: "COMPANY_ADMIN", organizationId: A },
+    hostname: `bk-a-${tag}.example.test`, now: new Date(), mailKey: Buffer.from(process.env.MAIL_PAYLOAD_KEY!, "hex") });
+  try {
+    // The previous test left adminA2 locked (recreated). A reset request is accepted neutrally but issues nothing.
+    expect((await live.query(`SELECT "disabledAt" IS NOT NULL AS locked FROM "user" WHERE id = $1`, [ids.adminA2])).rows).toEqual([{ locked: true }]);
+    await reset();
+    expect((await live.query(`SELECT count(*)::int AS n FROM "verification" WHERE identifier = $1`, [`password-reset:${email}`])).rows[0].n).toBe(0);
+    // Sign-in cannot succeed either: no credential password exists and the account is disabled.
+    expect((await live.query(`SELECT count(*)::int AS n FROM "account" WHERE "userId" = $1 AND password IS NOT NULL`, [ids.adminA2])).rows[0].n).toBe(0);
+    // One active administrator per company: the recovered account can only be enabled when no other one is active.
+    await live.query(`UPDATE "user" SET "disabledAt" = NULL WHERE id = $1`, [ids.adminA]);
+    await expect(recoverMfaByOperator(db, { operatorId: operator, targetEmail: email, verifiedChannel: "agreed-channel",
+      evidenceReference: `ticket:bk-${tag}`, identityConfirmed: true })).rejects.toThrow();
+    expect((await live.query(`SELECT "disabledAt" IS NOT NULL AS locked FROM "user" WHERE id = $1`, [ids.adminA2])).rows).toEqual([{ locked: true }]);
+    await live.query(`UPDATE "user" SET "disabledAt" = now() WHERE id = $1`, [ids.adminA]);
+    await recoverMfaByOperator(db, { operatorId: operator, targetEmail: email, verifiedChannel: "agreed-channel",
+      evidenceReference: `ticket:bk-${tag}`, identityConfirmed: false }).then(() => { throw new Error("must refuse without confirmation"); }, () => undefined);
+    const recovered = await recoverMfaByOperator(db, { operatorId: operator, targetEmail: email, verifiedChannel: "agreed-channel",
+      evidenceReference: `ticket:bk-${tag}`, identityConfirmed: true });
+    expect(recovered.restoreUnlocked).toBe(true);
+    expect((await live.query(`SELECT "disabledAt" IS NULL AS enabled FROM "user" WHERE id = $1`, [ids.adminA2])).rows).toEqual([{ enabled: true }]);
+    const audit = (await live.query(`SELECT "actorRole", action, "safeChanges" FROM "AuditLog" WHERE "entityId" = $1 AND action = 'MFA_OPERATOR_RECOVERY'`, [ids.adminA2])).rows;
+    expect(audit).toHaveLength(1);
+    expect(audit[0]).toMatchObject({ actorRole: "OPERATOR", safeChanges: { restoreUnlock: true, next: "totp-enrollment" } });
+    // Now the owner uses the normal reset; before the unlock this issued nothing.
+    await reset();
+    expect((await live.query(`SELECT count(*)::int AS n FROM "verification" WHERE identifier = $1`, [`password-reset:${email}`])).rows[0].n).toBe(1);
+  } finally {
+    await db.$disconnect();
+  }
+});
+
+test("N14: a credential change committed while the restore waits on the live credential rows is not overwritten", async () => {
+  const { dir } = await createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" });
+  const writer = await connect(databaseUrl);
+  await writer.query("BEGIN");
+  await writer.query(`UPDATE "account" SET password = 'raced-hash' WHERE "userId" = $1`, [ids.adminA]);
+  const restoring = restoreCompany({ backupDir: dir, key, organizationId: A, targetUrl: databaseUrl, repoDir, operatorId: operator, storage });
+  const probe = await connect(databaseUrl);
+  let waiting = 0;
+  for (let attempt = 0; attempt < 400 && waiting === 0; attempt++) {
+    waiting = (await probe.query(`SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database()
+      AND wait_event_type = 'Lock' AND query ILIKE '%FOR UPDATE OF t%'`)).rows[0].n;
+    if (waiting === 0) await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  await probe.end();
+  expect(waiting).toBe(1);
+  await writer.query("COMMIT");
+  await writer.end();
+  expect((await restoring).ok).toBe(true);
+  expect((await live.query(`SELECT password FROM "account" WHERE "userId" = $1`, [ids.adminA])).rows).toEqual([{ password: "raced-hash" }]);
+});
+
+test("N16/N17: a read error on the dump stops the tool instead of hanging it; TLS settings reach the tools", async () => {
+  const { runToolWithInput, pgEnv } = await import("../../src/modules/backup/core");
+  const { decryptedStream } = await import("../../src/modules/backup/restore");
+  await expect(runToolWithInput("cat", [], { PATH: process.env.PATH } as unknown as NodeJS.ProcessEnv, decryptedStream(join(outDir, "missing.dump.enc"), key)))
+    .rejects.toMatchObject({ code: "ENOENT" });
+  const viaUrl = pgEnv("postgresql://u:p@db.example.invalid:5432/app?sslmode=verify-full&sslrootcert=/certs/ca.pem", { PATH: "/bin", BACKUP_ENCRYPTION_KEY: "secret" } as unknown as NodeJS.ProcessEnv).env;
+  expect(viaUrl).toMatchObject({ PGSSLMODE: "verify-full", PGSSLROOTCERT: "/certs/ca.pem" });
+  expect(viaUrl.BACKUP_ENCRYPTION_KEY).toBeUndefined();
+  const viaEnv = pgEnv("postgresql://u:p@db.example.invalid:5432/app", { PATH: "/bin", PGSSLMODE: "require", PGSSLROOTCERT: "/c.pem" } as unknown as NodeJS.ProcessEnv).env;
+  expect(viaEnv).toMatchObject({ PGSSLMODE: "require", PGSSLROOTCERT: "/c.pem" });
 });
 
 test("retention keeps 30 days and the newest complete set; the age check alarms on a stale backup", async () => {

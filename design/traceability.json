@@ -840,6 +840,8 @@
         "src/modules/backup/restore.ts",
         "src/modules/backup/company.ts",
         "scripts/backup-restore.ts",
+        "scripts/recover-mfa.ts",
+        "src/modules/audit/operator.ts",
         "docs/runbooks/backup-restore.md",
         "docs/contracts/environments-hosts-operations.md"
       ],

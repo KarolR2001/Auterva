@@ -1,6 +1,8 @@
 import { spawn } from "node:child_process";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { createReadStream } from "node:fs";
+import { pipeline } from "node:stream/promises";
+import type { Readable } from "node:stream";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Client } from "pg";
@@ -41,6 +43,14 @@ export function pgEnv(url: string, base: NodeJS.ProcessEnv = process.env) {
   // Credentials travel in the environment only, never in argv or logs.
   // Child tools get a minimal environment: no BACKUP_ENCRYPTION_KEY, S3 credentials or app secrets.
   const env = { PATH: base.PATH, LANG: base.LANG ?? "C", PGHOST: parsed.hostname, PGPORT: parsed.port || "5432", PGDATABASE: database } as unknown as NodeJS.ProcessEnv;
+  // TLS settings must reach the tools: a remote target may never silently degrade to an unverified connection.
+  for (const name of ["PGSSLMODE", "PGSSLROOTCERT", "PGSSLCERT", "PGSSLKEY", "PGSSLCRL"] as const) {
+    if (base[name]) env[name] = base[name];
+  }
+  const sslmode = parsed.searchParams.get("sslmode");
+  if (sslmode) env.PGSSLMODE = sslmode;
+  const sslrootcert = parsed.searchParams.get("sslrootcert");
+  if (sslrootcert) env.PGSSLROOTCERT = sslrootcert;
   if (parsed.username) env.PGUSER = decodeURIComponent(parsed.username);
   if (parsed.password) env.PGPASSWORD = decodeURIComponent(parsed.password);
   return { env, database, host: parsed.hostname, port: parsed.port || "5432" };
@@ -90,9 +100,8 @@ export async function runToolWithInput(command: string, args: string[], env: Nod
     child.stderr.on("data", (chunk: Buffer) => { stderr = (stderr + chunk.toString()).slice(-2000); });
     child.on("error", reject);
     child.on("close", (code) => (code === 0 ? resolve() : reject(toolFailure(command, code, stderr))));
-    child.stdin.on("error", () => undefined);
-    input.on("error", (error) => { child.kill(); reject(error); });
-    input.pipe(child.stdin);
+    // pipeline (not .pipe) propagates a read error: the tool is stopped instead of waiting on stdin forever.
+    pipeline(input as Readable, child.stdin).catch((error) => { child.kill(); reject(error); });
   });
 }
 

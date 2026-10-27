@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
-import { Writable } from "node:stream";
+import { Writable, type Readable } from "node:stream";
 import { CreateBucketCommand, DeleteObjectCommand, HeadObjectCommand, ListObjectsV2Command, PutObjectCommand } from "@aws-sdk/client-s3";
 import type { MediaStorage } from "../media/storage";
 import { assertOwnFixtureCluster } from "../../../scripts/fixture-safety";
@@ -49,6 +49,13 @@ export async function assertRestoreTarget(input: {
   } finally {
     await control.end();
   }
+}
+
+/** Decrypting read stream whose source errors (missing or unreadable file) surface on the returned stream. */
+export function decryptedStream(path: string, key: Buffer): Readable {
+  const decrypted = createDecryptor(key);
+  pipeline(createReadStream(path), decrypted).catch((error) => decrypted.destroy(error as Error));
+  return decrypted;
 }
 
 export async function decryptToBuffer(source: string, key: Buffer): Promise<Buffer> {
@@ -259,7 +266,7 @@ export async function restoreFull(input: {
   const uploaded: string[] = [];
   try {
     await runToolWithInput("pg_restore", ["--no-owner", "--no-privileges", "--exit-on-error", `--dbname=${database}`], env,
-      createReadStream(join(input.backupDir, manifest.db.file)).pipe(createDecryptor(input.key)));
+      decryptedStream(join(input.backupDir, manifest.db.file), input.key));
     lap("pg_restore");
     const db = await connect(input.targetUrl);
     try {
