@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -39,7 +39,8 @@ export function pgEnv(url: string, base: NodeJS.ProcessEnv = process.env) {
   const database = decodeURIComponent(parsed.pathname.slice(1));
   if (!database) throw new BackupError("BACKUP_DATABASE_URL_INVALID");
   // Credentials travel in the environment only, never in argv or logs.
-  const env: NodeJS.ProcessEnv = { ...base, PGHOST: parsed.hostname, PGPORT: parsed.port || "5432", PGDATABASE: database };
+  // Child tools get a minimal environment: no BACKUP_ENCRYPTION_KEY, S3 credentials or app secrets.
+  const env = { PATH: base.PATH, LANG: base.LANG ?? "C", PGHOST: parsed.hostname, PGPORT: parsed.port || "5432", PGDATABASE: database } as unknown as NodeJS.ProcessEnv;
   if (parsed.username) env.PGUSER = decodeURIComponent(parsed.username);
   if (parsed.password) env.PGPASSWORD = decodeURIComponent(parsed.password);
   return { env, database, host: parsed.hostname, port: parsed.port || "5432" };
@@ -78,6 +79,20 @@ export async function runTool(command: string, args: string[], env: NodeJS.Proce
     child.stdout.on("data", (chunk: Buffer) => { stdout += chunk.toString(); });
     child.on("error", reject);
     child.on("close", (code) => (code === 0 ? resolve(stdout) : reject(toolFailure(command, code, stderr))));
+  });
+}
+
+export async function runToolWithInput(command: string, args: string[], env: NodeJS.ProcessEnv,
+  input: NodeJS.ReadableStream): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { env, stdio: ["pipe", "ignore", "pipe"] });
+    let stderr = "";
+    child.stderr.on("data", (chunk: Buffer) => { stderr = (stderr + chunk.toString()).slice(-2000); });
+    child.on("error", reject);
+    child.on("close", (code) => (code === 0 ? resolve() : reject(toolFailure(command, code, stderr))));
+    child.stdin.on("error", () => undefined);
+    input.on("error", (error) => { child.kill(); reject(error); });
+    input.pipe(child.stdin);
   });
 }
 
@@ -175,7 +190,9 @@ export async function readManifest(backupDir: string, key: Buffer): Promise<Mani
   try { parsed = JSON.parse(await readFile(join(backupDir, "manifest.json"), "utf8")) as Manifest; }
   catch { throw new BackupError("BACKUP_MANIFEST_MISSING"); }
   const { mac, ...rest } = parsed;
-  if (!mac || manifestMac(key, canonicalJson(rest)) !== mac) {
+  const expected = Buffer.from(manifestMac(key, canonicalJson(rest)), "hex");
+  const given = Buffer.from(typeof mac === "string" ? mac : "", "hex");
+  if (given.length !== expected.length || !timingSafeEqual(given, expected)) {
     throw new BackupCryptoError("BACKUP_AUTH_FAILED", "Manifest authentication failed (wrong key or edited manifest)");
   }
   if (parsed.formatVersion !== 1) throw new BackupError("BACKUP_FORMAT_UNSUPPORTED");

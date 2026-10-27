@@ -30,7 +30,7 @@ const repoDir = resolve(".");
 const A = randomUUID();
 const B = randomUUID();
 const ids = {
-  adminA: `bk-admin-a-${tag}`, adminB: `bk-admin-b-${tag}`,
+  adminA: `bk-admin-a-${tag}`, adminA2: `bk-admin-a2-${tag}`, adminB: `bk-admin-b-${tag}`,
   vehA1: randomUUID(), vehA2: randomUUID(), vehB1: randomUUID(),
   imgA: randomUUID(), imgB: randomUUID(), convA: randomUUID(), convB: randomUUID(),
 };
@@ -72,7 +72,7 @@ async function company(db: typeof live, org: string) {
     images: await rows(`SELECT id, "storageKey", status FROM "VehicleImage" WHERE "organizationId" = $1 ORDER BY id`),
     hosts: await rows(`SELECT id, hostname, status FROM "HostMapping" WHERE "organizationId" = $1 ORDER BY id`),
     messages: await rows(`SELECT id, body, seq FROM "ChatMessage" WHERE "organizationId" = $1 ORDER BY seq`),
-    access: await rows(`SELECT "paidThrough"::text FROM "ServiceAccess" WHERE "organizationId" = $1`),
+    conversation: await rows(`SELECT "lastSeq" FROM "Conversation" WHERE "organizationId" = $1`),
   };
 }
 async function others(db: typeof live, org: string) {
@@ -129,6 +129,23 @@ beforeAll(async () => {
   };
   await seed(A, `bk-a-${tag}`, ids.adminA, `bk-a-${tag}@example.test`, [ids.vehA1, ids.vehA2], ids.imgA, ids.convA, keyA, `bk-a-${tag}.example.test`);
   await seed(B, `bk-b-${tag}`, ids.adminB, `bk-b-${tag}@example.test`, [ids.vehB1], ids.imgB, ids.convB, keyB, `bk-b-${tag}.example.test`);
+  // Credentials: both admins have an account and an MFA factor; A also has a disabled second user.
+  for (const [org, admin] of [[A, ids.adminA], [B, ids.adminB]]) {
+    await live.query(`INSERT INTO "account" (id, "accountId", "providerId", "userId", password, "updatedAt") VALUES ($1, $2, 'credential', $2, $3, now())`,
+      [randomUUID(), admin, `salt-${admin}:backup-hash-${admin}`]);
+    await live.query(`INSERT INTO "twoFactor" (id, secret, "backupCodes", "userId") VALUES ($1, $2, $3, $4)`, [randomUUID(), `secret-${admin}`, `codes-${admin}`, admin]);
+    await live.query(`INSERT INTO "PasswordResetRequest" (id, "requestKeyHash", "inputHash", "userId", hostname, area, "organizationId", "expiresAt")
+      VALUES ($1, $2, $3, $4, 'h.example.test', 'COMPANY_ADMIN', $5, now() + interval '1 hour')`, [randomUUID(), randomBytes(32).toString("hex"), randomBytes(32).toString("hex"), admin, org]);
+    await live.query(`INSERT INTO "ReminderIntent" (id, "organizationId", "effectiveEndsAt", "offsetDays", channel, "slotAt", source, "periodVersion", status)
+      VALUES ($1, $2, now() + interval '30 days', 7, 'EMAIL', now() - interval '1 day', 'PAID', 0, 'QUEUED')`, [randomUUID(), org]);
+  }
+  await live.query(`INSERT INTO "user" (id, name, email, "emailVerified", "twoFactorEnabled", role, "organizationId", "disabledAt", "createdAt", "updatedAt")
+    VALUES ($1, 'Second A', $2, true, true, 'ADMIN_FIRMY', $3, now(), now(), now())`, [ids.adminA2, `bk-a2-${tag}@example.test`, A]);
+  await live.query(`INSERT INTO "account" (id, "accountId", "providerId", "userId", password, "updatedAt") VALUES ($1, $2, 'credential', $2, 'salt-a2:backup-hash-a2', now())`, [randomUUID(), ids.adminA2]);
+  await live.query(`INSERT INTO "twoFactor" (id, secret, "backupCodes", "userId") VALUES ($1, 'secret-a2', 'codes-a2', $2)`, [randomUUID(), ids.adminA2]);
+  // A platform-level reset request (no company) must survive a company restore and block nothing.
+  await live.query(`INSERT INTO "PasswordResetRequest" (id, "requestKeyHash", "inputHash", "userId", hostname, area, "organizationId", "expiresAt")
+    VALUES ($1, $2, $3, 'platform-user', 'p.example.test', 'PLATFORM', NULL, now() + interval '1 hour')`, [randomUUID(), randomBytes(32).toString("hex"), randomBytes(32).toString("hex")]);
 });
 
 afterAll(async () => {
@@ -316,7 +333,19 @@ test("restoring company A returns A to the backup state while B keeps its newer 
   await live.query(`DELETE FROM "Vehicle" WHERE id = $1`, [ids.vehA2]);
   await live.query(`INSERT INTO "Vehicle" (id, "organizationId", slug, name) VALUES ($1, $2, $3, 'added after backup')`, [randomUUID(), A, `bk-a-new-${tag}`]);
   await live.query(`DELETE FROM "ChatMessage" WHERE "organizationId" = $1 AND seq = 2`, [A]);
-  await live.query(`UPDATE "ServiceAccess" SET "paidThrough" = '2030-01-01' WHERE "organizationId" = $1`, [A]);
+  await live.query(`UPDATE "ServiceAccess" SET "paidThrough" = '2030-01-01', "periodVersion" = 5 WHERE "organizationId" = $1`, [A]);
+  // N4: a message written after the backup advances the sequence; restore must never hand that number out again.
+  await live.query(`INSERT INTO "ChatMessage" (id, "organizationId", "conversationId", "senderId", "clientMessageId", body) VALUES ($1, $2, $3, $4, $5, 'after backup')`,
+    [randomUUID(), A, ids.convA, ids.adminA, randomUUID()]);
+  // B3: credentials changed after the backup (incident response) must survive; a user removed after it is recreated unusable.
+  await live.query(`UPDATE "account" SET password = 'rotated-live-hash' WHERE "userId" = $1`, [ids.adminA]);
+  await live.query(`UPDATE "twoFactor" SET secret = 'rotated-secret', "failedVerificationCount" = 3, "lockedUntil" = now() + interval '1 hour' WHERE "userId" = $1`, [ids.adminA]);
+  await live.query(`DELETE FROM "user" WHERE id = $1`, [ids.adminA2]);
+  // N5: an idempotency receipt of A and one of B.
+  for (const org of [A, B]) {
+    await live.query(`INSERT INTO "OperationReceipt" (id, "organizationId", "actorId", area, operation, "idempotencyKey", "inputHash", result)
+      VALUES ($1, $2, 'bk-actor', 'x', 'y', $3, 'h', '{}'::jsonb)`, [randomUUID(), org, randomUUID()]);
+  }
   await live.query(`UPDATE "Vehicle" SET name = 'changed B' WHERE id = $1`, [ids.vehB1]);
   await live.query(`INSERT INTO "Vehicle" (id, "organizationId", slug, name) VALUES ($1, $2, $3, 'added B')`, [randomUUID(), B, `bk-b-new-${tag}`]);
   await live.query(`DELETE FROM "ChatMessage" WHERE "organizationId" = $1 AND seq = 1`, [B]);
@@ -340,7 +369,28 @@ test("restoring company A returns A to the backup state while B keeps its newer 
   expect(report.otherCompaniesUnchanged).toBe(true);
 
   const aAfter = await company(live, A);
-  expect(aAfter).toEqual(aAtBackup);
+  expect({ ...aAfter, conversation: null }).toEqual({ ...aAtBackup, conversation: null });
+  // N4: lastSeq is never lowered below the live value while the deleted message is gone.
+  expect(aAfter.conversation).toEqual([{ lastSeq: 3 }]);
+  // N2: the payment recorded after the backup stays.
+  expect((await live.query(`SELECT "paidThrough"::text AS p, "periodVersion" AS v FROM "ServiceAccess" WHERE "organizationId" = $1`, [A])).rows)
+    .toEqual([{ p: "2030-01-01", v: 5 }]);
+  // B3: live credentials kept for the existing user; the recreated one has an unusable password, no factor, no MFA flag.
+  expect((await live.query(`SELECT password FROM "account" WHERE "userId" = $1`, [ids.adminA])).rows).toEqual([{ password: "rotated-live-hash" }]);
+  expect((await live.query(`SELECT secret, "failedVerificationCount" AS f, "lockedUntil" IS NOT NULL AS locked FROM "twoFactor" WHERE "userId" = $1`, [ids.adminA])).rows)
+    .toEqual([{ secret: "rotated-secret", f: 3, locked: true }]);
+  const recreated = (await live.query(`SELECT a.password, u."twoFactorEnabled" AS mfa FROM "user" u JOIN "account" a ON a."userId" = u.id WHERE u.id = $1`, [ids.adminA2])).rows;
+  expect(recreated).toHaveLength(1);
+  expect(recreated[0].password).not.toContain("backup-hash");
+  expect(recreated[0].password).toMatch(/^[0-9a-f]{32}:[0-9a-f]{128}$/);
+  expect(recreated[0].mfa).toBe(false);
+  expect((await live.query(`SELECT count(*)::int AS n FROM "twoFactor" WHERE "userId" = $1`, [ids.adminA2])).rows[0].n).toBe(0);
+  // N5: A's receipt is gone, B's stays. B2: the platform reset request stays open.
+  expect((await live.query(`SELECT count(*)::int AS n FROM "OperationReceipt" WHERE "organizationId" = $1`, [A])).rows[0].n).toBe(0);
+  expect((await live.query(`SELECT count(*)::int AS n FROM "OperationReceipt" WHERE "organizationId" = $1`, [B])).rows[0].n).toBe(1);
+  expect((await live.query(`SELECT count(*)::int AS n FROM "PasswordResetRequest" WHERE "organizationId" IS NULL AND "consumedAt" IS NULL`)).rows[0].n).toBe(1);
+  expect((await live.query(`SELECT count(*)::int AS n FROM "PasswordResetRequest" WHERE "organizationId" = $1 AND "consumedAt" IS NULL`, [A])).rows[0].n).toBe(0);
+  expect((await live.query(`SELECT count(*)::int AS n FROM "PasswordResetRequest" WHERE "organizationId" = $1 AND "consumedAt" IS NULL`, [B])).rows[0].n).toBe(1);
   expect(await company(live, B)).toEqual(bBefore);
   expect(await others(live, B)).toEqual(bFingerprint);
   // A's object is back; B's lost object is not resurrected by A's restore.
@@ -386,6 +436,96 @@ test("a slug or host taken by another company aborts the company restore and rol
   await live.query(`UPDATE "HostMapping" SET hostname = $2 WHERE "organizationId" = $1`, [B, `bk-b-${tag}.example.test`]);
   await expect(restoreCompany({ backupDir: dir, key, organizationId: randomUUID(), targetUrl: databaseUrl, repoDir, operatorId: operator, storage }))
     .rejects.toMatchObject({ code: "RESTORE_COMPANY_NOT_IN_BACKUP" });
+});
+
+test("B1: a company write that commits while the restore waits for the company lock is not lost or left behind", async () => {
+  const { dir } = await createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" });
+  const writer = await connect(databaseUrl);
+  const lateVehicle = randomUUID();
+  await writer.query("BEGIN");
+  // What lockCompanyForWrite does for every company writer, then a write that is still uncommitted.
+  await writer.query(`SELECT id FROM "Organization" WHERE id = $1 FOR UPDATE`, [A]);
+  await writer.query(`INSERT INTO "Vehicle" (id, "organizationId", slug, name) VALUES ($1, $2, $3, 'late vehicle')`, [lateVehicle, A, `bk-a-late-${tag}`]);
+  const issued = new Date();
+  await writer.query(`INSERT INTO "Invitation" (id, "organizationId", "recipientEmail", "tokenHash", "issueKey", "issuedAt", "expiresAt", "issuedHost")
+    VALUES ($1, $2, 'late@example.test', $3, $4, $5, $6, 'late.example.test')`, [randomUUID(), A, randomBytes(16).toString("hex"), randomBytes(16).toString("hex"),
+    issued, new Date(issued.getTime() + 168 * 3_600_000)]);
+  await writer.query(`INSERT INTO "Job" (id, "organizationId", kind, "dedupeKey", payload, "runAt", status)
+    VALUES ($1, $2, 'MAIL_INVITATION', $3, '{"digest":"l","ciphertext":"late-invite"}'::jsonb, now(), 'PENDING')`, [randomUUID(), A, `bk-late-inv-${tag}`]);
+  const restoring = restoreCompany({ backupDir: dir, key, organizationId: A, targetUrl: databaseUrl, repoDir, operatorId: operator, storage });
+  // Deterministic barrier: continue only once the restore transaction is blocked on the company lock.
+  const probe = await connect(databaseUrl);
+  let waiting = 0;
+  for (let attempt = 0; attempt < 400 && waiting === 0; attempt++) {
+    waiting = (await probe.query(`SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database()
+      AND wait_event_type = 'Lock' AND query ILIKE '%FROM "Organization" t WHERE id = $1 FOR UPDATE%'`)).rows[0].n;
+    if (waiting === 0) await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  await probe.end();
+  expect(waiting).toBe(1);
+  await writer.query("COMMIT");
+  await writer.end();
+  const report = await restoring;
+  expect(report.ok).toBe(true);
+  expect((await live.query(`SELECT count(*)::int AS n FROM "Vehicle" WHERE id = $1`, [lateVehicle])).rows[0].n).toBe(0);
+  expect((await live.query(`SELECT count(*)::int AS n FROM "Invitation" WHERE "organizationId" = $1 AND "revokedAt" IS NULL AND "usedAt" IS NULL`, [A])).rows[0].n).toBe(0);
+  const late = (await live.query(`SELECT status, payload FROM "Job" WHERE "dedupeKey" = $1`, [`bk-late-inv-${tag}`])).rows;
+  expect(late).toHaveLength(1);
+  expect(late[0].status).toBe("SKIPPED");
+  expect(JSON.stringify(late[0].payload)).not.toContain("late-invite");
+});
+
+test("B4/B5: a failure after the database was created drops it; a backup with media needs a bucket; --skip-media is never ok", async () => {
+  const { dir } = await createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" });
+  const control = await connect(withDatabase(sharedUrl, "postgres"));
+  const present = async (name: string) => (await control.query(`SELECT 1 FROM pg_database WHERE datname = $1`, [name])).rowCount === 1;
+  // B4: the quarantine step fails after pg_restore (invalid clock); nothing usable may be left, DB or objects.
+  const failing = targetUrl();
+  const bucket = await bucketStorage();
+  await expect(restoreFull({ backupDir: dir, key, targetUrl: failing, repoDir, operatorId: operator, mediaTarget: bucket, createBucket: true,
+    now: new Date(Number.NaN) })).rejects.toThrow();
+  expect(await present(databases.at(-1)!)).toBe(false);
+  // The same name is immediately usable again (no RESTORE_TARGET_EXISTS from a leftover).
+  const again = await restoreFull({ backupDir: dir, key, targetUrl: failing, repoDir, operatorId: operator, mediaTarget: bucket });
+  expect(again.ok).toBe(true);
+  // B5: no bucket, media in the backup: refused before anything is created.
+  const noBucket = targetUrl();
+  await expect(restoreFull({ backupDir: dir, key, targetUrl: noBucket, repoDir, operatorId: operator, mediaTarget: null }))
+    .rejects.toMatchObject({ code: "RESTORE_MEDIA_TARGET_REQUIRED" });
+  expect(await present(databases.at(-1)!)).toBe(false);
+  // Explicit skip: restores the database but is reported as not ok.
+  const skipped = await restoreFull({ backupDir: dir, key, targetUrl: noBucket, repoDir, operatorId: operator, mediaTarget: null, skipMedia: true });
+  expect(skipped).toMatchObject({ ok: false, mediaSkipped: true });
+  await control.end();
+});
+
+test("N3: a live schema that differs from the backup's migrations refuses the company restore", async () => {
+  const { dir } = await createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" });
+  await live.query(`INSERT INTO _prisma_migrations (id, checksum, migration_name, finished_at, started_at, applied_steps_count)
+    VALUES ($1, 'x', '99999999999999_fake_newer', now(), now(), 1)`, [randomUUID()]);
+  try {
+    await expect(restoreCompany({ backupDir: dir, key, organizationId: A, targetUrl: databaseUrl, repoDir, operatorId: operator, storage }))
+      .rejects.toMatchObject({ code: "RESTORE_MIGRATION_MISMATCH" });
+  } finally {
+    await live.query(`DELETE FROM _prisma_migrations WHERE migration_name = '99999999999999_fake_newer'`);
+  }
+});
+
+test("N7/N8/N9: unreadable old sets are pruned, child tools get no secrets, a forged MAC is refused", async () => {
+  const dirPrune = await mkdtemp(resolve(".local/backup-prune-"));
+  out.push(dirPrune);
+  mkdirSync(join(dirPrune, "interrupted-old"));
+  mkdirSync(join(dirPrune, "interrupted-new"));
+  const day = 86_400_000;
+  const old = new Date(Date.now() - 40 * day);
+  (await import("node:fs")).utimesSync(join(dirPrune, "interrupted-old"), old, old);
+  expect(await pruneBackups(dirPrune, key, new Date(), 30, true)).toEqual(["interrupted-old"]);
+  process.env.BACKUP_ENCRYPTION_KEY = keyHex;
+  try {
+    const { pgEnv } = await import("../../src/modules/backup/core");
+    const env = pgEnv("postgresql://u:p@127.0.0.1:1/db").env;
+    expect(Object.keys(env).sort()).toEqual(["LANG", "PATH", "PGDATABASE", "PGHOST", "PGPASSWORD", "PGPORT", "PGUSER"]);
+  } finally { delete process.env.BACKUP_ENCRYPTION_KEY; }
 });
 
 test("retention keeps 30 days and the newest complete set; the age check alarms on a stale backup", async () => {

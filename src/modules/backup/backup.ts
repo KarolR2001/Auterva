@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { createWriteStream } from "node:fs";
-import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { PassThrough, type Readable } from "node:stream";
@@ -133,21 +133,28 @@ export async function backupAge(outDir: string, key: Buffer, now = new Date()):
   return { id: newest.id, ageHours, stale: ageHours > MAX_BACKUP_AGE_HOURS };
 }
 
-/** D-10 retention: sets older than `days` are removed; the newest complete set always stays. */
+/** D-10 retention: sets older than `days` are removed; the newest complete set always stays. A set whose manifest
+ * cannot be read (interrupted or damaged run) is removed by directory age once it is past retention too. */
 export async function pruneBackups(outDir: string, key: Buffer, now: Date, days = RETENTION_DAYS, dryRun = false):
   Promise<string[]> {
   const sets: Manifest[] = [];
+  const unreadable: Array<{ name: string; modifiedAt: number }> = [];
   for (const name of await readdir(outDir).catch(() => [])) {
     const manifest = await readManifest(join(outDir, name), key).catch(() => null);
     if (manifest) sets.push(manifest);
+    else {
+      const info = await stat(join(outDir, name)).catch(() => null);
+      if (info?.isDirectory()) unreadable.push({ name, modifiedAt: info.mtimeMs });
+    }
   }
   const newestComplete = sets.filter((set) => set.complete).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0];
   const cutoff = now.getTime() - days * 86_400_000;
   const removed: string[] = [];
+  const remove = async (name: string) => { removed.push(name); if (!dryRun) await rm(join(outDir, name), { recursive: true, force: true }); };
   for (const set of sets) {
     if (set.id === newestComplete?.id || Date.parse(set.createdAt) >= cutoff) continue;
-    removed.push(set.id);
-    if (!dryRun) await rm(join(outDir, set.id), { recursive: true, force: true });
+    await remove(set.id);
   }
+  for (const entry of unreadable) if (entry.modifiedAt < cutoff) await remove(entry.name);
   return removed;
 }

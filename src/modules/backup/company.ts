@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { HeadObjectCommand } from "@aws-sdk/client-s3";
 import type { MediaStorage } from "../media/storage";
 import {
-  assertFilesMatchManifest, BackupError, connect, listTables, type Manifest, type Queryable, organizationCounts, quote,
+  appliedMigrations, assertFilesMatchManifest, BackupError, connect, listTables, type Manifest, type Queryable, quote,
   readManifest, referencedMedia, tablesWithOrganization, withDatabase,
 } from "./core";
 import {
@@ -13,11 +13,11 @@ import { join } from "node:path";
 /** Company-scoped tables in parent-first insert order; each filter selects ONE company's rows. */
 const ORG = `"organizationId" = $1`;
 const USER_SCOPED = `"userId" IN (SELECT id FROM "user" WHERE "organizationId" = $1)`;
-export const COMPANY_TABLES: ReadonlyArray<{ table: string; where: string; keyColumn: string | null }> = [
+export const COMPANY_TABLES: ReadonlyArray<{ table: string; where: string; keyColumn: string | null; preserveLive?: boolean }> = [
   { table: "user", where: ORG, keyColumn: "id" },
   { table: "account", where: USER_SCOPED, keyColumn: null },
   { table: "twoFactor", where: USER_SCOPED, keyColumn: null },
-  { table: "ServiceAccess", where: ORG, keyColumn: null },
+  { table: "ServiceAccess", where: ORG, keyColumn: null, preserveLive: true },
   { table: "SiteSettings", where: ORG, keyColumn: null },
   { table: "Invitation", where: ORG, keyColumn: "id" },
   { table: "HostMapping", where: ORG, keyColumn: "id" },
@@ -31,7 +31,7 @@ export const COMPANY_TABLES: ReadonlyArray<{ table: string; where: string; keyCo
   { table: "Conversation", where: ORG, keyColumn: "id" },
   { table: "ChatMessage", where: ORG, keyColumn: "id" },
   { table: "ConversationReadCursor", where: ORG, keyColumn: "id" },
-  { table: "ReminderPlan", where: ORG, keyColumn: null },
+  { table: "ReminderPlan", where: ORG, keyColumn: null, preserveLive: true },
   { table: "ReminderIntent", where: ORG, keyColumn: "id" },
 ];
 
@@ -49,7 +49,7 @@ export const COMPANY_EXCLUDED_TABLES: Readonly<Record<string, string>> = {
   Job: "old jobs are quarantined, never replayed",
   AuditRetentionManifest: "belongs to the purge jobs of the live system",
   AuditOperatorExport: "operator artifact of the live system",
-  OperationReceipt: "idempotency receipts of the live system",
+  OperationReceipt: "this company's receipts are deleted on restore (no replayed success for rolled-back work); other companies keep theirs",
   PlatformLegalDocument: "platform-wide",
   VehicleCategory: "platform-wide catalogue",
   ImageUpload: "in-flight uploads are dropped for this company; staging objects are swept by media cleanup",
@@ -60,17 +60,6 @@ export async function assertCompanyTablesClassified(db: Queryable): Promise<void
   const known = new Set([...COMPANY_TABLES.map((entry) => entry.table), ...Object.keys(COMPANY_EXCLUDED_TABLES)]);
   const unknown = (await listTables(db)).filter((table) => !known.has(table));
   if (unknown.length > 0) throw new BackupError("RESTORE_UNCLASSIFIED_TABLE", `Decide how to restore: ${unknown.join(", ")}`);
-}
-
-async function digestOthers(db: Queryable, organizationId: string): Promise<Record<string, string>> {
-  const digests: Record<string, string> = {};
-  for (const table of [...await tablesWithOrganization(db)].sort()) {
-    digests[table] = String((await db.query(`SELECT md5(coalesce(string_agg(t::text, E'\\n' ORDER BY t::text), '')) AS d
-      FROM ${quote(table)} t WHERE "organizationId" IS DISTINCT FROM $1::uuid`, [organizationId])).rows[0].d);
-  }
-  digests.Organization = String((await db.query(`SELECT md5(coalesce(string_agg(t::text, E'\\n' ORDER BY t::text), '')) AS d
-    FROM "Organization" t WHERE id <> $1::uuid`, [organizationId])).rows[0].d);
-  return digests;
 }
 
 async function selectRows(db: Queryable, table: string, where: string, organizationId: string): Promise<Array<Record<string, unknown>>> {
@@ -87,16 +76,25 @@ async function insertRows(db: Queryable, table: string, rows: Array<Record<strin
 
 export type CompanyRestoreReport = {
   ok: boolean; organizationId: string; backupId: string; steps: Array<{ step: string; ms: number }>; totalMs: number;
-  restored: Record<string, number>; mediaObjects: number; droppedCursors: number;
+  restored: Record<string, number>; mediaObjects: number; droppedCursors: number; usersNeedingReset: number;
   quarantine: Awaited<ReturnType<typeof quarantineRestoredState>>; otherCompaniesUnchanged: boolean;
   integrity: { ok: boolean; checks: Array<{ name: string; ok: boolean; detail?: string }> };
 };
 
+/** An unusable credential: well-formed so the password-reset flow accepts the account, but nothing verifies against it. */
+function unusablePassword(): string {
+  return `${randomBytes(16).toString("hex")}:${randomBytes(64).toString("hex")}`;
+}
+
 /**
  * Restore ONE company from a backup into the live database (#60). The full snapshot first lands in an isolated
- * scratch database; this company's rows are then replaced in a single REPEATABLE READ transaction under an
- * advisory lock and the company row lock. Other companies are proven untouched by a digest taken before and after
- * inside the same transaction: any difference rolls the whole restore back.
+ * scratch database; this company's rows are then replaced in a single READ COMMITTED transaction whose FIRST
+ * statements take the advisory lock and the company row lock (FOR UPDATE, which every company writer conflicts
+ * with). Every later statement therefore sees all writes committed before the lock, and later writers wait for the
+ * commit. Nothing in the transaction touches another company: no row outside the company may carry this
+ * transaction's xmin (checked before COMMIT). Every check that means "restore failed" runs before COMMIT and rolls back.
+ * Credentials: users that still exist keep their live account, MFA factor and lockout; a user recreated from the
+ * backup gets an unusable password and no MFA factor, so a password reset and fresh MFA enrolment are forced.
  */
 export async function restoreCompany(input: {
   backupDir: string; key: Buffer; organizationId: string; targetUrl: string; repoDir: string; operatorId: string;
@@ -137,6 +135,10 @@ export async function restoreCompany(input: {
   try {
     await assertCompanyTablesClassified(live);
     await assertCompanyTablesClassified(scratch);
+    const liveMigrations = await appliedMigrations(live);
+    if (JSON.stringify(liveMigrations) !== JSON.stringify(manifest.migrations.applied)) {
+      throw new BackupError("RESTORE_MIGRATION_MISMATCH", "The live schema differs from the backup's migrations; migrate or choose a matching backup");
+    }
     // Media first: only this company's immutable keys are written; a different object under a key is a conflict.
     let mediaObjects = 0;
     if (companyMedia.length > 0 && !input.storage) throw new BackupError("BACKUP_MEDIA_STORAGE_REQUIRED");
@@ -156,14 +158,16 @@ export async function restoreCompany(input: {
 
     let restored: Record<string, number> = {};
     let droppedCursors = 0;
+    let usersNeedingReset = 0;
     let quarantine!: CompanyRestoreReport["quarantine"];
-    let unchanged = false;
+    const checks: CompanyRestoreReport["integrity"]["checks"] = [];
     const now = input.now ?? new Date();
     try {
-      await live.query("BEGIN ISOLATION LEVEL REPEATABLE READ");
+      await live.query("BEGIN");
+      // The lock statements come first: no read of company data precedes them.
       await live.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [`auterva:company-restore:${orgId}`]);
       const liveOrg = (await live.query(`SELECT row_to_json(t) AS row FROM "Organization" t WHERE id = $1 FOR UPDATE`, [orgId])).rows[0]?.row as Record<string, unknown> | undefined;
-      const before = await digestOthers(live, orgId);
+      const xid = String((await live.query(`SELECT pg_current_xact_id()::xid::text AS x`)).rows[0].x);
 
       // Conflicts are explicit refusals, not silent overwrites of someone else's rows.
       const clash = async (sql: string, params: unknown[], code: string) => {
@@ -174,13 +178,11 @@ export async function restoreCompany(input: {
         [source.HostMapping.map((row) => row.hostname), orgId], "RESTORE_HOST_CONFLICT");
       await clash(`SELECT 1 FROM "user" WHERE lower(email) = ANY($1::text[]) AND "organizationId" IS DISTINCT FROM $2::uuid`,
         [source.user.map((row) => String(row.email).toLowerCase()), orgId], "RESTORE_EMAIL_CONFLICT");
+      const orgTables = new Set(await tablesWithOrganization(live));
       for (const { table, keyColumn } of COMPANY_TABLES) {
-        if (!keyColumn) continue;
+        if (!keyColumn || !orgTables.has(table)) continue;
         const ids = source[table].map((row) => String(row[keyColumn]));
         if (ids.length === 0) continue;
-        const organizationColumn = (await live.query(`SELECT 1 FROM information_schema.columns WHERE table_schema='public'
-          AND table_name=$1 AND column_name='organizationId'`, [table])).rowCount === 1;
-        if (!organizationColumn) continue;
         await clash(`SELECT 1 FROM ${quote(table)} WHERE ${quote(keyColumn)}::text = ANY($1::text[]) AND "organizationId" IS DISTINCT FROM $2::uuid`,
           [ids, orgId], "RESTORE_ID_CONFLICT");
       }
@@ -202,24 +204,45 @@ export async function restoreCompany(input: {
         if (found !== categories.length) throw new BackupError("RESTORE_REFERENCE_MISSING", "Vehicle category no longer exists");
       }
 
-      // Live state that a restore must not roll back: trial grant, archive state, disabled accounts.
-      const liveAccess = (await live.query(`SELECT row_to_json(t) AS row FROM "ServiceAccess" t WHERE "organizationId" = $1`, [orgId])).rows[0]?.row as Record<string, unknown> | undefined;
-      const liveUsers = new Map((await live.query(`SELECT id, "disabledAt" FROM "user" WHERE "organizationId" = $1`, [orgId])).rows.map((r) => [String(r.id), r.disabledAt]));
-      for (const row of source.ServiceAccess) {
-        if (liveAccess) {
-          row.trialGranted = Boolean(liveAccess.trialGranted) || Boolean(row.trialGranted);
-          row.trialStartedAt = liveAccess.trialStartedAt ?? row.trialStartedAt;
-          row.trialEndsAt = liveAccess.trialEndsAt ?? row.trialEndsAt;
+      // Live state a restore must not roll back: billing period and reminder plan, archive state, disabled
+      // accounts, chat sequence, and the credentials (account, MFA factor, lockout) of users that still exist.
+      const hasLive: Record<string, boolean> = {};
+      for (const { table, where, preserveLive } of COMPANY_TABLES) {
+        if (preserveLive) hasLive[table] = (await live.query(`SELECT 1 FROM ${quote(table)} WHERE ${where}`, [orgId])).rowCount === 1;
+      }
+      const liveUsers = new Map((await live.query(`SELECT id, "disabledAt", "twoFactorEnabled" FROM "user" WHERE "organizationId" = $1`, [orgId]))
+        .rows.map((r) => [String(r.id), r]));
+      const liveCredentials = {
+        account: await selectRows(live, "account", USER_SCOPED, orgId),
+        twoFactor: await selectRows(live, "twoFactor", USER_SCOPED, orgId),
+      };
+      const liveLastSeq = (await live.query(`SELECT "lastSeq" FROM "Conversation" WHERE "organizationId" = $1`, [orgId])).rows[0]?.lastSeq as number | undefined;
+      for (const row of source.user) {
+        const current = liveUsers.get(String(row.id));
+        if (current) {
+          if (current.disabledAt) row.disabledAt = current.disabledAt instanceof Date ? current.disabledAt.toISOString() : current.disabledAt;
+          row.twoFactorEnabled = current.twoFactorEnabled;
+        } else {
+          row.twoFactorEnabled = false;
+          usersNeedingReset += 1;
         }
       }
-      for (const row of source.user) {
-        const liveDisabled = liveUsers.get(String(row.id));
-        if (liveDisabled) row.disabledAt = liveDisabled instanceof Date ? liveDisabled.toISOString() : liveDisabled;
+      source.account = [
+        ...liveCredentials.account.filter((row) => ownUsers.has(String(row.userId))),
+        ...source.account.filter((row) => !liveUsers.has(String(row.userId))).map((row) => ({
+          ...row, password: row.providerId === "credential" ? unusablePassword() : null,
+          accessToken: null, refreshToken: null, idToken: null })),
+      ];
+      source.twoFactor = liveCredentials.twoFactor.filter((row) => ownUsers.has(String(row.userId)));
+      for (const row of source.Conversation) {
+        if (liveLastSeq !== undefined) row.lastSeq = Math.max(Number(row.lastSeq), liveLastSeq);
       }
       for (const row of source.ReminderIntent) row.jobId = null;
 
       // Replace: children first, the company row itself is updated, never deleted.
-      for (const { table, where } of [...COMPANY_TABLES].reverse()) {
+      await live.query(`DELETE FROM "OperationReceipt" WHERE ${ORG}`, [orgId]);
+      for (const { table, where, preserveLive } of [...COMPANY_TABLES].reverse()) {
+        if (preserveLive && hasLive[table]) continue;
         await live.query(`DELETE FROM ${quote(table)} WHERE ${where}`, [orgId]);
         if (table === "VehicleImage") await live.query(`DELETE FROM "ImageUpload" WHERE ${ORG}`, [orgId]);
       }
@@ -231,16 +254,38 @@ export async function restoreCompany(input: {
         await insertRows(live, "Organization", [sourceOrg]);
       }
       restored = {};
-      for (const { table } of COMPANY_TABLES) {
+      for (const { table, preserveLive } of COMPANY_TABLES) {
+        if (preserveLive && hasLive[table]) { restored[table] = 0; continue; }
         await insertRows(live, table, source[table]);
         restored[table] = source[table].length;
       }
       quarantine = await quarantineRestoredState(live, { organizationId: orgId, now });
+
+      // Checks that mean "the restore failed" run here, before COMMIT, and roll everything back.
+      const wrong: string[] = [];
+      for (const { table, where, preserveLive } of COMPANY_TABLES) {
+        const count = Number((await live.query(`SELECT count(*) AS n FROM ${quote(table)} WHERE ${where}`, [orgId])).rows[0].n);
+        if (!(preserveLive && hasLive[table]) && count !== restored[table]) wrong.push(table);
+      }
+      checks.push({ name: "company row counts equal the backup", ok: wrong.length === 0, detail: wrong.join(", ") || "all tables" });
+      let touched = 0;
+      for (const table of orgTables) {
+        touched += Number((await live.query(`SELECT count(*) AS n FROM ${quote(table)} WHERE "organizationId" IS DISTINCT FROM $1::uuid
+          AND xmin::text = $2`, [orgId, xid])).rows[0].n);
+      }
+      touched += Number((await live.query(`SELECT count(*) AS n FROM "Organization" WHERE id <> $1::uuid AND xmin::text = $2`, [orgId, xid])).rows[0].n);
+      checks.push({ name: "other companies unchanged", ok: touched === 0, detail: touched ? `${touched} foreign row(s) written` : "no foreign row written" });
+      if (input.storage) {
+        const missing: string[] = [];
+        for (const reference of (await referencedMedia(live)).filter((item) => item.organizationId === orgId && item.required)) {
+          await input.storage.client.send(new HeadObjectCommand({ Bucket: input.storage.bucket, Key: reference.key })).catch(() => missing.push(reference.key));
+        }
+        checks.push({ name: "company media keys exist", ok: missing.length === 0, detail: missing.length ? `${missing.length} missing` : "all present" });
+      }
+      const failed = checks.filter((check) => !check.ok);
+      if (failed.length > 0) throw new BackupError("RESTORE_INTEGRITY_FAILED", `Rolled back: ${failed.map((c) => c.name).join("; ")}`);
       await appendRestoreAudit(live, { operatorId: input.operatorId, organizationId: orgId, action: "COMPANY_RESTORED_FROM_BACKUP",
-        backupId: manifest.id, summary: { scope: "COMPANY", ...quarantine, restored, mediaObjects, droppedCursors } });
-      const after = await digestOthers(live, orgId);
-      unchanged = JSON.stringify(before) === JSON.stringify(after);
-      if (!unchanged) throw new BackupError("RESTORE_OTHER_COMPANY_CHANGED", "Another company's data would change; restore rolled back");
+        backupId: manifest.id, summary: { scope: "COMPANY", ...quarantine, restored, mediaObjects, droppedCursors, usersNeedingReset } });
       await live.query("COMMIT");
     } catch (error) {
       await live.query("ROLLBACK").catch(() => undefined);
@@ -251,29 +296,9 @@ export async function restoreCompany(input: {
       throw error;
     }
     lap("replace company rows under lock");
-
-    // The company in live must now equal the backup, table by table, and every media key it references exists.
-    const liveCounts = (await organizationCounts(live))[orgId].counts;
-    const sourceCounts = (await organizationCounts(scratch))[orgId].counts;
-    const mismatched = Object.keys(sourceCounts).filter((table) => COMPANY_TABLES.some((entry) => entry.table === table)
-      || table === "ImageUpload").filter((table) => {
-      if (table === "ImageUpload") return false;
-      const expected = table === "ConversationReadCursor" ? (sourceCounts[table] ?? 0) - droppedCursors : sourceCounts[table] ?? 0;
-      return (liveCounts[table] ?? 0) !== expected;
-    });
-    const checks = [{ name: "company row counts equal the backup", ok: mismatched.length === 0, detail: mismatched.join(", ") || "all tables" }];
-    if (input.storage) {
-      const missing: string[] = [];
-      for (const reference of (await referencedMedia(live)).filter((item) => item.organizationId === orgId && item.required)) {
-        await input.storage.client.send(new HeadObjectCommand({ Bucket: input.storage.bucket, Key: reference.key })).catch(() => missing.push(reference.key));
-      }
-      checks.push({ name: "company media keys exist", ok: missing.length === 0, detail: missing.length ? `${missing.length} missing` : "all present" });
-    }
-    const integrity = { ok: checks.every((check) => check.ok) && unchanged, checks: [...checks,
-      { name: "other companies unchanged", ok: unchanged }] };
-    lap("integrity checks");
-    return { ok: integrity.ok, organizationId: orgId, backupId: manifest.id, steps, totalMs: Date.now() - started,
-      restored, mediaObjects, droppedCursors, quarantine, otherCompaniesUnchanged: unchanged, integrity };
+    return { ok: true, organizationId: orgId, backupId: manifest.id, steps, totalMs: Date.now() - started,
+      restored, mediaObjects, droppedCursors, usersNeedingReset, quarantine, otherCompaniesUnchanged: true,
+      integrity: { ok: true, checks } };
   } finally {
     await scratch.end();
     await live.end();

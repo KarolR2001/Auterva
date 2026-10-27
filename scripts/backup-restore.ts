@@ -10,7 +10,7 @@ if (process.env.AUTERVA_FIXTURE === "1" && existsSync(".local/fixture-9/secrets.
 }
 
 const { createMediaStorage } = await import("../src/modules/media/storage");
-const { backupAge, createBackup, pruneBackups } = await import("../src/modules/backup/backup");
+const { RETENTION_DAYS, backupAge, createBackup, pruneBackups } = await import("../src/modules/backup/backup");
 const { restoreFull } = await import("../src/modules/backup/restore");
 const { restoreCompany } = await import("../src/modules/backup/company");
 const { parseBackupKey } = await import("../src/modules/backup/crypto");
@@ -55,7 +55,7 @@ try {
     const report = await restoreFull({ backupDir: resolve(need("--backup", options.backup)), key, targetUrl: target, repoDir,
       operatorId: operator(), mediaTarget: bucket ? createMediaStorage({ ...process.env, S3_BUCKET: bucket,
         ...(process.env.RESTORE_S3_ENDPOINT ? { S3_ENDPOINT: process.env.RESTORE_S3_ENDPOINT } : {}) }) : null,
-      createBucket: flags.has("--create-bucket"), replaceExisting: flags.has("--replace-existing"), allowRemote: flags.has("--allow-remote") });
+      createBucket: flags.has("--create-bucket"), skipMedia: flags.has("--skip-media"), replaceExisting: flags.has("--replace-existing"), allowRemote: flags.has("--allow-remote") });
     print(report);
     if (!report.ok) process.exitCode = 1;
   } else if (command === "restore-company") {
@@ -73,7 +73,7 @@ try {
     print(age ?? { stale: true, reason: "NO_COMPLETE_BACKUP" });
     if (!age || age.stale) process.exitCode = 2;
   } else if (command === "prune") {
-    print({ removed: await pruneBackups(outDir, key, new Date(), 30, flags.has("--dry-run")), dryRun: flags.has("--dry-run") });
+    print({ removed: await pruneBackups(outDir, key, new Date(), RETENTION_DAYS, flags.has("--dry-run")), dryRun: flags.has("--dry-run") });
   } else {
     throw new Error("Use backup|verify --backup=<dir>|restore --backup=<dir>|restore-company --backup=<dir> --organization=<id> --confirm=<id>|age|prune [--dry-run]");
   }

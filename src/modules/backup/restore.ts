@@ -1,17 +1,15 @@
 import { createHash, randomUUID } from "node:crypto";
-import { createReadStream, createWriteStream, existsSync, readdirSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { createReadStream, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { Writable } from "node:stream";
-import { CreateBucketCommand, HeadObjectCommand, ListObjectsV2Command, PutObjectCommand } from "@aws-sdk/client-s3";
+import { CreateBucketCommand, DeleteObjectCommand, HeadObjectCommand, ListObjectsV2Command, PutObjectCommand } from "@aws-sdk/client-s3";
 import type { MediaStorage } from "../media/storage";
 import { assertOwnFixtureCluster } from "../../../scripts/fixture-safety";
 import { createDecryptor } from "./crypto";
 import {
   appliedMigrations, assertFilesMatchManifest, BackupError, connect, constraintNames, type Manifest, type MediaEntry,
-  type Queryable, organizationCounts, pgEnv, quote, readManifest, referencedMedia, rowCounts, runTool,
+  type Queryable, organizationCounts, pgEnv, quote, readManifest, referencedMedia, rowCounts, runToolWithInput,
   serverFingerprint, withDatabase,
 } from "./core";
 
@@ -53,10 +51,6 @@ export async function assertRestoreTarget(input: {
   }
 }
 
-async function decryptToFile(source: string, destination: string, key: Buffer) {
-  await pipeline(createReadStream(source), createDecryptor(key), createWriteStream(destination, { mode: 0o600 }));
-}
-
 export async function decryptToBuffer(source: string, key: Buffer): Promise<Buffer> {
   const chunks: Buffer[] = [];
   await pipeline(createReadStream(source), createDecryptor(key),
@@ -80,10 +74,13 @@ export async function putRestoredObject(storage: MediaStorage, entry: MediaEntry
 export async function quarantineRestoredState(db: Queryable, input: { organizationId: string | null; now: Date }) {
   const scoped = input.organizationId !== null;
   const org = input.organizationId;
-  const userScope = scoped
+  // Sessions of platform superadmins who could reach the company are revoked; every other sweep (reset proofs and
+  // requests, MFA challenges) touches only the company and its own users, never platform-level rows.
+  const sessionScope = scoped
     ? `SELECT id FROM "user" WHERE "organizationId" = $1 OR "role" = 'SUPERADMIN_AUTERVA'` : `SELECT id FROM "user"`;
+  const userScope = scoped ? `SELECT id FROM "user" WHERE "organizationId" = $1` : `SELECT id FROM "user"`;
   const params = scoped ? [org] : [];
-  const sessions = (await db.query(`DELETE FROM "session" WHERE "userId" IN (${userScope}) RETURNING 1`, params)).rowCount ?? 0;
+  const sessions = (await db.query(`DELETE FROM "session" WHERE "userId" IN (${sessionScope}) RETURNING 1`, params)).rowCount ?? 0;
   let challenges = 0;
   if (scoped) {
     challenges = (await db.query(`DELETE FROM "verification" v USING "user" u WHERE u.id IN (${userScope}) AND (
@@ -157,6 +154,20 @@ export function repoMigrationNames(repoDir: string): string[] {
   return existsSync(dir) ? readdirSync(dir, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((e) => e.name).sort() : [];
 }
 
+export async function checkMediaKeys(db: Queryable, manifest: Manifest, storage: MediaStorage): Promise<IntegrityCheck> {
+  const references = (await referencedMedia(db)).filter((item) => item.required);
+  const missing: string[] = [];
+  for (const reference of references) {
+    try {
+      const head = await storage.client.send(new HeadObjectCommand({ Bucket: storage.bucket, Key: reference.key }));
+      const entry = manifest.media.objects.find((object) => object.key === reference.key);
+      if (!entry || head.ContentLength !== entry.bytes) missing.push(reference.key);
+    } catch { missing.push(reference.key); }
+  }
+  return { name: "media keys match records", ok: missing.length === 0,
+    detail: missing.length ? `${missing.length} referenced object(s) missing or different` : `${references.length} required objects present` };
+}
+
 export async function verifyRestoredDatabase(db: Queryable, manifest: Manifest, options: {
   mediaStorage?: MediaStorage | null; repoDir?: string; organizationId?: string; expectedCountsOverride?: boolean;
 } = {}): Promise<{ ok: boolean; checks: IntegrityCheck[]; warnings: string[] }> {
@@ -187,19 +198,7 @@ export async function verifyRestoredDatabase(db: Queryable, manifest: Manifest, 
   const violations = await constraintViolations(db);
   checks.push({ name: "foreign keys and CHECK constraints hold", ok: violations.length === 0,
     detail: violations.map((v) => `${v.constraint}:${v.rows}`).join(", ") || "no violations" });
-  if (options.mediaStorage) {
-    const references = await referencedMedia(db);
-    const missing: string[] = [];
-    for (const reference of references.filter((item) => item.required)) {
-      try {
-        const head = await options.mediaStorage.client.send(new HeadObjectCommand({ Bucket: options.mediaStorage.bucket, Key: reference.key }));
-        const entry = manifest.media.objects.find((object) => object.key === reference.key);
-        if (!entry || head.ContentLength !== entry.bytes) missing.push(reference.key);
-      } catch { missing.push(reference.key); }
-    }
-    checks.push({ name: "media keys match records", ok: missing.length === 0,
-      detail: missing.length ? `${missing.length} referenced object(s) missing or different` : `${references.filter((r) => r.required).length} required objects present` });
-  }
+  if (options.mediaStorage) checks.push(await checkMediaKeys(db, manifest, options.mediaStorage));
   return { ok: checks.every((check) => check.ok), checks, warnings };
 }
 
@@ -217,12 +216,18 @@ export type RestoreReport = {
   ok: boolean; backupId: string; target: string; steps: Array<{ step: string; ms: number }>;
   totalMs: number; integrity: Awaited<ReturnType<typeof verifyRestoredDatabase>> | null;
   quarantine: Awaited<ReturnType<typeof quarantineRestoredState>> | null; mediaObjects: number;
+  /** True when the backup holds media and none was restored: the result is never ok=true. */
+  mediaSkipped: boolean;
 };
 
-/** Full restore into a NEW database and a NEW (empty) bucket. */
+/**
+ * Full restore into a NEW database and a NEW (empty) bucket. Any failure after the database was created drops it
+ * (and removes the objects already written), so a half-restored environment with inherited sessions and queued
+ * mail can never be mistaken for a usable one. The dump is streamed decrypted into pg_restore, never written to disk.
+ */
 export async function restoreFull(input: {
   backupDir: string; key: Buffer; targetUrl: string; repoDir: string; operatorId: string;
-  mediaTarget: MediaStorage | null; databaseOnly?: boolean; createBucket?: boolean;
+  mediaTarget: MediaStorage | null; databaseOnly?: boolean; skipMedia?: boolean; createBucket?: boolean;
   replaceExisting?: boolean; allowRemote?: boolean; now?: Date;
 }): Promise<RestoreReport> {
   const steps: RestoreReport["steps"] = [];
@@ -231,9 +236,11 @@ export async function restoreFull(input: {
   const lap = (step: string) => { const at = Date.now(); steps.push({ step, ms: at - mark }); mark = at; };
   const manifest = await readManifest(input.backupDir, input.key);
   await assertFilesMatchManifest(input.backupDir, manifest);
-  if (manifest.media.objects.length > 0 && !input.mediaTarget && !input.databaseOnly) {
-    throw new BackupError("RESTORE_MEDIA_TARGET_REQUIRED", "A full restore with media requires a target bucket");
+  const hasMedia = manifest.media.objects.length > 0;
+  if (hasMedia && !input.mediaTarget && !input.databaseOnly && !input.skipMedia) {
+    throw new BackupError("RESTORE_MEDIA_TARGET_REQUIRED", "A full restore with media requires a target bucket (or --skip-media, which is never ok)");
   }
+  const mediaSkipped = hasMedia && !input.mediaTarget;
   lap("verify manifest and checksums");
   await assertRestoreTarget({ targetUrl: input.targetUrl, manifest, repoDir: input.repoDir,
     replaceExisting: input.replaceExisting ?? false, allowRemote: input.allowRemote ?? false });
@@ -249,53 +256,59 @@ export async function restoreFull(input: {
     await control.end();
   }
   lap("create target database");
-  const scratch = await mkdtemp(join(tmpdir(), "auterva-restore-"));
+  const uploaded: string[] = [];
   try {
-    const dump = join(scratch, "db.dump");
-    await decryptToFile(join(input.backupDir, manifest.db.file), dump, input.key);
-    await runTool("pg_restore", ["--no-owner", "--no-privileges", "--exit-on-error", `--dbname=${database}`, dump], env);
+    await runToolWithInput("pg_restore", ["--no-owner", "--no-privileges", "--exit-on-error", `--dbname=${database}`], env,
+      createReadStream(join(input.backupDir, manifest.db.file)).pipe(createDecryptor(input.key)));
+    lap("pg_restore");
+    const db = await connect(input.targetUrl);
+    try {
+      const now = input.now ?? new Date();
+      // Integrity is proven on the snapshot exactly as restored, before any intended change is applied.
+      const integrity = await verifyRestoredDatabase(db, manifest, { repoDir: input.repoDir });
+      lap("integrity checks");
+      // Quarantine right after pg_restore and before media, so no later failure leaves inherited access behind.
+      await db.query("BEGIN");
+      const quarantine = await quarantineRestoredState(db, { organizationId: null, now });
+      await appendRestoreAudit(db, { operatorId: input.operatorId, organizationId: null, action: "BACKUP_RESTORED",
+        backupId: manifest.id, summary: { scope: "FULL", ...quarantine, mediaSkipped } });
+      await db.query("COMMIT");
+      lap("invalidate credentials and quarantine jobs");
+      let mediaObjects = 0;
+      if (input.mediaTarget) {
+        for (const entry of manifest.media.objects) {
+          await putRestoredObject(input.mediaTarget, entry, await decryptToBuffer(join(input.backupDir, entry.file), input.key));
+          uploaded.push(entry.key);
+          mediaObjects += 1;
+        }
+        integrity.checks.push(await checkMediaKeys(db, manifest, input.mediaTarget));
+      } else if (mediaSkipped) {
+        integrity.checks.push({ name: "media restored", ok: input.databaseOnly === true, detail: "skipped: no target bucket" });
+      }
+      lap("restore media");
+      const count = async (sql: string) => Number((await db.query(sql, sql.includes("$1") ? [now] : [])).rows[0].n);
+      const leftovers = {
+        sessions: await count(`SELECT count(*) AS n FROM "session"`),
+        proofs: await count(`SELECT count(*) AS n FROM "verification"`),
+        openInvitations: await count(`SELECT count(*) AS n FROM "Invitation" WHERE "usedAt" IS NULL AND "revokedAt" IS NULL`),
+        openResetRequests: await count(`SELECT count(*) AS n FROM "PasswordResetRequest" WHERE "consumedAt" IS NULL`),
+        runnableJobs: await count(`SELECT count(*) AS n FROM "Job" WHERE status IN ('PENDING', 'RUNNING', 'UNCERTAIN') AND kind <> 'AUDIT_RETENTION'`),
+        openReminderIntents: await count(`SELECT count(*) AS n FROM "ReminderIntent" WHERE status IN ('QUEUED', 'UNCERTAIN') OR (status = 'PENDING' AND "slotAt" <= $1)`),
+      };
+      integrity.checks.push({ name: "inherited credentials and queued work neutralised",
+        ok: Object.values(leftovers).every((n) => n === 0), detail: JSON.stringify(leftovers) });
+      integrity.ok = integrity.checks.every((check) => check.ok);
+      return { ok: integrity.ok && (input.databaseOnly === true || !mediaSkipped), backupId: manifest.id, target: database,
+        steps, totalMs: Date.now() - started, integrity, quarantine, mediaObjects, mediaSkipped };
+    } finally {
+      await db.end();
+    }
   } catch (error) {
-    // Never leave a half-restored database that could be mistaken for a usable one.
     const cleanup = await connect(withDatabase(input.targetUrl, "postgres"));
     await cleanup.query(`DROP DATABASE IF EXISTS ${quote(database)} WITH (FORCE)`).finally(() => cleanup.end());
-    throw error;
-  } finally {
-    await rm(scratch, { recursive: true, force: true });
-  }
-  lap("pg_restore");
-  let mediaObjects = 0;
-  if (input.mediaTarget) {
-    for (const entry of manifest.media.objects) {
-      await putRestoredObject(input.mediaTarget, entry, await decryptToBuffer(join(input.backupDir, entry.file), input.key));
-      mediaObjects += 1;
+    for (const key of uploaded) {
+      await input.mediaTarget?.client.send(new DeleteObjectCommand({ Bucket: input.mediaTarget.bucket, Key: key })).catch(() => undefined);
     }
-  }
-  lap("restore media");
-  const db = await connect(input.targetUrl);
-  try {
-    const now = input.now ?? new Date();
-    // Integrity is proven on the snapshot exactly as restored, before any intended change is applied.
-    const integrity = await verifyRestoredDatabase(db, manifest, { mediaStorage: input.mediaTarget, repoDir: input.repoDir });
-    lap("integrity checks");
-    await db.query("BEGIN");
-    const quarantine = await quarantineRestoredState(db, { organizationId: null, now });
-    await appendRestoreAudit(db, { operatorId: input.operatorId, organizationId: null, action: "BACKUP_RESTORED",
-      backupId: manifest.id, summary: { scope: "FULL", ...quarantine, mediaObjects } });
-    await db.query("COMMIT");
-    lap("invalidate credentials and quarantine jobs");
-    const count = async (sql: string) => Number((await db.query(sql)).rows[0].n);
-    const leftovers = {
-      sessions: await count(`SELECT count(*) AS n FROM "session"`),
-      proofs: await count(`SELECT count(*) AS n FROM "verification"`),
-      openInvitations: await count(`SELECT count(*) AS n FROM "Invitation" WHERE "usedAt" IS NULL AND "revokedAt" IS NULL`),
-      runnableJobs: await count(`SELECT count(*) AS n FROM "Job" WHERE status IN ('PENDING', 'RUNNING', 'UNCERTAIN') AND kind <> 'AUDIT_RETENTION'`),
-    };
-    integrity.checks.push({ name: "inherited credentials and queued work neutralised",
-      ok: Object.values(leftovers).every((n) => n === 0), detail: JSON.stringify(leftovers) });
-    integrity.ok = integrity.checks.every((check) => check.ok);
-    return { ok: integrity.ok, backupId: manifest.id, target: database, steps, totalMs: Date.now() - started,
-      integrity, quarantine, mediaObjects };
-  } finally {
-    await db.end();
+    throw error;
   }
 }
