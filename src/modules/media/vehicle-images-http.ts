@@ -70,7 +70,7 @@ export async function previewVehicleImage(request: Request, area: Area, vehicleI
   if (!uuid.test(vehicleId) || !uuid.test(imageId)) return response({ code: "INVALID_ID" }, 400, requestId);
   if (!isVariant(variant)) return response({ code: "NOT_FOUND" }, 404, requestId);
   try {
-    const access = await actor(request, area, organizationId, false, requestId);
+    const access = await actor(request, area, organizationId, false, requestId, "media");
     if (access.error) return access.error;
     const key = await resolvePrivateVehicleImageKey(prisma, access.organizationId!, vehicleId, imageId, variant);
     if (!key) return response({ code: "NOT_FOUND" }, 404, requestId);
