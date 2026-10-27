@@ -62,8 +62,10 @@ test("a warmed public photo stops at the next cold request after unpublish; /_ne
       const warm = await call(port, publicHost, "GET", url);
       expect(warm.status).toBe(200);
       expect(warm.headers["cache-control"]).toBe("no-store");
+      expect(warm.headers["x-robots-tag"]).toBeUndefined(); // D-25: public images are indexable
       expect(warm.body.equals(webp)).toBe(true);
     }
+    expect((await call(port, publicHost, "GET", `/api/public/media/${imageId}/thumb/`)).headers["x-robots-tag"]).toBeUndefined();
     expect((await call(port, publicHost, "GET", `/api/public/media/${imageId}/raw/`)).status).toBe(404);
     // the optimizer must not fetch (and cache) media routes
     for (const target of [url, `/api/admin/vehicles/${vehicleId}/images/${imageId}/large/`])

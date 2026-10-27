@@ -40,7 +40,10 @@ export async function proxy(request: NextRequest) {
   if (mapping.area === "MARKETING" || mapping.area === "COMPANY_PUBLIC") headers.delete("cookie");
   const response = NextResponse.next({ request: { headers } });
   // Panels, the platform and every API response stay out of search indexes (#40); public pages set their own robots.
-  if (mapping.area === "COMPANY_ADMIN" || mapping.area === "PLATFORM" || request.nextUrl.pathname.startsWith("/api/")) {
+  // Exception (D-25, #154): the two public image variants of a company host are indexable; the handler answers 404 for a disabled company.
+  const indexableMedia = mapping.area === "COMPANY_PUBLIC" && (request.method === "GET" || request.method === "HEAD")
+    && /^\/api\/public\/media\/[0-9a-f-]{36}\/(?:large|thumb)\/?$/i.test(request.nextUrl.pathname);
+  if (!indexableMedia && (mapping.area === "COMPANY_ADMIN" || mapping.area === "PLATFORM" || request.nextUrl.pathname.startsWith("/api/"))) {
     response.headers.set("X-Robots-Tag", "noindex, nofollow");
   }
   return response;
