@@ -68,9 +68,18 @@ export function encodeCursor(cursor: CatalogCursor): string {
   return Buffer.from(JSON.stringify(cursor)).toString("base64url");
 }
 
-export function decodeCursor(value: string, fingerprint: string): CatalogCursor | null {
+const decimalKey = /^\d{1,10}(?:\.\d{1,2})?$/;
+
+/** The key must have the type of the sort field; a forged one is an invalid cursor, never a database error. */
+function keyMatchesSort(key: CatalogCursor["k"], sort: CatalogSort): boolean {
+  if (sort === "recommended") return typeof key === "number" && Number.isSafeInteger(key) && key >= 0 && key <= 2_147_483_647;
+  if (sort === "name") return key === null || (typeof key === "string" && key.length <= 200 && !control.test(key));
+  return key === null || (typeof key === "string" && decimalKey.test(key));
+}
+
+export function decodeCursor(value: string, fingerprint: string, sort: CatalogSort): CatalogCursor | null {
   try {
     const parsed = cursorSchema.safeParse(JSON.parse(Buffer.from(value, "base64url").toString("utf8")));
-    return parsed.success && parsed.data.f === fingerprint ? parsed.data : null;
+    return parsed.success && parsed.data.f === fingerprint && keyMatchesSort(parsed.data.k, sort) ? parsed.data : null;
   } catch { return null; }
 }

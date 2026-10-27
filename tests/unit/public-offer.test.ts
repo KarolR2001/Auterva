@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import { readPublicTrafficLimits } from "../../src/modules/public-offer/config";
-import { publicImageAlt } from "../../src/modules/public-offer/images";
+import { resolveImageAlt } from "../../src/modules/media/vehicle-images";
 import { decodeCursor, encodeCursor, filterFingerprint, parseCatalogQuery } from "../../src/modules/public-offer/query";
 import { clip, publicOrigin, robotsTxt, serializeJsonLd, sitemapXml } from "../../src/modules/public-offer/seo";
 
@@ -10,8 +10,9 @@ const parse = (query: string) => parseCatalogQuery(new URLSearchParams(query), n
 test("traffic budgets live in one place; media has its own and is configurable", () => {
   expect(readPublicTrafficLimits({})).toEqual({ offerRead: { limit: 120, windowMs: 60_000 }, media: { limit: 600, windowMs: 60_000 } });
   expect(readPublicTrafficLimits({ AUTERVA_PUBLIC_MEDIA_RATE_LIMIT: "900" }).media.limit).toBe(900);
+  // A bad value never breaks public reads: it falls back to the default.
   for (const bad of ["0", "-1", "1.5", "abc", "10001"]) {
-    expect(() => readPublicTrafficLimits({ AUTERVA_PUBLIC_MEDIA_RATE_LIMIT: bad })).toThrow();
+    expect(readPublicTrafficLimits({ AUTERVA_PUBLIC_MEDIA_RATE_LIMIT: bad }).media.limit).toBe(600);
   }
 });
 
@@ -31,19 +32,35 @@ test("catalog query: LocalDate bounds are inclusive, one day is valid, today is 
 test("cursor round trip is bound to the filters and sort", () => {
   const filters = { category: null, minSeats: 5, transmission: "Manualna", range: null };
   const fingerprint = filterFingerprint(filters, "name");
-  const cursor = encodeCursor({ v: 1, f: fingerprint, k: "Alfa", i: "9b2f2f35-8a5b-4d7c-9d3a-5f9d3c5b7a11" });
-  expect(decodeCursor(cursor, fingerprint)).toMatchObject({ k: "Alfa" });
-  expect(decodeCursor(cursor, filterFingerprint({ ...filters, minSeats: 7 }, "name"))).toBeNull();
-  expect(decodeCursor(cursor, filterFingerprint(filters, "recommended"))).toBeNull();
+  const id = "9b2f2f35-8a5b-4d7c-9d3a-5f9d3c5b7a11";
+  const cursor = encodeCursor({ v: 1, f: fingerprint, k: "Alfa", i: id });
+  expect(decodeCursor(cursor, fingerprint, "name")).toMatchObject({ k: "Alfa" });
+  expect(decodeCursor(cursor, filterFingerprint({ ...filters, minSeats: 7 }, "name"), "name")).toBeNull();
+  expect(decodeCursor(cursor, filterFingerprint(filters, "recommended"), "recommended")).toBeNull();
+  // The key must fit the sort field: a forged one is invalid, not a database error.
+  const forged = (sort: "recommended" | "name" | "price_asc", k: number | string | null) =>
+    decodeCursor(encodeCursor({ v: 1, f: filterFingerprint(filters, sort), k, i: id }), filterFingerprint(filters, sort), sort);
+  expect(forged("recommended", "abc")).toBeNull();
+  expect(forged("recommended", 1.5)).toBeNull();
+  expect(forged("recommended", -1)).toBeNull();
+  expect(forged("recommended", null)).toBeNull();
+  expect(forged("recommended", 3)).not.toBeNull();
+  expect(forged("name", 5)).toBeNull();
+  expect(forged("name", "x".repeat(201))).toBeNull();
+  expect(forged("name", null)).not.toBeNull();
+  expect(forged("price_asc", "abc")).toBeNull();
+  expect(forged("price_asc", 5)).toBeNull();
+  expect(forged("price_asc", "12.50")).not.toBeNull();
+  expect(forged("price_asc", null)).not.toBeNull();
   expect(filterFingerprint({ ...filters, transmission: "MANUALNA" }, "name")).toBe(fingerprint);
 });
 
-test("default alt is recomputed from the current name and position; an edited alt survives", () => {
-  expect(publicImageAlt("Stara nazwa, zdjęcie 1", "Nowa nazwa", 1)).toBe("Nowa nazwa, zdjęcie 2");
-  expect(publicImageAlt(null, null, 0)).toBe("Zdjęcie pojazdu 1");
-  expect(publicImageAlt("  ", "Auto", 0)).toBe("Auto, zdjęcie 1");
-  expect(publicImageAlt("Przód auta z logo", "Auto", 0)).toBe("Przód auta z logo");
-  expect(publicImageAlt(null, "<b>Auto</b>", 0)).not.toMatch(/[<>]/);
+test("alt: NULL gets the read-time default for its ordinal; an editor's text is never rewritten", () => {
+  expect(resolveImageAlt(null, "Nowa nazwa", 1)).toBe("Nowa nazwa, zdjęcie 2");
+  expect(resolveImageAlt(null, null, 0)).toBe("Zdjęcie pojazdu 1");
+  expect(resolveImageAlt("Przód auta z logo", "Auto", 0)).toBe("Przód auta z logo");
+  expect(resolveImageAlt("Widok wnętrza, zdjęcie 7", "Auto", 0)).toBe("Widok wnętrza, zdjęcie 7");
+  expect(resolveImageAlt(null, "<b>Auto</b>", 0)).not.toMatch(/[<>]/);
 });
 
 test("SEO helpers: origin, clipping, escaping and sitemap/robots text", () => {

@@ -25,6 +25,14 @@ export function defaultImageAlt(vehicleName: string | null | undefined, position
   return name ? `${name}, zdjęcie ${position + 1}` : `Zdjęcie pojazdu ${position + 1}`;
 }
 
+/**
+ * The one place that turns a stored alt into the displayed one: an editor's text is never rewritten and an
+ * image without alt (NULL, the default for new uploads) gets the default for its ordinal in the displayed gallery.
+ */
+export function resolveImageAlt(stored: string | null, vehicleName: string | null | undefined, index: number): string {
+  return stored ?? defaultImageAlt(vehicleName, index);
+}
+
 export type VehicleImageView = { id: string; version: number; alt: string | null; position: number;
   isCover: boolean };
 

@@ -57,10 +57,13 @@ export const readCatalog = (request: Request) => serve(request, async (host, id)
 });
 
 export const readVehicle = (request: Request, slug: string) => serve(request, async (host, id) => {
+  const search = new URL(request.url).search;
   const result = await getPublicVehicle(prisma, host, slug);
   if (!result) return null;
   if (result.kind === "FOUND") return publicJson(result, 200, id);
-  if (result.kind === "REDIRECT") return publicJson({ code: "MOVED", path: result.path }, 308, id, { Location: result.path });
+  // The JSON client stays on the JSON resource (query kept); the page path is only informational.
+  if (result.kind === "REDIRECT") return publicJson({ code: "MOVED", path: result.path }, 308, id,
+    { Location: `/api/public/vehicles/${result.slug}/${search}` });
   return publicJson({ code: "NOT_FOUND", offerPath: result.offerPath }, 404, id);
 });
 

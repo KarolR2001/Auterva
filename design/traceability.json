@@ -635,6 +635,11 @@
         "src/modules/public-offer/http.ts",
         "src/modules/public-offer/discovery.ts",
         "src/modules/settings/http.ts",
+        "prisma/migrations/20261028090000_image_default_alt_read_time_issue_40/migration.sql",
+        "src/modules/media/vehicle-images.ts",
+        "src/modules/media/worker.ts",
+        "src/modules/fleet/http.ts",
+        "src/modules/fleet/read.ts",
         "src/modules/tenancy/host-route-policy.ts",
         "src/proxy.ts",
         "src/app/api/public/offer/route.ts",
@@ -649,6 +654,7 @@
       "testPaths": [
         "tests/unit/public-offer.test.ts",
         "tests/integration/public-offer.test.ts",
+        "tests/integration/image-alt-migration.test.ts",
         "tests/e2e/public-offer.spec.ts"
       ]
     }

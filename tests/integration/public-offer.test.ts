@@ -7,14 +7,15 @@ import { availabilityToday, sqlDate } from "../../src/modules/availability/dates
 import { runWithTrustedClientAddress } from "../../src/modules/ingress/client-address";
 import { serveRobots, serveSitemap } from "../../src/modules/public-offer/discovery";
 import { readCatalog, readContact, readHome, readLegal, readVehicle, takePublicBudget } from "../../src/modules/public-offer/http";
-import { decodeCursor, filterFingerprint, parseCatalogQuery } from "../../src/modules/public-offer/query";
-import { publicImageAlt } from "../../src/modules/public-offer/images";
+import { decodeCursor, encodeCursor, filterFingerprint, parseCatalogQuery } from "../../src/modules/public-offer/query";
+import { listCompanyVehicles } from "../../src/modules/fleet/read";
 import { getPublicContact, getPublicHome, getPublicLegal, getPublicSiteState, getPublicVehicle,
   listPublicVehicles } from "../../src/modules/public-offer/read";
 import { serializeJsonLd } from "../../src/modules/public-offer/seo";
 import { readPublicMedia, readPublicSettings } from "../../src/modules/settings/http";
 
 const db = createPrismaClient(process.env.DATABASE_URL ?? "");
+const startedAt = new Date();
 const [a, b] = [randomUUID(), randomUUID()];
 const hostA = `offer-a-${a}.example.test`;
 const hostB = `offer-b-${b}.example.test`;
@@ -75,20 +76,26 @@ beforeAll(async () => {
     type: "MAINTENANCE", reference: "private-ref", internalNote: "private-note" } });
   await db.vehicleImage.createMany({ data: [
     { id: randomUUID(), organizationId: a, vehicleId: ids[0], storageKey: `po/${a}/1`, mime: "image/webp", width: 1600, height: 900,
-      bytes: 10, status: "READY", position: 0, isCover: true, variants: variants("1"), alt: "Alfa, zdjęcie 1" },
+      bytes: 10, status: "READY", position: 0, isCover: true, variants: variants("1"), alt: null },
     { id: randomUUID(), organizationId: a, vehicleId: ids[0], storageKey: `po/${a}/2`, mime: "image/webp", width: 800, height: 600,
-      bytes: 10, status: "READY", position: 1, isCover: false, variants: variants("2"), alt: "Własny opis maski" },
+      bytes: 10, status: "READY", position: 1, isCover: false, variants: variants("2"), alt: "Widok wnętrza, zdjęcie 7" },
     { id: randomUUID(), organizationId: a, vehicleId: ids[0], storageKey: `po/${a}/3`, mime: "image/webp", width: 800, height: 600,
       bytes: 10, status: "READY", position: 2, isCover: false, alt: null },
     { id: randomUUID(), organizationId: a, vehicleId: ids[0], storageKey: `po/${a}/4`, mime: "image/webp", width: 800, height: 600,
       bytes: 10, status: "PENDING", position: 3, isCover: false, variants: variants("4") },
+  ] });
+  await db.vehicleImage.createMany({ data: [
+    { id: randomUUID(), organizationId: a, vehicleId: ids[1], storageKey: `po/${a}/b1`, mime: "image/webp", width: 800, height: 600,
+      bytes: 10, status: "READY", position: 0, isCover: false, variants: variants("b1"), alt: null },
+    { id: randomUUID(), organizationId: a, vehicleId: ids[1], storageKey: `po/${a}/b2`, mime: "image/webp", width: 800, height: 600,
+      bytes: 10, status: "READY", position: 7, isCover: true, variants: variants("b2"), alt: null },
   ] });
   await db.slugRedirect.create({ data: { organizationId: a, vehicleId: ids[0], oldSlug: `stary-alfa-${a}` } });
   await db.slugRedirect.create({ data: { organizationId: a, vehicleId: ids[4], oldSlug: `stary-szkic-${a}` } });
 });
 
 afterAll(async () => {
-  await db.rateLimitEvent.deleteMany({});
+  await db.rateLimitEvent.deleteMany({ where: { occurredAt: { gte: startedAt } } });
   await db.slugRedirect.deleteMany({ where: { organizationId: { in: [a, b] } } });
   await db.vehicleImage.deleteMany({ where: { organizationId: { in: [a, b] } } });
   await db.availabilityBlock.deleteMany({ where: { organizationId: { in: [a, b] } } });
@@ -180,7 +187,7 @@ test("pagination is cursor based and stable across ties, filters and concurrent 
     .toEqual({ ok: false, error: { code: "INVALID_CURSOR", field: "cursor" } });
   expect(await listPublicVehicles(db, hostA, q("cursor=!!!"))).toMatchObject({ ok: false, error: { code: "INVALID_CURSOR" } });
   const fingerprint = filterFingerprint({ category: null, minSeats: null, transmission: null, range: null }, "name");
-  expect(decodeCursor("e30", fingerprint)).toBeNull();
+  expect(decodeCursor("e30", fingerprint, "name")).toBeNull();
   const parsed = parseCatalogQuery(q("limit=7"));
   expect(parsed.ok && parsed.query.limit).toBe(7);
 });
@@ -233,19 +240,28 @@ test("home features the configured number of published featured vehicles", async
 test("detail: gallery alt is computed at read time, unfinished or variant-less images are not advertised, text stays plain", async () => {
   const detail = await getPublicVehicle(db, hostA, `alfa-${a}`);
   if (detail?.kind !== "FOUND") throw new Error("expected vehicle");
-  expect(detail.vehicle.gallery.map((image) => image.alt)).toEqual(["Alfa, zdjęcie 1", "Własny opis maski"]);
+  expect(detail.vehicle.gallery.map((image) => image.alt)).toEqual(["Alfa, zdjęcie 1", "Widok wnętrza, zdjęcie 7"]);
   expect(detail.vehicle.gallery[0].urls).toEqual({ large: expect.stringMatching(/^\/api\/public\/media\/.+\/large\/$/),
     thumb: expect.stringMatching(/^\/api\/public\/media\/.+\/thumb\/$/) });
   expect(detail.vehicle.cover?.isCover).toBe(true);
   await db.vehicle.update({ where: { id: ids[0] }, data: { name: "Alfa Romeo" } });
   const renamed = await getPublicVehicle(db, hostA, `alfa-${a}`);
-  expect(renamed?.kind === "FOUND" && renamed.vehicle.gallery.map((image) => image.alt)).toEqual(["Alfa Romeo, zdjęcie 1", "Własny opis maski"]);
+  expect(renamed?.kind === "FOUND" && renamed.vehicle.gallery.map((image) => image.alt)).toEqual(["Alfa Romeo, zdjęcie 1", "Widok wnętrza, zdjęcie 7"]);
   await db.vehicle.update({ where: { id: ids[0] }, data: { name: "Alfa" } });
-  expect(publicImageAlt(null, null, 2)).toBe("Zdjęcie pojazdu 3");
-  expect(publicImageAlt("Zdjęcie pojazdu 1", "Nowa", 4)).toBe("Nowa, zdjęcie 5");
+  // Deleting an image leaves no gap: the next one takes the freed ordinal; a manual alt is untouched.
+  const third = randomUUID();
+  await db.vehicleImage.create({ data: { id: third, organizationId: a, vehicleId: ids[0], storageKey: `po/${a}/5`, mime: "image/webp",
+    width: 800, height: 600, bytes: 10, status: "READY", position: 9, isCover: false, variants: variants("5"), alt: null } });
+  const before = await getPublicVehicle(db, hostA, `alfa-${a}`);
+  expect(before?.kind === "FOUND" && before.vehicle.gallery.map((image) => image.alt)).toEqual(["Alfa, zdjęcie 1", "Widok wnętrza, zdjęcie 7", "Alfa, zdjęcie 3"]);
+  await db.vehicleImage.updateMany({ where: { organizationId: a, vehicleId: ids[0], alt: "Widok wnętrza, zdjęcie 7" }, data: { status: "DELETED" } });
+  const after = await getPublicVehicle(db, hostA, `alfa-${a}`);
+  expect(after?.kind === "FOUND" && after.vehicle.gallery.map((image) => image.alt)).toEqual(["Alfa, zdjęcie 1", "Alfa, zdjęcie 2"]);
+  await db.vehicleImage.delete({ where: { id: third } });
+  await db.vehicleImage.updateMany({ where: { organizationId: a, vehicleId: ids[0], alt: "Widok wnętrza, zdjęcie 7" }, data: { status: "READY" } });
   expect(detail.vehicle.description).toContain("<script>"); // returned as text; the renderer escapes it
   expect(serializeJsonLd({ x: "</script><script>alert(1)</script>" })).not.toContain("</script>");
-  expect(await getPublicVehicle(db, hostA, `stary-alfa-${a}`)).toEqual({ kind: "REDIRECT", path: `/pojazdy/alfa-${a}/` });
+  expect(await getPublicVehicle(db, hostA, `stary-alfa-${a}`)).toEqual({ kind: "REDIRECT", slug: `alfa-${a}`, path: `/pojazdy/alfa-${a}/` });
   expect(await getPublicVehicle(db, hostA, `stary-szkic-${a}`)).toEqual({ kind: "NOT_FOUND", offerPath: "/" });
   expect(detail.seo.jsonLd[0]).not.toHaveProperty("offers");
   expect(detail.seo.canonical).toBe(`https://${hostA}/pojazdy/alfa-${a}/`);
@@ -412,4 +428,33 @@ test("the public media route is wired to the media budget, not to the 120/min se
   expect(statuses.every((status) => status === 404)).toBe(true);
   // Settings keep their own 120/min bucket, untouched by the 125 media reads.
   expect((await runWithTrustedClientAddress(address, () => readPublicSettings(get(hostA, "/api/public/settings/")))).status).toBe(200);
+});
+
+test("panel and public page show the same alt, numbered by the place in the gallery (cover is not always first)", async () => {
+  const panel = await listCompanyVehicles(db, a, { page: 1, pageSize: 50 });
+  const card = items(await listPublicVehicles(db, hostA, q("limit=50"))).items.find((item) => item.slug === `beta-${a}`);
+  expect(card?.cover?.alt).toBe("Beta, zdjęcie 2");
+  expect(panel.items.find((item) => item.slug === `beta-${a}`)?.cover?.alt).toBe(card?.cover?.alt);
+  const alfa = panel.items.find((item) => item.slug === `alfa-${a}`);
+  expect(alfa?.cover?.alt).toBe(items(await listPublicVehicles(db, hostA, q("limit=50"))).items.find((item) => item.slug === `alfa-${a}`)?.cover?.alt);
+});
+
+test("a forged cursor key is a 400 for every sort, never a server error", async () => {
+  await db.siteSettings.update({ where: { organizationId: a }, data: { showPrices: true } });
+  try {
+    const filters = { category: null, minSeats: null, transmission: null, range: null };
+    for (const [sort, key] of [["recommended", "abc"], ["name", 12], ["price_asc", "abc"], ["price_desc", 7]] as const) {
+      const cursor = encodeCursor({ v: 1, f: filterFingerprint(filters, sort), k: key, i: randomUUID() });
+      const response = await call(() => readCatalog(get(hostA, `/api/public/vehicles/?sort=${sort}&cursor=${cursor}`)));
+      expect(response.status, sort).toBe(400);
+      expect(await response.json()).toMatchObject({ code: "INVALID_CURSOR" });
+    }
+  } finally { await db.siteSettings.update({ where: { organizationId: a }, data: { showPrices: false } }); }
+});
+
+test("the JSON API keeps a moved vehicle on the JSON resource, with the query", async () => {
+  const response = await call(() => readVehicle(get(hostA, `/api/public/vehicles/stary-alfa-${a}/?from=${day(1)}&to=${day(2)}`), `stary-alfa-${a}`));
+  expect(response.status).toBe(308);
+  expect(response.headers.get("location")).toBe(`/api/public/vehicles/alfa-${a}/?from=${day(1)}&to=${day(2)}`);
+  expect(await response.json()).toEqual({ code: "MOVED", path: `/pojazdy/alfa-${a}/` });
 });

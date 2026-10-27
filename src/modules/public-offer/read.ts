@@ -4,7 +4,8 @@ import { availabilityToday, parseAvailabilityRange } from "@/modules/availabilit
 import { resolveAliasRedirect } from "@/modules/domains/routing";
 import { resolvePublicVisibility } from "@/modules/service-period/public";
 import { parseHostAuthority, resolveHostMapping } from "@/modules/tenancy/host-registry";
-import { hasBothVariants, mediaUrls, publicImageAlt } from "./images";
+import { resolveImageAlt } from "@/modules/media/vehicle-images";
+import { hasBothVariants, mediaUrls } from "./images";
 import { decodeCursor, encodeCursor, filterFingerprint, parseCatalogQuery, type CatalogCursor,
   type CatalogSort, type QueryError } from "./query";
 import { buildSeo, clip, compact, pageTitle, publicOrigin, type PublicSeo } from "./seo";
@@ -56,27 +57,30 @@ function priceDto(price: Prisma.Decimal | null, unit: string | null, showPrices:
 
 type ImageRow = { id: string; alt: string | null; position: number; isCover: boolean; width: number; height: number;
   variants: Prisma.JsonValue };
-const imageDto = (image: ImageRow, vehicleName: string | null) => ({ id: image.id,
-  alt: publicImageAlt(image.alt, vehicleName, image.position), position: image.position, isCover: image.isCover,
-  width: image.width, height: image.height, urls: mediaUrls(image.id) });
+/** Only servable images, numbered by their place in this gallery (no gaps after a deletion); alt is read-time. */
+function gallery(images: ImageRow[], vehicleName: string | null) {
+  return images.filter((image) => hasBothVariants(image.variants)).map((image, index) => ({ id: image.id,
+    alt: resolveImageAlt(image.alt, vehicleName, index), position: image.position, isCover: image.isCover,
+    width: image.width, height: image.height, urls: mediaUrls(image.id) }));
+}
+const coverOf = <T extends { isCover: boolean }>(images: T[]) => images.find((image) => image.isCover) ?? images[0] ?? null;
 
 const cardSelect = {
   id: true, slug: true, name: true, brand: true, model: true, year: true, shortDescription: true, seats: true, doors: true,
   transmission: true, fuel: true, drive: true, price: true, priceUnit: true, featured: true, sortOrder: true,
   category: { select: { code: true, name: true } },
-  images: { where: { status: "READY", isCover: true }, take: 1,
+  images: { where: { status: "READY" }, orderBy: [{ position: "asc" }, { id: "asc" }],
     select: { id: true, alt: true, position: true, isCover: true, width: true, height: true, variants: true } },
 } satisfies Prisma.VehicleSelect;
 type CardRow = Prisma.VehicleGetPayload<{ select: typeof cardSelect }>;
 
 export type PublicVehicleCard = ReturnType<typeof cardDto>;
 function cardDto(vehicle: CardRow, showPrices: boolean) {
-  const cover = vehicle.images.find((image) => hasBothVariants(image.variants));
   return { slug: vehicle.slug!, name: vehicle.name, brand: vehicle.brand, model: vehicle.model, year: vehicle.year,
     category: vehicle.category, seats: vehicle.seats, doors: vehicle.doors, transmission: vehicle.transmission,
     fuel: vehicle.fuel, drive: vehicle.drive, shortDescription: vehicle.shortDescription,
     price: priceDto(vehicle.price, vehicle.priceUnit, showPrices), featured: vehicle.featured,
-    cover: cover ? imageDto(cover, vehicle.name) : null, path: `/pojazdy/${vehicle.slug}/` };
+    cover: coverOf(gallery(vehicle.images, vehicle.name)), path: `/pojazdy/${vehicle.slug}/` };
 }
 
 const channelOrder = ["PHONE", "WHATSAPP", "EMAIL"] as const;
@@ -224,7 +228,7 @@ export async function listPublicVehicles(db: PrismaClient, authority: string, pa
   const fingerprint = filterFingerprint(filters, sort);
   let cursor: CatalogCursor | null = null;
   if (parsed.query.cursor !== null) {
-    cursor = decodeCursor(parsed.query.cursor, fingerprint);
+    cursor = decodeCursor(parsed.query.cursor, fingerprint, sort);
     if (!cursor) return { ok: false, error: { code: "INVALID_CURSOR", field: "cursor" } };
   }
   const { organizationId } = context;
@@ -281,7 +285,7 @@ export async function listPublicVehicles(db: PrismaClient, authority: string, pa
 export type VehicleDetailResult =
   | { kind: "FOUND"; vehicle: ReturnType<typeof detailDto>; seo: PublicSeo;
     availabilityNotice: string | null; contact: ReturnType<typeof contactSummary>; display: { showPrices: boolean } }
-  | { kind: "REDIRECT"; path: string }
+  | { kind: "REDIRECT"; slug: string; path: string }
   | { kind: "NOT_FOUND"; offerPath: "/" };
 
 const detailSelect = { ...cardSelect, description: true, color: true, luggage: true, seoTitle: true,
@@ -292,8 +296,7 @@ const detailSelect = { ...cardSelect, description: true, color: true, luggage: t
 } satisfies Prisma.VehicleSelect;
 
 function detailDto(vehicle: Prisma.VehicleGetPayload<{ select: typeof detailSelect }>, showPrices: boolean) {
-  const gallery = vehicle.images.filter((image) => hasBothVariants(image.variants))
-    .map((image) => imageDto(image, vehicle.name));
+  const photos = gallery(vehicle.images, vehicle.name);
   return { slug: vehicle.slug!, name: vehicle.name, brand: vehicle.brand, model: vehicle.model, year: vehicle.year,
     category: vehicle.category, seats: vehicle.seats, doors: vehicle.doors, transmission: vehicle.transmission,
     fuel: vehicle.fuel, drive: vehicle.drive, color: vehicle.color, luggage: vehicle.luggage,
@@ -301,7 +304,7 @@ function detailDto(vehicle: Prisma.VehicleGetPayload<{ select: typeof detailSele
     // Untrusted text: render escaped, never as HTML (stored data may contain markup).
     description: vehicle.description, price: priceDto(vehicle.price, vehicle.priceUnit, showPrices),
     features: vehicle.features.map(({ code, value }) => ({ code, value })),
-    cover: gallery.find((image) => image.isCover) ?? gallery[0] ?? null, gallery,
+    cover: coverOf(photos), gallery: photos,
     path: `/pojazdy/${vehicle.slug}/` };
 }
 
@@ -320,7 +323,7 @@ export async function getPublicVehicle(db: PrismaClient, authority: string, slug
     const old = await db.slugRedirect.findUnique({ where: { organizationId_oldSlug: { organizationId, oldSlug: slug } },
       select: { vehicle: { select: { slug: true, status: true } } } });
     return old?.vehicle.status === "PUBLISHED" && old.vehicle.slug
-      ? { kind: "REDIRECT", path: `/pojazdy/${old.vehicle.slug}/` } : notFound;
+      ? { kind: "REDIRECT", slug: old.vehicle.slug, path: `/pojazdy/${old.vehicle.slug}/` } : notFound;
   }
   const vehicle = detailDto(row, showPrices);
   const title = row.seoTitle ?? pageTitle(row.name ?? "Pojazd", context.name);

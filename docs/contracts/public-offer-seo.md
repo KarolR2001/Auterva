@@ -8,7 +8,7 @@ Warstwa serwerowa dla stron #41–#44 oraz publiczne API JSON. Moduł: `src/modu
 - Wyłącznie `PUBLISHED`. Zapytania zawsze zawierają `organizationId` hosta; sesja administratora nie jest nigdzie czytana (C-N030). Allowlista kolumn: brak `status`, `version`, `organizationId`, `sortOrder` (poza kolejnością), `internalNote`, `reference`, typu/źródła blokady, `operatorNote`, kluczy storage, danych okresu usługi i czatu. Dostępność: tylko filtr „dostępny w całym zakresie” (ten sam predykat `availabilityVehicleWhere(…, publishedOnly)` przed `count`, sortowaniem i paginacją) oraz istniejące API dostępności.
 - Opisy i treści prawne to niezaufany tekst: DTO zwraca tekst, renderer escapuje (React domyślnie); HTML wymaga osobnej sanitizacji i testów. JSON-LD serializuje `serializeJsonLd` (escape `<`, `>`, `&`, U+2028/9).
 - Brak ceny, cena `0` albo wyłączony przełącznik firmy (`showPrices`) = `price: null`, nigdy „0 zł”. Sortowanie po cenie jest dostępne tylko przy włączonym przełączniku (inaczej `400 INVALID_QUERY`, `field: "sort"`).
-- Zdjęcia: do DTO trafiają tylko `READY` z obydwoma wariantami (`large`, `thumb`). Alt jest liczony przy odczycie: pusty albo wygenerowany domyślny (`<nazwa>, zdjęcie N`, `Zdjęcie pojazdu N`) wraca przez `defaultImageAlt` z aktualną nazwą i pozycją; alt wpisany przez edytora zostaje (wymaganie CR #32). Ograniczenie: ręczny alt o dokładnie takim samym kształcie jak domyślny jest także przeliczany. Przed produkcją rozstrzygnąć, czy worker ma zapisywać `null`.
+- Zdjęcia: do DTO trafiają tylko `READY` z obydwoma wariantami (`large`, `thumb`); okładka karty i szczegółów to ta sama pozycja galerii (`isCover`, w razie braku pierwsza). Alt: `resolveImageAlt` (zapisany `NULL` → `<nazwa>, zdjęcie N` z aktualną nazwą i numerem w tej galerii; ręczny alt bez zmian), zob. [media](media-upload-processing.md).
 - Kontakt nie zapisuje niczego: brak leadu, klienta, rezerwacji i blokady; trasa kontaktu ma tylko `GET` (inne metody to `405`). Wiadomość z pojazdem i terminem (FR-PUB-032) jest składana na serwerze jako domyślny tekst (`message.text`) i linki `tel:`, `https://wa.me/…`, `mailto:`; treść komunikatu może zmienić klient.
 
 ## API JSON (host publiczny, `GET`, `no-store`, `X-Robots-Tag: noindex, nofollow`)
@@ -17,11 +17,11 @@ Warstwa serwerowa dla stron #41–#44 oraz publiczne API JSON. Moduł: `src/modu
 |---|---|
 | `/api/public/offer/` | home: `offerState` `EMPTY` (zapowiedź) lub `HAS_VEHICLES`, firma, wyróżnione (`featuredVehicleCount`), kontakt, `seo` |
 | `/api/public/vehicles/` | katalog (poniżej) |
-| `/api/public/vehicles/{slug}/` | `{kind:"FOUND", vehicle, availabilityNotice, contact, display, seo}`; stary slug opublikowanego pojazdu `308` + `Location`; nieznany/obcy/nieopublikowany `404 {code:"NOT_FOUND", offerPath:"/"}` |
+| `/api/public/vehicles/{slug}/` | `{kind:"FOUND", vehicle, availabilityNotice, contact, display, seo}`; stary slug opublikowanego pojazdu `308` z `Location: /api/public/vehicles/{nowy}/` (query zachowane) i `body.path` = ścieżka strony; nieznany/obcy/nieopublikowany `404 {code:"NOT_FOUND", offerPath:"/"}` |
 | `/api/public/contact/?vehicle=&from=&to=` | kanały, godziny, adres, `message`, `seo` |
 | `/api/public/legal/{privacy|terms}/` | `status` `TEXT`/`LINK`/`MISSING`, `text`, `url`, `seo` |
 
-Błędy: `404 NOT_FOUND` (firma niepubliczna, ten sam kształt co brak zasobu), `400 INVALID_QUERY|INVALID_CURSOR`, `422 PAST_DATE`, `429 RATE_LIMITED` + `Retry-After`, `503 TRUSTED_INGRESS_REQUIRED`, `500 INTERNAL_ERROR`. SSR wywołuje funkcje bezpośrednio i nie używa tych tras ani ich limitu.
+Błędy: `404 {code:"NOT_FOUND"}` (firma niepubliczna lub nieznany host; brak pojazdu dodaje `offerPath`, więc oba przypadki da się odróżnić tylko dla aktywnej firmy), `400 INVALID_QUERY|INVALID_CURSOR`, `422 PAST_DATE`, `429 RATE_LIMITED` + `Retry-After`, `503 TRUSTED_INGRESS_REQUIRED`, `500 INTERNAL_ERROR`. SSR wywołuje funkcje bezpośrednio i nie używa tych tras ani ich limitu.
 
 ## Katalog: filtry, sortowanie, paginacja
 
@@ -29,7 +29,7 @@ Parametry (nieznane są ignorowane, powtórzony znany jest błędem): `category`
 
 Odpowiedź: `state` `EMPTY_OFFER` (brak opublikowanych pojazdów, filtry nie udają wyników) | `NO_RESULTS` | `RESULTS`; `items`, `total`, `limit`, `nextCursor`, `applied`, `filters` (opcje: kategorie, skrzynie, zakres miejsc, dostępne sortowania), `display.showPrices`, `seo`. Z datami lista zawiera tylko pojazdy wolne przez cały zakres; pojedyncze niedostępne daje istniejące `/api/public/availability/*`.
 
-Kursor jest nieprzejrzysty, zbudowany na kluczu `(pole sortowania, id)` i związany z filtrami oraz sortowaniem (`INVALID_CURSOR` przy niezgodności). Kolejność jest całkowita (remisy rozstrzyga `id`), więc zmiany w trakcie przeglądania nie powielają pozycji; element przeniesiony przed kursor może zostać pominięty. Brak ceny sortuje się na końcu w obu kierunkach; zapisana cena `0` sortuje się jako najniższa (walidacja zapisu ceny należy do #28).
+Karta (`path`) nie niesie dat: klient (#42) dokleja `applied.from`/`applied.to` do linku (C-F092). Kursor jest nieprzejrzysty (klucz `k` musi mieć typ pola sortowania: liczba całkowita, tekst lub null, dziesiętny tekst lub null; inaczej `400 INVALID_CURSOR`), zbudowany na kluczu `(pole sortowania, id)` i związany z filtrami oraz sortowaniem (`INVALID_CURSOR` przy niezgodności). Kolejność jest całkowita (remisy rozstrzyga `id`), więc zmiany w trakcie przeglądania nie powielają pozycji; element przeniesiony przed kursor może zostać pominięty. Brak ceny sortuje się na końcu w obu kierunkach; zapisana cena `0` sortuje się jako najniższa (walidacja zapisu ceny należy do #28).
 
 ## SEO i indeksowanie
 
@@ -46,7 +46,7 @@ Kursor jest nieprzejrzysty, zbudowany na kluczu `(pole sortowania, id)` i związ
 
 ## Budżet ruchu publicznych wariantów mediów
 
-**Decyzja orkiestratora do potwierdzenia przez właściciela.** Warianty `GET /api/public/media/{id}/{large|thumb}/` mają własny klucz limitu `api:public:media:ip:<adres>` i budżet **600/min/IP** zamiast wspólnego 120/min z ustawieniami (galeria to do 30 zdjęć × 2 warianty przy `no-store`; 600 pokrywa około dziesięciu pełnych galerii na minutę zza jednego NAT). Pozostałe odczyty oferty mają `api:public:offer:ip` 120/min; dostępność nadal 60/min, ustawienia publiczne 120/min, limity prywatne i auth bez zmian. Wartości są w jednym miejscu (`src/modules/public-offer/config.ts`), z nadpisaniem `AUTERVA_PUBLIC_MEDIA_RATE_LIMIT` i `AUTERVA_PUBLIC_OFFER_RATE_LIMIT` (1–10 000); przekroczenie to `429 RATE_LIMITED` z `Retry-After`. Wartości i koszt licznika (okno ruchome czyta do `limit` zdarzeń na żądanie) potwierdza test obciążenia (#58/#62).
+**Decyzja orkiestratora do potwierdzenia przez właściciela.** Warianty `GET /api/public/media/{id}/{large|thumb}/` mają własny klucz limitu `api:public:media:ip:<adres>` i budżet **600/min/IP** zamiast wspólnego 120/min z ustawieniami (galeria to do 30 zdjęć × 2 warianty przy `no-store`; 600 pokrywa około dziesięciu pełnych galerii na minutę zza jednego NAT). Pozostałe odczyty oferty mają `api:public:offer:ip` 120/min; dostępność nadal 60/min, ustawienia publiczne 120/min, limity prywatne i auth bez zmian. Wartości są w jednym miejscu (`src/modules/public-offer/config.ts`), z nadpisaniem `AUTERVA_PUBLIC_MEDIA_RATE_LIMIT` i `AUTERVA_PUBLIC_OFFER_RATE_LIMIT` (1–10 000; błędna wartość to wartość domyślna z jednym logiem, nie błąd odczytów); przekroczenie to `429 RATE_LIMITED` z `Retry-After`. Wartości i koszt licznika (okno ruchome czyta do `limit` zdarzeń na żądanie) potwierdza test obciążenia (#58/#62).
 
 ## Poza zakresem
 
