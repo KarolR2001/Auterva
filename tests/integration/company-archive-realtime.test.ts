@@ -1,11 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { once } from "node:events";
-import WebSocket from "ws";
+import { refusedStatus, TestSocket } from "../fixtures/realtime-client";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { auth } from "../../src/lib/auth";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { startRealtimeServer } from "../../src/modules/chat/realtime";
-import { resolveRealtimeTenant } from "../../src/modules/chat/resolve-tenant";
+import { createRealtimeAuthority } from "../../src/modules/chat/resolve-tenant";
 import { archiveCompany, restoreCompany } from "../../src/modules/organizations/archive";
 import { ensureControlledSuperadminMfa, verifiedFixtureSession } from "../fixtures/verified-session";
 
@@ -38,7 +37,8 @@ beforeAll(async () => {
   await db.user.create({ data: { id: adminId, name: "WS admin", email: `ws-${adminId}@example.test`,
     emailVerified: true, twoFactorEnabled: true, role: "ADMIN_FIRMY", organizationId } });
   adminCookie = await verifiedFixtureSession(db, adminId);
-  server = await startRealtimeServer(db, (headers, host) => resolveRealtimeTenant(db, auth, headers, host));
+  server = await startRealtimeServer({ db, databaseUrl: process.env.DATABASE_URL ?? "", authority: createRealtimeAuthority(db, auth),
+    config: { host: "127.0.0.1", port: 0, allowedHosts: new Set() } });
 });
 
 afterAll(async () => {
@@ -55,30 +55,20 @@ afterAll(async () => {
   await db.$disconnect();
 });
 
-const connect = (cookie: string) => new WebSocket(`ws://127.0.0.1:${server.port}/ws?organizationId=${organizationId}`,
-  { headers: { cookie, origin: `https://${adminHost}` } });
+const connect = (cookie: string) => TestSocket.open(server.port, organizationId, { cookie, origin: `https://${adminHost}` });
+const refused = (cookie: string) => refusedStatus(server.port, organizationId, { cookie, origin: `https://${adminHost}` });
 
 test("archive closes the company admin's open WebSocket and refuses new connections, also after restore", async () => {
-  const open = connect(adminCookie.cookie);
-  await once(open, "open");
-  open.send(JSON.stringify({ type: "resume" }));
-  const [first] = await once(open, "message");
-  expect(JSON.parse(first.toString())).toMatchObject({ type: "history" });
-  const closed = once(open, "close");
+  const open = await connect(adminCookie.cookie);
+  expect((await open.takeType("ready")).role).toBe("ADMIN_FIRMY");
   await archiveCompany(db, { actorId: platformId, sessionId: platformSessionId, organizationId,
     expectedVersion: 0, eventKey: randomUUID(), requestId: randomUUID() });
   const started = Date.now();
-  const [code] = await Promise.race([closed, new Promise<never[]>((_, reject) =>
-    setTimeout(() => reject(new Error("WebSocket was not closed")), 5_000))]);
-  expect(code).toBe(4401);
+  expect(await open.waitClose(5_000)).toBe(4401);
   expect(Date.now() - started).toBeLessThan(5_000);
-  const refused = connect(adminCookie.cookie);
-  await once(refused, "error").catch(() => undefined);
-  expect(refused.readyState).not.toBe(WebSocket.OPEN);
+  expect(await refused(adminCookie.cookie)).toBe(403);
   await restoreCompany(db, { actorId: platformId, sessionId: platformSessionId, organizationId,
     expectedVersion: 1, eventKey: randomUUID(), requestId: randomUUID() });
   // The old session was revoked for good: restore does not bring the connection back.
-  const afterRestore = connect(adminCookie.cookie);
-  await once(afterRestore, "error").catch(() => undefined);
-  expect(afterRestore.readyState).not.toBe(WebSocket.OPEN);
+  expect(await refused(adminCookie.cookie)).toBe(403);
 });
