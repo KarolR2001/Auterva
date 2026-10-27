@@ -42,7 +42,7 @@ Adres z DTO jest chroniony tak samo jak strona: bez sesji, z sesją obcego admin
 
 Zapisy floty, zdjęć, blokad i ustawień w `/api/platform/companies/{organizationId}/…` i `/api/admin/…` to cienkie adaptery tego samego use case (`createVehicle`, `editVehicle`, `setVehicleStatus`, `reorderVehicles`, mutacje zdjęć i blokad, `updateCompanySettings`): te same walidacje Zod, ograniczenia, wersje i konflikty (`FLEET_VERSION_CONFLICT`, `BLOCK_OVERLAP`, `MEDIA_VERSION_CONFLICT`, `SETTINGS_VERSION_CONFLICT`), te same blokady wiersza `Organization` → `Vehicle` i ten sam audyt z rzeczywistym aktorem (`actorId`, `actorRole`) oraz `organizationId` wybranej firmy; `requireAuditActor`/`requireAuditScope` powtarzają sprawdzenie sesji, MFA i firmy wewnątrz transakcji. Ustawienia zapisuje tylko superadmin (D-01); admin dostaje odczyt i odmowę zapisu.
 
-Budżet odczytu preview używa `actor()` floty (klucz `api:read:{actor}:platform` dla superadmina), co odbiega od kontraktu [technical-limits-and-mfa-bootstrap.md](technical-limits-and-mfa-bootstrap.md) (#4: operacje w kontekście firmy mają ID firmy). `privateCalendar` zachowuje klucz zgodny z kontraktem. Rozbieżność rozstrzyga D-19 (wspólny klucz `platform`), realizuje #150.
+Budżet odczytu preview i bajtów zdjęć wynika z D-19 ([technical-limits-and-mfa-bootstrap.md](technical-limits-and-mfa-bootstrap.md)): superadmin ma jeden klucz `api:read:{actor}:platform` niezależnie od firmy, administrator firmy klucz konto + firma, a pobieranie wariantów zdjęć (`/preview/media/…`) osobny budżet `api:media:{actor}:{scope}` (domyślnie 600/min, `AUTERVA_MEDIA_RATE_LIMIT`), który nie zużywa odczytów JSON. Przekroczenie to `429 RATE_LIMITED` z `Retry-After`.
 
 ## Reguły ze źródeł
 

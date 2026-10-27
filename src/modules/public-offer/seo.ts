@@ -72,7 +72,8 @@ export function sitemapXml(origin: string, entries: SitemapEntry[]): string {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>\n`;
 }
 
-export function robotsTxt(target: { kind: "PUBLIC"; origin: string } | { kind: "PRIVATE" }): string {
+export function robotsTxt(target: { kind: "PUBLIC" | "MARKETING"; origin: string } | { kind: "PRIVATE" }): string {
+  if (target.kind === "MARKETING") return `User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: ${target.origin}/sitemap.xml\n`;
   return target.kind === "PRIVATE" ? "User-agent: *\nDisallow: /\n"
     : `User-agent: *\nAllow: /\nAllow: /api/public/media/\nDisallow: /api/\n\nSitemap: ${target.origin}/sitemap.xml\n`;
 }

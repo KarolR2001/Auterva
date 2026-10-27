@@ -31,7 +31,7 @@ function validOrigin(request: Request): boolean {
 }
 
 export async function actor(request: Request, area: Area, targetOrganizationId: string | undefined,
-  mutation: boolean, requestId: string) {
+  mutation: boolean, requestId: string, budget?: "media") {
   if (area === "PLATFORM" && (!targetOrganizationId || !uuid.test(targetOrganizationId))) {
     return { error: response({ code: "INVALID_ID" }, 400, requestId) };
   }
@@ -45,7 +45,7 @@ export async function actor(request: Request, area: Area, targetOrganizationId: 
     return { error: response({ code: "FORBIDDEN" }, 403, requestId) };
   }
   const limit = await takeAuthenticatedApiLimit(prisma, { actorId: context.actorId,
-    organizationId: area === "PLATFORM" ? null : organizationId }, mutation ? "write" : "read");
+    organizationId: area === "PLATFORM" ? null : organizationId }, budget ?? (mutation ? "write" : "read"));
   if (!limit.allowed) return { error: response({ code: "RATE_LIMITED" }, 429, requestId, limit.retryAfter) };
   return { context, organizationId };
 }
