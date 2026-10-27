@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { availabilityToday, localDate, parseAvailabilityRange, sqlDate } from "@/modules/availability/dates";
+import { defaultImageAlt } from "@/modules/media/vehicle-images";
 import { availabilityVehicleWhere } from "@/modules/availability/read";
 
 export type VehicleListFilters = {
@@ -45,14 +46,16 @@ export async function listCompanyVehicles(db: PrismaClient, organizationId: stri
     db.vehicle.findMany({ where, orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
       skip: (filters.page - 1) * filters.pageSize, take: filters.pageSize,
       include: { category: { select: { id: true, name: true } },
-        images: { where: { status: "READY", isCover: true }, select: { id: true, alt: true }, take: 1 },
+        images: { where: { status: "READY", isCover: true }, select: { id: true, alt: true, position: true }, take: 1 },
         blocks: { where: { from: { lte: todaySql }, to: { gte: todaySql } }, select: { id: true } } } }),
   ], { isolationLevel: "RepeatableRead" });
   return { total, page: filters.page, pageSize: filters.pageSize,
     items: vehicles.map((vehicle) => ({ id: vehicle.id, name: vehicle.name, slug: vehicle.slug,
       status: vehicle.status, category: vehicle.category, sortOrder: vehicle.sortOrder,
       version: vehicle.version, updatedAt: vehicle.updatedAt.toISOString(),
-      price: vehicle.price?.toString() ?? null, cover: vehicle.images[0] ?? null,
+      price: vehicle.price?.toString() ?? null,
+      cover: vehicle.images[0] ? { id: vehicle.images[0].id,
+        alt: vehicle.images[0].alt ?? defaultImageAlt(vehicle.name, vehicle.images[0].position) } : null,
       activeToday: !!vehicle.availableFrom && localDate(vehicle.availableFrom) <= today
         && (!vehicle.availableTo || localDate(vehicle.availableTo) >= today),
       availableToday: !!vehicle.availableFrom && localDate(vehicle.availableFrom) <= today
