@@ -377,7 +377,13 @@ test("`public` is true only for a PUBLISHED vehicle of a company that passes the
     expect(await fetchPublic()).toBe(true);
     expect(((await (await adminVehicle(adminGet(0, `/vehicles/${v.hiddenA}/`), vehicleCtx(v.hiddenA))).json()) as Body)
       .preview.vehicle?.public).toBe(false);
+    // A pending public host means the offer is not public yet, whatever the period says.
+    await db.hostMapping.update({ where: { hostname: publicHost[0] }, data: { status: "PENDING" } });
+    expect(await fetchPublic()).toBe(false);
+    await db.hostMapping.update({ where: { hostname: publicHost[0] }, data: { status: "ACTIVE" } });
+    expect(await fetchPublic()).toBe(true);
   } finally {
+    await db.hostMapping.update({ where: { hostname: publicHost[0] }, data: { status: "ACTIVE" } });
     await db.serviceAccess.update({ where: { organizationId: orgA }, data: { paidThrough: new Date(`${day(-5)}T00:00:00.000Z`) } });
   }
 });

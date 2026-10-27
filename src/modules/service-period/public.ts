@@ -14,6 +14,7 @@ export async function resolveCompanyPublicVisibility(db: PrismaClient, organizat
   const company = await db.organization.findUnique({ where: { id: organizationId },
     select: { id: true, firstAdminRegisteredAt: true, archivedAt: true,
       publicUnlockRequired: true, publicRequiresPaid: true,
+      hosts: { where: { area: "COMPANY_PUBLIC", status: "ACTIVE" }, select: { id: true }, take: 1 },
       serviceAccess: { select: { paidThrough: true, trialGranted: true, trialStartedAt: true, trialEndsAt: true } } } });
   if (!company) return null;
   const access = company.serviceAccess;
@@ -26,7 +27,8 @@ export async function resolveCompanyPublicVisibility(db: PrismaClient, organizat
     archivedAt: company.archivedAt,
     publicUnlockRequired: company.publicUnlockRequired,
     publicRequiresPaid: company.publicRequiresPaid,
-    domainReady: true,
+    // On the public path the resolved host is ACTIVE by construction; preview needs the real answer.
+    domainReady: company.hosts.length > 0,
   }, now);
   return state.publicVisible ? { organizationId: company.id, state } : null;
 }
