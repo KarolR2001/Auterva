@@ -3,6 +3,7 @@ import { prisma } from "./lib/prisma";
 import { isCustomDomainHost, resolveAliasRedirect } from "./modules/domains/routing";
 import { parseHostAuthority, resolveHostMapping } from "./modules/tenancy/host-registry";
 import { routeAllowedForArea } from "./modules/tenancy/host-route-policy";
+import { documentCsp, isDocumentPath, newNonce } from "./modules/tenancy/csp";
 import { withErrorRequestId } from "./modules/tenancy/request-id";
 
 export async function proxy(request: NextRequest) {
@@ -38,7 +39,13 @@ export async function proxy(request: NextRequest) {
   }
   headers.set("host", authority!);
   if (mapping.area === "MARKETING" || mapping.area === "COMPANY_PUBLIC") headers.delete("cookie");
+  // #57: HTML documents get a per-request nonce CSP; Next reads the nonce from the request header and tags its scripts.
+  // Data endpoints get a closed CSP from next.config headers. The other static headers live there too.
+  const csp = isDocumentPath(request.nextUrl.pathname)
+    ? documentCsp(newNonce(), authority, process.env.NODE_ENV === "development") : null;
+  if (csp) headers.set("Content-Security-Policy", csp);
   const response = NextResponse.next({ request: { headers } });
+  if (csp) response.headers.set("Content-Security-Policy", csp);
   // Panels, the platform and every API response stay out of search indexes (#40); public pages set their own robots.
   // Exception (D-25, #154): the two public image variants of a company host are indexable; the handler answers 404 for a disabled company.
   const indexableMedia = mapping.area === "COMPANY_PUBLIC" && (request.method === "GET" || request.method === "HEAD")

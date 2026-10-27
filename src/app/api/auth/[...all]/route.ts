@@ -13,6 +13,7 @@ import { appendAudit } from "@/modules/audit/append";
 import { parseHostAuthority } from "@/modules/tenancy/host-registry";
 import { currentTrustedClientAddress } from "@/modules/ingress/client-address";
 import { apiRateLimitResponse, takeAuthenticatedApiLimit } from "@/modules/tenancy/api-rate-limit";
+import { bodyExceeds, MAX_AUTH_BODY_BYTES } from "@/modules/tenancy/json-body";
 import { withErrorRequestId } from "@/modules/tenancy/request-id";
 import { changeAccountPassword, requestPasswordReset, resetPassword, updateAccountProfile } from "@/modules/auth/account-operations";
 import { parseMailPayloadKey } from "@/modules/jobs/config";
@@ -202,6 +203,10 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
   const scope = probe ? null : await resolveAuthHost(prisma, request.headers.get("host"));
   if ((!probe && !scope) || !allowed.has(pathname)) return refusal();
   if (method === "POST" && !sameCanonicalOrigin(request.headers.get("origin"), externalUrl)) return new Response(null, { status: 403, headers: { "Cache-Control": "no-store" } });
+  // The gateway reads its JSON several times (clones); bound it first so no unauthenticated body is parsed unbounded.
+  if (method === "POST" && await bodyExceeds(request, MAX_AUTH_BODY_BYTES)) {
+    return Response.json({ code: "PAYLOAD_TOO_LARGE" }, { status: 413, headers: { "Cache-Control": "no-store" } });
+  }
   if (method === "GET" && pathname !== "/api/auth/get-session") return new Response(null, { status: 405 });
   if (method === "POST" && pathname === "/api/auth/get-session") return new Response(null, { status: 405 });
   let sourceIp: string;

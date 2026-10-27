@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { localDate } from "@/modules/availability/dates";
 import { takeAuthenticatedApiLimit } from "@/modules/tenancy/api-rate-limit";
 import { parseHostAuthority } from "@/modules/tenancy/host-registry";
+import { readJsonObject } from "@/modules/tenancy/json-body";
 import { requireRequestContext, resolveRequestArea } from "@/modules/tenancy/request-context";
 import { createVehicle, editVehicle, PublishingRequirementsError, reorderVehicles,
   setVehicleStatus, type VehicleFields } from "./mutations";
@@ -51,11 +52,7 @@ export async function actor(request: Request, area: Area, targetOrganizationId: 
 }
 
 export async function body(request: Request): Promise<Record<string, unknown> | null> {
-  if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) return null;
-  try {
-    const value: unknown = await request.json();
-    return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
-  } catch { return null; }
+  return readJsonObject(request);
 }
 
 export function only(value: Record<string, unknown>, keys: string[]) {

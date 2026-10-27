@@ -6,6 +6,7 @@ import { takeRateLimit } from "@/modules/auth/rate-limit";
 import { trustedClientAddress } from "@/modules/auth/trusted-address";
 import { currentTrustedClientAddress } from "@/modules/ingress/client-address";
 import { apiRateLimitResponse, takeAuthenticatedApiLimit } from "@/modules/tenancy/api-rate-limit";
+import { readJsonBody } from "@/modules/tenancy/json-body";
 import { resolveRequestArea, requireRequestContext } from "@/modules/tenancy/request-context";
 import { withErrorRequestId } from "@/modules/tenancy/request-id";
 import { availabilityToday, parseAvailabilityRange, type AvailabilityRange } from "./dates";
@@ -40,8 +41,7 @@ async function publicLimit(requestId: RequestId): Promise<Response | null> {
 }
 
 async function jsonBody(request: Request): Promise<unknown> {
-  if (!request.headers.get("content-type")?.startsWith("application/json")) return null;
-  return request.json().catch(() => null);
+  return (await readJsonBody(request)) ?? null;
 }
 
 export async function publicCheck(request: Request): Promise<Response> {

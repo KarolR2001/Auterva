@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { availabilityToday, localDate, parseAvailabilityRange, sqlDate } from "@/modules/availability/dates";
+import { singleLineControl } from "@/lib/text-policy";
 import { resolveImageAlt } from "@/modules/media/vehicle-images";
 import { availabilityVehicleWhere } from "@/modules/availability/read";
 
@@ -17,7 +18,9 @@ export type VehicleListFilters = {
 export async function listCompanyVehicles(db: PrismaClient, organizationId: string,
   filters: VehicleListFilters, now = new Date()) {
   if (!Number.isSafeInteger(filters.page) || filters.page < 1 || filters.page > 1_000_000 || !Number.isSafeInteger(filters.pageSize)
-    || filters.pageSize < 1 || filters.pageSize > 100 || filters.search?.length && filters.search.length > 120) {
+    || filters.pageSize < 1 || filters.pageSize > 100 || filters.search?.length && filters.search.length > 120
+    // PostgreSQL cannot store NUL in text: it would surface as a 500 instead of a refused filter.
+    || (filters.search !== undefined && singleLineControl.test(filters.search))) {
     throw new Error("FLEET_INVALID_FILTER");
   }
   const today = availabilityToday(now);

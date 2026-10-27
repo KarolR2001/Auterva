@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuthorizedActor } from "@/modules/auth/authorization";
 import { parseHostAuthority } from "@/modules/tenancy/host-registry";
 import { resolveRequestArea } from "@/modules/tenancy/request-context";
+import { readJsonObject } from "@/modules/tenancy/json-body";
 import { takeAuthenticatedApiLimit } from "@/modules/tenancy/api-rate-limit";
 
 export const onboardingRequestId = randomUUID;
@@ -40,11 +41,7 @@ export async function platformOnboardingActor(request: Request) {
 }
 
 export async function readOnboardingBody(request: Request): Promise<Record<string, unknown> | null> {
-  if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) return null;
-  try {
-    const body: unknown = await request.json();
-    return body && typeof body === "object" && !Array.isArray(body) ? body as Record<string, unknown> : null;
-  } catch { return null; }
+  return readJsonObject(request);
 }
 
 export function onboardingFailure(error: unknown, requestId: string): Response {
