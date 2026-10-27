@@ -112,6 +112,8 @@ Projekt zawiera issue; powiązany PR otrzymuje needs:cr i link Refs #numer. Nie 
 
 W osobnych sesjach nadaj role: „Jesteś głównym orkiestratorem Autervy”, „Jesteś agentem Frontend”, „Jesteś agentem Backend” albo „Jesteś agentem QA”. Każdy zaczyna od AGENTS.md, tego workflow, swojego widoku i opisu issue. Rola jest zakresem sesji, nie nowym kontem ani uprawnieniem. GitHub przechowuje stan pracy; orkiestrator uruchamia role i koordynuje zatwierdzone kolejki. Etykieta nie uruchamia automatycznie agenta.
 
+Równoważna konfiguracja Claude Code (orkiestrator w głównej sesji, subagenci ról, blokady przydziału, polityka merge) jest w [docs/agents/](../agents/ORCHESTRATOR.md). Obie konfiguracje stosują ten workflow.
+
 Frontend i Backend po starcie roli kontynuują zatwierdzoną kolejkę bez nowego promptu na każde issue, z pierwszeństwem Re-open i limitem jednego In progress na rolę. Orkiestrator koordynuje zależności i kontrakty oraz odbiera Review; QA zaczyna odbiór po Ready to test. Decyzji wymagających akceptacji użytkownika agent nie zatwierdza sam. Gotowy backlog nie oznacza rozstrzygniętych D-xx, działającej aplikacji, CI ani infrastruktury.
 
 ## Issue i odbiór
