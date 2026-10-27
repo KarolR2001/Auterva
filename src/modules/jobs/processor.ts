@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { Job, PrismaClient } from "@/generated/prisma/client";
 import { normalizeHostname } from "@/modules/tenancy/host-registry";
+import { isReminderIntentCurrent } from "@/modules/reminders/current";
 import { decryptMailPayload, isCurrentReminderRecipient, type MailPayload } from "./outbox";
 import { failJob, quarantineMailJob, startMailAttempt, type ClaimedJob } from "./queue";
 
@@ -61,7 +62,9 @@ async function isCurrent(db: PrismaClient, mail: MailPayload, now: Date): Promis
   if (!mail.organizationId) return false;
   const period = await db.serviceAccess.findUnique({ where: { organizationId: mail.organizationId }, select: { periodVersion: true } });
   return parsed.pathname === "/admin/" && !!period && period.periodVersion === mail.periodVersion
-    && await isCurrentReminderRecipient(db, mail.organizationId, mail.recipient);
+    && await isCurrentReminderRecipient(db, mail.organizationId, mail.recipient)
+    // The intent must still belong to the company's live effective boundary and not be superseded.
+    && await isReminderIntentCurrent(db, mail.organizationId, mail.referenceId, now);
 }
 
 async function skip(db: PrismaClient, claim: ClaimedJob, now: Date, code: string, expectedPayload: Job["payload"]): Promise<boolean> {

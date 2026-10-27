@@ -7,12 +7,13 @@ import { parseHostAuthority } from "@/modules/tenancy/host-registry";
 import { requireRequestContext, resolveRequestArea } from "@/modules/tenancy/request-context";
 import { createVehicle, editVehicle, PublishingRequirementsError, reorderVehicles,
   setVehicleStatus, type VehicleFields } from "./mutations";
+import { resolveImageAlt } from "@/modules/media/vehicle-images";
 import { listCompanyVehicles, type VehicleListFilters } from "./read";
 
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+export const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 type Area = "COMPANY_ADMIN" | "PLATFORM";
 
-function response(body: object, status: number, requestId: string, retryAfter?: number) {
+export function response(body: object, status: number, requestId: string, retryAfter?: number) {
   return Response.json(body, { status, headers: { "Cache-Control": "no-store", "X-Request-Id": requestId,
     ...(retryAfter ? { "Retry-After": String(retryAfter) } : {}) } });
 }
@@ -29,7 +30,7 @@ function validOrigin(request: Request): boolean {
   } catch { return false; }
 }
 
-async function actor(request: Request, area: Area, targetOrganizationId: string | undefined,
+export async function actor(request: Request, area: Area, targetOrganizationId: string | undefined,
   mutation: boolean, requestId: string) {
   if (area === "PLATFORM" && (!targetOrganizationId || !uuid.test(targetOrganizationId))) {
     return { error: response({ code: "INVALID_ID" }, 400, requestId) };
@@ -49,7 +50,7 @@ async function actor(request: Request, area: Area, targetOrganizationId: string 
   return { context, organizationId };
 }
 
-async function body(request: Request): Promise<Record<string, unknown> | null> {
+export async function body(request: Request): Promise<Record<string, unknown> | null> {
   if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) return null;
   try {
     const value: unknown = await request.json();
@@ -57,7 +58,7 @@ async function body(request: Request): Promise<Record<string, unknown> | null> {
   } catch { return null; }
 }
 
-function only(value: Record<string, unknown>, keys: string[]) {
+export function only(value: Record<string, unknown>, keys: string[]) {
   return Object.keys(value).every((key) => keys.includes(key));
 }
 
@@ -119,10 +120,17 @@ export async function getVehicle(request: Request, area: Area, vehicleId: string
       organizationId: access.organizationId!, id: vehicleId } }, include: {
       category: { select: { id: true, name: true, requiresSeats: true } },
       features: { select: { code: true, value: true } },
-      images: { select: { id: true, status: true, alt: true, position: true, isCover: true } },
+      images: { where: { status: { not: "DELETED" } }, orderBy: [{ position: "asc" }, { id: "asc" }],
+        select: { id: true, status: true, alt: true, position: true, isCover: true, version: true,
+          width: true, height: true } },
     } });
     if (!vehicle) return response({ code: "NOT_FOUND" }, 404, requestId);
-    return response({ ...vehicle, price: vehicle.price?.toString() ?? null,
+    const previewBase = area === "PLATFORM"
+      ? `/api/platform/companies/${access.organizationId}/vehicles/${vehicle.id}/images`
+      : `/api/admin/vehicles/${vehicle.id}/images`;
+    return response({ ...vehicle, images: vehicle.images.map((image, index) => ({ ...image,
+      alt: resolveImageAlt(image.alt, vehicle.name, index),
+      urls: { large: `${previewBase}/${image.id}/large/`, thumb: `${previewBase}/${image.id}/thumb/` } })), price: vehicle.price?.toString() ?? null,
       availableFrom: vehicle.availableFrom ? localDate(vehicle.availableFrom) : null,
       availableTo: vehicle.availableTo ? localDate(vehicle.availableTo) : null }, 200, requestId);
   } catch (error) { return failure(error, requestId); }

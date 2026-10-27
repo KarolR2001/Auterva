@@ -16,10 +16,12 @@ model Organization {
   publicUnlockRequired   Boolean            @default(false)
   publicRequiresPaid     Boolean            @default(false)
   version                Int                @default(0)
+  domainVersion          Int                @default(0)
   vehicles               Vehicle[]
   messages               ChatMessage[]
   users                  User[]
   hosts                  HostMapping[]
+  customDomain           CustomDomain?
   invitations            Invitation[]
   serviceAccess          ServiceAccess?
   settings               SiteSettings?
@@ -29,6 +31,8 @@ model Organization {
   auditLogs              AuditLog[]
   jobs                   Job[]
   operationReceipts      OperationReceipt[]
+  reminderPlan           ReminderPlan?
+  reminderIntents        ReminderIntent[]
 }
 
 model Vehicle {
@@ -66,6 +70,7 @@ model Vehicle {
   blocks           AvailabilityBlock[]
   features         VehicleFeature[]
   images           VehicleImage[]
+  imageUploads     ImageUpload[]
   redirects        SlugRedirect[]
 
   @@unique([organizationId, id])
@@ -96,6 +101,7 @@ model ChatMessage {
   conversationId  String?                  @db.Uuid
   senderId        String?
   clientMessageId String                   @db.Uuid
+  seq             Int?
   body            String
   createdAt       DateTime                 @default(now()) @db.Timestamptz(6)
   organization    Organization             @relation(fields: [organizationId], references: [id])
@@ -105,6 +111,7 @@ model ChatMessage {
 
   @@unique([organizationId, clientMessageId])
   @@unique([organizationId, conversationId, id])
+  @@unique([conversationId, seq])
   @@index([organizationId, createdAt])
 }
 
@@ -234,8 +241,30 @@ model HostMapping {
   canonicalTarget String?
   createdAt       DateTime      @default(now()) @db.Timestamptz(6)
   organization    Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  customDomain    CustomDomain?
 
+  @@unique([id, organizationId])
   @@index([organizationId, area])
+}
+
+model CustomDomain {
+  id                  String      @id @default(uuid()) @db.Uuid
+  organizationId      String      @unique @db.Uuid
+  hostMappingId       String      @unique @db.Uuid
+  status              String      @default("PENDING_OWNERSHIP")
+  verificationToken   String
+  ownershipVerifiedAt DateTime?   @db.Timestamptz(6)
+  routingVerifiedAt   DateTime?   @db.Timestamptz(6)
+  tlsVerifiedAt       DateTime?   @db.Timestamptz(6)
+  checkedAt           DateTime?   @db.Timestamptz(6)
+  lastFailureCode     String?
+  activatedAt         DateTime?   @db.Timestamptz(6)
+  version             Int         @default(0)
+  createdAt           DateTime    @default(now()) @db.Timestamptz(6)
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  hostMapping         HostMapping  @relation(fields: [hostMappingId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([hostMappingId, organizationId])
 }
 
 model Invitation {
@@ -300,9 +329,39 @@ model VehicleImage {
   isCover        Boolean @default(false)
   status         String  @default("PENDING")
   variants       Json?
+  version        Int     @default(0)
+  storageCleanedAt DateTime? @db.Timestamptz(6)
   vehicle        Vehicle @relation(fields: [organizationId, vehicleId], references: [organizationId, id])
 
   @@index([organizationId, vehicleId, position])
+  @@index([status, storageCleanedAt])
+}
+
+model ImageUpload {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  vehicleId      String?  @db.Uuid
+  publicKind     String?
+  reservationKey String   @db.Uuid
+  imageId        String   @unique @db.Uuid
+  stagingKey     String   @unique
+  rawKey         String   @unique
+  state          String   @default("RESERVED")
+  expiresAt      DateTime @db.Timestamptz(6)
+  leaseUntil     DateTime? @db.Timestamptz(6)
+  storageCleanedAt DateTime? @db.Timestamptz(6)
+  rawSha256      String?  @db.VarChar(64)
+  rawBytes       Int?
+  mime           String?
+  width          Int?
+  height         Int?
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(6)
+  vehicle        Vehicle? @relation(fields: [organizationId, vehicleId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([organizationId, vehicleId, reservationKey])
+  @@index([organizationId, vehicleId, state])
+  @@index([state, expiresAt])
 }
 
 model SiteSettings {
@@ -328,7 +387,12 @@ model SiteSettings {
   termsText            String?
   availabilityNotice   String?
   heroText             String?
+  serviceArea          String?
+  privacyUrl           String?
+  termsUrl             String?
+  operatorNote         String?
   version              Int          @default(0)
+  updatedAt            DateTime     @default(now()) @updatedAt @db.Timestamptz(6)
   organization         Organization @relation(fields: [organizationId], references: [id])
 }
 
@@ -340,9 +404,18 @@ model PublicMedia {
   alt            String?
   position       Int          @default(0)
   status         String       @default("PENDING")
+  mime           String?
+  width          Int?
+  height         Int?
+  bytes          Int?
+  variants       Json?
+  version        Int          @default(0)
+  storageCleanedAt DateTime?  @db.Timestamptz(6)
+  createdAt      DateTime     @default(now()) @db.Timestamptz(6)
   organization   Organization @relation(fields: [organizationId], references: [id])
 
   @@index([organizationId, kind, position])
+  @@index([status, storageCleanedAt])
 }
 
 model SlugRedirect {
@@ -361,6 +434,8 @@ model Conversation {
   id             String                   @id @default(uuid()) @db.Uuid
   organizationId String                   @unique @db.Uuid
   createdAt      DateTime                 @default(now()) @db.Timestamptz(6)
+  lastSeq        Int                      @default(0)
+  activityAt     DateTime                 @default(now()) @db.Timestamptz(6)
   organization   Organization             @relation(fields: [organizationId], references: [id])
   messages       ChatMessage[]
   readCursors    ConversationReadCursor[]
@@ -421,8 +496,10 @@ model Job {
   createdAt      DateTime      @default(now()) @db.Timestamptz(6)
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   retentionManifests AuditRetentionManifest[]
+  reminderIntents    ReminderIntent[]
 
   @@unique([organizationId, dedupeKey])
+  @@index([kind, status, runAt])
   @@index([status, runAt])
   @@index([status, lockedUntil])
 }
@@ -479,4 +556,40 @@ model PlatformLegalDocument {
   body      String
   version   Int      @default(0)
   updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+}
+
+// #54: effective period boundary the reminder schedule was last reconciled for.
+model ReminderPlan {
+  organizationId  String       @id @db.Uuid
+  effectiveEndsAt DateTime?    @db.Timestamptz(6)
+  source          String?
+  periodVersion   Int          @default(0)
+  updatedAt       DateTime     @default(now()) @updatedAt @db.Timestamptz(6)
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+}
+
+// #54: durable reminder intent; the unique key is the delivery key per channel.
+model ReminderIntent {
+  id              String       @id @default(uuid()) @db.Uuid
+  organizationId  String       @db.Uuid
+  effectiveEndsAt DateTime     @db.Timestamptz(6)
+  offsetDays      Int
+  channel         String
+  slotAt          DateTime     @db.Timestamptz(6)
+  source          String
+  periodVersion   Int
+  status          String       @default("PENDING")
+  jobId           String?      @db.Uuid
+  deliveredAt     DateTime?    @db.Timestamptz(6)
+  errorCode       String?
+  attempts        Int          @default(0)
+  nextAttemptAt   DateTime?    @db.Timestamptz(6)
+  createdAt       DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime     @default(now()) @updatedAt @db.Timestamptz(6)
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  job             Job?         @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, effectiveEndsAt, offsetDays, channel])
+  @@index([status, slotAt])
+  @@index([organizationId, status])
 }

@@ -3,6 +3,193 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 54,
+      "scope": "Harmonogram przypomnień 7/1/0 (panel i e-mail) z trwałymi intencjami, uzgadnianiem przy każdej zmianie okresu, rewalidacją przed doręczeniem i prywatnym API statusu usługi dla panelu firmy (UI w #55).",
+      "relatedRequirementIds": ["C-F067", "C-N004", "C-F058", "C-F062", "D-07", "D-14"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "prisma/migrations/20261027110000_service_reminders_issue_54/migration.sql",
+        "src/modules/reminders/slots.ts",
+        "src/modules/reminders/current.ts",
+        "src/modules/reminders/reconcile.ts",
+        "src/modules/reminders/deliver.ts",
+        "src/modules/reminders/read.ts",
+        "src/modules/reminders/http.ts",
+        "src/app/api/admin/service-period/route.ts",
+        "src/app/api/platform/companies/[organizationId]/service-period/route.ts",
+        "src/modules/service-period/mutations.ts",
+        "src/modules/organizations/archive.ts",
+        "src/modules/invitations/activate.ts",
+        "src/modules/jobs/processor.ts",
+        "src/modules/jobs/runner.ts",
+        "docs/contracts/service-reminders.md"
+      ],
+      "testPaths": [
+        "tests/unit/reminder-slots.test.ts",
+        "tests/integration/service-reminders.test.ts",
+        "tests/integration/service-reminders-process.test.ts",
+        "tests/integration/service-reminders-migration.test.ts",
+        "tests/e2e/service-reminders.spec.ts"
+      ]
+    },
+    {
+      "issue": 32,
+      "scope": "Zdjecia pojazdu: cover, kolejnosc, alt i usuwanie z wersja, blokada Vehicle i audytem; dokladnie jeden cover; kontrolowany odczyt wariantow (publiczny przez resolvePublicVisibility i PUBLISHED, prywatny preview po sesji), no-store i blokada optymalizatora next/image. UI w osobnym issue.",
+      "relatedRequirementIds": ["C-F098", "C-F061", "C-N006", "C-N033", "C-N035", "FR-ADM-043", "FR-ADM-044", "FR-ADM-045", "FR-ADM-046"],
+      "referenceScreenIds": ["ADM-06"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261027120000_vehicle_image_cover_issue_32/migration.sql",
+        "src/modules/media/vehicle-images.ts",
+        "src/modules/media/vehicle-images-http.ts",
+        "src/modules/media/serve.ts",
+        "src/modules/media/worker.ts",
+        "src/modules/media/reservation.ts",
+        "src/modules/settings/read.ts",
+        "src/modules/settings/http.ts",
+        "src/modules/fleet/http.ts",
+        "next.config.mjs",
+        "src/app/api/admin/vehicles/[id]/images/[imageId]/route.ts",
+        "src/app/api/admin/vehicles/[id]/images/[imageId]/[variant]/route.ts",
+        "src/app/api/admin/vehicles/[id]/images/order/route.ts",
+        "src/app/api/platform/companies/[organizationId]/vehicles/[id]/images/[imageId]/route.ts",
+        "src/app/api/platform/companies/[organizationId]/vehicles/[id]/images/[imageId]/[variant]/route.ts",
+        "src/app/api/platform/companies/[organizationId]/vehicles/[id]/images/order/route.ts"
+      ],
+      "testPaths": [
+        "tests/unit/proxy-matcher.test.ts",
+        "tests/integration/vehicle-images.test.ts",
+        "tests/integration/vehicle-images-migration.test.ts",
+        "tests/e2e/vehicle-images.spec.ts"
+      ]
+    },
+    {
+      "issue": 50,
+      "scope": "Trwała rozmowa firmy z Autervą: idempotentne otwarcie, wysyłka tekstu z deduplikacją clientMessageId i rewalidacją pod blokadą firmy, historia z kursorem po sekwencji commit, lista rozmów platformy. Bez realtime/typing/read/unread (#51/#52), UI (#53/#27), załączników i e-maili czatu.",
+      "relatedRequirementIds": ["C-F115", "C-F116", "C-F117", "C-F125", "C-F126", "C-F129", "C-F130", "C-F131", "C-F134", "C-F135", "C-N036", "C-N037", "C-N038", "C-R016", "D-04"],
+      "referenceScreenIds": ["TEN-11", "PLT-09"],
+      "codePaths": [
+        "prisma/migrations/20261027100000_chat_messages_issue_50/migration.sql",
+        "src/modules/chat/errors.ts",
+        "src/lib/text-policy.ts",
+        "src/modules/chat/text.ts",
+        "src/modules/chat/cursor.ts",
+        "src/modules/chat/service.ts",
+        "src/modules/chat/http.ts",
+        "src/modules/auth/rate-limit.ts",
+        "src/app/api/admin/chat/conversation/route.ts",
+        "src/app/api/admin/chat/messages/route.ts",
+        "src/app/api/platform/chat/conversations/route.ts",
+        "src/app/api/platform/companies/[organizationId]/chat/conversation/route.ts",
+        "src/app/api/platform/companies/[organizationId]/chat/messages/route.ts"
+      ],
+      "testPaths": ["tests/unit/chat-text.test.ts", "tests/integration/chat.test.ts", "tests/integration/chat-migration.test.ts", "tests/e2e/chat.spec.ts"]
+    },
+    {
+      "issue": 30,
+      "scope": "Ustawienia firmy per organizacja z macierzą D-01: odczyt admina, zapis grup tylko superadmin z allowlistą, wersją i audytem; logo/hero przez pipeline mediów #29; publiczna projekcja i media przez resolvePublicVisibility. UI ustawień w osobnym issue.",
+      "relatedRequirementIds": ["C-F023", "C-F081", "C-F082", "C-F083", "C-F084", "C-F085", "C-N025", "C-N034", "C-N048", "FR-ADM-060", "FR-ADM-061", "FR-ADM-062", "FR-ADM-063", "D-01"],
+      "referenceScreenIds": ["ADM-11", "ADM-12", "ADM-13", "ADM-14"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261027090000_company_settings_issue_30/migration.sql",
+        "src/lib/text-policy.ts",
+        "src/modules/settings/fields.ts",
+        "src/modules/settings/mutations.ts",
+        "src/modules/settings/read.ts",
+        "src/modules/settings/http.ts",
+        "src/modules/media/reservation.ts",
+        "src/modules/media/finalize.ts",
+        "src/modules/media/http.ts",
+        "src/modules/media/worker.ts",
+        "src/modules/audit/append.ts",
+        "src/proxy.ts",
+        "src/app/api/admin/settings/route.ts",
+        "src/app/api/platform/companies/[organizationId]/settings/route.ts",
+        "src/app/api/platform/companies/[organizationId]/public-media/[segment]/route.ts",
+        "src/app/api/public/settings/route.ts",
+        "src/app/api/public/media/[mediaId]/[variant]/route.ts"
+      ],
+      "testPaths": [
+        "tests/unit/company-settings-fields.test.ts",
+        "tests/unit/proxy-matcher.test.ts",
+        "tests/integration/company-settings.test.ts",
+        "tests/integration/company-settings-migration.test.ts",
+        "tests/e2e/company-settings.spec.ts"
+      ]
+    },
+    {
+      "issue": 138,
+      "scope": "Dekoder mediów: limit RSS fail-closed (/proc lub ps), błędy środowiska i sygnały spoza dekodera jako nieostateczne 503, zmierzony najgorszy przypadek pamięci i wymagania operacyjne, reset fixture bez usuwania audytu.",
+      "relatedRequirementIds": ["C-F098", "C-N034", "C-N035", "NFR-PERF-004"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/media/rss.ts",
+        "src/modules/media/decode.ts",
+        "src/modules/media/http.ts",
+        "scripts/media-decode.mjs",
+        "scripts/seed-local-fixture.ts",
+        "docs/contracts/media-upload-processing.md"
+      ],
+      "testPaths": [
+        "tests/integration/media-decode.test.ts",
+        "tests/integration/media-http.test.ts",
+        "tests/integration/media-process-lifecycle.test.ts"
+      ]
+    },
+    {
+      "issue": 38,
+      "scope": "Serwerowy CRUD ręcznych blokad z kontrolą kolizji pod blokadą wiersza Vehicle, wersją, audytem i natychmiastowym publicznym odczytem; UI blokad w osobnym issue.",
+      "relatedRequirementIds": ["C-F007", "C-F100", "C-F102", "C-F103", "C-F104", "C-F105", "C-N027", "C-N031", "FR-ADM-050", "FR-ADM-051", "FR-ADM-052", "FR-ADM-053", "FR-ADM-054", "FR-ADM-055", "FR-ADM-058", "D-15"],
+      "referenceScreenIds": ["ADM-09"],
+      "codePaths": [
+        "prisma/migrations/20261026180000_availability_block_integrity_issue_38/migration.sql",
+        "src/modules/availability/block-types.ts",
+        "src/modules/availability/blocks.ts",
+        "src/modules/availability/blocks-http.ts",
+        "src/app/api/admin/vehicles/[id]/blocks/route.ts",
+        "src/app/api/admin/vehicles/[id]/blocks/[blockId]/route.ts",
+        "src/app/api/platform/companies/[organizationId]/vehicles/[id]/blocks/route.ts",
+        "src/app/api/platform/companies/[organizationId]/vehicles/[id]/blocks/[blockId]/route.ts"
+      ],
+      "testPaths": ["tests/integration/availability-blocks.test.ts", "tests/e2e/availability.spec.ts"]
+    },
+    {
+      "issue": 29,
+      "scope": "Prywatny upload obrazów, rezerwacja 30 miejsc, walidacja i izolowany dekoder, niezmienna finalizacja, odzyskiwalny worker i cleanup; publiczne odczyty mediów należą do konsumentów.",
+      "relatedRequirementIds": ["C-F098", "C-N034", "C-N035", "FR-ADM-040", "FR-ADM-041", "FR-ADM-042", "NFR-PERF-004"],
+      "referenceScreenIds": ["ADM-06"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261026143000_image_upload_issue_29/migration.sql",
+        "prisma/migrations/20261026143100_image_upload_fk_alignment/migration.sql",
+        "prisma/migrations/20261026161000_image_upload_cleanup_marker/migration.sql",
+        "src/modules/media/reservation.ts",
+        "src/modules/media/http.ts",
+        "src/modules/media/stream.ts",
+        "src/modules/media/finalize.ts",
+        "src/modules/media/decode.ts",
+        "src/modules/media/storage.ts",
+        "src/modules/media/worker.ts",
+        "src/proxy.ts",
+        "src/server/media-worker.ts",
+        "src/app/api/admin/vehicles/[id]/images/route.ts",
+        "src/app/api/platform/companies/[organizationId]/vehicles/[id]/images/route.ts"
+      ],
+      "testPaths": [
+        "tests/unit/media-stream.test.ts",
+        "tests/unit/media-storage-config.test.ts",
+        "tests/integration/media-reservation.test.ts",
+        "tests/integration/media-http.test.ts",
+        "tests/integration/media-flow.test.ts",
+        "tests/integration/media-storage.test.ts",
+        "tests/integration/media-decode.test.ts",
+        "tests/integration/media-process-lifecycle.test.ts",
+        "tests/integration/media-cleanup.test.ts",
+        "tests/e2e/media.spec.ts"
+      ]
+    },
+    {
       "issue": 28,
       "scope": "Serwerowy CRUD floty, walidacja publikacji D-02, lista z filtrem dostępności #33 i wersjonowana kolejność; rzeczywisty upload i publiczna oferta w osobnych issue.",
       "relatedRequirementIds": ["C-F095", "C-F096", "C-F097", "C-F104", "FR-ADM-020", "FR-ADM-021", "FR-ADM-022", "FR-ADM-030", "FR-ADM-032"],
@@ -266,6 +453,31 @@
       "testPaths": ["tests/integration/company-activation.test.ts", "tests/e2e/company-onboarding.spec.ts"]
     },
     {
+      "issue": 23,
+      "scope": "Cykl domeny własnej (własność TXT, CNAME, adresy publiczne, TLS i routing), osobny host panelu i neutralny nieznany host, przekierowanie aliasu po bramce widoczności; provisioning DNS/TLS i cykliczna kontrola w #10/#58.",
+      "relatedRequirementIds": ["C-F004", "C-F086", "C-F087", "C-F088", "C-F089", "C-N008", "C-N024", "C-N058"],
+      "codePaths": [
+        "docs/contracts/custom-domain-lifecycle.md",
+        "prisma/schema.prisma",
+        "prisma/migrations/20261026162000_custom_domain_issue_23/migration.sql",
+        "src/modules/domains/hostname.ts",
+        "src/modules/domains/address-policy.ts",
+        "src/modules/domains/network-checker.ts",
+        "src/modules/domains/lifecycle.ts",
+        "src/modules/domains/routing.ts",
+        "src/modules/domains/http.ts",
+        "src/proxy.ts",
+        "src/app/.well-known/auterva-domain-check/route.ts",
+        "src/app/api/platform/companies/[organizationId]/domains/route.ts"
+      ],
+      "testPaths": [
+        "tests/unit/custom-domain-validation.test.ts",
+        "tests/integration/custom-domain-network.test.ts",
+        "tests/integration/custom-domain-lifecycle.test.ts",
+        "tests/e2e/custom-domain.spec.ts"
+      ]
+    },
+    {
       "issue": 108,
       "scope": "Retencja audytu 365 dni w kolejce operatora; eksport wyłącznie lokalnej fixture, docelowy storage w #58/#60.",
       "relatedRequirementIds": ["D-10", "C-N019", "C-N037", "C-N040", "FR-ADM-070"],
@@ -341,6 +553,139 @@
         "tests/integration/availability-read.test.ts",
         "tests/integration/availability-http.test.ts",
         "tests/e2e/availability.spec.ts"
+      ]
+    },
+    {
+      "issue": 48,
+      "scope": "Archiwizacja i przywrócenie firmy bez utraty danych: atomowe cofnięcie sesji i challenge MFA, blokada publiczna, wersja i audyt rzeczywistego superadmina; restore bez odnowienia okresu, odblokowanie wyłącznie przez istniejące unlockPublicAfterRestore. Bez UI i purge.",
+      "relatedRequirementIds": ["C-F073", "C-F074", "C-F075", "C-F075-T", "C-F076", "C-F077", "C-F078", "C-F079", "C-F080", "C-F126", "C-N011", "C-N046"],
+      "codePaths": [
+        "src/modules/organizations/archive.ts",
+        "src/modules/organizations/archive-http.ts",
+        "src/app/api/platform/companies/[organizationId]/archive/route.ts",
+        "src/app/api/platform/companies/[organizationId]/restore/route.ts",
+        "docs/contracts/company-archive-restore.md"
+      ],
+      "testPaths": [
+        "tests/integration/company-archive.test.ts",
+        "tests/integration/company-archive-realtime.test.ts",
+        "tests/integration/company-archive-media.test.ts",
+        "tests/e2e/company-archive.spec.ts"
+      ]
+    },
+    {
+      "issue": 40,
+      "scope": "Publiczny odczyt oferty firmy za centralna brama #21: home (zapowiedz vs oferta), katalog z filtrami kategoria/miejsca/skrzynia/daty LocalDate, sortowaniem i paginacja kursorem, szczegoly po slugu z galeria i altem liczonym przy odczycie, kontakt i tresci prawne bez zapisu leadu; metadane SEO per host (title/description, canonical z aliasem, Open Graph, schema.org), sitemap.xml i robots.txt per host, panele i API poza indeksem; osobny budzet limitu ruchu dla wariantow mediow. Strony SSR to #41-#44.",
+      "relatedRequirementIds": [
+        "C-F005",
+        "C-F090",
+        "C-F091",
+        "C-F092",
+        "C-F093",
+        "C-F094",
+        "C-F106",
+        "C-F107",
+        "C-F108",
+        "C-F109",
+        "C-F110",
+        "C-F111",
+        "C-F112",
+        "C-F113",
+        "C-F114",
+        "C-N028",
+        "C-N029",
+        "C-N030",
+        "C-N031",
+        "C-N032",
+        "C-N033",
+        "C-N057",
+        "FR-PUB-001",
+        "FR-PUB-003",
+        "FR-PUB-010",
+        "FR-PUB-011",
+        "FR-PUB-012",
+        "FR-PUB-013",
+        "FR-PUB-014",
+        "FR-PUB-015",
+        "FR-PUB-021",
+        "FR-PUB-022",
+        "FR-PUB-030",
+        "FR-PUB-031",
+        "FR-PUB-032",
+        "FR-PUB-033",
+        "FR-PUB-040",
+        "FR-PUB-041",
+        "FR-PUB-042"
+      ],
+      "referenceScreenIds": [
+        "PUB-01",
+        "PUB-02",
+        "PUB-03",
+        "PUB-04",
+        "PUB-05",
+        "PUB-06",
+        "PUB-07"
+      ],
+      "codePaths": [
+        "src/modules/public-offer/config.ts",
+        "src/modules/public-offer/query.ts",
+        "src/modules/public-offer/images.ts",
+        "src/modules/public-offer/read.ts",
+        "src/modules/public-offer/seo.ts",
+        "src/modules/public-offer/http.ts",
+        "src/modules/public-offer/discovery.ts",
+        "src/modules/settings/http.ts",
+        "prisma/migrations/20261028090000_image_default_alt_read_time_issue_40/migration.sql",
+        "src/modules/media/vehicle-images.ts",
+        "src/modules/media/worker.ts",
+        "src/modules/fleet/http.ts",
+        "src/modules/fleet/read.ts",
+        "src/modules/tenancy/host-route-policy.ts",
+        "src/proxy.ts",
+        "src/app/api/public/offer/route.ts",
+        "src/app/api/public/vehicles/route.ts",
+        "src/app/api/public/vehicles/[slug]/route.ts",
+        "src/app/api/public/contact/route.ts",
+        "src/app/api/public/legal/[kind]/route.ts",
+        "src/app/robots.txt/route.ts",
+        "src/app/sitemap.xml/route.ts",
+        "docs/contracts/public-offer-seo.md"
+      ],
+      "testPaths": [
+        "tests/unit/public-offer.test.ts",
+        "tests/integration/public-offer.test.ts",
+        "tests/integration/image-alt-migration.test.ts",
+        "tests/e2e/public-offer.spec.ts"
+      ]
+    },
+    {
+      "issue": 46,
+      "scope": "Chroniony preview szkicu, ukrytego pojazdu i oferty firmy (admin swojej firmy lub superadmin w kontekscie firmy, takze po koncu okresu; private no-store, noindex, bez SEO, poza sitemap, zasoby tylko po autoryzacji) oraz ujednolicenie budzetu odczytu kalendarza superadmina z adapterami admin/platform. Zapisy zagniezdzone korzystaja z tych samych use case co firmowe. Bez UI (ADM-08 to Frontend).",
+      "relatedRequirementIds": ["C-F016", "C-F017", "C-F018", "C-F058", "C-F099", "C-N030", "FR-ADM-034"],
+      "referenceScreenIds": ["ADM-08"],
+      "codePaths": [
+        "src/modules/preview/read.ts",
+        "src/modules/preview/http.ts",
+        "src/modules/public-offer/read.ts",
+        "src/modules/public-offer/images.ts",
+        "src/modules/availability/http.ts",
+        "src/app/api/admin/preview/route.ts",
+        "src/app/api/admin/preview/vehicles/route.ts",
+        "src/app/api/admin/preview/vehicles/[id]/route.ts",
+        "src/app/api/admin/preview/contact/route.ts",
+        "src/app/api/admin/preview/legal/[kind]/route.ts",
+        "src/app/api/admin/preview/media/[mediaId]/[variant]/route.ts",
+        "src/app/api/platform/companies/[organizationId]/preview/route.ts",
+        "src/app/api/platform/companies/[organizationId]/preview/vehicles/route.ts",
+        "src/app/api/platform/companies/[organizationId]/preview/vehicles/[id]/route.ts",
+        "src/app/api/platform/companies/[organizationId]/preview/contact/route.ts",
+        "src/app/api/platform/companies/[organizationId]/preview/legal/[kind]/route.ts",
+        "src/app/api/platform/companies/[organizationId]/preview/media/[mediaId]/[variant]/route.ts",
+        "docs/contracts/preview.md"
+      ],
+      "testPaths": [
+        "tests/integration/preview.test.ts",
+        "tests/e2e/preview.spec.ts"
       ]
     }
   ],

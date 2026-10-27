@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { hashPassword } from "better-auth/crypto";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
+import { reconcileReminders } from "@/modules/reminders/reconcile";
 import { resolveServicePeriod } from "@/modules/service-period/state";
 import { normalizeHostname } from "@/modules/tenancy/host-registry";
 
@@ -103,6 +104,8 @@ export async function activateCompanyInvitation(db: PrismaClient, input: Activat
       data: { periodVersion: { increment: 1 }, changedById: admins[0].id,
         ...(access.trialGranted ? { trialStartedAt: now, trialEndsAt: new Date(now.getTime() + trialMs) } : {}) },
       select: { periodVersion: true, trialEndsAt: true } });
+    // First registration starts the trial: plan the 7/1/0 series for future slots only, same transaction.
+    await reconcileReminders(tx, initial.organizationId, { now });
     // The consumed invitation is the actor proof for this narrow unauthenticated
     // write. No fake session or full-MFA audit actor is constructed.
     await tx.auditLog.create({ data: {
