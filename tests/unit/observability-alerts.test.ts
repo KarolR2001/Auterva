@@ -145,7 +145,7 @@ test("#108 signals are separate alerts: failed job, stalled job, delayed purge, 
   expect(engine.firing().map((a) => a.id).sort()).toEqual(["AUDIT_EXPORT_CLEANUP_OVERDUE", "AUDIT_EXPORT_FAILED", "AUDIT_PURGE_DELAYED",
     "AUDIT_RETENTION_FAILED", "AUDIT_RETENTION_STALLED"]);
   // A purge that succeeds does not hide a failed export: only the purge-related alerts clear.
-  const healedPurge = (m: number) => [up("jobs"), up("audit"), s("auterva_audit_retention_overdue_seconds", 0), s("auterva_audit_export_failures_24h", 1),
+  const healedPurge = () => [up("jobs"), up("audit"), s("auterva_audit_retention_overdue_seconds", 0), s("auterva_audit_export_failures_24h", 1),
     s("auterva_audit_export_cleanup_overdue", 1, { state: "expired_ready" })];
   drive(engine, 3, healedPurge, 3);
   expect(engine.firing().map((a) => a.id).sort()).toEqual(["AUDIT_EXPORT_CLEANUP_OVERDUE", "AUDIT_EXPORT_FAILED"]);

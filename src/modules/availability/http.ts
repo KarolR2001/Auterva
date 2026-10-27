@@ -6,13 +6,16 @@ import { takeRateLimit } from "@/modules/auth/rate-limit";
 import { trustedClientAddress } from "@/modules/auth/trusted-address";
 import { currentTrustedClientAddress } from "@/modules/ingress/client-address";
 import { apiRateLimitResponse, takeAuthenticatedApiLimit } from "@/modules/tenancy/api-rate-limit";
+import { readJsonBody } from "@/modules/tenancy/json-body";
 import { resolveRequestArea, requireRequestContext } from "@/modules/tenancy/request-context";
 import { withErrorRequestId } from "@/modules/tenancy/request-id";
 import { availabilityToday, parseAvailabilityRange, type AvailabilityRange } from "./dates";
 import { getPrivateCalendar, getPublicAvailability, getPublicBatchAvailability, getPublicCalendar } from "./read";
 
-const checkBody = z.object({ slug: z.string().min(1).max(120), from: z.string(), to: z.string() }).strict();
-const batchBody = z.object({ slugs: z.array(z.string().min(1).max(120)).min(1).max(50),
+// Same shape as public-offer/read.ts: a slug that cannot exist (NUL included, which PostgreSQL refuses) is refused up front.
+const slugText = z.string().min(1).max(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+const checkBody = z.object({ slug: slugText, from: z.string(), to: z.string() }).strict();
+const batchBody = z.object({ slugs: z.array(slugText).min(1).max(50),
   from: z.string(), to: z.string() }).strict();
 const noStore = { "Cache-Control": "no-store" };
 type RequestId = ReturnType<typeof randomUUID>;
@@ -40,8 +43,7 @@ async function publicLimit(requestId: RequestId): Promise<Response | null> {
 }
 
 async function jsonBody(request: Request): Promise<unknown> {
-  if (!request.headers.get("content-type")?.startsWith("application/json")) return null;
-  return request.json().catch(() => null);
+  return (await readJsonBody(request)) ?? null;
 }
 
 export async function publicCheck(request: Request): Promise<Response> {
@@ -74,6 +76,7 @@ export async function publicCalendar(request: Request, slug: string): Promise<Re
   const requestId = randomUUID();
   const limited = await publicLimit(requestId);
   if (limited) return limited;
+  if (!slugText.safeParse(slug).success) return respond({ code: "NOT_FOUND" }, 404, requestId);
   const url = new URL(request.url);
   const from = url.searchParams.get("from");
   const to = url.searchParams.get("to");

@@ -1,0 +1,91 @@
+# Runbook: monitoring, alerty i obsługa awarii (#58)
+
+Źródła: [kontrakt monitoringu](../contracts/monitoring-alerts.md), D-10 ([wymagania](../WYMAGANIA_AUTERVA.md)), [retencja audytu #108](../contracts/audit-retention-operations.md), [backup/restore #60](backup-restore.md). Dashboard u dostawcy, dostarczenie alertu do prawdziwego dyżurnego i odbiór na adapterze docelowym: not-run (#90, D-16).
+
+## Właściciele i reakcje (D-10)
+
+| Rola | Kto | Reakcja |
+|---|---|---|
+| `operator` | Właściciel/operator procedury (D-10) | `page`: reakcja od razu, cel potwierdzenia 30 min; `ticket`: następny dzień roboczy |
+| `owner` | Właściciel produktu | decyzje: restore z kopii, przełączenie ruchu, rotacja kluczy, zdarzenia bezpieczeństwa |
+
+Obecnie obie role pełni jedna osoba; podział jest w kodzie reguł (`owner`), żeby dało się go rozdzielić bez zmiany reguł. Osoba dyżurna i kanał paging dla produkcji: not-run (#90).
+
+## Jak zacząć
+
+1. Alert zawiera `id` reguły, grupę, właściciela, liczby (bez treści) i link do sekcji poniżej.
+2. Znajdź ślad: odpowiedź API ma `X-Request-Id`; ten sam `requestId` jest w logu JSON (`event` `http.internal_error`, `http.unhandled_error`, `request-refused`). Filtruj po `requestId`, `operation`, `outcome`; pola `actorId`/`organizationId` są identyfikatorami, nie danymi osobowymi.
+3. Logi nie zawierają treści czatu, tokenów, cookies, haseł, adresów e-mail, kluczy ani treści audytu. Brak takiej treści w logu nie jest błędem do „naprawiania” dodatkowym logowaniem.
+4. Zdrowie: `GET /api/health/live/` (proces żyje, bez DB), `/api/health/ready/` (DB, storage, kolejka, migracje; 503 gdy cokolwiek nie działa; szczegóły tylko z tokenem). `/api/health/` to zgodny alias liveness.
+5. Metryki: `GET /api/health/metrics/` z `Authorization: Bearer $OPS_METRICS_TOKEN` (bez tokenu w konfiguracji endpoint odpowiada 404). Pozostałe procesy: `OPS_PORT` (`/live`, `/ready`, `/metrics`).
+
+Uwaga W6 ([OWASP_CONTROLS §6](../security/OWASP_CONTROLS.md)): ostrzeżenie Next `Request body exceeded … for <url>` może zawierać token zaproszenia w ścieżce i nie przechodzi przez nasz logger. Do czasu maskowania na proxy/log shipperze dostawcy (#90) nie kopiuj surowych logów procesu WWW poza system logów.
+
+## Sekcje reakcji
+
+### target-down
+`TARGET_DOWN` (page, operator): scrape procesu (WWW, worker, realtime) nie działa 3 kolejne razy. Sprawdź, czy proces żyje i `/live`; zrestartuj proces. Restart nie gubi zatwierdzonych mutacji (trwałe joby, lease, wznowienie WS z kursorem); po restarcie sprawdź `/ready` i zniknięcie alertu `JOBS_STALLED`.
+
+### ready-database
+`READY_DATABASE`, `DB_POOL_ERRORS`: baza nieosiągalna lub błędy puli. Sprawdź dostawcę DB, limity połączeń, sieć. Liveness pozostaje zielone (restart procesu nie pomoże). Po powrocie bazy `READY_QUEUE` i `READY_MIGRATIONS` zielenieją same.
+
+### ready-storage
+`READY_STORAGE`, `STORAGE_ERRORS`: bucket niedostępny lub brak konfiguracji (`NOT_CONFIGURED` jest awarią). Sprawdź poświadczenia i endpoint S3. Publiczne i panelowe zdjęcia nie działają do powrotu; zapisy nie są potwierdzane fałszywie.
+
+### ready-queue
+`READY_QUEUE`: zaległe zadanie nie jest podejmowane od 5 minut. Zobacz [worker](#worker).
+
+### ready-migrations
+`READY_MIGRATIONS`: zob. [migrations](#migrations).
+
+### http-5xx
+`HTTP_5XX_BURN_FAST` (page: ≥2 % odpowiedzi 5xx w 5 min, min. 20 żądań) i `HTTP_5XX_BURN_SLOW` (ticket: ≥0,5 % w 30 min, min. 100 żądań). Cel dostępności 99,9 % to budżet 0,1 % błędów; progi to ok. 20× i 5× tempo spalania. Wyszukaj w logach `outcome=server_error`, pogrupuj po `operation`/`route`, weź przykładowy `requestId`. Sprawdź ostatni deploy i zależności (`READY_*`).
+
+### login
+`LOGIN_SERVER_ERRORS` (page): błędy 5xx logowania/MFA; sprawdź DB i `BETTER_AUTH_SECRET` (zmiana sekretu psuje MFA, zob. backup-restore). `LOGIN_FAILURE_SPIKE` (ticket, owner): ≥50 nieudanych logowań w 10 minut; sprawdź limity (429) i źródła w logach bezpieczeństwa; decyzja o blokadzie należy do właściciela. Dane kont nie trafiają do metryk.
+
+### worker
+`WORKER_HEARTBEAT_STALE`, `JOBS_STALLED`, `MEDIA_JOBS_FAILED`: worker nie iteruje lub nie podejmuje zadań (próg 300 s). Zrestartuj worker (SIGTERM, potem start). Joby `RUNNING` z wygasłym lease wznawia kolejna instancja. `FAILED` wymaga ustalenia przyczyny przed ponowieniem; maile `UNCERTAIN` nie są wysyłane automatycznie drugi raz.
+
+### mail
+`MAIL_DELIVERY_FAILED` (ticket): joby `MAIL_*` w `FAILED` lub `UNCERTAIN` z ostatnich 7 dni. Sprawdź dostawcę poczty i kody (`MAIL_TRANSIENT`, `MAIL_PERMANENT`, `MAIL_OUTCOME_UNKNOWN`). Nie wysyłaj ręcznie ponownie bez sprawdzenia u dostawcy (ryzyko duplikatu).
+
+### audit-retention
+Osobne sygnały #108, żaden nie jest ukryty sukcesem purge:
+- `AUDIT_RETENTION_FAILED` (page): job w `FAILED`, cutoff zachowany. Zbadaj przyczynę (`scripts/audit-retention.ts status`), potem `retry <job-id>`.
+- `AUDIT_RETENTION_STALLED` (page): job jest należny, lecz nikt go nie podejmuje >15 min; uruchom worker audytu (`scripts/audit-retention.ts worker`).
+- `AUDIT_PURGE_DELAYED` (ticket): najstarszy wpis jest >36 h poza cutoffem 365 dni; sprawdź dzienny job.
+Nie wklejaj treści audytu do zgłoszeń.
+
+### audit-export
+- `AUDIT_EXPORT_FAILED` (ticket): eksport operatora zakończył się błędem w 24 h; powtórka to nowe żądanie po ustaleniu przyczyny.
+- `AUDIT_EXPORT_CLEANUP_OVERDUE` (page): artefakt `READY` po terminie lub porzucony `PENDING/FAILED` nie został usunięty (sprzątanie awaryjne). Uruchom `scripts/audit-retention.ts sweep`; sprawdź prywatny storage artefaktów. Artefakt po terminie nie wolno odczytać, ale bajty mają zniknąć.
+Klucze (`AUDIT_EXPORT_KEY`) i treść eksportu nigdy nie trafiają do logów ani alertów.
+
+### migrations
+`MIGRATIONS_NOT_APPLIED` (page): migracja nieudana lub kod oczekuje migracji, której baza nie ma. Nie uruchamiaj nowego buildu; `prisma migrate deploy` po przeglądzie; nieudaną migrację rozwiązuje operator (`migrate resolve`) po decyzji właściciela. Bez destrukcyjnych napraw bez zgody.
+
+### backup
+`BACKUP_STALE` (page: brak kompletnej kopii nowszej niż 23 h, cel RPO 24 h), `BACKUP_RUN_FAILED` (page: ostatni `backup` zakończył się błędem, np. `BACKUP_MEDIA_INCOMPLETE`), `BACKUP_UNMONITORED` (ticket, owner: monitoring nie widzi pliku statusu). Plik statusu (`OPS_BACKUP_STATUS_FILE`) zapisuje `scripts/backup-restore.ts` (`backup`, `age`); zawiera czasy, flagę i kod błędu. Postępuj według [runbooka backup/restore](backup-restore.md). Restore zatwierdza właściciel.
+
+### collector
+`COLLECTOR_DOWN` (ticket): monitor nie czyta źródła (DB/audyt/migracje); jego brak oznacza ślepotę, nie zdrowie. Alerty zależne od tego kolektora pozostają w poprzednim stanie.
+
+### realtime
+`WS_LISTENER_UNHEALTHY` (page): serwer czatu stracił powiadomienia z DB (poll jako zapas). Sprawdź DB i zrestartuj realtime; klienci wznawiają połączenie z kursorem.
+
+## Ochrona przed lawiną alertów
+
+Histereza (alert po kolejnych N naruszeniach, zamknięcie po M zdrowych), grupowanie po obszarze w oknie 60 s, limit 6 powiadomień na godzinę; nadmiar to jedna wiadomość `STORM-GUARD` z nazwami grup. Strony mają pierwszeństwo przed ticketami. Przypomnienie: page co 1 h, ticket co 12 h. Nieudane dostarczenie wraca do kolejki i nie zużywa limitu.
+
+## Lokalna próba dostarczenia
+
+`OPS_ALERT_FILE` i/lub `OPS_ALERT_MAILPIT_URL` + `OPS_ALERT_TO` (tylko loopback). Test: `tests/integration/ops-monitoring.test.ts` (zabija i restartuje worker oraz realtime, sprawdza plik i Mailpit). Dostawca docelowy i kontrolowany odbiorca w staging: not-run (#90).
+
+## Not-run (zależne od #90)
+
+- Dashboard u dostawcy (dostępność 99,9 %, lokalizacja problemu).
+- Dostarczenie alertu do prawdziwej osoby dyżurnej i adapter paging.
+- Odbiór #108 na docelowym adapterze storage (alerty `AUDIT_*` na realnym eksporcie/purge).
+- Retencja logów 30/365 dni na docelowym storage logów; maskowanie W6 na proxy dostawcy.
+- Harmonogram `backup`/`age` u dostawcy; próba odłączenia DB/storage/poczty w staging.

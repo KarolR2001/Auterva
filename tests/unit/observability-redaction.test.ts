@@ -72,3 +72,7 @@ test("string scrubbing truncates and masks nested values", () => {
   expect(scrubString("a".repeat(500)).length).toBeLessThan(250);
   expect(redactFields({ nested: { deep: { deeper: { deepest: { value: secrets.email } } } } })).toEqual({ nested: { deep: { deeper: { deepest: "[truncated]" } } } });
 });
+
+test("invitation-token paths are masked (W6)", () => {
+  expect(scrubString("Request body exceeded 10MB for /api/auth/invitation/abc123-secret-token/")).toBe("Request body exceeded 10MB for /api/auth/invitation/[token]/");
+});

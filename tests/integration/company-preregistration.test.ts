@@ -290,8 +290,8 @@ test("HTTP scopes preregistration and invitation to verified platform and bound 
     const stored = await db.job.findFirstOrThrow({ where: { organizationId: company.organizationId,
       dedupeKey: `MAIL_INVITATION:${issued.invitationId}` } });
     const token = decryptMailPayload(stored.payload, mailKey).url.split("/").at(-1)!;
-    const get = (host: string) => getInvitation(new Request(`http://127.0.0.1:3339/api/auth/invitation/${token}`, {
-      headers: { host } }), { params: Promise.resolve({ token }) });
+    const get = (host: string) => runWithTrustedClientAddress(fixtureIp, () => getInvitation(new Request(`http://127.0.0.1:3339/api/auth/invitation/${token}`, {
+      headers: { host } }), { params: Promise.resolve({ token }) }));
     const wrongHost = await get(platformHost);
     expect(wrongHost.status).toBe(404);
     expect(wrongHost.headers.get("referrer-policy")).toBe("no-referrer");

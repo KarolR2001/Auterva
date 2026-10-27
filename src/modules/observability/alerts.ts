@@ -253,7 +253,7 @@ export class AlertEngine {
     const room = Math.max(0, this.opts.maxPerWindow - this.sentAt.length);
     const out: Notification[] = [];
     const overflow: Array<[string, Pending[]]> = [];
-    groups.forEach((entry, index) => { (index < room ? out.push(toNotification(now, [entry])) : overflow.push(entry)); });
+    groups.forEach((entry, index) => { if (index < room) out.push(toNotification(now, [entry])); else overflow.push(entry); });
     if (overflow.length) {
       // The summary replaces the last slot's worth of detail: one message, every suppressed group named, nothing lost.
       out.push(toNotification(now, overflow, true));

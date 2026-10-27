@@ -4,7 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { requireAuthorizedActor } from "@/modules/auth/authorization";
 import { parseHostAuthority } from "@/modules/tenancy/host-registry";
 import { resolveRequestArea } from "@/modules/tenancy/request-context";
+import { readJsonObject } from "@/modules/tenancy/json-body";
 import { takeAuthenticatedApiLimit } from "@/modules/tenancy/api-rate-limit";
+import { reportInternalError } from "@/modules/observability/http-observe";
 
 export const onboardingRequestId = randomUUID;
 export const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -40,11 +42,7 @@ export async function platformOnboardingActor(request: Request) {
 }
 
 export async function readOnboardingBody(request: Request): Promise<Record<string, unknown> | null> {
-  if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) return null;
-  try {
-    const body: unknown = await request.json();
-    return body && typeof body === "object" && !Array.isArray(body) ? body as Record<string, unknown> : null;
-  } catch { return null; }
+  return readJsonObject(request);
 }
 
 export function onboardingFailure(error: unknown, requestId: string): Response {
@@ -59,7 +57,7 @@ export function onboardingFailure(error: unknown, requestId: string): Response {
   if (code === "INVITATION_COMPANY_NOT_FOUND") return onboardingResponse({ code: "NOT_FOUND" }, 404, requestId);
   if (code === "Missing trusted client address") return onboardingResponse({ code: "INGRESS_NOT_CONFIGURED" }, 503, requestId);
   if (code === "FORBIDDEN") return onboardingResponse({ code: "FORBIDDEN" }, 403, requestId);
-  return onboardingResponse({ code: "INTERNAL_ERROR" }, 500, requestId);
+  return onboardingResponse({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "onboarding"));
 }
 
 export function accessFailure(access: { error?: 403 | 404 | 429; retryAfter?: number }, requestId: string) {
