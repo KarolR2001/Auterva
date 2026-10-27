@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import type { Prisma } from "../../src/generated/prisma/client";
+import { bindReminderIntent } from "../fixtures/reminder-intent";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { enqueueMail, rebindReminder } from "../../src/modules/jobs/outbox";
 import { processClaimedJob } from "../../src/modules/jobs/processor";
@@ -29,6 +30,8 @@ afterAll(async () => {
   await db.serviceAccess.deleteMany({ where: { organizationId: { in: companies } } });
   await db.user.deleteMany({ where: { id: { in: users } } });
   await db.hostMapping.deleteMany({ where: { organizationId: { in: companies } } });
+  await db.reminderIntent.deleteMany({ where: { organizationId: { in: companies } } });
+  await db.reminderPlan.deleteMany({ where: { organizationId: { in: companies } } });
   await db.organization.deleteMany({ where: { id: { in: companies } } });
   await db.$disconnect();
 });
@@ -120,6 +123,7 @@ test("retry with an old payload snapshot cannot skip and erase a rebound due rem
   const referenceId = randomUUID();
   const startedAt = new Date(now.getTime() + 40_000);
   const job = await db.$transaction((tx) => enqueueMail(tx, reminder(referenceId, emails[0], startedAt), key));
+  await bindReminderIntent(db, companies[0], referenceId, job.id);
   const original = await claimNextJob(db, startedAt, 30_000, true);
   expect(original?.id).toBe(job.id);
   expect(await startMailAttempt(db, original!, startedAt)).toBe(true);
@@ -151,6 +155,7 @@ test("accepted provider response after rebind commits SENT with the current fing
   const referenceId = randomUUID();
   const dispatchAt = new Date(now.getTime() + 50_000);
   const job = await db.$transaction((tx) => enqueueMail(tx, reminder(referenceId, emails[0], dispatchAt, 2), key));
+  await bindReminderIntent(db, companies[0], referenceId, job.id);
   const claim = await claimNextJob(db, dispatchAt, 30_000, true);
   expect(claim?.id).toBe(job.id);
   let signalProvider!: () => void;

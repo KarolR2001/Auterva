@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { appendAudit } from "@/modules/audit/append";
 import { requireAuditActor } from "@/modules/audit/actor";
+import { reconcileReminders } from "@/modules/reminders/reconcile";
 import { paidEndExclusive } from "./state";
 
 type PlatformOperation = {
@@ -9,6 +10,8 @@ type PlatformOperation = {
   organizationId: string;
   eventKey: string;
   requestId: string;
+  /** Controlled clock for the reminder schedule (tests); defaults to the real time. */
+  now?: Date;
 };
 
 function localDate(value: Date | null): string | null {
@@ -52,6 +55,8 @@ export async function changePaidThrough(db: PrismaClient, input: PlatformOperati
       await tx.serviceAccess.create({ data: { organizationId: input.organizationId,
         paidThrough, periodVersion: 1, changedById: input.actorId } });
     }
+    // Same transaction and organization lock as the version bump (contract step 2).
+    await reconcileReminders(tx, input.organizationId, { now: input.now ?? new Date() });
     await appendAudit(tx, { actorId: input.actorId, sessionId: input.sessionId,
       organizationId: input.organizationId, action: "PERIOD_CHANGED", entityId: input.organizationId,
       eventKey: input.eventKey, requestId: input.requestId,

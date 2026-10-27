@@ -108,7 +108,9 @@ export async function seedLocalFixture(db: Client, env: Record<string, string | 
       // Delete only IDs created by this seed. Unexpected dependants make the transaction fail.
       await db.query('DELETE FROM "ChatMessage" WHERE id = ANY($1::uuid[])', [[id(71), id(72)]]);
       await db.query('DELETE FROM "Conversation" WHERE id = ANY($1::uuid[])', [FIXTURE.conversations]);
-      await db.query('DELETE FROM "Job" WHERE kind = \'MEDIA_PROCESS\' AND "organizationId" = ANY($1::uuid[])', [orgs]);
+      await db.query('DELETE FROM "Job" WHERE kind IN (\'MEDIA_PROCESS\', \'MAIL_REMINDER\') AND "organizationId" = ANY($1::uuid[])', [orgs]);
+      await db.query('DELETE FROM "ReminderIntent" WHERE "organizationId" = ANY($1::uuid[])', [orgs]);
+      await db.query('DELETE FROM "ReminderPlan" WHERE "organizationId" = ANY($1::uuid[])', [orgs]);
       await db.query('DELETE FROM "ImageUpload" WHERE "vehicleId" = ANY($1::uuid[])', [FIXTURE.vehicles]);
       await db.query('DELETE FROM "VehicleImage" WHERE id = ANY($1::uuid[]) OR "vehicleId" = ANY($2::uuid[])', [[id(51), id(52), id(54)], FIXTURE.vehicles]);
       await db.query('DELETE FROM "AvailabilityBlock" WHERE id = ANY($1::uuid[])', [[id(41), id(42), id(43)]]);

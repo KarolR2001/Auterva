@@ -91,6 +91,8 @@ afterAll(async () => {
   await db.imageUpload.deleteMany({ where: orgs });
   await db.vehicle.deleteMany({ where: orgs });
   await db.vehicleCategory.deleteMany({ where: { id: categoryId } });
+  await db.reminderIntent.deleteMany({ where: orgs });
+  await db.reminderPlan.deleteMany({ where: orgs });
   await db.serviceAccess.deleteMany({ where: orgs });
   for (const session of sessions) await session.dispose();
   await superSession.dispose();

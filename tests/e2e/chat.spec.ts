@@ -120,6 +120,8 @@ test("built app: admin A writes, superadmin reads conversation A, admin B sees n
     await db.chatMessage.deleteMany({ where: { organizationId: { in: [orgA, orgB] } } });
     await db.conversation.deleteMany({ where: { organizationId: { in: [orgA, orgB] } } });
     await db.auditLog.deleteMany({ where: { organizationId: { in: [orgA, orgB] } } });
+    await db.reminderIntent.deleteMany({ where: { organizationId: { in: [orgA, orgB] } } });
+    await db.reminderPlan.deleteMany({ where: { organizationId: { in: [orgA, orgB] } } });
     await db.serviceAccess.deleteMany({ where: { organizationId: { in: [orgA, orgB] } } });
     for (const session of sessions) await session.dispose();
     await db.user.deleteMany({ where: { id: { in: [userA, userB, ...(ownedSuperadmin ? [ownedSuperadmin] : [])] } } });

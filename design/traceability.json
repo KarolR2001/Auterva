@@ -3,6 +3,36 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 54,
+      "scope": "Harmonogram przypomnień 7/1/0 (panel i e-mail) z trwałymi intencjami, uzgadnianiem przy każdej zmianie okresu, rewalidacją przed doręczeniem i prywatnym API statusu usługi dla panelu firmy (UI w #55).",
+      "relatedRequirementIds": ["C-F067", "C-N004", "C-F058", "C-F062", "D-07", "D-14"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "prisma/migrations/20261027110000_service_reminders_issue_54/migration.sql",
+        "src/modules/reminders/slots.ts",
+        "src/modules/reminders/current.ts",
+        "src/modules/reminders/reconcile.ts",
+        "src/modules/reminders/deliver.ts",
+        "src/modules/reminders/read.ts",
+        "src/modules/reminders/http.ts",
+        "src/app/api/admin/service-period/route.ts",
+        "src/app/api/platform/companies/[organizationId]/service-period/route.ts",
+        "src/modules/service-period/mutations.ts",
+        "src/modules/organizations/archive.ts",
+        "src/modules/invitations/activate.ts",
+        "src/modules/jobs/processor.ts",
+        "src/modules/jobs/runner.ts",
+        "docs/contracts/service-reminders.md"
+      ],
+      "testPaths": [
+        "tests/unit/reminder-slots.test.ts",
+        "tests/integration/service-reminders.test.ts",
+        "tests/integration/service-reminders-process.test.ts",
+        "tests/integration/service-reminders-migration.test.ts",
+        "tests/e2e/service-reminders.spec.ts"
+      ]
+    },
+    {
       "issue": 32,
       "scope": "Zdjecia pojazdu: cover, kolejnosc, alt i usuwanie z wersja, blokada Vehicle i audytem; dokladnie jeden cover; kontrolowany odczyt wariantow (publiczny przez resolvePublicVisibility i PUBLISHED, prywatny preview po sesji), no-store i blokada optymalizatora next/image. UI w osobnym issue.",
       "relatedRequirementIds": ["C-F098", "C-F061", "C-N006", "C-N033", "C-N035", "FR-ADM-043", "FR-ADM-044", "FR-ADM-045", "FR-ADM-046"],

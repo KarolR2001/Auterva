@@ -109,6 +109,8 @@ afterAll(async () => {
   await superSession.dispose();
   await db.user.deleteMany({ where: { id: { in: [...adminIds, ...(createdSuperadmin ? [createdSuperadmin] : [])] } } });
   await db.hostMapping.deleteMany({ where: { OR: [orgs, { hostname: platformHost }] } });
+  await db.reminderIntent.deleteMany({ where: { organizationId: { in: [orgA, orgB] } } });
+  await db.reminderPlan.deleteMany({ where: { organizationId: { in: [orgA, orgB] } } });
   await db.organization.deleteMany({ where: { id: { in: [orgA, orgB] } } });
   for (const [key, value] of Object.entries(previousEnv)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
   await db.$disconnect();
