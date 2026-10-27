@@ -38,7 +38,12 @@ export async function proxy(request: NextRequest) {
   }
   headers.set("host", authority!);
   if (mapping.area === "MARKETING" || mapping.area === "COMPANY_PUBLIC") headers.delete("cookie");
-  return NextResponse.next({ request: { headers } });
+  const response = NextResponse.next({ request: { headers } });
+  // Panels, the platform and every API response stay out of search indexes (#40); public pages set their own robots.
+  if (mapping.area === "COMPANY_ADMIN" || mapping.area === "PLATFORM" || request.nextUrl.pathname.startsWith("/api/")) {
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+  }
+  return response;
 }
 
 // Upload routes must reach their handler unbuffered: Next buffers the request body for

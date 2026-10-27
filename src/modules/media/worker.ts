@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { claimNextJob, type ClaimedJob } from "@/modules/jobs/queue";
 import { decodeMedia } from "./decode";
-import { defaultImageAlt } from "./vehicle-images";
 import { putImmutable, readLimited, removeObject, type MediaStorage } from "./storage";
 
 const leaseMs = 90_000;
@@ -169,7 +168,7 @@ export async function processMediaClaim(db: PrismaClient, storage: MediaStorage,
         await tx.vehicleImage.create({ data: { id: upload.imageId, organizationId: upload.organizationId,
           vehicleId: upload.vehicleId, storageKey: upload.rawKey, mime: decoded.mime,
           width: decoded.width, height: decoded.height, bytes: bytes.length, status: "READY", variants,
-          position, isCover: !hasCover, alt: defaultImageAlt(vehicle?.[0]?.name, position) } });
+          position, isCover: !hasCover, alt: null } });
       } else {
         const kind = upload.publicKind ?? "";
         // A new logo replaces the old one inside the same transaction; its objects are cleaned later.

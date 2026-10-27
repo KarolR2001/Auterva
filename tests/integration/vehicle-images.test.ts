@@ -161,12 +161,12 @@ test("a real upload becomes the cover when the vehicle has none, later uploads g
   } finally { storage.client.destroy(); }
   const rows = await live(vehicleId);
   expect(rows.map((row) => [row.id, row.isCover, row.position])).toEqual([[ids[0], true, 0], [ids[1], false, 1]]);
-  // FR-ADM-045: default alt = vehicle name + ordinal, editable afterwards; markup in the name never reaches alt
-  expect(rows.map((row) => row.alt)).toEqual(["Auto, zdjęcie 1", "Auto, zdjęcie 2"]);
+  // FR-ADM-045 (#40): the worker stores no alt; the default (vehicle name + ordinal in the gallery) is computed at
+  // read time, and markup in the name never reaches it.
+  expect(rows.map((row) => row.alt)).toEqual([null, null]);
   expect(defaultImageAlt("<b>Bus</b>\u202E  9", 2)).toBe("b Bus /b 9, zdjęcie 3");
   expect(defaultImageAlt(null, 0)).toBe("Zdjęcie pojazdu 1");
   expect(defaultImageAlt("x".repeat(500), 0).length).toBeLessThanOrEqual(200);
-  await db.vehicleImage.update({ where: { id: ids[1] }, data: { alt: null } });
   const detail = await vehicleGet(admin(0, "GET", `/api/admin/vehicles/${vehicleId}/`), { params: Promise.resolve({ id: vehicleId }) });
   expect((await detail.json()).images.map((image: { alt: string }) => image.alt)).toEqual(["Auto, zdjęcie 1", "Auto, zdjęcie 2"]);
 });
