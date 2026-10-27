@@ -1,4 +1,5 @@
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
+import { getServerEnv } from "../../src/lib/env";
 import { Client } from "pg";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { createPrismaClient } from "../../src/lib/prisma";
@@ -65,6 +66,12 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  // The controlled clock starts in 2031; those chat:send events would otherwise outlive the run and
+  // keep the (possibly shared) operator rate-limited for later runs such as E2E.
+  const chatKeys = [...new Set([platformId, ...created.map((company) => company.adminId)])].flatMap((actorId) =>
+    [`chat:send:burst:${actorId}`, `chat:send:minute:${actorId}`])
+    .map((key) => createHmac("sha256", getServerEnv().BETTER_AUTH_SECRET).update(key).digest("hex"));
+  await db.rateLimitEvent.deleteMany({ where: { keyHash: { in: chatKeys }, occurredAt: { gte: new Date(Date.UTC(2031, 0, 1)) } } });
   const organizationId = { in: created.map((company) => company.organizationId) };
   await db.chatMessage.deleteMany({ where: { organizationId } });
   await db.conversation.deleteMany({ where: { organizationId } });
