@@ -44,13 +44,62 @@ export async function reserveVehicleImageUpload(db: PrismaClient, input: Reserve
   });
 }
 
-/** A deterministic rejection frees the slot under the same vehicle lock that counts it. */
+export const publicMediaKinds = ["LOGO", "HERO", "BRAND"] as const;
+export type PublicMediaKind = (typeof publicMediaKinds)[number];
+// A replacement logo is accepted while the old one lives; hero and brand images share a slot budget.
+export const publicMediaLimit: Record<PublicMediaKind, number> = { LOGO: 1, HERO: 5, BRAND: 12 };
+
+export type ReservePublicMediaInput = { actorId: string; sessionId: string; organizationId: string;
+  kind: PublicMediaKind; reservationKey: string; now: Date };
+
+/** The company row serializes all consumers of one company's public media budget (#30). */
+export async function reservePublicMediaUpload(db: PrismaClient, input: ReservePublicMediaInput) {
+  if (![input.organizationId, input.reservationKey].every((value) => uuid.test(value))
+    || !publicMediaKinds.includes(input.kind) || !Number.isFinite(input.now.getTime()))
+    throw new Error("MEDIA_INVALID_INPUT");
+  return db.$transaction(async (tx) => {
+    const actor = await requireAuditActor(tx, input.actorId, input.sessionId);
+    requireAuditScope(actor, input.organizationId);
+    if (actor.role !== "SUPERADMIN_AUTERVA") throw new Error("MEDIA_FORBIDDEN");
+    const company = await tx.$queryRaw<{ id: string }[]>`
+      SELECT id FROM "Organization" WHERE id = ${input.organizationId}::uuid
+        AND "archivedAt" IS NULL FOR NO KEY UPDATE
+    `;
+    if (company.length !== 1) throw new Error("MEDIA_ORGANIZATION_ARCHIVED");
+    const existing = await tx.imageUpload.findFirst({ where: { organizationId: input.organizationId,
+      vehicleId: null, reservationKey: input.reservationKey } });
+    if (existing) {
+      if (existing.publicKind !== input.kind) throw new Error("MEDIA_IDEMPOTENCY_CONFLICT");
+      return existing;
+    }
+    const stored = input.kind === "LOGO" ? 0 : await tx.publicMedia.count({ where: {
+      organizationId: input.organizationId, kind: input.kind, status: { not: "DELETED" } } });
+    const reservations = await tx.imageUpload.count({ where: { organizationId: input.organizationId,
+      vehicleId: null, publicKind: input.kind, state: { in: active }, expiresAt: { gt: input.now } } });
+    if (stored + reservations >= publicMediaLimit[input.kind]) throw new Error("MEDIA_IMAGE_LIMIT");
+    const id = randomUUID();
+    const imageId = randomUUID();
+    return tx.imageUpload.create({ data: { id, organizationId: input.organizationId,
+      publicKind: input.kind, reservationKey: input.reservationKey, imageId,
+      stagingKey: `staging/${input.organizationId}/company/${id}`,
+      rawKey: `private/${input.organizationId}/company/${imageId}/raw`,
+      expiresAt: new Date(input.now.getTime() + reservationMs) } });
+  });
+}
+
+/** A deterministic rejection frees the slot under the same lock that counts it. */
 export async function rejectImageUpload(db: PrismaClient, input: { organizationId: string;
-  vehicleId: string; uploadId: string }): Promise<void> {
+  vehicleId?: string; uploadId: string }): Promise<void> {
   await db.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT id FROM "Vehicle" WHERE id = ${input.vehicleId}::uuid
-      AND "organizationId" = ${input.organizationId}::uuid FOR UPDATE`;
+    if (input.vehicleId) {
+      await tx.$queryRaw`SELECT id FROM "Vehicle" WHERE id = ${input.vehicleId}::uuid
+        AND "organizationId" = ${input.organizationId}::uuid FOR UPDATE`;
+    } else {
+      await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${input.organizationId}::uuid
+        FOR NO KEY UPDATE`;
+    }
     await tx.imageUpload.updateMany({ where: { id: input.uploadId, organizationId: input.organizationId,
-      vehicleId: input.vehicleId, state: { in: ["RESERVED", "FINALIZING"] } }, data: { state: "REJECTED" } });
+      vehicleId: input.vehicleId ?? null, state: { in: ["RESERVED", "FINALIZING"] } },
+    data: { state: "REJECTED" } });
   });
 }

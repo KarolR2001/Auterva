@@ -100,6 +100,8 @@ test("built panel shows the 7-day reminder only after the worker clock passes th
   } finally {
     await db.job.deleteMany({ where: { organizationId } });
     await db.auditLog.deleteMany({ where: { organizationId } });
+    await db.reminderIntent.deleteMany({ where: { organizationId } });
+    await db.reminderPlan.deleteMany({ where: { organizationId } });
     await db.serviceAccess.deleteMany({ where: { organizationId } });
     for (const session of sessions) await session.dispose();
     await db.hostMapping.deleteMany({ where: { hostname: { in: [platformHost, adminHost, publicHost] } } });

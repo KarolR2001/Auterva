@@ -5,7 +5,7 @@ Realizuje kroki 1–5 [kontraktu harmonogramu](service-periods-kpi-reminders.md)
 ## Model
 
 - `ReminderIntent`: jedna trwała intencja na `(organizationId, effectiveEndsAt, offsetDays ∈ {7,1,0}, channel ∈ {PANEL, EMAIL})` — unikalny klucz doręczenia. Pola: `slotAt` (09:00 `Europe/Warsaw` dla `endDate − offset`, liczone na datach kalendarzowych), `source` (PAID/TRIAL), `periodVersion`, `status` (`PENDING`, `QUEUED`, `DELIVERED`, `FAILED`, `UNCERTAIN`, `SKIPPED`, `SUPERSEDED`), `jobId` (tylko e-mail), `deliveredAt`, `errorCode`.
-- `ReminderPlan`: ostatnio uzgodniona granica i `periodVersion` firmy. Tabele są pochodne (odtwarzalne), dlatego FK do firmy ma `ON DELETE CASCADE`, a `jobId` — `SET NULL`; aplikacja nie usuwa firm.
+- `ReminderPlan`: ostatnio uzgodniona granica i `periodVersion` firmy. FK do firmy jest `ON DELETE RESTRICT` jak w reszcie schematu (bez kaskadowego usuwania firmy); tylko `jobId` ma `SET NULL`. Cleanupy testów i reset wierszowy fixture usuwają intencje i plan jawnie.
 - `endDate`: dla opłaty `paidThrough`, dla trialu lokalna data `trialEndsAt` (także przy 00:00). Efektywna granica to późniejsza z opłaty i trialu, remis należy do opłaty; jedna seria na firmę.
 
 ## Uzgadnianie (atomowe, ta sama transakcja i blokada organizacji)
@@ -25,7 +25,7 @@ Realizuje kroki 1–5 [kontraktu harmonogramu](service-periods-kpi-reminders.md)
 4. Wynik zadania poczty jest kopiowany na intencję. `UNCERTAIN` pozostaje końcowe: bez nowego zadania i bez ponownej wysyłki; operator uzgadnia wynik zgodnie z #17.
 5. Procesor poczty tuż przed doręczeniem wymaga: zgodnej `periodVersion`, firmy niearchiwalnej, bieżącego adresata oraz intencji `QUEUED` należącej do aktualnej efektywnej granicy. Stare zdarzenie kończy `SKIPPED/STALE_INTENT` i nie zmienia strony ani okresu.
 
-Statusy audytu: zmiany okresu, archiwizacji i aktywacji są audytowane jak dotąd; worker nie ma aktora, więc wynik doręczenia zapisuje intencja i `Job`, bez wpisu `AuditLog` (nie ma aktora systemowego w #16).
+Statusy audytu: zmiany okresu, archiwizacji i aktywacji są audytowane jak dotąd; kontrakt audytu #16 wymaga aktora rzeczywistej sesji i nie przewiduje zdarzeń systemowych (poczta #17 też ich nie audytuje), więc wynik doręczenia zapisuje intencja i `Job`, bez wpisu `AuditLog`.
 
 ## API odczytu (prywatne, `Cache-Control: no-store`, `X-Request-Id`, limit odczytów, bez zapisu)
 
@@ -35,6 +35,11 @@ Statusy audytu: zmiany okresu, archiwizacji i aktywacji są audytowane jak dotą
 | `GET /api/platform/companies/{organizationId}/service-period/` | superadmin z pełnym MFA na hoście `PLATFORM` (własny aktor w karcie firmy) |
 
 Odpowiedź 200: `organizationId`, `periodVersion`, `serverTime`, `period` (`headline` PAID/TRIAL/EXPIRED/NOT_STARTED — przy obu ważnych PAID; `paidThrough`, `paidValid`, `trialEndsAt`, `trialValid`, `effectiveEndsAt`, `effectiveSource`), `site` (`state`: VISIBLE, ARCHIVED, PERIOD_EXPIRED, DOMAIN_PENDING, RESTORE_LOCKED, REGISTRATION_PENDING; `publicVisible`), `expiredNotice` (dokładny komunikat D-11 po wygaśnięciu wszystkich okresów, inaczej `null`) oraz `reminders` — doręczone powiadomienia panelowe **bieżącej** granicy (`id`, `offsetDays`, `effectiveEndsAt`, `source`, `deliveredAt`, `message`). Po przedłużeniu lub skróceniu poprzednie powiadomienia znikają natychmiast; treść jest liczona dla chwili odczytu. Wygaśnięcie nie zwraca błędu ani nie blokuje panelu. Błędy: `400 INVALID_INPUT`/`INVALID_ID`, `403 FORBIDDEN`, `404 NOT_FOUND`, `429 RATE_LIMITED`, `500 INTERNAL_ERROR`. Odczyt nie jest cache'owany ani publiczny; nie zawiera danych innej firmy, adresu odbiorcy ani treści e-maila.
+
+## Decyzje do potwierdzenia przez właściciela
+
+- Brak jedynego zweryfikowanego administratora z MFA lub aktywnego hosta panelu w chwili slotu kończy intencję jako `SKIPPED` (`RECIPIENT_INVALID`, `ADMIN_HOST_MISSING`) bez ponowienia (test: `service-reminders.test.ts`).
+- Przyznanie trialu przy tworzeniu firmy (#20) nie uzgadnia przypomnień, bo przed rejestracją nie ma granicy; harmonogram powstaje przy aktywacji konta.
 
 ## Ograniczenia
 

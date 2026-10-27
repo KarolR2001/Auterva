@@ -20,6 +20,8 @@ afterAll(async () => {
   await db.job.deleteMany({ where: { kind: "MAIL_REMINDER", organizationId: { in: [...FIXTURE.organizations] } } });
   await db.reminderIntent.deleteMany({ where: { organizationId: { in: [...FIXTURE.organizations] } } });
   await db.reminderPlan.deleteMany({ where: { organizationId: { in: [...FIXTURE.organizations] } } });
+  await db.reminderIntent.deleteMany({ where: { organizationId } });
+  await db.reminderPlan.deleteMany({ where: { organizationId } });
   await db.job.deleteMany({ where: { organizationId } });
   await db.serviceAccess.deleteMany({ where: { organizationId } });
   await db.user.deleteMany({ where: { id: userId } });

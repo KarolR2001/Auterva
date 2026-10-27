@@ -33,6 +33,38 @@
       ]
     },
     {
+      "issue": 30,
+      "scope": "Ustawienia firmy per organizacja z macierzą D-01: odczyt admina, zapis grup tylko superadmin z allowlistą, wersją i audytem; logo/hero przez pipeline mediów #29; publiczna projekcja i media przez resolvePublicVisibility. UI ustawień w osobnym issue.",
+      "relatedRequirementIds": ["C-F023", "C-F081", "C-F082", "C-F083", "C-F084", "C-F085", "C-N025", "C-N034", "C-N048", "FR-ADM-060", "FR-ADM-061", "FR-ADM-062", "FR-ADM-063", "D-01"],
+      "referenceScreenIds": ["ADM-11", "ADM-12", "ADM-13", "ADM-14"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261027090000_company_settings_issue_30/migration.sql",
+        "src/modules/settings/fields.ts",
+        "src/modules/settings/mutations.ts",
+        "src/modules/settings/read.ts",
+        "src/modules/settings/http.ts",
+        "src/modules/media/reservation.ts",
+        "src/modules/media/finalize.ts",
+        "src/modules/media/http.ts",
+        "src/modules/media/worker.ts",
+        "src/modules/audit/append.ts",
+        "src/proxy.ts",
+        "src/app/api/admin/settings/route.ts",
+        "src/app/api/platform/companies/[organizationId]/settings/route.ts",
+        "src/app/api/platform/companies/[organizationId]/public-media/[segment]/route.ts",
+        "src/app/api/public/settings/route.ts",
+        "src/app/api/public/media/[mediaId]/[variant]/route.ts"
+      ],
+      "testPaths": [
+        "tests/unit/company-settings-fields.test.ts",
+        "tests/unit/proxy-matcher.test.ts",
+        "tests/integration/company-settings.test.ts",
+        "tests/integration/company-settings-migration.test.ts",
+        "tests/e2e/company-settings.spec.ts"
+      ]
+    },
+    {
       "issue": 138,
       "scope": "Dekoder mediów: limit RSS fail-closed (/proc lub ps), błędy środowiska i sygnały spoza dekodera jako nieostateczne 503, zmierzony najgorszy przypadek pamięci i wymagania operacyjne, reset fixture bez usuwania audytu.",
       "relatedRequirementIds": ["C-F098", "C-N034", "C-N035", "NFR-PERF-004"],

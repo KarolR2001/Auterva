@@ -141,6 +141,8 @@ test("built app: archive logs the admin out and hides every public host; restore
     expect(await db.auditLog.count({ where: { organizationId: orgA, action: "COMPANY_ARCHIVED" } })).toBe(1);
   } finally {
     await db.auditLog.deleteMany({ where: { organizationId: { in: [orgA, orgB] } } });
+    await db.reminderIntent.deleteMany({ where: { organizationId: { in: [orgA, orgB] } } });
+    await db.reminderPlan.deleteMany({ where: { organizationId: { in: [orgA, orgB] } } });
     await db.serviceAccess.deleteMany({ where: { organizationId: { in: [orgA, orgB] } } });
     for (const session of sessions) await session.dispose();
     await db.session.deleteMany({ where: { userId: { in: [adminId, userB] } } });

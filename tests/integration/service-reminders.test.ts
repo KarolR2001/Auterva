@@ -50,6 +50,8 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await db.reminderIntent.deleteMany({ where: { organizationId: { in: organizations } } });
+  await db.reminderPlan.deleteMany({ where: { organizationId: { in: organizations } } });
   await db.job.deleteMany({ where: { organizationId: { in: organizations } } });
   await db.auditLog.deleteMany({ where: { organizationId: { in: organizations } } });
   await db.invitation.deleteMany({ where: { organizationId: { in: organizations } } });

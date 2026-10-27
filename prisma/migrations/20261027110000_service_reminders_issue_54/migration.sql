@@ -1,6 +1,6 @@
 -- #54: durable reminder schedule (additive only; no existing table or row is changed).
--- Derived, rebuildable scheduling data: it follows its company/job instead of blocking their removal
--- (no application path deletes a company; archiving keeps everything).
+-- Company FKs are RESTRICT like the rest of the schema (no cascading company deletion); only the optional
+-- link to the mail Job is SET NULL so job clean-up never needs the intent removed first.
 -- Existing companies are picked up by the worker's reconcile sweep (plan missing or behind periodVersion).
 CREATE TABLE "ReminderPlan" (
   "organizationId" UUID NOT NULL,
@@ -43,8 +43,8 @@ CREATE INDEX "ReminderIntent_status_slotAt_idx" ON "ReminderIntent"("status", "s
 CREATE INDEX "ReminderIntent_organizationId_status_idx" ON "ReminderIntent"("organizationId", "status");
 
 ALTER TABLE "ReminderPlan" ADD CONSTRAINT "ReminderPlan_organizationId_fkey"
-  FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "ReminderIntent" ADD CONSTRAINT "ReminderIntent_organizationId_fkey"
-  FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "ReminderIntent" ADD CONSTRAINT "ReminderIntent_jobId_fkey"
   FOREIGN KEY ("jobId") REFERENCES "Job"("id") ON DELETE SET NULL ON UPDATE CASCADE;

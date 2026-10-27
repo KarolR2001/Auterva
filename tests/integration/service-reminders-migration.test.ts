@@ -41,8 +41,9 @@ test("additive upgrade of a populated database leaves rows untouched and enforce
     await expectRejected(() => db.query(`INSERT INTO "ReminderPlan" ("organizationId", "effectiveEndsAt") VALUES ($1, now())`, [org]));
     await db.query('DELETE FROM "Job" WHERE id = $1', [job]);
     expect((await db.query('SELECT "jobId" FROM "ReminderIntent" WHERE channel = \'EMAIL\'')).rows[0].jobId).toBeNull();
+    await expectRejected(() => db.query('DELETE FROM "Organization" WHERE id = $1', [org])); // RESTRICT, no cascade
+    await db.query('DELETE FROM "ReminderIntent"');
     await db.query('DELETE FROM "Organization" WHERE id = $1', [org]);
-    expect((await db.query('SELECT count(*)::int AS n FROM "ReminderIntent"')).rows[0].n).toBe(0);
   } finally {
     await db.query("ROLLBACK");
     await db.end();
