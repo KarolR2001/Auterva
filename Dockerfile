@@ -16,7 +16,12 @@ RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
 COPY . .
-RUN pnpm build
+# Next validates server configuration while collecting page data. These are inert placeholders used only for
+# this command (not persisted in an ENV layer); real values are supplied at runtime.
+RUN DATABASE_URL=postgresql://build@127.0.0.1:5432/build_placeholder \
+    BETTER_AUTH_SECRET=docker-build-placeholder-secret-0123456789 \
+    BETTER_AUTH_URL=http://127.0.0.1:3000 \
+    pnpm build
 
 # Next.js production server. Port from PORT (default 3000); WWW host routing is decided by the app, not the image.
 FROM base AS web

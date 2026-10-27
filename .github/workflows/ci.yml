@@ -33,7 +33,12 @@ jobs:
           DATABASE_URL: postgresql://ci@127.0.0.1:5432/validate_only
       - run: pnpm lint
       - run: pnpm typecheck
+      # Unit tests read server config from the environment; obvious placeholders, no service is contacted.
       - run: pnpm test:unit
+        env:
+          DATABASE_URL: postgresql://ci@127.0.0.1:5432/unit_placeholder
+          BETTER_AUTH_SECRET: ci-unit-placeholder-secret-0123456789abcdef
+          BETTER_AUTH_URL: http://127.0.0.1:3305
 
   integration:
     name: Integration (PostgreSQL, S3, bootstrap)
@@ -98,7 +103,7 @@ jobs:
           echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/$archive" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" gitleaks
       - name: Scan full git history
-        run: '"$RUNNER_TEMP/gitleaks" git --no-banner --redact --exit-code 1 .'
+        run: '"$RUNNER_TEMP/gitleaks" git --no-banner --redact --verbose --exit-code 1 .'
 
   audit:
     name: Dependency audit
