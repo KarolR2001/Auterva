@@ -39,7 +39,10 @@ Odpowiedź 200: `organizationId`, `periodVersion`, `serverTime`, `period` (`head
 
 ## Decyzje właściciela (D-24, 27.10.2026)
 
-- Brak jedynego zweryfikowanego administratora z MFA lub aktywnego hosta panelu w chwili slotu kończy intencję jako `SKIPPED` (`RECIPIENT_INVALID`, `ADMIN_HOST_MISSING`) bez ponowienia (test: `service-reminders.test.ts`).
+- Brak jedynego zweryfikowanego administratora z MFA lub aktywnego hosta panelu w chwili slotu kończy intencję jako `SKIPPED` (`RECIPIENT_INVALID`, `ADMIN_HOST_MISSING`) bez ponowienia (test: `service-reminders.test.ts`); doręczenie zapisuje status intencji i zadania, nie `AuditLog`; okno ponowień przy częściowej awarii wynosi około 3 h.
+
+## Reguły implementacyjne
+
 - Przyznanie trialu przy tworzeniu firmy (#20) nie uzgadnia przypomnień, bo przed rejestracją nie ma granicy; harmonogram powstaje przy aktywacji konta.
 
 ## Ograniczenia
