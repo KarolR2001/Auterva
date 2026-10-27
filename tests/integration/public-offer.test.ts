@@ -12,6 +12,7 @@ import { publicImageAlt } from "../../src/modules/public-offer/images";
 import { getPublicContact, getPublicHome, getPublicLegal, getPublicSiteState, getPublicVehicle,
   listPublicVehicles } from "../../src/modules/public-offer/read";
 import { serializeJsonLd } from "../../src/modules/public-offer/seo";
+import { readPublicMedia, readPublicSettings } from "../../src/modules/settings/http";
 
 const db = createPrismaClient(process.env.DATABASE_URL ?? "");
 const [a, b] = [randomUUID(), randomUUID()];
@@ -399,4 +400,16 @@ test("proxy keeps panels, the platform and every API out of search indexes; publ
   expect((await through(hostA, "/pojazdy/")).headers.get("x-robots-tag")).toBeNull();
   expect((await through(hostA, "/robots.txt")).status).toBe(200);
   expect((await through(adminHostA, "/sitemap.xml")).status).toBe(404);
+});
+
+test("the public media route is wired to the media budget, not to the 120/min settings bucket", async () => {
+  const address = `10.${randomBytes(3).join(".")}`;
+  const statuses = await runWithTrustedClientAddress(address, async () => {
+    const out: number[] = [];
+    for (let index = 0; index < 125; index += 1) out.push((await readPublicMedia(get(hostA, "/m/"), randomUUID(), "thumb")).status);
+    return out;
+  });
+  expect(statuses.every((status) => status === 404)).toBe(true);
+  // Settings keep their own 120/min bucket, untouched by the 125 media reads.
+  expect((await runWithTrustedClientAddress(address, () => readPublicSettings(get(hostA, "/api/public/settings/")))).status).toBe(200);
 });

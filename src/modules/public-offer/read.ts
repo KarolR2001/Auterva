@@ -149,7 +149,8 @@ export async function getPublicHome(db: PrismaClient, authority: string, now = n
     brandMedia(db, organizationId),
   ]);
   const description = orgDescription(context);
-  const title = pageTitle(settings?.seoTitle ?? context.name, context.name);
+  // An explicit SEO title is the owner's wording and is used as is.
+  const title = settings?.seoTitle ?? context.name;
   return {
     // EMPTY is the "coming soon" variant: the first published vehicle replaces it with no reactivation.
     offerState: publishedCount === 0 ? "EMPTY" as const : "HAS_VEHICLES" as const,
@@ -322,7 +323,7 @@ export async function getPublicVehicle(db: PrismaClient, authority: string, slug
       ? { kind: "REDIRECT", path: `/pojazdy/${old.vehicle.slug}/` } : notFound;
   }
   const vehicle = detailDto(row, showPrices);
-  const title = pageTitle(row.seoTitle ?? row.name ?? "Pojazd", context.name);
+  const title = row.seoTitle ?? pageTitle(row.name ?? "Pojazd", context.name);
   const description = clip(row.seoDescription, 160) ?? clip(row.shortDescription, 160)
     ?? `${row.name ?? "Pojazd"} do wynajęcia: ${context.name}.`;
   const cover = vehicle.cover;
