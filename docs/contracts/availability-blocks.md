@@ -4,7 +4,7 @@
 
 ## Wejścia
 
-Te same use case obsługują admina firmy (host `COMPANY_ADMIN`) i superadmina (host `PLATFORM`, jawna firma): `POST .../vehicles/{id}/blocks` (`{fields:{from,to,type,reference?,internalNote?}}`, 201), `PATCH .../blocks/{blockId}` (`{expectedVersion,fields}`), `DELETE .../blocks/{blockId}` (`{expectedVersion}`), z prefiksem `/api/admin` albo `/api/platform/companies/{organizationId}`. Wymagane: host, pełna sesja MFA, rola, zgodny `Origin`, limit zapisów; odpowiedzi `no-store` z `X-Request-Id`. Odczyt prywatny zostaje w `GET .../availability` i zwraca także `typeLabel` ("Serwis" dla `MAINTENANCE`).
+Te same use case obsługują admina firmy (host `COMPANY_ADMIN`) i superadmina (host `PLATFORM`, jawna firma; superadmin zapisuje także w zarchiwizowanej firmie, D-23 #151, z `context: "ARCHIVED_COMPANY"` w audycie; administratorowi archiwum odmawia sesja i `requireAuditActor`): `POST .../vehicles/{id}/blocks` (`{fields:{from,to,type,reference?,internalNote?}}`, 201), `PATCH .../blocks/{blockId}` (`{expectedVersion,fields}`), `DELETE .../blocks/{blockId}` (`{expectedVersion}`), z prefiksem `/api/admin` albo `/api/platform/companies/{organizationId}`. Wymagane: host, pełna sesja MFA, rola, zgodny `Origin`, limit zapisów; odpowiedzi `no-store` z `X-Request-Id`. Odczyt prywatny zostaje w `GET .../availability` i zwraca także `typeLabel` ("Serwis" dla `MAINTENANCE`).
 
 Typy: `RESERVED`, `MAINTENANCE` ("Serwis"), `BLOCKED`, `OTHER`; źródło zawsze `MANUAL`. `reference` ≤ 120, `internalNote` ≤ 2000 znaków, puste → `NULL`. Daty to LocalDate włącznie, `from <= to` (jeden dzień poprawny); przeszłe daty w aktywności są dozwolone jako historia.
 

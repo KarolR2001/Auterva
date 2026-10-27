@@ -649,6 +649,35 @@
       ]
     },
     {
+      "issue": 151,
+      "scope": "D-23: superadmin zapisuje ustawienia, media publiczne, flote, zdjecia pojazdow i blokady zarchiwizowanej firmy (D-21: archiwalny pojazd 409 przy dodaniu i edycji blokady, usuniecie dozwolone); administrator, czat i strona publiczna bez zmian; wspolny lock wiersza Organization i audyt z context ARCHIVED_COMPANY. Bez UI.",
+      "relatedRequirementIds": ["C-F073", "C-F074", "C-F075", "C-F078", "D-21", "D-23"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/organizations/write-lock.ts",
+        "src/modules/audit/append.ts",
+        "src/modules/audit/read.ts",
+        "src/modules/fleet/mutations.ts",
+        "src/modules/availability/blocks.ts",
+        "src/modules/settings/mutations.ts",
+        "src/modules/media/reservation.ts",
+        "src/modules/media/finalize.ts",
+        "src/modules/media/worker.ts",
+        "docs/contracts/company-archive-restore.md",
+        "docs/contracts/company-settings-and-vehicle-publication.md",
+        "docs/contracts/fleet-crud-publication.md",
+        "docs/contracts/media-upload-processing.md",
+        "docs/contracts/availability-blocks.md",
+        "docs/contracts/audit-append-and-access.md"
+      ],
+      "testPaths": [
+        "tests/integration/company-archive-superadmin-writes.test.ts",
+        "tests/integration/company-archive-media.test.ts",
+        "tests/integration/company-settings.test.ts",
+        "tests/integration/fleet-mutations.test.ts"
+      ]
+    },
+    {
       "issue": 48,
       "scope": "Archiwizacja i przywrócenie firmy bez utraty danych: atomowe cofnięcie sesji i challenge MFA, blokada publiczna, wersja i audyt rzeczywistego superadmina; restore bez odnowienia okresu, odblokowanie wyłącznie przez istniejące unlockPublicAfterRestore. Bez UI i purge.",
       "relatedRequirementIds": ["C-F073", "C-F074", "C-F075", "C-F075-T", "C-F076", "C-F077", "C-F078", "C-F079", "C-F080", "C-F126", "C-N011", "C-N046"],

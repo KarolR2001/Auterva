@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { appendAudit } from "@/modules/audit/append";
 import { requireAuditActor } from "@/modules/audit/actor";
+import { lockCompanyForWrite } from "@/modules/organizations/write-lock";
 import { checkOperation, lockVehicle, type Operation } from "@/modules/fleet/mutations";
 import { localDate, sqlDate } from "./dates";
 
@@ -55,9 +56,7 @@ function dto(block: { id: string; vehicleId: string; from: Date; to: Date; type:
 async function authorizeAndLockCompany(tx: Prisma.TransactionClient, input: Operation) {
   const actor = await requireAuditActor(tx, input.actorId, input.sessionId);
   if (actor.role === "ADMIN_FIRMY" && actor.organizationId !== input.organizationId) throw new Error("FLEET_NOT_FOUND");
-  const rows = await tx.$queryRaw<{ id: string }[]>`
-    SELECT id FROM "Organization" WHERE id = ${input.organizationId}::uuid AND "archivedAt" IS NULL FOR NO KEY UPDATE`;
-  if (rows.length !== 1) throw new Error("FLEET_NOT_FOUND");
+  if (!(await lockCompanyForWrite(tx, actor, input.organizationId, "NO_KEY_UPDATE"))) throw new Error("FLEET_NOT_FOUND");
 }
 
 async function lockedVehicle(tx: Prisma.TransactionClient, input: Operation & { vehicleId: string }) {

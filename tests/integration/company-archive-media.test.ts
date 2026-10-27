@@ -69,7 +69,7 @@ afterAll(async () => {
   await db.$disconnect();
 });
 
-test("archive denies new image uploads and an in-flight processing upload ends MEDIA_SCOPE_INACTIVE without publishing", async () => {
+test("archive denies the admin new image uploads; the worker and the superadmin still complete media in the archived company (D-23)", async () => {
   const bytes = await sharp({ create: { width: 128, height: 96, channels: 3, background: "#4477aa" } }).png().toBuffer();
   const uploadId = randomUUID();
   const imageId = randomUUID();
@@ -89,11 +89,10 @@ test("archive denies new image uploads and an in-flight processing upload ends M
   await archiveCompany(db, { actorId: platformId, sessionId: platformSessionId, organizationId,
     expectedVersion: 0, eventKey: randomUUID(), requestId: randomUUID() });
 
-  expect(await processMediaClaim(db, storage, claim!)).toBe(false);
-  expect(await db.vehicleImage.count({ where: { organizationId } })).toBe(0);
-  expect((await db.imageUpload.findUniqueOrThrow({ where: { id: uploadId } })).state).toBe("FAILED");
-  expect(await db.job.findUniqueOrThrow({ where: { id: job.id } })).toMatchObject({
-    status: "FAILED", errorCode: "MEDIA_SCOPE_INACTIVE" });
+  expect(await processMediaClaim(db, storage, claim!)).toBe(true);
+  expect(await db.vehicleImage.count({ where: { organizationId } })).toBe(1);
+  expect((await db.imageUpload.findUniqueOrThrow({ where: { id: uploadId } })).state).toBe("READY");
+  expect(await db.job.findUniqueOrThrow({ where: { id: job.id } })).toMatchObject({ status: "SENT" });
 
   // The revoked admin session cannot upload over HTTP; reservations also fail for both actors.
   const response = await adminUpload(new Request(`https://${adminHost}/api/admin/vehicles/${vehicleId}/images/`, {
@@ -104,8 +103,8 @@ test("archive denies new image uploads and an in-flight processing upload ends M
   await expect(reserveVehicleImageUpload(db, { actorId: adminId, sessionId: adminSessionId, organizationId,
     vehicleId, reservationKey: randomUUID(), now: new Date() })).rejects.toThrow();
   await expect(reserveVehicleImageUpload(db, { actorId: platformId, sessionId: platformSessionId, organizationId,
-    vehicleId, reservationKey: randomUUID(), now: new Date() })).rejects.toThrow("MEDIA_ORGANIZATION_ARCHIVED");
-  expect(await db.imageUpload.count({ where: { organizationId } })).toBe(1);
+    vehicleId, reservationKey: randomUUID(), now: new Date() })).resolves.toMatchObject({ vehicleId });
+  expect(await db.imageUpload.count({ where: { organizationId } })).toBe(2);
   await restoreCompany(db, { actorId: platformId, sessionId: platformSessionId, organizationId,
     expectedVersion: 1, eventKey: randomUUID(), requestId: randomUUID() });
 });
