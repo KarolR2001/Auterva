@@ -3,6 +3,26 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 154,
+      "scope": "Indeksowanie mediów publicznych bez X-Robots-Tag oraz robots.txt i sitemap.xml hosta marketingu (D-25): wyjątek Proxy tylko dla wariantów large/thumb na hoście firmy, pozostałe API, panele, platforma i preview noindex, 404 dla wyłączonej firmy, marketing bez danych firm.",
+      "relatedRequirementIds": ["D-25"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/proxy.ts",
+        "src/modules/public-offer/discovery.ts",
+        "src/modules/public-offer/seo.ts",
+        "src/modules/tenancy/host-route-policy.ts",
+        "docs/contracts/public-offer-seo.md"
+      ],
+      "testPaths": [
+        "tests/integration/public-offer.test.ts",
+        "tests/unit/host-route-policy.test.ts",
+        "tests/unit/public-offer.test.ts",
+        "tests/e2e/public-offer.spec.ts",
+        "tests/e2e/vehicle-images.spec.ts"
+      ]
+    },
+    {
       "issue": 153,
       "scope": "Zapis przekierowania starego sluga opublikowanego pojazdu (D-27, FR-ADM-035): wpis wskazuje pojazd w transakcji zmiany sluga z audytem, łańcuch jednym skokiem, pierwszeństwo aktywnego sluga, 404 dla pojazdu nieopublikowanego, izolacja firm i równoległe zapisy.",
       "relatedRequirementIds": ["FR-ADM-035", "D-27"],

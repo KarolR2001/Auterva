@@ -75,5 +75,7 @@ test("SEO helpers: origin, clipping, escaping and sitemap/robots text", () => {
   const xml = sitemapXml("https://a.example.test", [{ path: "/pojazdy/a&b/", lastModified: new Date("2026-11-01T10:00:00Z") }, { path: "/" }]);
   expect(xml).toContain("<loc>https://a.example.test/pojazdy/a&amp;b/</loc><lastmod>2026-11-01</lastmod>");
   expect(robotsTxt({ kind: "PRIVATE" })).toBe("User-agent: *\nDisallow: /\n");
+  expect(robotsTxt({ kind: "MARKETING", origin: "https://m.example.test" }))
+    .toBe("User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: https://m.example.test/sitemap.xml\n");
   expect(robotsTxt({ kind: "PUBLIC", origin: "https://a.example.test" })).toContain("Sitemap: https://a.example.test/sitemap.xml");
 });

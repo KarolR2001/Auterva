@@ -26,7 +26,7 @@ test("built ingress: public offer, SEO routes and panels per host; a shortened p
   const port = Number(new URL(baseURL).port);
   const [a, b, vehicleA, vehicleB] = Array.from({ length: 4 }, () => randomUUID());
   const host = { a: `offer-e2e-a-${a}.example.test`, b: `offer-e2e-b-${b}.example.test`, admin: `offer-e2e-admin-${a}.example.test`,
-    alias: `offer-e2e-alias-${a}.example.test`, custom: `offer-e2e-custom-${a}.example.test` };
+    marketing: `offer-e2e-marketing-${a}.example.test`, alias: `offer-e2e-alias-${a}.example.test`, custom: `offer-e2e-custom-${a}.example.test` };
   const today = availabilityToday();
   const day = (offset: number) => new Date(sqlDate(today).getTime() + offset * 86_400_000).toISOString().slice(0, 10);
   const now = new Date();
@@ -44,6 +44,7 @@ test("built ingress: public offer, SEO routes and panels per host; a shortened p
       { hostname: host.a, organizationId: a, area: "COMPANY_PUBLIC", status: "ACTIVE" },
       { hostname: host.b, organizationId: b, area: "COMPANY_PUBLIC", status: "ACTIVE" },
       { hostname: host.admin, organizationId: a, area: "COMPANY_ADMIN", status: "ACTIVE" },
+      { hostname: host.marketing, area: "MARKETING", status: "ACTIVE" },
     ] });
     const vehicle = { status: "PUBLISHED", availableFrom: sqlDate(today), shortDescription: "Opis", description: "Pełny <b>opis</b>" };
     await db.vehicle.createMany({ data: [
@@ -85,6 +86,19 @@ test("built ingress: public offer, SEO routes and panels per host; a shortened p
     expect((await onHost(port, host.admin, "/sitemap.xml")).status).toBe(404);
     expect((await onHost(port, host.admin, "/api/public/offer/")).status).toBe(404);
 
+    // Other public API paths stay noindex; the marketing host is indexable and lists no company (D-25).
+    for (const path of ["/api/public/contact/", "/api/public/media/not-a-uuid/large/", "/api/public/settings/"])
+      expect((await onHost(port, host.a, path)).headers["x-robots-tag"], path).toBe("noindex, nofollow");
+    const marketingRobots = await onHost(port, host.marketing, "/robots.txt");
+    expect(marketingRobots.status).toBe(200);
+    expect(marketingRobots.text).toBe(`User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: https://${host.marketing}/sitemap.xml\n`);
+    expect(marketingRobots.headers["x-robots-tag"]).toBeUndefined();
+    const marketingSitemap = await onHost(port, host.marketing, "/sitemap.xml");
+    expect(marketingSitemap.status).toBe(200);
+    expect(marketingSitemap.headers["content-type"]).toContain("application/xml");
+    expect(marketingSitemap.text).toContain(`<loc>https://${host.marketing}/</loc>`);
+    for (const hidden of [host.a, host.b, host.admin, "Firma E2E"]) expect(marketingSitemap.text).not.toContain(hidden);
+
     // Alias with an active custom domain redirects (path and query kept) and never serves the offer.
     await db.hostMapping.createMany({ data: [
       { hostname: host.custom, organizationId: a, area: "COMPANY_PUBLIC", status: "ACTIVE", kind: "CUSTOM" },
@@ -112,6 +126,7 @@ test("built ingress: public offer, SEO routes and panels per host; a shortened p
     await db.siteSettings.deleteMany({ where: { organizationId: { in: [a, b] } } });
     await db.serviceAccess.deleteMany({ where: { organizationId: { in: [a, b] } } });
     await db.hostMapping.deleteMany({ where: { organizationId: { in: [a, b] } } });
+    await db.hostMapping.deleteMany({ where: { hostname: host.marketing } });
     await db.organization.deleteMany({ where: { id: { in: [a, b] } } });
     await db.$disconnect();
   }
