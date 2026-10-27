@@ -11,6 +11,7 @@ import { LISTENER_APPLICATION_NAME } from "../../src/modules/chat/realtime-liste
 import { listPlatformConversations, sendMessage, type ChatScope } from "../../src/modules/chat/service";
 import { GET as platformList } from "../../src/app/api/platform/chat/conversations/route";
 import { archiveCompany, restoreCompany } from "../../src/modules/organizations/archive";
+import { inboxFingerprints } from "../../src/modules/chat/platform-inbox";
 import { ensureControlledSuperadminMfa, verifiedFixtureSession } from "../fixtures/verified-session";
 import { TestSocket, type Frame } from "../fixtures/realtime-client";
 
@@ -115,7 +116,7 @@ afterAll(async () => {
   for (const client of extraClients) await client.$disconnect();
 });
 
-test("readSeq: list and platform frame carry the cursor position, and (lastSeq, readSeq) orders states so a late HTTP answer loses", async () => {
+test("readSeq: list and platform frame carry the cursor position, and (version, lastSeq, readSeq) orders states so a late HTTP answer loses", async () => {
   const company = await makeCompany("readseq");
   const socket = await platformSocket();
   await socket.takeType("ready");
@@ -129,8 +130,9 @@ test("readSeq: list and platform frame carry the cursor position, and (lastSeq, 
   await markRead(db, company.operator, second.message.id);
   const frame = await socket.take((f) => mine(company)(f) && f.readSeq === 2);
   expect(frame).toMatchObject({ unread: 0, lastSeq: 2 });
-  const newer = (a: { lastSeq: number; readSeq: number }, b: { lastSeq: number; readSeq: number }) =>
-    a.lastSeq !== b.lastSeq ? a.lastSeq > b.lastSeq : a.readSeq > b.readSeq;
+  type Key = { version: number; lastSeq: number; readSeq: number };
+  const newer = (a: Key, b: Key) => a.version !== b.version ? a.version > b.version
+    : a.lastSeq !== b.lastSeq ? a.lastSeq > b.lastSeq : a.readSeq > b.readSeq;
   expect(newer(frame as never, staleHttp)).toBe(true);
   expect(await find(company)).toMatchObject({ unread: 0, readSeq: 2 });
   // The cursor never moves back, so the pair never decreases.
@@ -177,7 +179,7 @@ test("archive and restore reach the platform inbox at once, and company sockets 
   // Well within the 30 s safety refresh: the signal came with the commit.
   const archivedFrame = await socket.take(mine(company), 3_000);
   expect(archivedFrame).toMatchObject({ archived: true, unread: 0, lastSeq: 1, readSeq: 0, version: 1 });
-  // Same (lastSeq, readSeq) as the HTTP answer taken before: only `version` tells the newer state.
+  // Same (lastSeq, readSeq) as the HTTP answer taken before: `version` leads the key and tells the newer state.
   expect(archivedFrame.lastSeq).toBe(before.lastSeq);
   expect(archivedFrame.readSeq).toBe(before.readSeq);
   await restoreCompany(db, { ...op, expectedVersion: 1, eventKey: randomUUID(), requestId: randomUUID() });
@@ -218,10 +220,13 @@ test("unhealthy LISTEN: the instance polls once per pollMs, whatever the sockets
   for (const count of [2, 5]) {
     const sockets = await Promise.all(Array.from({ length: count }, () => platformSocket(polling)));
     for (const socket of sockets) await socket.takeType("ready");
-    // Baseline of the episode: exactly one refresh (only the first episode run has no snapshot), then settled.
+    // Baseline of the episode: only the first run of an episode has no snapshot and sends one refresh, to the sockets
+    // that are ready by then. Sockets opened at once may or may not all be (100 ms poll), so assert the bounds, not an
+    // exact count: at least one refresh for the episode, never more than one per socket, and none after it settled.
     await vi.waitFor(() => expect(broken.fingerprintCalls.length).toBeGreaterThanOrEqual(2));
     const settled = (await Promise.all(sockets.map((socket) => socket.drain(() => true, 300)))).flat();
-    if (count === 2) expect(settled.filter((f) => f.type === "refresh").length).toBe(count);
+    const refreshes = settled.filter((f) => f.type === "refresh").length;
+    if (count === 2) { expect(refreshes).toBeGreaterThanOrEqual(1); expect(refreshes).toBeLessThanOrEqual(count); }
     const calls = broken.fingerprintCalls.length;
     // A change during the outage reaches every socket as a counter frame (no HTTP list involved).
     const sent = await say(company.admin, `awaria ${count}`);
@@ -393,4 +398,29 @@ test("includeArchived accepts exactly true or false: other spellings are 400", a
   const body = await (await get("?limit=100&includeArchived=true")).json();
   expect(body.conversations.find((item: { organizationId: string }) => item.organizationId === company.organizationId))
     .toMatchObject({ archived: true, unread: 0, readSeq: 0 });
+});
+
+test("fingerprint follows cursor positions, not write times: two reads committing in reverse order are both seen", async () => {
+  const company = await makeCompany("fingerprint");
+  const first = await say(company.admin, "f1");
+  const second = await say(company.admin, "f2");
+  const third = await say(company.admin, "f3");
+  const conversationId = first.conversationId;
+  const cursor = (userId: string, messageId: string, updatedAt: Date) => db.conversationReadCursor.upsert({
+    where: { conversationId_userId: { conversationId, userId } }, update: { lastMessageId: messageId, updatedAt },
+    create: { organizationId: company.organizationId, conversationId, userId, lastMessageId: messageId, updatedAt } });
+  const fingerprint = async () => (await inboxFingerprints(db)).get(company.organizationId);
+  const base = Date.now();
+  await cursor(company.adminId, first.message.id, new Date(base));
+  await cursor(platformId, first.message.id, new Date(base));
+  const before = await fingerprint();
+  // The admin's read has the LATER transaction start (updatedAt base+2s) but commits first: the poll sees it.
+  await cursor(company.adminId, second.message.id, new Date(base + 2_000));
+  const afterAdmin = await fingerprint();
+  expect(afterAdmin).not.toBe(before);
+  // The superadmin's read started earlier (updatedAt base+1s) and commits second: with max(updatedAt) it was invisible.
+  await cursor(platformId, third.message.id, new Date(base + 1_000));
+  const afterSuperadmin = await fingerprint();
+  expect(afterSuperadmin).not.toBe(afterAdmin);
+  expect(afterSuperadmin).not.toBe(before);
 });
