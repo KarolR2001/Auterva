@@ -2,6 +2,8 @@
 # it needs a Render account, which this repository does not create. It lives outside the repository root on
 # purpose so Render does not pick it up automatically. To try it, the owner points a new Blueprint at this path.
 #
+# Unvalidated: do not connect this Blueprint to the repository unless autoDeploy stays false for every service.
+#
 # Limits (docs/contracts/environments-hosts-operations.md): free web services sleep, the free database expires after
 # 30 days without backups, and a background worker has no free plan. So the preview serves the web UI only; WS and
 # worker are NOT part of it. The WebSocket server also binds loopback only today, so chat is not available in preview.
@@ -13,6 +15,7 @@ services:
     dockerfilePath: ./Dockerfile
     dockerTarget: web        # may need a Docker build arg/command check against current Render docs before first use
     plan: free
+    autoDeploy: false        # no deploy on push; the preview is started by hand
     healthCheckPath: /api/health/
     envVars:
       - key: DATABASE_URL

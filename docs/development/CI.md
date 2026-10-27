@@ -4,7 +4,7 @@ Zakres według decyzji D-16: bezpłatne elementy (GitHub Actions, obrazy, opis p
 
 ## Workflow `.github/workflows/ci.yml`
 
-Uruchamia się dla `pull_request`, `push` na `main` i ręcznie (`workflow_dispatch`). Uprawnienia: tylko `contents: read`. Nowy push do PR anuluje poprzedni przebieg tego PR; przebiegi na `main` nie są anulowane. Node i pnpm wynikają z `package.json` (`engines.node`, `packageManager`), nie są powtórzone w workflow. Cache pnpm obsługuje `actions/setup-node`. Instalacja używa `--frozen-lockfile`.
+Uruchamia się dla `pull_request`, `push` na `main` i ręcznie (`workflow_dispatch`). Uprawnienia: tylko `contents: read`. Nowy push do PR anuluje poprzedni przebieg tego PR. Pozostałe przebiegi (m.in. `main`) mają własną grupę `run_id`, więc nie są anulowane ani zastępowane jako oczekujące (GitHub trzyma w jednej grupie tylko jeden oczekujący przebieg). Node i pnpm wynikają z `package.json` (`engines.node`, `packageManager`), nie są powtórzone w workflow. Cache pnpm obsługuje `actions/setup-node`. Instalacja używa `--frozen-lockfile`.
 
 | Job (nazwa checka) | Zawartość | Odtworzenie lokalnie |
 |---|---|---|
@@ -29,8 +29,8 @@ Akcje zewnętrzne są przypięte do pełnego SHA commita z komentarzem wersji (`
 
 ### Progi i ograniczenia
 
-- Audyt zależności produkcyjnych blokuje od `critical`. W dniu wdrożenia CI `pnpm audit --prod` zgłasza 3 `high` i 2 `moderate`: `postcss` (bezpośrednia zależność 8.5.6) oraz `zod` poniżej 4.6.6 w drzewie `@serwist/next`. Poprawka zmienia manifest/lockfile i wymaga ponownej kontroli ADR-0002, więc nie jest częścią tego zadania. Po naprawie ustaw `AUDIT_LEVEL: high` w workflow.
-- `Container images build` buduje obrazy, ale ich nie uruchamia. WebSocket (`src/server/realtime.ts`) nasłuchuje dziś wyłącznie na `127.0.0.1` i oczekuje takiego Host, więc obraz `ws` nie przyjmie ruchu spoza kontenera, dopóki proces nie dostanie konfigurowalnego adresu i zaufanego hosta. Obraz opisuje docelowy proces, nie dowodzi wdrażalności.
+- Audyt zależności produkcyjnych blokuje od `critical`. W dniu wdrożenia CI `pnpm audit --prod` zgłasza 3 `high` i 2 `moderate`: `postcss` (bezpośrednia zależność 8.5.6) oraz `zod` poniżej 4.6.6 w drzewie `@serwist/next`. Poprawka zmienia manifest/lockfile i wymaga ponownej kontroli ADR-0002, więc nie jest częścią tego zadania. Po naprawie ustaw `AUDIT_LEVEL: high` w workflow (#158).
+- `Container images build` buduje obrazy, ale ich nie uruchamia. WebSocket (`src/server/realtime.ts`) nasłuchuje dziś wyłącznie na `127.0.0.1` i oczekuje takiego Host, więc obraz `ws` nie przyjmie ruchu spoza kontenera, dopóki proces nie dostanie konfigurowalnego adresu i zaufanego hosta. Follow-up: #159. Obraz opisuje docelowy proces, nie dowodzi wdrażalności.
 - E2E uruchamia tylko Chromium; Firefox/WebKit, PWA na urządzeniach, VoiceOver (#97) i testy wydajności nie są w CI.
 - Zaufane źródło adresu klienta za proxy Render/Cloudflare nie jest sprawdzane w CI (komentarz do #10); wymaga rzeczywistego środowiska.
 - Minuty GitHub Actions są limitowane (prywatne repo), stąd anulowanie starych przebiegów PR i brak macierzy przeglądarek.
