@@ -5,6 +5,7 @@ import { trustedClientAddress } from "@/modules/auth/trusted-address";
 import { currentTrustedClientAddress } from "@/modules/ingress/client-address";
 import { actor, body, only, response, uuid } from "@/modules/fleet/http";
 import { serveStoredVariant } from "@/modules/media/serve";
+import { takePublicBudget } from "@/modules/public-offer/http";
 import { apiRateLimitResponse } from "@/modules/tenancy/api-rate-limit";
 import { withErrorRequestId } from "@/modules/tenancy/request-id";
 import { isSettingsGroup } from "./fields";
@@ -143,7 +144,8 @@ export async function readPublicMedia(request: Request, mediaId: string, variant
   if (!uuid.test(mediaId) || (variant !== "large" && variant !== "thumb"))
     return response({ code: "NOT_FOUND" }, 404, requestId);
   try {
-    const limited = await publicLimit(requestId);
+    // Own budget (public-offer/config.ts): a gallery of 30 images x 2 variants must not exhaust the settings bucket.
+    const limited = await takePublicBudget("media", requestId);
     if (limited) return limited;
     const key = await resolvePublicMediaVariant(prisma, request.headers.get("host") ?? "", mediaId, variant);
     if (!key) return response({ code: "NOT_FOUND" }, 404, requestId);
