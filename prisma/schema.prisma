@@ -31,6 +31,8 @@ model Organization {
   auditLogs              AuditLog[]
   jobs                   Job[]
   operationReceipts      OperationReceipt[]
+  reminderPlan           ReminderPlan?
+  reminderIntents        ReminderIntent[]
 }
 
 model Vehicle {
@@ -472,6 +474,7 @@ model Job {
   createdAt      DateTime      @default(now()) @db.Timestamptz(6)
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   retentionManifests AuditRetentionManifest[]
+  reminderIntents    ReminderIntent[]
 
   @@unique([organizationId, dedupeKey])
   @@index([kind, status, runAt])
@@ -531,4 +534,38 @@ model PlatformLegalDocument {
   body      String
   version   Int      @default(0)
   updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+}
+
+// #54: effective period boundary the reminder schedule was last reconciled for.
+model ReminderPlan {
+  organizationId  String       @id @db.Uuid
+  effectiveEndsAt DateTime?    @db.Timestamptz(6)
+  source          String?
+  periodVersion   Int          @default(0)
+  updatedAt       DateTime     @default(now()) @updatedAt @db.Timestamptz(6)
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+// #54: durable reminder intent; the unique key is the delivery key per channel.
+model ReminderIntent {
+  id              String       @id @default(uuid()) @db.Uuid
+  organizationId  String       @db.Uuid
+  effectiveEndsAt DateTime     @db.Timestamptz(6)
+  offsetDays      Int
+  channel         String
+  slotAt          DateTime     @db.Timestamptz(6)
+  source          String
+  periodVersion   Int
+  status          String       @default("PENDING")
+  jobId           String?      @db.Uuid
+  deliveredAt     DateTime?    @db.Timestamptz(6)
+  errorCode       String?
+  createdAt       DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime     @default(now()) @updatedAt @db.Timestamptz(6)
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  job             Job?         @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, effectiveEndsAt, offsetDays, channel])
+  @@index([status, slotAt])
+  @@index([organizationId, status])
 }
