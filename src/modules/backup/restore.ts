@@ -270,16 +270,25 @@ export async function restoreFull(input: {
   const db = await connect(input.targetUrl);
   try {
     const now = input.now ?? new Date();
+    // Integrity is proven on the snapshot exactly as restored, before any intended change is applied.
+    const integrity = await verifyRestoredDatabase(db, manifest, { mediaStorage: input.mediaTarget, repoDir: input.repoDir });
+    lap("integrity checks");
     await db.query("BEGIN");
     const quarantine = await quarantineRestoredState(db, { organizationId: null, now });
     await appendRestoreAudit(db, { operatorId: input.operatorId, organizationId: null, action: "BACKUP_RESTORED",
       backupId: manifest.id, summary: { scope: "FULL", ...quarantine, mediaObjects } });
     await db.query("COMMIT");
     lap("invalidate credentials and quarantine jobs");
-    // The audit row of this restore is the only intended difference from the snapshot.
-    const expected: Manifest = { ...manifest, tables: { ...manifest.tables, AuditLog: manifest.tables.AuditLog + 1 } };
-    const integrity = await verifyRestoredDatabase(db, expected, { mediaStorage: input.mediaTarget, repoDir: input.repoDir });
-    lap("integrity checks");
+    const count = async (sql: string) => Number((await db.query(sql)).rows[0].n);
+    const leftovers = {
+      sessions: await count(`SELECT count(*) AS n FROM "session"`),
+      proofs: await count(`SELECT count(*) AS n FROM "verification"`),
+      openInvitations: await count(`SELECT count(*) AS n FROM "Invitation" WHERE "usedAt" IS NULL AND "revokedAt" IS NULL`),
+      runnableJobs: await count(`SELECT count(*) AS n FROM "Job" WHERE status IN ('PENDING', 'RUNNING', 'UNCERTAIN') AND kind <> 'AUDIT_RETENTION'`),
+    };
+    integrity.checks.push({ name: "inherited credentials and queued work neutralised",
+      ok: Object.values(leftovers).every((n) => n === 0), detail: JSON.stringify(leftovers) });
+    integrity.ok = integrity.checks.every((check) => check.ok);
     return { ok: integrity.ok, backupId: manifest.id, target: database, steps, totalMs: Date.now() - started,
       integrity, quarantine, mediaObjects };
   } finally {

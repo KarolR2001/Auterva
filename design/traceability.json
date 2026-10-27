@@ -791,6 +791,26 @@
         "tests/integration/company-preregistration.test.ts",
         "tests/e2e/company-onboarding.spec.ts"
       ]
+    },
+    {
+      "issue": 60,
+      "scope": "Kopia DB i mediow (szyfrowana, snapshot, manifest z MAC), restore pelny do nowej bazy i bucketa ze straznikiem celu, kontrola integralnosci, kwarantanna sesji, tokenow i jobow po restore, odtworzenie jednej firmy bez zmiany innych oraz runbook. Zmierzone lokalnie na fixture; konfiguracja dostawcy, PITR i alerty produkcyjne not-run (#90). Bez UI.",
+      "relatedRequirementIds": ["C-N041", "C-N042", "C-N046", "D-10", "D-16"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/backup/crypto.ts",
+        "src/modules/backup/core.ts",
+        "src/modules/backup/backup.ts",
+        "src/modules/backup/restore.ts",
+        "src/modules/backup/company.ts",
+        "scripts/backup-restore.ts",
+        "docs/runbooks/backup-restore.md",
+        "docs/contracts/environments-hosts-operations.md"
+      ],
+      "testPaths": [
+        "tests/unit/backup-crypto.test.ts",
+        "tests/integration/backup-restore.test.ts"
+      ]
     }
   ],
   "sources": [

@@ -116,9 +116,19 @@ export async function restoreCompany(input: {
 
   const scratchName = `auterva_restore_${randomBytes(4).toString("hex")}`;
   const scratchUrl = withDatabase(input.targetUrl, scratchName);
-  const full = await restoreFull({ backupDir: input.backupDir, key: input.key, targetUrl: scratchUrl, repoDir: input.repoDir,
-    operatorId: input.operatorId, mediaTarget: null, allowRemote: input.allowRemote, now: input.now });
-  if (!full.ok) throw new BackupError("RESTORE_SCRATCH_INTEGRITY_FAILED", "Scratch restore failed integrity checks");
+  const dropScratch = async () => {
+    const control = await connect(withDatabase(input.targetUrl, "postgres"));
+    await control.query(`DROP DATABASE IF EXISTS ${quote(scratchName)} WITH (FORCE)`).finally(() => control.end());
+  };
+  let full;
+  try {
+    full = await restoreFull({ backupDir: input.backupDir, key: input.key, targetUrl: scratchUrl, repoDir: input.repoDir,
+      operatorId: input.operatorId, mediaTarget: null, allowRemote: input.allowRemote, now: input.now });
+    if (!full.ok) throw new BackupError("RESTORE_SCRATCH_INTEGRITY_FAILED", "Scratch restore failed integrity checks");
+  } catch (error) {
+    if (!input.keepScratch) await dropScratch();
+    throw error;
+  }
   lap("restore snapshot into scratch database");
 
   const scratch = await connect(scratchUrl);
@@ -266,9 +276,6 @@ export async function restoreCompany(input: {
   } finally {
     await scratch.end();
     await live.end();
-    if (!input.keepScratch) {
-      const control = await connect(withDatabase(input.targetUrl, "postgres"));
-      await control.query(`DROP DATABASE IF EXISTS ${quote(scratchName)} WITH (FORCE)`).finally(() => control.end());
-    }
+    if (!input.keepScratch) await dropScratch();
   }
 }

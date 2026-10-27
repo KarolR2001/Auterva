@@ -1,23 +1,29 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { DeleteBucketCommand, DeleteObjectCommand, ListObjectsV2Command, PutObjectCommand } from "@aws-sdk/client-s3";
+import { CreateBucketCommand, DeleteBucketCommand, DeleteObjectCommand, ListObjectsV2Command, PutObjectCommand } from "@aws-sdk/client-s3";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { backupAge, createBackup, pruneBackups } from "../../src/modules/backup/backup";
-import { COMPANY_TABLES, assertCompanyTablesClassified, restoreCompany } from "../../src/modules/backup/company";
+import { assertCompanyTablesClassified, restoreCompany } from "../../src/modules/backup/company";
 import { connect, quote, withDatabase } from "../../src/modules/backup/core";
 import { restoreFull } from "../../src/modules/backup/restore";
 import { createMediaStorage, type MediaStorage } from "../../src/modules/media/storage";
 
-const databaseUrl = process.env.DATABASE_URL ?? "";
+// The suite never touches shared fixture data: it owns a source database and a source bucket, and every
+// restore targets another database/bucket it creates and drops itself.
+const tag = randomBytes(3).toString("hex");
+const sharedUrl = process.env.DATABASE_URL ?? "";
+const sourceDatabase = `bk_src_${tag}`;
+const databaseUrl = withDatabase(sharedUrl, sourceDatabase);
+const sourceBucket = `bk-src-${tag}`;
 const secrets = Object.fromEntries(readFileSync(join(process.cwd(), ".local/fixture-9/secrets.env"), "utf8")
   .trim().split("\n").map((line) => { const at = line.indexOf("="); return [line.slice(0, at), line.slice(at + 1)]; }));
-const storage = createMediaStorage({ ...process.env, ...secrets });
+const storage = createMediaStorage({ ...process.env, ...secrets, S3_BUCKET: sourceBucket });
 const keyHex = randomBytes(32).toString("hex");
 const key = Buffer.from(keyHex, "hex");
 const repoDir = resolve(".");
-const tag = randomBytes(3).toString("hex");
 const A = randomUUID();
 const B = randomUUID();
 const ids = {
@@ -48,7 +54,7 @@ async function bucketStorage(): Promise<MediaStorage> {
 function targetUrl(): string {
   const name = `bk_restore_${randomBytes(4).toString("hex")}`;
   databases.push(name);
-  return withDatabase(databaseUrl, name);
+  return withDatabase(sharedUrl, name);
 }
 async function exists(storageTarget: MediaStorage, objectKey: string): Promise<boolean> {
   const listed = await storageTarget.client.send(new ListObjectsV2Command({ Bucket: storageTarget.bucket, Prefix: objectKey }));
@@ -77,6 +83,14 @@ async function others(db: typeof live, org: string) {
 }
 
 beforeAll(async () => {
+  const control = await connect(withDatabase(sharedUrl, "postgres"));
+  databases.push(sourceDatabase);
+  await control.query(`CREATE DATABASE ${quote(sourceDatabase)}`);
+  await control.end();
+  const migrated = spawnSync("pnpm", ["exec", "prisma", "migrate", "deploy"], { env: { ...process.env, DATABASE_URL: databaseUrl }, encoding: "utf8" });
+  if (migrated.status !== 0) throw new Error(`migrate deploy failed: ${migrated.stderr.slice(-300)}`);
+  buckets.push(sourceBucket);
+  await storage.client.send(new CreateBucketCommand({ Bucket: sourceBucket }));
   live = await connect(databaseUrl);
   outDir = await mkdtemp(resolve(".local/backup-test-"));
   out.push(outDir);
@@ -115,14 +129,8 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  for (const org of [A, B]) {
-    for (const { table, where } of [...COMPANY_TABLES].reverse()) await live.query(`DELETE FROM ${quote(table)} WHERE ${where}`, [org]);
-    for (const table of ["ImageUpload", "Job", "AuditLog", "OperationReceipt"]) await live.query(`DELETE FROM ${quote(table)} WHERE "organizationId" = $1`, [org]);
-    await live.query(`DELETE FROM "Organization" WHERE id = $1`, [org]);
-  }
-  await live.query(`DELETE FROM "verification" WHERE identifier LIKE $1`, [`password-reset:bk-%-${tag}@example.test`]);
-  await live.query(`DELETE FROM "AuditLog" WHERE "actorId" = $1`, [`operator:${operator}`]);
-  const control = await connect(withDatabase(databaseUrl, "postgres"));
+  await live?.end();
+  const control = await connect(withDatabase(sharedUrl, "postgres"));
   for (const name of databases) await control.query(`DROP DATABASE IF EXISTS ${quote(name)} WITH (FORCE)`);
   await control.end();
   for (const bucket of buckets) {
@@ -131,8 +139,6 @@ afterAll(async () => {
     for (const object of listed?.Contents ?? []) await target.client.send(new DeleteObjectCommand({ Bucket: bucket, Key: object.Key }));
     await target.client.send(new DeleteBucketCommand({ Bucket: bucket })).catch(() => undefined);
   }
-  for (const objectKey of [keyA, keyB]) await storage.client.send(new DeleteObjectCommand({ Bucket: storage.bucket, Key: objectKey }));
-  await live.end();
   for (const path of out) await rm(path, { recursive: true, force: true });
 });
 
@@ -158,8 +164,8 @@ test("full restore into a new database and bucket passes integrity, revokes cred
   const bucket = await bucketStorage();
   const report = await restoreFull({ backupDir: dir, key, targetUrl: target, repoDir, operatorId: operator, mediaTarget: bucket, createBucket: true });
   console.info(`RTO (local fixture, measured): backup ${backupMs} ms, full restore ${report.totalMs} ms; steps ${JSON.stringify(report.steps)}`);
+  expect(report.integrity?.checks.filter((check) => !check.ok)).toEqual([]);
   expect(report.ok).toBe(true);
-  expect(report.integrity?.checks.every((check) => check.ok)).toBe(true);
   expect(await exists(bucket, keyA) && await exists(bucket, keyB)).toBe(true);
 
   const restored = await connect(target);
@@ -190,8 +196,8 @@ test("the guard refuses in-place, production, existing and foreign-cluster targe
   const base = { backupDir: dir, key, repoDir, operatorId: operator, mediaTarget: null };
   await expect(restoreFull({ ...base, targetUrl: databaseUrl })).rejects.toMatchObject({ code: "RESTORE_IN_PLACE_REFUSED" });
   await expect(restoreFull({ ...base, targetUrl: databaseUrl, replaceExisting: true })).rejects.toMatchObject({ code: "RESTORE_IN_PLACE_REFUSED" });
-  await expect(restoreFull({ ...base, targetUrl: withDatabase(databaseUrl, "postgres") })).rejects.toMatchObject({ code: "RESTORE_TARGET_EXISTS" });
-  await expect(restoreFull({ ...base, targetUrl: withDatabase(databaseUrl, "postgres"), replaceExisting: true, allowRemote: false,
+  await expect(restoreFull({ ...base, targetUrl: withDatabase(sharedUrl, "postgres") })).rejects.toMatchObject({ code: "RESTORE_TARGET_EXISTS" });
+  await expect(restoreFull({ ...base, targetUrl: withDatabase(sharedUrl, "postgres"), replaceExisting: true, allowRemote: false,
     // a different worktree's cluster: its .local/fixture-9/pg is not this server's data directory
     repoDir: await mkdtemp(resolve(".local/foreign-repo-")).then((path) => { out.push(path); mkdirSync(join(path, ".local/fixture-9/pg"), { recursive: true }); return path; }) }))
     .rejects.toMatchObject({ code: "RESTORE_REPLACE_NOT_OWN_CLUSTER" });
@@ -214,7 +220,7 @@ test("the guard refuses in-place, production, existing and foreign-cluster targe
   const databasesBefore = databases.length;
   await expect(restoreFull({ ...base, backupDir: damaged, targetUrl: targetUrl() })).rejects.toMatchObject({ code: "BACKUP_CHECKSUM_MISMATCH" });
   // A refused sum never creates the target.
-  const control = await connect(withDatabase(databaseUrl, "postgres"));
+  const control = await connect(withDatabase(sharedUrl, "postgres"));
   expect((await control.query(`SELECT 1 FROM pg_database WHERE datname = $1`, [databases[databasesBefore]])).rowCount).toBe(0);
   await control.end();
 
@@ -241,10 +247,10 @@ test("a missing required media object invalidates the backup set and alarms inst
     VALUES ($1, $2, $3, $4, 'image/webp', 10, 10, 10, 'READY')`, [randomUUID(), orphanOrg, orphanVehicle, `backup-test/missing-${tag}.webp`]);
   try {
     await expect(createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" })).rejects.toMatchObject({ code: "BACKUP_MEDIA_INCOMPLETE" });
-    const name = (await import("node:fs")).readdirSync(outDir).sort().at(-1)!;
-    const manifest = JSON.parse(readFileSync(join(outDir, name, "manifest.json"), "utf8"));
-    expect(manifest.complete).toBe(false);
-    await expect(restoreFull({ backupDir: join(outDir, name), key, targetUrl: targetUrl(), repoDir, operatorId: operator, mediaTarget: null }))
+    const name = readdirSync(outDir).find((entry) => existsSync(join(outDir, entry, "manifest.json"))
+      && JSON.parse(readFileSync(join(outDir, entry, "manifest.json"), "utf8")).complete === false);
+    expect(name).toBeDefined();
+    await expect(restoreFull({ backupDir: join(outDir, name!), key, targetUrl: targetUrl(), repoDir, operatorId: operator, mediaTarget: null }))
       .rejects.toMatchObject({ code: "BACKUP_INCOMPLETE" });
   } finally {
     await live.query(`DELETE FROM "VehicleImage" WHERE "organizationId" = $1`, [orphanOrg]);
@@ -276,6 +282,9 @@ test("restoring company A returns A to the backup state while B keeps its newer 
   const bBefore = await company(live, B);
   const bFingerprint = await others(live, B);
 
+  const countScratch = await connect(withDatabase(sharedUrl, "postgres"));
+  const scratchBefore = (await countScratch.query(`SELECT 1 FROM pg_database WHERE datname LIKE 'auterva_restore_%'`)).rowCount;
+  await countScratch.end();
   const started = Date.now();
   const report = await restoreCompany({ backupDir: dir, key, organizationId: A, targetUrl: databaseUrl, repoDir, operatorId: operator, storage });
   console.info(`Company restore (local fixture, measured): ${Date.now() - started} ms; steps ${JSON.stringify(report.steps)}`);
@@ -305,9 +314,10 @@ test("restoring company A returns A to the backup state while B keeps its newer 
   expect((await live.query(`SELECT "actorRole", action FROM "AuditLog" WHERE "organizationId" = $1 AND "actorId" = $2`, [A, `operator:${operator}`])).rows)
     .toEqual([{ actorRole: "OPERATOR", action: "COMPANY_RESTORED_FROM_BACKUP" }]);
   // The scratch database is gone.
-  const control = await connect(withDatabase(databaseUrl, "postgres"));
-  expect((await control.query(`SELECT 1 FROM pg_database WHERE datname LIKE 'auterva_restore_%'`)).rowCount).toBe(0);
+  const control = await connect(withDatabase(sharedUrl, "postgres"));
+  expect((await control.query(`SELECT 1 FROM pg_database WHERE datname LIKE 'auterva_restore_%'`)).rowCount).toBe(scratchBefore);
   await control.end();
+  await put(keyB, bytesB); // the lost object was this suite's own; later tests need a complete source
 });
 
 test("a slug or host taken by another company aborts the company restore and rolls everything back", async () => {
@@ -321,8 +331,8 @@ test("a slug or host taken by another company aborts the company restore and rol
   expect(await company(live, A)).toEqual(aBefore);
   expect(await others(live, B)).toEqual(bBefore);
   await live.query(`UPDATE "Organization" SET slug = $2 WHERE id = $1`, [B, `bk-b-${tag}`]);
-  await live.query(`UPDATE "HostMapping" SET hostname = $2 WHERE "organizationId" = $1`, [B, `bk-a-${tag}.example.test`]);
   await live.query(`UPDATE "HostMapping" SET hostname = $2 WHERE "organizationId" = $1`, [A, `bk-a-moved-${tag}.example.test`]);
+  await live.query(`UPDATE "HostMapping" SET hostname = $2 WHERE "organizationId" = $1`, [B, `bk-a-${tag}.example.test`]);
   await expect(restoreCompany({ backupDir: dir, key, organizationId: A, targetUrl: databaseUrl, repoDir, operatorId: operator, storage }))
     .rejects.toMatchObject({ code: "RESTORE_HOST_CONFLICT" });
   await live.query(`UPDATE "HostMapping" SET hostname = $2 WHERE "organizationId" = $1`, [B, `bk-b-${tag}.example.test`]);
