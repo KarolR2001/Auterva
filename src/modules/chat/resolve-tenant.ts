@@ -19,6 +19,9 @@ export type RealtimeAuthority = {
   authorize(headers: Headers, organizationId: string): Promise<RealtimePrincipal | null>;
   /** One answer per principal, in order: does the session and account still allow this connection? */
   revalidate(principals: readonly RealtimePrincipal[]): Promise<boolean[]>;
+  /** The periodic sweep: company and platform connections answered by one pass (one session query, no company query without a superadmin). */
+  revalidateAll(company: readonly RealtimePrincipal[], platform: readonly PlatformPrincipal[]):
+    Promise<{ company: boolean[]; platform: boolean[] }>;
 };
 
 function parseOrigin(supplied: string | null): URL | null {
@@ -41,8 +44,8 @@ export function createRealtimeAuthority(db: PrismaClient, instance: typeof auth)
     });
     const bySession = new Map(sessions.map((session) => [session.id, session]));
     const companyIds = [...new Set(principals.flatMap((p) => (p.role === "SUPERADMIN_AUTERVA" && p.organizationId ? [p.organizationId] : [])))];
-    const companies = new Set((await db.organization.findMany({ where: { id: { in: companyIds } }, select: { id: true } }))
-      .map((company) => company.id));
+    const companies = new Set((companyIds.length === 0 ? [] : await db.organization.findMany({
+      where: { id: { in: companyIds } }, select: { id: true } })).map((company) => company.id));
     // Expiry of the service period is deliberately not consulted: chat outlives it. Archive, logout, revocation,
     // a disabled account or lost MFA all end the connection.
     return principals.map((principal) => {
@@ -89,5 +92,10 @@ export function createRealtimeAuthority(db: PrismaClient, instance: typeof auth)
     },
 
     revalidate: (principals) => sessionVerdicts(principals),
+
+    async revalidateAll(company, platform) {
+      const verdicts = await sessionVerdicts([...company, ...platform.map((p) => ({ ...p, organizationId: null }))]);
+      return { company: verdicts.slice(0, company.length), platform: verdicts.slice(company.length) };
+    },
   };
 }

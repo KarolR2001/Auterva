@@ -181,6 +181,24 @@
       "testPaths": ["tests/integration/chat-inbox.test.ts", "tests/integration/chat.test.ts"]
     },
     {
+      "issue": 171,
+      "scope": "Spójność unread i odświeżanie kanału platformy przed skrzynką superadmina: readSeq w liście i ramce (para lastSeq, readSeq), odświeżanie co pollMs przy niezdrowym LISTEN, sygnał archiwizacji i przywrócenia w transakcji, unread 0 dla superadmina w archiwum na /ws, jedno zapytanie o sesje w sweepie. Bez UI (PLT-09 to Frontend #53).",
+      "relatedRequirementIds": ["C-F119", "C-F121", "C-F127", "C-N004", "D-08", "D-23"],
+      "referenceScreenIds": ["PLT-09"],
+      "codePaths": [
+        "docs/contracts/chat-conversations-messages.md",
+        "docs/contracts/chat-realtime.md",
+        "src/modules/chat/platform-inbox.ts",
+        "src/modules/chat/read-state.ts",
+        "src/modules/chat/service.ts",
+        "src/modules/chat/signal.ts",
+        "src/modules/chat/realtime.ts",
+        "src/modules/chat/resolve-tenant.ts",
+        "src/modules/organizations/archive.ts"
+      ],
+      "testPaths": ["tests/integration/chat-inbox-consistency.test.ts", "tests/integration/chat-inbox.test.ts"]
+    },
+    {
       "issue": 159,
       "scope": "Konfigurowalny nasłuch i allowlista hostów serwera WebSocket w kontenerze (WS_HOST, WS_PORT, WS_ALLOWED_HOSTS) walidowane przy starcie; domyślnie loopback, bez trybu dowolnego hosta.",
       "relatedRequirementIds": ["C-N004", "C-N059"],

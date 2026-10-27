@@ -202,7 +202,7 @@ test("platform signal: counters only, per company, no message text, p95 within 2
   const secretText = `poufne-${randomUUID()}`;
   await say(company.admin, secretText);
   const frame = await socket.take(mine(company));
-  expect(Object.keys(frame).sort()).toEqual(["activityAt", "archived", "conversationId", "lastSeq", "organizationId", "type", "unread"]);
+  expect(Object.keys(frame).sort()).toEqual(["activityAt", "archived", "conversationId", "lastSeq", "organizationId", "readSeq", "type", "unread", "version"]);
   expect(frame).toMatchObject({ unread: 1, lastSeq: 1, archived: false });
   expect(JSON.stringify(socket.frames)).not.toContain(secretText);
   // Reading (here: the superadmin's own cursor, e.g. from another device) lowers the counter without a new message.

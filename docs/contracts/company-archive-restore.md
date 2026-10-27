@@ -1,6 +1,6 @@
 # Archiwizacja i przywrócenie firmy: kontrakt #48
 
-Wynik: archiwizacja odcina login, sesje, rozpoczęte challenge MFA, WebSocket administratora i wszystkie publiczne adresy firmy, nie usuwając żadnych danych. Przywrócenie oddaje wyłącznie login (zapisy superadmina w archiwum: D-23 niżej); publikację odblokowuje osobno istniejące `unlockPublicAfterRestore` ([okres usługi](service-period-runtime.md)). Wygaśnięcie okresu nie jest archiwizacją i panel firmy nadal działa.
+Wynik: archiwizacja odcina login, sesje, rozpoczęte challenge MFA, WebSocket administratora i wszystkie publiczne adresy firmy, nie usuwając żadnych danych. Przywrócenie oddaje wyłącznie login (zapisy superadmina w archiwum: D-23 niżej); publikację odblokowuje osobno istniejące `unlockPublicAfterRestore` ([okres usługi](service-period-runtime.md)). Wygaśnięcie okresu nie jest archiwizacją i panel firmy nadal działa. Archiwizacja i przywrócenie wysyłają w tej samej transakcji `pg_notify` `{k:"o", o}` (tylko identyfikator firmy; sygnał po commicie, nigdy przy wycofaniu), po którym skrzynka superadmina aktualizuje wiersz bez czekania ([kanał platformy](chat-realtime.md#kanał-platformy-skrzynka-superadmina-167)).
 
 ## Operacje (tylko superadmin, własny aktor)
 

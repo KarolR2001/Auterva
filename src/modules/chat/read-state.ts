@@ -21,7 +21,8 @@ type Reader = { actorId: string; role: ChatRole; organizationId: string };
 
 /**
  * Read cursors are written only by an explicit `read` from a client that showed the message; connecting,
- * preloading or listing never touches them. Unread counts messages of the other side after the caller's cursor.
+ * preloading or listing never touches them. Unread counts messages of the other side after the caller's cursor
+ * (always 0 for a superadmin in an archived company, as in the platform list).
  */
 export async function readState(client: Client, reader: Reader, conversationId: string | null): Promise<ReadState> {
   if (!conversationId) return EMPTY_READ_STATE;
@@ -35,7 +36,10 @@ export async function readState(client: Client, reader: Reader, conversationId: 
   const ownSeq = own?.lastMessage?.seq ?? 0;
   const peer = peers.map((cursor) => cursor.lastMessage).filter((last) => last?.seq)
     .sort((a, b) => (b?.seq ?? 0) - (a?.seq ?? 0))[0];
-  const unread = await client.chatMessage.count({ where: { conversationId, organizationId: reader.organizationId,
+  // D-23: a superadmin in an archived company's context cannot `read`, so the count could never clear; 0, like the inbox list.
+  const archived = reader.role === "SUPERADMIN_AUTERVA"
+    && (await client.organization.findUnique({ where: { id: reader.organizationId }, select: { archivedAt: true } }))?.archivedAt != null;
+  const unread = archived ? 0 : await client.chatMessage.count({ where: { conversationId, organizationId: reader.organizationId,
     seq: { gt: ownSeq }, OR: [{ senderId: null }, { senderId: { not: reader.actorId } }] } });
   return { ownMessageId: own?.lastMessage?.id ?? null, ownSeq, peerMessageId: peer?.id ?? null,
     peerSeq: peer?.seq ?? 0, unread };
