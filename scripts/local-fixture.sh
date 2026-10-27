@@ -143,6 +143,8 @@ start_services() {
     echo "PostgreSQL port does not belong to this fixture; refusing to continue." >&2
     exit 2
   fi
+  # Marker used by seed --reset to confirm it talks to this worktree's cluster.
+  printf '%s\n' "$pg_port" > "$local_dir/pg.port"
   if [[ "$(psql -h 127.0.0.1 -p "$pg_port" -U "$(id -un)" -d postgres -Atc "SELECT 1 FROM pg_database WHERE datname='$db_name'")" != "1" ]]; then
     createdb -h 127.0.0.1 -p "$pg_port" -U "$(id -un)" "$db_name"
   fi

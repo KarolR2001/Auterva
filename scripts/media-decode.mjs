@@ -31,7 +31,10 @@ try {
   await writeFile(`${outputDir}/result.json`, JSON.stringify({ mime, width: oriented.width,
     height: oriented.height }), { mode: 0o600 });
 } catch (error) {
-  const code = error instanceof Error && /^MEDIA_/.test(error.message) ? error.message : "MEDIA_DECODE_FAILED";
+  // Operating-system errors (ENOSPC, EIO, EMFILE...) say nothing about the image: exit 3 is retryable.
+  const system = error instanceof Error && typeof error.code === "string" && /^E[A-Z0-9]+$/.test(error.code);
+  const code = error instanceof Error && /^MEDIA_/.test(error.message) ? error.message
+    : system ? "MEDIA_ENVIRONMENT" : "MEDIA_DECODE_FAILED";
   process.stderr.write(`${code}\n`);
-  process.exitCode = 1;
+  process.exitCode = system ? 3 : 1;
 }
