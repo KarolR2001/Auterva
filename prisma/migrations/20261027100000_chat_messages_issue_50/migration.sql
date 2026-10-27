@@ -13,12 +13,15 @@ WITH numbered AS (
 )
 UPDATE "ChatMessage" m SET "seq" = numbered.rn FROM numbered WHERE m.id = numbered.id;
 
+-- Conversations without any message keep their creation time as last activity (not the migration time).
 UPDATE "Conversation" c SET
   "lastSeq" = COALESCE(m.max_seq, 0),
   "activityAt" = date_trunc('milliseconds', GREATEST(c."createdAt", COALESCE(m.max_at, c."createdAt")))
-FROM (SELECT "conversationId", max("seq") AS max_seq, max("createdAt") AS max_at
-      FROM "ChatMessage" WHERE "conversationId" IS NOT NULL GROUP BY "conversationId") m
-WHERE m."conversationId" = c.id;
+FROM "Conversation" base
+LEFT JOIN (SELECT "conversationId", max("seq") AS max_seq, max("createdAt") AS max_at
+           FROM "ChatMessage" WHERE "conversationId" IS NOT NULL GROUP BY "conversationId") m
+  ON m."conversationId" = base.id
+WHERE base.id = c.id;
 
 CREATE UNIQUE INDEX "ChatMessage_conversationId_seq_key" ON "ChatMessage"("conversationId", "seq");
 

@@ -50,15 +50,16 @@ async function authorize(tx: Prisma.TransactionClient, scope: ChatScope): Promis
  * revalidated AFTER the lock, so an archive that commits first refuses the admin and one that waits is revoked
  * by this transaction's commit. The lock also serialises every chat writer of the company.
  */
-async function lockedWrite<T>(db: PrismaClient, scope: ChatScope, work: (tx: Prisma.TransactionClient) => Promise<T>) {
+async function lockedWrite<T>(db: PrismaClient, scope: ChatScope, work: (tx: Prisma.TransactionClient, archived: boolean) => Promise<T>,
+  allowArchived = false) {
   return db.$transaction(async (tx) => {
     await authorize(tx, scope);
     const rows = await tx.$queryRaw<{ archivedAt: Date | null }[]>`
       SELECT "archivedAt" FROM "Organization" WHERE id = ${scope.organizationId}::uuid FOR NO KEY UPDATE`;
     if (rows.length !== 1) throw new ChatError("CHAT_NOT_FOUND");
     await authorize(tx, scope);
-    if (rows[0].archivedAt) throw new ChatError("CHAT_ORGANIZATION_ARCHIVED");
-    return work(tx);
+    if (rows[0].archivedAt && !allowArchived) throw new ChatError("CHAT_ORGANIZATION_ARCHIVED");
+    return work(tx, rows[0].archivedAt !== null);
   }, { maxWait: 5_000, timeout: 15_000 });
 }
 
@@ -79,7 +80,14 @@ function checkConversationId(requested: string | undefined, actual: string) {
 
 /** Idempotent open for the target company (#24/#27/#53). Unique per company even under parallel requests. */
 export async function openConversation(db: PrismaClient, scope: ChatScope, now = new Date()) {
-  const result = await lockedWrite(db, scope, (tx) => conversationFor(tx, scope, true, now));
+  // An existing conversation is returned for an archived company too (superadmin; the admin is refused by
+  // authorize). Only creating a new one is refused there.
+  const result = await lockedWrite(db, scope, async (tx, archived) => {
+    const existing = await conversationFor(tx, scope, false, now);
+    if (existing) return existing;
+    if (archived) throw new ChatError("CHAT_ORGANIZATION_ARCHIVED");
+    return conversationFor(tx, scope, true, now);
+  }, true);
   return { conversationId: result!.id, created: result!.created };
 }
 
@@ -139,10 +147,11 @@ export async function sendMessage(db: PrismaClient, scope: ChatScope, input: Sen
       if (existing.senderId !== scope.actorId || existing.body !== body || existing.conversationId !== conversation.id) {
         throw new ChatError("CLIENT_MESSAGE_ID_CONFLICT");
       }
-      return { limited: null, message: messageDto(existing, scope.actorId), conversationId: conversation.id, deduplicated: true };
+      return { message: messageDto(existing, scope.actorId), conversationId: conversation.id, deduplicated: true };
     }
     const limit = await takeRateLimitWithin(tx, sendWindows(scope.actorId), now);
-    if (!limit.allowed) return { limited: limit.retryAfter };
+    // Throwing rolls back a conversation created by this very attempt: a refused send leaves nothing behind.
+    if (!limit.allowed) throw new ChatError("RATE_LIMITED", limit.retryAfter);
     const [{ lastSeq }] = await tx.$queryRaw<{ lastSeq: number }[]>`
       UPDATE "Conversation" SET "lastSeq" = "lastSeq" + 1, "activityAt" = GREATEST("activityAt", ${now}::timestamptz)
       WHERE id = ${conversation.id}::uuid AND "organizationId" = ${scope.organizationId}::uuid
@@ -150,10 +159,9 @@ export async function sendMessage(db: PrismaClient, scope: ChatScope, input: Sen
     const saved = await tx.chatMessage.create({ data: { organizationId: scope.organizationId,
       conversationId: conversation.id, senderId: scope.actorId, clientMessageId, seq: lastSeq,
       body, createdAt: now }, select: messageSelect });
-    return { limited: null, message: messageDto(saved, scope.actorId), conversationId: conversation.id, deduplicated: false };
+    return { message: messageDto(saved, scope.actorId), conversationId: conversation.id, deduplicated: false };
   });
-  if (outcome.limited !== null) throw new ChatError("RATE_LIMITED", outcome.limited);
-  return { message: outcome.message, conversationId: outcome.conversationId, deduplicated: outcome.deduplicated };
+  return outcome;
 }
 
 export type HistoryInput = { conversationId?: string; limit?: number; before?: string; after?: string };

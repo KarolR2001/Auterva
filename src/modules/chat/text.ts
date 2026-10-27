@@ -1,12 +1,12 @@
+import { multilineControl } from "@/lib/text-policy";
 import { ChatError } from "./errors";
 
 /** D-04: 4 000 Unicode code points of NFC text. The same function is meant for UI and server. */
 export const MAX_CHAT_CHARACTERS = 4000;
 // Raw input far above any NFC-reducible size is refused before normalisation work.
 const MAX_RAW_UNITS = 40_000;
-// C0/C1 controls except TAB and LF (CR is folded into LF first). NUL is among them.
-const forbiddenControls = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/;
-
+// Whitespace and format characters (U+200B/C/D, U+2060, U+FEFF...) alone render as nothing.
+const visuallyEmpty = /^[\s\p{Cf}]*$/u;
 const loneSurrogate = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
 
 export function countCodePoints(text: string): number {
@@ -28,7 +28,7 @@ export function normalizeChatBody(raw: unknown): string {
   if (raw.length > MAX_RAW_UNITS) throw new ChatError("MESSAGE_TOO_LONG");
   if (loneSurrogate.test(raw)) throw new ChatError("CHAT_INVALID_MESSAGE");
   const text = raw.replace(/\r\n?/g, "\n").normalize("NFC");
-  if (forbiddenControls.test(text) || text.trim() === "") throw new ChatError("CHAT_INVALID_MESSAGE");
+  if (multilineControl.test(text) || visuallyEmpty.test(text)) throw new ChatError("CHAT_INVALID_MESSAGE");
   if (countCodePoints(text) > MAX_CHAT_CHARACTERS) throw new ChatError("MESSAGE_TOO_LONG");
   return text;
 }

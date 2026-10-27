@@ -244,6 +244,10 @@ test("limits: 4 000 characters pass, 4 001 and control characters are refused wi
     expect(await codeOf(sendMessage(db, company.admin, { clientMessageId: randomUUID(), body }, new Date(base)))).toBe(expected);
   }
   expect(await db.chatMessage.count({ where: { organizationId: company.organizationId } })).toBe(1);
+  for (const bad of ["\u200B", "x\u202Ey", "x\u2028y", "a\u0000b"]) {
+    expect((await adminSend(company, randomUUID(), bad)).status).toBe(400);
+  }
+  expect((await adminSend(company, randomUUID(), "Zażółć 👨\u200D👩 gęślą")).status).toBe(201);
   const tooLong = await adminSend(company, randomUUID(), "a".repeat(4001));
   expect(tooLong.status).toBe(422);
   const text = JSON.stringify(await tooLong.json());
@@ -435,4 +439,36 @@ test("sequence trigger: parallel inserts without seq never share a number and mi
   expect(viaService.message.id).toBeTruthy();
   expect(viaRaw.seq).toBeGreaterThan(12);
   expect((await db.conversation.findUniqueOrThrow({ where: { id: conversationId } })).lastSeq).toBe(14);
+});
+
+test("open on an archived company: existing conversation is returned, a new one is refused, admin is refused", async () => {
+  const [withChat, without] = [await makeCompany("arch-open-a"), await makeCompany("arch-open-b")];
+  const { conversationId } = await openConversation(db, withChat.admin);
+  for (const company of [withChat, without]) {
+    await archiveCompany(db, { actorId: platformId, sessionId: platformSessionId, organizationId: company.organizationId,
+      expectedVersion: 0, eventKey: randomUUID(), requestId: randomUUID() });
+  }
+  const existing = await platformConversationPost(http("POST", `/api/platform/companies/${withChat.organizationId}/chat/conversation`,
+    platformHost, platformCookie), orgParams(withChat.organizationId));
+  expect([existing.status, await existing.json()]).toEqual([200, { conversationId, created: false }]);
+  const refused = await platformConversationPost(http("POST", `/api/platform/companies/${without.organizationId}/chat/conversation`,
+    platformHost, platformCookie), orgParams(without.organizationId));
+  expect([refused.status, (await refused.json() as { code: string }).code]).toEqual([409, "CHAT_ORGANIZATION_ARCHIVED"]);
+  expect(await db.conversation.count({ where: { organizationId: without.organizationId } })).toBe(0);
+  expect(await codeOf(openConversation(db, withChat.admin))).toBe("CHAT_FORBIDDEN");
+  expect((await adminConversationPost(http("POST", "/api/admin/chat/conversation", withChat.host, withChat.cookie))).status).toBe(403);
+});
+
+test("a send refused by the traffic limit leaves no new conversation behind", async () => {
+  const company = await makeCompany("limit-rollback");
+  const base = nextBase();
+  const filler = await makeCompany("limit-filler");
+  // Fill the operator's burst window against another company, then try the first-ever send to this one.
+  for (let i = 0; i < 10; i += 1) {
+    await sendMessage(db, filler.operator, { clientMessageId: randomUUID(), body: `f${i}` }, new Date(base + i));
+  }
+  const refused = await sendMessage(db, company.operator, { clientMessageId: randomUUID(), body: "pierwsza" }, new Date(base + 10)).catch((e) => e);
+  expect(refused).toBeInstanceOf(ChatError);
+  expect(refused.code).toBe("RATE_LIMITED");
+  expect(await db.conversation.count({ where: { organizationId: company.organizationId } })).toBe(0);
 });

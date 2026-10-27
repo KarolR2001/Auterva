@@ -21,7 +21,7 @@ function failure(error: unknown, requestId: string) {
       case "CHAT_NOT_FOUND": return response({ code: "NOT_FOUND" }, 404, requestId);
       case "CHAT_FORBIDDEN": return response({ code: "FORBIDDEN" }, 403, requestId);
       case "CHAT_INVALID_MESSAGE":
-        return response({ code: "INVALID_MESSAGE", message: "Wiadomość jest pusta albo zawiera niedozwolone znaki." }, 422, requestId);
+        return response({ code: "INVALID_MESSAGE", message: "Wiadomość jest pusta albo zawiera niedozwolone znaki." }, 400, requestId);
       case "MESSAGE_TOO_LONG":
         return response({ code: "MESSAGE_TOO_LONG", message: "Wiadomość może mieć najwyżej 4 000 znaków." }, 422, requestId);
       case "CLIENT_MESSAGE_ID_CONFLICT": return response({ code: "CLIENT_MESSAGE_ID_CONFLICT" }, 409, requestId);

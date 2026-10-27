@@ -19,11 +19,15 @@ test("4 000 code points pass and 4 001 are refused, counted after NFC and for as
 test("raw text is kept (no HTML escaping), line breaks are normalised, controls and NUL are refused", () => {
   expect(normalizeChatBody("<script>alert(1)</script> & <b>x</b>")).toBe("<script>alert(1)</script> & <b>x</b>");
   expect(normalizeChatBody("a\r\nb\rc\td")).toBe("a\nb\nc\td");
-  for (const bad of ["a\u0000b", "a\u0007b", "a\u001bb", "a\u0085b", "\ud800", "x\udc00y"]) {
+  for (const bad of ["a\u0000b", "a\u0007b", "a\u001bb", "a\u0085b", "\ud800", "x\udc00y", "a\u202Eb", "a\u2066b", "a\u2069b", "a\u2028b", "a\u2029b"]) {
     expect(code(() => normalizeChatBody(bad))).toBe("CHAT_INVALID_MESSAGE");
   }
-  for (const empty of ["", "   ", "\n\t"]) expect(code(() => normalizeChatBody(empty))).toBe("CHAT_INVALID_MESSAGE");
+  for (const empty of ["", "   ", "\n\t", "\u200B", "\u200B\u200C\u200D\u2060\uFEFF", " \u200B\n\uFEFF "]) expect(code(() => normalizeChatBody(empty))).toBe("CHAT_INVALID_MESSAGE");
   for (const notText of [null, 5, {}, undefined]) expect(code(() => normalizeChatBody(notText))).toBe("CHAT_INVALID_INPUT");
+});
+
+test("Polish letters, emoji and ZWJ sequences inside text are accepted", () => {
+  for (const ok of ["Zażółć gęślą jaźń", "👨\u200D👩\u200D👧 rodzina", "a\u200Bb", "\u200Bx\u200B"]) expect(normalizeChatBody(ok)).toBe(ok.normalize("NFC"));
 });
 
 test("cursors are opaque, signed and bound to their listing", () => {
