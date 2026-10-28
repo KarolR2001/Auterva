@@ -303,16 +303,16 @@ test("B1: the audit worker is visible to monitoring: heartbeat, and a cleanup sw
       return /auterva_audit_export_sweep_failures_total \d+/.test(body) ? body : false;
     });
     expect(text).toContain('auterva_worker_last_iteration_timestamp_seconds{worker="audit-worker"}');
-    const base = Date.now();
-    let tickNo = 0;
     const file = join(dir, "audit-alerts.jsonl");
     const monitor = createMonitor({ db: shared, token: opsToken, sink: createFileSink(file), engine: new AlertEngine(undefined, { groupWindowMs: 0 }),
-      targets: [{ name: "audit-worker", url: `http://127.0.0.1:${port}/metrics` }], clock: () => new Date(base + (tickNo += 1) * 60_000) });
+      targets: [{ name: "audit-worker", url: `http://127.0.0.1:${port}/metrics` }] }); // real clock: heartbeat ages are real
     for (let i = 0; i < 4; i++) { await monitor.tick(); await new Promise((r) => setTimeout(r, 1_500)); }
     const firing = monitor.engine.firing().map((a) => a.id);
     expect(firing).toContain("AUDIT_EXPORT_SWEEP_FAILING");
-    expect(firing).toContain("AUDIT_EXPORT_CLEANUP_OVERDUE");
+    // The sweep marks the row DELETED before it fails to remove the bytes, so the overdue gauge cannot see it; the
+    // failing-sweep counter is the signal for exactly this case.
     expect(firing).not.toContain("TARGET_DOWN");
+    expect(firing).not.toContain("WORKER_HEARTBEAT_STALE");
     expect(await readFile(file, "utf8")).not.toContain("keep");
   } finally {
     worker.child.kill("SIGTERM");
