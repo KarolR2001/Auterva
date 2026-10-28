@@ -20,7 +20,7 @@ step() {
 
 printf 'head\t%s\n' "$(git rev-parse HEAD)" >> "$OUT"
 printf 'tools\tnode %s; gitleaks %s; pg_dump %s; docker %s\n' "$(node --version)" "$(gitleaks version 2>/dev/null)" \
-  "$(pg_dump --version 2>/dev/null | awk '{print $NF}')" "$(docker version --format '{{.Server.Version}} {{.Server.Os}}/{{.Server.Arch}}' 2>/dev/null)" >> "$OUT"
+  "$(pg_dump --version 2>/dev/null | awk '{print $3}')" "$(docker version --format '{{.Server.Version}} {{.Server.Os}}/{{.Server.Arch}}' 2>/dev/null)" >> "$OUT"
 pnpm install --frozen-lockfile >"$LOGDIR/install.log" 2>&1 || { res install FAIL; exit 1; }
 
 # CI runs this job on a fresh checkout: use a clean detached worktree so no .env/.env.local is loaded by vitest.
