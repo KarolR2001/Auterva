@@ -3,6 +3,17 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 70,
+      "scope": "Discovery (bez kodu): kontrakt najbliższego wolnego terminu i zbiorczych/kopiowanych blokad z wariantami, raportem konfliktów i pytaniami do właściciela; implementacja po decyzji.",
+      "relatedRequirementIds": ["C-F102", "C-F103", "C-F104", "C-N027", "FR-ADM-055", "D-15"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "docs/contracts/availability-nearest-and-bulk-blocks.md",
+        "docs/contracts/availability-reads.md"
+      ],
+      "testPaths": []
+    },
+    {
       "issue": 59,
       "scope": "Pomiar obciążenia profilu P1 (zatwierdzony) i P2 (proponowany w #90), indeks i zapytanie sprawdzenia dostępności, rzut kalendarza; harness poza zwykłymi testami (pnpm perf:*), staging i profil wielu firm not-run.",
       "relatedRequirementIds": ["NFR-PERF-002", "C-N060", "C-N062", "C-N066", "D-15"],
