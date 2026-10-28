@@ -3,6 +3,21 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 67,
+      "scope": "Wyróżnianie pojazdów na home firmy (FR-PUB-002, D-22): publicznie tylko PUBLISHED z featured i do featuredVehicleCount w kolejności firmy; zmiana wyróżnienia lub kolejności w edycji pojazdu zapisuje audyt (featured, sortOrder) i działa od następnego odczytu tylko w jednej firmie; brak wyróżnionych to pusta lista bez danych zastępczych.",
+      "relatedRequirementIds": ["FR-PUB-002", "D-22", "D-23"],
+      "referenceScreenIds": ["PUB-01"],
+      "codePaths": [
+        "src/modules/fleet/mutations.ts",
+        "src/modules/public-offer/read.ts",
+        "docs/contracts/public-offer-seo.md",
+        "docs/contracts/fleet-crud-publication.md"
+      ],
+      "testPaths": [
+        "tests/integration/featured-vehicles.test.ts"
+      ]
+    },
+    {
       "issue": 59,
       "scope": "Pomiar obciążenia profilu P1 (zatwierdzony) i P2 (proponowany w #90), indeks i zapytanie sprawdzenia dostępności, rzut kalendarza; harness poza zwykłymi testami (pnpm perf:*), staging i profil wielu firm not-run.",
       "relatedRequirementIds": ["NFR-PERF-002", "C-N060", "C-N062", "C-N066", "D-15"],
