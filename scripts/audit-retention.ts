@@ -11,7 +11,6 @@ if (process.env.NODE_ENV === "production") throw new Error("AUDIT_EXPORT_PROVIDE
 const connectionString = assertLocalFixtureTarget(process.env);
 const { createPrismaClient } = await import("../src/lib/prisma");
 const { exportAuditRange, readAuditExport, sweepExpiredAuditExports } = await import("../src/modules/audit/operator-export");
-const { runAuditRetentionLoop } = await import("../src/modules/audit/retention-runner");
 const db = createPrismaClient(connectionString);
 const directory = resolve(".local/audit-exports");
 const command = process.argv[2];
@@ -32,12 +31,8 @@ function exportKey(): Buffer {
 
 try {
   if (command === "worker") {
-    const controller = new AbortController();
-    process.once("SIGINT", () => controller.abort());
-    process.once("SIGTERM", () => controller.abort());
-    await db.$queryRaw`SELECT 1`;
-    process.stdout.write("Audit maintenance worker ready\n");
-    await runAuditRetentionLoop({ db, signal: controller.signal, directory });
+    const { runAuditWorkerProcess } = await import("../src/modules/audit/retention-worker");
+    await runAuditWorkerProcess(db, directory);
   } else if (command === "export") {
     const receipt = await exportAuditRange(db, { from: utcDate(process.argv[3]), to: utcDate(process.argv[4]),
       now: new Date(), key: exportKey(), directory });

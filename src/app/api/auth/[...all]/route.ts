@@ -1,3 +1,5 @@
+import { routeContext } from "@/modules/observability/route-context";
+import { observeAuthResponse } from "@/modules/observability/http-observe";
 import { toNextJsHandler } from "better-auth/next-js";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
@@ -536,11 +538,13 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
   return response;
 }
 
-export const GET = async (request: Request) => {
+const handleGET = async (request: Request) => {
   const requestId = randomUUID();
   return withErrorRequestId(await guarded(request, "GET", requestId), requestId);
 };
-export const POST = async (request: Request) => {
+const handlePOST = async (request: Request) => {
   const requestId = randomUUID();
-  return withErrorRequestId(await guarded(request, "POST", requestId), requestId);
+  return observeAuthResponse(request, withErrorRequestId(await guarded(request, "POST", requestId), requestId));
 };
+export const GET = routeContext(handleGET);
+export const POST = routeContext(handlePOST);

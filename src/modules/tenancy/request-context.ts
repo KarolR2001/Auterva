@@ -1,6 +1,7 @@
 import type { PrismaClient } from "../../generated/prisma/client";
 import type { auth } from "../../lib/auth";
 import { requireAuthorizedActor } from "../auth/authorization";
+import { currentLogContext } from "../observability/log";
 import { resolveHostMapping } from "./host-registry";
 
 export type RequestArea = {
@@ -36,6 +37,7 @@ export async function selectActorOrganization(
   }
   if (area.area !== "PLATFORM" || actor.role !== "SUPERADMIN_AUTERVA" || actor.organizationId !== null || !targetOrganizationId) return null;
   const company = await db.organization.findUnique({ where: { id: targetOrganizationId }, select: { id: true } });
+  if (company) currentLogContext().organizationId = company.id; // superadmin acting in this company's context (#58)
   return company ? { actorId: actor.userId, role: "SUPERADMIN_AUTERVA", organizationId: company.id, sessionId: actor.sessionId } : null;
 }
 

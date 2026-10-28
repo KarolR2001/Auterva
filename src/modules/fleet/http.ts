@@ -10,6 +10,7 @@ import { createVehicle, editVehicle, PublishingRequirementsError, reorderVehicle
   setVehicleStatus, type VehicleFields } from "./mutations";
 import { resolveImageAlt } from "@/modules/media/vehicle-images";
 import { listCompanyVehicles, type VehicleListFilters } from "./read";
+import { reportInternalError } from "@/modules/observability/http-observe";
 
 export const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 type Area = "COMPANY_ADMIN" | "PLATFORM";
@@ -71,7 +72,7 @@ function failure(error: unknown, requestId: string) {
   if (["FLEET_VERSION_CONFLICT", "FLEET_SLUG_CONFLICT", "FLEET_SLUG_CONFIRMATION_REQUIRED",
     "FLEET_BLOCK_OUTSIDE_ACTIVITY", "FLEET_ARCHIVED"].includes(code)) return response({ code }, 409, requestId);
   if (code === "Audit actor is not authorized") return response({ code: "FORBIDDEN" }, 403, requestId);
-  return response({ code: "INTERNAL_ERROR" }, 500, requestId);
+  return response({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "fleet"));
 }
 
 function filters(url: URL): VehicleListFilters {

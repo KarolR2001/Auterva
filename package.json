@@ -27,7 +27,8 @@
     "perf:run": "tsx scripts/perf/run.ts",
     "perf:explain": "tsx scripts/perf/explain.ts",
     "perf:report": "tsx scripts/perf/report.ts",
-    "dev:media-worker": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local src/server/media-worker.ts"
+    "dev:media-worker": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local src/server/media-worker.ts",
+    "dev:ops-monitor": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local src/server/ops-monitor.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1152.0",
