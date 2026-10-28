@@ -3,6 +3,7 @@ import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { appendAudit } from "@/modules/audit/append";
 import { requireAuditActor } from "@/modules/audit/actor";
 import { revokeMfaChallenges } from "@/modules/auth/account-operations";
+import { notifyChat } from "@/modules/chat/signal";
 import { reconcileReminders } from "@/modules/reminders/reconcile";
 
 export type CompanyArchiveOperation = {
@@ -100,6 +101,8 @@ export async function archiveCompany(db: PrismaClient, input: CompanyArchiveOper
           version: input.expectedVersion, periodVersion: period.before },
         after: { archivedAt: now.toISOString(), publicUnlockRequired: true,
           version: input.expectedVersion + 1, periodVersion: period.after } } });
+    // Same transaction: delivered on commit only, so the platform inbox list updates without waiting for its safety refresh.
+    await notifyChat(tx, { k: "o", o: input.organizationId });
     return { archivedAt: now.toISOString(), version: input.expectedVersion + 1, periodVersion: period.after,
       publicRequiresPaid: true, publicUnlockRequired: true, revokedSessions };
   }, { maxWait: 10_000, timeout: 30_000 });
@@ -129,6 +132,7 @@ export async function restoreCompany(db: PrismaClient, input: CompanyArchiveOper
           version: input.expectedVersion, periodVersion: period.before },
         after: { archivedAt: null, publicUnlockRequired: true, version: input.expectedVersion + 1,
           periodVersion: period.after } } });
+    await notifyChat(tx, { k: "o", o: input.organizationId });
     return { archivedAt: null, version: input.expectedVersion + 1, periodVersion: period.after,
       publicRequiresPaid: true, publicUnlockRequired: true };
   }, { maxWait: 10_000, timeout: 30_000 });

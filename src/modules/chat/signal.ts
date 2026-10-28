@@ -10,12 +10,13 @@ const base = { o: z.uuid(), c: z.uuid() };
 
 /**
  * Payloads carry identifiers only (never message text): `m` new message at position `s`, `r` read cursor moved
- * to message `m` at `s` (`u` is the reader's unread count), `t` ephemeral typing by actor `a` of role `r`.
+ * to message `m` at `s` (`u` is the reader's unread count), `o` the company was archived or restored (the platform inbox list changes), `t` ephemeral typing by actor `a` of role `r`.
  */
 const signal = z.discriminatedUnion("k", [
   z.object({ k: z.literal("m"), ...base, s: z.number().int().positive() }),
   z.object({ k: z.literal("r"), ...base, a: z.string().min(1).max(128), r: roles,
     s: z.number().int().positive(), m: z.uuid(), u: z.number().int().min(0) }),
+  z.object({ k: z.literal("o"), o: z.uuid() }),
   z.object({ k: z.literal("t"), o: z.uuid(), a: z.string().min(1).max(128), r: roles }),
 ]);
 
