@@ -1,8 +1,23 @@
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import type { PrismaClient } from "../../src/generated/prisma/client";
 import { FIXTURE } from "../fixture-ids";
-import { TestSocket } from "../../tests/fixtures/realtime-client";
+import WebSocket from "ws";
 import { Recorder } from "./measure";
+
+/** Minimal client: opens the panel socket and resolves when the server sent `ready`. */
+class PerfSocket {
+  private constructor(readonly ws: WebSocket) {}
+  static async open(port: number, organizationId: string, options: { cookie: string; origin: string }): Promise<PerfSocket> {
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws?organizationId=${organizationId}`, { headers: { cookie: options.cookie, origin: options.origin } });
+    await new Promise<void>((resolve, reject) => {
+      ws.on("message", (raw: WebSocket.RawData) => { if ((JSON.parse(raw.toString()) as { type: string }).type === "ready") resolve(); });
+      ws.once("error", reject);
+      ws.once("unexpected-response", (_request, response) => reject(new Error(`HTTP ${response.statusCode}`)));
+    });
+    return new PerfSocket(ws);
+  }
+  send(value: unknown) { this.ws.send(JSON.stringify(value)); }
+}
 
 type Company = { organizationId: string; adminId: string; adminHost: string };
 
@@ -32,22 +47,21 @@ export async function wsPhase(input: { db: PrismaClient; companies: Company[]; s
   const server = await startRealtimeServer({ db, config: { host: "127.0.0.1", port: 0, allowedHosts: new Set() }, databaseUrl: env.DATABASE_URL,
     authority: createRealtimeAuthority(db, auth), log: () => undefined });
   const latency = new Recorder();
-  const sockets: { socket: TestSocket; company: number; role: "admin" | "operator"; cookie: string }[] = [];
+  const sockets: { socket: PerfSocket; company: number; role: "admin" | "operator"; cookie: string }[] = [];
   try {
     for (const [index, c] of companies.entries()) {
       for (let device = 0; device < 5; device += 1) {
-        sockets.push({ socket: await TestSocket.open(server.port, c.organizationId, { cookie: await mkSession(c.adminId), origin: `http://${c.adminHost}` }),
+        sockets.push({ socket: await PerfSocket.open(server.port, c.organizationId, { cookie: await mkSession(c.adminId), origin: `http://${c.adminHost}` }),
           company: index, role: "admin", cookie: "" });
-        sockets.push({ socket: await TestSocket.open(server.port, c.organizationId, { cookie: await mkSession(FIXTURE.users[2]), origin: `http://${platformHost}` }),
+        sockets.push({ socket: await PerfSocket.open(server.port, c.organizationId, { cookie: await mkSession(FIXTURE.users[2]), origin: `http://${platformHost}` }),
           company: index, role: "operator", cookie: "" });
       }
     }
-    for (const item of sockets) await item.socket.takeType("ready");
     const sentAt = new Map<string, number>();
     const expected = new Map<string, number>();
     const received = new Map<string, number>();
     for (const [i, item] of sockets.entries()) {
-      item.socket.ws.on("message", (raw) => {
+      item.socket.ws.on("message", (raw: WebSocket.RawData) => {
         const frame = JSON.parse(raw.toString()) as { type: string; message?: { body: string } };
         if (frame.type !== "message" || !frame.message?.body.startsWith("perf-")) return;
         const t0 = sentAt.get(frame.message.body);
