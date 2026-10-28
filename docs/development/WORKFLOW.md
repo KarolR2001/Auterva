@@ -14,7 +14,7 @@ Zakres: MVP 3.1 z superadminem i wieloma firmami. [Projekt](https://github.com/u
 
 - Główny orkiestrator i agenty **Frontend, Backend, QA** pracują w osobnych sesjach Codex na jednym komputerze i koncie GitHub użytkownika. Nie wymagamy osobnych kont ani assignees; przypisania pozostają puste. Orkiestrator uruchamia role dla zatwierdzonej kolejki, a Frontend i Backend po przekazaniu PR samodzielnie podejmują następne gotowe issue swojej roli.
 - Pole Role i etykieta role:frontend/role:backend wskazują właściciela implementacji. Orkiestrator i QA odbierają to samo issue według statusu, bez zmiany Role i bez osobnych zadań odbioru.
-- Przy podjęciu issue agent zapisuje w komentarzu rolę, branch i krótki plan, następnie ustawia In progress. Ścieżkę worktree i identyfikator sesji zachowuje w lokalnym checkpoincie. Jeden aktywny wykonawca issue i najwyżej jedno In progress na rolę; ponownie odczytaj status przed rozpoczęciem.
+- Przy podjęciu issue agent zapisuje w komentarzu rolę, branch i krótki plan, następnie ustawia In progress. Ścieżkę worktree i identyfikator sesji zachowuje w lokalnym checkpoincie. Jeden aktywny wykonawca issue; w roli może pracować równolegle wielu wykonawców nad różnymi issue (D-31). Ponownie odczytaj status i claim przed rozpoczęciem.
 - Po Re-open poprawia ten sam agent wykonawczy. Jeśli sesja zakończyła się, nowa sesja tej samej roli jawnie przejmuje istniejący branch i kontekst; nie rozpoczyna drugiej implementacji.
 - Każdy agent implementujący pracuje w osobnym worktree i branchu, np. codex/backend/issue-8 lub codex/frontend/issue-11. Nie przełączaj branchy ani nie zmieniaj cudzych plików we współdzielonym katalogu. Wspólne manifesty, migracje i kontrakty mają jednego edytora; uzgodnione zmiany integruj przez PR.
 - Orkiestrator i QA używają własnych worktree i sprawdzają dokładny commit/build przekazany w issue. Lokalne serwery mają różne porty i testowe bazy/schematy; bez resetowania usług innego agenta. QA czyta Penpota; nie zmienia wzorca, aby ukryć błąd.
@@ -47,7 +47,7 @@ Candidates zawiera odziedziczone SHOULD i propozycje rozwoju. Triage ustala zakr
 | Candidates | Właściciel produktu/triage: opcjonalny zakres lub nowa propozycja |
 | To do | Orkiestrator: zaplanowany zakres wykonawcy; rozpoczęcie po spełnieniu zależności |
 | Re-open | Orkiestrator po CR lub QA po testach: uwagi, dowód i oczekiwany wynik; wykonawca zostaje |
-| In progress | Frontend/Backend rozpoczyna implementację lub poprawkę; najwyżej jedno issue na rolę |
+| In progress | Frontend/Backend rozpoczyna implementację lub poprawkę; jeden wykonawca na issue, wielu w roli (D-31) |
 | Review | Wykonawca: PR gotowy do CR, issue, checkpoint aktualnego commita i wyniki kontroli; needs:cr na issue i PR; może podjąć następne gotowe issue |
 | Ready to test | Wyłącznie orkiestrator: CR: PASS dla aktualnego commita, dostępny build, fixture i instrukcja; usuwa needs:cr |
 | Test | QA wykonuje scenariusze i regresję, zapisuje wynik dla konkretnego builda/commita |

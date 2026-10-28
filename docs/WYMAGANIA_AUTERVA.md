@@ -610,6 +610,13 @@ Rozstrzygają pytania zebrane podczas CR/QA Stage 3. Gdy decyzja zmienia zachowa
 - **D-26 — hosty nowej firmy (#152):** host panelu i publiczny alias pod domenami Autervy są aktywne od prerejestracji; operator zapewnia wildcard DNS/TLS obu baz. Aktywny alias nie publikuje oferty: strona publiczna działa tylko w ważnym trialu lub okresie opłaconym i bez archiwum. Domena własna klienta nadal wymaga weryfikacji i jawnej aktywacji (#23). Zmienia [kontrakt prerejestracji](contracts/company-onboarding-invitations.md) i [kontrakt środowisk](contracts/environments-hosts-operations.md) w #152.
 - **D-27 — przekierowanie sluga (#153):** zmiana sluga opublikowanego pojazdu zapisuje przekierowanie 308 ze starego adresu (FR-ADM-035 w MVP).
 
+#### Decyzje właściciela z 28.10.2026
+
+- **D-28 — profil i budżet (#90):** profil z [planu #90](plans/90-profile-budget-options.md) (2 firmy po 100 pojazdów i 100 000 okresów, 100 000 odsłon/mies., szczyt 25 żądań/s, 20 połączeń WS) jest profilem testowym do pomiarów lokalnych. Na razie brak zgody na zakup płatnego stagingu i produkcji; #90 pozostaje otwarte do osobnej zgody (D-16). Zadania zależne zamykają część lokalną, a odbiory środowiskowe czekają na #90.
+- **D-29 — kontrole bez GitHub Actions (#10):** workflow „CI” pozostaje wyłączony przez właściciela. Do jego ponownego włączenia ten sam zestaw kontroli (lint, typecheck, unit, integracja z bootstrapem, build, E2E, audyt zależności, skan sekretów i budowa czterech obrazów kontenerów) wykonuje się lokalnie, z Dockerem przez Colima, na drzewie zawierającym aktualny `main`, przed merge. Wyniki z SHA trafiają do PR. Zastępuje wymóg zielonego CI GitHub, nie zmniejsza zestawu kontroli.
+- **D-30 — retencja podstawy odblokowania (#183):** najnowszy wpis `COMPANY_RESTORED_FROM_BACKUP` firmy nie jest usuwany po 365 dniach, dopóki konto z jego wykazu pozostaje zablokowane przez restore. Alert `AUDIT_UNLOCK_BASIS_HELD` przypomina operatorowi o przeglądzie. [Kontrakt retencji](contracts/audit-retention-operations.md).
+- **D-31 — wielu wykonawców w roli:** w roli Frontend i Backend może pracować równolegle wielu agentów. Każdy podejmuje następne gotowe issue według Order i zależności. Jedno issue ma jednego wykonawcę (claim issue), a cudzego claimu się nie przejmuje bez checkpointu. Limit „najwyżej jedno In progress na rolę” zostaje zniesiony; CR orkiestratora i niezależne QA obowiązują bez zmian.
+
 ## 10. Co warto dodać — propozycje, poza obowiązkowym zakresem
 
 - **Najpierw: kontrola jakości oferty.** Lista brakujących zdjęć/opisów/kontaktu i przypomnienie o weryfikacji dostępności. Rozwija opcjonalny FR-ADM-011 i ogranicza błędne zapytania klientów.

@@ -13,7 +13,7 @@
 - Sprawdź `git status --short`, opis issue, zależności i instrukcje właściwego obszaru. Zachowaj cudze zmiany.
 - Jeśli manifest i lockfile istnieją, ustal rzeczywiste wersje przed użyciem API. Podczas scaffoldingu rozstrzygnij [ADR-0002](docs/adr/0002-version-validation.md); nie aktualizuj automatycznie majorów według skilla.
 - Dla Next.js zacznij od `node_modules/next/dist/docs/`, gdy jest dostępne; inaczej użyj oficjalnej dokumentacji zgodnej z wybraną wersją. Zachowaj instrukcje wygenerowane przez Next.js.
-- Przy wieloetapowej zmianie zapisz plan według [PLANS.md](PLANS.md). Stosuj [workflow GitHub](docs/development/WORKFLOW.md): jeden wykonawca, jawne zależności, mały PR, CR orkiestratora, niezależny odbiór QA i integracja przed Done.
+- Przy wieloetapowej zmianie zapisz plan według [PLANS.md](PLANS.md). Stosuj [workflow GitHub](docs/development/WORKFLOW.md): jeden wykonawca na issue, jawne zależności, mały PR, CR orkiestratora, niezależny odbiór QA i integracja przed Done.
 
 ## Instrukcje obszarowe i skille
 
@@ -57,7 +57,7 @@
 - Gotowy PR i jego issue otrzymują needs:cr, a issue status Review. To zwalnia miejsce na następne gotowe zadanie implementacyjne tej roli; Review/Ready to test/Test nie wstrzymują kolejki Frontend/Backend. Orkiestrator bierze kolejkę CR — Orchestrator; tylko po CR: PASS przekazuje Ready to test. QA odbiera Ready to test → Test. Dopiero orkiestrator po QA: PASS, merge i kontrolach integracji ustawia Done. Nowy commit unieważnia wcześniejsze CR/QA.
 - Każdy wykonawca ma osobny branch/worktree; orkiestrator i QA sprawdzają wskazany commit we własnych worktree. Nie przełączaj gałęzi ani nie resetuj plików/usług innego agenta. Przejęcie zapisuj z rolą i branchem według workflow; lokalną ścieżkę worktree zachowaj tylko w lokalnym checkpoincie.
 - Commity, opisy issue/PR i raporty zaczynaj od wyniku lub problemu. W GitHubie wskazuj pliki ścieżką repozytorium lub linkiem; nie publikuj bezwzględnych ścieżek lokalnych, nazwy komputera ani zbędnych dat i identyfikatorów sesji. SHA/build i sprawdzoną bazę zapisuj raz, gdy są potrzebne do CR/QA lub checkpointu; dalsze przekazania linkują ten zapis. Zachowaj merytoryczne daty i rzeczywiste dowody kontroli.
-- Właścicielem implementacji jest Frontend albo Backend; CR/QA dotyczą tego samego issue bez zmiany Role. Najwyżej jedno issue danej roli pozostaje w aktywnej implementacji lub poprawce. Po Re-open poprawia ten sam agent albo jawnie przejmująca kontekst sesja tej samej roli; gdy Re-open przerwie inne zadanie, najpierw zapisz jego checkpoint i przenieś je do To do. Raporty CR/QA na wspólnym koncie nie są formalnym Approve własnego PR. Statusy i etykiety nie uruchamiają automatycznie agentów.
+- Właścicielem implementacji jest Frontend albo Backend; CR/QA dotyczą tego samego issue bez zmiany Role. W jednej roli może równolegle pracować wielu wykonawców, każdy nad innym issue (D-31); jedno issue ma jednego aktywnego wykonawcę. Po Re-open poprawia ten sam agent albo jawnie przejmująca kontekst sesja tej samej roli; gdy Re-open przerwie inne zadanie, najpierw zapisz jego checkpoint i przenieś je do To do. Raporty CR/QA na wspólnym koncie nie są formalnym Approve własnego PR. Statusy i etykiety nie uruchamiają automatycznie agentów.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
