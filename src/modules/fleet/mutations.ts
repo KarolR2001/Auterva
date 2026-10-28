@@ -5,21 +5,24 @@ import { appendAudit } from "@/modules/audit/append";
 import { requireAuditActor } from "@/modules/audit/actor";
 import { localDate, sqlDate } from "@/modules/availability/dates";
 import { lockCompanyForWrite } from "@/modules/organizations/write-lock";
+import { hasControlCharacter } from "@/lib/text-policy";
 import { validateVehiclePublication } from "./publication";
 
 const uuid = z.uuid();
-const text = (max: number) => z.string().trim().max(max).nullable();
+// #176: NUL and other control characters are refused; only the two descriptions keep TAB, LF and CR.
+const text = (max: number, multiline = false) => z.string().trim().max(max)
+  .refine((value) => !hasControlCharacter(value, multiline)).nullable();
 const vehicleFields = z.object({
   name: text(120), slug: z.string().trim().toLowerCase().max(120)
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).nullable(),
   brand: text(120), model: text(120), variant: text(120),
   year: z.number().int().min(1886).max(2100).nullable(), categoryId: uuid.nullable(),
-  shortDescription: text(500), description: text(20_000), seats: z.number().int().min(1).max(1_000).nullable(),
+  shortDescription: text(500, true), description: text(20_000, true), seats: z.number().int().min(1).max(1_000).nullable(),
   doors: z.number().int().min(1).max(100).nullable(), transmission: text(80), drive: text(80), fuel: text(80),
   color: text(80), luggage: text(120), price: z.string().regex(/^\d{1,10}(?:\.\d{1,2})?$/).nullable(),
   priceUnit: text(40), featured: z.boolean(), sortOrder: z.number().int().min(0).max(2_147_483_647),
   availableFrom: z.string().nullable(), availableTo: z.string().nullable(),
-  features: z.array(z.object({ code: z.string().trim().min(1).max(80),
+  features: z.array(z.object({ code: z.string().trim().min(1).max(80).refine((value) => !hasControlCharacter(value)),
     value: text(500) }).strict()).max(100),
 }).partial().strict();
 export type VehicleFields = z.input<typeof vehicleFields>;

@@ -902,6 +902,25 @@
       ]
     },
     {
+      "issue": 176,
+      "scope": "Odrzucanie NUL i znakow sterujacych w polach tekstowych uwierzytelnionych mutacji (flota, blokady, firmy, profil konta) przez wspolna polityke tekstu; inwentarz mutacji z tras w security-regression pada dla nowej mutacji bez probki lub klasyfikacji. Bez UI.",
+      "relatedRequirementIds": ["C-N001", "C-N006", "C-N007"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/lib/text-policy.ts",
+        "src/modules/fleet/mutations.ts",
+        "src/modules/availability/blocks.ts",
+        "src/modules/organizations/onboarding.ts",
+        "src/app/api/auth/[...all]/route.ts",
+        "docs/contracts/fleet-crud-publication.md",
+        "docs/security/OWASP_CONTROLS.md"
+      ],
+      "testPaths": [
+        "tests/integration/security-regression.test.ts",
+        "tests/integration/password-reset.test.ts"
+      ]
+    },
+    {
       "issue": 60,
       "scope": "Kopia DB i mediow (szyfrowana, snapshot, manifest z MAC), restore pelny do nowej bazy i bucketa ze straznikiem celu, kontrola integralnosci, kwarantanna sesji, tokenow i jobow po restore, odtworzenie jednej firmy bez zmiany innych oraz runbook. Zmierzone lokalnie na fixture; konfiguracja dostawcy, PITR i alerty produkcyjne not-run (#90). Bez UI.",
       "relatedRequirementIds": ["C-N041", "C-N042", "C-N046", "D-10", "D-16"],

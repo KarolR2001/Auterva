@@ -600,3 +600,130 @@ test("body limits per route: the largest valid vehicle form and legal settings p
   expect(block.status).toBe(400);
   await db.siteSettings.update({ where: { organizationId: ids.a.org }, data: { privacyText: null, termsText: null, availabilityNotice: null, privacyUrl: null, termsUrl: null } });
 });
+
+// #176: a NUL (or another control character) in any text of an authenticated mutation is a field error, never a 500 from
+// PostgreSQL. Mutations are inventoried from the route files: a new one needs a sample body here (its text leaves are then
+// probed one by one) or an explicit classification as free of text, so it cannot ship unprobed.
+type Sample = { body: () => Record<string, unknown>; text: string[] };
+const BAD_TEXT = ["a\u0000b", "\u0000", "a\u0001b", "a\u007fb"];
+const vehicleText = () => ({ name: "Probe", brand: "Probe", model: "Probe", variant: "Probe", shortDescription: "Probe", description: "Probe",
+  transmission: "Probe", drive: "Probe", fuel: "Probe", color: "Probe", luggage: "Probe", priceUnit: "Probe",
+  features: [{ code: "probe", value: "Probe" }] });
+const vehicleTextPaths = ["fields.name", "fields.brand", "fields.model", "fields.variant", "fields.shortDescription", "fields.description",
+  "fields.transmission", "fields.drive", "fields.fuel", "fields.color", "fields.luggage", "fields.priceUnit", "fields.features.0.code", "fields.features.0.value"];
+const mutationSamples = (): Record<string, Sample> => {
+  const day = availabilityToday();
+  const common: Record<string, Sample> = {
+    "POST /vehicles/": { body: () => ({ fields: vehicleText() }), text: vehicleTextPaths },
+    "PATCH /vehicles/[id]/": { body: () => ({ expectedVersion: 0, fields: vehicleText() }), text: vehicleTextPaths },
+    "POST /vehicles/[id]/blocks/": { body: () => ({ fields: { from: day, to: day, type: "MAINTENANCE", reference: "Probe", internalNote: "Probe" } }),
+      text: ["fields.reference", "fields.internalNote"] },
+    "PATCH /vehicles/[id]/blocks/[blockId]/": { body: () => ({ expectedVersion: 0, fields: { reference: "Probe", internalNote: "Probe" } }),
+      text: ["fields.reference", "fields.internalNote"] },
+    "PATCH /vehicles/[id]/images/[imageId]/": { body: () => ({ expectedVersion: 0, alt: "Probe" }), text: ["alt"] },
+    "POST /chat/messages/": { body: () => ({ clientMessageId: randomUUID(), body: "Probe" }), text: ["body"] },
+  };
+  const samples: Record<string, Sample> = {};
+  for (const [key, sample] of Object.entries(common)) {
+    const [method, url] = key.split(" ");
+    samples[`${method} /api/admin${url}`] = sample;
+    samples[`${method} /api/platform/companies/[organizationId]${url}`] = sample;
+  }
+  const org = "/api/platform/companies/[organizationId]";
+  const event = () => randomUUID();
+  samples[`POST /api/platform/companies/`] = { body: () => ({ name: "Probe", slug: `probe-${tag}`, adminEmail: `probe-${tag}@example.test`,
+    trialGranted: true, paidThrough: null, idempotencyKey: event() }), text: ["name", "slug", "adminEmail"] };
+  samples[`PUT ${org}/domains/`] = { body: () => ({ hostname: "cars.example.com", expectedVersion: null, eventKey: event() }), text: ["hostname"] };
+  samples[`PATCH ${org}/public-media/[segment]/`] = { body: () => ({ expectedVersion: 0, eventKey: event(), alt: "Probe" }), text: ["alt"] };
+  samples[`PATCH ${org}/period/`] = { body: () => ({ paidThrough: day, expectedVersion: 0, eventKey: event() }), text: [] };
+  for (const [group, fields] of Object.entries({ profile: { name: "Probe", publicName: "Probe", shortDescription: "Probe", serviceArea: "Probe" },
+    contact: { phone: "+48500600700", email: "probe@example.test" }, address: { addressLine: "Probe", postalCode: "Probe", city: "Probe", country: "Probe", contactHours: "Probe" },
+    seo: { seoTitle: "Probe", seoDescription: "Probe" }, legal: { availabilityNotice: "Probe", privacyText: "Probe", termsText: "Probe", privacyUrl: "https://a.example/p" },
+    branding: { heroText: "Probe" }, operator: { operatorNote: "Probe" } })) {
+    samples[`PATCH ${org}/settings/#${group}`] = { body: () => ({ group, expectedVersion: 0, eventKey: event(), fields }),
+      text: Object.keys(fields).map((name) => `fields.${name}`) };
+  }
+  return samples;
+};
+// Mutations without any free text in the body: identifiers, versions, dates, uploads and empty bodies. The company
+// administrator's settings write is refused for the role (403) before any field is read; the platform one is probed.
+const withoutText = new Set([
+  "PATCH /api/admin/settings/",
+  "POST /api/admin/vehicles/[id]/[action]/", "DELETE /api/admin/vehicles/[id]/blocks/[blockId]/", "DELETE /api/admin/vehicles/[id]/images/[imageId]/",
+  "PUT /api/admin/vehicles/[id]/images/order/", "POST /api/admin/vehicles/[id]/images/", "POST /api/admin/vehicles/reorder/", "POST /api/admin/chat/conversation/",
+  "POST /api/platform/companies/[organizationId]/archive/", "POST /api/platform/companies/[organizationId]/restore/",
+  "POST /api/platform/companies/[organizationId]/public-unlock/", "DELETE /api/platform/companies/[organizationId]/domains/",
+  "POST /api/platform/companies/[organizationId]/domains/activate/", "POST /api/platform/companies/[organizationId]/domains/verify/",
+  "POST /api/platform/companies/[organizationId]/invitations/", "DELETE /api/platform/companies/[organizationId]/invitations/[invitationId]/",
+  "POST /api/platform/companies/[organizationId]/chat/conversation/", "POST /api/platform/companies/[organizationId]/vehicles/[id]/[action]/",
+  "DELETE /api/platform/companies/[organizationId]/vehicles/[id]/blocks/[blockId]/", "DELETE /api/platform/companies/[organizationId]/vehicles/[id]/images/[imageId]/",
+  "PUT /api/platform/companies/[organizationId]/vehicles/[id]/images/order/", "POST /api/platform/companies/[organizationId]/vehicles/[id]/images/",
+  "POST /api/platform/companies/[organizationId]/vehicles/reorder/", "POST /api/platform/companies/[organizationId]/public-media/[segment]/",
+  "DELETE /api/platform/companies/[organizationId]/public-media/[segment]/",
+]);
+
+function leaves(value: unknown, path: string[] = []): string[][] {
+  if (typeof value === "string") return [path];
+  if (Array.isArray(value)) return value.flatMap((item, index) => leaves(item, [...path, String(index)]));
+  if (value && typeof value === "object") return Object.entries(value).flatMap(([key, item]) => leaves(item, [...path, key]));
+  return [];
+}
+function withLeaf(body: Record<string, unknown>, path: string[], value: string) {
+  const copy = structuredClone(body) as Record<string, unknown>;
+  let node: any = copy; // eslint-disable-line @typescript-eslint/no-explicit-any
+  for (const key of path.slice(0, -1)) node = node[key];
+  node[path[path.length - 1]] = value;
+  return copy;
+}
+
+test("#176: NUL and control characters in the text of every authenticated mutation are a 400 field error, never a 500", async () => {
+  const samples = mutationSamples();
+  const mutations = privateRoutes().flatMap((route) => (Object.keys(route.methods) as (typeof METHODS)[number][])
+    .filter((method) => MUTATING.has(method)).map((method) => ({ route, method, key: `${method} ${route.url}` })));
+  // Inventory: every mutation is probed or classified; a stale classification is an error too.
+  const sampled = (key: string) => key.startsWith("PATCH ") && key.endsWith("/settings/") ? Object.keys(samples).filter((name) => name.startsWith(`${key}#`)) : samples[key] ? [key] : [];
+  expect(mutations.filter(({ key }) => !sampled(key).length && !withoutText.has(key)).map(({ key }) => key)).toEqual([]);
+  expect([...withoutText].filter((key) => !mutations.some((item) => item.key === key))).toEqual([]);
+  expect(mutations.filter(({ key }) => sampled(key).length && withoutText.has(key))).toEqual([]);
+  const failures: string[] = [];
+  let probes = 0;
+  // Company creation answers 503 without its base domains; set them so the body is really read and validated.
+  const savedDomains = [process.env.AUTERVA_ADMIN_BASE_DOMAIN, process.env.AUTERVA_PUBLIC_BASE_DOMAIN];
+  process.env.AUTERVA_ADMIN_BASE_DOMAIN = "panel.sec-probe.example.test";
+  process.env.AUTERVA_PUBLIC_BASE_DOMAIN = "sites.sec-probe.example.test";
+  try {
+  for (const { route, method, key } of mutations) {
+    for (const sampleKey of sampled(key)) {
+      const sample = samples[sampleKey];
+      const platform = route.group === "platform";
+      const own = platform ? host.platform : host.adminA;
+      const cookie = platform ? cookieSuper : cookieAdminA;
+      await resetBudgets();
+      const send = async (body: object) => {
+        const request = new Request(`http://${own}${fill(route, "a", method)}`, { method, body: JSON.stringify(body),
+          headers: { host: own, cookie, origin: `http://${own}`, "content-type": "application/json" } });
+        const reply = await runWithTrustedClientAddress(`10.${randomBytes(3).join(".")}`, async () =>
+          route.methods[method]!(request, { params: Promise.resolve(params("a", route, method)) }));
+        observed.push({ label: key, status: reply.status, text: await reply.clone().text() });
+        return reply;
+      };
+      for (const path of leaves(sample.body())) {
+        const dotted = path.join(".");
+        const free = sample.text.includes(dotted);
+        for (const bad of free ? BAD_TEXT : [BAD_TEXT[0]]) {
+          probes++;
+          const reply = await send(withLeaf(sample.body(), path, bad));
+          const text = await reply.clone().text();
+          if (reply.status >= 500 || reply.status < 400 || (free && reply.status !== 400)) failures.push(`${sampleKey} ${dotted} ${JSON.stringify(bad)} -> ${reply.status} ${text.slice(0, 80)}`);
+        }
+      }
+    }
+  }
+  } finally {
+    for (const [name, saved] of [["AUTERVA_ADMIN_BASE_DOMAIN", savedDomains[0]], ["AUTERVA_PUBLIC_BASE_DOMAIN", savedDomains[1]]] as const) {
+      if (saved === undefined) delete process.env[name]; else process.env[name] = saved;
+    }
+  }
+  expect(probes).toBeGreaterThan(150);
+  expect(failures).toEqual([]);
+}, 600_000);

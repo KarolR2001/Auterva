@@ -5,17 +5,18 @@ import { appendAudit } from "@/modules/audit/append";
 import { requireAuditActor } from "@/modules/audit/actor";
 import { lockCompanyForWrite } from "@/modules/organizations/write-lock";
 import { checkOperation, lockVehicle, type Operation } from "@/modules/fleet/mutations";
+import { hasControlCharacter } from "@/lib/text-policy";
 import { localDate, sqlDate } from "./dates";
 
 import { blockTypeLabels, blockTypes, type BlockType } from "./block-types";
 export { blockTypeLabels, blockTypes, type BlockType };
 
 const uuid = z.uuid();
-const optionalText = (max: number) => z.string().trim().max(max)
-  .refine((value) => !value.includes("\u0000")).transform((value) => value || null).nullable();
+const optionalText = (max: number, multiline = false) => z.string().trim().max(max)
+  .refine((value) => !hasControlCharacter(value, multiline)).transform((value) => value || null).nullable();
 const dateField = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const createFields = z.object({ from: dateField, to: dateField, type: z.enum(blockTypes),
-  reference: optionalText(120).optional(), internalNote: optionalText(2000).optional() }).strict();
+  reference: optionalText(120).optional(), internalNote: optionalText(2000, true).optional() }).strict();
 const editFields = createFields.partial().strict();
 export type BlockCreateFields = z.input<typeof createFields>;
 export type BlockEditFields = z.input<typeof editFields>;

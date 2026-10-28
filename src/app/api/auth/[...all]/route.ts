@@ -5,6 +5,7 @@ import { auth, createAuth } from "@/lib/auth";
 import { getServerEnv } from "@/lib/env";
 import { recordVerifiedMfaSession, sessionFromResponse } from "@/lib/mfa-session";
 import { prisma } from "@/lib/prisma";
+import { hasControlCharacter } from "@/lib/text-policy";
 import { requireAuthorizedActor, requireScopedActor, resolveAuthHost } from "@/modules/auth/authorization";
 import { MfaFactorBusyError, withMfaFactorLock } from "@/modules/auth/mfa-factor-lock";
 import { completeAuthAttempt, reserveAuthAttempt, takeRateLimit } from "@/modules/auth/rate-limit";
@@ -49,7 +50,7 @@ const mfaRetry = () => Response.json({ code: "MFA_RETRY" }, { status: 503, heade
 const resetRequestBody = z.object({ email: z.email().max(254), idempotencyKey: z.uuid() }).strict();
 const resetBody = z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
   newPassword: z.string().min(12).max(256) }).strict();
-const profileBody = z.object({ name: z.string().trim().min(1).max(100) }).strict();
+const profileBody = z.object({ name: z.string().trim().min(1).max(100).refine((value) => !hasControlCharacter(value)) }).strict();
 const passwordChangeBody = z.object({ currentPassword: z.string().min(1).max(256),
   newPassword: z.string().min(12).max(256) }).strict();
 const signInBody = z.object({ email: z.email(), password: z.string().max(256) }).strict();
