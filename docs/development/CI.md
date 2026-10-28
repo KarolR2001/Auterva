@@ -1,6 +1,6 @@
 # CI aplikacji, obrazy i preview (#10, D-16)
 
-Zakres według decyzji D-16: bezpłatne elementy (GitHub Actions, obrazy, opis preview). Płatny staging i produkcja nie są częścią tego dokumentu i wymagają osobnej zgody (#90). Nic tu nie wdraża usług ani nie tworzy kont.
+Zakres według decyzji D-16: bezpłatne elementy (GitHub Actions, obrazy, opis preview). Płatny staging i produkcja nie są częścią tego dokumentu i wymagają osobnej zgody (#90). Nic tu nie wdraża usług ani nie tworzy kont. Workflow jest obecnie wyłączony przez właściciela; do jego włączenia obowiązuje [tryb lokalny](#tryb-lokalny-d-29) (D-29).
 
 ## Workflow `.github/workflows/ci.yml`
 
@@ -31,7 +31,7 @@ Przy porażce `Integration` i `Build and E2E` zapisują artefakty na 7 dni: rapo
 
 ### Testy bezpieczeństwa (#57)
 
-`pnpm test:unit` i `pnpm test:integration` obejmują `tests/integration/security-regression.test.ts` (macierz negatywna po wszystkich handlerach `src/app/api` na PostgreSQL, firmy A/B, sesje z MFA i bez), a `Build and E2E` uruchamia `tests/e2e/security-headers.spec.ts` na zbudowanej aplikacji (nagłówki, CSP z nonce w Chromium, siostrzana subdomena, ograniczone ciała, ciasteczka, skan bundla pod kątem sekretów). Macierz kontroli, lista przypadków pentestu staging (`not-run`, #90) i znaleziska są w [OWASP_CONTROLS](../security/OWASP_CONTROLS.md). Lokalnie gitleaks nie jest instalowany; skan sekretów wykonuje tylko job `Secret scan`.
+`pnpm test:unit` i `pnpm test:integration` obejmują `tests/integration/security-regression.test.ts` (macierz negatywna po wszystkich handlerach `src/app/api` na PostgreSQL, firmy A/B, sesje z MFA i bez), a `Build and E2E` uruchamia `tests/e2e/security-headers.spec.ts` na zbudowanej aplikacji (nagłówki, CSP z nonce w Chromium, siostrzana subdomena, ograniczone ciała, ciasteczka, skan bundla pod kątem sekretów). Macierz kontroli, lista przypadków pentestu staging (`not-run`, #90) i znaleziska są w [OWASP_CONTROLS](../security/OWASP_CONTROLS.md). Skan sekretów wykonuje job `Secret scan`, a w trybie lokalnym (D-29) ten sam gitleaks 8.30.1 na pełnej historii.
 
 ### Przypięcie akcji
 
@@ -59,7 +59,18 @@ Ochrona gałęzi i rulesets w prywatnym repozytorium wymagają GitHub Pro albo r
    - `Container images build (web)`, `Container images build (ws)`, `Container images build (worker)`, `Container images build (media-worker)`
 3. Zakaz force push i usuwania `main`.
 
-Checki pojawiają się na liście wyboru dopiero po przebiegu na tym repozytorium. Zmiana nazwy joba wymaga aktualizacji listy. Do tego czasu obowiązuje rzeczywisty CR i QA według workflow oraz sprawdzenie zielonego przebiegu przed merge (`gh pr checks`).
+Checki pojawiają się na liście wyboru dopiero po przebiegu na tym repozytorium. Zmiana nazwy joba wymaga aktualizacji listy. Do tego czasu obowiązuje rzeczywisty CR i QA według workflow oraz sprawdzenie zielonego przebiegu przed merge (`gh pr checks`), a przy wyłączonym workflow wynik [trybu lokalnego](#tryb-lokalny-d-29) zapisany w PR.
+
+## Tryb lokalny (D-29)
+
+Gdy workflow `CI` jest wyłączony, przed merge te same joby uruchamia lokalnie orkiestrator, na drzewie kandydata: head PR zawierający aktualny `main`. Wykonawca może je uruchomić wcześniej, ale wynik przed merge potwierdza orkiestrator.
+
+- Wymagania jednorazowe: `scripts/local-fixture.sh install`, lokalne środowisko kontenerów z `docker` i `buildx` (np. Colima) oraz gitleaks 8.30.1 (wersja jak `GITLEAKS_VERSION` w `ci.yml`).
+- Uruchomienie: `scripts/ci-local.sh <LOCAL_PORT_BASE> <plik-wyniku>`. Skrypt wykonuje joby `ci.yml` w tej samej kolejności i z tymi samymi zmiennymi. `prisma validate`, lint, typecheck i unit z wartościami zastępczymi z `ci.yml` w czystym, tymczasowym worktree (jak świeży checkout CI, bez `.env` i `.env.local`). Integracja i build z E2E na świeżej fixture: `seed-local-fixture --reset` usuwa schemat tej fixture i stosuje migracje od zera. Dalej gitleaks na pełnej historii z `--redact`, `pnpm audit --prod --audit-level high` oraz `docker build --target` dla `web`, `ws`, `worker` i `media-worker`. Logi trafiają do `.local/ci-local/`, a kod wyjścia jest niezerowy przy dowolnym `FAIL`.
+- Skutki uboczne: przebieg resetuje i na końcu zatrzymuje fixture tego worktree, więc lokalne dane deweloperskie przepadają. E2E wymaga wolnych portów 3305–3307, dlatego naraz działa jeden przebieg. Skrypt odmawia nadpisania śledzonego pliku wyniku i startu przy zmienionym `next-env.d.ts`.
+- Wynik w PR: head SHA, base `main`, wersje narzędzi (Node, gitleaks, `pg_dump`, Docker z platformą) i tabela dziewięciu nazw jobów z `PASS`/`FAIL` oraz liczbą testów; plik wyniku zawiera je w tej postaci. Brak lub `FAIL` dowolnej pozycji blokuje merge.
+- Potwierdzenie na `main` po merge: drzewo commita merge równe sprawdzonemu drzewu kandydata. Inaczej tryb lokalny uruchamia się ponownie na `main`.
+- Różnice środowiska: macOS zamiast `ubuntu-24.04`, a obrazy budują się dla architektury hosta (na Apple Silicon `linux/arm64`). Budowa `linux/amd64` dla docelowego dostawcy należy do odbioru stagingu (#90).
 
 ## Obrazy
 
