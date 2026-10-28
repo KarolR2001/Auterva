@@ -3,6 +3,29 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 59,
+      "scope": "Pomiar obciążenia profilu P1 (zatwierdzony) i P2 (proponowany w #90), indeks i zapytanie sprawdzenia dostępności, rzut kalendarza; harness poza zwykłymi testami (pnpm perf:*), staging i profil wielu firm not-run.",
+      "relatedRequirementIds": ["NFR-PERF-002", "C-N060", "C-N062", "C-N066", "D-15"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "prisma/migrations/20261028120000_availability_latest_block_issue_59/migration.sql",
+        "prisma/schema.prisma",
+        "src/modules/availability/read.ts",
+        "scripts/perf/generate-data.ts",
+        "scripts/perf/generate.ts",
+        "scripts/perf/measure.ts",
+        "scripts/perf/run.ts",
+        "scripts/perf/ws-phase.ts",
+        "scripts/perf/explain.ts",
+        "scripts/perf/report.ts",
+        "scripts/perf/legacy-availability.ts",
+        "scripts/perf/target.ts",
+        "docs/performance/PERF_REPORT.md",
+        "docs/contracts/availability-reads.md"
+      ],
+      "testPaths": ["tests/integration/availability-query-regression.test.ts", "tests/unit/perf-generator.test.ts"]
+    },
+    {
       "issue": 150,
       "scope": "Budżet odczytu superadmina (D-19): jeden klucz api:read:{actor}:platform we wszystkich firmach i w prywatnym kalendarzu, administratorzy z osobnymi licznikami oraz osobny konfigurowalny budżet pobierania bajtów zdjęć w panelu i preview (AUTERVA_MEDIA_RATE_LIMIT, domyślnie 600/min, błędna wartość to błąd startu).",
       "relatedRequirementIds": ["D-04", "D-19"],

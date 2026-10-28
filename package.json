@@ -23,6 +23,10 @@
     "db:migrate": "prisma migrate dev",
     "dev:ws": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local src/server/realtime.ts",
     "dev:worker": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local src/server/worker.ts",
+    "perf:generate": "tsx scripts/perf/generate.ts",
+    "perf:run": "tsx scripts/perf/run.ts",
+    "perf:explain": "tsx scripts/perf/explain.ts",
+    "perf:report": "tsx scripts/perf/report.ts",
     "dev:media-worker": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local src/server/media-worker.ts",
     "dev:ops-monitor": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local src/server/ops-monitor.ts"
   },

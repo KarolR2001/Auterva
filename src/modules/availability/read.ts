@@ -1,4 +1,4 @@
-import type { Prisma } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { resolvePublicVisibility } from "@/modules/service-period/public";
 import { blockTypeLabels, type BlockType } from "./block-types";
@@ -17,6 +17,32 @@ export function availabilityVehicleWhere(
   };
 }
 
+/**
+ * Ids (among `ids`) of the company's vehicles that are available for the whole inclusive range: inside the
+ * activity and without a block that intersects it. Same rule as `availabilityVehicleWhere`, written so that one
+ * indexed lookup per vehicle decides the block test (#59): blocks of a vehicle never overlap (GiST exclusion
+ * constraint `availability_no_overlap`), so a block intersects [from, to] exactly when the block with the latest
+ * start not after `to` ends on or after `from`. `AvailabilityBlock_vehicleId_from_idx` serves that lookup in
+ * O(log n) instead of filtering every block of the vehicle. Always reads the database; nothing is cached.
+ */
+export async function availableVehicleIds(db: PrismaClient, organizationId: string, ids: string[],
+  range: AvailabilityRange, publishedOnly: boolean): Promise<Set<string>> {
+  if (!ids.length) return new Set();
+  const rows = await db.$queryRaw<{ id: string }[]>(Prisma.sql`
+    SELECT v.id FROM "Vehicle" v
+     WHERE v."organizationId" = ${organizationId}::uuid AND v.id = ANY(${ids}::uuid[])
+       ${publishedOnly ? Prisma.sql`AND v.status = 'PUBLISHED'` : Prisma.empty}
+       AND v."availableFrom" <= ${range.from}::date
+       AND (v."availableTo" IS NULL OR v."availableTo" >= ${range.to}::date)
+       AND NOT EXISTS (
+         SELECT 1 FROM (
+           SELECT b."to" FROM "AvailabilityBlock" b
+            WHERE b."vehicleId" = v.id AND b."organizationId" = v."organizationId" AND b."from" <= ${range.to}::date
+            ORDER BY b."from" DESC LIMIT 1) latest
+          WHERE latest."to" >= ${range.from}::date)`);
+  return new Set(rows.map(({ id }) => id));
+}
+
 /** Private result includes draft vehicles but never a vehicle from another company. */
 export async function findPrivateAvailability(
   db: PrismaClient, organizationId: string, vehicleIds: string[], range: AvailabilityRange,
@@ -25,9 +51,7 @@ export async function findPrivateAvailability(
   if (ids.length > 100) throw new Error("AVAILABILITY_BATCH_TOO_LARGE");
   if (!ids.length) return new Map();
   const owned = await db.vehicle.findMany({ where: { organizationId, id: { in: ids } }, select: { id: true } });
-  const available = await db.vehicle.findMany({ where: { ...availabilityVehicleWhere(organizationId, range), id: { in: ids } },
-    select: { id: true } });
-  const availableIds = new Set(available.map(({ id }) => id));
+  const availableIds = await availableVehicleIds(db, organizationId, owned.map(({ id }) => id), range, false);
   return new Map(owned.map(({ id }) => [id, availableIds.has(id)]));
 }
 
@@ -46,8 +70,8 @@ export async function getPublicAvailability(
 ): Promise<{ available: boolean } | null> {
   const vehicle = await publicVehicle(db, authority, slug, now);
   if (!vehicle) return null;
-  const available = await db.vehicle.count({ where: { ...availabilityVehicleWhere(vehicle.organizationId, range, true), id: vehicle.id } });
-  return { available: available === 1 };
+  const available = await availableVehicleIds(db, vehicle.organizationId, [vehicle.id], range, true);
+  return { available: available.has(vehicle.id) };
 }
 
 /** Public batch omits every slug that is not a currently published resource on this host. */
@@ -59,12 +83,8 @@ export async function getPublicBatchAvailability(
   if (!slugs.length) return { results: [] };
   const visible = await db.vehicle.findMany({ where: { organizationId: visibility.organizationId,
     slug: { in: slugs }, status: "PUBLISHED" }, select: { id: true, slug: true } });
-  const available = await db.vehicle.findMany({ where: {
-    ...availabilityVehicleWhere(visibility.organizationId, range, true),
-    id: { in: visible.map(({ id }) => id) },
-  }, select: { id: true } });
+  const availableIds = await availableVehicleIds(db, visibility.organizationId, visible.map(({ id }) => id), range, true);
   const visibleBySlug = new Map(visible.map((vehicle) => [vehicle.slug, vehicle]));
-  const availableIds = new Set(available.map(({ id }) => id));
   return { results: slugs.flatMap((slug) => {
     const vehicle = visibleBySlug.get(slug);
     return vehicle ? [{ slug, available: availableIds.has(vehicle.id) }] : [];
@@ -75,9 +95,11 @@ function calendarDays(range: AvailabilityRange, activity: { availableFrom: Date 
   blocks: { from: Date; to: Date }[]) {
   const start = activity.availableFrom ? localDate(activity.availableFrom) : null;
   const end = activity.availableTo ? localDate(activity.availableTo) : null;
+  // Format each block once (#59): converting inside the per-day loop cost about 365 x blocks Date formattings.
+  const spans = blocks.map((block) => ({ from: localDate(block.from), to: localDate(block.to) }));
   return enumerateAvailabilityDays(range).map((date) => ({ date,
     available: start !== null && date >= start && (end === null || date <= end)
-      && !blocks.some((block) => localDate(block.from) <= date && localDate(block.to) >= date),
+      && !spans.some((span) => span.from <= date && span.to >= date),
   }));
 }
 
