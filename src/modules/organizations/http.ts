@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { InvalidCharactersError } from "@/lib/text-policy";
 import { requireAuthorizedActor } from "@/modules/auth/authorization";
 import { parseHostAuthority } from "@/modules/tenancy/host-registry";
 import { resolveRequestArea } from "@/modules/tenancy/request-context";
@@ -46,6 +47,7 @@ export async function readOnboardingBody(request: Request): Promise<Record<strin
 }
 
 export function onboardingFailure(error: unknown, requestId: string): Response {
+  if (error instanceof InvalidCharactersError) return onboardingResponse({ code: "INVALID_INPUT", fieldErrors: error.fieldErrors }, 400, requestId);
   const code = error instanceof Error ? error.message : "";
   if (["COMPANY_INVALID_INPUT", "COMPANY_INVALID_HOST", "INVITATION_INVALID_INPUT", "INVITATION_INVALID_HOST"].includes(code))
     return onboardingResponse({ code: "INVALID_INPUT" }, 400, requestId);
