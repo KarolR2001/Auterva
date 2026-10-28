@@ -678,6 +678,40 @@ test("N1/U1: live disabledAt wins for existing users in both directions; a recre
   await live.query(`DELETE FROM "user" WHERE id = ANY($1::text[])`, [[u1, u2, u3]]);
 });
 
+test("N-b: an account locked by one restore stays unlockable after a later backup and restore; a manually re-disabled account does not return to the list", async () => {
+  const { createPrismaClient } = await import("../../src/lib/prisma");
+  const { recoverMfaByOperator } = await import("../../scripts/recover-mfa");
+  const x = `bk-nb-${tag}`; const email = `bk-nb-${tag}@example.test`;
+  const lockedOf = async () => ((await live.query(`SELECT "safeChanges" FROM "AuditLog" WHERE "organizationId" = $1 AND action = 'COMPANY_RESTORED_FROM_BACKUP'
+    ORDER BY "createdAt" DESC, id DESC LIMIT 1`, [A])).rows[0].safeChanges.lockedUserIds as string[]);
+  await live.query(`UPDATE "user" SET "disabledAt" = now() WHERE "organizationId" = $1`, [A]);
+  await insertUser(x, email, false);
+  const b1 = await createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" });
+  await live.query(`DELETE FROM "user" WHERE id = $1`, [x]);
+  // R1 recreates X locked.
+  expect((await restoreCompany({ backupDir: b1.dir, key, organizationId: A, targetUrl: databaseUrl, repoDir, operatorId: operator, storage })).usersLocked).toContain(x);
+  // B2 is taken while X is locked (disabled, no credential); X is then lost again and R2 restores B2.
+  const b2 = await createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" });
+  await live.query(`DELETE FROM "user" WHERE id = $1`, [x]);
+  const r2 = await restoreCompany({ backupDir: b2.dir, key, organizationId: A, targetUrl: databaseUrl, repoDir, operatorId: operator, storage });
+  expect(r2.usersLocked).toContain(x);
+  expect(await lockedOf()).toContain(x);
+  const db = createPrismaClient(databaseUrl);
+  try {
+    const recovered = await recoverMfaByOperator(db, { operatorId: operator, targetEmail: email, verifiedChannel: "agreed-channel",
+      evidenceReference: `ticket:bk-nb-${tag}`, identityConfirmed: true });
+    expect(recovered.restoreUnlocked).toBe(true);
+    // Disabled by hand afterwards (it now has a credential password): a further restore does not list it again.
+    await live.query(`UPDATE "user" SET "disabledAt" = now() WHERE id = $1`, [x]);
+    const r3 = await restoreCompany({ backupDir: b2.dir, key, organizationId: A, targetUrl: databaseUrl, repoDir, operatorId: operator, storage });
+    expect(r3.usersLocked).not.toContain(x);
+    expect(await lockedOf()).not.toContain(x);
+  } finally {
+    await db.$disconnect();
+  }
+  await live.query(`DELETE FROM "user" WHERE id = $1`, [x]);
+});
+
 test("N2: a deadlock or lock timeout during the restore is RESTORE_CONFLICT and leaves the company unchanged", async () => {
   const { dir } = await createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" });
   const control = await connect(withDatabase(sharedUrl, "postgres"));

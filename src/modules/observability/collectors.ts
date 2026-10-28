@@ -1,7 +1,7 @@
 import type { PrismaClient } from "@/generated/prisma/client";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { auditRetentionCutoff } from "@/modules/audit/retention";
+import { auditRetentionCutoff, unlockBasis } from "@/modules/audit/retention";
 import { listMigrationDirs } from "./health";
 import { log } from "./log";
 import { metrics, type MetricsRegistry } from "./metrics";
@@ -19,6 +19,7 @@ export const metricNames = {
   jobsTerminalFailures: "auterva_jobs_terminal_failures",
   jobsExhausted: "auterva_jobs_exhausted",
   auditOverdue: "auterva_audit_retention_overdue_seconds",
+  auditHeldUnlockBasis: "auterva_audit_held_unlock_basis",
   auditLastSuccessAge: "auterva_audit_retention_last_success_age_seconds",
   exportFailures: "auterva_audit_export_failures_24h",
   exportCleanupOverdue: "auterva_audit_export_cleanup_overdue",
@@ -68,7 +69,10 @@ export async function collectJobMetrics(db: Db, now: Date, registry: MetricsRegi
 export async function collectAuditMetrics(db: Db, now: Date, registry: MetricsRegistry = metrics): Promise<void> {
   await guarded("audit", registry, async () => {
     const cutoff = auditRetentionCutoff(now);
-    const [oldestEntry] = await db.$queryRaw<Array<{ oldest: Date | null }>>`SELECT MIN("createdAt") AS oldest FROM "AuditLog"`;
+    const [oldestEntry] = await db.$queryRaw<Array<{ oldest: Date | null }>>`SELECT MIN(a."createdAt") AS oldest FROM "AuditLog" a WHERE NOT ${unlockBasis}`;
+    // Restore entries kept past the cutoff as the operator unlock basis are excluded from the delay and counted here.
+    const [held] = await db.$queryRaw<Array<{ n: bigint }>>`SELECT COUNT(*) AS n FROM "AuditLog" a WHERE a."createdAt" < ${cutoff} AND ${unlockBasis}`;
+    registry.set(metricNames.auditHeldUnlockBasis, "Audit entries older than the cutoff kept as restore unlock basis", Number(held?.n ?? 0));
     // Entries older than the cutoff exist until the daily purge removes them; the age past the cutoff is the delay.
     const overdue = oldestEntry?.oldest && oldestEntry.oldest < cutoff ? (cutoff.getTime() - oldestEntry.oldest.getTime()) / 1000 : 0;
     registry.set(metricNames.auditOverdue, "Seconds the oldest audit entry is past the 365-day cutoff", overdue);
