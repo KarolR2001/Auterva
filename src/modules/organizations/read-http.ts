@@ -6,6 +6,7 @@ import { requireAuthorizedActor } from "@/modules/auth/authorization";
 import { takeAuthenticatedApiLimit } from "@/modules/tenancy/api-rate-limit";
 import { resolveRequestArea } from "@/modules/tenancy/request-context";
 import { getPlatformCompany, listPlatformCompanies } from "./read";
+import { reportInternalError } from "@/modules/observability/http-observe";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -48,7 +49,7 @@ export async function platformCompanyList(request: Request): Promise<Response> {
     const result = await listPlatformCompanies(prisma, { search, includeArchived: archive === "true",
       page, pageSize }, new Date());
     return respond(result, 200, requestId);
-  } catch { return respond({ code: "INTERNAL_ERROR" }, 500, requestId); }
+  } catch (error) { return respond({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "companies.read")); }
 }
 
 export async function platformCompanyDetail(request: Request, organizationId: string): Promise<Response> {
@@ -60,5 +61,5 @@ export async function platformCompanyDetail(request: Request, organizationId: st
     if (new URL(request.url).search) return respond({ code: "INVALID_INPUT" }, 400, requestId);
     const result = await getPlatformCompany(prisma, organizationId, new Date());
     return result ? respond(result, 200, requestId) : respond({ code: "NOT_FOUND" }, 404, requestId);
-  } catch { return respond({ code: "INTERNAL_ERROR" }, 500, requestId); }
+  } catch (error) { return respond({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "companies.read")); }
 }

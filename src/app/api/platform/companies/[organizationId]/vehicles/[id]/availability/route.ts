@@ -1,7 +1,10 @@
+import { routeContext } from "@/modules/observability/route-context";
 import { privateCalendar } from "@/modules/availability/http";
 
 export const runtime = "nodejs";
-export async function GET(request: Request, context: { params: Promise<{ organizationId: string; id: string }> }) {
+async function handleGET(request: Request, context: { params: Promise<{ organizationId: string; id: string }> }) {
   const { organizationId, id } = await context.params;
   return privateCalendar(request, id, "PLATFORM", organizationId);
 }
+
+export const GET = routeContext(handleGET);

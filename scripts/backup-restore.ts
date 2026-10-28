@@ -9,6 +9,7 @@ if (process.env.AUTERVA_FIXTURE === "1" && existsSync(".local/fixture-9/secrets.
   loadEnv({ path: ".local/fixture-9/secrets.env", quiet: true });
 }
 
+const { updateBackupStatus } = await import("../src/modules/observability/backup-status");
 const { createMediaStorage } = await import("../src/modules/media/storage");
 const { RETENTION_DAYS, backupAge, createBackup, pruneBackups } = await import("../src/modules/backup/backup");
 const { restoreFull } = await import("../src/modules/backup/restore");
@@ -22,6 +23,7 @@ const options = Object.fromEntries(rest.filter((arg) => arg.startsWith("--") && 
   .map((arg) => [arg.slice(2, arg.indexOf("=")), arg.slice(arg.indexOf("=") + 1)]));
 const repoDir = resolve(".");
 const outDir = resolve(options.dir ?? process.env.BACKUP_DIR ?? ".local/backups");
+const statusFile = process.env.OPS_BACKUP_STATUS_FILE;
 const print = (value: unknown) => process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
 
 function commit(): string {
@@ -42,6 +44,9 @@ try {
     const storage = process.env.S3_BUCKET ? createMediaStorage(process.env) : null;
     const started = Date.now();
     const { dir, manifest } = await createBackup({ databaseUrl: need("DATABASE_URL", process.env.DATABASE_URL), outDir, key, storage, commit: commit() });
+    await updateBackupStatus(statusFile, { lastRunAt: new Date().toISOString(), lastRunOk: manifest.complete,
+      lastErrorCode: manifest.complete ? null : "BACKUP_MEDIA_INCOMPLETE",
+      ...(manifest.complete ? { newestCompleteAt: manifest.createdAt } : {}) });
     print({ id: manifest.id, dir, createdAt: manifest.createdAt, complete: manifest.complete, latestMigration: manifest.migrations.latest,
       tables: Object.keys(manifest.tables).length, mediaObjects: manifest.media.objects.length, ms: Date.now() - started });
   } else if (command === "verify") {
@@ -70,6 +75,7 @@ try {
   } else if (command === "age") {
     // Alarm source: exit 2 when no complete backup is newer than the 24 h objective minus one hour.
     const age = await backupAge(outDir, key);
+    await updateBackupStatus(statusFile, { newestCompleteAt: age ? new Date(Date.now() - age.ageHours * 3_600_000).toISOString() : null });
     print(age ?? { stale: true, reason: "NO_COMPLETE_BACKUP" });
     if (!age || age.stale) process.exitCode = 2;
   } else if (command === "prune") {
@@ -79,5 +85,9 @@ try {
   }
 } catch (error) {
   process.stderr.write(`${(error as { code?: string }).code ?? "BACKUP_FAILED"}: ${(error as Error).message}\n`);
+  if (command === "backup") {
+    await updateBackupStatus(statusFile, { lastRunAt: new Date().toISOString(), lastRunOk: false,
+      lastErrorCode: (error as { code?: string }).code ?? "BACKUP_FAILED" }).catch(() => undefined);
+  }
   process.exitCode = process.exitCode || 1;
 }

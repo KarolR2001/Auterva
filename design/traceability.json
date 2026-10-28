@@ -922,6 +922,38 @@
         "tests/unit/backup-crypto.test.ts",
         "tests/integration/backup-restore.test.ts"
       ]
+    },
+    {
+      "issue": 58,
+      "scope": "Structured logs z redakcją, liveness/readiness (DB, storage, kolejka, migracje), metryki Prometheus za tokenem, reguły alertów jako kod z histerezą i ochroną przed lawiną, monitor z lokalnym dostarczeniem (plik, Mailpit), sygnały #108 i backup #60, runbook z właścicielami D-10. Dashboard u dostawcy, paging i odbiór #108 na adapterze docelowym not-run (#90).",
+      "relatedRequirementIds": [
+        "C-N020",
+        "C-N037",
+        "C-N059",
+        "C-N060",
+        "D-10",
+        "D-16"
+      ],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/observability/",
+        "src/instrumentation.ts",
+        "src/app/api/health/",
+        "src/server/ops-monitor.ts",
+        "src/server/worker.ts",
+        "src/server/realtime.ts",
+        "docs/contracts/monitoring-alerts.md",
+        "docs/runbooks/monitoring-incidents.md"
+      ],
+      "testPaths": [
+        "tests/unit/observability-redaction.test.ts",
+        "tests/unit/observability-metrics.test.ts",
+        "tests/unit/observability-health.test.ts",
+        "tests/unit/observability-alerts.test.ts",
+        "tests/integration/ops-monitoring.test.ts",
+        "tests/integration/log-actor-context.test.ts",
+        "tests/e2e/auth-production.spec.ts"
+      ]
     }
   ],
   "sources": [

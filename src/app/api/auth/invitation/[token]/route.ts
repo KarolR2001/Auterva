@@ -1,3 +1,4 @@
+import { routeContext } from "@/modules/observability/route-context";
 import { prisma } from "@/lib/prisma";
 import { createHmac, randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -11,6 +12,7 @@ import { currentTrustedClientAddress } from "@/modules/ingress/client-address";
 import { parseHostAuthority } from "@/modules/tenancy/host-registry";
 import { MAX_AUTH_BODY_BYTES, readJsonBody } from "@/modules/tenancy/json-body";
 import { resolveRequestArea } from "@/modules/tenancy/request-context";
+import { reportInternalError } from "@/modules/observability/http-observe";
 
 const bodySchema = z.object({ password: z.string().min(12).max(256) }).strict();
 
@@ -26,7 +28,7 @@ function sameOrigin(request: Request, authority: string): boolean {
   } catch { return false; }
 }
 
-export async function GET(request: Request, context: { params: Promise<{ token: string }> }) {
+async function handleGET(request: Request, context: { params: Promise<{ token: string }> }) {
   const requestId = onboardingRequestId();
   const respond = (body: object, status: number, retryAfter?: number) => {
     const response = onboardingResponse(body, status, requestId, retryAfter);
@@ -50,12 +52,13 @@ export async function GET(request: Request, context: { params: Promise<{ token: 
     const invitation = await inspectCompanyInvitation(prisma, { token, hostname: host.hostname, now: new Date() });
     return respond(invitation?.organizationId === area.organizationId
       ? invitation : { code: "NOT_FOUND" }, invitation?.organizationId === area.organizationId ? 200 : 404);
-  } catch {
+  } catch (error) {
+    reportInternalError(error, requestId, "invitation");
     return respond({ code: "INTERNAL_ERROR" }, 500);
   }
 }
 
-export async function POST(request: Request, context: { params: Promise<{ token: string }> }) {
+async function handlePOST(request: Request, context: { params: Promise<{ token: string }> }) {
   const requestId = randomUUID();
   const respond = (body: object, status: number, retryAfter?: number) => {
     const response = onboardingResponse(body, status, requestId, retryAfter);
@@ -88,7 +91,11 @@ export async function POST(request: Request, context: { params: Promise<{ token:
       password: parsed.data.password, requestId });
     return activated?.organizationId === area.organizationId
       ? respond(activated, 200) : respond({ code: "NOT_FOUND" }, 404);
-  } catch {
+  } catch (error) {
+    reportInternalError(error, requestId, "invitation");
     return respond({ code: "INTERNAL_ERROR" }, 500);
   }
 }
+
+export const GET = routeContext(handleGET);
+export const POST = routeContext(handlePOST);

@@ -3,6 +3,7 @@ import { prisma } from "./lib/prisma";
 import { isCustomDomainHost, resolveAliasRedirect } from "./modules/domains/routing";
 import { parseHostAuthority, resolveHostMapping } from "./modules/tenancy/host-registry";
 import { routeAllowedForArea } from "./modules/tenancy/host-route-policy";
+import { countRequest } from "./modules/observability/http-observe";
 import { documentCsp, isDocumentPath, newNonce } from "./modules/tenancy/csp";
 import { bodyLimitForPath } from "./modules/tenancy/json-body";
 import { withErrorRequestId } from "./modules/tenancy/request-id";
@@ -21,7 +22,9 @@ export async function proxy(request: NextRequest) {
       return withErrorRequestId(NextResponse.json({ code: "PAYLOAD_TOO_LARGE" }, { status: 413, headers: { "Cache-Control": "no-store" } }));
     }
   }
-  if (request.nextUrl.pathname.replace(/\/$/, "") === "/api/health") return NextResponse.next();
+  // Probes and the token-protected metrics endpoint are host-independent; each handler enforces its own access (#58).
+  if (/^\/api\/health(?:\/(?:live|ready|metrics))?$/.test(request.nextUrl.pathname.replace(/\/$/, ""))) return NextResponse.next();
+  countRequest(request);
   const authority = request.headers.get("host");
   const refuse = () => withErrorRequestId(new NextResponse(null, { status: 404, headers: { "Cache-Control": "no-store" } }));
   // A custom host must answer the routing probe before it is active; the probe never exposes company data.

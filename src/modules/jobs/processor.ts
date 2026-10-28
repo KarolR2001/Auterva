@@ -4,6 +4,8 @@ import { normalizeHostname } from "@/modules/tenancy/host-registry";
 import { isReminderIntentCurrent } from "@/modules/reminders/current";
 import { decryptMailPayload, isCurrentReminderRecipient, type MailPayload } from "./outbox";
 import { failJob, quarantineMailJob, startMailAttempt, type ClaimedJob } from "./queue";
+import { currentLogContext } from "@/modules/observability/log";
+import { metrics, names } from "@/modules/observability/metrics";
 
 export type MailProviderResult = { kind: "accepted"; providerId: string } |
   { kind: "transient" | "permanent" };
@@ -88,6 +90,7 @@ export async function processClaimedJob(db: PrismaClient, claim: ClaimedJob, con
   for (let attempt = 0; attempt < 4; attempt++) {
     const job = await db.job.findUnique({ where: { id: claim.id } });
     if (!job || job.status !== "RUNNING" || job.leaseToken !== claim.leaseToken) return;
+    if (job.organizationId) currentLogContext().organizationId = job.organizationId;
     if (attempt === 0) await context.afterPayloadRead?.();
     let code: string | null = null;
     let mail: MailPayload | null = null;
@@ -118,6 +121,7 @@ export async function processClaimedJob(db: PrismaClient, claim: ClaimedJob, con
   let result: MailProviderResult;
   try { result = await context.provider.send(mail, job.id); }
   catch { result = { kind: "transient" }; }
+  metrics.inc(names.mail, "Mail provider outcomes", { kind: job.kind, result: result.kind });
   await context.afterProviderResponse?.();
   const completedAt = currentTime();
   if (result.kind === "accepted") {
