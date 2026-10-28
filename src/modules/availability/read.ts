@@ -133,17 +133,21 @@ export async function getPublicCalendar(
   return { days: calendarDays(range, vehicle, blocks) };
 }
 
+export type VehicleStatus = "DRAFT" | "PUBLISHED" | "UNPUBLISHED" | "ARCHIVED";
+
 export type FleetCalendarPage = Awaited<ReturnType<typeof getPrivateFleetCalendar>>;
 
 /**
  * Private fleet grid (#65): one page of the company's vehicles with the same day states as `getPrivateCalendar`
- * (it shares `calendarDays`). Count, vehicles and their blocks come from one RepeatableRead snapshot, read at
+ * (it shares `calendarDays`), ARCHIVED excluded unless `status` says otherwise. Count, vehicles and their blocks come from one RepeatableRead snapshot, read at
  * request time (no cache). Blocks carry only id, dates, type and version: no `reference` or `internalNote`.
  */
 export async function getPrivateFleetCalendar(
   db: PrismaClient, organizationId: string, range: AvailabilityRange, page: number, pageSize: number,
+  status?: VehicleStatus,
 ) {
-  const where = { organizationId };
+  // ARCHIVED vehicles accept no new blocks (D-21): they appear only when asked for explicitly.
+  const where = { organizationId, status: status ?? { not: "ARCHIVED" } };
   const [total, vehicles] = await db.$transaction([
     db.vehicle.count({ where }),
     db.vehicle.findMany({ where, orderBy: [{ sortOrder: "asc" }, { id: "asc" }],

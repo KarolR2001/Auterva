@@ -72,7 +72,7 @@
     },
     {
       "path": "docs/contracts/availability-reads.md",
-      "sha256": "bc3791a3fbda83e3f479a0db876432618b487b3e44ad7163e06b76412a427d4e"
+      "sha256": "9f4d0b0f896c3f44960a2e3d029b6999556a3304405717786475af136e7a279b"
     },
     {
       "path": "docs/contracts/fleet-crud-publication.md",

@@ -10,14 +10,14 @@ import { readJsonBody } from "@/modules/tenancy/json-body";
 import { resolveRequestArea, requireRequestContext } from "@/modules/tenancy/request-context";
 import { withErrorRequestId } from "@/modules/tenancy/request-id";
 import { availabilityToday, parseAvailabilityRange, type AvailabilityRange } from "./dates";
-import { getPrivateCalendar, getPrivateFleetCalendar, getPublicAvailability, getPublicBatchAvailability, getPublicCalendar } from "./read";
+import { getPrivateCalendar, getPrivateFleetCalendar, type VehicleStatus, getPublicAvailability, getPublicBatchAvailability, getPublicCalendar } from "./read";
 
 // Same shape as public-offer/read.ts: a slug that cannot exist (NUL included, which PostgreSQL refuses) is refused up front.
 const slugText = z.string().min(1).max(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 const checkBody = z.object({ slug: slugText, from: z.string(), to: z.string() }).strict();
 const batchBody = z.object({ slugs: z.array(slugText).min(1).max(50),
   from: z.string(), to: z.string() }).strict();
-const FLEET_CALENDAR_DEFAULT_PAGE_SIZE = 25;
+const FLEET_CALENDAR_DEFAULT_PAGE_SIZE = 20;
 const noStore = { "Cache-Control": "no-store" };
 type RequestId = ReturnType<typeof randomUUID>;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -114,18 +114,23 @@ export async function privateFleetCalendar(request: Request, expectedArea: "COMP
   const access = await privateAccess(request, expectedArea, targetOrganizationId, requestId);
   if (access instanceof Response) return access;
   const params = new URL(request.url).searchParams;
-  const allowed = new Set(["from", "to", "page", "pageSize"]);
+  const allowed = new Set(["from", "to", "page", "pageSize", "status"]);
   const keys = [...params.keys()];
   const from = params.get("from");
   const to = params.get("to");
   const page = params.get("page") ?? "1";
   const pageSize = params.get("pageSize") ?? String(FLEET_CALENDAR_DEFAULT_PAGE_SIZE);
+  const status = params.get("status");
+  if (status !== null && !["DRAFT", "PUBLISHED", "UNPUBLISHED", "ARCHIVED"].includes(status)) {
+    return respond({ code: "INVALID_INPUT" }, 400, requestId);
+  }
   if (!from || !to || keys.some((key) => !allowed.has(key)) || new Set(keys).size !== keys.length
     || !intParam.test(page) || !intParam.test(pageSize) || Number(page) > 1_000_000
     || Number(pageSize) > 100) return respond({ code: "INVALID_INPUT" }, 400, requestId);
   const range = rangeOrError(from, to, requestId, false);
   if (range instanceof Response) return range;
-  return respond(await getPrivateFleetCalendar(prisma, access.organizationId, range, Number(page), Number(pageSize)),
+  return respond(await getPrivateFleetCalendar(prisma, access.organizationId, range, Number(page), Number(pageSize),
+    (status ?? undefined) as VehicleStatus | undefined),
     200, requestId);
 }
 

@@ -104,8 +104,8 @@ test("fleet grid equals the single-vehicle calendars and omits reference, note a
   expect(response.headers.get("Cache-Control")).toBe("no-store");
   expect(response.headers.get("X-Request-Id")).toMatch(/^[0-9a-f-]{36}$/i);
   const page = await response.json() as Page;
-  expect(page).toMatchObject({ from: day(-5), to: day(7), total: 4, page: 1, pageSize: 25 });
-  expect(page.items.map((item) => item.vehicleId)).toEqual([ids.active, ids.open, ids.draft, ids.archived]);
+  expect(page).toMatchObject({ from: day(-5), to: day(7), total: 3, page: 1, pageSize: 20 });
+  expect(page.items.map((item) => item.vehicleId)).toEqual([ids.active, ids.open, ids.draft]);
   for (const item of page.items) {
     const single = await adminCalendar(new Request(
       `http://${hostA}/api/admin/vehicles/${item.vehicleId}/availability?${range(day(-5), day(7))}`,
@@ -132,14 +132,27 @@ test("fleet grid equals the single-vehicle calendars and omits reference, note a
 });
 
 test("pagination is stable, bounded and reports total", async () => {
-  const first = await (await admin(range(day(0), day(1), "&pageSize=3"))).json() as Page;
-  const second = await (await admin(range(day(0), day(1), "&pageSize=3&page=2"))).json() as Page;
-  const beyond = await (await admin(range(day(0), day(1), "&pageSize=3&page=3"))).json() as Page;
-  expect(first.items.map((i) => i.vehicleId)).toEqual([ids.active, ids.open, ids.draft]);
-  expect(second.items.map((i) => i.vehicleId)).toEqual([ids.archived]);
-  expect([first.total, second.total, beyond.total]).toEqual([4, 4, 4]);
+  const first = await (await admin(range(day(0), day(1), "&pageSize=2"))).json() as Page;
+  const second = await (await admin(range(day(0), day(1), "&pageSize=2&page=2"))).json() as Page;
+  const beyond = await (await admin(range(day(0), day(1), "&pageSize=2&page=3"))).json() as Page;
+  expect(first.items.map((i) => i.vehicleId)).toEqual([ids.active, ids.open]);
+  expect(second.items.map((i) => i.vehicleId)).toEqual([ids.draft]);
+  expect([first.total, second.total, beyond.total]).toEqual([3, 3, 3]);
   expect(beyond.items).toEqual([]);
   expect((await admin(range(day(0), day(1), "&pageSize=100"))).status).toBe(200);
+});
+
+test("ARCHIVED vehicles are outside the grid by default and the status filter matches the fleet list", async () => {
+  const archived = await (await admin(range(day(-5), day(0), "&status=ARCHIVED"))).json() as Page;
+  expect(archived).toMatchObject({ total: 1 });
+  expect(archived.items.map((i) => [i.vehicleId, i.status])).toEqual([[ids.archived, "ARCHIVED"]]);
+  expect((await (await admin(range(day(0), day(1), "&status=PUBLISHED"))).json() as Page).items.map((i) => i.vehicleId))
+    .toEqual([ids.active, ids.open]);
+  expect((await (await admin(range(day(0), day(1), "&status=DRAFT"))).json() as Page).items.map((i) => i.vehicleId))
+    .toEqual([ids.draft]);
+  expect((await (await admin(range(day(0), day(1), "&status=UNPUBLISHED"))).json() as Page).total).toBe(0);
+  expect((await (await platform(orgA, range(day(0), day(1), "&status=ARCHIVED"))).json() as Page).total).toBe(1);
+  expect((await (await admin(range(day(0), day(1), "&status=ARCHIVED"), cookieB, hostB)).json() as Page).total).toBe(0);
 });
 
 test("a committed block change is visible in the next read", async () => {
@@ -157,7 +170,7 @@ test("a committed block change is visible in the next read", async () => {
 });
 
 test("range is inclusive, up to 365 days and may be historical; leap day is its own date", async () => {
-  expect(((await (await admin(range(day(-3), day(-3)))).json()) as Page).items[3]!.days)
+  expect(((await (await admin(range(day(-3), day(-3), "&status=ARCHIVED"))).json()) as Page).items[0]!.days)
     .toEqual([{ date: day(-3), available: false }]);
   expect((await admin(range(day(0), day(364)))).status).toBe(200);
   const big = await (await admin(range("2027-12-01", "2028-11-29", "&pageSize=1"))).json() as Page;
@@ -166,6 +179,7 @@ test("range is inclusive, up to 365 days and may be historical; leap day is its 
   for (const query of [range(day(0), day(365)), range(day(1), day(0)), "from=2026-02-30&to=2026-03-01", `from=${day(0)}`,
     range(day(0), day(1), "&page=0"), range(day(0), day(1), "&pageSize=0"), range(day(0), day(1), "&pageSize=101"),
     range(day(0), day(1), "&pageSize=1.5"), range(day(0), day(1), "&page=1000001"), range(day(0), day(1), "&extra=1"),
+    range(day(0), day(1), "&status=SOLD"), range(day(0), day(1), "&status="), range(day(0), day(1), "&status=A&status=B"),
     range(day(0), day(1), "&page=1&page=2"), range(day(0), day(1), "&pageSize=abc")]) {
     const response = await admin(query);
     expect([400], query).toContain(response.status);
@@ -181,7 +195,7 @@ test("authorization and company isolation hold for admins and superadmin", async
   const own = await (await admin(query, cookieB, hostB)).json() as Page;
   expect(own.items.map((i) => i.vehicleId)).toEqual([ids.foreign]);
   const viaPlatform = await (await platform(orgA, query)).json() as Page;
-  expect(viaPlatform.items.map((i) => i.vehicleId)).toEqual([ids.active, ids.open, ids.draft, ids.archived]);
+  expect(viaPlatform.items.map((i) => i.vehicleId)).toEqual([ids.active, ids.open, ids.draft]);
   expect(((await (await platform(orgB, query)).json()) as Page).items.map((i) => i.vehicleId)).toEqual([ids.foreign]);
   expect((await platform(orgA, query, cookieA)).status).toBe(403);
   expect((await platform(orgA, query, "")).status).toBe(403);
