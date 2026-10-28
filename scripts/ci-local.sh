@@ -6,7 +6,28 @@ set -uo pipefail
 [ $# -eq 2 ] || { echo "usage: $0 <LOCAL_PORT_BASE> <results-file>" >&2; exit 2; }
 PORT="$1"; OUT="$2"; LOGDIR=".local/ci-local"; FAILED=0
 git ls-files --error-unmatch "$OUT" >/dev/null 2>&1 && { echo "refusing to overwrite tracked file $OUT" >&2; exit 2; }
-git diff --quiet -- next-env.d.ts || { echo "next-env.d.ts has local changes; commit or restore them first" >&2; exit 2; }
+
+# The candidate must be exactly HEAD: `quality` checks HEAD in a clean worktree, the other jobs check the working tree.
+[ -z "$(git status --porcelain)" ] || { echo "working tree is not clean (git status --porcelain); commit, stash or remove changes first" >&2; exit 2; }
+
+# Refuse tool versions that differ from CI instead of only recording them.
+refuse() { echo "$1" >&2; exit 2; }
+WANT_GITLEAKS="$(sed -n 's/^ *GITLEAKS_VERSION: *"\{0,1\}\([0-9][0-9.]*\)"\{0,1\} *$/\1/p' .github/workflows/ci.yml | head -1)"
+[ -n "$WANT_GITLEAKS" ] || refuse "cannot read GITLEAKS_VERSION from .github/workflows/ci.yml"
+HAVE_GITLEAKS="$(gitleaks version 2>/dev/null | head -1 | sed 's/^v//')"
+[ -n "$HAVE_GITLEAKS" ] || refuse "gitleaks $WANT_GITLEAKS is missing (not installed or not in PATH)"
+[ "$HAVE_GITLEAKS" = "$WANT_GITLEAKS" ] || refuse "gitleaks $HAVE_GITLEAKS found, but $WANT_GITLEAKS (GITLEAKS_VERSION in ci.yml) is required"
+WANT_NODE="$(grep -A3 '"engines"' package.json | sed -n 's/.*"node": *"\([^"]*\)".*/\1/p' | head -1)"
+[ -n "$WANT_NODE" ] || refuse "cannot read engines.node from package.json"
+command -v node >/dev/null || refuse "node $WANT_NODE is missing"
+HAVE_NODE="$(node --version | sed 's/^v//')"
+[ "$HAVE_NODE" = "$WANT_NODE" ] || refuse "node $HAVE_NODE found, but $WANT_NODE (engines.node in package.json) is required"
+command -v pg_dump >/dev/null || refuse "pg_dump 18 is missing (not installed or not in PATH)"
+HAVE_PGDUMP="$(pg_dump --version | awk '{print $3}')"
+[ "${HAVE_PGDUMP%%.*}" = "18" ] || refuse "pg_dump $HAVE_PGDUMP found, but major version 18 is required"
+command -v docker >/dev/null || refuse "docker is missing (not installed or not in PATH)"
+docker buildx version >/dev/null 2>&1 || refuse "docker buildx is missing or the Docker daemon is not reachable"
+
 mkdir -p "$LOGDIR"; : > "$OUT"
 export CI=true NEXT_TELEMETRY_DISABLED=1 LOCAL_PORT_BASE="$PORT"
 res() { printf '%s\t%s\n' "$1" "$2" | tee -a "$OUT"; }
@@ -18,6 +39,26 @@ step() {
   else res "$name" "FAIL ($LOGDIR/$name.log)"; FAILED=1; fi
 }
 
+QTMP=""; FIXTURE_STARTED=0
+cleanup() {
+  local rc=$?
+  trap - EXIT INT TERM
+  if [ -n "$QTMP" ]; then
+    if [ -d "$QTMP/quality" ]; then
+      git worktree remove --force "$QTMP/quality" >/dev/null 2>&1 || git worktree prune >/dev/null 2>&1
+    fi
+    rm -rf "$QTMP"; git worktree prune >/dev/null 2>&1
+  fi
+  if [ "$FIXTURE_STARTED" = 1 ]; then scripts/local-fixture.sh stop >/dev/null 2>&1; fi
+  git checkout -q -- next-env.d.ts 2>/dev/null
+  exit "$rc"
+}
+# Only direct children of this script (the running step) are stopped on a signal.
+on_signal() { local c; for c in $(pgrep -P $$ 2>/dev/null); do kill "$c" 2>/dev/null; done; exit "$1"; }
+trap cleanup EXIT
+trap 'on_signal 130' INT
+trap 'on_signal 143' TERM
+
 printf 'head\t%s\n' "$(git rev-parse HEAD)" >> "$OUT"
 printf 'tools\tnode %s; gitleaks %s; pg_dump %s; docker %s\n' "$(node --version)" "$(gitleaks version 2>/dev/null)" \
   "$(pg_dump --version 2>/dev/null | awk '{print $3}')" "$(docker version --format '{{.Server.Version}} {{.Server.Os}}/{{.Server.Arch}}' 2>/dev/null)" >> "$OUT"
@@ -25,7 +66,7 @@ pnpm install --frozen-lockfile >"$LOGDIR/install.log" 2>&1 || { res install FAIL
 
 # CI runs this job on a fresh checkout: use a clean detached worktree so no .env/.env.local is loaded by vitest.
 quality() {
-  local tmp; tmp="$(mktemp -d)/quality"
+  local tmp="$QTMP/quality"
   git worktree add -q --detach "$tmp" HEAD || return 1
   ( cd "$tmp" && pnpm install --frozen-lockfile --prefer-offline &&
     DATABASE_URL=postgresql://ci@127.0.0.1:5432/validate_only pnpm exec prisma validate &&
@@ -33,17 +74,20 @@ quality() {
     DATABASE_URL=postgresql://ci@127.0.0.1:5432/unit_placeholder \
     BETTER_AUTH_SECRET=ci-unit-placeholder-secret-0123456789abcdef \
     BETTER_AUTH_URL=http://127.0.0.1:3305 pnpm test:unit )
-  local rc=$?; git worktree remove --force "$tmp"; return $rc
+  local rc=$?; git worktree remove --force "$tmp" >/dev/null 2>&1 || git worktree prune; return $rc
 }
+QTMP="$(mktemp -d)"
 step "Lint, typecheck, unit" quality
 
 # Same steps as .github/actions/fixture, on a fresh schema: --reset drops this fixture's own schema and re-migrates.
 export MAIL_PAYLOAD_KEY="$(openssl rand -hex 32)"
 export BOOTSTRAP_TEST_DATABASE_URL="postgresql://$(id -un)@127.0.0.1:${PORT}/auterva_bootstrap_12"
 fresh_fixture() {
-  pnpm exec tsx scripts/seed-local-fixture.ts --reset && pnpm exec prisma migrate deploy && scripts/local-fixture.sh seed-media
+  pnpm exec tsx scripts/seed-local-fixture.ts --reset && pnpm exec prisma migrate deploy &&
+    scripts/local-fixture.sh reset-media && scripts/local-fixture.sh seed-media
 }
 integration() { scripts/local-fixture.sh start && fresh_fixture && pnpm test:integration; }
+FIXTURE_STARTED=1   # set in the main shell; `step` runs in a subshell
 step "Integration (PostgreSQL, S3, bootstrap)" integration
 
 # CI runs E2E on its own fresh fixture.
@@ -53,7 +97,7 @@ e2e() {
   fresh_fixture && pnpm build && pnpm exec playwright install chromium && pnpm test:e2e
 }
 step "Build and E2E" e2e
-scripts/local-fixture.sh stop >"$LOGDIR/fixture-stop.log" 2>&1
+scripts/local-fixture.sh stop >"$LOGDIR/fixture-stop.log" 2>&1; FIXTURE_STARTED=0
 git checkout -q -- next-env.d.ts 2>/dev/null
 
 step "Secret scan" gitleaks git --no-banner --redact --verbose --exit-code 1 .
