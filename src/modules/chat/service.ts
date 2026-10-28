@@ -242,7 +242,7 @@ export type ConversationListItem = {
   lastSeq: number;
   /** Messages of the company after the superadmin's read cursor. Always 0 for an archived company (D-23). */
   unread: number;
-  /** Superadmin read cursor position (0 without one); `(lastSeq, readSeq)` only grows, so a client keeps the larger pair. */
+  /** Superadmin read cursor position (0 without one); a client keeps the state with the larger `(version, lastSeq, readSeq)` (a company restore lowers the last two but raises `version`). */
   readSeq: number;
   /** `Organization.version`: archive and restore raise it, so it is the third element of the state key. */
   version: number;
