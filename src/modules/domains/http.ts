@@ -7,6 +7,7 @@ import { takeAuthenticatedApiLimit } from "@/modules/tenancy/api-rate-limit";
 import { resolveRequestArea } from "@/modules/tenancy/request-context";
 import type { DomainDeps } from "./config";
 import { activateDomain, readDomain, registerDomain, removeDomain, verifyDomain } from "./lifecycle";
+import { reportInternalError } from "@/modules/observability/http-observe";
 
 const statusByCode: Record<string, number> = {
   INVALID_HOSTNAME: 400, FORBIDDEN: 403, DOMAIN_NOT_FOUND: 404, DOMAIN_COMPANY_NOT_FOUND: 404,
@@ -20,7 +21,7 @@ function failure(error: unknown, requestId: string): Response {
   // A reused audit event key rolls back the whole mutation; never report it as success.
   if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002")
     return periodResponse({ code: "EVENT_KEY_CONFLICT" }, 409, requestId);
-  return periodResponse({ code: "INTERNAL_ERROR" }, 500, requestId);
+  return periodResponse({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "domains"));
 }
 
 async function readerDenied(request: Request, requestId: string): Promise<Response | null> {

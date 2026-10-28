@@ -3,6 +3,9 @@ import type { PrismaClient } from "@/generated/prisma/client";
 import { claimNextJob, type ClaimedJob } from "@/modules/jobs/queue";
 import { decodeMedia } from "./decode";
 import { putImmutable, readLimited, removeObject, type MediaStorage } from "./storage";
+import type { LogContext } from "@/modules/observability/log";
+import { currentLogContext, logFailure, runWithLogContext } from "@/modules/observability/log";
+import { iterationOutcome } from "@/modules/observability/worker-metrics";
 
 const leaseMs = 90_000;
 const retryMs = (attempt: number) => Math.min(5_000 * 2 ** Math.min(attempt - 1, 6), 300_000);
@@ -49,7 +52,7 @@ export async function cleanupExpiredImageUploads(db: PrismaClient, storage: Medi
       await db.imageUpload.updateMany({ where: { id: keys.id, state: keys.state,
         storageCleanedAt: null }, data: { storageCleanedAt: now } });
       cleaned++;
-    } catch { console.warn("Media cleanup failed; retrying"); }
+    } catch (error) { logFailure("media.cleanup_failed", error, { operation: "media.cleanup", target: "upload" }); }
   }
   return cleaned;
 }
@@ -67,7 +70,7 @@ export async function cleanupDeletedPublicMedia(db: PrismaClient, storage: Media
       await db.publicMedia.updateMany({ where: { id: media.id, status: "DELETED", storageCleanedAt: null },
         data: { storageCleanedAt: new Date() } });
       cleaned++;
-    } catch { console.warn("Public media cleanup failed; retrying"); }
+    } catch (error) { logFailure("media.cleanup_failed", error, { operation: "media.cleanup", target: "public" }); }
   }
   return cleaned;
 }
@@ -84,7 +87,7 @@ export async function cleanupDeletedVehicleImages(db: PrismaClient, storage: Med
       await db.vehicleImage.updateMany({ where: { id: image.id, status: "DELETED", storageCleanedAt: null },
         data: { storageCleanedAt: new Date() } });
       cleaned++;
-    } catch { console.warn("Vehicle image cleanup failed; retrying"); }
+    } catch (error) { logFailure("media.cleanup_failed", error, { operation: "media.cleanup", target: "vehicle-image" }); }
   }
   return cleaned;
 }
@@ -121,6 +124,7 @@ export async function processMediaClaim(db: PrismaClient, storage: MediaStorage,
   const job = await db.job.findFirst({ where: { id: claim.id, kind: "MEDIA_PROCESS",
     status: "RUNNING", leaseToken: claim.leaseToken }, select: { organizationId: true, payload: true } });
   const payload = job?.payload;
+  if (job?.organizationId) currentLogContext().organizationId = job.organizationId;
   if (!payload || typeof payload !== "object" || Array.isArray(payload)
     || typeof payload.uploadId !== "string") return false;
   const upload = await db.imageUpload.findFirst({ where: { id: payload.uploadId,
@@ -151,7 +155,9 @@ export async function processMediaClaim(db: PrismaClient, storage: MediaStorage,
         organizationId: upload.organizationId, vehicleId: upload.vehicleId,
         state: "PROCESSING", rawSha256: upload.rawSha256 } });
       if (!current) return false;
-      if (company.length !== 1 || company[0].archivedAt
+      // D-23: a PROCESSING upload passed the actor and company checks at finalize; an archived company does not
+      // reject it (the superadmin writes there). A missing company or an archived vehicle still does.
+      if (company.length !== 1
         || (vehicle !== null && (vehicle.length !== 1 || vehicle[0].status === "ARCHIVED"))) {
         await tx.imageUpload.update({ where: { id: upload.id }, data: { state: "FAILED" } });
         await tx.job.update({ where: { id: claim.id }, data: { status: "FAILED",
@@ -191,10 +197,11 @@ export async function processMediaClaim(db: PrismaClient, storage: MediaStorage,
         await removeObject(storage, upload.stagingKey);
         await db.imageUpload.updateMany({ where: { id: upload.id, state: "READY",
           storageCleanedAt: null }, data: { storageCleanedAt: clock() } });
-      } catch { console.warn("Media staging cleanup failed; retrying"); }
+      } catch (error) { logFailure("media.cleanup_failed", error, { operation: "media.cleanup", target: "staging" }); }
     }
     return committed;
-  } catch {
+  } catch (error) {
+    logFailure("media.process_failed", error, { operation: "media.process", jobId: claim.id });
     await failMediaClaim(db, claim, clock());
     return false;
   }
@@ -203,6 +210,7 @@ export async function processMediaClaim(db: PrismaClient, storage: MediaStorage,
 export async function runMediaWorkerLoop(db: PrismaClient, storage: MediaStorage, signal: AbortSignal,
   clock: () => Date = () => new Date()): Promise<void> {
   while (!signal.aborted) {
+    const jobCtx: LogContext = { operation: "media.process" };
     try {
       const now = clock();
       await reconcileMediaFailures(db);
@@ -210,11 +218,12 @@ export async function runMediaWorkerLoop(db: PrismaClient, storage: MediaStorage
       await cleanupDeletedPublicMedia(db, storage);
       await cleanupDeletedVehicleImages(db, storage);
       const claim = await claimNextJob(db, now, leaseMs, false, "MEDIA_PROCESS");
+      iterationOutcome("media-worker", true);
       if (claim) {
-        await processMediaClaim(db, storage, claim, clock);
+        await runWithLogContext(jobCtx, () => processMediaClaim(db, storage, claim, clock));
         continue;
       }
-    } catch { console.warn("Media worker iteration failed; retrying"); }
+    } catch (error) { logFailure("worker.iteration_failed", error, { operation: "media.worker", organizationId: jobCtx.organizationId }); iterationOutcome("media-worker", false); }
     await new Promise<void>((resolve) => {
       const timer = setTimeout(done, 1_000);
       function done() { clearTimeout(timer); signal.removeEventListener("abort", done); resolve(); }

@@ -3,10 +3,28 @@ import { prisma } from "./lib/prisma";
 import { isCustomDomainHost, resolveAliasRedirect } from "./modules/domains/routing";
 import { parseHostAuthority, resolveHostMapping } from "./modules/tenancy/host-registry";
 import { routeAllowedForArea } from "./modules/tenancy/host-route-policy";
+import { countRequest } from "./modules/observability/http-observe";
+import { documentCsp, isDocumentPath, newNonce } from "./modules/tenancy/csp";
+import { bodyLimitForPath } from "./modules/tenancy/json-body";
 import { withErrorRequestId } from "./modules/tenancy/request-id";
 
 export async function proxy(request: NextRequest) {
-  if (request.nextUrl.pathname.replace(/\/$/, "") === "/api/health") return NextResponse.next();
+  // #57: Next buffers a bounded copy of every non-GET body before this function runs and, for a chunked body, drops a
+  // chunk that does not fit, so a handler could see only a prefix. A body with no declared length is refused here
+  // (a request without any body and without Content-Length, such as fetch DELETE, passes), and a declared length above
+  // the route limit is refused before any further work. Upload routes are outside the matcher.
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    if (request.headers.has("transfer-encoding")) {
+      return withErrorRequestId(NextResponse.json({ code: "LENGTH_REQUIRED" }, { status: 411, headers: { "Cache-Control": "no-store" } }));
+    }
+    const declared = request.headers.get("content-length");
+    if (declared !== null && (!/^\d{1,15}$/.test(declared) || Number(declared) > bodyLimitForPath(request.nextUrl.pathname))) {
+      return withErrorRequestId(NextResponse.json({ code: "PAYLOAD_TOO_LARGE" }, { status: 413, headers: { "Cache-Control": "no-store" } }));
+    }
+  }
+  // Probes and the token-protected metrics endpoint are host-independent; each handler enforces its own access (#58).
+  if (/^\/api\/health(?:\/(?:live|ready|metrics))?$/.test(request.nextUrl.pathname.replace(/\/$/, ""))) return NextResponse.next();
+  countRequest(request);
   const authority = request.headers.get("host");
   const refuse = () => withErrorRequestId(new NextResponse(null, { status: 404, headers: { "Cache-Control": "no-store" } }));
   // A custom host must answer the routing probe before it is active; the probe never exposes company data.
@@ -38,9 +56,18 @@ export async function proxy(request: NextRequest) {
   }
   headers.set("host", authority!);
   if (mapping.area === "MARKETING" || mapping.area === "COMPANY_PUBLIC") headers.delete("cookie");
+  // #57: HTML documents get a per-request nonce CSP; Next reads the nonce from the request header and tags its scripts.
+  // Data endpoints get a closed CSP from next.config headers. The other static headers live there too.
+  const csp = isDocumentPath(request.nextUrl.pathname)
+    ? documentCsp(newNonce(), authority, process.env.NODE_ENV === "development") : null;
+  if (csp) headers.set("Content-Security-Policy", csp);
   const response = NextResponse.next({ request: { headers } });
+  if (csp) response.headers.set("Content-Security-Policy", csp);
   // Panels, the platform and every API response stay out of search indexes (#40); public pages set their own robots.
-  if (mapping.area === "COMPANY_ADMIN" || mapping.area === "PLATFORM" || request.nextUrl.pathname.startsWith("/api/")) {
+  // Exception (D-25, #154): the two public image variants of a company host are indexable; the handler answers 404 for a disabled company.
+  const indexableMedia = mapping.area === "COMPANY_PUBLIC" && (request.method === "GET" || request.method === "HEAD")
+    && /^\/api\/public\/media\/[0-9a-f-]{36}\/(?:large|thumb)\/?$/i.test(request.nextUrl.pathname);
+  if (!indexableMedia && (mapping.area === "COMPANY_ADMIN" || mapping.area === "PLATFORM" || request.nextUrl.pathname.startsWith("/api/"))) {
     response.headers.set("X-Robots-Tag", "noindex, nofollow");
   }
   return response;

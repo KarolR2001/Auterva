@@ -21,6 +21,7 @@ const hostA = `offer-a-${a}.example.test`;
 const hostB = `offer-b-${b}.example.test`;
 const adminHostA = `offer-admin-${a}.example.test`;
 const platformHost = `offer-platform-${a}.example.test`;
+const marketingHost = `offer-marketing-${a}.example.test`;
 const aliasA = `offer-alias-${a}.example.test`;
 const customA = `offer-custom-${a}.example.test`;
 const today = availabilityToday(new Date());
@@ -49,6 +50,7 @@ beforeAll(async () => {
     { hostname: hostB, area: "COMPANY_PUBLIC", organizationId: b, status: "ACTIVE" },
     { hostname: adminHostA, area: "COMPANY_ADMIN", organizationId: a, status: "ACTIVE" },
     { hostname: platformHost, area: "PLATFORM", status: "ACTIVE" },
+    { hostname: marketingHost, area: "MARKETING", status: "ACTIVE" },
   ] });
   for (const id of [a, b]) {
     await db.serviceAccess.create({ data: { organizationId: id, trialGranted: true, trialStartedAt: now,
@@ -104,7 +106,7 @@ afterAll(async () => {
   await db.siteSettings.deleteMany({ where: { organizationId: { in: [a, b] } } });
   await db.serviceAccess.deleteMany({ where: { organizationId: { in: [a, b] } } });
   await db.hostMapping.deleteMany({ where: { organizationId: { in: [a, b] } } });
-  await db.hostMapping.deleteMany({ where: { hostname: platformHost } });
+  await db.hostMapping.deleteMany({ where: { hostname: { in: [platformHost, marketingHost] } } });
   await db.organization.deleteMany({ where: { id: { in: [a, b] } } });
   await db.$disconnect();
 });
@@ -416,6 +418,60 @@ test("proxy keeps panels, the platform and every API out of search indexes; publ
   expect((await through(hostA, "/pojazdy/")).headers.get("x-robots-tag")).toBeNull();
   expect((await through(hostA, "/robots.txt")).status).toBe(200);
   expect((await through(adminHostA, "/sitemap.xml")).status).toBe(404);
+});
+
+test("D-25: public media variants are indexable; every other API, panel and preview path stays noindex", async () => {
+  const through = (host: string, path: string, method = "GET") =>
+    proxy(new NextRequest(`https://${host}${path}`, { method, headers: { host } }));
+  const id = randomUUID();
+  for (const path of [`/api/public/media/${id}/large/`, `/api/public/media/${id}/thumb/`, `/api/public/media/${id}/thumb`]) {
+    const response = await through(hostA, path);
+    expect(response.status, path).toBe(200);
+    expect(response.headers.get("x-robots-tag"), path).toBeNull();
+  }
+  for (const [host, path] of [[hostA, `/api/public/media/${id}/original/`], [hostA, `/api/public/media/${id}/`],
+    [hostA, `/api/public/media/${id}/large/extra/`], [hostA, "/api/public/offer/"], [hostA, "/api/public/settings/"],
+    [hostA, "/api/public/availability"], [adminHostA, "/api/admin/vehicles"], [platformHost, "/api/platform/organizations"]]) {
+    const response = await through(host, path);
+    expect(response.status, `${host}${path}`).toBe(200);
+    expect(response.headers.get("x-robots-tag"), `${host}${path}`).toBe("noindex, nofollow");
+  }
+  // Media is never served on a panel, the platform or the marketing host, and the exception is per host area.
+  for (const host of [adminHostA, platformHost, marketingHost]) {
+    expect((await through(host, `/api/public/media/${id}/large/`)).status, host).toBe(404);
+  }
+  // An unknown or disabled-company media id answers 404 no-store from the handler itself.
+  const missing = await call(() => readPublicMedia(get(hostA, `/api/public/media/${id}/large/`), id, "large"));
+  expect(missing.status).toBe(404);
+  expect(missing.headers.get("cache-control")).toBe("no-store");
+});
+
+test("D-25: the marketing host has robots.txt and a company-free sitemap; panels and platform stay closed", async () => {
+  const robots = await call(() => serveRobots(get(marketingHost, "/robots.txt")));
+  expect(robots.status).toBe(200);
+  expect(robots.headers.get("cache-control")).toBe("no-store");
+  expect(await robots.text()).toBe(`User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: https://${marketingHost}/sitemap.xml\n`);
+  const sitemap = await call(() => serveSitemap(get(marketingHost, "/sitemap.xml")));
+  expect(sitemap.status).toBe(200);
+  expect(sitemap.headers.get("cache-control")).toBe("no-store");
+  expect(sitemap.headers.get("content-type")).toContain("application/xml");
+  const xml = await sitemap.text();
+  expect(xml).toContain(`<loc>https://${marketingHost}/</loc>`);
+  for (const hidden of [hostA, hostB, adminHostA, platformHost, "Firma", "pojazdy"]) expect(xml).not.toContain(hidden);
+  expect(xml.match(/<url>/g)).toHaveLength(1);
+  for (const host of [adminHostA, platformHost]) {
+    expect(await (await call(() => serveRobots(get(host, "/robots.txt")))).text()).toBe("User-agent: *\nDisallow: /\n");
+    expect((await call(() => serveSitemap(get(host, "/sitemap.xml")))).status).toBe(404);
+  }
+  expect(await (await call(() => serveRobots(get(hostA, "/robots.txt")))).text()).toContain("Allow: /api/public/media/");
+  // Through the proxy: the marketing host reaches both routes without noindex, the panels do not reach the sitemap.
+  const through = (host: string, path: string) => proxy(new NextRequest(`https://${host}${path}`, { headers: { host } }));
+  for (const path of ["/robots.txt", "/sitemap.xml", "/"]) {
+    const response = await through(marketingHost, path);
+    expect(response.status, path).toBe(200);
+    expect(response.headers.get("x-robots-tag"), path).toBeNull();
+  }
+  expect((await through(platformHost, "/sitemap.xml")).status).toBe(404);
 });
 
 test("the public media route is wired to the media budget, not to the 120/min settings bucket", async () => {

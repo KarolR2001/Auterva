@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 import type { Readable } from "node:stream";
+import { log } from "@/modules/observability/log";
+import { metrics, names } from "@/modules/observability/metrics";
 import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand,
   S3Client } from "@aws-sdk/client-s3";
 
@@ -25,7 +27,27 @@ export function createMediaStorage(input: Record<string, string | undefined> = p
   const client = new S3Client({ endpoint, region: input.S3_REGION ?? "auto", forcePathStyle: true,
     credentials: { accessKeyId: required(input.S3_ACCESS_KEY_ID, "ACCESS_KEY"),
       secretAccessKey: required(input.S3_SECRET_ACCESS_KEY, "SECRET_KEY") } });
+  instrumentStorage(client);
   return { client, bucket };
+}
+
+/** Request count and duration per S3 operation (#58). Labels carry the command name and result, never keys. */
+function instrumentStorage(client: S3Client): void {
+  client.middlewareStack.add((next, context) => async (args) => {
+    const started = performance.now();
+    const operation = context.commandName ?? "unknown";
+    try {
+      const output = await next(args);
+      metrics.inc(names.storage, "Object storage requests", { operation, result: "ok" });
+      metrics.observe(names.storageDuration, "Object storage request duration", (performance.now() - started) / 1000, { operation });
+      return output;
+    } catch (error) {
+      metrics.inc(names.storage, "Object storage requests", { operation, result: "error" });
+      metrics.observe(names.storageDuration, "Object storage request duration", (performance.now() - started) / 1000, { operation });
+      log.warn("storage.request_failed", { operation, outcome: "failure", errorName: error instanceof Error ? error.name : "NonError" });
+      throw error;
+    }
+  }, { step: "initialize", name: "auterva-observability" });
 }
 
 export type MediaStorage = ReturnType<typeof createMediaStorage>;

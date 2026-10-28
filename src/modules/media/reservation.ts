@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { requireAuditActor, requireAuditScope } from "@/modules/audit/actor";
+import { lockCompanyForWrite } from "@/modules/organizations/write-lock";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const active = ["RESERVED", "FINALIZING", "PROCESSING"];
@@ -16,11 +17,8 @@ export async function reserveVehicleImageUpload(db: PrismaClient, input: Reserve
   return db.$transaction(async (tx) => {
     const actor = await requireAuditActor(tx, input.actorId, input.sessionId);
     requireAuditScope(actor, input.organizationId);
-    const company = await tx.$queryRaw<{ id: string }[]>`
-      SELECT id FROM "Organization" WHERE id = ${input.organizationId}::uuid
-        AND "archivedAt" IS NULL FOR NO KEY UPDATE
-    `;
-    if (company.length !== 1) throw new Error("MEDIA_ORGANIZATION_ARCHIVED");
+    if (!(await lockCompanyForWrite(tx, actor, input.organizationId, "NO_KEY_UPDATE")))
+      throw new Error("MEDIA_ORGANIZATION_ARCHIVED");
     const rows = await tx.$queryRaw<{ id: string; status: string }[]>`
       SELECT id, status FROM "Vehicle" WHERE id = ${input.vehicleId}::uuid
         AND "organizationId" = ${input.organizationId}::uuid FOR UPDATE
@@ -63,11 +61,8 @@ export async function reservePublicMediaUpload(db: PrismaClient, input: ReserveP
     const actor = await requireAuditActor(tx, input.actorId, input.sessionId);
     requireAuditScope(actor, input.organizationId);
     if (actor.role !== "SUPERADMIN_AUTERVA") throw new Error("MEDIA_FORBIDDEN");
-    const company = await tx.$queryRaw<{ id: string }[]>`
-      SELECT id FROM "Organization" WHERE id = ${input.organizationId}::uuid
-        AND "archivedAt" IS NULL FOR NO KEY UPDATE
-    `;
-    if (company.length !== 1) throw new Error("MEDIA_ORGANIZATION_ARCHIVED");
+    if (!(await lockCompanyForWrite(tx, actor, input.organizationId, "NO_KEY_UPDATE")))
+      throw new Error("MEDIA_ORGANIZATION_ARCHIVED");
     const existing = await tx.imageUpload.findFirst({ where: { organizationId: input.organizationId,
       vehicleId: null, reservationKey: input.reservationKey } });
     if (existing) {

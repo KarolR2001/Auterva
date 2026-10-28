@@ -11,7 +11,7 @@ Repozytorium zawiera minimalny lokalny scaffold Next.js, PostgreSQL, auth, WebSo
 - [Architektura](docs/ARCHITEKTURA_AUTERVA.md) — moduły, model danych, hosty, API, testy i dokładne ścieżki Penpota.
 - [Design System](docs/design/SPEC.md) i [kontrakt Penpota](design/README.md) — tokeny, komponenty, ekrany i mapowanie.
 - [Instrukcje agentów](AGENTS.md), [workflow GitHub](docs/development/WORKFLOW.md), [tablica projektu](https://github.com/users/KarolR2001/projects/1), [quality gates](docs/quality-gates.md).
-- [Stan dostępu GitHub](docs/development/GITHUB_ACCESS.md).
+- [Stan dostępu GitHub](docs/development/GITHUB_ACCESS.md), [CI, obrazy i preview](docs/development/CI.md).
 
 ## Lokalny scaffold
 
@@ -42,7 +42,7 @@ Opcjonalnie można uruchomić odrębny lokalny klaster PostgreSQL bez globalnego
 
 ## Lokalne usługi i fixture dwóch firm (#9)
 
-Na macOS arm64 potrzebne są Node.js 24, pnpm, PostgreSQL 18 (`initdb`, `pg_ctl`, `psql`, `createdb`, `pg_isready`), `curl`, `shasum`, `tar` i `lsof`. `scripts/local-fixture.sh install` pobiera do ignorowanego `.local/bin` przypięte SeaweedFS 4.49 i Mailpit 1.32.0, weryfikując SHA-256 archiwów przed rozpakowaniem. Skrypt nie instaluje usług globalnie. Na innych platformach użyj zgodnych binariów w `.local/bin` i lokalnego PostgreSQL; automatyczny `install/start` jest obecnie ograniczony do macOS arm64, więc taki wariant wymaga własnego startu usług.
+Na macOS arm64 i Linux x86_64 potrzebne są Node.js 24, pnpm, PostgreSQL 18 (`initdb`, `pg_ctl`, `psql`, `createdb`, `pg_isready`), `curl`, `shasum`, `tar` i `lsof`. `scripts/local-fixture.sh install` pobiera do ignorowanego `.local/bin` przypięte SeaweedFS 4.49 i Mailpit 1.32.0, weryfikując SHA-256 archiwów przed rozpakowaniem. Skrypt nie instaluje usług globalnie. Skrypt obsługuje też Linux x86_64 (używa go CI); na innych platformach użyj zgodnych binariów w `.local/bin` i własnego startu usług.
 
 ```sh
 pnpm install --frozen-lockfile
@@ -62,7 +62,7 @@ Firmy A i B mają hosty `company-a.localhost` / `admin.company-a.localhost` oraz
 
 Flota zawiera sześć aut: A ma wolny bus, auto z blokadą na jeden dzień i szkic; B ma opublikowane auto, ukryte i archiwalne. Daty aktywności i blokad obejmują oba przejścia DST Europe/Warsaw oraz dzień graniczny. A ma opłacony okres, B trial dokładnie 336 godzin. Historia audytu B zawiera archiwizację i przywrócenie, a bieżący stan obu firm jest aktywny, by można było sprawdzić izolację A/B. Obie mają oddzielne rozmowy. Test zegara używa `vi.setSystemTime`, bez zmiany zegara systemowego. Fixture nie uruchamia produkcyjnych modułów publikacji, archiwizacji ani host routingu.
 
-`pnpm dev --port 3305`, `pnpm dev:ws` i `pnpm dev:worker` uruchamiają trzy lokalne procesy na tej samej bazie. WS domyślnie słucha na porcie 3312; zmień `WS_PORT` w `.env` przy kolizji. Przed startem workera ustaw w ignorowanym `.env` własny `MAIL_PAYLOAD_KEY` (`openssl rand -hex 32`), `MAIL_ENVIRONMENT=development`, `MAIL_PROVIDER=sink` i jawny `MAIL_ALLOWED_RECIPIENTS` z adresami fixture. Sink nie wysyła wiadomości do skrzynki; testy procesowe używają własnego serwera HTTP na loopback. [Kontrakt outboxu i poczty](docs/contracts/jobs-mail-outbox.md) opisuje retry, szyfrowanie, statusy i wymagane późniejsze podłączenie domen #18/#19/#54. Rejestracja klientów pozostaje poza MVP; status kolejnych modułów produktu śledzi GitHub Project. Wymagane kontrole dalszych zmian są w [quality gates](docs/quality-gates.md).
+`pnpm dev --port 3305`, `pnpm dev:ws` i `pnpm dev:worker` uruchamiają trzy lokalne procesy na tej samej bazie. WS domyślnie słucha na porcie 3312; zmień `WS_PORT` w `.env` przy kolizji. Adres nasłuchu (`WS_HOST`, domyślnie loopback) i dokładne wartości `Host` (`WS_ALLOWED_HOSTS`, wymagane poza loopbackiem; przeglądarka łączy się z hostem panelu, więc lokalnie wpisz np. `admin.company-a.localhost:3312`) opisuje [kontrakt czatu realtime](docs/contracts/chat-realtime.md). Przed startem workera ustaw w ignorowanym `.env` własny `MAIL_PAYLOAD_KEY` (`openssl rand -hex 32`), `MAIL_ENVIRONMENT=development`, `MAIL_PROVIDER=sink` i jawny `MAIL_ALLOWED_RECIPIENTS` z adresami fixture. Sink nie wysyła wiadomości do skrzynki; testy procesowe używają własnego serwera HTTP na loopback. [Kontrakt outboxu i poczty](docs/contracts/jobs-mail-outbox.md) opisuje retry, szyfrowanie, statusy i wymagane późniejsze podłączenie domen #18/#19/#54. Rejestracja klientów pozostaje poza MVP; status kolejnych modułów produktu śledzi GitHub Project. Wymagane kontrole dalszych zmian są w [quality gates](docs/quality-gates.md).
 
 Dla prywatnego uploadu #29 uruchom własną fixture z `scripts/local-fixture.sh seed-media`, a w powłoce procesu Next i osobnego workera wczytaj wygenerowane lokalnie zmienne S3 bez ich wypisywania:
 

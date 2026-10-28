@@ -4,21 +4,25 @@ import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { appendAudit } from "@/modules/audit/append";
 import { requireAuditActor } from "@/modules/audit/actor";
 import { localDate, sqlDate } from "@/modules/availability/dates";
+import { lockCompanyForWrite } from "@/modules/organizations/write-lock";
+import { hasControlCharacter, INVALID_CHARACTERS, throwIfInvalidCharacters } from "@/lib/text-policy";
 import { validateVehiclePublication } from "./publication";
 
 const uuid = z.uuid();
-const text = (max: number) => z.string().trim().max(max).nullable();
+// #176: NUL and other control characters are refused; only the two descriptions keep TAB, LF and CR.
+const text = (max: number, multiline = false) => z.string().trim().max(max)
+  .refine((value) => !hasControlCharacter(value, multiline), INVALID_CHARACTERS).nullable();
 const vehicleFields = z.object({
   name: text(120), slug: z.string().trim().toLowerCase().max(120)
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).nullable(),
   brand: text(120), model: text(120), variant: text(120),
   year: z.number().int().min(1886).max(2100).nullable(), categoryId: uuid.nullable(),
-  shortDescription: text(500), description: text(20_000), seats: z.number().int().min(1).max(1_000).nullable(),
+  shortDescription: text(500, true), description: text(20_000, true), seats: z.number().int().min(1).max(1_000).nullable(),
   doors: z.number().int().min(1).max(100).nullable(), transmission: text(80), drive: text(80), fuel: text(80),
   color: text(80), luggage: text(120), price: z.string().regex(/^\d{1,10}(?:\.\d{1,2})?$/).nullable(),
   priceUnit: text(40), featured: z.boolean(), sortOrder: z.number().int().min(0).max(2_147_483_647),
   availableFrom: z.string().nullable(), availableTo: z.string().nullable(),
-  features: z.array(z.object({ code: z.string().trim().min(1).max(80),
+  features: z.array(z.object({ code: z.string().trim().min(1).max(80).refine((value) => !hasControlCharacter(value), INVALID_CHARACTERS),
     value: text(500) }).strict()).max(100),
 }).partial().strict();
 export type VehicleFields = z.input<typeof vehicleFields>;
@@ -36,7 +40,7 @@ export class PublishingRequirementsError extends Error {
 
 function checkedFields(input: VehicleFields): Prisma.VehicleUncheckedUpdateInput & { features?: VehicleFields["features"] } {
   const parsed = vehicleFields.safeParse(input);
-  if (!parsed.success) throw new Error("FLEET_INVALID_INPUT");
+  if (!parsed.success) { throwIfInvalidCharacters(parsed.error.issues); throw new Error("FLEET_INVALID_INPUT"); }
   const { features, availableFrom, availableTo, ...fields } = parsed.data;
   if (features && new Set(features.map((feature) => feature.code)).size !== features.length) {
     throw new Error("FLEET_INVALID_INPUT");
@@ -66,9 +70,8 @@ export function checkOperation(input: Operation) {
 export async function authorizedCompany(tx: Prisma.TransactionClient, input: Operation) {
   const actor = await requireAuditActor(tx, input.actorId, input.sessionId);
   if (actor.role === "ADMIN_FIRMY" && actor.organizationId !== input.organizationId) throw new Error("FLEET_NOT_FOUND");
-  const rows = await tx.$queryRaw<{ id: string }[]>`
-    SELECT id FROM "Organization" WHERE id = ${input.organizationId}::uuid AND "archivedAt" IS NULL FOR UPDATE`;
-  if (rows.length !== 1) throw new Error("FLEET_NOT_FOUND");
+  // D-23: a superadmin writes into an archived company too; the administrator is denied under the lock.
+  if (!(await lockCompanyForWrite(tx, actor, input.organizationId, "UPDATE"))) throw new Error("FLEET_NOT_FOUND");
 }
 
 export async function lockVehicle(tx: Prisma.TransactionClient, organizationId: string, vehicleId: string) {
@@ -107,6 +110,15 @@ function normalizeError(error: unknown): never {
   throw error;
 }
 
+/**
+ * Active slug wins over any redirect (D-27): a redirect whose old slug becomes an active slug of any vehicle of the
+ * company is deleted in the caller's transaction. Callers hold the Organization row lock (`authorizedCompany`), so
+ * two slug writes of one company are serialized and never interleave this delete with a redirect insert.
+ */
+async function releaseRedirectsOf(tx: Prisma.TransactionClient, organizationId: string, slug: string | null) {
+  if (slug) await tx.slugRedirect.deleteMany({ where: { organizationId, oldSlug: slug } });
+}
+
 function slugFromName(name: string | null | undefined): string | null {
   if (!name?.trim()) return null;
   return name.trim().toLowerCase().replace(/ł/g, "l").normalize("NFD")
@@ -126,6 +138,7 @@ export async function createVehicle(db: PrismaClient, input: Operation & { field
     return await db.$transaction(async (tx) => {
       await authorizedCompany(tx, input);
       await validateCategory(tx, typeof fields.categoryId === "string" ? fields.categoryId : null);
+      await releaseRedirectsOf(tx, input.organizationId, typeof fields.slug === "string" ? fields.slug : null);
       const vehicle = await tx.vehicle.create({ data: { ...fields as Prisma.VehicleUncheckedCreateInput,
         organizationId: input.organizationId, status: "DRAFT" } });
       if (features?.length) await tx.vehicleFeature.createMany({ data: features.map((feature) => ({
@@ -168,6 +181,8 @@ export async function editVehicle(db: PrismaClient, input: Operation & { vehicle
       if (before.status === "PUBLISHED" && nextSlug !== before.slug && !input.confirmSlugChange) {
         throw new Error("FLEET_SLUG_CONFIRMATION_REQUIRED");
       }
+      const slugChanged = nextSlug !== before.slug;
+      if (slugChanged) await releaseRedirectsOf(tx, input.organizationId, nextSlug);
       const changed = await tx.vehicle.updateMany({ where: { id: input.vehicleId,
         organizationId: input.organizationId, version: input.expectedVersion },
       data: { ...fields, version: { increment: 1 } } });
@@ -182,11 +197,18 @@ export async function editVehicle(db: PrismaClient, input: Operation & { vehicle
         const errors = await publicationErrors(tx, input.organizationId, input.vehicleId);
         if (Object.keys(errors).length) throw new PublishingRequirementsError(errors);
       }
+      // A vehicle that was published once (PUBLISHED or hidden) keeps its old address for the next publication.
+      // The redirect points at the vehicle, not at a slug: A->B->C is one hop from A and cannot loop or branch.
+      if (slugChanged && before.slug && before.status !== "DRAFT") {
+        await tx.slugRedirect.upsert({ where: { organizationId_oldSlug: { organizationId: input.organizationId,
+          oldSlug: before.slug } }, create: { organizationId: input.organizationId, vehicleId: input.vehicleId,
+          oldSlug: before.slug }, update: { vehicleId: input.vehicleId } });
+      }
       const after = await tx.vehicle.findUniqueOrThrow({ where: { id: input.vehicleId } });
       await appendAudit(tx, { actorId: input.actorId, sessionId: input.sessionId,
         organizationId: input.organizationId, action: "VEHICLE_UPDATED", entityId: input.vehicleId,
         eventKey: randomUUID(), requestId: input.requestId,
-        changes: { changedFields: ["version"], before: { version: before.version },
+        changes: { changedFields: slugChanged ? ["slug", "version"] : ["version"], before: { version: before.version },
           after: { version: after.version } } });
       return projection(after);
     });

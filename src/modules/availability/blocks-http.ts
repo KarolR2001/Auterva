@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
+import { InvalidCharactersError } from "@/lib/text-policy";
 import { actor, body, only, response, uuid } from "@/modules/fleet/http";
 import { BlockOverlapError, createBlock, deleteBlock, editBlock,
   type BlockCreateFields, type BlockEditFields } from "./blocks";
+import { reportInternalError } from "@/modules/observability/http-observe";
 
 type Area = "COMPANY_ADMIN" | "PLATFORM";
 
@@ -11,6 +13,7 @@ function failure(error: unknown, requestId: string) {
     return response({ code: "BLOCK_OVERLAP", message: "Termin nakłada się na istniejącą blokadę.",
       conflict: error.conflict }, 409, requestId);
   }
+  if (error instanceof InvalidCharactersError) return response({ code: "INVALID_INPUT", fieldErrors: error.fieldErrors }, 400, requestId);
   const code = error instanceof Error ? error.message : "";
   if (code === "BLOCK_INVALID_INPUT" || code === "FLEET_INVALID_INPUT") return response({ code: "INVALID_INPUT" }, 400, requestId);
   if (code === "FLEET_NOT_FOUND" || code === "BLOCK_NOT_FOUND") return response({ code: "NOT_FOUND" }, 404, requestId);
@@ -22,7 +25,7 @@ function failure(error: unknown, requestId: string) {
   }
   if (["BLOCK_VERSION_CONFLICT", "BLOCK_VEHICLE_ARCHIVED"].includes(code)) return response({ code }, 409, requestId);
   if (code === "Audit actor is not authorized") return response({ code: "FORBIDDEN" }, 403, requestId);
-  return response({ code: "INTERNAL_ERROR" }, 500, requestId);
+  return response({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "availability.blocks"));
 }
 
 function operation(access: Awaited<ReturnType<typeof actor>>, requestId: string) {

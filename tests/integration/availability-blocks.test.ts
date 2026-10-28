@@ -1,7 +1,7 @@
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { setImmediate } from "node:timers/promises";
 import { Client } from "pg";
-import { afterAll, beforeAll, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, expect, test } from "vitest";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { availabilityToday, sqlDate } from "../../src/modules/availability/dates";
 import { createBlock, normalizeBlockError, BlockOverlapError } from "../../src/modules/availability/blocks";
@@ -67,6 +67,20 @@ beforeAll(async () => {
   sessions.push(await verifiedFixtureSession(db, platformId));
   cookies = { a: sessions[0].cookie, b: sessions[1].cookie, c: sessions[2].cookie, platform: sessions[3].cookie };
 });
+
+/**
+ * Clears only the write/read budgets of the actors this file uses (as resetBudgets in security-regression, #57): the file
+ * makes about 50 writes per admin against a limit of 60, so without it any added test would trip the limit instead of the
+ * behaviour under test. Other files' counters are untouched; the platform actor is the shared fixture superadmin.
+ */
+async function resetBudgets() {
+  const actors: Array<[string, string]> = [[adminA, orgA], [adminB, orgB], [adminC, orgC], [platformId, "platform"]];
+  const keys = actors.flatMap(([actor, scope]) => ["read", "write"].map((kind) => `api:${kind}:${actor}:${scope}`));
+  await db.rateLimitEvent.deleteMany({ where: { keyHash: { in: keys.map((key) =>
+    createHmac("sha256", process.env.BETTER_AUTH_SECRET!).update(key).digest("hex")) } } });
+}
+beforeEach(resetBudgets);
+const budgetKey = (key: string) => createHmac("sha256", process.env.BETTER_AUTH_SECRET!).update(key).digest("hex");
 
 afterAll(async () => {
   const organizationId = { in: [orgA, orgB, orgC] };
@@ -401,12 +415,16 @@ test("service period expiry does not stop private writes, including one queued b
 
 test("NUL in reference or internalNote is a controlled 400 on create and edit", async () => {
   const vehicle = await newVehicle(orgA, "nul");
-  expect((await add(vehicle.id, { from: day(1), to: day(1), type: "OTHER", reference: "a\u0000b" })).status).toBe(400);
-  expect((await add(vehicle.id, { from: day(1), to: day(1), type: "OTHER", internalNote: "\u0000" })).status).toBe(400);
-  const block = await (await add(vehicle.id, { from: day(2), to: day(2), type: "OTHER" })).json() as { id: string };
-  const refused = await patch(vehicle.id, block.id, 0, { internalNote: "x\u0000" });
+  const created = await add(vehicle.id, { from: day(1), to: day(1), type: "OTHER", reference: "a\u0000b", internalNote: "\u0000" });
+  expect(created.status).toBe(400);
+  // #176: the answer names every refused field; the reference is one line.
+  expect(await created.json()).toEqual({ code: "INVALID_INPUT", fieldErrors: { reference: "INVALID_CHARACTERS", internalNote: "INVALID_CHARACTERS" } });
+  // The note keeps TAB and LF.
+  const block = await (await add(vehicle.id, { from: day(2), to: day(2), type: "OTHER", internalNote: "a\n\tb" })).json() as { id: string };
+  expect(block.id).toBeTruthy();
+  const refused = await patch(vehicle.id, block.id, 0, { internalNote: "x\u0000", reference: "a\nb" });
   expect(refused.status).toBe(400);
-  expect(await refused.json()).toEqual({ code: "INVALID_INPUT" });
+  expect(await refused.json()).toEqual({ code: "INVALID_INPUT", fieldErrors: { reference: "INVALID_CHARACTERS", internalNote: "INVALID_CHARACTERS" } });
   expect(await db.availabilityBlock.count({ where: { vehicleId: vehicle.id } })).toBe(1);
 });
 
@@ -531,4 +549,21 @@ test("database errors are classified by structured driver fields, never by stack
   await expect(normalizeBlockError(db, driver("23P01", "violates exclusion constraint \"availability_no_overlap\""), scope))
     .rejects.toBeInstanceOf(BlockOverlapError);
   await expect(normalizeBlockError(db, driver("23505", "duplicate"), scope)).rejects.toMatchObject({ message: "wrapper" });
+});
+
+test("the narrow budget reset clears this file's actors only", async () => {
+  const vehicle = await newVehicle(orgA, "budget");
+  expect((await add(vehicle.id, { from: day(1), to: day(1), type: "BLOCKED" })).status).toBe(201);
+  const own = budgetKey(`api:write:${adminA}:${orgA}`);
+  const foreign = budgetKey(`api:write:${randomUUID()}:${randomUUID()}`);
+  const now = new Date();
+  await db.rateLimitEvent.create({ data: { keyHash: foreign, occurredAt: now, expiresAt: new Date(now.getTime() + 60_000) } });
+  try {
+    expect(await db.rateLimitEvent.count({ where: { keyHash: own } })).toBeGreaterThan(0);
+    await resetBudgets();
+    expect(await db.rateLimitEvent.count({ where: { keyHash: own } })).toBe(0);
+    expect(await db.rateLimitEvent.count({ where: { keyHash: foreign } })).toBe(1);
+  } finally {
+    await db.rateLimitEvent.deleteMany({ where: { keyHash: foreign } });
+  }
 });

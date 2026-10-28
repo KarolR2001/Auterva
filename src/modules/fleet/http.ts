@@ -1,14 +1,17 @@
 import { randomUUID } from "node:crypto";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { InvalidCharactersError } from "@/lib/text-policy";
 import { localDate } from "@/modules/availability/dates";
 import { takeAuthenticatedApiLimit } from "@/modules/tenancy/api-rate-limit";
 import { parseHostAuthority } from "@/modules/tenancy/host-registry";
+import { readJsonObject } from "@/modules/tenancy/json-body";
 import { requireRequestContext, resolveRequestArea } from "@/modules/tenancy/request-context";
 import { createVehicle, editVehicle, PublishingRequirementsError, reorderVehicles,
   setVehicleStatus, type VehicleFields } from "./mutations";
 import { resolveImageAlt } from "@/modules/media/vehicle-images";
 import { listCompanyVehicles, type VehicleListFilters } from "./read";
+import { reportInternalError } from "@/modules/observability/http-observe";
 
 export const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 type Area = "COMPANY_ADMIN" | "PLATFORM";
@@ -31,7 +34,7 @@ function validOrigin(request: Request): boolean {
 }
 
 export async function actor(request: Request, area: Area, targetOrganizationId: string | undefined,
-  mutation: boolean, requestId: string) {
+  mutation: boolean, requestId: string, budget?: "media") {
   if (area === "PLATFORM" && (!targetOrganizationId || !uuid.test(targetOrganizationId))) {
     return { error: response({ code: "INVALID_ID" }, 400, requestId) };
   }
@@ -45,17 +48,13 @@ export async function actor(request: Request, area: Area, targetOrganizationId: 
     return { error: response({ code: "FORBIDDEN" }, 403, requestId) };
   }
   const limit = await takeAuthenticatedApiLimit(prisma, { actorId: context.actorId,
-    organizationId: area === "PLATFORM" ? null : organizationId }, mutation ? "write" : "read");
+    organizationId: area === "PLATFORM" ? null : organizationId }, budget ?? (mutation ? "write" : "read"));
   if (!limit.allowed) return { error: response({ code: "RATE_LIMITED" }, 429, requestId, limit.retryAfter) };
   return { context, organizationId };
 }
 
 export async function body(request: Request): Promise<Record<string, unknown> | null> {
-  if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) return null;
-  try {
-    const value: unknown = await request.json();
-    return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
-  } catch { return null; }
+  return readJsonObject(request);
 }
 
 export function only(value: Record<string, unknown>, keys: string[]) {
@@ -65,6 +64,7 @@ export function only(value: Record<string, unknown>, keys: string[]) {
 function failure(error: unknown, requestId: string) {
   if (error instanceof PublishingRequirementsError) return response({ code: error.message,
     message: "Uzupełnij dane wymagane do publikacji pojazdu.", fieldErrors: error.fieldErrors }, 409, requestId);
+  if (error instanceof InvalidCharactersError) return response({ code: "INVALID_INPUT", fieldErrors: error.fieldErrors }, 400, requestId);
   const code = error instanceof Error ? error.message : "";
   if (code === "FLEET_INVALID_INPUT" || code === "FLEET_INVALID_FILTER" || code === "FLEET_INVALID_ACTIVITY") {
     return response({ code: "INVALID_INPUT" }, 400, requestId);
@@ -74,7 +74,7 @@ function failure(error: unknown, requestId: string) {
   if (["FLEET_VERSION_CONFLICT", "FLEET_SLUG_CONFLICT", "FLEET_SLUG_CONFIRMATION_REQUIRED",
     "FLEET_BLOCK_OUTSIDE_ACTIVITY", "FLEET_ARCHIVED"].includes(code)) return response({ code }, 409, requestId);
   if (code === "Audit actor is not authorized") return response({ code: "FORBIDDEN" }, 403, requestId);
-  return response({ code: "INTERNAL_ERROR" }, 500, requestId);
+  return response({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "fleet"));
 }
 
 function filters(url: URL): VehicleListFilters {

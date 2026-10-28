@@ -3,6 +3,86 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 59,
+      "scope": "Pomiar obciążenia profilu P1 (zatwierdzony) i P2 (proponowany w #90), indeks i zapytanie sprawdzenia dostępności, rzut kalendarza; harness poza zwykłymi testami (pnpm perf:*), staging i profil wielu firm not-run.",
+      "relatedRequirementIds": ["NFR-PERF-002", "C-N060", "C-N062", "C-N066", "D-15"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "prisma/migrations/20261028120000_availability_latest_block_issue_59/migration.sql",
+        "prisma/schema.prisma",
+        "src/modules/availability/read.ts",
+        "scripts/perf/generate-data.ts",
+        "scripts/perf/generate.ts",
+        "scripts/perf/measure.ts",
+        "scripts/perf/run.ts",
+        "scripts/perf/ws-phase.ts",
+        "scripts/perf/explain.ts",
+        "scripts/perf/report.ts",
+        "scripts/perf/legacy-availability.ts",
+        "scripts/perf/target.ts",
+        "docs/performance/PERF_REPORT.md",
+        "docs/contracts/availability-reads.md"
+      ],
+      "testPaths": ["tests/integration/availability-query-regression.test.ts", "tests/unit/perf-generator.test.ts"]
+    },
+    {
+      "issue": 150,
+      "scope": "Budżet odczytu superadmina (D-19): jeden klucz api:read:{actor}:platform we wszystkich firmach i w prywatnym kalendarzu, administratorzy z osobnymi licznikami oraz osobny konfigurowalny budżet pobierania bajtów zdjęć w panelu i preview (AUTERVA_MEDIA_RATE_LIMIT, domyślnie 600/min, błędna wartość to błąd startu).",
+      "relatedRequirementIds": ["D-04", "D-19"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/lib/env.ts",
+        "src/modules/tenancy/api-rate-limit.ts",
+        "src/modules/fleet/http.ts",
+        "src/modules/availability/http.ts",
+        "src/modules/preview/http.ts",
+        "src/modules/media/vehicle-images-http.ts",
+        "docs/contracts/technical-limits-and-mfa-bootstrap.md",
+        "docs/contracts/preview.md",
+        "docs/contracts/media-upload-processing.md"
+      ],
+      "testPaths": [
+        "tests/integration/authenticated-read-budget.test.ts",
+        "tests/unit/env.test.ts"
+      ]
+    },
+    {
+      "issue": 154,
+      "scope": "Indeksowanie mediów publicznych bez X-Robots-Tag oraz robots.txt i sitemap.xml hosta marketingu (D-25): wyjątek Proxy tylko dla wariantów large/thumb na hoście firmy, pozostałe API, panele, platforma i preview noindex, 404 dla wyłączonej firmy, marketing bez danych firm.",
+      "relatedRequirementIds": ["D-25"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/proxy.ts",
+        "src/modules/public-offer/discovery.ts",
+        "src/modules/public-offer/seo.ts",
+        "src/modules/tenancy/host-route-policy.ts",
+        "docs/contracts/public-offer-seo.md"
+      ],
+      "testPaths": [
+        "tests/integration/public-offer.test.ts",
+        "tests/unit/host-route-policy.test.ts",
+        "tests/unit/public-offer.test.ts",
+        "tests/e2e/public-offer.spec.ts",
+        "tests/e2e/vehicle-images.spec.ts"
+      ]
+    },
+    {
+      "issue": 153,
+      "scope": "Zapis przekierowania starego sluga opublikowanego pojazdu (D-27, FR-ADM-035): wpis wskazuje pojazd w transakcji zmiany sluga z audytem, łańcuch jednym skokiem, pierwszeństwo aktywnego sluga, 404 dla pojazdu nieopublikowanego, izolacja firm i równoległe zapisy.",
+      "relatedRequirementIds": ["FR-ADM-035", "D-27"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/fleet/mutations.ts",
+        "src/modules/public-offer/read.ts",
+        "docs/contracts/fleet-crud-publication.md",
+        "docs/contracts/public-offer-seo.md"
+      ],
+      "testPaths": [
+        "tests/integration/slug-redirect.test.ts",
+        "tests/integration/fleet-mutations.test.ts"
+      ]
+    },
+    {
       "issue": 54,
       "scope": "Harmonogram przypomnień 7/1/0 (panel i e-mail) z trwałymi intencjami, uzgadnianiem przy każdej zmianie okresu, rewalidacją przed doręczeniem i prywatnym API statusu usługi dla panelu firmy (UI w #55).",
       "relatedRequirementIds": ["C-F067", "C-N004", "C-F058", "C-F062", "D-07", "D-14"],
@@ -84,6 +164,76 @@
         "src/app/api/platform/companies/[organizationId]/chat/messages/route.ts"
       ],
       "testPaths": ["tests/unit/chat-text.test.ts", "tests/integration/chat.test.ts", "tests/integration/chat-migration.test.ts", "tests/e2e/chat.spec.ts"]
+    },
+    {
+      "issue": 51,
+      "scope": "Serwer WebSocket czatu: handshake z Origin z rejestru HostMapping, sesją MFA i firmą, zdarzenia message/read/typing, sygnał w transakcji sendMessage (pg_notify bez treści), odzyskiwanie z kursorem i po zerwaniu LISTEN, backpressure, rewalidacja i pomiar p95. Bez UI, szkicu, widoczności 500 ms po stronie klienta (#52) i załączników.",
+      "relatedRequirementIds": ["C-F118", "C-F119", "C-F120", "C-F121", "C-F127", "C-F130", "C-F131", "C-F132", "C-N004", "C-N059", "D-08"],
+      "referenceScreenIds": ["TEN-11", "PLT-09"],
+      "codePaths": [
+        "docs/contracts/chat-realtime.md",
+        "src/modules/chat/realtime.ts",
+        "src/modules/chat/realtime-listener.ts",
+        "src/modules/chat/read-state.ts",
+        "src/modules/chat/signal.ts",
+        "src/modules/chat/resolve-tenant.ts",
+        "src/modules/chat/service.ts",
+        "src/server/realtime.ts"
+      ],
+      "testPaths": [
+        "tests/integration/chat-realtime.test.ts",
+        "tests/integration/realtime.test.ts",
+        "tests/integration/company-archive-realtime.test.ts",
+        "tests/fixtures/realtime-client.ts"
+      ]
+    },
+    {
+      "issue": 167,
+      "scope": "Wskaźnik nieprzeczytanych i odświeżanie listy rozmów superadmina: unread z kursora odczytu superadmina jednym zapytaniem na stronę, domyślne pominięcie archiwum (unread 0 przy includeArchived, D-23), kanał platformy /ws/platform z licznikami bez treści, autoryzacja i rewalidacja jak w #51. Bez UI skrzynki (#53).",
+      "relatedRequirementIds": ["C-F119", "C-F121", "C-F127", "C-F134", "C-N004", "D-08", "D-23"],
+      "referenceScreenIds": ["PLT-09"],
+      "codePaths": [
+        "docs/contracts/chat-conversations-messages.md",
+        "docs/contracts/chat-realtime.md",
+        "src/modules/chat/platform-inbox.ts",
+        "src/modules/chat/service.ts",
+        "src/modules/chat/http.ts",
+        "src/modules/chat/realtime.ts",
+        "src/modules/chat/resolve-tenant.ts"
+      ],
+      "testPaths": ["tests/integration/chat-inbox.test.ts", "tests/integration/chat.test.ts"]
+    },
+    {
+      "issue": 171,
+      "scope": "Spójność unread i odświeżanie kanału platformy przed skrzynką superadmina: readSeq w liście i ramce (para lastSeq, readSeq), odświeżanie co pollMs przy niezdrowym LISTEN, sygnał archiwizacji i przywrócenia w transakcji, unread 0 dla superadmina w archiwum na /ws, jedno zapytanie o sesje w sweepie. Bez UI (PLT-09 to Frontend #53).",
+      "relatedRequirementIds": ["C-F119", "C-F121", "C-F127", "C-N004", "D-08", "D-23"],
+      "referenceScreenIds": ["PLT-09"],
+      "codePaths": [
+        "docs/contracts/chat-conversations-messages.md",
+        "docs/contracts/chat-realtime.md",
+        "src/modules/chat/platform-inbox.ts",
+        "src/modules/chat/read-state.ts",
+        "src/modules/chat/service.ts",
+        "src/modules/chat/signal.ts",
+        "src/modules/chat/realtime.ts",
+        "src/modules/chat/resolve-tenant.ts",
+        "src/modules/organizations/archive.ts"
+      ],
+      "testPaths": ["tests/integration/chat-inbox-consistency.test.ts", "tests/integration/chat-inbox.test.ts"]
+    },
+    {
+      "issue": 159,
+      "scope": "Konfigurowalny nasłuch i allowlista hostów serwera WebSocket w kontenerze (WS_HOST, WS_PORT, WS_ALLOWED_HOSTS) walidowane przy starcie; domyślnie loopback, bez trybu dowolnego hosta.",
+      "relatedRequirementIds": ["C-N004", "C-N059"],
+      "codePaths": [
+        "docs/contracts/chat-realtime.md",
+        "src/modules/chat/realtime-config.ts",
+        "src/server/realtime.ts",
+        "Dockerfile",
+        ".env.example",
+        "docs/development/CI.md"
+      ],
+      "testPaths": ["tests/unit/realtime-config.test.ts", "tests/integration/realtime-process.test.ts"]
     },
     {
       "issue": 30,
@@ -556,6 +706,35 @@
       ]
     },
     {
+      "issue": 151,
+      "scope": "D-23: superadmin zapisuje ustawienia, media publiczne, flote, zdjecia pojazdow i blokady zarchiwizowanej firmy (D-21: archiwalny pojazd 409 przy dodaniu i edycji blokady, usuniecie dozwolone); administrator, czat i strona publiczna bez zmian; wspolny lock wiersza Organization i audyt z context ARCHIVED_COMPANY. Bez UI.",
+      "relatedRequirementIds": ["C-F073", "C-F074", "C-F075", "C-F078", "D-21", "D-23"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/organizations/write-lock.ts",
+        "src/modules/audit/append.ts",
+        "src/modules/audit/read.ts",
+        "src/modules/fleet/mutations.ts",
+        "src/modules/availability/blocks.ts",
+        "src/modules/settings/mutations.ts",
+        "src/modules/media/reservation.ts",
+        "src/modules/media/finalize.ts",
+        "src/modules/media/worker.ts",
+        "docs/contracts/company-archive-restore.md",
+        "docs/contracts/company-settings-and-vehicle-publication.md",
+        "docs/contracts/fleet-crud-publication.md",
+        "docs/contracts/media-upload-processing.md",
+        "docs/contracts/availability-blocks.md",
+        "docs/contracts/audit-append-and-access.md"
+      ],
+      "testPaths": [
+        "tests/integration/company-archive-superadmin-writes.test.ts",
+        "tests/integration/company-archive-media.test.ts",
+        "tests/integration/company-settings.test.ts",
+        "tests/integration/fleet-mutations.test.ts"
+      ]
+    },
+    {
       "issue": 48,
       "scope": "Archiwizacja i przywrócenie firmy bez utraty danych: atomowe cofnięcie sesji i challenge MFA, blokada publiczna, wersja i audyt rzeczywistego superadmina; restore bez odnowienia okresu, odblokowanie wyłącznie przez istniejące unlockPublicAfterRestore. Bez UI i purge.",
       "relatedRequirementIds": ["C-F073", "C-F074", "C-F075", "C-F075-T", "C-F076", "C-F077", "C-F078", "C-F079", "C-F080", "C-F126", "C-N011", "C-N046"],
@@ -686,6 +865,140 @@
       "testPaths": [
         "tests/integration/preview.test.ts",
         "tests/e2e/preview.spec.ts"
+      ]
+    },
+    {
+      "issue": 152,
+      "scope": "Host panelu i publiczny alias PROVIDER nowej firmy sa ACTIVE od prerejestracji (D-26); skrypt operatora (podglad/--apply) aktywuje oczekujace hosty istniejacych firm pod skonfigurowanymi bazami. Domena CUSTOM (#23) i bramka okresu/archiwum bez zmian. Bez UI.",
+      "relatedRequirementIds": ["C-F003", "C-F004", "C-F015", "C-F022", "C-F025", "C-F026", "D-26"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "scripts/activate-provider-hosts.ts",
+        "src/modules/organizations/onboarding.ts",
+        "docs/contracts/company-onboarding-invitations.md",
+        "docs/contracts/environments-hosts-operations.md"
+      ],
+      "testPaths": [
+        "tests/integration/company-hosts-activation.test.ts",
+        "tests/integration/company-hosts-activation-script.test.ts",
+        "tests/integration/company-preregistration.test.ts",
+        "tests/e2e/company-onboarding.spec.ts"
+      ]
+    },
+    {
+      "issue": 57,
+      "scope": "Zabezpieczenia serwera i regresja izolacji przed wydaniem: nagłówki i CSP z nonce, jeden ograniczony parser JSON, odrzucenie NUL w filtrach, limit anonimowego odczytu zaproszenia, macierz negatywna po wszystkich handlerach (TEST-MVP-01..10, 32, 33, 34, 45, 47, 53) i macierz OWASP z dowodami, bez deklaracji certyfikacji. Pentest staging not-run (zależy od #90); izolacja WS /ws/platform w security-ws-platform.test.ts.",
+      "relatedRequirementIds": [
+        "C-N001", "C-N006", "C-N007", "C-N029", "C-N032", "C-N036", "C-N044", "C-N057", "C-N059", "C-N061", "C-N062",
+        "TEST-MVP-01", "TEST-MVP-02", "TEST-MVP-03", "TEST-MVP-04", "TEST-MVP-05", "TEST-MVP-06", "TEST-MVP-07", "TEST-MVP-08",
+        "TEST-MVP-09", "TEST-MVP-10", "TEST-MVP-32", "TEST-MVP-33", "TEST-MVP-34", "TEST-MVP-45", "TEST-MVP-47", "TEST-MVP-53"
+      ],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "security-headers.mjs",
+        "next.config.mjs",
+        "src/app/layout.tsx",
+        "src/app/not-found.tsx",
+        "docs/contracts/company-invitation-activation.md",
+        "docs/contracts/technical-limits-and-mfa-bootstrap.md",
+        "src/proxy.ts",
+        "src/modules/tenancy/csp.ts",
+        "src/modules/tenancy/json-body.ts",
+        "src/modules/fleet/http.ts",
+        "src/modules/fleet/read.ts",
+        "src/modules/service-period/http.ts",
+        "src/modules/organizations/http.ts",
+        "src/modules/organizations/read-http.ts",
+        "src/modules/availability/http.ts",
+        "src/modules/public-offer/read.ts",
+        "src/app/api/auth/[...all]/route.ts",
+        "src/app/api/auth/invitation/[token]/route.ts",
+        "docs/security/OWASP_CONTROLS.md",
+        "docs/plans/57-security-regression.md"
+      ],
+      "testPaths": [
+        "tests/integration/security-regression.test.ts",
+        "tests/integration/security-ws-platform.test.ts",
+        "tests/e2e/security-headers.spec.ts",
+        "tests/unit/security-headers.test.ts",
+        "tests/unit/json-body.test.ts"
+      ]
+    },
+    {
+      "issue": 176,
+      "scope": "Odrzucanie NUL i znakow sterujacych w polach tekstowych uwierzytelnionych mutacji (flota, blokady, firmy, profil konta) przez wspolna polityke tekstu; inwentarz mutacji z tras w security-regression pada dla nowej mutacji bez probki lub klasyfikacji. Bez UI.",
+      "relatedRequirementIds": ["C-N001", "C-N006", "C-N007"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/lib/text-policy.ts",
+        "src/modules/fleet/mutations.ts",
+        "src/modules/availability/blocks.ts",
+        "src/modules/organizations/onboarding.ts",
+        "src/app/api/auth/[...all]/route.ts",
+        "docs/contracts/fleet-crud-publication.md",
+        "docs/contracts/availability-blocks.md",
+        "docs/contracts/account-operations.md",
+        "docs/contracts/company-onboarding-invitations.md",
+        "docs/security/OWASP_CONTROLS.md"
+      ],
+      "testPaths": [
+        "tests/integration/security-regression.test.ts",
+        "tests/integration/password-reset.test.ts"
+      ]
+    },
+    {
+      "issue": 60,
+      "scope": "Kopia DB i mediow (szyfrowana, snapshot, manifest z MAC), restore pelny do nowej bazy i bucketa ze straznikiem celu, kontrola integralnosci, kwarantanna sesji, tokenow i jobow po restore, odtworzenie jednej firmy bez zmiany innych oraz runbook. Zmierzone lokalnie na fixture; konfiguracja dostawcy, PITR i alerty produkcyjne not-run (#90). Bez UI.",
+      "relatedRequirementIds": ["C-N041", "C-N042", "C-N046", "D-10", "D-16"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/backup/crypto.ts",
+        "src/modules/backup/core.ts",
+        "src/modules/backup/backup.ts",
+        "src/modules/backup/restore.ts",
+        "src/modules/backup/company.ts",
+        "scripts/backup-restore.ts",
+        "scripts/recover-mfa.ts",
+        "src/modules/audit/operator.ts",
+        "docs/runbooks/backup-restore.md",
+        "docs/contracts/environments-hosts-operations.md"
+      ],
+      "testPaths": [
+        "tests/unit/backup-crypto.test.ts",
+        "tests/integration/backup-restore.test.ts"
+      ]
+    },
+    {
+      "issue": 58,
+      "scope": "Structured logs z redakcją, liveness/readiness (DB, storage, kolejka, migracje), metryki Prometheus za tokenem, reguły alertów jako kod z histerezą i ochroną przed lawiną, monitor z lokalnym dostarczeniem (plik, Mailpit), sygnały #108 i backup #60, runbook z właścicielami D-10. Dashboard u dostawcy, paging i odbiór #108 na adapterze docelowym not-run (#90).",
+      "relatedRequirementIds": [
+        "C-N020",
+        "C-N037",
+        "C-N059",
+        "C-N060",
+        "D-10",
+        "D-16"
+      ],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/observability/",
+        "src/instrumentation.ts",
+        "src/app/api/health/",
+        "src/server/ops-monitor.ts",
+        "src/server/worker.ts",
+        "src/server/realtime.ts",
+        "docs/contracts/monitoring-alerts.md",
+        "docs/runbooks/monitoring-incidents.md"
+      ],
+      "testPaths": [
+        "tests/unit/observability-redaction.test.ts",
+        "tests/unit/observability-metrics.test.ts",
+        "tests/unit/observability-health.test.ts",
+        "tests/unit/observability-alerts.test.ts",
+        "tests/unit/route-context-guard.test.ts",
+        "tests/integration/ops-monitoring.test.ts",
+        "tests/integration/log-actor-context.test.ts",
+        "tests/e2e/auth-production.spec.ts"
       ]
     }
   ],

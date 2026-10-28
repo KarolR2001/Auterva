@@ -8,6 +8,7 @@ import { resolveRequestArea } from "@/modules/tenancy/request-context";
 import { ChatError } from "./errors";
 import { findConversation, listMessages, listPlatformConversations, openConversation, sendMessage,
   type ChatScope } from "./service";
+import { reportInternalError } from "@/modules/observability/http-observe";
 
 type Area = "COMPANY_ADMIN" | "PLATFORM";
 const MAX_BODY_BYTES = 65_536;
@@ -29,7 +30,7 @@ function failure(error: unknown, requestId: string) {
       case "RATE_LIMITED": return response({ code: "RATE_LIMITED" }, 429, requestId, error.retryAfter ?? 1);
     }
   }
-  return response({ code: "INTERNAL_ERROR" }, 500, requestId);
+  return response({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "chat"));
 }
 
 async function access(request: Request, area: Area, target: string | undefined, mutation: boolean, requestId: string) {
@@ -121,10 +122,13 @@ export async function getPlatformConversations(request: Request) {
     }
     const limitResult = await takeAuthenticatedApiLimit(prisma, { actorId: session.userId, organizationId: null }, "read");
     if (!limitResult.allowed) return response({ code: "RATE_LIMITED" }, 429, requestId, limitResult.retryAfter);
-    const params = query(request, ["limit", "cursor"]);
+    const params = query(request, ["limit", "cursor", "includeArchived"]);
     const limit = params ? pageSize(params.get("limit")) : null;
-    if (!params || limit === null) return response({ code: "INVALID_INPUT" }, 400, requestId);
+    const archived = params?.get("includeArchived") ?? null;
+    if (!params || limit === null || !(archived === null || archived === "true" || archived === "false")) {
+      return response({ code: "INVALID_INPUT" }, 400, requestId);
+    }
     return response(await listPlatformConversations(prisma, { actorId: session.userId, sessionId: session.sessionId },
-      { limit, cursor: params.get("cursor") ?? undefined }), 200, requestId);
+      { limit, cursor: params.get("cursor") ?? undefined, includeArchived: archived === "true" }), 200, requestId);
   } catch (error) { return failure(error, requestId); }
 }

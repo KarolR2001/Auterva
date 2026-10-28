@@ -17,7 +17,7 @@ Warstwa serwerowa dla stron #41–#44 oraz publiczne API JSON. Moduł: `src/modu
 |---|---|
 | `/api/public/offer/` | home: `offerState` `EMPTY` (zapowiedź) lub `HAS_VEHICLES`, firma, wyróżnione (`featuredVehicleCount`), kontakt, `seo` |
 | `/api/public/vehicles/` | katalog (poniżej) |
-| `/api/public/vehicles/{slug}/` | `{kind:"FOUND", vehicle, availabilityNotice, contact, display, seo}`; stary slug opublikowanego pojazdu `308` z `Location: /api/public/vehicles/{nowy}/` (query zachowane) i `body.path` = ścieżka strony; nieznany/obcy/nieopublikowany `404 {code:"NOT_FOUND", offerPath:"/"}` |
+| `/api/public/vehicles/{slug}/` | `{kind:"FOUND", vehicle, availabilityNotice, contact, display, seo}`; stary slug (zapisany przez #153 przy zmianie sluga opublikowanego pojazdu) prowadzący do pojazdu `PUBLISHED` `308` z `Location: /api/public/vehicles/{nowy}/` (query zachowane) i `body.path` = ścieżka strony; nieznany/obcy/nieopublikowany `404 {code:"NOT_FOUND", offerPath:"/"}` |
 | `/api/public/contact/?vehicle=&from=&to=` | kanały, godziny, adres, `message`, `seo` |
 | `/api/public/legal/{privacy|terms}/` | `status` `TEXT`/`LINK`/`MISSING`, `text`, `url`, `seo` |
 
@@ -41,7 +41,7 @@ Karta (`path`) nie niesie dat: klient (#42) dokleja `applied.from`/`applied.to` 
 - Schema.org: strona główna i kontakt `AutoRental` (nazwa, URL, telefon, e-mail, adres, geo — tylko podane pola; bez godzin otwarcia z tekstu wolnego); pojazd `["Product","Car"]` (marka, model, rok, miejsca, drzwi, skrzynia, paliwo, napęd, kolor, kategoria, obrazy). **Bez `offers`**: cena nie ma walidowanej waluty ani semantyki „od”, a dostępność zależy od dat.
 - Indeksowanie (zatwierdzone przez właściciela, D-25): `/pojazdy/` z jakimkolwiek filtrem, sortowaniem, kursorem lub `limit`, a także pusta oferta, ma `noindex, follow` i canonical na gołą listę; szczegóły z `?from=&to=` mają canonical bez dat; strona prawna bez tekstu (`LINK`/`MISSING`) jest `noindex`.
 - `sitemap.xml`: strona główna, `/pojazdy/` (tylko gdy są pojazdy), każdy `PUBLISHED` pojazd (do 5000, `lastmod` z `updatedAt`), `/kontakt/`, strony prawne z tekstem; na kanonicznym originie hosta. `robots.txt` hosta publicznego: `Allow: /`, `Allow: /api/public/media/`, `Disallow: /api/`, `Sitemap:`. Obie trasy są `no-store` i działają tylko za bramką; wyłączona firma daje `404` na obu.
-- Panele: `robots.txt` hosta `COMPANY_ADMIN` i `PLATFORM` to `Disallow: /`; Proxy dodaje `X-Robots-Tag: noindex, nofollow` do każdej odpowiedzi tych obszarów i do każdej trasy `/api/`. Podgląd pojazdu jest częścią panelu i ma oddzielny kontrakt: [chroniony preview #46](preview.md). Hosty `MARKETING` nie mają `robots.txt`/sitemap w tym zadaniu; według D-25 marketing jest indeksowany, a media publiczne nie dostają `X-Robots-Tag` — zmienia to #154 (do tego czasu Proxy dodaje `noindex` także do `/api/public/media/`).
+- Panele: `robots.txt` hosta `COMPANY_ADMIN` i `PLATFORM` to `Disallow: /`; Proxy dodaje `X-Robots-Tag: noindex, nofollow` do każdej odpowiedzi tych obszarów i do każdej trasy `/api/`, z jednym wyjątkiem: warianty mediów publicznych `GET|HEAD /api/public/media/{id}/{large|thumb}/` na hoście `COMPANY_PUBLIC` nie mają `X-Robots-Tag` (indeksowanie zdjęć, D-25). Wyłączona lub zarchiwizowana firma daje na nich `404` `no-store`; cache i limity mediów bez zmian. Wszystkie inne `/api/public/*` zostają `noindex, nofollow`. Podgląd pojazdu jest częścią panelu i ma oddzielny kontrakt: [chroniony preview #46](preview.md). Host `MARKETING` jest indeksowany (D-25, #154): `robots.txt` to `Allow: /`, `Disallow: /api/`, `Sitemap: <origin hosta marketingu>/sitemap.xml`, a `sitemap.xml` zawiera wyłącznie strony marketingowe istniejące jako trasy (dziś `/`; dokumenty Autervy dojdą razem z trasami), bez hostów, nazw i danych firm. Obie trasy są `no-store`, bez `X-Robots-Tag`, objęte budżetem `offerRead`; polityka tras hosta marketingu dopuszcza `/robots.txt` i `/sitemap.xml`.
 - Strony SSR (#41–#44) ustawiają `robots` z `seo.robots`, a globalny 404 sprawdza `getPublicSiteState` (link do oferty tylko przy `ACTIVE`, C-F113). Kopie pobrane wcześniej przez przeglądarkę lub CDN nie są cofane (C-N033).
 
 ## Budżet ruchu publicznych wariantów mediów
@@ -50,4 +50,8 @@ Karta (`path`) nie niesie dat: klient (#42) dokleja `applied.from`/`applied.to` 
 
 ## Poza zakresem
 
-Strony i komponenty (#41–#44), kalendarz i wynik dostępności w UI, zapis leadu (poza MVP), cache wyniku publicznego, indeksowanie hosta `MARKETING`.
+Strony i komponenty (#41–#44), kalendarz i wynik dostępności w UI, zapis leadu (poza MVP), cache wyniku publicznego.
+
+## Przekierowanie starego sluga (#153)
+
+Wpis `SlugRedirect` wskazuje pojazd, więc stary slug z dowolnego ogniwa łańcucha trafia jednym skokiem na aktualny slug (strona: wynik `REDIRECT` z `path` `/pojazdy/{aktualny}/`, API: `308` z zachowanym query). Aktywny slug w dowolnym statusie ma pierwszeństwo przed wpisem (wpis jest usuwany przy zapisie sluga), a pojazd `DRAFT`, `UNPUBLISHED` lub `ARCHIVED` nie jest celem: odczyt daje `404`. Reguły zapisu: `fleet-crud-publication.md`.

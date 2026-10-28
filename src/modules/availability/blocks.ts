@@ -3,18 +3,20 @@ import { z } from "zod";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { appendAudit } from "@/modules/audit/append";
 import { requireAuditActor } from "@/modules/audit/actor";
+import { lockCompanyForWrite } from "@/modules/organizations/write-lock";
 import { checkOperation, lockVehicle, type Operation } from "@/modules/fleet/mutations";
+import { hasControlCharacter, INVALID_CHARACTERS, throwIfInvalidCharacters } from "@/lib/text-policy";
 import { localDate, sqlDate } from "./dates";
 
 import { blockTypeLabels, blockTypes, type BlockType } from "./block-types";
 export { blockTypeLabels, blockTypes, type BlockType };
 
 const uuid = z.uuid();
-const optionalText = (max: number) => z.string().trim().max(max)
-  .refine((value) => !value.includes("\u0000")).transform((value) => value || null).nullable();
+const optionalText = (max: number, multiline = false) => z.string().trim().max(max)
+  .refine((value) => !hasControlCharacter(value, multiline), INVALID_CHARACTERS).transform((value) => value || null).nullable();
 const dateField = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const createFields = z.object({ from: dateField, to: dateField, type: z.enum(blockTypes),
-  reference: optionalText(120).optional(), internalNote: optionalText(2000).optional() }).strict();
+  reference: optionalText(120).optional(), internalNote: optionalText(2000, true).optional() }).strict();
 const editFields = createFields.partial().strict();
 export type BlockCreateFields = z.input<typeof createFields>;
 export type BlockEditFields = z.input<typeof editFields>;
@@ -55,9 +57,7 @@ function dto(block: { id: string; vehicleId: string; from: Date; to: Date; type:
 async function authorizeAndLockCompany(tx: Prisma.TransactionClient, input: Operation) {
   const actor = await requireAuditActor(tx, input.actorId, input.sessionId);
   if (actor.role === "ADMIN_FIRMY" && actor.organizationId !== input.organizationId) throw new Error("FLEET_NOT_FOUND");
-  const rows = await tx.$queryRaw<{ id: string }[]>`
-    SELECT id FROM "Organization" WHERE id = ${input.organizationId}::uuid AND "archivedAt" IS NULL FOR NO KEY UPDATE`;
-  if (rows.length !== 1) throw new Error("FLEET_NOT_FOUND");
+  if (!(await lockCompanyForWrite(tx, actor, input.organizationId, "NO_KEY_UPDATE"))) throw new Error("FLEET_NOT_FOUND");
 }
 
 async function lockedVehicle(tx: Prisma.TransactionClient, input: Operation & { vehicleId: string }) {
@@ -134,7 +134,7 @@ function checkIds(input: Operation & { vehicleId: string }) {
 export async function createBlock(db: PrismaClient, input: Operation & { vehicleId: string; fields: BlockCreateFields }) {
   checkIds(input);
   const parsed = createFields.safeParse(input.fields);
-  if (!parsed.success) throw new Error("BLOCK_INVALID_INPUT");
+  if (!parsed.success) { throwIfInvalidCharacters(parsed.error.issues); throw new Error("BLOCK_INVALID_INPUT"); }
   const { start, end } = parseDates(parsed.data.from, parsed.data.to);
   try {
     return await db.$transaction(async (tx) => {
@@ -162,6 +162,7 @@ export async function editBlock(db: PrismaClient, input: Operation & { vehicleId
   expectedVersion: number; fields: BlockEditFields }) {
   checkIds(input);
   const parsed = editFields.safeParse(input.fields);
+  if (!parsed.success) throwIfInvalidCharacters(parsed.error.issues);
   if (!parsed.success || !uuid.safeParse(input.blockId).success || !version(input.expectedVersion)
     || !Object.keys(parsed.data).length) throw new Error("BLOCK_INVALID_INPUT");
   let scope: { start?: Date; end?: Date } = {};

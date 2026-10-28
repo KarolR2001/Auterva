@@ -4,7 +4,7 @@
 
 ## HTTP i odmowy
 
-`GET /api/auth/invitation/{token}/` pozostaje odczytem bez skutków. `POST` na tej samej ścieżce przyjmuje wyłącznie JSON `{ "password": string }` (12–256 znaków). Token ma 32 losowe bajty base64url i znajduje się tylko w ścieżce; odpowiedzi mają `Cache-Control: no-store`, `Referrer-Policy: no-referrer` i własny serwerowy `X-Request-Id`. Klient nie wysyła firmy, roli, adresata, chwili, okresu ani identyfikatora żądania. `Origin` musi odpowiadać aktywnemu hostowi `COMPANY_ADMIN`, do którego wydano zaproszenie. Pozytywna odpowiedź 200 zawiera `organizationId`, `registeredAt` UTC, `signInRequired: true` i `siteState`:
+`GET /api/auth/invitation/{token}/` pozostaje odczytem bez skutków. Jest anonimowy, więc ma limit 60 / ruchoma minuta / zaufany adres (`429 RATE_LIMITED` z `Retry-After`), a bez zaufanego adresu klienta `503 INGRESS_NOT_CONFIGURED` jak `POST`; nieoczekiwany błąd to `500 INTERNAL_ERROR` bez szczegółów (#57). `POST` na tej samej ścieżce przyjmuje wyłącznie JSON `{ "password": string }` (12–256 znaków). Token ma 32 losowe bajty base64url i znajduje się tylko w ścieżce; odpowiedzi mają `Cache-Control: no-store`, `Referrer-Policy: no-referrer` i własny serwerowy `X-Request-Id`. Klient nie wysyła firmy, roli, adresata, chwili, okresu ani identyfikatora żądania. `Origin` musi odpowiadać aktywnemu hostowi `COMPANY_ADMIN`, do którego wydano zaproszenie. Pozytywna odpowiedź 200 zawiera `organizationId`, `registeredAt` UTC, `signInRequired: true` i `siteState`:
 
 - `READY`: aktywna publiczna domena i ważny okres z odblokowaną publikacją;
 - `DOMAIN_PENDING`: publiczny host nie jest aktywny;

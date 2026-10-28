@@ -4,7 +4,7 @@
 
 ## Wejścia
 
-Te same use case obsługują admina firmy (host `COMPANY_ADMIN`) i superadmina (host `PLATFORM`, jawna firma): `POST .../vehicles/{id}/blocks` (`{fields:{from,to,type,reference?,internalNote?}}`, 201), `PATCH .../blocks/{blockId}` (`{expectedVersion,fields}`), `DELETE .../blocks/{blockId}` (`{expectedVersion}`), z prefiksem `/api/admin` albo `/api/platform/companies/{organizationId}`. Wymagane: host, pełna sesja MFA, rola, zgodny `Origin`, limit zapisów; odpowiedzi `no-store` z `X-Request-Id`. Odczyt prywatny zostaje w `GET .../availability` i zwraca także `typeLabel` ("Serwis" dla `MAINTENANCE`).
+Te same use case obsługują admina firmy (host `COMPANY_ADMIN`) i superadmina (host `PLATFORM`, jawna firma; superadmin zapisuje także w zarchiwizowanej firmie, D-23 #151, z `context: "ARCHIVED_COMPANY"` w audycie; administratorowi archiwum odmawia sesja i `requireAuditActor`): `POST .../vehicles/{id}/blocks` (`{fields:{from,to,type,reference?,internalNote?}}`, 201), `PATCH .../blocks/{blockId}` (`{expectedVersion,fields}`), `DELETE .../blocks/{blockId}` (`{expectedVersion}`), z prefiksem `/api/admin` albo `/api/platform/companies/{organizationId}`. Wymagane: host, pełna sesja MFA, rola, zgodny `Origin`, limit zapisów; odpowiedzi `no-store` z `X-Request-Id`. Odczyt prywatny zostaje w `GET .../availability` i zwraca także `typeLabel` ("Serwis" dla `MAINTENANCE`).
 
 Typy: `RESERVED`, `MAINTENANCE` ("Serwis"), `BLOCKED`, `OTHER`; źródło zawsze `MANUAL`. `reference` ≤ 120, `internalNote` ≤ 2000 znaków, puste → `NULL`. Daty to LocalDate włącznie, `from <= to` (jeden dzień poprawny); przeszłe daty w aktywności są dozwolone jako historia.
 
@@ -14,7 +14,7 @@ Transakcja: aktor → blokada `Organization FOR NO KEY UPDATE` → `Vehicle FOR 
 
 ## Odmowy (wszystkie atomowe, bez częściowej mutacji i audytu)
 
-`400 INVALID_INPUT` (także znak NUL w `reference`/`internalNote`); `404 NOT_FOUND` (obca firma/pojazd/blokada, brak ujawnienia); `409 BLOCK_OVERLAP` z `conflict:{id,from,to,type,version}` istniejącego wpisu (tylko uwierzytelniony aktor tej firmy); `409 BLOCK_OUTSIDE_ACTIVITY` (aktywność bez początku, przed początkiem lub po końcu); `409 BLOCK_VERSION_CONFLICT`; `409 BLOCK_VEHICLE_ARCHIVED` (zapis i edycja; usunięcie pozostaje dozwolone — D-21); `422 BLOCK_DATA_INVALID` (naruszenie CHECK 23514, np. stary wiersz z `reference` > 120 przy edycji samego typu — popraw tekst i zapisz ponownie); `403 FORBIDDEN`; `429 RATE_LIMITED`.
+`400 INVALID_INPUT` (także znak sterujący w `reference`/`internalNote`: odpowiedź ma wtedy `fieldErrors: { reference|internalNote: "INVALID_CHARACTERS" }`; `reference` jest jednowierszowe, `internalNote` dopuszcza TAB, LF i CR; polityka `src/lib/text-policy.ts` odrzuca też C1, bidi i U+2028/2029); `404 NOT_FOUND` (obca firma/pojazd/blokada, brak ujawnienia); `409 BLOCK_OVERLAP` z `conflict:{id,from,to,type,version}` istniejącego wpisu (tylko uwierzytelniony aktor tej firmy); `409 BLOCK_OUTSIDE_ACTIVITY` (aktywność bez początku, przed początkiem lub po końcu); `409 BLOCK_VERSION_CONFLICT`; `409 BLOCK_VEHICLE_ARCHIVED` (zapis i edycja; usunięcie pozostaje dozwolone — D-21); `422 BLOCK_DATA_INVALID` (naruszenie CHECK 23514, np. stary wiersz z `reference` > 120 przy edycji samego typu — popraw tekst i zapisz ponownie); `403 FORBIDDEN`; `429 RATE_LIMITED`.
 
 ## Aktualność publiczna i okres usługi
 

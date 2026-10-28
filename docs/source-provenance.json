@@ -48,7 +48,7 @@
     },
     {
       "path": "docs/contracts/company-settings-and-vehicle-publication.md",
-      "sha256": "67050b6c8eb931c662c7bc1505155b35deaf075f371aa2ed2727ecfa8e4ae39e"
+      "sha256": "9d1fea239ba7fcb3d7c4c3447af42837fd7edc8a35596fc7dfd8652340efcacf"
     },
     {
       "path": "docs/contracts/service-periods-kpi-reminders.md",
@@ -56,11 +56,11 @@
     },
     {
       "path": "docs/contracts/environments-hosts-operations.md",
-      "sha256": "9e0579ff084489f3ec934021be2e26d6dd0a02546df3502a2c602adacc8968a1"
+      "sha256": "889f4d42edcaf49e86233fc96c46629bac23cf1033248eaf47e9175cdadf3eeb"
     },
     {
       "path": "docs/contracts/technical-limits-and-mfa-bootstrap.md",
-      "sha256": "aa8dceaa19719ab4bdddab8a514b0823cdaa3dff8d9b66f1ca51342883366775"
+      "sha256": "b7b96ec716d2a53f4f33c7b66bb38ec71bb03f565175d262756cbca412fa06b8"
     },
     {
       "path": "docs/contracts/data-model-and-migrations.md",
@@ -68,27 +68,31 @@
     },
     {
       "path": "docs/contracts/audit-append-and-access.md",
-      "sha256": "d858ed1fbbd0c5e2fe8eaf18e721b39098a90476b109c44598c613e62dac1381"
+      "sha256": "f18b00b8eb2e1d907baaa1a46250065571be0c838f11f045378f930a12454318"
     },
     {
       "path": "docs/contracts/availability-reads.md",
-      "sha256": "e820049a2665a8c38c2a3627d4e204abaec61e11b2424225c515b5377a425b87"
+      "sha256": "3ce6adde050d5d6b22469d5944ecbfb6e0c0e0df9fb82dc42096fd2113877797"
     },
     {
       "path": "docs/contracts/fleet-crud-publication.md",
-      "sha256": "6c997ba86a35b5e8383273626a44a60fb5e1b84fe8645d2ab86bbe2b78788e4a"
+      "sha256": "f56a851b547e2bfc5ee4db851186c47ad8f9bf3515461c9177db820203219aed"
+    },
+    {
+      "path": "docs/contracts/availability-blocks.md",
+      "sha256": "fe365c687810f42ffaa12af34315c20bdbdfbeb4dab1a2d392e2ace326c6da22"
     },
     {
       "path": "docs/contracts/account-operations.md",
-      "sha256": "624c57d69caf3d4c5567a2f39e291625555ff2f87365b26ced302eddfaf7fa26"
+      "sha256": "48958d7d0cfb832e2f5c3705ec29a48ce53de4f91ca6678388c3db40a459329a"
     },
     {
       "path": "docs/contracts/company-onboarding-invitations.md",
-      "sha256": "db962853b49f998daffd4603252d9d9b391a74aeeb69fdb9e472af499edb0f74"
+      "sha256": "46e12daf26b48de6e9e502ed5b11b906709e8571b15d5fbd3a31575bf2e2798d"
     },
     {
       "path": "docs/contracts/company-invitation-activation.md",
-      "sha256": "a44c3ff5297a0428f6ade0f8560a5395e1680e5273c9e27be39720d28fed2b30"
+      "sha256": "d39a5e24a1f005fb5902bee0fc282cbcecaeddaaca7ae9d663d95780324908c5"
     },
     {
       "path": "docs/contracts/platform-companies-read.md",
@@ -96,7 +100,7 @@
     },
     {
       "path": "docs/contracts/media-upload-processing.md",
-      "sha256": "fa48304924821c8a84977cb1dbca4f834b2f240d967640e1eaed8d6a3019fd60"
+      "sha256": "4b2e287c08adbaa749d0ff01d367b935de426836c41f3134d0184bf93543c1d6"
     }
   ],
   "historicalSourcesOutsideRepository": [

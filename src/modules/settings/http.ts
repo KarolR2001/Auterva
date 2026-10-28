@@ -12,6 +12,7 @@ import { isSettingsGroup } from "./fields";
 import { deletePublicMedia, SettingsConflictError, SettingsValidationError, updateCompanySettings,
   updatePublicMedia } from "./mutations";
 import { getCompanySettings, getPublicCompanySettings, resolvePublicMediaVariant } from "./read";
+import { reportInternalError } from "@/modules/observability/http-observe";
 
 function failure(error: unknown, requestId: string) {
   if (error instanceof SettingsValidationError) return response({ code: "INVALID_INPUT",
@@ -21,11 +22,10 @@ function failure(error: unknown, requestId: string) {
   const code = error instanceof Error ? error.message : "";
   if (code === "SETTINGS_COMPANY_NOT_FOUND" || code === "SETTINGS_MEDIA_NOT_FOUND")
     return response({ code: "NOT_FOUND" }, 404, requestId);
-  if (code === "SETTINGS_COMPANY_ARCHIVED") return response({ code }, 409, requestId);
   if (code === "FORBIDDEN" || code === "Audit actor is not authorized") return response({ code: "FORBIDDEN" }, 403, requestId);
   if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002")
     return response({ code: "EVENT_KEY_CONFLICT" }, 409, requestId);
-  return response({ code: "INTERNAL_ERROR" }, 500, requestId);
+  return response({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "settings"));
 }
 
 /** Admin: protected read of own company; the allowlisted projection omits operator-only fields. */

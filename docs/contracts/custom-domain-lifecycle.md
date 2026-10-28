@@ -12,7 +12,7 @@ Tylko `SUPERADMIN_AUTERVA` na hoście `PLATFORM` (własna tożsamość, MFA, zgo
 
 | Host | `kind` | `area` | `status` | `canonicalTarget` |
 |---|---|---|---|---|
-| Alias `{slug}.{publicDomainAutervy}` | `PROVIDER` | `COMPANY_PUBLIC` | `PENDING` po utworzeniu firmy (#20); `ACTIVE` ustawia operator w osobnej procedurze po potwierdzeniu DNS/TLS (kontrakt #20); aktywacja zaproszenia #22 tylko czyta aktywny host | `null`, po aktywacji domeny własnej hostname domeny własnej |
+| Alias `{slug}.{publicDomainAutervy}` | `PROVIDER` | `COMPANY_PUBLIC` | `ACTIVE` od prerejestracji firmy (D-26, #152; operator zapewnia wildcard DNS/TLS bazy); firmy sprzed #152 aktywuje skrypt operatora `scripts/activate-provider-hosts.ts`; aktywacja zaproszenia #22 tylko czyta aktywny host | `null`, po aktywacji domeny własnej hostname domeny własnej |
 | Domena własna | `CUSTOM` | `COMPANY_PUBLIC` | `PENDING` do aktywacji, potem `ACTIVE` | zawsze `null` |
 
 `CustomDomain` (1:1 z hostem `CUSTOM`, najwyżej jedna na firmę, złożone FK pilnuje tej samej firmy) trzyma stan cyklu, losowy token własności, znaczniki dowodów, ostatni kod niepowodzenia i `version`. Wersja pochodzi z monotonicznego licznika firmy `Organization.domainVersion` (rośnie przy wpisaniu, zmianie stanu i usunięciu), więc po usunięciu i ponownym wpisaniu nie wraca do dawnej wartości: nieaktualna karta dostaje `409 DOMAIN_VERSION_CONFLICT` zamiast usunąć lub zastąpić nową domenę. DB chroni: `kind` ∈ `PROVIDER|CUSTOM`, `CUSTOM` tylko dla `COMPANY_PUBLIC`, `canonicalTarget` tylko dla aliasu `PROVIDER`, stan ∈ zbiór poniżej, `ACTIVE` wymaga kompletu dowodów i `activatedAt`.
