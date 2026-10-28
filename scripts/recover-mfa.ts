@@ -40,7 +40,15 @@ export async function recoverMfaByOperator(db: PrismaClient, input: OperatorReco
     // unusable password, so the owner must use the normal password reset and then enroll a new TOTP factor.
     const locked = await tx.user.findUnique({ where: { id: user.id }, select: { disabledAt: true } });
     const credential = await tx.account.findFirst({ where: { userId: user.id, providerId: "credential" }, select: { id: true, password: true } });
-    const restoreUnlock = Boolean(locked?.disabledAt) && !credential?.password;
+    // Only accounts the NEWEST company restore locked are eligible: an account that was disabled in the backup or
+    // by an operator before it is not a restore lock and is never enabled here.
+    const lastRestore = current.organizationId ? await tx.auditLog.findFirst({
+      where: { organizationId: current.organizationId, action: "COMPANY_RESTORED_FROM_BACKUP" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }], select: { safeChanges: true },
+    }) : null;
+    const lockedIds = (lastRestore?.safeChanges as { lockedUserIds?: unknown } | null)?.lockedUserIds;
+    const listed = Array.isArray(lockedIds) && lockedIds.includes(user.id);
+    const restoreUnlock = Boolean(locked?.disabledAt) && !credential?.password && listed;
     if (restoreUnlock) {
       await tx.user.update({ where: { id: user.id }, data: { disabledAt: null } });
       const unusable = `${randomBytes(16).toString("hex")}:${randomBytes(64).toString("hex")}`;
