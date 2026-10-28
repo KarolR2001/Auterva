@@ -214,10 +214,14 @@ reset_media() {
   owned_process weed || { echo "This fixture's SeaweedFS is not running; refusing to reset media." >&2; exit 2; }
   refuse_foreign_listener "$s3_port" weed
   source "$local_dir/secrets.env"
-  local bucket="auterva-fixture-media" base="http://127.0.0.1:$s3_port" keys key round
+  local bucket="auterva-fixture-media" base="http://127.0.0.1:$s3_port" listing keys key round
   s3() { curl --silent --show-error --aws-sigv4 'aws:amz:us-east-1:s3' --user "$S3_ACCESS_KEY_ID:$S3_SECRET_ACCESS_KEY" "$@"; }
   for round in {1..50}; do
-    keys="$(s3 "$base/$bucket?list-type=2&max-keys=1000" | grep -o '<Key>[^<]*</Key>' | sed 's/<Key>\(.*\)<\/Key>/\1/' || true)"
+    listing="$(s3 --write-out $'\n%{http_code}' "$base/$bucket?list-type=2&max-keys=1000")" \
+      || { echo "Listing the fixture bucket failed (connection error)." >&2; exit 1; }
+    [[ "${listing##*$'\n'}" == "200" && "$listing" == *"<ListBucketResult"* ]] \
+      || { echo "Listing the fixture bucket failed (HTTP ${listing##*$'\n'}); refusing to report it empty." >&2; exit 1; }
+    keys="$(grep -o '<Key>[^<]*</Key>' <<< "$listing" | sed 's/<Key>\(.*\)<\/Key>/\1/' || true)"
     [[ -n "$keys" ]] || { echo "Fixture bucket is empty."; return; }
     while IFS= read -r key; do
       [[ "$key" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "Unexpected object key; refusing to continue." >&2; exit 1; }

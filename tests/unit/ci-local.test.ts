@@ -31,7 +31,7 @@ function setup(v: Versions = {}, pnpmBody = "exit 1") {
   git(repo, "add", "-A");
   git(repo, "commit", "-q", "-m", "init");
   stub(bin, "gitleaks", `echo ${v.gitleaks ?? "8.30.1"}`);
-  stub(bin, "node", `echo v${v.node ?? "24.20.0"}`);
+  stub(bin, "node", `if [ "$1" = --version ]; then echo v${v.node ?? "24.20.0"}; else exec "${process.execPath}" "$@"; fi`);
   stub(bin, "pg_dump", `echo "pg_dump (PostgreSQL) ${v.pgdump ?? "18.1"}"`);
   if (v.docker !== false) stub(bin, "docker", v.buildx === false ? 'test "$1" != buildx' : "exit 0");
   stub(bin, "pnpm", pnpmBody);
@@ -67,6 +67,15 @@ test.each([
   expect(r.stderr).toMatch(message);
 });
 
+test("rejects a semver range in engines.node explicitly", () => {
+  const t = setup();
+  writeFileSync(join(t.repo, "package.json"), '{"engines":{"node":">=24"}}\n');
+  git(t.repo, "commit", "-qam", "range");
+  const r = t.run("27400", t.out);
+  expect(r.status).toBe(2);
+  expect(r.stderr).toMatch(/semver range/);
+});
+
 test("accepts matching tool versions and reaches the install step", () => {
   const t = setup();
   const r = t.run("27400", t.out);
@@ -74,16 +83,22 @@ test("accepts matching tool versions and reaches the install step", () => {
   expect(readFileSync(t.out, "utf8")).toMatch(/tools\tnode v24\.20\.0; gitleaks 8\.30\.1; pg_dump 18\.1/);
 });
 
-test("a terminated run removes its temporary quality worktree", () => {
-  // The stub pnpm lets the install pass, records the worktree it runs in and terminates the main script (stub -> subshell -> step subshell -> script).
+test("SIGTERM stops a running step at once, removes the quality worktree and leaves no step process", () => {
+  // The stub pnpm records its PID, terminates the main script (stub -> subshell -> step subshell -> script)
+  // and then would sleep for 30 s; the run must end within seconds and the stub must be gone.
   const t = setup({}, `if [ "$1" = install ] && [ "$(basename "$PWD")" = quality ]; then
-  echo "$PWD" > "${"$"}{TMPDIR}/qpath"; p="$PPID"; for _ in 1 2; do p="$(ps -o ppid= -p "$p" | tr -d ' ')"; done; kill -TERM "$p"; sleep 1
+  echo "$PWD" > "${"$"}{TMPDIR}/qpath"; echo "$$" > "${"$"}{TMPDIR}/stubpid"
+  p="$PPID"; for _ in 1 2; do p="$(ps -o ppid= -p "$p" | tr -d ' ')"; done; kill -TERM "$p"; sleep 30
 fi
 exit 0`);
+  const started = Date.now();
   const r = t.run("27400", t.out);
   const qpath = readFileSync(join(t.root, "qpath"), "utf8").trim();
+  const stubPid = Number(readFileSync(join(t.root, "stubpid"), "utf8"));
   expect(qpath).toMatch(/quality$/);
   expect(r.status).toBe(143);
+  expect(Date.now() - started).toBeLessThan(15000);
   expect(existsSync(qpath)).toBe(false);
   expect(git(t.repo, "worktree", "list").stdout.trim().split("\n")).toHaveLength(1);
-}, 20000);
+  expect(() => process.kill(stubPid, 0)).toThrow(); // ESRCH: the step process is gone
+}, 30000);

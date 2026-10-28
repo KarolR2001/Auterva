@@ -3,6 +3,8 @@
 # Usage: scripts/ci-local.sh <LOCAL_PORT_BASE> <results-file>   (run from the repository root of the candidate tree)
 # Resets and then stops this worktree's own fixture; E2E needs the fixed ports 3305-3307, so one run at a time.
 set -uo pipefail
+# Job control gives every step its own process group, so a signal can stop the whole step (and its grandchildren).
+set -m
 [ $# -eq 2 ] || { echo "usage: $0 <LOCAL_PORT_BASE> <results-file>" >&2; exit 2; }
 PORT="$1"; OUT="$2"; LOGDIR=".local/ci-local"; FAILED=0
 git ls-files --error-unmatch "$OUT" >/dev/null 2>&1 && { echo "refusing to overwrite tracked file $OUT" >&2; exit 2; }
@@ -17,9 +19,10 @@ WANT_GITLEAKS="$(sed -n 's/^ *GITLEAKS_VERSION: *"\{0,1\}\([0-9][0-9.]*\)"\{0,1\
 HAVE_GITLEAKS="$(gitleaks version 2>/dev/null | head -1 | sed 's/^v//')"
 [ -n "$HAVE_GITLEAKS" ] || refuse "gitleaks $WANT_GITLEAKS is missing (not installed or not in PATH)"
 [ "$HAVE_GITLEAKS" = "$WANT_GITLEAKS" ] || refuse "gitleaks $HAVE_GITLEAKS found, but $WANT_GITLEAKS (GITLEAKS_VERSION in ci.yml) is required"
-WANT_NODE="$(grep -A3 '"engines"' package.json | sed -n 's/.*"node": *"\([^"]*\)".*/\1/p' | head -1)"
+command -v node >/dev/null || refuse "node is missing"
+WANT_NODE="$(node -p "require('./package.json').engines.node" 2>/dev/null)"
 [ -n "$WANT_NODE" ] || refuse "cannot read engines.node from package.json"
-command -v node >/dev/null || refuse "node $WANT_NODE is missing"
+[[ "$WANT_NODE" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || refuse "engines.node \"$WANT_NODE\" is a semver range; an exact version is required to compare with CI"
 HAVE_NODE="$(node --version | sed 's/^v//')"
 [ "$HAVE_NODE" = "$WANT_NODE" ] || refuse "node $HAVE_NODE found, but $WANT_NODE (engines.node in package.json) is required"
 command -v pg_dump >/dev/null || refuse "pg_dump 18 is missing (not installed or not in PATH)"
@@ -33,9 +36,13 @@ export CI=true NEXT_TELEMETRY_DISABLED=1 LOCAL_PORT_BASE="$PORT"
 res() { printf '%s\t%s\n' "$1" "$2" | tee -a "$OUT"; }
 # Vitest and Playwright print "Tests  N passed" / "N passed"; keep that summary next to the verdict.
 summary() { sed 's/\x1b\[[0-9;]*m//g' "$1" | grep -E '^ *(Test Files|Tests) |^ *[0-9]+ (passed|failed)' | tr -s ' ' | paste -sd ';' -; }
+STEP_PID=""
 step() {
-  local name="$1"; shift
-  if ( "$@" ) >"$LOGDIR/$name.log" 2>&1; then res "$name" "PASS $(summary "$LOGDIR/$name.log")"
+  local name="$1" rc; shift
+  # Background + wait, so the signal trap runs at once instead of after the step.
+  ( "$@" ) >"$LOGDIR/$name.log" 2>&1 &
+  STEP_PID=$!; wait "$STEP_PID"; rc=$?; STEP_PID=""
+  if [ "$rc" -eq 0 ]; then res "$name" "PASS $(summary "$LOGDIR/$name.log")"
   else res "$name" "FAIL ($LOGDIR/$name.log)"; FAILED=1; fi
 }
 
@@ -45,16 +52,19 @@ cleanup() {
   trap - EXIT INT TERM
   if [ -n "$QTMP" ]; then
     if [ -d "$QTMP/quality" ]; then
-      git worktree remove --force "$QTMP/quality" >/dev/null 2>&1 || git worktree prune >/dev/null 2>&1
+      git worktree remove --force "$QTMP/quality" >/dev/null 2>&1 || { rm -rf "$QTMP/quality"; git worktree prune >/dev/null 2>&1; }
     fi
-    rm -rf "$QTMP"; git worktree prune >/dev/null 2>&1
+    rm -rf "$QTMP"
   fi
   if [ "$FIXTURE_STARTED" = 1 ]; then scripts/local-fixture.sh stop >/dev/null 2>&1; fi
   git checkout -q -- next-env.d.ts 2>/dev/null
   exit "$rc"
 }
-# Only direct children of this script (the running step) are stopped on a signal.
-on_signal() { local c; for c in $(pgrep -P $$ 2>/dev/null); do kill "$c" 2>/dev/null; done; exit "$1"; }
+# On a signal only the running step's own process group is terminated (it was started by this script).
+on_signal() {
+  if [ -n "$STEP_PID" ]; then kill -TERM -- "-$STEP_PID" 2>/dev/null; wait "$STEP_PID" 2>/dev/null; fi
+  exit "$1"
+}
 trap cleanup EXIT
 trap 'on_signal 130' INT
 trap 'on_signal 143' TERM
@@ -74,7 +84,7 @@ quality() {
     DATABASE_URL=postgresql://ci@127.0.0.1:5432/unit_placeholder \
     BETTER_AUTH_SECRET=ci-unit-placeholder-secret-0123456789abcdef \
     BETTER_AUTH_URL=http://127.0.0.1:3305 pnpm test:unit )
-  local rc=$?; git worktree remove --force "$tmp" >/dev/null 2>&1 || git worktree prune; return $rc
+  local rc=$?; git worktree remove --force "$tmp" >/dev/null 2>&1 || { rm -rf "$tmp"; git worktree prune; }; return $rc
 }
 QTMP="$(mktemp -d)"
 step "Lint, typecheck, unit" quality
@@ -87,7 +97,9 @@ fresh_fixture() {
     scripts/local-fixture.sh reset-media && scripts/local-fixture.sh seed-media
 }
 integration() { scripts/local-fixture.sh start && fresh_fixture && pnpm test:integration; }
-FIXTURE_STARTED=1   # set in the main shell; `step` runs in a subshell
+# Only a fixture this run starts is stopped afterwards (set in the main shell; `step` runs in a subshell).
+fixture_status="$(scripts/local-fixture.sh status 2>/dev/null || true)"
+case "$fixture_status" in *"SeaweedFS running"*) ;; *) FIXTURE_STARTED=1 ;; esac
 step "Integration (PostgreSQL, S3, bootstrap)" integration
 
 # CI runs E2E on its own fresh fixture.
@@ -97,7 +109,7 @@ e2e() {
   fresh_fixture && pnpm build && pnpm exec playwright install chromium && pnpm test:e2e
 }
 step "Build and E2E" e2e
-scripts/local-fixture.sh stop >"$LOGDIR/fixture-stop.log" 2>&1; FIXTURE_STARTED=0
+if [ "$FIXTURE_STARTED" = 1 ]; then scripts/local-fixture.sh stop >"$LOGDIR/fixture-stop.log" 2>&1; FIXTURE_STARTED=0; fi
 git checkout -q -- next-env.d.ts 2>/dev/null
 
 step "Secret scan" gitleaks git --no-banner --redact --verbose --exit-code 1 .
