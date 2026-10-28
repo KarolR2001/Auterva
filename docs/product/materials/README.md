@@ -9,7 +9,7 @@ Plik Penpota: `b564c72c-f31f-81ec-8008-af198a313438`, strona `269b07ba-69e5-8066
 `Zatwierdzone D-17` oznacza zgodę właściciela na treść MVP do implementacji i stagingu. `Warunkowe` wymaga zastąpienia danymi właściwego podmiotu oraz osobnej akceptacji przed produkcją. Prawa do istniejących plików są opisane w [manifeście zasobów](../../../design/assets/manifest.json); oznaczenie `synthetic-demo` nie jest licencją od rzeczywistej firmy.
 
 | ID | Podmiot i miejsce | Plik/wersja lub board M / D | Źródło, prawa i warunki | Zatwierdzający / data / status |
-|---|---|---|---|---|---|
+|---|---|---|---|---|
 | AUT-01 | Auterva, MKT-01: hero, korzyści, FAQ, CTA | [auterva-v1.md](auterva-v1.md), 1.0; `1e066793-8858-8051-8008-cf36d8d5909f` / `269b07ba-69e5-8066-8008-c84b6a04500c` | Penpot; copy D-17, do stagingu. Telefon i e-mail DEMO nie są zatwierdzonym kontaktem publicznym. | Właściciel, D-17, 27.10.2026: staging; produkcja: brak akceptacji kontaktu. |
 | AUT-02 | Auterva, MKT-01: cztery kroki, meta, alt | [auterva-v1.md](auterva-v1.md), 1.0; boardy AUT-01 | Wygenerowane wg PRD 3.1 §12.1 i D-17; do stagingu. Nie obiecują rezerwacji, płatności ani wyników biznesowych. | Właściciel, D-17, 27.10.2026: staging; produkcja: warunkowe. |
 | AUT-03 | Auterva, logo tekstowe i podgląd produktu | Boardy AUT-01; opcjonalne SVG w `design/assets/brand/` | Penpot; w repo istnieją SVG bez udokumentowanego autorstwa/licencji. D-17 pozwala na staging; prawa i wariant wymagają potwierdzenia przed produkcją. | Właściciel, D-17, 27.10.2026: preview; produkcja: brak potwierdzenia praw. |
