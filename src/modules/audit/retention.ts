@@ -32,14 +32,13 @@ function jobCutoff(payload: unknown): Date {
 /**
  * The newest COMPANY_RESTORED_FROM_BACKUP of a company is the only basis for operator unlock (D-05, recover-mfa) while
  * some account it listed is still locked (disabled, no credential password). Purge keeps that single row; it becomes
- * purgeable once every listed account is unlocked or removed. Every other row follows the plain cutoff.
+ * purgeable once every listed account is unlocked or removed. Shared with the audit metrics (alias `a` = AuditLog). Every other row follows the plain cutoff.
  */
-const unlockBasis = Prisma.sql`(a.action = 'COMPANY_RESTORED_FROM_BACKUP' AND a."organizationId" IS NOT NULL
+export const unlockBasis = Prisma.sql`(a.action = 'COMPANY_RESTORED_FROM_BACKUP' AND a."organizationId" IS NOT NULL
   AND a.id = (SELECT n.id FROM "AuditLog" n WHERE n."organizationId" = a."organizationId" AND n.action = 'COMPANY_RESTORED_FROM_BACKUP'
     ORDER BY n."createdAt" DESC, n.id DESC LIMIT 1)
   AND EXISTS (SELECT 1 FROM "user" u WHERE u."organizationId" = a."organizationId" AND u."disabledAt" IS NOT NULL
-    AND jsonb_typeof(a."safeChanges"->'lockedUserIds') = 'array'
-    AND u.id IN (SELECT jsonb_array_elements_text(a."safeChanges"->'lockedUserIds'))
+    AND (CASE WHEN jsonb_typeof(a."safeChanges"->'lockedUserIds') = 'array' THEN a."safeChanges"->'lockedUserIds' ELSE '[]'::jsonb END) @> to_jsonb(u.id)
     AND NOT EXISTS (SELECT 1 FROM "account" c WHERE c."userId" = u.id AND c."providerId" = 'credential' AND c.password IS NOT NULL)))`;
 
 /** One small database transaction contains both the deletion and its safe proof. */
