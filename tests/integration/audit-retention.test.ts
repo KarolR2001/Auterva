@@ -121,3 +121,40 @@ test("exhausted audit claim stays FAILED with its cutoff until an operator retri
     .toMatchObject({ deleted: 1, remaining: false });
   expect(await db.auditRetentionManifest.count({ where: { jobId: job.id } })).toBe(1);
 });
+
+test("purge keeps the newest restore audit while an account it listed is still locked, and releases it afterwards", async () => {
+  const org = randomUUID();
+  const userId = `ret-${randomUUID()}`;
+  const first = new Date("2026-10-27T12:00:00.000Z");
+  const second = new Date("2026-10-28T12:00:00.000Z");
+  const cutoff = auditRetentionCutoff(first);
+  await db.organization.create({ data: { id: org, name: "Ret", slug: `ret-${org.slice(0, 8)}` } as never });
+  await db.user.create({ data: { id: userId, name: "u", email: `${userId}@example.test`, emailVerified: true, role: "ADMIN_FIRMY",
+    organizationId: org, disabledAt: new Date() } as never });
+  const restore = async (at: Date, locked: string[]) => {
+    const id = randomUUID();
+    ownIds.push(id);
+    return db.auditLog.create({ data: { id, organizationId: org, actorId: "fixture:retention", actorRole: "OPERATOR",
+      action: "COMPANY_RESTORED_FROM_BACKUP", entityType: "Organization", entityId: org, requestId: randomUUID(),
+      safeChanges: { lockedUserIds: locked }, createdAt: at } });
+  };
+  const oldRestore = await restore(new Date(cutoff.getTime() - 2_000), [userId]);
+  const newestRestore = await restore(new Date(cutoff.getTime() - 1_000), [userId]);
+  const run = async (at: Date) => {
+    const job = await scheduleAuditRetention(db, at);
+    ownJobIds.push(job.id);
+    const claim = await claimNextJob(db, at, 30_000, false, "AUDIT_RETENTION");
+    return processAuditRetentionJob(db, claim!, at, 500, () => at);
+  };
+  try {
+    expect((await run(first)).remaining).toBe(false);
+    expect(await db.auditLog.findUnique({ where: { id: oldRestore.id } })).toBeNull(); // superseded restore follows the cutoff
+    expect(await db.auditLog.findUnique({ where: { id: newestRestore.id } })).not.toBeNull(); // unlock basis kept
+    await db.user.update({ where: { id: userId }, data: { disabledAt: null } });
+    expect((await run(second)).deleted).toBeGreaterThanOrEqual(1);
+    expect(await db.auditLog.findUnique({ where: { id: newestRestore.id } })).toBeNull();
+  } finally {
+    await db.user.deleteMany({ where: { id: userId } });
+    await db.organization.deleteMany({ where: { id: org } });
+  }
+});
