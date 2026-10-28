@@ -267,6 +267,12 @@ test("profile edits only name; password change requires full MFA and current pas
   expect((await postReset(otherHostname, "profile", { name: "Wrong Tenant" }, undefined, fullCookie)).status).toBe(401);
   expect((await postReset(hostname, "profile", { name: "Wrong", role: "SUPERADMIN_AUTERVA" },
     undefined, fullCookie)).status).toBe(400);
+  // #176: NUL and other control characters in the name are a client error, not a PostgreSQL 500.
+  for (const name of ["a\u0000b", "a\u0001b", "a\nb"]) {
+    const refused = await postReset(hostname, "profile", { name }, undefined, fullCookie);
+    expect(refused.status, JSON.stringify(name)).toBe(400);
+    expect(await refused.json()).toEqual({ code: "INVALID_REQUEST", fieldErrors: { name: "INVALID_CHARACTERS" } });
+  }
   expect((await postReset(hostname, "profile", { name: "New Name" }, undefined, fullCookie)).status).toBe(200);
   expect(await db.user.findUniqueOrThrow({ where: { id: userId } })).toMatchObject({
     name: "New Name", role: "ADMIN_FIRMY", organizationId,

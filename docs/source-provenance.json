@@ -76,15 +76,15 @@
     },
     {
       "path": "docs/contracts/fleet-crud-publication.md",
-      "sha256": "2f90e283ec673fae4a374b553b965d980129cd683690ec4ae1418b501705fa38"
+      "sha256": "ae08dd7703c99ff6d8c08d5cefbae10fd3f8baa1aad64b17dc5128c5cc64c9c7"
     },
     {
       "path": "docs/contracts/account-operations.md",
-      "sha256": "624c57d69caf3d4c5567a2f39e291625555ff2f87365b26ced302eddfaf7fa26"
+      "sha256": "48958d7d0cfb832e2f5c3705ec29a48ce53de4f91ca6678388c3db40a459329a"
     },
     {
       "path": "docs/contracts/company-onboarding-invitations.md",
-      "sha256": "9b66e0275bbcdd2ae55984ebaa5487a14a6494d0ac57168ba0e4addcbe1a16ee"
+      "sha256": "46e12daf26b48de6e9e502ed5b11b906709e8571b15d5fbd3a31575bf2e2798d"
     },
     {
       "path": "docs/contracts/company-invitation-activation.md",
