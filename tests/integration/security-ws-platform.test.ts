@@ -101,7 +101,7 @@ test("the platform channel is one-way, floods are cut, and the wire carries coun
     { clientMessageId: randomUUID(), body: `TAJNA-${tag}` }, new Date());
   const frame = await socket.take((item) => item.type === "conversation" && item.organizationId === orgs.a, 5_000);
   expect(JSON.stringify(frame)).not.toContain(`TAJNA-${tag}`);
-  expect(Object.keys(frame).sort()).toEqual(["activityAt", "archived", "conversationId", "lastSeq", "organizationId", "type", "unread"]);
+  expect(Object.keys(frame).sort()).toEqual(["activityAt", "archived", "conversationId", "lastSeq", "organizationId", "readSeq", "type", "unread", "version"]);
   expect(sent.message.id).toBeTruthy();
   for (let i = 0; i < 80; i += 1) socket.send("x");
   expect(await socket.waitClose(4_000)).toBe(4429);
