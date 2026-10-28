@@ -100,7 +100,7 @@ export async function restoreCompany(input: {
   const steps: CompanyRestoreReport["steps"] = [];
   let mark = started;
   const lap = (step: string) => { const at = Date.now(); steps.push({ step, ms: at - mark }); mark = at; };
-  const orgId = input.organizationId;
+  const orgId = input.organizationId.toLowerCase();
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orgId)) throw new BackupError("RESTORE_COMPANY_ID_INVALID");
   const manifest: Manifest = await readManifest(input.backupDir, input.key);
   if (!manifest.organizations[orgId]) throw new BackupError("RESTORE_COMPANY_NOT_IN_BACKUP");
@@ -215,17 +215,27 @@ export async function restoreCompany(input: {
         twoFactor: await selectRows(live, "twoFactor", USER_SCOPED, orgId, true),
       };
       const liveLastSeq = (await live.query(`SELECT "lastSeq" FROM "Conversation" WHERE "organizationId" = $1`, [orgId])).rows[0]?.lastSeq as number | undefined;
+      // Accounts the newest restore of this company locked and nobody has recovered yet stay on the recovery list.
+      const previous = (await live.query(`SELECT "safeChanges" FROM "AuditLog" WHERE "organizationId" = $1::uuid AND action = 'COMPANY_RESTORED_FROM_BACKUP'
+        ORDER BY "createdAt" DESC, id DESC LIMIT 1`, [orgId])).rows[0]?.safeChanges as { lockedUserIds?: unknown } | undefined;
+      const previouslyLocked = new Set(Array.isArray(previous?.lockedUserIds) ? previous.lockedUserIds.map(String) : []);
       for (const row of source.user) {
         const current = liveUsers.get(String(row.id));
         if (current) {
-          if (current.disabledAt) row.disabledAt = current.disabledAt instanceof Date ? current.disabledAt.toISOString() : current.disabledAt;
+          // A user that still exists keeps the LIVE disabledAt in both directions (an account enabled after the backup
+          // does not come back disabled) and the live MFA flag.
+          row.disabledAt = current.disabledAt instanceof Date ? current.disabledAt.toISOString() : (current.disabledAt ?? null);
           row.twoFactorEnabled = current.twoFactorEnabled;
+          if (current.disabledAt && previouslyLocked.has(String(row.id))) usersLocked.push(String(row.id));
         } else {
-          // Recreated user: locked, no credential, no MFA factor. Access returns only through the operator
-          // recovery procedure (D-05, scripts/recover-mfa.ts), which is audited.
+          // Recreated user: no credential, no MFA factor. One that was already disabled in the backup keeps that
+          // state and is NOT put on the recovery list; an active one is locked now and only the operator recovery
+          // of D-05 (scripts/recover-mfa.ts, audited) can lift exactly the accounts listed in this restore's audit.
           row.twoFactorEnabled = false;
-          row.disabledAt = now.toISOString();
-          usersLocked.push(String(row.id));
+          if (!row.disabledAt) {
+            row.disabledAt = now.toISOString();
+            usersLocked.push(String(row.id));
+          }
         }
       }
       source.account = liveCredentials.account.filter((row) => ownUsers.has(String(row.userId)));
@@ -287,7 +297,7 @@ export async function restoreCompany(input: {
       const failed = checks.filter((check) => !check.ok);
       if (failed.length > 0) throw new BackupError("RESTORE_INTEGRITY_FAILED", `Rolled back: ${failed.map((c) => c.name).join("; ")}`);
       await appendRestoreAudit(live, { operatorId: input.operatorId, organizationId: orgId, action: "COMPANY_RESTORED_FROM_BACKUP",
-        backupId: manifest.id, summary: { scope: "COMPANY", ...quarantine, restored, mediaObjects, droppedCursors, usersLocked: usersLocked.length } });
+        backupId: manifest.id, summary: { scope: "COMPANY", ...quarantine, restored, mediaObjects, droppedCursors, usersLocked: usersLocked.length, lockedUserIds: usersLocked } });
       // Restore can lower `lastSeq`/`readSeq` (cursors of the backup) and always raises `version`: announce it inside the
       // transaction so the platform inbox shows the new state on commit and never for a rollback (contract chat-realtime).
       await live.query(`SELECT pg_notify($1, $2)`, [CHAT_CHANNEL, JSON.stringify({ k: "o", o: orgId })]);
@@ -295,7 +305,8 @@ export async function restoreCompany(input: {
     } catch (error) {
       await live.query("ROLLBACK").catch(() => undefined);
       const code = (error as { code?: string }).code;
-      if (!(error instanceof BackupError) && (code === "23505" || code === "23503" || code === "23514" || code === "40001")) {
+      if (!(error instanceof BackupError) && (code === "23505" || code === "23503" || code === "23514" || code === "40001"
+        || code === "40P01" || code === "55P03")) {
         throw new BackupError("RESTORE_CONFLICT", `Restore rolled back by constraint ${(error as { constraint?: string }).constraint ?? code}`);
       }
       throw error;

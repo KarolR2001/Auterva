@@ -637,6 +637,127 @@ test("N14: a credential change committed while the restore waits on the live cre
   expect((await live.query(`SELECT password FROM "account" WHERE "userId" = $1`, [ids.adminA])).rows).toEqual([{ password: "raced-hash" }]);
 });
 
+async function insertUser(id: string, email: string, disabled: boolean) {
+  await live.query(`INSERT INTO "user" (id, name, email, "emailVerified", "twoFactorEnabled", role, "organizationId", "disabledAt", "createdAt", "updatedAt")
+    VALUES ($1, $1, $2, true, false, 'ADMIN_FIRMY', $3, $4, now(), now())`, [id, email, A, disabled ? new Date("2026-01-02T03:04:05.000Z") : null]);
+}
+
+test("N1/U1: live disabledAt wins for existing users in both directions; a recreated user disabled in the backup is not a restore lock and cannot be unlocked", async () => {
+  const { createPrismaClient } = await import("../../src/lib/prisma");
+  const { recoverMfaByOperator } = await import("../../scripts/recover-mfa");
+  const u1 = `bk-u1-${tag}`; const u2 = `bk-u2-${tag}`; const u3 = `bk-u3-${tag}`;
+  // Backup state: exactly one active administrator (u2); u1 and u3 are disabled, the others too.
+  await live.query(`UPDATE "user" SET "disabledAt" = now() WHERE "organizationId" = $1`, [A]);
+  await insertUser(u1, `bk-u1-${tag}@example.test`, true);
+  await insertUser(u2, `bk-u2-${tag}@example.test`, false);
+  await insertUser(u3, `bk-u3-${tag}@example.test`, true);
+  const { dir } = await createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" });
+  // Live afterwards: u1 enabled and u2 disabled (swap), u3 deleted.
+  await live.query(`UPDATE "user" SET "disabledAt" = now() WHERE id = $1`, [u2]);
+  await live.query(`UPDATE "user" SET "disabledAt" = NULL WHERE id = $1`, [u1]);
+  await live.query(`DELETE FROM "user" WHERE id = $1`, [u3]);
+  const report = await restoreCompany({ backupDir: dir, key, organizationId: A, targetUrl: databaseUrl, repoDir, operatorId: operator, storage });
+  expect(report.ok).toBe(true);
+  const state = async (id: string) => (await live.query(`SELECT "disabledAt" FROM "user" WHERE id = $1`, [id])).rows[0].disabledAt as Date | null;
+  expect(await state(u1)).toBeNull(); // U1: enabled after the backup, stays enabled
+  expect(await state(u2)).not.toBeNull(); // disabled after the backup, stays disabled
+  expect((await state(u3))?.toISOString()).toBe("2026-01-02T03:04:05.000Z"); // N1: the backup's disabledAt is kept
+  expect(report.usersLocked).not.toContain(u3);
+  const audit = (await live.query(`SELECT "safeChanges" FROM "AuditLog" WHERE "organizationId" = $1 AND action = 'COMPANY_RESTORED_FROM_BACKUP' ORDER BY "createdAt" DESC LIMIT 1`, [A])).rows[0].safeChanges;
+  expect(audit.lockedUserIds).toEqual(report.usersLocked);
+  // The operator procedure refuses to enable an account the restore did not lock.
+  const db = createPrismaClient(databaseUrl);
+  try {
+    const result = await recoverMfaByOperator(db, { operatorId: operator, targetEmail: `bk-u3-${tag}@example.test`, verifiedChannel: "agreed-channel",
+      evidenceReference: `ticket:bk-u3-${tag}`, identityConfirmed: true });
+    expect(result.restoreUnlocked).toBe(false);
+    expect(await state(u3)).not.toBeNull();
+  } finally {
+    await db.$disconnect();
+  }
+  await live.query(`DELETE FROM "user" WHERE id = ANY($1::text[])`, [[u1, u2, u3]]);
+});
+
+test("N2: a deadlock or lock timeout during the restore is RESTORE_CONFLICT and leaves the company unchanged", async () => {
+  const { dir } = await createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" });
+  const control = await connect(withDatabase(sharedUrl, "postgres"));
+  const before = await company(live, A);
+  const startWriter = async () => {
+    const writer = await connect(databaseUrl);
+    await writer.query("BEGIN");
+    await writer.query(`UPDATE "Vehicle" SET name = name WHERE "organizationId" = $1`, [A]);
+    return writer;
+  };
+  const blocked = async () => {
+    const probe = await connect(databaseUrl);
+    let waiting = 0;
+    for (let attempt = 0; attempt < 400 && waiting === 0; attempt++) {
+      waiting = (await probe.query(`SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database()
+        AND wait_event_type = 'Lock' AND query ILIKE '%DELETE FROM "Vehicle" WHERE%'`)).rows[0].n;
+      if (waiting === 0) await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    await probe.end();
+    expect(waiting).toBe(1);
+  };
+  try {
+    // 55P03: the writer keeps a vehicle row; the restore waits for it longer than lock_timeout.
+    await control.query(`ALTER DATABASE ${quote(sourceDatabase)} SET lock_timeout = '400ms'`);
+    const timeoutWriter = await startWriter();
+    await expect(restoreCompany({ backupDir: dir, key, organizationId: A, targetUrl: databaseUrl, repoDir, operatorId: operator, storage }))
+      .rejects.toMatchObject({ code: "RESTORE_CONFLICT" });
+    await timeoutWriter.query("ROLLBACK");
+    await timeoutWriter.end();
+    await control.query(`ALTER DATABASE ${quote(sourceDatabase)} RESET lock_timeout`);
+    // 40P01: the writer holds a vehicle row and then asks for the company row the restore already holds.
+    const deadlockWriter = await startWriter();
+    const restoring = restoreCompany({ backupDir: dir, key, organizationId: A, targetUrl: databaseUrl, repoDir, operatorId: operator, storage });
+    const settled = restoring.then(() => null, (error) => error);
+    await blocked();
+    const late = deadlockWriter.query(`SELECT id FROM "Organization" WHERE id = $1 FOR UPDATE`, [A]).then(() => null, (error) => error);
+    expect(await settled).toMatchObject({ code: "RESTORE_CONFLICT" });
+    expect(await late).toBeNull();
+    await deadlockWriter.query("ROLLBACK");
+    await deadlockWriter.end();
+    expect(await company(live, A)).toEqual(before);
+  } finally {
+    await control.query(`ALTER DATABASE ${quote(sourceDatabase)} RESET lock_timeout`);
+    await control.end();
+  }
+});
+
+test("N5/O1: an upper-case company id is accepted; only the company's sessions and the superadmin's sessions are revoked", async () => {
+  const { dir } = await createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" });
+  const superadmin = `bk-super2-${tag}`;
+  await live.query(`INSERT INTO "user" (id, name, email, "emailVerified", "twoFactorEnabled", role, "createdAt", "updatedAt")
+    VALUES ($1, 'Superadmin', $2, true, true, 'SUPERADMIN_AUTERVA', now(), now())`, [superadmin, `bk-super2-${tag}@example.test`]);
+  const addSession = (userId: string) => live.query(`INSERT INTO "session" (id, token, "expiresAt", "updatedAt", "userId") VALUES ($1, $2, now() + interval '1 day', now(), $3)`,
+    [randomUUID(), randomBytes(16).toString("hex"), userId]);
+  await addSession(superadmin);
+  await addSession(ids.adminA);
+  const sessions = async (userId: string) => (await live.query(`SELECT count(*)::int AS n FROM "session" WHERE "userId" = $1`, [userId])).rows[0].n;
+  const bSessions = await sessions(ids.adminB);
+  try {
+    expect((await restoreCompany({ backupDir: dir, key, organizationId: A.toUpperCase(), targetUrl: databaseUrl, repoDir, operatorId: operator, storage })).ok).toBe(true);
+    expect(await sessions(ids.adminA)).toBe(0);
+    // O1: a session carries no company context, so every superadmin session is revoked (documented in the runbook).
+    expect(await sessions(superadmin)).toBe(0);
+    expect(await sessions(ids.adminB)).toBe(bSessions);
+  } finally {
+    await live.query(`DELETE FROM "user" WHERE id = $1`, [superadmin]);
+  }
+});
+
+test("N4: when the tool exits early the stderr cause survives the broken pipe", async () => {
+  const { runToolWithInput } = await import("../../src/modules/backup/core");
+  const { Readable } = await import("node:stream");
+  const slow = Readable.from((async function* () {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    for (let i = 0; i < 64; i++) yield Buffer.alloc(65_536, 1);
+  })());
+  await expect(runToolWithInput("sh", ["-c", "exec 0<&-; echo boom-cause >&2; sleep 1; exit 3"], { PATH: process.env.PATH } as unknown as NodeJS.ProcessEnv, slow))
+    .rejects.toMatchObject({ code: "BACKUP_TOOL_FAILED", message: expect.stringContaining("boom-cause") });
+});
+
 test("N16/N17: a read error on the dump stops the tool instead of hanging it; TLS settings reach the tools", async () => {
   const { runToolWithInput, pgEnv } = await import("../../src/modules/backup/core");
   const { decryptedStream } = await import("../../src/modules/backup/restore");

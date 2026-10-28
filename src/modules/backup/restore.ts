@@ -121,7 +121,7 @@ export async function appendRestoreAudit(db: Queryable, input: {
 }) {
   if (!/^[a-zA-Z0-9._-]{3,80}$/.test(input.operatorId)) throw new BackupError("RESTORE_OPERATOR_INVALID");
   await db.query(`INSERT INTO "AuditLog" (id, "eventKey", "organizationId", "actorId", "actorRole", action, "entityType",
-    "entityId", "safeChanges", "requestId") VALUES ($1, $2, $3, $4, 'OPERATOR', $5, $6, $7, $8::jsonb, $9)`,
+    "entityId", "safeChanges", "requestId", "createdAt") VALUES ($1, $2, $3, $4, 'OPERATOR', $5, $6, $7, $8::jsonb, $9, clock_timestamp())`,
   [randomUUID(), randomUUID(), input.organizationId, `operator:${input.operatorId}`, input.action,
     input.organizationId ? "Organization" : "Database", input.organizationId ?? input.backupId,
     JSON.stringify({ backupId: input.backupId, ...input.summary }), randomUUID()]);
