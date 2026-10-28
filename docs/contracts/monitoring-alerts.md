@@ -28,7 +28,7 @@ Reguły jako kod: `src/modules/observability/alerts.ts`; progi, histereza, wła�
 ## Znane ograniczenia
 
 - 5xx są liczone raz na `requestId` (`reportInternalError`, `withErrorRequestId`, `onRequestError`); odpowiedzi 5xx budowane bez nich (np. 503 konfiguracji) są widoczne tylko w liczniku żądań. Mianownik (`auterva_http_requests_total`) liczy wyłącznie żądania aplikacji: bez `/_next/`, plików z rozszerzeniem i prefetchu routera. Nowy handler z własnym 500 używa `reportInternalError`.
-- Stan silnika alertów jest w pamięci: po restarcie monitora nie ma RESOLVED poprzednich alertów i brak dead-man's switch (not-run #90). Reguły z oknem (`increase`) liczą po dostępnej historii (min. dwie próbki).
+- Stan silnika alertów jest w pamięci: po restarcie monitora nie ma RESOLVED poprzednich alertów i brak dead-man's switch (not-run #90). Reguły z oknem (`increase`, `rise`) liczą po dostępnej historii (min. dwie próbki), osobno dla każdej serii (nazwa + pełny zestaw etykiet, w tym `target`): brak próbki celu po nieudanym scrape nie jest resetem, a suma powstaje z przyrostów serii.
 - Joby nie mają kolumny czasu porażki: alerty „nowa porażka” poczty i mediów liczą wyłącznie dodatnie przyrosty gauge'a liczby jobów terminalnych w oknie 1 h (`rise`; spadek, np. po `retry` albo sprzątaniu, nie alarmuje). Porażki, które wystąpiły i zniknęły między próbkami albo w czasie przestoju monitora, nie są widoczne. Stan `AUDIT_RETENTION` FAILED/wyczerpany lease alarmuje do czasu `retry`.
 - Ostrzeżenia samego Next (np. W6) nie przechodzą przez logger.
 - Dostawca, dashboard, paging, staging: #90.

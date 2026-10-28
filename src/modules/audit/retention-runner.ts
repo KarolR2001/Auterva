@@ -6,6 +6,13 @@ import { log, logFailure } from "@/modules/observability/log";
 import { metrics, names } from "@/modules/observability/metrics";
 import { iterationOutcome } from "@/modules/observability/worker-metrics";
 
+/** Node filesystem errors carry an errno code such as EACCES, EIO, EPERM or EISDIR; database errors never do. */
+export function isFilesystemError(error: unknown): boolean {
+  const code = (error as { code?: unknown } | null)?.code;
+  return typeof code === "string" && /^E[A-Z0-9]{2,}$/.test(code)
+    && !/^(ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|EPIPE|EHOSTUNREACH|ENETUNREACH)$/.test(code); // network: a database problem
+}
+
 export type AuditRetentionRunnerOptions = {
   db: PrismaClient;
   signal: AbortSignal;
@@ -48,7 +55,8 @@ export async function runAuditRetentionLoop(options: AuditRetentionRunnerOptions
         } catch (error) {
           // Storage recovery is independent of the durable audit purge; a failure here is its own signal (#58, #108).
           logFailure("audit.export_cleanup_failed", error, { operation: "audit.export.sweep" });
-          metrics.inc(names.auditSweepFailures, "Failed audit export cleanup sweeps");
+          // Only a filesystem/storage error means bytes could not be removed; an unreachable database is READY_DATABASE's page.
+          if (isFilesystemError(error)) metrics.inc(names.auditSweepFailures, "Failed audit export cleanup sweeps");
         }
       }
       const claim = await claimNextJob(options.db, now, leaseMs, false, "AUDIT_RETENTION");

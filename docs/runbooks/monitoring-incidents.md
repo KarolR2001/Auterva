@@ -62,7 +62,7 @@ Nie wklejaj treści audytu do zgłoszeń.
 
 ### audit-export
 - `AUDIT_EXPORT_FAILED` (ticket): eksport operatora zakończył się błędem w 24 h; powtórka to nowe żądanie po ustaleniu przyczyny.
-- `AUDIT_EXPORT_SWEEP_FAILING` (page): sweep nie potrafi usunąć bajtów (np. EACCES/EIO); stan w DB mógł już przejść na `DELETED`, a plik zostaje. Sprawdź uprawnienia katalogu/storage artefaktów i uruchom `sweep`.
+- `AUDIT_EXPORT_SWEEP_FAILING` (page): licznik rośnie tylko przy błędach systemu plików/storage (EACCES, EIO, EPERM…), nie przy niedostępnej bazie (to `READY_DATABASE`, jedna awaria DB = jeden page). Sweep nie potrafi usunąć bajtów (np. EACCES/EIO); stan w DB mógł już przejść na `DELETED`, a plik zostaje. Sprawdź uprawnienia katalogu/storage artefaktów i uruchom `sweep`.
 - `AUDIT_EXPORT_CLEANUP_OVERDUE` (page): artefakt `READY` po terminie lub porzucony `PENDING/FAILED` nie został usunięty (sprzątanie awaryjne). Uruchom `scripts/audit-retention.ts sweep`; sprawdź prywatny storage artefaktów. Artefakt po terminie nie wolno odczytać, ale bajty mają zniknąć.
 Klucze (`AUDIT_EXPORT_KEY`) i treść eksportu nigdy nie trafiają do logów ani alertów.
 
@@ -76,7 +76,7 @@ Klucze (`AUDIT_EXPORT_KEY`) i treść eksportu nigdy nie trafiają do logów ani
 `COLLECTOR_DOWN` (ticket): monitor nie czyta źródła (DB/audyt/migracje); jego brak oznacza ślepotę, nie zdrowie. Alerty zależne od tego kolektora pozostają w poprzednim stanie.
 
 ### realtime
-`WS_LISTENER_UNHEALTHY` (page): serwer czatu stracił powiadomienia z DB (poll jako zapas). Sprawdź DB i zrestartuj realtime; klienci wznawiają połączenie z kursorem.
+`WS_LISTENER_UNHEALTHY` (page; tłumiony przy awarii DB): serwer czatu stracił powiadomienia z DB (poll jako zapas). Sprawdź DB i zrestartuj realtime; klienci wznawiają połączenie z kursorem.
 
 ## Ochrona przed lawiną alertów
 

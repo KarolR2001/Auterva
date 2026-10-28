@@ -132,7 +132,7 @@ export const rules: AlertRule[] = [
       ? sumSamples(c.samples, metricNames.jobsTerminalFailures, { kind: "AUDIT_RETENTION" }) + sumSamples(c.samples, metricNames.jobsExhausted, { kind: "AUDIT_RETENTION" }) >= 1 : null },
   { id: "AUDIT_RETENTION_NOT_COMPLETING", title: "No AUDIT_RETENTION job has completed for 26 hours", severity: "page", owner: "operator", group: "audit",
     runbook: "#audit-retention", forEvaluations: 2, clearAfter: 2, breached: gaugeAbove(metricNames.auditLastSuccessAge, 26 * 3600, "audit") },
-  { id: "AUDIT_EXPORT_SWEEP_FAILING", title: "Audit export cleanup sweep fails", severity: "page", owner: "operator", group: "audit",
+  { id: "AUDIT_EXPORT_SWEEP_FAILING", title: "Audit export cleanup cannot remove files", severity: "page", owner: "operator", group: "audit",
     runbook: "#audit-export", forEvaluations: 1, clearAfter: 3,
     breached: (c) => { const n = c.increase(names.auditSweepFailures, {}, 15 * MIN); return n === null ? null : n >= 1; } },
   { id: "AUDIT_RETENTION_STALLED", title: "AUDIT_RETENTION job is due but not claimed", severity: "page", owner: "operator", group: "audit",
@@ -170,7 +170,8 @@ export const rules: AlertRule[] = [
     } },
   { id: "WS_LISTENER_UNHEALTHY", title: "Realtime listener lost its database notifications", severity: "page", owner: "operator", group: "realtime",
     runbook: "#realtime", forEvaluations: 2, clearAfter: 2,
-    breached: (c) => hasSample(c.samples, names.wsListenerHealthy) ? c.samples.some((s) => s.name === names.wsListenerHealthy && s.value < 1) : null },
+    // A lost listener during a database outage is a consequence of it (READY_DATABASE pages once).
+    breached: (c) => hasSample(c.samples, names.wsListenerHealthy) && !databaseDown(c) ? c.samples.some((s) => s.name === names.wsListenerHealthy && s.value < 1) : null },
 ];
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -214,18 +215,33 @@ export class AlertEngine {
 
   private context(samples: Sample[], now: Date): RuleContext {
     const history = this.history; // already contains the current point
+    // Per series (name + full label set, so `target` is part of the key): a series missing from one scrape is
+    // simply skipped, never a reset, and the total is the sum of per-series steps, never a step of the sum.
     const walk = (name: string, match: Labels, windowMs: number, step: (previous: number, value: number) => number): number | null => {
+      if (history.length < 2) return null; // a short history (monitor just started) evaluates over what it has
       const start = now.getTime() - windowMs;
-      // Needs two samples; a shorter history (monitor just started) evaluates over what it has instead of staying blind.
-      if (history.length < 2) return null;
+      const matching = (point: { samples: Sample[] }) => {
+        const bySeries = new Map<string, number>();
+        for (const sample of point.samples) {
+          if (sample.name === name && Object.entries(match).every(([k, v]) => sample.labels[k] === v)) {
+            const key = JSON.stringify(sample.labels);
+            bySeries.set(key, (bySeries.get(key) ?? 0) + sample.value);
+          }
+        }
+        return bySeries;
+      };
       let baselineIndex = 0;
       history.forEach((point, index) => { if (point.at <= start) baselineIndex = index; });
+      const previous = new Map<string, number>();
+      for (const [key, value] of matching(history[baselineIndex])) previous.set(key, value);
       let total = 0;
-      let previous = sumSamples(history[baselineIndex].samples, name, match);
       for (const point of history.slice(baselineIndex + 1)) {
-        const value = sumSamples(point.samples, name, match);
-        total += step(previous, value);
-        previous = value;
+        for (const [key, value] of matching(point)) {
+          const before = previous.get(key);
+          // A series first seen after the baseline has no earlier value to compare with: it contributes nothing yet.
+          if (before !== undefined) total += step(before, value);
+          previous.set(key, value);
+        }
       }
       return total;
     };

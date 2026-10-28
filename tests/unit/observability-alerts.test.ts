@@ -234,3 +234,65 @@ test("R2: a decrease of the terminal-job gauge (rows retried or cleaned) never a
   const later = drive(engine, 10, (m) => [up("jobs"), s("auterva_jobs_terminal_failures", m < 35 ? 49 : 50, { kind: "MAIL_INVITATION" })], 30);
   expect(later.flatMap((n) => n.firing.map((a) => a.id))).toEqual(["MAIL_DELIVERY_FAILED"]);
 });
+
+import { isFilesystemError } from "../../src/modules/audit/retention-runner";
+
+const tgt = (target: string, name: string, value: number, labels: Record<string, string> = {}): Sample => s(name, value, { ...labels, target });
+
+test("QA: a scrape gap of one target is not a counter reset (ok, ok, FAILED, ok, ok never pages)", () => {
+  const engine = new AlertEngine(rules, { groupWindowMs: 0 });
+  // The web counters are large and cumulative; one scrape fails (all its series absent) and then returns.
+  let requests = 0;
+  const out = drive(engine, 20, (m) => {
+    if (m !== 7) requests += 100;
+    return m === 7 ? [tgt("web", "auterva_target_up", 0), tgt("worker", "auterva_target_up", 1)]
+      : [tgt("web", "auterva_target_up", 1), tgt("web", "auterva_http_requests_total", 50_000 + requests), tgt("web", "auterva_http_responses_total", 4_000, { class: "5xx" }), tgt("worker", "auterva_target_up", 1)];
+  });
+  expect(out.flatMap((n) => n.firing.map((a) => a.id))).not.toContain("HTTP_5XX_BURN_FAST");
+  expect(out.flatMap((n) => n.firing.map((a) => a.id))).not.toContain("HTTP_5XX_BURN_SLOW");
+});
+
+test("QA: the same gap does not page for pool errors, storage errors or terminal-job rises either", () => {
+  const engine = new AlertEngine(rules, { groupWindowMs: 0 });
+  const out = drive(engine, 20, (m) => m === 9 ? [tgt("web", "auterva_target_up", 0)]
+    : [tgt("web", "auterva_target_up", 1), tgt("web", "auterva_db_pool_errors_total", 40, { kind: "pool" }),
+      tgt("web", "auterva_storage_requests_total", 900, { operation: "PutObjectCommand", result: "error" }), up("jobs"),
+      s("auterva_jobs_terminal_failures", 30, { kind: "MAIL_INVITATION" })]);
+  const ids = out.flatMap((n) => n.firing.map((a) => a.id));
+  for (const id of ["DB_POOL_ERRORS", "STORAGE_ERRORS", "MAIL_DELIVERY_FAILED"]) expect(ids).not.toContain(id);
+});
+
+test("QA: increases are per series: two targets, a real counter reset of one is only that series' restart", () => {
+  const engine = new AlertEngine(rules, { groupWindowMs: 0 });
+  let a = 1000; const b = 1000; let ra = 10_000; let rb = 10_000;
+  const out = drive(engine, 14, (m) => {
+    ra += 100; rb += 100;
+    if (m === 6) { a = 0; ra = 0; } // web-a restarts: its counters begin again from zero
+    return [...web5xxRaw("web-a", ra, a), ...web5xxRaw("web-b", rb, b)];
+  });
+  expect(out.flatMap((n) => n.firing)).toEqual([]);
+  // A genuine burst on one target after its restart still pages.
+  const burst = drive(engine, 12, () => { ra += 100; rb += 100; a += 40; return [...web5xxRaw("web-a", ra, a), ...web5xxRaw("web-b", rb, b)]; }, 14);
+  expect(burst.flatMap((n) => n.firing.map((x) => x.id))).toContain("HTTP_5XX_BURN_FAST");
+});
+function web5xxRaw(target: string, requests: number, errors: number): Sample[] {
+  return [tgt(target, "auterva_http_requests_total", requests), tgt(target, "auterva_http_responses_total", errors, { class: "5xx" })];
+}
+
+test("one database outage is exactly one page (ticket-level pool errors may ride along)", () => {
+  const engine = new AlertEngine(rules, { groupWindowMs: 0 });
+  let pool = 0;
+  drive(engine, 8, () => { pool += 3; return [ready("web", "database", 0), ready("web", "queue", 0), ready("web", "migrations", 0), ready("ws", "database", 0),
+    s("auterva_ws_listener_healthy", 0, { target: "ws" }), tgt("web", "auterva_db_pool_errors_total", pool, { kind: "pool" }),
+    up("jobs", 0), up("audit", 0), up("migrations", 0)]; });
+  const firing = engine.firing();
+  expect(firing.filter((a) => a.severity === "page").map((a) => a.id)).toEqual(["READY_DATABASE"]);
+});
+
+test("only filesystem errors count as a failing export sweep; a database error does not", () => {
+  expect(isFilesystemError(Object.assign(new Error("x"), { code: "EACCES" }))).toBe(true);
+  expect(isFilesystemError(Object.assign(new Error("x"), { code: "EIO" }))).toBe(true);
+  expect(isFilesystemError(Object.assign(new Error("x"), { code: "P1001" }))).toBe(false);
+  expect(isFilesystemError(Object.assign(new Error("x"), { code: "ECONNREFUSED" }))).toBe(false);
+  expect(isFilesystemError(new Error("DatabaseNotReachable"))).toBe(false);
+});
