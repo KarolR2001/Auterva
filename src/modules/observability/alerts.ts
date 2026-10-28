@@ -293,26 +293,26 @@ export class AlertEngine {
 
   private queue(item: Pending, nowMs: number) {
     if (!this.pending.length) this.pendingSince = nowMs;
-    // A resolve that follows a still-unsent fire of the same alert cancels both: a flap inside the grouping window.
+    // Cancel a flap only inside the grouping window; a fire held by the cap must remain visible with its resolution.
     if (item.kind === "resolved") {
       const unsent = this.pending.findIndex((p) => p.view.id === item.view.id && p.kind === "firing");
-      if (unsent >= 0) { this.pending.splice(unsent, 1); return; }
+      if (unsent >= 0 && nowMs - this.pendingSince < this.opts.groupWindowMs) { this.pending.splice(unsent, 1); return; }
     }
     this.pending.push(item);
   }
 
-  /** Returns at most a few notifications: one per group, capped per hour, the overflow folded into one summary. */
+  /** Returns at most the remaining hourly slots; pending events wait until a slot opens. */
   takeNotifications(now: Date): Notification[] {
     const nowMs = now.getTime();
     if (!this.pending.length || nowMs - this.pendingSince < this.opts.groupWindowMs) return [];
-    const items = this.pending; this.pending = [];
     this.sentAt = this.sentAt.filter((t) => t > nowMs - 60 * MIN);
+    const slots = Math.max(0, this.opts.maxPerWindow - this.sentAt.length);
+    if (slots === 0) return [];
+    const items = this.pending; this.pending = [];
     const byGroup = new Map<string, Pending[]>();
     for (const item of items) byGroup.set(item.view.group, [...(byGroup.get(item.view.group) ?? []), item]);
     // Pages first so a storm of tickets can never push a page out of the cap.
     const groups = [...byGroup.entries()].sort(([, a], [, b]) => rank(b) - rank(a));
-    // With a spent cap one message still leaves: a page is never silenced by the guard that protects against noise.
-    const slots = Math.max(1, this.opts.maxPerWindow - this.sentAt.length);
     const out: Notification[] = [];
     if (groups.length <= slots) {
       for (const entry of groups) out.push(toNotification(now, [entry]));

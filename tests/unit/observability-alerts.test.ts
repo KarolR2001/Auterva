@@ -105,7 +105,7 @@ test("storm guard: 30 simultaneous alerts become a bounded number of messages, p
     forEvaluations: 1, clearAfter: 1, breached: () => true }));
   const engine = new AlertEngine(stormRules, { groupWindowMs: 0, maxPerWindow: 3 });
   const out = drive(engine, 5, () => []);
-  expect(out.length).toBeLessThanOrEqual(4); // 3 within the cap + one summary
+  expect(out.length).toBeLessThanOrEqual(3); // the summary occupies the last slot
   expect(out[0].severity).toBe("page"); // the page group is not pushed out by tickets
   const summary = out.find((n) => n.suppressedGroups);
   expect(summary).toBeDefined();
@@ -130,11 +130,75 @@ test("storm guard: the summary takes the last slot (never +1) and its subject ca
   expect(pages).toHaveLength(3);
   expect(subjectOf(pages[2])).toContain("[STORM-GUARD][PAGE]");
   expect(new Set(pages.flatMap((n) => n.firing.map((a) => a.id))).size).toBe(10);
-  // With the hourly cap already spent one message still leaves, so a storm is never silent.
+  // The first burst uses its only slot for the summary.
   const spent = new AlertEngine(make(5, () => "page"), { groupWindowMs: 0, maxPerWindow: 1 });
   const first = drive(spent, 1, () => []);
   expect(first).toHaveLength(1);
   expect(first[0].suppressedGroups).toHaveLength(5);
+});
+
+test("storm guard keeps new ticket groups queued after six messages until the rolling hour has a slot", () => {
+  const ticketRules: AlertRule[] = Array.from({ length: 8 }, (_, i) => ({
+    id: `TICKET_${i}`, title: `ticket ${i}`, severity: "ticket", owner: "operator", group: `g${i}`, runbook: "#x",
+    forEvaluations: 1, clearAfter: 1, breached: (c) => c.now >= at(i * 2),
+  }));
+  const engine = new AlertEngine(ticketRules, { groupWindowMs: 0, maxPerWindow: 6, repeatMs: { page: 2 * 60 * 60_000, ticket: 2 * 60 * 60_000 } });
+  const firstHour = Array.from({ length: 8 }, (_, i) => {
+    engine.evaluate([], at(i * 2));
+    return engine.takeNotifications(at(i * 2));
+  });
+  expect(firstHour.map((notes) => notes.length)).toEqual([1, 1, 1, 1, 1, 1, 0, 0]);
+  const delayed = engine.takeNotifications(at(60));
+  expect(delayed).toHaveLength(1);
+  expect(delayed[0].firing.map((a) => a.id).sort()).toEqual(["TICKET_6", "TICKET_7"]);
+});
+
+test.each(["ticket", "page"] as const)("storm guard retains a %s after the cap is spent", (severity) => {
+  let secondFires = false;
+  const make = (id: string, group: string, breached: () => boolean): AlertRule => ({
+    id, title: id, severity, owner: "operator", group, runbook: "#x", forEvaluations: 1, clearAfter: 1, breached,
+  });
+  const engine = new AlertEngine([make("FIRST", "first", () => true), make("SECOND", "second", () => secondFires)],
+    { groupWindowMs: 0, maxPerWindow: 1, repeatMs: { page: 2 * 60 * 60_000, ticket: 2 * 60 * 60_000 } });
+  engine.evaluate([], at(0));
+  expect(engine.takeNotifications(at(0)).flatMap((n) => n.firing.map((a) => a.id))).toEqual(["FIRST"]);
+  secondFires = true;
+  engine.evaluate([], at(1));
+  expect(engine.takeNotifications(at(1))).toEqual([]);
+  expect(engine.takeNotifications(at(60)).flatMap((n) => n.firing.map((a) => a.id))).toEqual(["SECOND"]);
+});
+
+test("storm guard retains a resolution after the cap is spent", () => {
+  let breached = true;
+  const rule: AlertRule = { id: "X", title: "x", severity: "page", owner: "operator", group: "g", runbook: "#x",
+    forEvaluations: 1, clearAfter: 1, breached: () => breached };
+  const engine = new AlertEngine([rule], { groupWindowMs: 0, maxPerWindow: 1 });
+  engine.evaluate([], at(0));
+  expect(engine.takeNotifications(at(0)).flatMap((n) => n.firing.map((a) => a.id))).toEqual(["X"]);
+  breached = false;
+  engine.evaluate([], at(1));
+  expect(engine.takeNotifications(at(1))).toEqual([]);
+  expect(engine.takeNotifications(at(60)).flatMap((n) => n.resolved.map((a) => a.id))).toEqual(["X"]);
+});
+
+test("a fire held by the cap and then resolved keeps both transitions", () => {
+  let secondBreached = false;
+  const rule = (id: string, group: string, breached: () => boolean): AlertRule => ({
+    id, title: id, severity: "ticket", owner: "operator", group, runbook: "#x", forEvaluations: 1, clearAfter: 1, breached,
+  });
+  const engine = new AlertEngine([rule("FIRST", "first", () => true), rule("SECOND", "second", () => secondBreached)],
+    { groupWindowMs: 0, maxPerWindow: 1 });
+  engine.evaluate([], at(0));
+  expect(engine.takeNotifications(at(0))).toHaveLength(1);
+  secondBreached = true;
+  engine.evaluate([], at(1));
+  expect(engine.takeNotifications(at(1))).toEqual([]);
+  secondBreached = false;
+  engine.evaluate([], at(2));
+  expect(engine.takeNotifications(at(2))).toEqual([]);
+  const delayed = engine.takeNotifications(at(60));
+  expect(delayed.flatMap((n) => n.firing.map((a) => a.id))).toEqual(["SECOND"]);
+  expect(delayed.flatMap((n) => n.resolved.map((a) => a.id))).toEqual(["SECOND"]);
 });
 
 test("reminders repeat a still-firing page hourly, not every evaluation", () => {
