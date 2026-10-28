@@ -288,6 +288,7 @@ test("B1: the audit worker is visible to monitoring: heartbeat, and a cleanup sw
   await mkdir(blocker, { recursive: true, mode: 0o700 }); // unlink of a directory fails: the bytes cannot be removed
   await writeFile(join(blocker, "keep"), "x");
   const now = new Date();
+  const startedAt = new Date(now.getTime() - 1_000);
   await shared.auditOperatorExport.create({ data: { id, fromAt: new Date(now.getTime() - 86_400_000), toAt: now, count: 1, artifactName: `${id}.bin`,
     status: "READY", digest: "b".repeat(64), createdAt: new Date(now.getTime() - 3 * 3_600_000), completedAt: new Date(now.getTime() - 2 * 3_600_000),
     expiresAt: new Date(now.getTime() - 3_600_000) } });
@@ -317,6 +318,10 @@ test("B1: the audit worker is visible to monitoring: heartbeat, and a cleanup sw
     worker.child.kill("SIGTERM");
     await worker.exited;
     await shared.auditOperatorExport.deleteMany({ where: { id } });
+    // The real worker scheduled today's purge job in the shared fixture; leave no trace for other tests.
+    const jobs = await shared.job.findMany({ where: { kind: "AUDIT_RETENTION", createdAt: { gte: startedAt } }, select: { id: true } });
+    await shared.auditRetentionManifest.deleteMany({ where: { jobId: { in: jobs.map((j) => j.id) } } });
+    await shared.job.deleteMany({ where: { id: { in: jobs.map((j) => j.id) } } });
     await rm(blocker, { recursive: true, force: true });
   }
 }, 90_000);
