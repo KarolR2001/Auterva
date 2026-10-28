@@ -44,9 +44,15 @@ async function timed(work: () => Promise<void>, timeoutMs: number, failReason: s
   } finally { if (timer) clearTimeout(timer); }
 }
 
+const dirCache = new Map<string, string[]>();
+/** Migration directories never change while a process runs, so the listing is read once. */
 export function listMigrationDirs(dir: string): string[] {
+  const cached = dirCache.get(dir);
+  if (cached) return cached;
   try {
-    return readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort();
+    const found = readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort();
+    dirCache.set(dir, found);
+    return found;
   } catch { return []; }
 }
 
@@ -94,13 +100,37 @@ const checkers: Record<CheckName, (deps: ReadinessDeps) => Promise<CheckResult>>
 
 /** `only` narrows the report for processes that need fewer dependencies (the realtime server needs only the DB). */
 export async function readinessReport(deps: ReadinessDeps, only: CheckName[] = ["database", "storage", "queue", "migrations"]): Promise<ReadinessReport> {
-  const entries = await Promise.all(only.map(async (name) => [name, await checkers[name](deps)] as const));
-  const checks: Record<string, CheckResult> = Object.fromEntries(entries);
-  // Queue and migrations read the database too: when it is down they must be red as well, never skipped.
+  const checks: Record<string, CheckResult> = {};
+  // The database is checked first: when it is down, queue and migrations are reported as a consequence of it
+  // (DATABASE_UNAVAILABLE) without issuing more queries, so one outage is one root cause.
+  if (only.includes("database")) checks.database = await checkDatabase(deps);
+  const databaseDown = checks.database?.status === "fail";
+  await Promise.all(only.filter((name) => name !== "database").map(async (name) => {
+    checks[name] = databaseDown && (name === "queue" || name === "migrations")
+      ? { status: "fail", reason: "DATABASE_UNAVAILABLE" } : await checkers[name](deps);
+  }));
+  // Dependent checks stay red (never skipped) while the database is down.
   const status = Object.values(checks).every((check) => check.status === "ok") ? "ok" : "fail";
   if (status === "fail") {
     log.warn("health.not_ready", { outcome: "failure", reason: Object.entries(checks).filter(([, c]) => c.status === "fail")
       .map(([name, c]) => `${name}:${c.reason ?? "FAIL"}`).join(",") });
   }
   return { status, checks };
+}
+
+/**
+ * Single-flight with a short TTL: any number of concurrent or rapid probes share one check (one set of queries and one
+ * storage call), and a slow check is never started twice. Anonymous /ready cannot exhaust the connection pool.
+ */
+export function createCachedReadiness(compute: () => Promise<ReadinessReport>, ttlMs = 3_000, clock: () => number = Date.now) {
+  let inflight: Promise<ReadinessReport> | null = null;
+  let value: { at: number; report: ReadinessReport } | null = null;
+  return async (): Promise<ReadinessReport> => {
+    if (value && clock() - value.at < ttlMs) return value.report;
+    if (!inflight) {
+      inflight = compute().then((report) => { value = { at: clock(), report }; return report; })
+        .finally(() => { inflight = null; });
+    }
+    return inflight;
+  };
 }

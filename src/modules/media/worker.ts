@@ -3,7 +3,8 @@ import type { PrismaClient } from "@/generated/prisma/client";
 import { claimNextJob, type ClaimedJob } from "@/modules/jobs/queue";
 import { decodeMedia } from "./decode";
 import { putImmutable, readLimited, removeObject, type MediaStorage } from "./storage";
-import { logFailure } from "@/modules/observability/log";
+import type { LogContext } from "@/modules/observability/log";
+import { currentLogContext, logFailure, runWithLogContext } from "@/modules/observability/log";
 import { iterationOutcome } from "@/modules/observability/worker-metrics";
 
 const leaseMs = 90_000;
@@ -123,6 +124,7 @@ export async function processMediaClaim(db: PrismaClient, storage: MediaStorage,
   const job = await db.job.findFirst({ where: { id: claim.id, kind: "MEDIA_PROCESS",
     status: "RUNNING", leaseToken: claim.leaseToken }, select: { organizationId: true, payload: true } });
   const payload = job?.payload;
+  if (job?.organizationId) currentLogContext().organizationId = job.organizationId;
   if (!payload || typeof payload !== "object" || Array.isArray(payload)
     || typeof payload.uploadId !== "string") return false;
   const upload = await db.imageUpload.findFirst({ where: { id: payload.uploadId,
@@ -208,6 +210,7 @@ export async function processMediaClaim(db: PrismaClient, storage: MediaStorage,
 export async function runMediaWorkerLoop(db: PrismaClient, storage: MediaStorage, signal: AbortSignal,
   clock: () => Date = () => new Date()): Promise<void> {
   while (!signal.aborted) {
+    const jobCtx: LogContext = { operation: "media.process" };
     try {
       const now = clock();
       await reconcileMediaFailures(db);
@@ -217,10 +220,10 @@ export async function runMediaWorkerLoop(db: PrismaClient, storage: MediaStorage
       const claim = await claimNextJob(db, now, leaseMs, false, "MEDIA_PROCESS");
       iterationOutcome("media-worker", true);
       if (claim) {
-        await processMediaClaim(db, storage, claim, clock);
+        await runWithLogContext(jobCtx, () => processMediaClaim(db, storage, claim, clock));
         continue;
       }
-    } catch (error) { logFailure("worker.iteration_failed", error, { operation: "media.worker" }); iterationOutcome("media-worker", false); }
+    } catch (error) { logFailure("worker.iteration_failed", error, { operation: "media.worker", organizationId: jobCtx.organizationId }); iterationOutcome("media-worker", false); }
     await new Promise<void>((resolve) => {
       const timer = setTimeout(done, 1_000);
       function done() { clearTimeout(timer); signal.removeEventListener("abort", done); resolve(); }

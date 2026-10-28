@@ -36,8 +36,11 @@ try {
     process.once("SIGINT", () => controller.abort());
     process.once("SIGTERM", () => controller.abort());
     await db.$queryRaw`SELECT 1`;
+    // OPS_PORT opens the live/ready/metrics listener so monitoring sees heartbeat and sweep failures (#58, #108).
+    const { initProcessObservability } = await import("../src/modules/observability/process");
+    const ops = await initProcessObservability("audit-worker", { db });
     process.stdout.write("Audit maintenance worker ready\n");
-    await runAuditRetentionLoop({ db, signal: controller.signal, directory });
+    try { await runAuditRetentionLoop({ db, signal: controller.signal, directory }); } finally { await ops.close(); }
   } else if (command === "export") {
     const receipt = await exportAuditRange(db, { from: utcDate(process.argv[3]), to: utcDate(process.argv[4]),
       now: new Date(), key: exportKey(), directory });

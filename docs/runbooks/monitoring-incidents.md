@@ -17,7 +17,8 @@ Obecnie obie role pełni jedna osoba; podział jest w kodzie reguł (`owner`), �
 2. Znajdź ślad: odpowiedź API ma `X-Request-Id`; ten sam `requestId` jest w logu JSON (`event` `http.internal_error`, `http.unhandled_error`, `request-refused`). Filtruj po `requestId`, `operation`, `outcome`; pola `actorId`/`organizationId` są identyfikatorami, nie danymi osobowymi.
 3. Logi nie zawierają treści czatu, tokenów, cookies, haseł, adresów e-mail, kluczy ani treści audytu. Brak takiej treści w logu nie jest błędem do „naprawiania” dodatkowym logowaniem.
 4. Zdrowie: `GET /api/health/live/` (proces żyje, bez DB), `/api/health/ready/` (DB, storage, kolejka, migracje; 503 gdy cokolwiek nie działa; szczegóły tylko z tokenem). `/api/health/` to zgodny alias liveness.
-5. Metryki: `GET /api/health/metrics/` z `Authorization: Bearer $OPS_METRICS_TOKEN` (bez tokenu w konfiguracji endpoint odpowiada 404). Pozostałe procesy: `OPS_PORT` (`/live`, `/ready`, `/metrics`).
+5. Cele monitora (`OPS_TARGETS`) obejmują WWW, worker, media-worker, realtime **i worker audytu** (`audit-worker=http://127.0.0.1:<OPS_PORT>/metrics`; `scripts/audit-retention.ts worker` otwiera listener, gdy ustawisz `OPS_PORT`). Bez celu audit-worker alert o jego zatrzymaniu nie powstanie z heartbeat, tylko z `AUDIT_RETENTION_NOT_COMPLETING`/`STALLED`.
+6. Metryki: `GET /api/health/metrics/` z `Authorization: Bearer $OPS_METRICS_TOKEN` (bez tokenu w konfiguracji endpoint odpowiada 404). Pozostałe procesy: `OPS_PORT` (`/live`, `/ready`, `/metrics`).
 
 Uwaga W6 ([OWASP_CONTROLS §6](../security/OWASP_CONTROLS.md)): ostrzeżenie Next `Request body exceeded … for <url>` może zawierać token zaproszenia w ścieżce i nie przechodzi przez nasz logger. Do czasu maskowania na proxy/log shipperze dostawcy (#90) nie kopiuj surowych logów procesu WWW poza system logów.
 
@@ -27,13 +28,13 @@ Uwaga W6 ([OWASP_CONTROLS §6](../security/OWASP_CONTROLS.md)): ostrzeżenie Nex
 `TARGET_DOWN` (page, operator): scrape procesu (WWW, worker, realtime) nie działa 3 kolejne razy. Sprawdź, czy proces żyje i `/live`; zrestartuj proces. Restart nie gubi zatwierdzonych mutacji (trwałe joby, lease, wznowienie WS z kursorem); po restarcie sprawdź `/ready` i zniknięcie alertu `JOBS_STALLED`.
 
 ### ready-database
-`READY_DATABASE`, `DB_POOL_ERRORS`: baza nieosiągalna lub błędy puli. Sprawdź dostawcę DB, limity połączeń, sieć. Liveness pozostaje zielone (restart procesu nie pomoże). Po powrocie bazy `READY_QUEUE` i `READY_MIGRATIONS` zielenieją same.
+`READY_DATABASE`, `DB_POOL_ERRORS`: baza nieosiągalna lub błędy puli. Sprawdź dostawcę DB, limity połączeń, sieć. Liveness pozostaje zielone (restart procesu nie pomoże). `READY_QUEUE`, `READY_MIGRATIONS` i `COLLECTOR_DOWN` są wtedy tłumione (powód `DATABASE_UNAVAILABLE`): jedna awaria to jeden page.
 
 ### ready-storage
 `READY_STORAGE`, `STORAGE_ERRORS`: bucket niedostępny lub brak konfiguracji (`NOT_CONFIGURED` jest awarią). Sprawdź poświadczenia i endpoint S3. Publiczne i panelowe zdjęcia nie działają do powrotu; zapisy nie są potwierdzane fałszywie.
 
 ### ready-queue
-`READY_QUEUE`: zaległe zadanie nie jest podejmowane od 5 minut. Zobacz [worker](#worker).
+`READY_QUEUE`: (przy awarii DB tłumiony) zaległe zadanie nie jest podejmowane od 5 minut. Zobacz [worker](#worker).
 
 ### ready-migrations
 `READY_MIGRATIONS`: zob. [migrations](#migrations).
@@ -45,20 +46,23 @@ Uwaga W6 ([OWASP_CONTROLS §6](../security/OWASP_CONTROLS.md)): ostrzeżenie Nex
 `LOGIN_SERVER_ERRORS` (page): błędy 5xx logowania/MFA; sprawdź DB i `BETTER_AUTH_SECRET` (zmiana sekretu psuje MFA, zob. backup-restore). `LOGIN_FAILURE_SPIKE` (ticket, owner): ≥50 nieudanych logowań w 10 minut; sprawdź limity (429) i źródła w logach bezpieczeństwa; decyzja o blokadzie należy do właściciela. Dane kont nie trafiają do metryk.
 
 ### worker
-`WORKER_HEARTBEAT_STALE`, `JOBS_STALLED`, `MEDIA_JOBS_FAILED`: worker nie iteruje lub nie podejmuje zadań (próg 300 s). Zrestartuj worker (SIGTERM, potem start). Joby `RUNNING` z wygasłym lease wznawia kolejna instancja. `FAILED` wymaga ustalenia przyczyny przed ponowieniem; maile `UNCERTAIN` nie są wysyłane automatycznie drugi raz.
+`WORKER_HEARTBEAT_STALE` (worker, media-worker i audit-worker), `JOBS_STALLED`, `MEDIA_JOBS_FAILED` (nowe porażki w godzinie): worker nie iteruje lub nie podejmuje zadań (próg 300 s). Zrestartuj worker (SIGTERM, potem start). Joby `RUNNING` z wygasłym lease wznawia kolejna instancja. `FAILED` wymaga ustalenia przyczyny przed ponowieniem; maile `UNCERTAIN` nie są wysyłane automatycznie drugi raz.
 
 ### mail
-`MAIL_DELIVERY_FAILED` (ticket): joby `MAIL_*` w `FAILED` lub `UNCERTAIN` z ostatnich 7 dni. Sprawdź dostawcę poczty i kody (`MAIL_TRANSIENT`, `MAIL_PERMANENT`, `MAIL_OUTCOME_UNKNOWN`). Nie wysyłaj ręcznie ponownie bez sprawdzenia u dostawcy (ryzyko duplikatu).
+`MAIL_DELIVERY_FAILED` (ticket): w ostatniej godzinie przybyły joby `MAIL_*` w `FAILED` lub `UNCERTAIN` (alert znika sam po powrocie do zdrowia; nowa porażka alarmuje ponownie). `MAIL_PROVIDER_ERRORS` (ticket): ≥3 odpowiedzi dostawcy z błędem w 15 minut (licznik workera). Sprawdź dostawcę poczty i kody (`MAIL_TRANSIENT`, `MAIL_PERMANENT`, `MAIL_OUTCOME_UNKNOWN`). Nie wysyłaj ręcznie ponownie bez sprawdzenia u dostawcy (ryzyko duplikatu).
 
 ### audit-retention
 Osobne sygnały #108, żaden nie jest ukryty sukcesem purge:
 - `AUDIT_RETENTION_FAILED` (page): job w `FAILED`, cutoff zachowany. Zbadaj przyczynę (`scripts/audit-retention.ts status`), potem `retry <job-id>`.
 - `AUDIT_RETENTION_STALLED` (page): job jest należny, lecz nikt go nie podejmuje >15 min; uruchom worker audytu (`scripts/audit-retention.ts worker`).
+- `AUDIT_RETENTION_NOT_COMPLETING` (page): żaden job nie zakończył się od 26 h (albo od pierwszego zaplanowanego). Sprawdź, czy worker audytu działa (heartbeat `audit-worker`, `/live` na jego `OPS_PORT`).
+- Wyczerpany lease (RUNNING z wygasłym lease i bez prób) liczy się jak `AUDIT_RETENTION_FAILED`.
 - `AUDIT_PURGE_DELAYED` (ticket): najstarszy wpis jest >36 h poza cutoffem 365 dni; sprawdź dzienny job.
 Nie wklejaj treści audytu do zgłoszeń.
 
 ### audit-export
 - `AUDIT_EXPORT_FAILED` (ticket): eksport operatora zakończył się błędem w 24 h; powtórka to nowe żądanie po ustaleniu przyczyny.
+- `AUDIT_EXPORT_SWEEP_FAILING` (page): sweep nie potrafi usunąć bajtów (np. EACCES/EIO); stan w DB mógł już przejść na `DELETED`, a plik zostaje. Sprawdź uprawnienia katalogu/storage artefaktów i uruchom `sweep`.
 - `AUDIT_EXPORT_CLEANUP_OVERDUE` (page): artefakt `READY` po terminie lub porzucony `PENDING/FAILED` nie został usunięty (sprzątanie awaryjne). Uruchom `scripts/audit-retention.ts sweep`; sprawdź prywatny storage artefaktów. Artefakt po terminie nie wolno odczytać, ale bajty mają zniknąć.
 Klucze (`AUDIT_EXPORT_KEY`) i treść eksportu nigdy nie trafiają do logów ani alertów.
 

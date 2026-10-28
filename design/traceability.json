@@ -951,6 +951,7 @@
         "tests/unit/observability-health.test.ts",
         "tests/unit/observability-alerts.test.ts",
         "tests/integration/ops-monitoring.test.ts",
+        "tests/integration/log-actor-context.test.ts",
         "tests/e2e/auth-production.spec.ts"
       ]
     }

@@ -75,3 +75,54 @@ test("metrics are never public: no token configured is 404, wrong or missing cre
   expect(bearerMatches(`Bearer ${token}`, token)).toBe(true);
   expect(bearerMatches(`Bearer ${token}x`, token)).toBe(false);
 });
+
+import { createCachedReadiness } from "../../src/modules/observability/health";
+import { count5xx, isApplicationRequest } from "../../src/modules/observability/http-observe";
+import { metrics } from "../../src/modules/observability/metrics";
+
+test("B5: parallel and rapid probes share one check", async () => {
+  let runs = 0;
+  let now = 0;
+  const cached = createCachedReadiness(async () => { runs += 1; await new Promise((r) => setTimeout(r, 20)); return { status: "ok" as const, checks: {} }; }, 3_000, () => now);
+  await Promise.all(Array.from({ length: 50 }, () => cached()));
+  now = 1_000; await cached();
+  expect(runs).toBe(1);
+  now = 4_000; await cached();
+  expect(runs).toBe(2);
+});
+
+test("B5: a hung check is not started twice while it is in flight", async () => {
+  let runs = 0;
+  const cached = createCachedReadiness(() => { runs += 1; return new Promise(() => {}); }, 3_000);
+  void cached(); void cached(); void cached();
+  expect(runs).toBe(1);
+});
+
+test("N3: database down makes queue and migrations a consequence and issues no further queries", async () => {
+  let calls = 0;
+  const db = { $queryRaw: async () => { calls += 1; throw new Error("down"); } } as never;
+  const report = await readinessReport({ db, storageProbe: async () => {}, migrationsDir: null });
+  expect(report.checks.queue).toMatchObject({ status: "fail", reason: "DATABASE_UNAVAILABLE" });
+  expect(report.checks.migrations).toMatchObject({ status: "fail", reason: "DATABASE_UNAVAILABLE" });
+  expect(calls).toBe(1);
+});
+
+test("B3: one 5xx per request ID, and only application requests are availability samples", () => {
+  metrics.reset();
+  count5xx("req-1"); count5xx("req-1"); count5xx("req-2");
+  expect(metrics.value("auterva_http_responses_total", { class: "5xx" })).toBe(2);
+  const req = (path: string, headers: Record<string, string> = {}) => ({ url: `http://x${path}`, headers: new Headers(headers) });
+  expect(isApplicationRequest(req("/api/admin/vehicles/"))).toBe(true);
+  expect(isApplicationRequest(req("/admin/"))).toBe(true);
+  for (const path of ["/_next/static/chunks/a.js", "/favicon.ico", "/sw.js", "/static-images/x.png"]) expect(isApplicationRequest(req(path))).toBe(false);
+  expect(isApplicationRequest(req("/admin/", { "next-router-prefetch": "1" }))).toBe(false);
+});
+
+test("B3: a helper 500 wrapped by withErrorRequestId is counted once", async () => {
+  const { reportInternalError } = await import("../../src/modules/observability/http-observe");
+  const { withErrorRequestId } = await import("../../src/modules/tenancy/request-id");
+  metrics.reset();
+  const id = "11111111-2222-4333-8444-555555555555";
+  withErrorRequestId(new Response(null, { status: 500 }), reportInternalError(new Error("X"), id, "public-offer"));
+  expect(metrics.value("auterva_http_responses_total", { class: "5xx" })).toBe(1);
+});

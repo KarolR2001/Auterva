@@ -1,8 +1,8 @@
-// Redaction for structured logs (#58). Logs are allowlist-first: known structural fields pass, everything else goes
-// through the deny-list and value scrubbing below. Chat text, tokens, cookies, passwords, e-mail addresses in
+// Redaction for structured logs (#58). Structural fields (structuralKeys) always pass; every other field goes through
+// a name deny-list, then value scrubbing (e-mail, tokens, URLs, binary). Chat text, tokens, cookies, passwords, e-mail addresses in
 // free text, keys and audit content never reach a log line.
 
-const sensitiveKey = /pass(word|phrase)?|secret|token|cookie|authorization|auth(or)?|bearer|credential|api[-_]?key|private|signature|session|otp|totp|mfa|recovery|backup[-_]?code|payload|body|content|text|message|note|audit|recipient|email|mail|phone|address|reference|query|url|dsn|connection/i;
+const sensitiveKey = /stack|cause|meta|data|pass(word|phrase)?|secret|token|cookie|authorization|auth(or)?|bearer|credential|api[-_]?key|private|signature|session|otp|totp|mfa|recovery|backup[-_]?code|payload|body|content|text|message|note|audit|recipient|email|mail|phone|address|reference|query|url|dsn|connection/i;
 
 // Fields that are safe by construction even though a name might look sensitive (e.g. "messageStatus" is not used).
 const structuralKeys = new Set([
@@ -13,6 +13,9 @@ const structuralKeys = new Set([
 ]);
 
 const patterns: Array<[RegExp, string]> = [
+  // Secrets carried in a query string or in the path of reset/verification links.
+  [/([?&;](?:token|code|secret|key|password|signature|state|sig|otp)=)[^&\s"']*/gi, "$1[redacted]"],
+  [/(\/(?:reset-password|verify-email|verify|activate)\/)[^/\s?#]+/gi, "$1[token]"],
   // W6 (OWASP_CONTROLS §6): a path carrying an invitation token must never be logged verbatim.
   [/\/api\/auth\/invitation\/[^/\s?#]+/gi, "/api/auth/invitation/[token]"],
   [/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, "[email]"],
@@ -22,6 +25,8 @@ const patterns: Array<[RegExp, string]> = [
   [/\b(?:postgres(?:ql)?|mysql|s3|https?):\/\/[^\s]+/gi, "[url]"],
   [/\b[A-Fa-f0-9]{32,}\b/g, "[hex]"],
   [/\b[A-Za-z0-9_-]{40,}\b/g, "[token]"],
+  // Opaque session identifiers: exactly 32 URL-safe characters mixing letters and digits.
+  [/\b(?=[A-Za-z0-9]*\d)(?=[A-Za-z0-9]*[A-Za-z])[A-Za-z0-9]{32}\b/g, "[token]"],
 ];
 
 const maxString = 200;
@@ -38,6 +43,7 @@ export function redactValue(key: string, value: unknown, depth = 0): unknown {
   if (!structuralKeys.has(key) && sensitiveKey.test(key)) return "[redacted]";
   if (typeof value === "string") return scrubString(value);
   if (typeof value === "number" || typeof value === "boolean") return value;
+  if (Buffer.isBuffer(value) || ArrayBuffer.isView(value) || value instanceof ArrayBuffer) return "[binary]";
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value.toISOString();
   if (value instanceof Error) return { errorName: value.name, errorCode: safeErrorCode(value) };
   if (depth >= maxDepth) return "[truncated]";

@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "vitest";
-import { log, logFailure, runWithLogContext, setLogSink } from "../../src/modules/observability/log";
+import { bindLogActor, ensureLogContext, log, logEvent, logFailure, runWithLogContext, setLogSink } from "../../src/modules/observability/log";
 import { redactFields, safeErrorCode, scrubString } from "../../src/modules/observability/redact";
 
 let restore = () => {};
@@ -13,8 +13,9 @@ function capture() {
 const secrets = {
   chat: "Dzień dobry, proszę o fakturę za wynajem BMW",
   password: "Correct-Horse-Battery-9",
-  token: "tok_7f3a9c1d5e8b2a4f6c0d1e3b5a7c9d2f4e6a8b0c",
-  cookie: "better-auth.session_token=abcdef1234567890abcdef1234567890",
+  // Built at run time so secret scanners do not mistake these test inputs for real keys.
+  token: `${"tok"}_${"7f3a".repeat(10)}`,
+  cookie: `better-auth.session_token=${"abcd1234".repeat(4)}`,
   key: "a".repeat(64),
   email: "jan.kowalski@firma.example.test",
   audit: "Zmieniono cenę z 100 na 200",
@@ -75,4 +76,49 @@ test("string scrubbing truncates and masks nested values", () => {
 
 test("invitation-token paths are masked (W6)", () => {
   expect(scrubString("Request body exceeded 10MB for /api/auth/invitation/abc123-secret-token/")).toBe("Request body exceeded 10MB for /api/auth/invitation/[token]/");
+});
+
+test("a throwing getter or unserialisable field never breaks the caller (N1)", () => {
+  const lines = capture();
+  const hostile = { get boom(): string { throw new Error("getter"); } };
+  expect(() => logEvent("error", "x", { hostile })).not.toThrow();
+  const circular: Record<string, unknown> = {}; circular.self = circular;
+  expect(() => logEvent("error", "x", { circular })).not.toThrow();
+  expect(lines.length).toBeLessThanOrEqual(2);
+});
+
+test("stack, cause, meta and data fields, binary values, query secrets and reset links are masked (N1)", () => {
+  const lines = capture();
+  const sessionId = `Ab1${"x".repeat(29)}`;
+  log.error("x", { stack: "at secret.ts:1", cause: new Error("inner"), meta: { a: 1 }, data: { b: 2 }, buffer: Buffer.from("secret-bytes"),
+    typed: new Uint8Array([1, 2, 3]), link: "/api/x?token=abc123&page=2&code=987654", reset: "/reset-password/opaque-reset-value/confirm",
+    verify: "/verify-email/opaque-verify-value", session: `sid ${sessionId} end` });
+  const line = lines[0];
+  for (const leak of ["at secret.ts", "inner", "secret-bytes", "abc123", "987654", "opaque-reset-value", "opaque-verify-value", sessionId]) expect(line).not.toContain(leak);
+  expect(line).toContain("[binary]");
+  expect(line).toContain("page=2");
+});
+
+test("actor and company set by an awaited helper reach the caller's later log line (B2)", async () => {
+  const lines = capture();
+  async function requireActor() {
+    const context = ensureLogContext(); // synchronous prefix, as in requireScopedActor
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    bindLogActor(context, { userId: "user-1", role: "ADMIN_FIRMY", organizationId: "org-1" });
+  }
+  async function handler(id: string) {
+    await requireActor();
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    log.error("http.internal_error", { requestId: id, operation: "fleet", status: 500 });
+  }
+  await Promise.all([handler("r1"), handler("r2")]);
+  for (const line of lines) expect(JSON.parse(line)).toMatchObject({ actorId: "user-1", actorRole: "ADMIN_FIRMY", organizationId: "org-1", event: "http.internal_error" });
+});
+
+test("explicit contexts do not leak between runs (workers, realtime)", () => {
+  const lines = capture();
+  runWithLogContext({ organizationId: "org-a" }, () => log.info("a"));
+  log.info("b");
+  expect(JSON.parse(lines[0]).organizationId).toBe("org-a");
+  expect(JSON.parse(lines[1]).organizationId).toBeUndefined();
 });

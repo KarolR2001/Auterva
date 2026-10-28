@@ -3,7 +3,7 @@ import { sweepExpiredRateLimits } from "./maintenance";
 import { processClaimedJob, type WorkerContext } from "./processor";
 import { processDueReminders } from "@/modules/reminders/deliver";
 import { claimNextJob, type ClaimedJob } from "./queue";
-import { logFailure } from "@/modules/observability/log";
+import { logFailure, runWithLogContext, type LogContext } from "@/modules/observability/log";
 import { iterationOutcome } from "@/modules/observability/worker-metrics";
 
 export type RunnerOptions = {
@@ -34,6 +34,7 @@ export async function runWorkerLoop(options: RunnerOptions): Promise<void> {
   let nextReminderAt = 0;
   while (!options.signal.aborted) {
     const now = clock();
+    const jobCtx: LogContext = { operation: "jobs.process" };
     try {
       if (now.getTime() >= nextSweepAt) {
         await sweepExpiredRateLimits(options.db, now);
@@ -48,12 +49,12 @@ export async function runWorkerLoop(options: RunnerOptions): Promise<void> {
       iterationOutcome("worker", true);
       if (claim) {
         await options.afterClaim?.(claim);
-        await processClaimedJob(options.db, claim, { ...options.context, now, clock });
+        await runWithLogContext(jobCtx, () => processClaimedJob(options.db, claim, { ...options.context, now, clock }));
         continue;
       }
     } catch (error) {
       // Lease expiry makes an interrupted DB operation recoverable; do not log payloads or provider responses.
-      logFailure("worker.iteration_failed", error, { operation: "jobs.worker" });
+      logFailure("worker.iteration_failed", error, { operation: "jobs.worker", organizationId: jobCtx.organizationId });
       iterationOutcome("worker", false);
     }
     await wait(pollMs, options.signal);

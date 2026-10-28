@@ -1,6 +1,7 @@
 import type { PrismaClient } from "../../generated/prisma/client";
 import type { auth } from "../../lib/auth";
 import { requireAuthorizedActor } from "../auth/authorization";
+import { currentLogContext, ensureLogContext } from "../observability/log";
 import { resolveHostMapping } from "./host-registry";
 
 export type RequestArea = {
@@ -36,6 +37,7 @@ export async function selectActorOrganization(
   }
   if (area.area !== "PLATFORM" || actor.role !== "SUPERADMIN_AUTERVA" || actor.organizationId !== null || !targetOrganizationId) return null;
   const company = await db.organization.findUnique({ where: { id: targetOrganizationId }, select: { id: true } });
+  if (company) currentLogContext().organizationId = company.id; // superadmin acting in this company's context (#58)
   return company ? { actorId: actor.userId, role: "SUPERADMIN_AUTERVA", organizationId: company.id, sessionId: actor.sessionId } : null;
 }
 
@@ -47,6 +49,7 @@ export async function requireRequestContext(
   headers: Headers,
   targetOrganizationId: string,
 ): Promise<ActorContext | null> {
+  ensureLogContext(); // must run before the first await so the caller's chain shares the context (see log.ts)
   const area = await resolveRequestArea(db, headers.get("host"));
   if (!area || (area.area !== "PLATFORM" && area.area !== "COMPANY_ADMIN")) return null;
   const actor = await requireAuthorizedActor(db, instance, headers, { area: area.area, organizationId: area.organizationId });

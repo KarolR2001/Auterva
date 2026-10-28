@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { HeadBucketCommand } from "@aws-sdk/client-s3";
 import { createMediaStorage } from "@/modules/media/storage";
-import { livenessReport, readinessReport, type ReadinessDeps, type ReadinessReport } from "./health";
+import { createCachedReadiness, livenessReport, readinessReport, type ReadinessDeps, type ReadinessReport } from "./health";
 import { metrics } from "./metrics";
 
 // Transport-independent handlers shared by the Next routes (web) and the small ops listener (workers, realtime).
@@ -61,6 +61,9 @@ export function storageProbeFromEnv(env: Record<string, string | undefined> = pr
   return async () => { await client.client.send(new HeadBucketCommand({ Bucket: client.bucket }), { abortSignal: AbortSignal.timeout(3_000) }); };
 }
 
-export async function webReadiness(db: ReadinessDeps["db"]): Promise<ReadinessReport> {
-  return readinessReport({ db, storageProbe: storageProbeFromEnv() });
+const readinessTtl = () => { const ttl = Number(process.env.OPS_READY_TTL_MS ?? 3_000); return Number.isFinite(ttl) && ttl >= 0 && ttl <= 60_000 ? ttl : 3_000; };
+let cachedWeb: (() => Promise<ReadinessReport>) | undefined;
+export function webReadiness(db: ReadinessDeps["db"]): Promise<ReadinessReport> {
+  cachedWeb ??= createCachedReadiness(() => readinessReport({ db, storageProbe: storageProbeFromEnv() }), readinessTtl());
+  return cachedWeb();
 }

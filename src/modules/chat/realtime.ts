@@ -100,7 +100,7 @@ type Options = {
   authority: RealtimeAuthority;
   limits?: Partial<RealtimeLimits>;
   /** Event names only (never message text, cookies or SQL). */
-  log?: (event: string) => void;
+  log?: (event: string, principal?: { actorId: string; role: string; organizationId?: string }) => void;
 };
 
 const ERROR_CODES: Record<string, string> = {
@@ -141,7 +141,7 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
   function emit(conn: Pick<Conn, "ws" | "closed">, value: Record<string, unknown>, droppable = false): boolean {
     if (conn.closed || conn.ws.readyState !== conn.ws.OPEN) return false;
     if (conn.ws.bufferedAmount > limits.maxBufferedBytes) {
-      if (!droppable) { log("slow-client"); closeConn(conn, CLOSE.SLOW_CLIENT, "SLOW_CLIENT"); }
+      if (!droppable) { log("slow-client", "principal" in conn ? (conn as Conn).principal : undefined); closeConn(conn, CLOSE.SLOW_CLIENT, "SLOW_CLIENT"); }
       return false;
     }
     conn.ws.send(JSON.stringify(value));
@@ -213,7 +213,7 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
           await deliver(conn);
         } while (conn.pumpAgain && !conn.closed);
       } catch {
-        log("deliver-failed");
+        log("deliver-failed", conn.principal);
       } finally {
         conn.pumping = false;
       }
@@ -353,7 +353,7 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
     for (const group of byOrganization.values()) {
       for (const conn of group) {
         void pump(conn);
-        if (withState) void syncState(conn).catch(() => log("sync-failed"));
+        if (withState) void syncState(conn).catch(() => log("sync-failed", conn.principal));
       }
     }
   }
@@ -417,7 +417,7 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
         ...(error.code === "RATE_LIMITED" ? { retryAfter: error.retryAfter ?? 1 } : {}) });
       return;
     }
-    log("frame-failed");
+    log("frame-failed", conn.principal);
     emit(conn, { type: "error", code: "INTERNAL_ERROR", clientMessageId: ref });
   }
 
@@ -469,7 +469,7 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
       if (now - (typingGate.get(key) ?? 0) < limits.typingIntervalMs) return;
       typingGate.set(key, now);
       await notifyChat(db, { k: "t", o: scope.organizationId, a: scope.actorId, r: conn.principal.role });
-    } catch { log("typing-failed"); }
+    } catch { log("typing-failed", conn.principal); }
   }
 
   function attach(ws: WebSocket, principal: RealtimePrincipal, start: { conversationId: string | null; lastSeq: number; backlog: "none" | "replay" | "refetch" }) {
@@ -496,7 +496,7 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
       conn.queued += 1;
       // Frames of one socket run strictly in order, so `send` then `read` can never overtake each other.
       conn.chain = conn.chain.then(() => (conn.closed ? undefined : handleFrame(conn, raw, isBinary)))
-        .catch(() => log("frame-failed")).finally(() => { conn.queued -= 1; });
+        .catch(() => log("frame-failed", conn.principal)).finally(() => { conn.queued -= 1; });
     });
     ws.once("close", () => {
       conn.closed = true;
@@ -521,7 +521,7 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
         conn.ready = true;
         void pump(conn);
       } catch {
-        log("ready-failed");
+        log("ready-failed", conn.principal);
         closeConn(conn, 1011, "ERROR");
       }
     })();

@@ -17,6 +17,7 @@ export const metricNames = {
   jobs: "auterva_jobs",
   jobsOldestDue: "auterva_jobs_oldest_due_age_seconds",
   jobsTerminalFailures: "auterva_jobs_terminal_failures",
+  jobsExhausted: "auterva_jobs_exhausted",
   auditOverdue: "auterva_audit_retention_overdue_seconds",
   auditLastSuccessAge: "auterva_audit_retention_last_success_age_seconds",
   exportFailures: "auterva_audit_export_failures_24h",
@@ -46,15 +47,20 @@ export async function collectJobMetrics(db: Db, now: Date, registry: MetricsRegi
        WHERE attempts < "maxAttempts"
          AND ((status = 'PENDING' AND "runAt" <= ${now}) OR (status = 'RUNNING' AND "lockedUntil" <= ${now}))
        GROUP BY kind`;
+    // Jobs carry no "failed at" column, so this is the current number of terminal jobs per kind. Rules that need
+    // "new failure" use its increase over a window; state rules (AUDIT_RETENTION) use the value itself.
     const failures = await db.$queryRaw<Array<{ kind: string; n: bigint }>>`
+      SELECT kind, COUNT(*) AS n FROM "Job" WHERE status IN ('FAILED', 'UNCERTAIN') GROUP BY kind`;
+    // Lease expired with every attempt used: nobody can claim it, and it only becomes FAILED when a claim runs.
+    const exhausted = await db.$queryRaw<Array<{ kind: string; n: bigint }>>`
       SELECT kind, COUNT(*) AS n FROM "Job"
-       WHERE status IN ('FAILED', 'UNCERTAIN') AND "createdAt" > ${new Date(now.getTime() - 7 * 86_400_000)}
-       GROUP BY kind`;
-    for (const name of [metricNames.jobs, metricNames.jobsOldestDue, metricNames.jobsTerminalFailures]) registry.clearGauge(name);
+       WHERE status = 'RUNNING' AND "lockedUntil" <= ${now} AND attempts >= "maxAttempts" GROUP BY kind`;
+    for (const name of [metricNames.jobs, metricNames.jobsOldestDue, metricNames.jobsTerminalFailures, metricNames.jobsExhausted]) registry.clearGauge(name);
+    for (const row of exhausted) registry.set(metricNames.jobsExhausted, "Jobs with an expired lease and no attempts left", Number(row.n), { kind: kindLabel(row.kind) });
     for (const row of counts) registry.set(metricNames.jobs, "Jobs by kind and status", Number(row.n), { kind: kindLabel(row.kind), status: row.status });
     for (const row of oldest) registry.set(metricNames.jobsOldestDue, "Age of the oldest due, unclaimed job",
       Math.max(0, (now.getTime() - row.oldest.getTime()) / 1000), { kind: kindLabel(row.kind) });
-    for (const row of failures) registry.set(metricNames.jobsTerminalFailures, "FAILED or UNCERTAIN jobs created in the last 7 days",
+    for (const row of failures) registry.set(metricNames.jobsTerminalFailures, "Jobs currently FAILED or UNCERTAIN",
       Number(row.n), { kind: kindLabel(row.kind) });
   });
 }
@@ -69,8 +75,12 @@ export async function collectAuditMetrics(db: Db, now: Date, registry: MetricsRe
     const [lastOk] = await db.$queryRaw<Array<{ at: Date | null }>>`
       SELECT MAX("completedAt") AS at FROM "Job" WHERE kind = 'AUDIT_RETENTION' AND status = 'SENT'`;
     registry.clearGauge(metricNames.auditLastSuccessAge);
-    if (lastOk?.at) registry.set(metricNames.auditLastSuccessAge, "Seconds since the last completed AUDIT_RETENTION job",
-      Math.max(0, (now.getTime() - lastOk.at.getTime()) / 1000));
+    // Without any success yet, the age counts from the first scheduled job; with no job at all the value is unknown.
+    const [firstJob] = lastOk?.at ? [] : await db.$queryRaw<Array<{ at: Date | null }>>`
+      SELECT MIN("createdAt") AS at FROM "Job" WHERE kind = 'AUDIT_RETENTION'`;
+    const reference = lastOk?.at ?? firstJob?.at;
+    if (reference) registry.set(metricNames.auditLastSuccessAge, "Seconds since the last completed AUDIT_RETENTION job (or since the first one)",
+      Math.max(0, (now.getTime() - reference.getTime()) / 1000));
     const [failures] = await db.$queryRaw<Array<{ n: bigint }>>`
       SELECT COUNT(*) AS n FROM "AuditOperatorExport"
        WHERE "errorCode" IS NOT NULL AND "createdAt" > ${new Date(now.getTime() - 86_400_000)}`;

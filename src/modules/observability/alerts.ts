@@ -36,6 +36,18 @@ const MIN = 60_000;
 const fresh = (c: RuleContext, collector: string) => sumSamples(c.samples, metricNames.collectorUp, { collector }) >= 1;
 const gaugeAbove = (name: string, limit: number, collector: string, match: Labels = {}) => (c: RuleContext): boolean | null =>
   fresh(c, collector) ? maxGauge(c, name, match) > limit : null;
+const databaseDown = (c: RuleContext) => c.samples.some((s) => s.name === "auterva_ready_check" && s.labels.check === "database" && s.value < 1);
+/** Sum of increases over several label sets; null while any window is not covered yet. */
+function increaseOf(c: RuleContext, name: string, matches: Labels[], windowMs: number): number | null {
+  let total = 0;
+  for (const match of matches) {
+    const part = c.increase(name, match, windowMs);
+    if (part === null) return null;
+    total += part;
+  }
+  return total;
+}
+const mailKinds = ["MAIL_INVITATION", "MAIL_PASSWORD_RESET", "MAIL_REMINDER"].map((kind) => ({ kind }));
 const dueAge = (c: RuleContext) => Math.max(0, ...c.samples
   .filter((x) => x.name === metricNames.jobsOldestDue && x.labels.kind !== "AUDIT_RETENTION").map((x) => x.value));
 const maxGauge = (c: RuleContext, name: string, match: Labels = {}) =>
@@ -62,7 +74,14 @@ export const rules: AlertRule[] = [
     id: `READY_${check.toUpperCase()}`, title: `Readiness check ${check} failed`, severity: "page", owner: "operator",
     group: check === "database" ? "database" : check === "storage" ? "storage" : check === "queue" ? "jobs" : "migrations",
     runbook: `#ready-${check}`, forEvaluations: 2, clearAfter: 2,
-    breached: (c) => hasSample(c.samples, "auterva_ready_check", { check }) ? sumSamples(c.samples, "auterva_ready_check", { check }) < 1 : null })),
+    // Any instance reporting red is a breach (min over targets, never a sum). Queue and migrations are consequences
+    // of a database outage, so they stay unknown while READY_DATABASE explains it: one outage, one page.
+    breached: (c) => {
+      const values = c.samples.filter((s) => s.name === "auterva_ready_check" && s.labels.check === check);
+      if (!values.length) return null;
+      if ((check === "queue" || check === "migrations") && databaseDown(c)) return null;
+      return values.some((s) => s.value < 1);
+    } })),
   { id: "HTTP_5XX_BURN_FAST", title: "5xx ratio burns the 99.9% availability budget fast", severity: "page", owner: "operator",
     group: "availability", runbook: "#http-5xx", forEvaluations: 2, clearAfter: 4, breached: ratioRule(5 * MIN, 20, 0.02),
     detail: (c) => `errors5m=${c.increase(names.httpResponses, { class: "5xx" }, 5 * MIN) ?? 0}` },
@@ -92,19 +111,28 @@ export const rules: AlertRule[] = [
     // AUDIT_RETENTION has its own, stricter alert; it is excluded here so one fault is one alert.
     breached: (c) => fresh(c, "jobs") ? dueAge(c) > 300 : null,
     detail: (c) => `oldestDueSeconds=${Math.round(dueAge(c))}` },
-  { id: "MAIL_DELIVERY_FAILED", title: "Transactional mail failed or is uncertain", severity: "ticket", owner: "operator", group: "mail",
-    runbook: "#mail", forEvaluations: 1, clearAfter: 6,
-    breached: (c) => fresh(c, "jobs")
-      ? c.samples.filter((s) => s.name === metricNames.jobsTerminalFailures && s.labels.kind?.startsWith("MAIL_")).reduce((a, s) => a + s.value, 0) >= 1 : null },
-  { id: "MEDIA_JOBS_FAILED", title: "Image processing jobs failed", severity: "ticket", owner: "operator", group: "jobs",
-    runbook: "#worker", forEvaluations: 1, clearAfter: 6,
-    breached: (c) => fresh(c, "jobs")
-      ? sumSamples(c.samples, metricNames.jobsTerminalFailures, { kind: "MEDIA_PROCESS" }) >= 1 : null },
+  { id: "MAIL_DELIVERY_FAILED", title: "Transactional mail newly failed or became uncertain (last hour)", severity: "ticket", owner: "operator", group: "mail",
+    runbook: "#mail", forEvaluations: 1, clearAfter: 2,
+    breached: (c) => { if (!fresh(c, "jobs")) return null; const n = increaseOf(c, metricNames.jobsTerminalFailures, mailKinds, 60 * MIN); return n === null ? null : n >= 1; } },
+  { id: "MAIL_PROVIDER_ERRORS", title: "Mail provider answers with errors (last 15 minutes)", severity: "ticket", owner: "operator", group: "mail",
+    runbook: "#mail", forEvaluations: 1, clearAfter: 3,
+    breached: (c) => {
+      const n = increaseOf(c, names.mail, [{ result: "transient" }, { result: "permanent" }], 15 * MIN);
+      return n === null ? null : n >= 3;
+    } },
+  { id: "MEDIA_JOBS_FAILED", title: "Image processing jobs newly failed (last hour)", severity: "ticket", owner: "operator", group: "jobs",
+    runbook: "#worker", forEvaluations: 1, clearAfter: 2,
+    breached: (c) => { if (!fresh(c, "jobs")) return null; const n = increaseOf(c, metricNames.jobsTerminalFailures, [{ kind: "MEDIA_PROCESS" }], 60 * MIN); return n === null ? null : n >= 1; } },
   // Audit retention and operator export (#108): separate signals, none hidden behind a successful purge.
   { id: "AUDIT_RETENTION_FAILED", title: "AUDIT_RETENTION job is FAILED (attempts exhausted)", severity: "page", owner: "operator", group: "audit",
     runbook: "#audit-retention", forEvaluations: 1, clearAfter: 2,
     breached: (c) => fresh(c, "jobs")
-      ? sumSamples(c.samples, metricNames.jobsTerminalFailures, { kind: "AUDIT_RETENTION" }) >= 1 : null },
+      ? sumSamples(c.samples, metricNames.jobsTerminalFailures, { kind: "AUDIT_RETENTION" }) + sumSamples(c.samples, metricNames.jobsExhausted, { kind: "AUDIT_RETENTION" }) >= 1 : null },
+  { id: "AUDIT_RETENTION_NOT_COMPLETING", title: "No AUDIT_RETENTION job has completed for 26 hours", severity: "page", owner: "operator", group: "audit",
+    runbook: "#audit-retention", forEvaluations: 2, clearAfter: 2, breached: gaugeAbove(metricNames.auditLastSuccessAge, 26 * 3600, "audit") },
+  { id: "AUDIT_EXPORT_SWEEP_FAILING", title: "Audit export cleanup sweep fails", severity: "page", owner: "operator", group: "audit",
+    runbook: "#audit-export", forEvaluations: 1, clearAfter: 3,
+    breached: (c) => { const n = c.increase(names.auditSweepFailures, {}, 15 * MIN); return n === null ? null : n >= 1; } },
   { id: "AUDIT_RETENTION_STALLED", title: "AUDIT_RETENTION job is due but not claimed", severity: "page", owner: "operator", group: "audit",
     runbook: "#audit-retention", forEvaluations: 2, clearAfter: 2,
     breached: (c) => fresh(c, "jobs")
@@ -135,11 +163,12 @@ export const rules: AlertRule[] = [
     runbook: "#collector", forEvaluations: 3, clearAfter: 2,
     breached: (c) => {
       const up = c.samples.filter((s) => s.name === metricNames.collectorUp && s.labels.collector !== "backup");
+      if (databaseDown(c)) return null; // explained by READY_DATABASE
       return up.length ? up.some((s) => s.value < 1) : null;
     } },
   { id: "WS_LISTENER_UNHEALTHY", title: "Realtime listener lost its database notifications", severity: "page", owner: "operator", group: "realtime",
     runbook: "#realtime", forEvaluations: 2, clearAfter: 2,
-    breached: (c) => hasSample(c.samples, names.wsListenerHealthy) ? sumSamples(c.samples, names.wsListenerHealthy) < 1 : null },
+    breached: (c) => hasSample(c.samples, names.wsListenerHealthy) ? c.samples.some((s) => s.name === names.wsListenerHealthy && s.value < 1) : null },
 ];
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -171,7 +200,7 @@ export class AlertEngine {
 
   constructor(private readonly ruleSet: AlertRule[] = rules, options: EngineOptions = {}) {
     this.opts = { groupWindowMs: 60_000, maxPerWindow: 6, repeatMs: { page: 60 * MIN, ticket: 12 * 60 * MIN },
-      historyMs: 40 * MIN, ...options };
+      historyMs: 75 * MIN, ...options };
   }
 
   firing(): AlertView[] { return this.ruleSet.filter((r) => this.state.get(r.id)?.firing).map((r) => this.view(r)); }
@@ -185,8 +214,8 @@ export class AlertEngine {
     const history = this.history; // already contains the current point
     return { samples, now, increase: (name, match = {}, windowMs = 5 * MIN) => {
       const start = now.getTime() - windowMs;
-      // The window is covered only when the history reaches back to its start (one scrape interval of tolerance).
-      if (!history.length || history[0].at > start + 90_000) return null;
+      // Needs two samples; a shorter history (monitor just started) evaluates over what it has instead of staying blind.
+      if (history.length < 2) return null;
       let baselineIndex = 0;
       history.forEach((point, index) => { if (point.at <= start) baselineIndex = index; });
       let total = 0;

@@ -177,3 +177,51 @@ test("the mail sink refuses anything but a loopback recipient endpoint", () => {
   expect(() => createMailpitSink("https://mail.example.com", "oncall@example.test")).toThrow("ALERT_SINK_NOT_LOOPBACK");
   expect(() => createMailpitSink("http://127.0.0.1:8025", "oncall@example.test")).not.toThrow();
 });
+
+const ready = (target: string, check: string, value: number): Sample => s("auterva_ready_check", value, { check, target });
+
+test("B4: readiness is judged per target: one red instance breaches even when another is green", () => {
+  const engine = new AlertEngine(rules, { groupWindowMs: 0 });
+  drive(engine, 3, () => [ready("web-1", "storage", 0), ready("web-2", "storage", 1), s("auterva_ws_listener_healthy", 0, { target: "ws-1" }),
+    s("auterva_ws_listener_healthy", 1, { target: "ws-2" })]);
+  expect(engine.firing().map((a) => a.id).sort()).toEqual(["READY_STORAGE", "WS_LISTENER_UNHEALTHY"]);
+});
+
+test("N3: one database outage is one page, not three", () => {
+  const engine = new AlertEngine(rules, { groupWindowMs: 60_000 });
+  const outage = () => [ready("web", "database", 0), ready("web", "queue", 0), ready("web", "migrations", 0), up("migrations", 0), up("jobs", 0), up("audit", 0)];
+  const out = drive(engine, 5, outage);
+  expect(engine.firing().map((a) => a.id)).toEqual(["READY_DATABASE"]);
+  expect(out.flatMap((n) => n.firing.map((a) => a.id))).toEqual(["READY_DATABASE"]);
+});
+
+test("B6: mail failure is observable as a recovery, and a new failure after repair alerts again", () => {
+  const engine = new AlertEngine(rules, { groupWindowMs: 0 });
+  let terminal = 0;
+  const make = (m: number) => { if (m === 5) terminal = 1; if (m === 100) terminal = 2; return [up("jobs"), s("auterva_jobs_terminal_failures", terminal, { kind: "MAIL_INVITATION" })]; };
+  const out = drive(engine, 120, make);
+  const events = out.flatMap((n) => [...n.firing.map((a) => `F${a.id}`), ...n.resolved.map((a) => `R${a.id}`)]).filter((e) => e.includes("MAIL_DELIVERY"));
+  expect(events).toEqual(["FMAIL_DELIVERY_FAILED", "RMAIL_DELIVERY_FAILED", "FMAIL_DELIVERY_FAILED"]);
+});
+
+test("B6: provider errors in the last 15 minutes alert and clear when the provider recovers", () => {
+  const engine = new AlertEngine(rules, { groupWindowMs: 0 });
+  let errors = 0;
+  const out = drive(engine, 40, (m) => { if (m >= 5 && m < 8) errors += 2; return [s("auterva_mail_deliveries_total", errors, { kind: "MAIL_REMINDER", result: "transient", target: "worker" })]; });
+  const ids = out.flatMap((n) => [...n.firing.map((a) => `F${a.id}`), ...n.resolved.map((a) => `R${a.id}`)]);
+  expect(ids).toEqual(["FMAIL_PROVIDER_ERRORS", "RMAIL_PROVIDER_ERRORS"]);
+});
+
+test("B1: a stopped audit worker is seen by completion age, exhausted lease and failing sweep", () => {
+  const engine = new AlertEngine(rules, { groupWindowMs: 0 });
+  drive(engine, 3, () => [up("jobs"), up("audit"), s("auterva_audit_retention_last_success_age_seconds", 27 * 3600),
+    s("auterva_jobs_exhausted", 1, { kind: "AUDIT_RETENTION" })]);
+  expect(engine.firing().map((a) => a.id).sort()).toEqual(["AUDIT_RETENTION_FAILED", "AUDIT_RETENTION_NOT_COMPLETING"]);
+  const sweep = new AlertEngine(rules, { groupWindowMs: 0 });
+  let failures = 0;
+  drive(sweep, 8, (m) => { if (m >= 3) failures += 1; return [s("auterva_audit_export_sweep_failures_total", failures, { target: "audit-worker" })]; });
+  expect(sweep.firing().map((a) => a.id)).toEqual(["AUDIT_EXPORT_SWEEP_FAILING"]);
+  const stale = new AlertEngine(rules, { groupWindowMs: 0 });
+  drive(stale, 4, () => [s("auterva_worker_last_iteration_timestamp_seconds", t0 / 1000 - 3600, { worker: "audit-worker", target: "audit-worker" })]);
+  expect(stale.firing().map((a) => a.id)).toEqual(["WORKER_HEARTBEAT_STALE"]);
+});

@@ -2,3 +2,4 @@
 export { log } from "./log";
 export { metrics, names } from "./metrics";
 export { safeErrorCode as safeErrorCodeOf } from "./redact";
+export { count5xx } from "./http-observe";

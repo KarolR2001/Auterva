@@ -1,9 +1,10 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { spawn, type ChildProcess } from "node:child_process";
-import { mkdtemp, readFile } from "node:fs/promises";
-import { createServer } from "node:net";
+import { execFileSync, spawn, type ChildProcess } from "node:child_process";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { createServer, type Server } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Client } from "pg";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { combineSinks, createFileSink, createMailpitSink } from "../../src/modules/observability/alert-sinks";
@@ -15,7 +16,14 @@ import { MetricsRegistry, sumSamples } from "../../src/modules/observability/met
 import { createMonitor } from "../../src/modules/observability/monitor";
 import { enqueueMail } from "../../src/modules/jobs/outbox";
 
-const db = createPrismaClient(process.env.DATABASE_URL ?? "");
+// Worker, realtime and monitor processes run against their own migrated database, so they can never drain or
+// inspect jobs of the shared fixture (N2). Only the audit-worker test needs the fixture DB (the script refuses others).
+const sharedUrl = process.env.DATABASE_URL ?? "";
+const isolatedName = `auterva_ops_58_${randomBytes(4).toString("hex")}`;
+const isolatedUrl = (() => { const u = new URL(sharedUrl); u.pathname = `/${isolatedName}`; return u.toString(); })();
+const maintenanceUrl = (() => { const u = new URL(sharedUrl); u.pathname = "/postgres"; return u.toString(); })();
+const db = createPrismaClient(isolatedUrl);
+const shared = createPrismaClient(sharedUrl);
 const mailKey = randomBytes(32);
 const organizationId = randomUUID();
 const hostname = `ops-${organizationId}.example.test`;
@@ -29,17 +37,25 @@ const logLines: string[] = [];
 let restoreLog = () => {};
 let dir = "";
 
-function freePort() {
-  return new Promise<number>((resolve, reject) => {
-    const probe = createServer();
+/** The port stays bound until `release()` is called right before the process starts, so two reservations never collide. */
+function reservePort() {
+  return new Promise<{ port: number; release: () => Promise<void> }>((resolve, reject) => {
+    // A reservation refuses every connection (like a dead process) and therefore closes instantly on release.
+    const probe: Server = createServer((socket) => socket.destroy());
     probe.listen(0, "127.0.0.1", () => {
       const address = probe.address();
-      probe.close(() => (address && typeof address !== "string" ? resolve(address.port) : reject(new Error("No port"))));
+      if (!address || typeof address === "string") return reject(new Error("No port"));
+      let closed = false;
+      resolve({ port: address.port, release: () => closed ? Promise.resolve() : new Promise<void>((done) => { closed = true; probe.close(() => done()); }) });
     });
   });
 }
 
 beforeAll(async () => {
+  const admin = new Client({ connectionString: maintenanceUrl });
+  await admin.connect();
+  try { await admin.query(`CREATE DATABASE "${isolatedName}"`); } finally { await admin.end(); }
+  execFileSync("pnpm", ["exec", "prisma", "migrate", "deploy"], { cwd: process.cwd(), env: { ...process.env, DATABASE_URL: isolatedUrl }, stdio: "ignore" });
   dir = await mkdtemp(join(tmpdir(), "ops-monitoring-"));
   restoreLog = setLogSink((line) => logLines.push(line));
   await db.organization.create({ data: { id: organizationId, slug: `ops-${organizationId}` } });
@@ -57,6 +73,10 @@ afterAll(async () => {
   await db.hostMapping.deleteMany({ where: { organizationId } });
   await db.organization.deleteMany({ where: { id: organizationId } });
   await db.$disconnect();
+  await shared.$disconnect();
+  const admin = new Client({ connectionString: maintenanceUrl });
+  await admin.connect();
+  try { await admin.query(`DROP DATABASE IF EXISTS "${isolatedName}" WITH (FORCE)`); } finally { await admin.end(); }
 });
 
 async function mailJob(runAt: Date, to = recipient) {
@@ -71,9 +91,9 @@ async function mailJob(runAt: Date, to = recipient) {
     referenceId: invitation.id, token, runAt }, mailKey));
 }
 
-function launch(script: string, env: Record<string, string>) {
-  const child = spawn(process.execPath, ["--import", "tsx", script], { cwd: process.cwd(),
-    env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"] });
+function launch(script: string, env: Record<string, string>, args: string[] = []) {
+  const child = spawn(process.execPath, ["--import", "tsx", script, ...args], { cwd: process.cwd(),
+    env: { ...process.env, DATABASE_URL: isolatedUrl, ...env }, stdio: ["ignore", "pipe", "pipe"] });
   children.add(child);
   const output = { out: "", err: "" };
   child.stdout.on("data", (c: Buffer) => { output.out += c.toString(); });
@@ -113,14 +133,16 @@ test("readiness against real PostgreSQL checks migrations and queue; an unreacha
 test("collectors expose #108 retention and export signals from durable state without audit content or keys", async () => {
   const now = new Date();
   const dedupe = (name: string) => `ops-${name}-${randomUUID()}`;
-  const failedRetention = await db.job.create({ data: { kind: "AUDIT_RETENTION", dedupeKey: dedupe("failed"), runAt: new Date(now.getTime() - 3_600_000),
+  const failedRetention = await db.job.create({ data: { kind: "AUDIT_RETENTION", dedupeKey: dedupe("failed"), createdAt: new Date(now.getTime() - 5 * 3_600_000), runAt: new Date(now.getTime() - 3_600_000),
     payload: { cutoff: new Date(now.getTime() - 365 * 86_400_000).toISOString(), secretLookingValue: "payload-must-not-leak" },
     status: "FAILED", attempts: 5, maxAttempts: 5, errorCode: "LEASE_EXHAUSTED" } });
   const stalled = await db.job.create({ data: { kind: "AUDIT_RETENTION", dedupeKey: dedupe("stalled"), runAt: new Date(now.getTime() - 40 * 60_000),
     payload: { cutoff: now.toISOString() }, status: "PENDING" } });
   const failedMail = await db.job.create({ data: { organizationId, kind: "MAIL_REMINDER", dedupeKey: dedupe("mail"), runAt: now,
     payload: { digest: "x" }, status: "UNCERTAIN", errorCode: "MAIL_OUTCOME_UNKNOWN" } });
-  jobIds.push(failedRetention.id, stalled.id, failedMail.id);
+  const exhausted = await db.job.create({ data: { kind: "AUDIT_RETENTION", dedupeKey: dedupe("exhausted"), runAt: new Date(now.getTime() - 3_600_000),
+    payload: { cutoff: now.toISOString() }, status: "RUNNING", attempts: 5, maxAttempts: 5, lockedUntil: new Date(now.getTime() - 60_000), leaseToken: randomUUID() } });
+  jobIds.push(failedRetention.id, stalled.id, failedMail.id, exhausted.id);
   const exportRow = (suffix: string, data: Record<string, unknown>) => db.auditOperatorExport.create({ data: { fromAt: new Date(now.getTime() - 86_400_000),
     toAt: now, count: 1, artifactName: `ops-${suffix}-${randomUUID()}`, expiresAt: new Date(now.getTime() + 3_600_000), ...data } as never });
   exportIds.push(
@@ -138,6 +160,9 @@ test("collectors expose #108 retention and export signals from durable state wit
   expect(sumSamples(samples, metricNames.jobsTerminalFailures, { kind: "AUDIT_RETENTION" })).toBeGreaterThanOrEqual(1);
   expect(sumSamples(samples, metricNames.jobsTerminalFailures, { kind: "MAIL_REMINDER" })).toBeGreaterThanOrEqual(1);
   expect(Math.max(...samples.filter((s) => s.name === metricNames.jobsOldestDue && s.labels.kind === "AUDIT_RETENTION").map((s) => s.value))).toBeGreaterThanOrEqual(2_400);
+  expect(sumSamples(samples, metricNames.jobsExhausted, { kind: "AUDIT_RETENTION" })).toBe(1);
+  // No completed job yet: the age counts from the first scheduled job, so a worker that never completes is visible.
+  expect(sumSamples(samples, metricNames.auditLastSuccessAge)).toBeGreaterThanOrEqual(3_600);
   expect(sumSamples(samples, metricNames.exportFailures)).toBeGreaterThanOrEqual(1);
   expect(sumSamples(samples, metricNames.exportCleanupOverdue, { state: "expired_ready" })).toBeGreaterThanOrEqual(1);
   expect(sumSamples(samples, metricNames.migrationsFailed)).toBe(0);
@@ -146,21 +171,32 @@ test("collectors expose #108 retention and export signals from durable state wit
   for (const leak of ["payload-must-not-leak", "secretLookingValue", "AUDIT_EXPORT_INCOMPLETE", recipient]) expect(text).not.toContain(leak);
 
   const engine = new AlertEngine(undefined, { groupWindowMs: 0 });
-  engine.evaluate(samples, now);
+  // Mail failures alert on NEW terminal jobs: the earlier scrape had one fewer.
+  const earlier = samples.map((x) => x.name === metricNames.jobsTerminalFailures && x.labels.kind === "MAIL_REMINDER" ? { ...x, value: x.value - 1 } : x);
+  engine.evaluate(earlier, now);
   engine.evaluate(samples, new Date(now.getTime() + 60_000));
+  engine.evaluate(samples, new Date(now.getTime() + 120_000));
   const firing = engine.firing().map((a) => a.id);
   for (const id of ["AUDIT_RETENTION_FAILED", "AUDIT_RETENTION_STALLED", "AUDIT_EXPORT_FAILED", "AUDIT_EXPORT_CLEANUP_OVERDUE", "MAIL_DELIVERY_FAILED"]) {
     expect(firing).toContain(id);
   }
+  await db.job.deleteMany({ where: { id: { in: jobIds } } });
+  await db.auditOperatorExport.deleteMany({ where: { id: { in: exportIds } } });
+  jobIds.length = 0; exportIds.length = 0;
 }, 30_000);
 
 test("worker and realtime server killed and restarted: alerts reach the controlled recipient, approved jobs survive, nothing leaks", async () => {
-  const workerPort = await freePort();
-  const wsPort = await freePort();
-  const wsOps = await freePort();
+  const workerRes = await reservePort();
+  const wsRes = await reservePort();
+  const wsOpsRes = await reservePort();
+  const workerPort = workerRes.port;
+  const wsPort = wsRes.port;
+  const wsOps = wsOpsRes.port;
   const alertFile = join(dir, "alerts.jsonl");
   const sinks = [createFileSink(alertFile)];
   if (process.env.MAILPIT_URL) sinks.push(createMailpitSink(process.env.MAILPIT_URL, "oncall@example.test"));
+  // The monitor's clock is entirely synthetic (one minute per tick, starting now); job due times below are expressed
+  // against the same `base`, and processes use the real clock only to claim jobs that are already due.
   const base = Date.now();
   let tickNo = 0;
   const monitor = createMonitor({ db, token: opsToken, sink: combineSinks(...sinks),
@@ -193,6 +229,7 @@ test("worker and realtime server killed and restarted: alerts reach the controll
   // Restart: the worker comes up, drains the committed job and the alerts resolve.
   const env = { MAIL_PAYLOAD_KEY: mailKey.toString("hex"), MAIL_ENVIRONMENT: "development", MAIL_PROVIDER: "sink",
     MAIL_ALLOWED_RECIPIENTS: `${recipient},${secondRecipient}`, OPS_PORT: String(workerPort), OPS_METRICS_TOKEN: opsToken };
+  await workerRes.release();
   let worker = launch("src/server/worker.ts", env);
   await waitFor("worker ops", async () => (await opsGet(workerPort, "/live")).ok);
   await waitFor("first job sent", async () => (await db.job.findUnique({ where: { id: first.id } }))?.status === "SENT");
@@ -203,6 +240,7 @@ test("worker and realtime server killed and restarted: alerts reach the controll
   expect(metricsText).not.toContain(recipient);
 
   // Server restart in the middle of the work: realtime process up, killed, up again; worker killed with a job committed.
+  await Promise.all([wsRes.release(), wsOpsRes.release()]);
   let ws = launch("src/server/realtime.ts", { WS_PORT: String(wsPort), OPS_PORT: String(wsOps), OPS_METRICS_TOKEN: opsToken });
   await waitFor("realtime start", async () => ws.output.out.includes("Realtime listening"));
   worker.child.kill("SIGKILL");
@@ -241,3 +279,44 @@ test("worker and realtime server killed and restarted: alerts reach the controll
   expect(all).not.toContain(mailKey.toString("hex"));
   expect(all).not.toContain(opsToken);
 }, 180_000);
+
+test("B1: the audit worker is visible to monitoring: heartbeat, and a cleanup sweep that cannot delete bytes pages", async () => {
+  // The audit script only runs against the local fixture database, so this test uses it (and cleans up its rows).
+  const id = randomUUID();
+  const directory = join(process.cwd(), ".local", "audit-exports");
+  const blocker = join(directory, `${id}.bin`);
+  await mkdir(blocker, { recursive: true, mode: 0o700 }); // unlink of a directory fails: the bytes cannot be removed
+  await writeFile(join(blocker, "keep"), "x");
+  const now = new Date();
+  await shared.auditOperatorExport.create({ data: { id, fromAt: new Date(now.getTime() - 86_400_000), toAt: now, count: 1, artifactName: `${id}.bin`,
+    status: "READY", digest: "b".repeat(64), createdAt: new Date(now.getTime() - 3 * 3_600_000), completedAt: new Date(now.getTime() - 2 * 3_600_000),
+    expiresAt: new Date(now.getTime() - 3_600_000) } });
+  const reservation = await reservePort();
+  const port = reservation.port;
+  await reservation.release();
+  const worker = launch("scripts/audit-retention.ts", { DATABASE_URL: sharedUrl, AUTERVA_FIXTURE: "1", OPS_PORT: String(port), OPS_METRICS_TOKEN: opsToken }, ["worker"]);
+  try {
+    await waitFor("audit worker ops", async () => (await opsGet(port, "/live")).ok);
+    const text = await waitFor("sweep failure counter", async () => {
+      const body = await (await opsGet(port, "/metrics", authorized)).text();
+      return /auterva_audit_export_sweep_failures_total \d+/.test(body) ? body : false;
+    });
+    expect(text).toContain('auterva_worker_last_iteration_timestamp_seconds{worker="audit-worker"}');
+    const base = Date.now();
+    let tickNo = 0;
+    const file = join(dir, "audit-alerts.jsonl");
+    const monitor = createMonitor({ db: shared, token: opsToken, sink: createFileSink(file), engine: new AlertEngine(undefined, { groupWindowMs: 0 }),
+      targets: [{ name: "audit-worker", url: `http://127.0.0.1:${port}/metrics` }], clock: () => new Date(base + (tickNo += 1) * 60_000) });
+    for (let i = 0; i < 4; i++) { await monitor.tick(); await new Promise((r) => setTimeout(r, 1_500)); }
+    const firing = monitor.engine.firing().map((a) => a.id);
+    expect(firing).toContain("AUDIT_EXPORT_SWEEP_FAILING");
+    expect(firing).toContain("AUDIT_EXPORT_CLEANUP_OVERDUE");
+    expect(firing).not.toContain("TARGET_DOWN");
+    expect(await readFile(file, "utf8")).not.toContain("keep");
+  } finally {
+    worker.child.kill("SIGTERM");
+    await worker.exited;
+    await shared.auditOperatorExport.deleteMany({ where: { id } });
+    await rm(blocker, { recursive: true, force: true });
+  }
+}, 90_000);

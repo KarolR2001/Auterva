@@ -1,25 +1,31 @@
-import { log, logFailure } from "./log";
+import { logFailure } from "./log";
 import { metrics, names } from "./metrics";
 
 export const statusClass = (status: number) => `${Math.floor(status / 100)}xx`;
 
-/** Counts one request seen at the front door (proxy). Liveness probes are excluded so probes do not inflate availability. */
-export function countRequest(): void {
-  metrics.inc(names.httpRequests, "Requests that reached the application proxy");
+const staticAsset = /\.[a-z0-9]{2,5}$/i;
+
+/** Application requests only: build assets, files with an extension and router prefetches are not availability samples. */
+export function isApplicationRequest(request: Pick<Request, "headers"> & { nextUrl?: { pathname: string }; url?: string }): boolean {
+  const pathname = request.nextUrl?.pathname ?? new URL(request.url ?? "http://x/").pathname;
+  if (pathname.startsWith("/_next/") || staticAsset.test(pathname.replace(/\/$/, ""))) return false;
+  if (request.headers.get("next-router-prefetch") || request.headers.get("purpose") === "prefetch") return false;
+  return true;
 }
 
-/**
- * Observes a finished response built by an HTTP helper: counts the status class and logs server errors with the
- * request ID the client also received. Returns the same response; it never changes status, headers or body.
- */
-export function observeResponse<T extends Response>(response: T, input: { requestId: string; operation: string }): T {
-  const cls = statusClass(response.status);
-  metrics.inc(names.httpResponses, "Observed HTTP responses by status class", { class: cls });
-  if (response.status >= 500) {
-    log.error("http.response", { requestId: input.requestId, operation: input.operation, status: response.status,
-      outcome: "server_error" });
-  }
-  return response;
+/** Counts one request seen at the front door (proxy) and only when it is an application request. */
+export function countRequest(request: Parameters<typeof isApplicationRequest>[0]): void {
+  if (isApplicationRequest(request)) metrics.inc(names.httpRequests, "Application requests that reached the proxy");
+}
+
+// One 5xx per response even when a helper and the common wrapper both see it (keyed by the request ID).
+const holder = globalThis as unknown as { __autervaCounted5xx?: Set<string> };
+const counted = holder.__autervaCounted5xx ??= new Set<string>();
+export function count5xx(requestId: string): void {
+  if (counted.has(requestId)) return;
+  counted.add(requestId);
+  if (counted.size > 2_000) counted.delete(counted.values().next().value as string);
+  metrics.inc(names.httpResponses, "Observed HTTP responses by status class", { class: "5xx" });
 }
 
 /**
@@ -28,7 +34,7 @@ export function observeResponse<T extends Response>(response: T, input: { reques
  * `response({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "settings"))`.
  */
 export function reportInternalError<T extends string>(error: unknown, requestId: T, operation: string): T {
-  metrics.inc(names.httpResponses, "Observed HTTP responses by status class", { class: "5xx" });
+  count5xx(requestId);
   logFailure("http.internal_error", error, { requestId, operation, status: 500 });
   return requestId;
 }

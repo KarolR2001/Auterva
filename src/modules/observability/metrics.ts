@@ -134,6 +134,7 @@ export const names = {
   storage: "auterva_storage_requests_total",
   storageDuration: "auterva_storage_request_duration_seconds",
   mail: "auterva_mail_deliveries_total",
+  auditSweepFailures: "auterva_audit_export_sweep_failures_total",
   workerHeartbeat: "auterva_worker_last_iteration_timestamp_seconds",
   workerIterations: "auterva_worker_iterations_total",
   wsConnections: "auterva_ws_connections",

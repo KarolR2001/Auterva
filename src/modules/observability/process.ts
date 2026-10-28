@@ -1,6 +1,6 @@
 import type { Server } from "node:http";
 import type { PrismaClient } from "@/generated/prisma/client";
-import { readinessReport, type CheckName, type ReadinessReport } from "./health";
+import { createCachedReadiness, readinessReport, type CheckName, type ReadinessReport } from "./health";
 import { log, setLogComponent } from "./log";
 import { startOpsListener } from "./ops-listener";
 
@@ -21,11 +21,12 @@ export async function initProcessObservability(component: string, options: {
   if (!raw) return { async close() {} };
   const port = Number(raw);
   if (!Number.isInteger(port) || port < 1 || port > 65_535) throw new Error("Invalid OPS_PORT");
-  const readiness = async (): Promise<ReadinessReport> => {
+  const cached = createCachedReadiness(async (): Promise<ReadinessReport> => {
     const base = await readinessReport({ db: options.db }, options.checks ?? ["database"]);
     const checks = { ...base.checks, ...options.extraReadiness?.() };
     return { status: Object.values(checks).every((c) => c.status === "ok") ? "ok" : "fail", checks };
-  };
+  });
+  const readiness = () => cached();
   const server: Server = await startOpsListener({ port, host: env.OPS_HOST, readiness, refresh: options.refresh });
   log.info("ops.listening", { operation: "ops.listen", port, outcome: "success" });
   return { close: () => new Promise((resolve) => { server.close(() => resolve()); server.closeAllConnections?.(); }) };

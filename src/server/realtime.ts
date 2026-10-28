@@ -4,7 +4,7 @@ import { prisma } from "../lib/prisma";
 import { parseRealtimeConfig } from "../modules/chat/realtime-config";
 import { startRealtimeServer } from "../modules/chat/realtime";
 import { createRealtimeAuthority } from "../modules/chat/resolve-tenant";
-import { log } from "../modules/observability/log";
+import { log, runWithLogContext } from "../modules/observability/log";
 import { metrics, names } from "../modules/observability/metrics";
 import { initProcessObservability } from "../modules/observability/process";
 
@@ -28,7 +28,11 @@ const server = await startRealtimeServer({
   databaseUrl: DATABASE_URL,
   authority: createRealtimeAuthority(prisma, auth),
   // Events are fixed internal words (no user data); lost listener and failures are warnings, the rest informational.
-  log: (event) => (/(failed|lost|slow)/.test(event) ? log.warn : log.info)(`realtime.${event}`, { operation: "realtime", outcome: /(failed|lost|slow)/.test(event) ? "failure" : "success" }),
+  log: (event, principal) => {
+    const failing = /(failed|lost|slow)/.test(event);
+    runWithLogContext({ actorId: principal?.actorId, actorRole: principal?.role, organizationId: principal?.organizationId, operation: "realtime" },
+      () => (failing ? log.warn : log.info)(`realtime.${event}`, { outcome: failing ? "failure" : "success" }));
+  },
 });
 current = server;
 publishGauges();
