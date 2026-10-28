@@ -53,6 +53,7 @@ Punkty odtworzenia przed zmianą istniejących boardów: mobilny 07 `89433e5c-4f
 ## Odczyt live i korekty (Frontend, #132)
 
 - Odczyt interakcji M i D potwierdził pełny graf: 07D/07D1/07D3 → 07E (07D1 → 07D2), 07E → 07 → 07G → panel; 07I → 07J → 07G, 07J1 → 07I; 07D2 bez akcji (disabled). Zgodne z listą M i D.
-- Korekta: przycisk „Potwierdź kod” w 07B (M i D) miał pusty cel `navigate-to`; ustawiono panel FLOW-MVP-02 08 (M `4e2ad814-13be-80ec-8008-cc9917133544`, D `4e2ad814-13be-80ec-8008-cc9750a70b0f`). W M/07B API wtyczki nie usunęło starej, pustej akcji, więc przycisk ma dwie akcje o tym samym celu; do sprzątnięcia ręcznie.
+- Korekta: przycisk „Potwierdź kod” w 07B (M i D) miał pusty cel `navigate-to`; ustawiono panel FLOW-MVP-02 08 (M `4e2ad814-13be-80ec-8008-cc9917133544`, D `4e2ad814-13be-80ec-8008-cc9750a70b0f`). Duplikat akcji M/07B usunięto; ponowny odczyt potwierdził jedną akcję do panelu.
 - Wynik dynamicznej weryfikacji TOTP nadal rozstrzyga serwer; prototyp pokazuje tylko ścieżkę sukcesu.
-- Otwarte: etykiety przycisków w nowych boardach (x+76/80, wyrównanie do lewej) są przesunięte względem środka przycisku; zamierzone `align: center` nie zostało potwierdzone zapisem (timeout), wymaga odczytu i poprawy.
+- Niepewny zapis `align: center` po timeout nie utrwalił się. Etykiety akcji w 10 nowych boardach Mobile i 10 Desktop wyśrodkowano małymi partiami; odczyt po zapisie i ponownym otwarciu strony potwierdził wszystkie 20 boardów. Etykiety pól pozostają wyrównane do lewej.
+- Eksport PNG wszystkich 10 nowych boardów Desktop zakończył się poprawnie. Render 07D, 07G, 07H i 07J1 sprawdzono wizualnie po korekcie; na Mobile ponownie sprawdzono 07G. Etykiety nie nakładają się na inne treści. Eksporty służą kontroli makiet, nie są dowodem działania MFA w aplikacji ani zachowania klawiatury lub czytnika.
