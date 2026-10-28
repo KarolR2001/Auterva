@@ -4,11 +4,14 @@ import { metrics, names } from "./metrics";
 export const statusClass = (status: number) => `${Math.floor(status / 100)}xx`;
 
 const staticAsset = /\.[a-z0-9]{2,5}$/i;
+// Discovery files are routes of the application (their 5xx are counted), so they belong in the denominator too.
+const applicationFiles = new Set(["/robots.txt", "/sitemap.xml"]);
 
 /** Application requests only: build assets, files with an extension and router prefetches are not availability samples. */
 export function isApplicationRequest(request: Pick<Request, "headers"> & { nextUrl?: { pathname: string }; url?: string }): boolean {
   const pathname = request.nextUrl?.pathname ?? new URL(request.url ?? "http://x/").pathname;
-  if (pathname.startsWith("/_next/") || staticAsset.test(pathname.replace(/\/$/, ""))) return false;
+  const trimmed = pathname.replace(/\/$/, "");
+  if (pathname.startsWith("/_next/") || (staticAsset.test(trimmed) && !applicationFiles.has(trimmed))) return false;
   if (request.headers.get("next-router-prefetch") || request.headers.get("purpose") === "prefetch") return false;
   return true;
 }

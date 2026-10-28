@@ -141,6 +141,7 @@ export const names = {
   wsListenerHealthy: "auterva_ws_listener_healthy",
   alertsFiring: "auterva_alerts_firing",
   alertNotifications: "auterva_alert_notifications_total",
+  alertSinkDeliveries: "auterva_alert_sink_deliveries_total",
 } as const;
 
 export function sumSamples(samples: Sample[], name: string, match: Labels = {}): number {

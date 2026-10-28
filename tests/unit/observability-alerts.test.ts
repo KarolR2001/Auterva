@@ -114,6 +114,29 @@ test("storm guard: 30 simultaneous alerts become a bounded number of messages, p
   expect(subjectOf(summary!)).toContain("STORM-GUARD");
 });
 
+test("storm guard: the summary takes the last slot (never +1) and its subject carries the highest severity of the batch", () => {
+  const pageLast = (i: number, n: number) => (i === n - 1 ? "page" : "ticket") as "page" | "ticket";
+  const make = (n: number, severity: (i: number) => "page" | "ticket"): AlertRule[] => Array.from({ length: n }, (_, i) => ({
+    id: `S_${i}`, title: `s ${i}`, severity: severity(i), owner: "operator", group: `g${i}`, runbook: "#x",
+    forEvaluations: 1, clearAfter: 1, breached: () => true }));
+  const page = drive(new AlertEngine(make(10, (i) => pageLast(i, 10)), { groupWindowMs: 0, maxPerWindow: 3 }), 1, () => []);
+  expect(page).toHaveLength(3); // 2 groups + the summary, exactly the cap
+  expect(page[0].severity).toBe("page");
+  const summary = page[2];
+  expect(summary.suppressedGroups).toHaveLength(8);
+  expect(subjectOf(summary)).toMatch(/^\[Auterva\]\[STORM-GUARD\]\[TICKET\]/);
+  // A page that lands in the summary (the first groups are pages) names PAGE in the summary subject.
+  const pages = drive(new AlertEngine(make(10, () => "page"), { groupWindowMs: 0, maxPerWindow: 3 }), 1, () => []);
+  expect(pages).toHaveLength(3);
+  expect(subjectOf(pages[2])).toContain("[STORM-GUARD][PAGE]");
+  expect(new Set(pages.flatMap((n) => n.firing.map((a) => a.id))).size).toBe(10);
+  // With the hourly cap already spent one message still leaves, so a storm is never silent.
+  const spent = new AlertEngine(make(5, () => "page"), { groupWindowMs: 0, maxPerWindow: 1 });
+  const first = drive(spent, 1, () => []);
+  expect(first).toHaveLength(1);
+  expect(first[0].suppressedGroups).toHaveLength(5);
+});
+
 test("reminders repeat a still-firing page hourly, not every evaluation", () => {
   const engine = new AlertEngine(rules, { groupWindowMs: 0 });
   const out = drive(engine, 130, () => [s("auterva_backup_newest_complete_age_seconds", 30 * 3600), up("backup")]);
@@ -289,6 +312,15 @@ test("one database outage is exactly one page (ticket-level pool errors may ride
   expect(firing.filter((a) => a.severity === "page").map((a) => a.id)).toEqual(["READY_DATABASE"]);
 });
 
+test("walk keys series by sorted labels: a changed label order between scrapes keeps the increase", () => {
+  const rule: AlertRule = { id: "X", title: "x", severity: "ticket", owner: "operator", group: "g", runbook: "#x", forEvaluations: 1, clearAfter: 1,
+    breached: (c) => (c.increase("auterva_x_total", {}, 5 * 60_000) ?? 0) >= 50 };
+  const engine = new AlertEngine([rule], { groupWindowMs: 0 });
+  engine.evaluate([{ name: "auterva_x_total", labels: { class: "5xx", target: "web" }, value: 0 }], at(0));
+  engine.evaluate([{ name: "auterva_x_total", labels: { target: "web", class: "5xx" }, value: 100 }], at(1));
+  expect(engine.firing().map((a) => a.id)).toEqual(["X"]);
+});
+
 test("only filesystem errors count as a failing export sweep; a database error does not", () => {
   expect(isFilesystemError(Object.assign(new Error("x"), { code: "EACCES" }))).toBe(true);
   expect(isFilesystemError(Object.assign(new Error("x"), { code: "EIO" }))).toBe(true);
@@ -296,4 +328,33 @@ test("only filesystem errors count as a failing export sweep; a database error d
   expect(isFilesystemError(Object.assign(new Error("x"), { code: "ECONNREFUSED" }))).toBe(false);
   expect(isFilesystemError(new Error("AUDIT_EXPORT_DIRECTORY_NOT_PRIVATE"))).toBe(true);
   expect(isFilesystemError(new Error("DatabaseNotReachable"))).toBe(false);
+});
+
+test("filesystem errors are an allowlist: known storage codes yes, unknown E-codes and network codes no", () => {
+  const coded = (code: string) => Object.assign(new Error("x"), { code });
+  for (const code of ["EACCES", "EIO", "EPERM", "EISDIR", "ENOSPC", "EROFS", "EBUSY", "ENOTEMPTY", "EEXIST", "ENOENT"]) expect(isFilesystemError(coded(code))).toBe(true);
+  for (const code of ["ECONNREFUSED", "ETIMEDOUT", "ECONNRESET", "ENOTFOUND", "EAI_AGAIN", "EPIPE", "EPROTO", "ESOMETHING", "ENETDOWN", "P2002"]) expect(isFilesystemError(coded(code))).toBe(false);
+  expect(isFilesystemError(coded("AUDIT_EXPORT_KEY_REQUIRED"))).toBe(true);
+  expect(isFilesystemError(coded("AUDIT_EXPORT"))).toBe(false);
+  expect(isFilesystemError(null)).toBe(false);
+  expect(isFilesystemError("EACCES")).toBe(false);
+});
+
+import { combineSinks } from "../../src/modules/observability/alert-sinks";
+import { metrics } from "../../src/modules/observability/metrics";
+
+test("combineSinks counts every delivery per sink; one broken sink is visible but does not fail the delivery", async () => {
+  metrics.reset();
+  const note = { at: "x", severity: "ticket", groups: [], firing: [], resolved: [], reminders: [], summary: "s" } as Notification;
+  const ok = { name: "file", deliver: async () => {} };
+  const broken = { name: "mailpit", deliver: async () => { throw new Error("ALERT_DELIVERY_FAILED"); } };
+  await combineSinks(ok, broken).deliver(note);
+  await combineSinks(ok, broken).deliver(note);
+  expect(metrics.value("auterva_alert_sink_deliveries_total", { sink: "file", result: "delivered" })).toBe(2);
+  expect(metrics.value("auterva_alert_sink_deliveries_total", { sink: "mailpit", result: "failed" })).toBe(2);
+  expect(metrics.value("auterva_alert_sink_deliveries_total", { sink: "mailpit", result: "delivered" })).toBe(0);
+  // No alert rule reads the sink metric: a failing sink must not create alerts of its own.
+  expect(JSON.stringify(rules.map((r) => r.breached.toString()))).not.toContain("sink_deliveries");
+  await expect(combineSinks({ deliver: broken.deliver }, broken).deliver(note)).rejects.toThrow("ALERT_DELIVERY_FAILED");
+  expect(metrics.value("auterva_alert_sink_deliveries_total", { sink: "sink0", result: "failed" })).toBe(1);
 });

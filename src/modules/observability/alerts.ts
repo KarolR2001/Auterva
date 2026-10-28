@@ -64,6 +64,10 @@ function ratioRule(windowMs: number, minRequests: number, ratio: number) {
   };
 }
 
+/** Series identity: label order must not matter, or a reordered scrape would look like a new series and lose its step. */
+export const seriesKey = (labels: Labels): string =>
+  JSON.stringify(Object.entries(labels).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+
 export const SLO_AVAILABILITY = 0.999;
 
 export const rules: AlertRule[] = [
@@ -181,7 +185,8 @@ export type Notification = {
   at: string; severity: Severity; groups: string[]; firing: AlertView[]; resolved: AlertView[]; reminders: AlertView[];
   suppressedGroups?: string[]; summary: string;
 };
-export type AlertSink = { deliver(notification: Notification): Promise<void> };
+/** `name` labels the per-sink delivery metric; combineSinks falls back to its position. */
+export type AlertSink = { name?: string; deliver(notification: Notification): Promise<void> };
 
 type RuleState = { breaches: number; healthy: number; firing: boolean; firedAt?: number; lastNotifiedAt?: number };
 type Pending = { view: AlertView; kind: "firing" | "resolved" | "reminder" };
@@ -224,7 +229,7 @@ export class AlertEngine {
         const bySeries = new Map<string, number>();
         for (const sample of point.samples) {
           if (sample.name === name && Object.entries(match).every(([k, v]) => sample.labels[k] === v)) {
-            const key = JSON.stringify(sample.labels);
+            const key = seriesKey(sample.labels);
             bySeries.set(key, (bySeries.get(key) ?? 0) + sample.value);
           }
         }
@@ -301,13 +306,16 @@ export class AlertEngine {
     for (const item of items) byGroup.set(item.view.group, [...(byGroup.get(item.view.group) ?? []), item]);
     // Pages first so a storm of tickets can never push a page out of the cap.
     const groups = [...byGroup.entries()].sort(([, a], [, b]) => rank(b) - rank(a));
-    const room = Math.max(0, this.opts.maxPerWindow - this.sentAt.length);
+    // With a spent cap one message still leaves: a page is never silenced by the guard that protects against noise.
+    const slots = Math.max(1, this.opts.maxPerWindow - this.sentAt.length);
     const out: Notification[] = [];
-    const overflow: Array<[string, Pending[]]> = [];
-    groups.forEach((entry, index) => { if (index < room) out.push(toNotification(now, [entry])); else overflow.push(entry); });
-    if (overflow.length) {
-      // The summary replaces the last slot's worth of detail: one message, every suppressed group named, nothing lost.
-      out.push(toNotification(now, overflow, true));
+    if (groups.length <= slots) {
+      for (const entry of groups) out.push(toNotification(now, [entry]));
+    } else {
+      // The summary takes over the last slot (it never adds one): the first slots-1 groups leave as usual, every other
+      // group is named in the summary, whose severity is the highest of those groups.
+      for (const entry of groups.slice(0, slots - 1)) out.push(toNotification(now, [entry]));
+      out.push(toNotification(now, groups.slice(slots - 1), true));
     }
     this.sentAt.push(...out.map(() => nowMs));
     return out;
