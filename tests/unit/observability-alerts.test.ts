@@ -294,5 +294,6 @@ test("only filesystem errors count as a failing export sweep; a database error d
   expect(isFilesystemError(Object.assign(new Error("x"), { code: "EIO" }))).toBe(true);
   expect(isFilesystemError(Object.assign(new Error("x"), { code: "P1001" }))).toBe(false);
   expect(isFilesystemError(Object.assign(new Error("x"), { code: "ECONNREFUSED" }))).toBe(false);
+  expect(isFilesystemError(new Error("AUDIT_EXPORT_DIRECTORY_NOT_PRIVATE"))).toBe(true);
   expect(isFilesystemError(new Error("DatabaseNotReachable"))).toBe(false);
 });

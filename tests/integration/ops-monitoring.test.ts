@@ -283,6 +283,7 @@ test("B1: the audit worker is visible to monitoring: heartbeat, and a cleanup sw
   const id = randomUUID();
   const directory = join(dir, "audit-exports");
   const blocker = join(directory, `${id}.bin`);
+  await mkdir(directory, { recursive: true, mode: 0o700 }); // a private store, so the failure is the unremovable file
   await mkdir(blocker, { recursive: true, mode: 0o700 }); // unlink of a directory fails: the bytes cannot be removed
   await writeFile(join(blocker, "keep"), "x");
   const now = new Date();

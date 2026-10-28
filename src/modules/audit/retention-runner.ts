@@ -6,8 +6,9 @@ import { log, logFailure } from "@/modules/observability/log";
 import { metrics, names } from "@/modules/observability/metrics";
 import { iterationOutcome } from "@/modules/observability/worker-metrics";
 
-/** Node filesystem errors carry an errno code such as EACCES, EIO, EPERM or EISDIR; database errors never do. */
+/** Storage-side failures: Node errno codes (EACCES, EIO, EPERM, EISDIR) or the export store's own AUDIT_EXPORT_* codes; database errors are neither. */
 export function isFilesystemError(error: unknown): boolean {
+  if (error instanceof Error && /^AUDIT_EXPORT_[A-Z_]+$/.test(error.message)) return true; // e.g. directory not private
   const code = (error as { code?: unknown } | null)?.code;
   return typeof code === "string" && /^E[A-Z0-9]{2,}$/.test(code)
     && !/^(ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|EPIPE|EHOSTUNREACH|ENETUNREACH)$/.test(code); // network: a database problem
