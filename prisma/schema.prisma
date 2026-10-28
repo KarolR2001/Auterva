@@ -93,6 +93,7 @@ model AvailabilityBlock {
   vehicle        Vehicle  @relation(fields: [organizationId, vehicleId], references: [organizationId, id])
 
   @@index([organizationId, vehicleId])
+  @@index([vehicleId, from(sort: Desc)])
 }
 
 model ChatMessage {

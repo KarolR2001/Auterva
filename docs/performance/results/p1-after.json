@@ -1,0 +1,904 @@
+{
+  "label": "p1-after",
+  "profile": "p1",
+  "variant": "after",
+  "seconds": 20,
+  "peakRate": 25,
+  "stamp": "2026-10-28T02:13:12.418Z",
+  "node": "v24.20.0",
+  "results": [
+    {
+      "name": "public-check",
+      "note": "5 req/s, 20 s, one company",
+      "stats": {
+        "n": 100,
+        "ok": 100,
+        "errors": 0,
+        "statuses": {
+          "200": 100
+        },
+        "p50": 10,
+        "p95": 20,
+        "p99": 23.1,
+        "max": 29.4,
+        "rps": 5,
+        "seconds": 19.809696209000002
+      },
+      "saturation": {
+        "cpuPercentProcess": 6.2,
+        "rssMbPeak": 342,
+        "eventLoopP99Ms": 14.58,
+        "dbConnectionsMax": 2,
+        "dbActiveMax": 1,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 2
+      }
+    },
+    {
+      "name": "public-batch",
+      "note": "5 req/s, 20 s, one company",
+      "stats": {
+        "n": 100,
+        "ok": 100,
+        "errors": 0,
+        "statuses": {
+          "200": 100
+        },
+        "p50": 10.7,
+        "p95": 20.6,
+        "p99": 21.3,
+        "max": 21.7,
+        "rps": 5,
+        "seconds": 19.813089040999998
+      },
+      "saturation": {
+        "cpuPercentProcess": 5.3,
+        "rssMbPeak": 258,
+        "eventLoopP99Ms": 14.85,
+        "dbConnectionsMax": 2,
+        "dbActiveMax": 1,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 2
+      }
+    },
+    {
+      "name": "public-calendar",
+      "note": "5 req/s, 20 s, one company",
+      "stats": {
+        "n": 100,
+        "ok": 100,
+        "errors": 0,
+        "statuses": {
+          "200": 100
+        },
+        "p50": 9.5,
+        "p95": 20.1,
+        "p99": 20.7,
+        "max": 20.8,
+        "rps": 5,
+        "seconds": 19.808608
+      },
+      "saturation": {
+        "cpuPercentProcess": 4.8,
+        "rssMbPeak": 266,
+        "eventLoopP99Ms": 13.81,
+        "dbConnectionsMax": 2,
+        "dbActiveMax": 1,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 2
+      }
+    },
+    {
+      "name": "public-catalog-page1",
+      "note": "5 req/s, 20 s, one company",
+      "stats": {
+        "n": 100,
+        "ok": 100,
+        "errors": 0,
+        "statuses": {
+          "200": 100
+        },
+        "p50": 14.2,
+        "p95": 23.7,
+        "p99": 24.3,
+        "max": 27.2,
+        "rps": 5,
+        "seconds": 19.812754875
+      },
+      "saturation": {
+        "cpuPercentProcess": 7.2,
+        "rssMbPeak": 297,
+        "eventLoopP99Ms": 13.16,
+        "dbConnectionsMax": 2,
+        "dbActiveMax": 1,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 2
+      }
+    },
+    {
+      "name": "public-catalog-available",
+      "note": "5 req/s, 20 s, one company",
+      "stats": {
+        "n": 100,
+        "ok": 100,
+        "errors": 0,
+        "statuses": {
+          "200": 100
+        },
+        "p50": 25.1,
+        "p95": 34,
+        "p99": 34.9,
+        "max": 35.6,
+        "rps": 5,
+        "seconds": 19.824416624999998
+      },
+      "saturation": {
+        "cpuPercentProcess": 6.1,
+        "rssMbPeak": 350,
+        "eventLoopP99Ms": 13.71,
+        "dbConnectionsMax": 2,
+        "dbActiveMax": 1,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 11
+      }
+    },
+    {
+      "name": "admin-list-100",
+      "note": "1.5 req/s over 1 admin(s)",
+      "stats": {
+        "n": 30,
+        "ok": 30,
+        "errors": 0,
+        "statuses": {
+          "200": 30
+        },
+        "p50": 26.7,
+        "p95": 34.6,
+        "p99": 34.7,
+        "max": 34.7,
+        "rps": 1.6,
+        "seconds": 19.348487874999993
+      },
+      "saturation": {
+        "cpuPercentProcess": 3.6,
+        "rssMbPeak": 353,
+        "eventLoopP99Ms": 12.27,
+        "dbConnectionsMax": 2,
+        "dbActiveMax": 1,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 3
+      }
+    },
+    {
+      "name": "admin-list-100-available",
+      "note": "1.5 req/s over 1 admin(s)",
+      "stats": {
+        "n": 30,
+        "ok": 30,
+        "errors": 0,
+        "statuses": {
+          "200": 30
+        },
+        "p50": 35.1,
+        "p95": 39.4,
+        "p99": 39.8,
+        "max": 39.8,
+        "rps": 1.5,
+        "seconds": 19.369357292000014
+      },
+      "saturation": {
+        "cpuPercentProcess": 2.5,
+        "rssMbPeak": 355,
+        "eventLoopP99Ms": 11.41,
+        "dbConnectionsMax": 1,
+        "dbActiveMax": 1,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 8
+      }
+    },
+    {
+      "name": "admin-calendar",
+      "note": "1.5 req/s over 1 admin(s)",
+      "stats": {
+        "n": 30,
+        "ok": 30,
+        "errors": 0,
+        "statuses": {
+          "200": 30
+        },
+        "p50": 12.9,
+        "p95": 20.5,
+        "p99": 21.1,
+        "max": 21.1,
+        "rps": 1.6,
+        "seconds": 19.34576795800001
+      },
+      "saturation": {
+        "cpuPercentProcess": 2.7,
+        "rssMbPeak": 357,
+        "eventLoopP99Ms": 11.35,
+        "dbConnectionsMax": 1,
+        "dbActiveMax": 1,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 2
+      }
+    },
+    {
+      "name": "list-100-public:page1",
+      "stats": {
+        "n": 50,
+        "ok": 50,
+        "errors": 0,
+        "statuses": {
+          "200": 50
+        },
+        "p50": 13.4,
+        "p95": 23.1,
+        "p99": 26.9,
+        "max": 26.9,
+        "rps": 2.5,
+        "seconds": 20
+      }
+    },
+    {
+      "name": "list-100-public:page2",
+      "stats": {
+        "n": 50,
+        "ok": 50,
+        "errors": 0,
+        "statuses": {
+          "200": 50
+        },
+        "p50": 8.3,
+        "p95": 15.6,
+        "p99": 16.9,
+        "max": 16.9,
+        "rps": 2.5,
+        "seconds": 20
+      }
+    },
+    {
+      "name": "list-100-public",
+      "note": "two pages of 50 (public), 2.5 pairs/s, page 1 then page 2 by cursor/page number",
+      "stats": {
+        "n": 50,
+        "ok": 50,
+        "errors": 0,
+        "statuses": {
+          "200": 50
+        },
+        "p50": 22.3,
+        "p95": 31.3,
+        "p99": 33.9,
+        "max": 33.9,
+        "rps": 2.5,
+        "seconds": 19.62235695799999
+      },
+      "saturation": {
+        "cpuPercentProcess": 5.8,
+        "rssMbPeak": 359,
+        "eventLoopP99Ms": 13.76,
+        "dbConnectionsMax": 2,
+        "dbActiveMax": 1,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 3
+      }
+    },
+    {
+      "name": "list-100-admin:page1",
+      "stats": {
+        "n": 14,
+        "ok": 14,
+        "errors": 0,
+        "statuses": {
+          "200": 14
+        },
+        "p50": 18.9,
+        "p95": 22.5,
+        "p99": 22.5,
+        "max": 22.5,
+        "rps": 0.7,
+        "seconds": 20
+      }
+    },
+    {
+      "name": "list-100-admin:page2",
+      "stats": {
+        "n": 14,
+        "ok": 14,
+        "errors": 0,
+        "statuses": {
+          "200": 14
+        },
+        "p50": 11.9,
+        "p95": 13.6,
+        "p99": 13.6,
+        "max": 13.6,
+        "rps": 0.7,
+        "seconds": 20
+      }
+    },
+    {
+      "name": "list-100-admin",
+      "note": "two pages of 50 (admin), 0.7 pairs/s, page 1 then page 2 by cursor/page number",
+      "stats": {
+        "n": 14,
+        "ok": 14,
+        "errors": 0,
+        "statuses": {
+          "200": 14
+        },
+        "p50": 31.2,
+        "p95": 33.8,
+        "p99": 33.8,
+        "max": 33.8,
+        "rps": 0.8,
+        "seconds": 18.603431667
+      },
+      "saturation": {
+        "cpuPercentProcess": 2.2,
+        "rssMbPeak": 360,
+        "eventLoopP99Ms": 12.94,
+        "dbConnectionsMax": 2,
+        "dbActiveMax": 1,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 5
+      }
+    },
+    {
+      "name": "block-delete-handler",
+      "stats": {
+        "n": 8,
+        "ok": 8,
+        "errors": 0,
+        "statuses": {
+          "200": 8
+        },
+        "p50": 8,
+        "p95": 14.5,
+        "p99": 14.5,
+        "max": 14.5,
+        "rps": 0.4,
+        "seconds": 20
+      }
+    },
+    {
+      "name": "block-write-handler",
+      "note": "create (+ delete) via handler at 0.4 pairs/s per admin (write limit 60/min)",
+      "stats": {
+        "n": 8,
+        "ok": 8,
+        "errors": 0,
+        "statuses": {
+          "201": 8
+        },
+        "p50": 14.7,
+        "p95": 22.7,
+        "p99": 22.7,
+        "max": 22.7,
+        "rps": 0.5,
+        "seconds": 17.528017625000007
+      },
+      "saturation": {
+        "cpuPercentProcess": 1.7,
+        "rssMbPeak": 360,
+        "eventLoopP99Ms": 11.4,
+        "dbConnectionsMax": 1,
+        "dbActiveMax": 1,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 1
+      }
+    },
+    {
+      "name": "block-service-distinct-vehicles",
+      "note": "createBlock+deleteBlock, 8 workers on distinct vehicles, no API limit",
+      "stats": {
+        "n": 12723,
+        "ok": 12723,
+        "errors": 0,
+        "statuses": {
+          "ok": 12723
+        },
+        "p50": 12.1,
+        "p95": 14.7,
+        "p99": 17,
+        "max": 46.9,
+        "rps": 635.8,
+        "seconds": 20.011047666
+      },
+      "saturation": {
+        "cpuPercentProcess": 77,
+        "rssMbPeak": 547,
+        "eventLoopP99Ms": 10.77,
+        "dbConnectionsMax": 9,
+        "dbActiveMax": 8,
+        "dbWaitingMax": 7,
+        "dbBackendsCpuPercentMax": 54
+      }
+    },
+    {
+      "name": "block-service-same-vehicle",
+      "note": "createBlock+deleteBlock, 8 workers on ONE vehicle, no API limit",
+      "stats": {
+        "n": 12850,
+        "ok": 12850,
+        "errors": 0,
+        "statuses": {
+          "ok": 12850
+        },
+        "p50": 12,
+        "p95": 14.3,
+        "p99": 17.7,
+        "max": 25.2,
+        "rps": 642.2,
+        "seconds": 20.01023991600002
+      },
+      "saturation": {
+        "cpuPercentProcess": 74.3,
+        "rssMbPeak": 548,
+        "eventLoopP99Ms": 10.53,
+        "dbConnectionsMax": 8,
+        "dbActiveMax": 8,
+        "dbWaitingMax": 7,
+        "dbBackendsCpuPercentMax": 55
+      }
+    },
+    {
+      "name": "block-service-conflict",
+      "note": "8 workers insert the SAME dates on one vehicle: exactly one winner per round, the rest 409",
+      "stats": {
+        "n": 80,
+        "ok": 80,
+        "errors": 0,
+        "statuses": {
+          "201": 10,
+          "409-overlap": 70
+        },
+        "p50": 3,
+        "p95": 4.3,
+        "p99": 5.7,
+        "max": 5.7,
+        "rps": 1518,
+        "seconds": 0.052702417000022254
+      },
+      "saturation": {
+        "cpuPercentProcess": 75.3,
+        "rssMbPeak": 548,
+        "eventLoopP99Ms": 10.26,
+        "dbConnectionsMax": 0,
+        "dbActiveMax": 0,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 0
+      }
+    },
+    {
+      "name": "sat:availability-single",
+      "note": "16 workers, availability of one vehicle (id-level query, no host/visibility lookup)",
+      "stats": {
+        "n": 349439,
+        "ok": 349439,
+        "errors": 0,
+        "statuses": {
+          "ok": 349439
+        },
+        "p50": 0.5,
+        "p95": 0.6,
+        "p99": 1,
+        "max": 6.3,
+        "rps": 34942.8,
+        "seconds": 10.000304082999996
+      },
+      "saturation": {
+        "cpuPercentProcess": 105.1,
+        "rssMbPeak": 553,
+        "eventLoopP99Ms": 10.27,
+        "dbConnectionsMax": 9,
+        "dbActiveMax": 6,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 342
+      }
+    },
+    {
+      "name": "sat:availability-batch-50",
+      "note": "16 workers, availability of 50 vehicles",
+      "stats": {
+        "n": 191375,
+        "ok": 191375,
+        "errors": 0,
+        "statuses": {
+          "ok": 191375
+        },
+        "p50": 0.8,
+        "p95": 1.2,
+        "p99": 1.5,
+        "max": 9.2,
+        "rps": 19129.6,
+        "seconds": 10.004152666999959
+      },
+      "saturation": {
+        "cpuPercentProcess": 100.2,
+        "rssMbPeak": 575,
+        "eventLoopP99Ms": 10.38,
+        "dbConnectionsMax": 9,
+        "dbActiveMax": 8,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 603
+      }
+    },
+    {
+      "name": "sat:availability-private-100",
+      "note": "16 workers, availability of 100 vehicles",
+      "stats": {
+        "n": 131224,
+        "ok": 131224,
+        "errors": 0,
+        "statuses": {
+          "ok": 131224
+        },
+        "p50": 1.2,
+        "p95": 1.7,
+        "p99": 2.2,
+        "max": 8.5,
+        "rps": 13117.1,
+        "seconds": 10.004042791000044
+      },
+      "saturation": {
+        "cpuPercentProcess": 95,
+        "rssMbPeak": 576,
+        "eventLoopP99Ms": 10.55,
+        "dbConnectionsMax": 9,
+        "dbActiveMax": 9,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 635
+      }
+    },
+    {
+      "name": "sat:calendar-private-365",
+      "note": "16 workers, private calendar, 365 days",
+      "stats": {
+        "n": 16246,
+        "ok": 16246,
+        "errors": 0,
+        "statuses": {
+          "ok": 16246
+        },
+        "p50": 9.5,
+        "p95": 12.7,
+        "p99": 14.2,
+        "max": 19.1,
+        "rps": 1623.1,
+        "seconds": 10.009039875000017
+      },
+      "saturation": {
+        "cpuPercentProcess": 105.8,
+        "rssMbPeak": 577,
+        "eventLoopP99Ms": 13.66,
+        "dbConnectionsMax": 9,
+        "dbActiveMax": 1,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 115
+      }
+    },
+    {
+      "name": "sat:calendar-public-31",
+      "note": "16 workers, getPublicCalendar, 31 days",
+      "stats": {
+        "n": 42162,
+        "ok": 42162,
+        "errors": 0,
+        "statuses": {
+          "ok": 42162
+        },
+        "p50": 3.7,
+        "p95": 4.6,
+        "p99": 5.5,
+        "max": 10.6,
+        "rps": 4214,
+        "seconds": 10.005232375000022
+      },
+      "saturation": {
+        "cpuPercentProcess": 106.4,
+        "rssMbPeak": 578,
+        "eventLoopP99Ms": 10.39,
+        "dbConnectionsMax": 9,
+        "dbActiveMax": 2,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 99
+      }
+    },
+    {
+      "name": "sat:admin-list-100",
+      "note": "16 workers, listCompanyVehicles pageSize 100",
+      "stats": {
+        "n": 5963,
+        "ok": 5963,
+        "errors": 0,
+        "statuses": {
+          "ok": 5963
+        },
+        "p50": 26.8,
+        "p95": 32.7,
+        "p99": 36.6,
+        "max": 45.2,
+        "rps": 594.9,
+        "seconds": 10.023687250000018
+      },
+      "saturation": {
+        "cpuPercentProcess": 117.5,
+        "rssMbPeak": 616,
+        "eventLoopP99Ms": 13.14,
+        "dbConnectionsMax": 9,
+        "dbActiveMax": 7,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 237
+      }
+    },
+    {
+      "name": "sat:admin-list-100-availableToday",
+      "note": "16 workers, listCompanyVehicles pageSize 100, availableToday",
+      "stats": {
+        "n": 4908,
+        "ok": 4908,
+        "errors": 0,
+        "statuses": {
+          "ok": 4908
+        },
+        "p50": 32.5,
+        "p95": 39.7,
+        "p99": 43.4,
+        "max": 51.3,
+        "rps": 489.4,
+        "seconds": 10.029465250000008
+      },
+      "saturation": {
+        "cpuPercentProcess": 89.7,
+        "rssMbPeak": 633,
+        "eventLoopP99Ms": 12.13,
+        "dbConnectionsMax": 9,
+        "dbActiveMax": 9,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 655
+      }
+    },
+    {
+      "name": "sat:public-catalog-50-available",
+      "note": "16 workers, listPublicVehicles limit 50 with dates",
+      "stats": {
+        "n": 6605,
+        "ok": 6605,
+        "errors": 0,
+        "statuses": {
+          "ok": 6605
+        },
+        "p50": 23.7,
+        "p95": 31.4,
+        "p99": 37.9,
+        "max": 55.7,
+        "rps": 659.4,
+        "seconds": 10.017159207999997
+      },
+      "saturation": {
+        "cpuPercentProcess": 94,
+        "rssMbPeak": 691,
+        "eventLoopP99Ms": 11.49,
+        "dbConnectionsMax": 9,
+        "dbActiveMax": 9,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 585
+      }
+    },
+    {
+      "name": "mixed:public-check",
+      "stats": {
+        "n": 251,
+        "ok": 251,
+        "errors": 0,
+        "statuses": {
+          "200": 251
+        },
+        "p50": 3.5,
+        "p95": 7.1,
+        "p99": 10.2,
+        "max": 18.4,
+        "rps": 12.6,
+        "seconds": 20
+      }
+    },
+    {
+      "name": "mixed:public-calendar",
+      "stats": {
+        "n": 42,
+        "ok": 42,
+        "errors": 0,
+        "statuses": {
+          "200": 42
+        },
+        "p50": 3.8,
+        "p95": 6.6,
+        "p99": 7.7,
+        "max": 7.7,
+        "rps": 2.1,
+        "seconds": 20
+      }
+    },
+    {
+      "name": "mixed:public-catalog-available",
+      "stats": {
+        "n": 64,
+        "ok": 64,
+        "errors": 0,
+        "statuses": {
+          "200": 64
+        },
+        "p50": 15.9,
+        "p95": 24.9,
+        "p99": 33.3,
+        "max": 33.3,
+        "rps": 3.2,
+        "seconds": 20
+      }
+    },
+    {
+      "name": "mixed:public-catalog-page1",
+      "stats": {
+        "n": 70,
+        "ok": 70,
+        "errors": 0,
+        "statuses": {
+          "200": 70
+        },
+        "p50": 6.8,
+        "p95": 11.7,
+        "p99": 18.1,
+        "max": 18.1,
+        "rps": 3.5,
+        "seconds": 20
+      }
+    },
+    {
+      "name": "mixed:admin-calendar",
+      "stats": {
+        "n": 12,
+        "ok": 12,
+        "errors": 0,
+        "statuses": {
+          "200": 12
+        },
+        "p50": 5.9,
+        "p95": 16.2,
+        "p99": 16.2,
+        "max": 16.2,
+        "rps": 0.6,
+        "seconds": 20
+      }
+    },
+    {
+      "name": "mixed:public-batch",
+      "stats": {
+        "n": 41,
+        "ok": 41,
+        "errors": 0,
+        "statuses": {
+          "200": 41
+        },
+        "p50": 4.3,
+        "p95": 8.2,
+        "p99": 9.2,
+        "max": 9.2,
+        "rps": 2.1,
+        "seconds": 20
+      }
+    },
+    {
+      "name": "mixed:admin-list-100",
+      "stats": {
+        "n": 20,
+        "ok": 20,
+        "errors": 0,
+        "statuses": {
+          "200": 20
+        },
+        "p50": 14.9,
+        "p95": 23.4,
+        "p99": 24.3,
+        "max": 24.3,
+        "rps": 1,
+        "seconds": 20
+      }
+    },
+    {
+      "name": "mixed:block-write",
+      "stats": {
+        "n": 8,
+        "ok": 8,
+        "errors": 0,
+        "statuses": {
+          "201": 8
+        },
+        "p50": 10.3,
+        "p95": 24.1,
+        "p99": 24.1,
+        "max": 24.1,
+        "rps": 0.4,
+        "seconds": 20
+      }
+    },
+    {
+      "name": "mixed-peak",
+      "note": "25 req/s total, mix public-check 50%, public-batch 10%, public-catalog-page1 15%, public-catalog-available 10%, public-calendar 9%, admin-list-100 3%, admin-calendar 3%, plus block writes 0.4/s per admin",
+      "stats": {
+        "n": 500,
+        "ok": 500,
+        "errors": 0,
+        "statuses": {
+          "200": 500
+        },
+        "p50": 5.4,
+        "p95": 19.4,
+        "p99": 24.8,
+        "max": 33.4,
+        "rps": 25,
+        "seconds": 19.962977416000037
+      },
+      "saturation": {
+        "cpuPercentProcess": 11.3,
+        "rssMbPeak": 692,
+        "eventLoopP99Ms": 13.4,
+        "dbConnectionsMax": 12,
+        "dbActiveMax": 1,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 84
+      }
+    },
+    {
+      "name": "worker-queue",
+      "note": "claim+start+finish, 4 workers, backlog 20000 pending + 100000 finished jobs (queue only; no provider call)",
+      "stats": {
+        "n": 12574,
+        "ok": 12574,
+        "errors": 0,
+        "statuses": {
+          "sent": 12574
+        },
+        "p50": 6.4,
+        "p95": 7.9,
+        "p99": 8.9,
+        "max": 14.3,
+        "rps": 577.3,
+        "seconds": 21.77932150000002
+      },
+      "saturation": {
+        "cpuPercentProcess": 18.5,
+        "rssMbPeak": 692,
+        "eventLoopP99Ms": 11.16,
+        "dbConnectionsMax": 7,
+        "dbActiveMax": 4,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 379
+      }
+    },
+    {
+      "name": "ws-chat",
+      "note": "10 connections, 14 messages, 7 rounds, 10 sockets",
+      "stats": {
+        "n": 126,
+        "ok": 126,
+        "errors": 0,
+        "statuses": {
+          "delivered": 126
+        },
+        "p50": 19,
+        "p95": 34.1,
+        "p99": 34.6,
+        "max": 34.6,
+        "rps": 6.3,
+        "seconds": 20
+      },
+      "extra": {
+        "messages": 14,
+        "expectedDeliveries": 126,
+        "lostDeliveries": 0
+      }
+    }
+  ]
+}

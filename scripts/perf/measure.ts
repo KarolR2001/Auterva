@@ -59,7 +59,7 @@ export async function closedLoop(workers: number, seconds: number, operation: (w
     for (let index = 0; performance.now() < end; index += 1) {
       const begin = performance.now();
       try { const result = await operation(worker, index); recorder.record(performance.now() - begin, result.ok, result.status); }
-      catch { recorder.record(performance.now() - begin, false, "EXCEPTION"); }
+      catch (error) { recorder.record(performance.now() - begin, false, `EXC:${String((error as Error)?.message).slice(0, 48)}`); }
     }
   }));
   return recorder;

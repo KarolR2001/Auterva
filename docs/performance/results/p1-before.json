@@ -1,0 +1,227 @@
+{
+  "label": "p1-before",
+  "profile": "p1",
+  "variant": "before",
+  "seconds": 20,
+  "peakRate": 25,
+  "stamp": "2026-10-28T02:11:51.496Z",
+  "node": "v24.20.0",
+  "results": [
+    {
+      "name": "sat:availability-single",
+      "note": "16 workers, availability of one vehicle (id-level query, no host/visibility lookup)",
+      "stats": {
+        "n": 199732,
+        "ok": 199732,
+        "errors": 0,
+        "statuses": {
+          "ok": 199732
+        },
+        "p50": 0.7,
+        "p95": 1.1,
+        "p99": 1.5,
+        "max": 15.1,
+        "rps": 19965.6,
+        "seconds": 10.003823167
+      },
+      "saturation": {
+        "cpuPercentProcess": 109.2,
+        "rssMbPeak": 545,
+        "eventLoopP99Ms": 10.39,
+        "dbConnectionsMax": 9,
+        "dbActiveMax": 4,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 224
+      }
+    },
+    {
+      "name": "sat:availability-batch-50",
+      "note": "16 workers, availability of 50 vehicles",
+      "stats": {
+        "n": 36443,
+        "ok": 36443,
+        "errors": 0,
+        "statuses": {
+          "ok": 36443
+        },
+        "p50": 4.3,
+        "p95": 5.9,
+        "p99": 7.1,
+        "max": 13.6,
+        "rps": 3641.8,
+        "seconds": 10.006866124999998
+      },
+      "saturation": {
+        "cpuPercentProcess": 72.8,
+        "rssMbPeak": 560,
+        "eventLoopP99Ms": 10.79,
+        "dbConnectionsMax": 9,
+        "dbActiveMax": 9,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 791
+      }
+    },
+    {
+      "name": "sat:availability-private-100",
+      "note": "16 workers, availability of 100 vehicles",
+      "stats": {
+        "n": 20874,
+        "ok": 20874,
+        "errors": 0,
+        "statuses": {
+          "ok": 20874
+        },
+        "p50": 7.5,
+        "p95": 10.2,
+        "p99": 11.9,
+        "max": 30.4,
+        "rps": 2085.8,
+        "seconds": 10.007893959
+      },
+      "saturation": {
+        "cpuPercentProcess": 59.3,
+        "rssMbPeak": 557,
+        "eventLoopP99Ms": 11.61,
+        "dbConnectionsMax": 9,
+        "dbActiveMax": 9,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 814
+      }
+    },
+    {
+      "name": "sat:calendar-private-365",
+      "note": "16 workers, private calendar, 365 days",
+      "stats": {
+        "n": 721,
+        "ok": 721,
+        "errors": 0,
+        "statuses": {
+          "ok": 721
+        },
+        "p50": 222.8,
+        "p95": 280.3,
+        "p99": 310.3,
+        "max": 335.5,
+        "rps": 70.6,
+        "seconds": 10.215967749999995
+      },
+      "saturation": {
+        "cpuPercentProcess": 100.9,
+        "rssMbPeak": 569,
+        "eventLoopP99Ms": 126.42,
+        "dbConnectionsMax": 9,
+        "dbActiveMax": 2,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 92
+      }
+    },
+    {
+      "name": "sat:calendar-public-31",
+      "note": "16 workers, getPublicCalendar, 31 days",
+      "stats": {
+        "n": 42533,
+        "ok": 42533,
+        "errors": 0,
+        "statuses": {
+          "ok": 42533
+        },
+        "p50": 3.6,
+        "p95": 4.6,
+        "p99": 6.5,
+        "max": 15,
+        "rps": 4250.9,
+        "seconds": 10.005712040999999
+      },
+      "saturation": {
+        "cpuPercentProcess": 107.7,
+        "rssMbPeak": 549,
+        "eventLoopP99Ms": 10.64,
+        "dbConnectionsMax": 9,
+        "dbActiveMax": 3,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 109
+      }
+    },
+    {
+      "name": "sat:admin-list-100",
+      "note": "16 workers, listCompanyVehicles pageSize 100",
+      "stats": {
+        "n": 5164,
+        "ok": 5164,
+        "errors": 0,
+        "statuses": {
+          "ok": 5164
+        },
+        "p50": 29.7,
+        "p95": 39.2,
+        "p99": 46.6,
+        "max": 188.8,
+        "rps": 515,
+        "seconds": 10.027656542000004
+      },
+      "saturation": {
+        "cpuPercentProcess": 118.7,
+        "rssMbPeak": 591,
+        "eventLoopP99Ms": 13.79,
+        "dbConnectionsMax": 9,
+        "dbActiveMax": 6,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 366
+      }
+    },
+    {
+      "name": "sat:admin-list-100-availableToday",
+      "note": "16 workers, listCompanyVehicles pageSize 100, availableToday",
+      "stats": {
+        "n": 4290,
+        "ok": 4290,
+        "errors": 0,
+        "statuses": {
+          "ok": 4290
+        },
+        "p50": 35.4,
+        "p95": 43.9,
+        "p99": 124.4,
+        "max": 257.1,
+        "rps": 427.8,
+        "seconds": 10.029073124999995
+      },
+      "saturation": {
+        "cpuPercentProcess": 83.4,
+        "rssMbPeak": 609,
+        "eventLoopP99Ms": 14.77,
+        "dbConnectionsMax": 9,
+        "dbActiveMax": 9,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 673
+      }
+    },
+    {
+      "name": "sat:public-catalog-50-available",
+      "note": "16 workers, listPublicVehicles limit 50 with dates",
+      "stats": {
+        "n": 6902,
+        "ok": 6902,
+        "errors": 0,
+        "statuses": {
+          "ok": 6902
+        },
+        "p50": 22.9,
+        "p95": 29.1,
+        "p99": 32.4,
+        "max": 53.3,
+        "rps": 688.9,
+        "seconds": 10.019518542000005
+      },
+      "saturation": {
+        "cpuPercentProcess": 94.5,
+        "rssMbPeak": 680,
+        "eventLoopP99Ms": 11.41,
+        "dbConnectionsMax": 9,
+        "dbActiveMax": 9,
+        "dbWaitingMax": 0,
+        "dbBackendsCpuPercentMax": 602
+      }
+    }
+  ]
+}
