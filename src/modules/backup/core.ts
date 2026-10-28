@@ -101,7 +101,15 @@ export async function runToolWithInput(command: string, args: string[], env: Nod
     child.on("error", reject);
     child.on("close", (code) => (code === 0 ? resolve() : reject(toolFailure(command, code, stderr))));
     // pipeline (not .pipe) propagates a read error: the tool is stopped instead of waiting on stdin forever.
-    pipeline(input as Readable, child.stdin).catch((error) => { child.kill(); reject(error); });
+    pipeline(input as Readable, child.stdin).catch((error) => {
+      if ((error as { code?: string }).code === "EPIPE") {
+        // The tool closed stdin because it already failed: keep its stderr (the real cause) by waiting for its exit.
+        setTimeout(() => child.kill(), 5000).unref();
+        return;
+      }
+      child.kill();
+      reject(error);
+    });
   });
 }
 
