@@ -8,7 +8,7 @@ import { requireOwnFixture } from "./target";
  * One command for the whole comparison: pnpm perf:report [-- --seconds 20 --no-reset]
  * 1. resets the local fixture database (only this worktree's guarded cluster; skip with --no-reset), 2. generates P1,
  * 3. runs the "before" variant (index dropped, legacy query) and the "after" variant, 4. adds the second company (P2,
- * proposed in #90) and runs it, 5. writes EXPLAIN plans and docs/performance/results/*.json + SUMMARY.md.
+ * proposed in #90) and runs it, 5. writes EXPLAIN plans, JSON results and SUMMARY.md to .local/perf (not tracked).
  * Needs the fixture running (scripts/local-fixture.sh start) and MAIL_PAYLOAD_KEY exported (any 64 hex characters).
  */
 await requireOwnFixture();
@@ -27,7 +27,8 @@ sh("tsx", "scripts/perf/run.ts", "--profile", "p2", "--variant", "after", "--lab
 type Result = { name: string; note?: string; stats: { n: number; errors: number; p50: number; p95: number; p99: number; rps: number };
   saturation?: Record<string, number>; extra?: Record<string, unknown> };
 type Run = { label: string; profile: string; variant: string; seconds: number; stamp: string; node: string; results: Result[] };
-const results = resolve(root, "docs", "performance", "results");
+// Raw output stays out of the repository (.local is ignored); attach SUMMARY.md, the JSON files and explain.txt to the PR.
+const results = resolve(root, ".local", "perf", "report");
 mkdirSync(results, { recursive: true });
 const load = (label: string): Run => {
   const from = resolve(root, ".local", "perf", `${label}.json`);

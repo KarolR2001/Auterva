@@ -4,7 +4,7 @@ Pomiar lokalny (nie staging) profilu P1 i proponowanego profilu P2. Dotyczy NFR-
 
 ## Wynik w skrócie
 
-- Wszystkie trzy cele p95 są spełnione z ponad dziesięciokrotnym zapasem przy P1 i przy P2 (ruch przez handlery z realnymi limitami: dostępność ok. 20 ms, zapis blokady ok. 23 ms, lista 100 aut ok. 31-34 ms). Błędów 0 we wszystkich scenariuszach, 0 zagubionych dostarczeń WS.
+- Wszystkie trzy cele p95 są spełnione z ponad dziesięciokrotnym zapasem przy P1 i przy P2 (ruch przez handlery z realnymi limitami: dostępność ok. 20 ms, zapis blokady ok. 23 ms na handlerze, p95 14,7 ms na kilkunastu tysiącach cykli serwisu, lista 100 aut ok. 31-34 ms). Błędów 0 we wszystkich scenariuszach, 0 zagubionych dostarczeń WS.
 - Zmieniono tylko to, co profil wskazał: indeks `(vehicleId, from DESC)` i zapytanie sprawdzenia dostępności (przepustowość serwisu 1,7-6,3x wyższa, p95 batch 5,9 -> 1,2 ms) oraz rzut dni kalendarza (p95 prywatnego kalendarza 365 dni pod 16 równoległymi wywołaniami 280 -> 13 ms). Listy (admin, katalog) nie były wąskim gardłem i ich zapytania nie zostały zmienione.
 - Bez cache wyniku dostępności (C-N060). Każdy odczyt czyta bazę; test regresji sprawdza brak starego pozytywnego wyniku po zapisie i usunięciu blokady.
 - Pozostają `not-run`: staging, profil wielu firm, WS na wielu instancjach z reconnectem, zapis z uploadem (patrz „Nie wykonano”).
@@ -23,7 +23,7 @@ Pomiar lokalny (nie staging) profilu P1 i proponowanego profilu P2. Dotyczy NFR-
 | Limity produktu | nie wyłączane: zapis 60/min i odczyt 120/min na aktora, publiczne 60/min (dostępność) i 120/min (oferta) na adres. Publiczne żądania używają osobnego adresu zaufanego ingressu na żądanie, ruch admina jest utrzymany poniżej limitu |
 | Pomiar | pętla otwarta (opóźnienie liczone od zaplanowanego przyjścia, bez ukrywania kolejki), 20 s na scenariusz; nasycenie: CPU i RSS procesu, opóźnienie event loop, połączenia i aktywne/oczekujące zapytania PostgreSQL, CPU backendów PostgreSQL (próbkowanie co 0,5 s) |
 
-Uwaga o interpretacji: wszystko działa na jednej maszynie, więc CPU procesu i bazy konkurują o te same rdzenie, a w czasie pomiaru nie pracowało nic poza harnessem. Liczby są dowodem proporcji i marginesu, nie prognozą dla Render/Cloudflare.
+Uwaga o interpretacji: wszystko działa na jednej maszynie, więc CPU procesu i bazy konkurują o te same rdzenie, a w czasie pomiaru działały też zwykłe procesy systemu i narzędzi pracy deweloperskiej, więc wyniki zawierają szum. Liczby są dowodem proporcji i marginesu, nie prognozą dla Render/Cloudflare.
 
 ## Odtworzenie jedną komendą
 
@@ -33,7 +33,7 @@ export MAIL_PAYLOAD_KEY="$(openssl rand -hex 32)"             # wymagane przez k
 pnpm perf:report                                              # reset fixture, P1 przed/po, EXPLAIN, P2; ok. 20 min
 ```
 
-`pnpm perf:report -- --no-reset` pomija reset fixture; `--seconds N` zmienia czas scenariusza. Wyniki: `docs/performance/results/SUMMARY.md`, `*.json`, `explain.txt`. Pojedyncze kroki: `pnpm perf:generate -- --profile p1|p2`, `pnpm perf:run -- --profile p1 --variant after --only public-check,mixed-peak`, `pnpm perf:explain`. Skrypty piszą wyłącznie do bazy `auterva_fixture_9` na klastrze tego worktree (ten sam guard co `seed-local-fixture.ts --reset`), a `--reset` kasuje jej dane. Harness nie wchodzi do `pnpm test:integration`.
+`pnpm perf:report -- --no-reset` pomija reset fixture; `--seconds N` zmienia czas scenariusza. Surowe wyniki (`SUMMARY.md`, pliki JSON) trafiają do `.local/perf/report/`, plany EXPLAIN do `.local/perf/explain.txt`; nie są śledzone w repozytorium i są dołączane do PR jako komentarz. Pojedyncze kroki: `pnpm perf:generate -- --profile p1|p2`, `pnpm perf:run -- --profile p1 --variant after --only public-check,mixed-peak`, `pnpm perf:explain`. Skrypty piszą wyłącznie do bazy `auterva_fixture_9` na klastrze tego worktree (ten sam guard co `seed-local-fixture.ts --reset`), a `--reset` kasuje jej dane. Harness nie wchodzi do `pnpm test:integration`.
 
 Wariant „przed” (`--variant before`) usuwa nowy indeks, używa poprzedniego predykatu (`scripts/perf/legacy-availability.ts`) i poprzedniego rzutu kalendarza; „po” używa bieżącego kodu i indeksu.
 
@@ -52,11 +52,11 @@ To jest pułap ścieżki zapytań z prawdziwą pulą 10 połączeń, nie p95 wid
 | lista admin 100 aut, availableToday | 43,9 | 39,7 | 428 | 489 |
 | katalog publiczny 50 aut z datami | 29,1 | 31,4 | 689 | 659 |
 
-Trzy ostatnie wiersze nie zmieniły kodu ani zapytania; różnice mieszczą się w szumie pomiaru (maszyna współdzielona z innymi procesami).
+Trzy ostatnie wiersze nie zmieniły kodu ani zapytania; różnice mieszczą się w szumie pomiaru (maszyna współdzielona z innymi procesami, patrz uwaga wyżej).
 
 Saturacja pod 16 wywołaniami po zmianach: CPU procesu Node około 95-105% (jeden wątek jest granicą), CPU backendów PostgreSQL 340-635% przy 13-35 tys. zapytań/s, 8-9 aktywnych połączeń z puli 10, 0 oczekiwań na blokady. Przed zmianą baza filtrowała około 765 blokad na auto; po zmianie jedno wyszukanie po indeksie na auto.
 
-### EXPLAIN (ANALYZE, BUFFERS), 100 aut, `docs/performance/results/explain.txt`
+### EXPLAIN (ANALYZE, BUFFERS), 100 aut (`.local/perf/explain.txt`, pełny plan w komentarzu PR)
 
 | Zapytanie | Czas | Bufory |
 |---|---:|---:|
@@ -68,23 +68,23 @@ Poprzedni predykat nie korzysta z nowego indeksu (plan ten sam). Nowe zapytanie 
 
 ## Wyniki: ruch przez handlery z realnymi limitami (po zmianach)
 
-p95 w ms, 0 błędów w każdym wierszu. Cel NFR w nawiasie.
+p95 w ms, 0 błędów w każdym wierszu. Cel NFR w nawiasie. Liczność próbki (n) jest mała (20 s przy niskich stawkach, limity produktu), więc p95 z kilkudziesięciu żądań jest orientacyjne, a p99 praktycznie równe maksimum. Wniosek o zapisie blokady opieramy na pomiarze serwisu poniżej (kilkanaście tysięcy cykli), a wiersze zapisu przez handler (n = 8 i 16) potwierdzają tylko, że ścieżka z autoryzacją, limitem i audytem działa bez błędów.
 
-| Scenariusz | P1 p50 | P1 p95 | P2 p95 (proponowany) |
-|---|---:|---:|---:|
-| dostępność, pojedyncza (publiczna) (≤ 500) | 10,0 | 20,0 | 18,0 |
-| dostępność, batch 50 slugów (publiczna) (≤ 500) | 10,7 | 20,6 | 15,1 |
-| kalendarz publiczny 31 dni | 9,5 | 20,1 | 18,6 |
-| katalog publiczny, strona 1 (50 aut) | 14,2 | 23,7 | 24,1 |
-| katalog publiczny z datami (50 aut) | 25,1 | 34,0 | 33,6 |
-| lista 100 aut publiczna: strona 1 / strona 2 / razem (≤ 600) | 13,4 / 8,3 / 22,3 | 23,1 / 15,6 / 31,3 | 23,5 / 10,9 / 33,1 |
-| lista admin, jedna strona 100 aut (≤ 600) | 26,7 | 34,6 | 33,5 |
-| lista 100 aut admin: strona 1 / strona 2 / razem (po 50) (≤ 600) | 18,9 / 11,9 / 31,2 | 22,5 / 13,6 / 33,8 | 24,0 / 14,1 / 36,1 |
-| admin availableToday, 100 aut | 35,1 | 39,4 | 40,6 |
-| kalendarz admina 365 dni | 12,9 | 20,5 | 19,0 |
-| zapis blokady przez handler (0,4/s na admina, limit 60/min) (≤ 800) | 14,7 | 22,7 | 22,4 |
-| usunięcie blokady przez handler | 8,0 | 14,5 | 14,3 |
-| mieszanka 25 req/s (500 żądań, plus zapis 0,4/s na admina) | 5,4 | 19,4 | 17,0 |
+| Scenariusz | n (P1 / P2) | P1 p50 | P1 p95 | P2 p95 (proponowany) |
+|---|---:|---:|---:|---:|
+| dostępność, pojedyncza (publiczna) (≤ 500) | 100 / 100 | 10,0 | 20,0 | 18,0 |
+| dostępność, batch 50 slugów (publiczna) (≤ 500) | 100 / 100 | 10,7 | 20,6 | 15,1 |
+| kalendarz publiczny 31 dni | 100 / 100 | 9,5 | 20,1 | 18,6 |
+| katalog publiczny, strona 1 (50 aut) | 100 / 100 | 14,2 | 23,7 | 24,1 |
+| katalog publiczny z datami (50 aut) | 100 / 100 | 25,1 | 34,0 | 33,6 |
+| lista 100 aut publiczna: strona 1 / strona 2 / razem (≤ 600) | 50 / 50 par | 13,4 / 8,3 / 22,3 | 23,1 / 15,6 / 31,3 | 23,5 / 10,9 / 33,1 |
+| lista admin, jedna strona 100 aut (≤ 600) | 30 / 60 | 26,7 | 34,6 | 33,5 |
+| lista 100 aut admin: strona 1 / strona 2 / razem (po 50) (≤ 600) | 14 / 28 par | 18,9 / 11,9 / 31,2 | 22,5 / 13,6 / 33,8 | 24,0 / 14,1 / 36,1 |
+| admin availableToday, 100 aut | 30 / 60 | 35,1 | 39,4 | 40,6 |
+| kalendarz admina 365 dni | 30 / 60 | 12,9 | 20,5 | 19,0 |
+| zapis blokady przez handler (0,4/s na admina, limit 60/min) (≤ 800) | 8 / 16 | 14,7 | 22,7 | 22,4 |
+| usunięcie blokady przez handler | 8 / 16 | 8,0 | 14,5 | 14,3 |
+| mieszanka 25 req/s (500 żądań, plus zapis 0,4/s na admina) | 500 / 500 | 5,4 | 19,4 | 17,0 |
 
 Mieszanka: 50% sprawdzenie dostępności, 10% batch, 15% katalog, 10% katalog z datami, 9% kalendarz publiczny, 3% lista admina, 3% kalendarz admina. W P2 pula (do 12 połączeń z trzech pul harnessu i handlerów), CPU procesu około 10%, CPU backendów PostgreSQL około 120%, brak oczekiwań na blokady.
 
@@ -104,15 +104,15 @@ Zapisy blokad jednej firmy są szeregowane blokadą wiersza Organization (taki s
 
 | Scenariusz | Wynik |
 |---|---|
-| Dostarczenie wiadomości czatu (cel C-N066 ≤ 2 s), P1: 10 połączeń, 14 wiadomości | p95 34,1 ms, 126 dostarczeń oczekiwanych, 0 zagubionych |
-| to samo, P2: 20 połączeń (2 firmy po 5 admin i 5 superadmin), 28 wiadomości | p95 33,5 ms, 252 oczekiwane dostarczenia, 0 zagubionych |
+| Dostarczenie wiadomości czatu (cel C-N066 ≤ 2 s), P1: 10 połączeń, 14 wiadomości, 126 dostarczeń (socket, wiadomość) | p50 21,7, p95 39,9, maks. 40,4 ms; 126/126 dostarczone, 0 brakujących, 0 do obcej firmy, 0 z błędną rozmową, 0 duplikatów, 0 błędów gniazd |
+| to samo, P2: 20 połączeń (2 firmy po 5 admin i 5 superadmin), 28 wiadomości, 252 dostarczenia | p50 23,5, p95 40,2, maks. 45,9 ms; 252/252, wszystkie liczniki błędów 0 |
 | Worker, kolejka: claim + start + finish, 4 równoległych, zaległość 20 000 PENDING i 100 000 zakończonych | ok. 630 jobów/s, p95 cyklu 7,7-7,9 ms, 0 błędów; CPU backendów PostgreSQL około 380% |
 
-Liczba wiadomości jest mała, bo limit wysyłki czatu (10/10 s i 30/min na aktora) nie jest wyłączony; próbka dostarczeń jest większa (każda wiadomość trafia do wszystkich pozostałych połączeń firmy). Pomiar workera obejmuje wyłącznie kolejkę (bez wywołania dostawcy poczty).
+Dostarczenia są liczone jako zbiór par (gniazdo, wiadomość), z sprawdzeniem firmy odbiorcy i `conversationId` ramki; brak, duplikat, dostarczenie do obcej firmy, zła rozmowa i błąd gniazda po otwarciu są osobnymi błędami i dają niezerowy wynik. Pomiar WS powtórzono na finalnym kliencie harnessu. Liczba wiadomości jest mała, bo limit wysyłki czatu (10/10 s i 30/min na aktora) nie jest wyłączony; próbka dostarczeń jest większa (każda wiadomość trafia do wszystkich pozostałych połączeń firmy). Pomiar workera obejmuje wyłącznie kolejkę (bez wywołania dostawcy poczty).
 
 ## Zmiany i dowody niezmienności semantyki
 
-1. **Indeks** `AvailabilityBlock_vehicleId_from_idx` (`vehicleId`, `from DESC`): addytywna migracja `20261028120000_availability_latest_block_issue_59`, zwykły `CREATE INDEX` (krótka blokada zapisu na tabeli; na zasiedlonej bazie rozważyć wcześniejsze `CREATE INDEX CONCURRENTLY` o tej samej nazwie ręcznie, wtedy migracja ma być oznaczona jako zastosowana lub dostosowana przez operatora). Wycofanie: `DROP INDEX`.
+1. **Indeks** `AvailabilityBlock_vehicleId_from_idx` (`vehicleId`, `from DESC`): addytywna migracja `20261028120000_availability_latest_block_issue_59`, zwykły `CREATE INDEX`, który blokuje zapisy do `AvailabilityBlock` przez całą budowę indeksu (odczyty nie są blokowane); przed produkcją (#3) przy tej skali akceptowalne, na zasiedlonej tabeli produkcyjnej utworzyć indeks wcześniej ręcznie `CREATE INDEX CONCURRENTLY` pod tą samą nazwą. Wycofanie: `DROP INDEX`.
 2. **Zapytanie** `availableVehicleIds` (`src/modules/availability/read.ts`) dla sprawdzenia publicznego (pojedynczego i batch) oraz prywatnego: blokady pojazdu nie nakładają się (constraint GiST `availability_no_overlap`), więc przecięcie z `[from, to]` wystąpi dokładnie wtedy, gdy blokada o najpóźniejszym `from <= to` kończy się w dniu `>= from`. Daty to `YYYY-MM-DD` rzutowane na `date`, końce włącznie, tenant sprawdzany po `organizationId` pojazdu i bloku. Odczyt zawsze trafia do bazy.
 3. **Rzut kalendarza** (`calendarDays`): daty bloków formatowane raz zamiast w pętli po dniach (365 dni x blokady). Wynik identyczny.
 

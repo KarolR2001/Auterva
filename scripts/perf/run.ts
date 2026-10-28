@@ -317,10 +317,11 @@ async function workerPhase() {
   });
 }
 
-if (variant === "before") await db.$executeRawUnsafe('DROP INDEX IF EXISTS "AvailabilityBlock_vehicleId_from_idx"');
-await setup();
 const stamp = new Date().toISOString();
 try {
+  // Inside the try: any failure after the index is dropped still restores it in `finally`.
+  if (variant === "before") await db.$executeRawUnsafe('DROP INDEX IF EXISTS "AvailabilityBlock_vehicleId_from_idx"');
+  await setup();
   if (variant === "after") { await endpointPhases(); await blockServicePhases(); }
   await saturationPhases();
   if (variant === "after") { await mixedPhase(); await workerPhase(); }
@@ -328,7 +329,7 @@ try {
   if (wants("ws-chat")) {
     const outcomeWs = await wsPhase({ db, companies, seconds, seed });
     results.push(outcomeWs);
-    process.stdout.write(`ws-chat: ${JSON.stringify(outcomeWs.stats)}\n`);
+    process.stdout.write(`ws-chat: ${JSON.stringify(outcomeWs.stats)} ${JSON.stringify(outcomeWs.extra)}\n`);
   }
 } finally {
   if (variant === "before") await db.$executeRawUnsafe(indexSql);

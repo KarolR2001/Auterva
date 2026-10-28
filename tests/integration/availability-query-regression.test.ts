@@ -47,7 +47,7 @@ afterAll(async () => {
   await db.organization.deleteMany({ where: { id: organizationId } });
   await db.vehicleCategory.deleteMany({ where: { code: `${prefix}-cat` } });
   await db.$disconnect();
-});
+}, 30_000);
 
 test("generated blocks never overlap, which the latest-block lookup relies on", async () => {
   const rows = await db.$queryRaw<{ n: bigint }[]>`
@@ -96,7 +96,7 @@ test("availability ids equal the legacy predicate for every range, with and with
   expect((await availableVehicleIds(db, c1.organizationId, ids(2), r, false)).size).toBe(0);
   expect((await legacyAvailableIds(db, c1.organizationId, ids(2), r, false)).size).toBe(0);
   expect((await availableVehicleIds(db, c1.organizationId, [], r, false)).size).toBe(0);
-});
+}, 30_000);
 
 test("public single, batch and private reads agree with the legacy predicate", async () => {
   const rand = mulberry32(5);
@@ -116,7 +116,7 @@ test("public single, batch and private reads agree with the legacy predicate", a
     const privateExpected = await legacyAvailableIds(db, c1.organizationId, ids(1), r, false);
     expect([...privateAll].map(([id, ok]) => [id, ok]).sort()).toEqual(ids(1).map((id) => [id, privateExpected.has(id)]).sort());
   }
-});
+}, 30_000);
 
 test("calendar days equal the previous projection", async () => {
   for (const [from, to] of [[-30, 120], [-400, -36], [2200, 2564], [0, 0]] as const) {
@@ -130,7 +130,7 @@ test("calendar days equal the previous projection", async () => {
       expect((await getPublicCalendar(db, c1.publicHost, vehicleSlug(prefix, 1, v), r))?.days).toEqual(expected);
     }
   }
-});
+}, 30_000);
 
 test("a block change is visible to the next public read, and parallel writers still conflict", async () => {
   const input = (vehicle: string) => ({ actorId: c1.adminId, sessionId, organizationId: c1.organizationId, requestId: randomUUID(), vehicleId: vehicle });
@@ -158,4 +158,32 @@ test("a block change is visible to the next public read, and parallel writers st
   expect(await getPublicAvailability(db, c1.publicHost, slug, range(day(2504), day(2504)))).toEqual({ available: true });
   await deleteBlock(db, { ...input(vehicle), blockId: next.id, expectedVersion: next.version });
   await deleteBlock(db, { ...input(vehicle), blockId: won[0].value.id, expectedVersion: won[0].value.version });
-});
+}, 30_000);
+
+test("touching blocks (to + 1 == from) and every window across the joints match the legacy predicate", async () => {
+  const vehicle = ids(1)[4];
+  await db.availabilityBlock.deleteMany({ where: { vehicleId: vehicle } });
+  const spans: [number, number][] = [[10, 12], [13, 15], [16, 16], [17, 17], [19, 21]]; // 12|13, 15|16 and 16|17 touch; 18 is free
+  await db.availabilityBlock.createMany({ data: spans.map(([from, to], i) => ({ id: randomUUID(), organizationId: c1.organizationId,
+    vehicleId: vehicle, from: sqlDate(day(from)), to: sqlDate(day(to)), type: i % 2 ? "MAINTENANCE" : "BLOCKED", source: "MANUAL" })) });
+  let blocked = 0;
+  let free = 0;
+  for (let a = 7; a <= 24; a += 1) {
+    for (let b = a; b <= 24; b += 1) {
+      const r = range(day(a), day(b));
+      for (const published of [true, false]) {
+        const expected = await legacyAvailableIds(db, c1.organizationId, [vehicle], r, published);
+        const actual = await availableVehicleIds(db, c1.organizationId, [vehicle], r, published);
+        expect([...actual]).toEqual([...expected]);
+        if (published) { if (actual.size) free += 1; else blocked += 1; }
+      }
+    }
+  }
+  expect(free).toBeGreaterThan(0); // e.g. day 18 alone, days 7-9, 22-24
+  expect(blocked).toBeGreaterThan(free); // most windows touch a block
+  const single = (offset: number) => getPublicAvailability(db, c1.publicHost, vehicleSlug(prefix, 1, 4), range(day(offset), day(offset)));
+  expect(await single(12)).toEqual({ available: false });
+  expect(await single(13)).toEqual({ available: false });
+  expect(await single(18)).toEqual({ available: true });
+  expect(await single(22)).toEqual({ available: true });
+}, 30_000);

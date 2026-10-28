@@ -8,7 +8,7 @@ import { requireOwnFixture } from "./target";
 
 /**
  * EXPLAIN (ANALYZE, BUFFERS) of the main availability queries on the generated P1 data, without and with the index of #59.
- * Output: docs/performance/results/explain.txt. Restores the index it dropped.
+ * Output: .local/perf/explain.txt (ignored by git; attach to the PR). Restores the index it dropped.
  */
 const url = await requireOwnFixture();
 const client = new Client({ connectionString: url });
@@ -45,7 +45,7 @@ try {
     }
   }
 } finally { await client.query(create); await client.end(); }
-const out = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "docs", "performance", "results", "explain.txt");
+const out = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", ".local", "perf", "explain.txt");
 mkdirSync(dirname(out), { recursive: true });
 writeFileSync(out, text);
 process.stdout.write(`Wrote ${out}\n`);
