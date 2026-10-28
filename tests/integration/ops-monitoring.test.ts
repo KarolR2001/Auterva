@@ -297,7 +297,8 @@ test("B1: the audit worker is visible to monitoring: heartbeat, and a cleanup sw
     await waitFor("audit worker ops", async () => (await opsGet(port, "/live")).ok);
     const text = await waitFor("sweep failure counter", async () => {
       const body = await (await opsGet(port, "/metrics", authorized)).text();
-      return /auterva_audit_export_sweep_failures_total \d+/.test(body) ? body : false;
+      // The heartbeat is set after the first loop pass, the sweep counter during it: wait for both.
+      return /auterva_audit_export_sweep_failures_total \d+/.test(body) && body.includes('auterva_worker_last_iteration_timestamp_seconds{worker="audit-worker"}') ? body : false;
     });
     expect(text).toContain('auterva_worker_last_iteration_timestamp_seconds{worker="audit-worker"}');
     const file = join(dir, "audit-alerts.jsonl");
