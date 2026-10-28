@@ -9,6 +9,7 @@ import {
   appendRestoreAudit, decryptToBuffer, putRestoredObject, quarantineRestoredState, restoreFull,
 } from "./restore";
 import { join } from "node:path";
+import { CHAT_CHANNEL } from "../chat/signal";
 
 /** Company-scoped tables in parent-first insert order; each filter selects ONE company's rows. */
 const ORG = `"organizationId" = $1`;
@@ -287,6 +288,9 @@ export async function restoreCompany(input: {
       if (failed.length > 0) throw new BackupError("RESTORE_INTEGRITY_FAILED", `Rolled back: ${failed.map((c) => c.name).join("; ")}`);
       await appendRestoreAudit(live, { operatorId: input.operatorId, organizationId: orgId, action: "COMPANY_RESTORED_FROM_BACKUP",
         backupId: manifest.id, summary: { scope: "COMPANY", ...quarantine, restored, mediaObjects, droppedCursors, usersLocked: usersLocked.length } });
+      // Restore can lower `lastSeq`/`readSeq` (cursors of the backup) and always raises `version`: announce it inside the
+      // transaction so the platform inbox shows the new state on commit and never for a rollback (contract chat-realtime).
+      await live.query(`SELECT pg_notify($1, $2)`, [CHAT_CHANNEL, JSON.stringify({ k: "o", o: orgId })]);
       await live.query("COMMIT");
     } catch (error) {
       await live.query("ROLLBACK").catch(() => undefined);

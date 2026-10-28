@@ -12,6 +12,7 @@ import { backupAge, createBackup, pruneBackups } from "../../src/modules/backup/
 import { assertCompanyTablesClassified, restoreCompany } from "../../src/modules/backup/company";
 import { connect, quote, withDatabase } from "../../src/modules/backup/core";
 import { restoreFull } from "../../src/modules/backup/restore";
+import { inboxSummaries } from "../../src/modules/chat/platform-inbox";
 import { createMediaStorage, type MediaStorage } from "../../src/modules/media/storage";
 
 // The suite never touches shared fixture data: it owns a source database and a source bucket, and every
@@ -485,6 +486,43 @@ test("B1: a company write that commits while the restore waits for the company l
   expect(late).toHaveLength(1);
   expect(late[0].status).toBe("SKIPPED");
   expect(JSON.stringify(late[0].payload)).not.toContain("late-invite");
+});
+
+test("#175: a restore that lowers the superadmin cursor yields a newer inbox state by (version, lastSeq, readSeq) and announces it on commit", async () => {
+  const { dir } = await createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" });
+  const superadmin = `bk-super-${tag}`;
+  await live.query(`INSERT INTO "user" (id, name, email, "emailVerified", "twoFactorEnabled", role, "createdAt", "updatedAt")
+    VALUES ($1, 'Superadmin', $2, true, true, 'SUPERADMIN_AUTERVA', now(), now())`, [superadmin, `bk-super-${tag}@example.test`]);
+  const last = (await live.query(`SELECT id FROM "ChatMessage" WHERE "organizationId" = $1 ORDER BY seq DESC LIMIT 1`, [A])).rows[0].id;
+  await live.query(`INSERT INTO "ConversationReadCursor" (id, "organizationId", "conversationId", "userId", "lastMessageId")
+    VALUES ($1, $2, $3, $4, $5)`, [randomUUID(), A, ids.convA, superadmin, last]);
+  const prisma = createPrismaClient(databaseUrl);
+  const listener = await connect(databaseUrl);
+  const announced: string[] = [];
+  listener.on("notification", (message) => { if (message.payload) announced.push(message.payload); });
+  await listener.query("LISTEN auterva_chat");
+  try {
+    const [before] = await inboxSummaries(prisma, superadmin, [A]);
+    expect(before.readSeq).toBeGreaterThan(0);
+    expect((await restoreCompany({ backupDir: dir, key, organizationId: A, targetUrl: databaseUrl, repoDir, operatorId: operator, storage })).ok).toBe(true);
+    // The backup has no cursor of the superadmin: the restore lowers readSeq, so only `version` can tell the newer state.
+    const [after] = await inboxSummaries(prisma, superadmin, [A]);
+    expect(after.readSeq).toBeLessThan(before.readSeq);
+    expect(after.lastSeq).toBeGreaterThanOrEqual(before.lastSeq);
+    expect(after.version).toBeGreaterThan(before.version);
+    const key3 = (state: typeof before) => [state.version, state.lastSeq, state.readSeq];
+    const newer = (a: number[], b: number[]) => { for (const [i, v] of a.entries()) if (v !== b[i]) return v > b[i]; return false; };
+    expect(newer(key3(after), key3(before))).toBe(true);
+    expect(newer([after.lastSeq, after.readSeq, after.version], [before.lastSeq, before.readSeq, before.version])).toBe(false);
+    for (let attempt = 0; attempt < 100 && !announced.includes(JSON.stringify({ k: "o", o: A })); attempt++) await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(announced).toContain(JSON.stringify({ k: "o", o: A }));
+    expect(announced.filter((payload) => payload.includes(B))).toEqual([]);
+  } finally {
+    await listener.end();
+    await prisma.$disconnect();
+    await live.query(`DELETE FROM "ConversationReadCursor" WHERE "userId" = $1`, [superadmin]);
+    await live.query(`DELETE FROM "user" WHERE id = $1`, [superadmin]);
+  }
 });
 
 test("B4/B5: a failure after the database was created drops it; a backup with media needs a bucket; --skip-media is never ok", async () => {
