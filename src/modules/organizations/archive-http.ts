@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { isUuid, isVersion, newPeriodRequestId, periodResponse, platformPeriodActor,
   readPeriodBody } from "@/modules/service-period/http";
 import { archiveCompany, restoreCompany } from "./archive";
+import { reportInternalError } from "@/modules/observability/http-observe";
 
 function archiveFailure(error: unknown, requestId: string): Response {
   const message = error instanceof Error ? error.message : "";
@@ -12,7 +13,7 @@ function archiveFailure(error: unknown, requestId: string): Response {
   // A reused audit event key rolls back the whole mutation; never report it as success.
   if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002")
     return periodResponse({ code: "EVENT_KEY_CONFLICT" }, 409, requestId);
-  return periodResponse({ code: "INTERNAL_ERROR" }, 500, requestId);
+  return periodResponse({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "archive"));
 }
 
 /** Shared transport of the two platform-only archive mutations (same guards as period writes). */

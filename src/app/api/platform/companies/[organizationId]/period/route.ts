@@ -1,9 +1,10 @@
+import { routeContext } from "@/modules/observability/route-context";
 import { prisma } from "@/lib/prisma";
 import { isUuid, isVersion, newPeriodRequestId, periodFailure, periodResponse,
   platformPeriodActor, readPeriodBody } from "@/modules/service-period/http";
 import { changePaidThrough } from "@/modules/service-period/mutations";
 
-export async function PATCH(request: Request, context: { params: Promise<{ organizationId: string }> }) {
+async function handlePATCH(request: Request, context: { params: Promise<{ organizationId: string }> }) {
   const requestId = newPeriodRequestId();
   const { organizationId } = await context.params;
   if (!isUuid(organizationId)) return periodResponse({ code: "INVALID_ORGANIZATION_ID" }, 400, requestId);
@@ -28,3 +29,5 @@ export async function PATCH(request: Request, context: { params: Promise<{ organ
     return periodResponse(result, 200, requestId);
   } catch (error) { return periodFailure(error, requestId); }
 }
+
+export const PATCH = routeContext(handlePATCH);

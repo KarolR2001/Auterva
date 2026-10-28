@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { actor, body, only, response, uuid } from "@/modules/fleet/http";
 import { BlockOverlapError, createBlock, deleteBlock, editBlock,
   type BlockCreateFields, type BlockEditFields } from "./blocks";
+import { reportInternalError } from "@/modules/observability/http-observe";
 
 type Area = "COMPANY_ADMIN" | "PLATFORM";
 
@@ -22,7 +23,7 @@ function failure(error: unknown, requestId: string) {
   }
   if (["BLOCK_VERSION_CONFLICT", "BLOCK_VEHICLE_ARCHIVED"].includes(code)) return response({ code }, 409, requestId);
   if (code === "Audit actor is not authorized") return response({ code: "FORBIDDEN" }, 403, requestId);
-  return response({ code: "INTERNAL_ERROR" }, 500, requestId);
+  return response({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "availability.blocks"));
 }
 
 function operation(access: Awaited<ReturnType<typeof actor>>, requestId: string) {
