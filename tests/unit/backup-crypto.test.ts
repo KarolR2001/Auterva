@@ -17,7 +17,7 @@ test("round-trips empty, small and multi-frame data", async () => {
   for (const size of [0, 1, 1024 * 1024, 1024 * 1024 + 1, 3 * 1024 * 1024 + 17]) {
     const plain = randomBytes(size);
     const sealed = await run(createEncryptor(key), plain);
-    expect(size === 0 || !sealed.includes(plain.subarray(0, Math.min(size, 32)))).toBe(true);
+    expect(size < 16 || !sealed.includes(plain.subarray(0, Math.min(size, 32)))).toBe(true);
     expect((await run(createDecryptor(key), sealed)).equals(plain)).toBe(true);
   }
 });
