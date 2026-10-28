@@ -6,12 +6,18 @@ import { log, logFailure } from "@/modules/observability/log";
 import { metrics, names } from "@/modules/observability/metrics";
 import { iterationOutcome } from "@/modules/observability/worker-metrics";
 
-/** Storage-side failures: Node errno codes (EACCES, EIO, EPERM, EISDIR) or the export store's own AUDIT_EXPORT_* codes; database errors are neither. */
+// Allowlist: only codes that mean "the export directory/files cannot be read, written or removed". Network errors
+// (ECONNREFUSED, ETIMEDOUT, ...) and Prisma codes are database problems and belong to READY_DATABASE. ENOENT is included:
+// removing a single already-missing file is tolerated by the store (removeIfPresent), so an ENOENT that still reaches
+// the runner means the export directory itself is gone, which is a storage fault.
+const filesystemCodes = new Set(["EACCES", "EIO", "EPERM", "EISDIR", "ENOSPC", "EROFS", "EBUSY", "ENOTEMPTY", "EEXIST", "ENOENT"]);
+
+/** Storage-side failures: allowlisted errno codes or the export store's own AUDIT_EXPORT_* codes; database errors are neither. */
 export function isFilesystemError(error: unknown): boolean {
-  if (error instanceof Error && /^AUDIT_EXPORT_[A-Z_]+$/.test(error.message)) return true; // e.g. directory not private
+  const exportCode = /^AUDIT_EXPORT_[A-Z_]+$/;
+  if (error instanceof Error && exportCode.test(error.message)) return true; // e.g. directory not private
   const code = (error as { code?: unknown } | null)?.code;
-  return typeof code === "string" && /^E[A-Z0-9]{2,}$/.test(code)
-    && !/^(ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|EPIPE|EHOSTUNREACH|ENETUNREACH)$/.test(code); // network: a database problem
+  return typeof code === "string" && (filesystemCodes.has(code) || exportCode.test(code));
 }
 
 export type AuditRetentionRunnerOptions = {

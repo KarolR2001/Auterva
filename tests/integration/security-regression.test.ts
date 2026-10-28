@@ -737,17 +737,20 @@ test("#176: NUL and control characters in the text of every authenticated mutati
   // The routes classified as free of text are probed too: NUL in every string of a minimal body (or in an unexpected extra
   // field when the body has none) is never a server error.
   const uuidOne = randomUUID();
+  // Versions no row can have (int32 maximum): a probe that passes validation is refused as a conflict and never mutates the
+  // shared fixture, whatever the route does with a matching version.
+  const neverMatches = 2_147_483_647;
   const minimal: Record<string, () => Record<string, unknown>> = {
-    "vehicles/[id]/[action]": () => ({ expectedVersion: 0 }), "vehicles/[id]/blocks/[blockId]": () => ({ expectedVersion: 0 }),
-    "vehicles/[id]/images/[imageId]": () => ({ expectedVersion: 0 }),
-    "vehicles/[id]/images/order": () => ({ items: [{ id: uuidOne, expectedVersion: 0 }] }),
-    "vehicles/[id]/images": () => ({}), "vehicles/reorder": () => ({ items: [{ id: uuidOne, expectedVersion: 0, sortOrder: 1 }] }),
-    "chat/conversation": () => ({}), "archive": () => ({ expectedOrganizationVersion: 0, eventKey: uuidOne }),
-    "restore": () => ({ expectedOrganizationVersion: 0, eventKey: uuidOne }), "public-unlock": () => ({ expectedOrganizationVersion: 0, eventKey: uuidOne }),
-    "domains": () => ({ expectedVersion: 0, eventKey: uuidOne }), "domains/activate": () => ({ expectedVersion: 0, eventKey: uuidOne }),
+    "vehicles/[id]/[action]": () => ({ expectedVersion: neverMatches }), "vehicles/[id]/blocks/[blockId]": () => ({ expectedVersion: neverMatches }),
+    "vehicles/[id]/images/[imageId]": () => ({ expectedVersion: neverMatches }),
+    "vehicles/[id]/images/order": () => ({ items: [{ id: uuidOne, expectedVersion: neverMatches }] }),
+    "vehicles/[id]/images": () => ({}), "vehicles/reorder": () => ({ items: [{ id: uuidOne, expectedVersion: neverMatches, sortOrder: 1 }] }),
+    "chat/conversation": () => ({}), "archive": () => ({ expectedOrganizationVersion: neverMatches, eventKey: uuidOne }),
+    "restore": () => ({ expectedOrganizationVersion: neverMatches, eventKey: uuidOne }), "public-unlock": () => ({ expectedOrganizationVersion: neverMatches, eventKey: uuidOne }),
+    "domains": () => ({ expectedVersion: neverMatches, eventKey: uuidOne }), "domains/activate": () => ({ expectedVersion: neverMatches, eventKey: uuidOne }),
     "domains/verify": () => ({ eventKey: uuidOne }), "invitations": () => ({ idempotencyKey: uuidOne }), "invitations/[invitationId]": () => ({}),
-    "settings": () => ({ group: "profile", expectedVersion: 0, eventKey: uuidOne, fields: { name: "Probe" } }),
-    "public-media/[segment]": () => ({ expectedVersion: 0, eventKey: uuidOne }),
+    "settings": () => ({ group: "profile", expectedVersion: neverMatches, eventKey: uuidOne, fields: { name: "Probe" } }),
+    "public-media/[segment]": () => ({ expectedVersion: neverMatches, eventKey: uuidOne }),
   };
   let untextProbes = 0;
   for (const { route, method, key } of mutations.filter((item) => withoutText.has(item.key))) {

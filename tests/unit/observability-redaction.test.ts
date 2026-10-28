@@ -79,6 +79,16 @@ test("invitation-token paths are masked (W6)", () => {
   expect(scrubString("Request body exceeded 10MB for /api/auth/invitation/abc123-secret-token/")).toBe("Request body exceeded 10MB for /api/auth/invitation/[token]/");
 });
 
+test("key=, token= and secret= are masked without ?/& before them, but plain words are not (#180)", () => {
+  expect(scrubString("failed with key=abc123 and then token=xyz789 secret=s3cr3t!")).toBe("failed with key=[redacted] and then token=[redacted] secret=[redacted]");
+  expect(scrubString("dsn api_key=abc123 access-token=def456 KEY=UPPER")).toBe("dsn api_key=[redacted] access-token=[redacted] KEY=[redacted]");
+  expect(scrubString('{"x":"key=abc123"}')).toBe('{"x":"key=[redacted]"}');
+  expect(scrubString("/x?a=1&key=abc123&page=2")).toBe("/x?a=1&key=[redacted]&page=2");
+  // No false hits: the name must start a word and be followed directly by "=".
+  const plain = "monkey=banana hotkey=F5 the key was rotated; token bucket full; secretary=Ann keyboard=us turkey = roast";
+  expect(scrubString(plain)).toBe(plain);
+});
+
 test("a throwing getter or unserialisable field never breaks the caller (N1)", () => {
   const lines = capture();
   const hostile = { get boom(): string { throw new Error("getter"); } };

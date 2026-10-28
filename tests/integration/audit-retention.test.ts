@@ -1,19 +1,35 @@
-import { randomUUID } from "node:crypto";
-import { afterAll, expect, test } from "vitest";
+import { execFileSync } from "node:child_process";
+import { randomBytes, randomUUID } from "node:crypto";
+import { Client } from "pg";
+import { afterAll, beforeAll, expect, test } from "vitest";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { claimNextJob } from "../../src/modules/jobs/queue";
 import { auditRetentionCutoff, processAuditRetentionJob, scheduleAuditRetention } from "../../src/modules/audit/retention";
 
-const db = createPrismaClient(process.env.DATABASE_URL ?? "");
+// The purge deletes every AuditLog row older than the cutoff and the worker claims any due AUDIT_RETENTION job, so this
+// file runs on its own migrated database (as the audit worker in ops-monitoring.test.ts): nothing here can purge, claim
+// or count rows of the shared fixture (#180).
+const sharedUrl = process.env.DATABASE_URL ?? "";
+const isolatedName = `auterva_ret_180_${randomBytes(4).toString("hex")}`;
+const isolatedUrl = (() => { const u = new URL(sharedUrl); u.pathname = `/${isolatedName}`; return u.toString(); })();
+const maintenanceUrl = (() => { const u = new URL(sharedUrl); u.pathname = "/postgres"; return u.toString(); })();
+const db = createPrismaClient(isolatedUrl);
 const now = new Date("2026-10-26T12:00:00.000Z");
 const ownIds: string[] = [];
 const ownJobIds: string[] = [];
 
+beforeAll(async () => {
+  const admin = new Client({ connectionString: maintenanceUrl });
+  await admin.connect();
+  try { await admin.query(`CREATE DATABASE "${isolatedName}"`); } finally { await admin.end(); }
+  execFileSync("pnpm", ["exec", "prisma", "migrate", "deploy"], { cwd: process.cwd(), env: { ...process.env, DATABASE_URL: isolatedUrl }, stdio: "ignore" });
+}, 120_000);
+
 afterAll(async () => {
-  await db.auditRetentionManifest.deleteMany({ where: { jobId: { in: ownJobIds } } });
-  await db.job.deleteMany({ where: { id: { in: ownJobIds } } });
-  await db.auditLog.deleteMany({ where: { id: { in: ownIds } } });
   await db.$disconnect();
+  const admin = new Client({ connectionString: maintenanceUrl });
+  await admin.connect();
+  try { await admin.query(`DROP DATABASE IF EXISTS "${isolatedName}" WITH (FORCE)`); } finally { await admin.end(); }
 });
 
 async function auditAt(at: Date) {
@@ -59,7 +75,7 @@ test("two workers, expired lease and batch restart do not duplicate purge proof 
   const first = await claimNextJob(db, runAt, 1_000, false, "AUDIT_RETENTION");
   expect(first?.id).toBe(job.id);
   const resumedAt = new Date(runAt.getTime() + 1_001);
-  const secondClient = createPrismaClient(process.env.DATABASE_URL ?? "");
+  const secondClient = createPrismaClient(isolatedUrl);
   try {
     const [a, b] = await Promise.all([
       claimNextJob(db, resumedAt, 30_000, false, "AUDIT_RETENTION"),
@@ -164,7 +180,7 @@ test("purge keeps the newest restore audit while an account it listed is still l
 test("collector: a held restore entry older than the cutoff does not raise the purge delay and is counted separately", async () => {
   const { MetricsRegistry } = await import("../../src/modules/observability/metrics");
   const { collectAuditMetrics, metricNames } = await import("../../src/modules/observability/collectors");
-  const at = new Date("2026-10-29T12:00:00.000Z");
+  const at = new Date("2025-12-01T12:00:00.000Z"); // cutoff 2024-12-01: earlier than every other row of this file
   const org = randomUUID();
   const userId = `ret-col-${randomUUID()}`;
   await db.organization.create({ data: { id: org, name: "Ret", slug: `ret-${org.slice(0, 8)}` } as never });
@@ -180,8 +196,17 @@ test("collector: a held restore entry older than the cutoff does not raise the p
     const registry = new MetricsRegistry();
     await collectAuditMetrics(db, at, registry);
     expect(registry.value(metricNames.auditHeldUnlockBasis)).toBe(1);
-    const others = await db.auditLog.count({ where: { id: { not: id }, createdAt: { lt: auditRetentionCutoff(at) } } });
-    if (others === 0) expect(registry.value(metricNames.auditOverdue)).toBe(0);
+    // Unconditional: the database is this file's own and `at` is earlier than every other row it holds, so the held entry
+    // is the only one past the cutoff and the delay must be exactly zero.
+    expect(await db.auditLog.count({ where: { id: { not: id }, createdAt: { lt: auditRetentionCutoff(at) } } })).toBe(0);
+    expect(registry.value(metricNames.auditOverdue)).toBe(0);
+    // The zero is not vacuous: an ordinary entry past the cutoff does raise the delay.
+    const plain = await auditAt(new Date(at.getTime() - 380 * 86_400_000));
+    const delayed = new MetricsRegistry();
+    await collectAuditMetrics(db, at, delayed);
+    expect(delayed.value(metricNames.auditOverdue)).toBeGreaterThan(0);
+    expect(delayed.value(metricNames.auditHeldUnlockBasis)).toBe(1);
+    await db.auditLog.deleteMany({ where: { id: plain.id } });
     await db.user.update({ where: { id: userId }, data: { disabledAt: null } });
     const released = new MetricsRegistry();
     await collectAuditMetrics(db, at, released);

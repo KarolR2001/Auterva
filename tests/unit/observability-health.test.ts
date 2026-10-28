@@ -116,6 +116,9 @@ test("B3: one 5xx per request ID, and only application requests are availability
   expect(isApplicationRequest(req("/admin/"))).toBe(true);
   for (const path of ["/_next/static/chunks/a.js", "/favicon.ico", "/sw.js", "/static-images/x.png"]) expect(isApplicationRequest(req(path))).toBe(false);
   expect(isApplicationRequest(req("/admin/", { "next-router-prefetch": "1" }))).toBe(false);
+  // Application routes with a file-like name count in the denominator because their 5xx count in the numerator.
+  for (const path of ["/robots.txt", "/sitemap.xml", "/sitemap.xml/"]) expect(isApplicationRequest(req(path))).toBe(true);
+  for (const path of ["/robots.txt.map", "/pojazdy/sitemap.xml", "/other.xml"]) expect(isApplicationRequest(req(path))).toBe(false);
 });
 
 test("B3: a helper 500 wrapped by withErrorRequestId is counted once", async () => {

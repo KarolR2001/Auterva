@@ -64,6 +64,10 @@ function ratioRule(windowMs: number, minRequests: number, ratio: number) {
   };
 }
 
+/** Series identity: label order must not matter, or a reordered scrape would look like a new series and lose its step. */
+export const seriesKey = (labels: Labels): string =>
+  JSON.stringify(Object.entries(labels).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+
 export const SLO_AVAILABILITY = 0.999;
 
 export const rules: AlertRule[] = [
@@ -141,6 +145,11 @@ export const rules: AlertRule[] = [
       ? maxGauge(c, metricNames.jobsOldestDue, { kind: "AUDIT_RETENTION" }) > 900 : null },
   { id: "AUDIT_PURGE_DELAYED", title: "Expired audit entries are waiting for the daily purge", severity: "ticket", owner: "operator", group: "audit",
     runbook: "#audit-retention", forEvaluations: 2, clearAfter: 2, breached: gaugeAbove(metricNames.auditOverdue, 36 * 3600, "audit") },
+  // A restore entry kept past the cutoff as unlock basis is deliberate, not a fault: the operator reviews it (a ticket that
+  // repeats every 12 h, the ticket reminder interval) so it does not stay forgotten beyond its 365 days.
+  { id: "AUDIT_UNLOCK_BASIS_HELD", title: "Audit restore entry is held past retention as unlock basis (operator review)", severity: "ticket", owner: "operator", group: "audit",
+    runbook: "#audit-retention", forEvaluations: 2, clearAfter: 2, breached: gaugeAbove(metricNames.auditHeldUnlockBasis, 0, "audit"),
+    detail: (c) => `held=${maxGauge(c, metricNames.auditHeldUnlockBasis)}` },
   { id: "AUDIT_EXPORT_FAILED", title: "Operator audit export failed", severity: "ticket", owner: "operator", group: "audit",
     runbook: "#audit-export", forEvaluations: 1, clearAfter: 2, breached: gaugeAbove(metricNames.exportFailures, 0, "audit") },
   { id: "AUDIT_EXPORT_CLEANUP_OVERDUE", title: "Audit export artifact was not removed on time", severity: "page", owner: "operator", group: "audit",
@@ -181,7 +190,8 @@ export type Notification = {
   at: string; severity: Severity; groups: string[]; firing: AlertView[]; resolved: AlertView[]; reminders: AlertView[];
   suppressedGroups?: string[]; summary: string;
 };
-export type AlertSink = { deliver(notification: Notification): Promise<void> };
+/** `name` labels the per-sink delivery metric; combineSinks falls back to its position. */
+export type AlertSink = { name?: string; deliver(notification: Notification): Promise<void> };
 
 type RuleState = { breaches: number; healthy: number; firing: boolean; firedAt?: number; lastNotifiedAt?: number };
 type Pending = { view: AlertView; kind: "firing" | "resolved" | "reminder" };
@@ -224,7 +234,7 @@ export class AlertEngine {
         const bySeries = new Map<string, number>();
         for (const sample of point.samples) {
           if (sample.name === name && Object.entries(match).every(([k, v]) => sample.labels[k] === v)) {
-            const key = JSON.stringify(sample.labels);
+            const key = seriesKey(sample.labels);
             bySeries.set(key, (bySeries.get(key) ?? 0) + sample.value);
           }
         }
@@ -283,31 +293,34 @@ export class AlertEngine {
 
   private queue(item: Pending, nowMs: number) {
     if (!this.pending.length) this.pendingSince = nowMs;
-    // A resolve that follows a still-unsent fire of the same alert cancels both: a flap inside the grouping window.
+    // Cancel a flap only inside the grouping window; a fire held by the cap must remain visible with its resolution.
     if (item.kind === "resolved") {
       const unsent = this.pending.findIndex((p) => p.view.id === item.view.id && p.kind === "firing");
-      if (unsent >= 0) { this.pending.splice(unsent, 1); return; }
+      if (unsent >= 0 && nowMs - this.pendingSince < this.opts.groupWindowMs) { this.pending.splice(unsent, 1); return; }
     }
     this.pending.push(item);
   }
 
-  /** Returns at most a few notifications: one per group, capped per hour, the overflow folded into one summary. */
+  /** Returns at most the remaining hourly slots; pending events wait until a slot opens. */
   takeNotifications(now: Date): Notification[] {
     const nowMs = now.getTime();
     if (!this.pending.length || nowMs - this.pendingSince < this.opts.groupWindowMs) return [];
-    const items = this.pending; this.pending = [];
     this.sentAt = this.sentAt.filter((t) => t > nowMs - 60 * MIN);
+    const slots = Math.max(0, this.opts.maxPerWindow - this.sentAt.length);
+    if (slots === 0) return [];
+    const items = this.pending; this.pending = [];
     const byGroup = new Map<string, Pending[]>();
     for (const item of items) byGroup.set(item.view.group, [...(byGroup.get(item.view.group) ?? []), item]);
     // Pages first so a storm of tickets can never push a page out of the cap.
     const groups = [...byGroup.entries()].sort(([, a], [, b]) => rank(b) - rank(a));
-    const room = Math.max(0, this.opts.maxPerWindow - this.sentAt.length);
     const out: Notification[] = [];
-    const overflow: Array<[string, Pending[]]> = [];
-    groups.forEach((entry, index) => { if (index < room) out.push(toNotification(now, [entry])); else overflow.push(entry); });
-    if (overflow.length) {
-      // The summary replaces the last slot's worth of detail: one message, every suppressed group named, nothing lost.
-      out.push(toNotification(now, overflow, true));
+    if (groups.length <= slots) {
+      for (const entry of groups) out.push(toNotification(now, [entry]));
+    } else {
+      // The summary takes over the last slot (it never adds one): the first slots-1 groups leave as usual, every other
+      // group is named in the summary, whose severity is the highest of those groups.
+      for (const entry of groups.slice(0, slots - 1)) out.push(toNotification(now, [entry]));
+      out.push(toNotification(now, groups.slice(slots - 1), true));
     }
     this.sentAt.push(...out.map(() => nowMs));
     return out;

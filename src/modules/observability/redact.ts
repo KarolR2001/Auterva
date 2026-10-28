@@ -15,6 +15,9 @@ const structuralKeys = new Set([
 const patterns: Array<[RegExp, string]> = [
   // Secrets carried in a query string or in the path of reset/verification links.
   [/([?&;](?:token|code|secret|key|password|signature|state|sig|otp)=)[^&\s"']*/gi, "$1[redacted]"],
+  // key=, token= and secret= are masked wherever they start a name, also in free text without ?/& before them.
+  // A letter or digit before the name (monkey=, hotkey=) is not a match; `_`/`-` is (api_key=, access-token=).
+  [/(?<![A-Za-z0-9])((?:token|secret|key)=)[^&\s"']*/gi, "$1[redacted]"],
   [/(\/(?:reset-password|verify-email|verify|activate)\/)[^/\s?#]+/gi, "$1[token]"],
   // W6 (OWASP_CONTROLS §6): a path carrying an invitation token must never be logged verbatim.
   [/\/api\/auth\/invitation\/[^/\s?#]+/gi, "/api/auth/invitation/[token]"],
