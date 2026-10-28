@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { actor, body, only, response, uuid } from "@/modules/fleet/http";
 import { deleteVehicleImage, ImageConflictError, reorderVehicleImages, updateVehicleImage } from "./vehicle-images";
 import { isVariant, resolvePrivateVehicleImageKey, serveStoredVariant } from "./serve";
+import { reportInternalError } from "@/modules/observability/http-observe";
 
 type Area = "COMPANY_ADMIN" | "PLATFORM";
 
@@ -17,7 +18,7 @@ function failure(error: unknown, requestId: string) {
   if (["FLEET_ARCHIVED", "MEDIA_COVER_REPLACEMENT_REQUIRED", "MEDIA_COVER_REQUIRED"].includes(code))
     return response({ code }, 409, requestId);
   if (code === "Audit actor is not authorized" || code === "Audit tenant mismatch") return response({ code: "FORBIDDEN" }, 403, requestId);
-  return response({ code: "INTERNAL_ERROR" }, 500, requestId);
+  return response({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "media.vehicle-images"));
 }
 
 /** Shared by the company-admin and the platform route files; each resolves its own area and company. */
