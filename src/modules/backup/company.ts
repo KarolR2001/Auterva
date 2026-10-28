@@ -219,6 +219,8 @@ export async function restoreCompany(input: {
       const previous = (await live.query(`SELECT "safeChanges" FROM "AuditLog" WHERE "organizationId" = $1::uuid AND action = 'COMPANY_RESTORED_FROM_BACKUP'
         ORDER BY "createdAt" DESC, id DESC LIMIT 1`, [orgId])).rows[0]?.safeChanges as { lockedUserIds?: unknown } | undefined;
       const previouslyLocked = new Set(Array.isArray(previous?.lockedUserIds) ? previous.lockedUserIds.map(String) : []);
+      const hasPassword = (rows: Array<Record<string, unknown>>, userId: string) =>
+        rows.some((r) => String(r.userId) === userId && r.providerId === "credential" && r.password);
       for (const row of source.user) {
         const current = liveUsers.get(String(row.id));
         if (current) {
@@ -226,7 +228,9 @@ export async function restoreCompany(input: {
           // does not come back disabled) and the live MFA flag.
           row.disabledAt = current.disabledAt instanceof Date ? current.disabledAt.toISOString() : (current.disabledAt ?? null);
           row.twoFactorEnabled = current.twoFactorEnabled;
-          if (current.disabledAt && previouslyLocked.has(String(row.id))) usersLocked.push(String(row.id));
+          // Still a restore lock only while disabled WITHOUT a credential password; an account disabled later by hand
+          // (it has its password) is not a restore lock and must not return to the list.
+          if (current.disabledAt && previouslyLocked.has(String(row.id)) && !hasPassword(liveCredentials.account, String(row.id))) usersLocked.push(String(row.id));
         } else {
           // Recreated user: no credential, no MFA factor. One that was already disabled in the backup keeps that
           // state and is NOT put on the recovery list; an active one is locked now and only the operator recovery
@@ -234,6 +238,9 @@ export async function restoreCompany(input: {
           row.twoFactorEnabled = false;
           if (!row.disabledAt) {
             row.disabledAt = now.toISOString();
+            usersLocked.push(String(row.id));
+          } else if (previouslyLocked.has(String(row.id)) && !hasPassword(source.account, String(row.id))) {
+            // Locked by the previous restore, captured in a later backup and lost again: still awaiting operator recovery.
             usersLocked.push(String(row.id));
           }
         }
