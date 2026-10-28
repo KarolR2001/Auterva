@@ -1,0 +1,30 @@
+# Pakiet treści MVP — wersja 1.0
+
+Zakres: implementacja, fixture i oznaczony podgląd staging. [D-17](https://github.com/KarolR2001/Auterva/issues/81#issuecomment-6448522142) zatwierdza przygotowanie brakujących treści z Penpota i PRD 3.1 do tego celu. Pakiet **nie identyfikuje rzeczywistej pierwszej firmy** i nie jest zgodą na publiczne wdrożenie. Dane oznaczone `DEMO` nie mogą stać się kontaktami, polityką prywatności ani flotą produkcyjną przez samo skopiowanie do ustawień.
+
+Plik Penpota: `b564c72c-f31f-81ec-8008-af198a313438`, strona `269b07ba-69e5-8066-8008-c84a9b898bc0` („02 — Strony publiczne / Auterva i firma · M+D”). ID i zawartość poniższych ośmiu boardów potwierdzono odczytem live. Mobile ma 390 px, desktop 1440 px; wszystkie są `state=default`. Copy podano w [pakiecie Autervy](auterva-v1.md) i [pakiecie firmy DEMO](alfa-campers-demo-v1.md). Nie należy publikować widocznych w makietach numerów, adresu ani cen demonstracyjnych.
+
+## Matryca materiałów
+
+`Zatwierdzone D-17` oznacza zgodę właściciela na treść MVP do implementacji i stagingu. `Warunkowe` wymaga zastąpienia danymi właściwego podmiotu oraz osobnej akceptacji przed produkcją. Prawa do istniejących plików są opisane w [manifeście zasobów](../../../design/assets/manifest.json); oznaczenie `synthetic-demo` nie jest licencją od rzeczywistej firmy.
+
+| ID | Podmiot i miejsce | Plik/wersja lub board M / D | Źródło, prawa i status |
+|---|---|---|---|
+| AUT-01 | Auterva, MKT-01: hero, korzyści, FAQ, CTA | [auterva-v1.md](auterva-v1.md), 1.0; `1e066793-8858-8051-8008-cf36d8d5909f` / `269b07ba-69e5-8066-8008-c84b6a04500c` | Penpot; copy D-17, do stagingu. Telefon i e-mail DEMO nie są zatwierdzonym kontaktem publicznym. |
+| AUT-02 | Auterva, MKT-01: cztery kroki, meta, alt | [auterva-v1.md](auterva-v1.md), 1.0; boardy AUT-01 | Wygenerowane wg PRD 3.1 §12.1 i D-17; do stagingu. Nie obiecują rezerwacji, płatności ani wyników biznesowych. |
+| AUT-03 | Auterva, logo tekstowe i podgląd produktu | Boardy AUT-01; opcjonalne SVG w `design/assets/brand/` | Penpot; w repo istnieją SVG bez udokumentowanego autorstwa/licencji. D-17 pozwala na staging; prawa i wariant wymagają potwierdzenia przed produkcją. |
+| AUT-04 | Auterva, ilustracja/redakcja DEMO | `public-fleet-depot` w `design/assets/manifest.json`, 1.0 | Istniejący zasób `synthetic-demo`, warianty i SHA-256 w manifeście; tylko oznaczony preview, bez sugestii rzeczywistej floty Autervy. |
+| AUT-05 | Auterva, robocza polityka prywatności | [auterva-v1.md](auterva-v1.md), 1.0 | Wygenerowane wg PRD i struktury art. 13 RODO; **szablon**, bez rzeczywistego administratora, dostawców i retencji. Produkcja: warunkowe. |
+| FIR-01 | Alfa Campers DEMO, PUB-01: marka, hero, opis | [alfa-campers-demo-v1.md](alfa-campers-demo-v1.md), 1.0; `1e066793-8858-8051-8008-cf38b2bec442` / `1e066793-8858-8051-8008-cf38f350ea9b` | Penpot; syntetyczna firma i tekst D-17 do stagingu. Nie stanowią rzeczywistej oferty. |
+| FIR-02 | Alfa Campers DEMO, PUB-04: kontakt i mapa | [alfa-campers-demo-v1.md](alfa-campers-demo-v1.md), 1.0; `1e066793-8858-8051-8008-cf38b2beb248` / `1e066793-8858-8051-8008-cf38f3509bc5` | Penpot jako wzór, wartości kontaktowe wygenerowane wg PRD; nieaktywne fixture `.invalid`, bez numeru i mapy. Produkcja: warunkowe. |
+| FIR-03 | Alfa Campers DEMO, PUB-05: prywatność | [alfa-campers-demo-v1.md](alfa-campers-demo-v1.md), 1.0; `1e066793-8858-8051-8008-cf38d9b4dc7e` / `1e066793-8858-8051-8008-cf3916c13ab3` | Penpot + wygenerowany wg PRD szablon art. 13 RODO; treść demonstracyjna wymaga danych i zatwierdzenia konkretnej firmy. Produkcja: warunkowe. |
+| FIR-04 | Alfa Campers DEMO, hero i redakcja | `public-hero-camper-lakeside`, `public-editorial-camper-interior`, `public-fleet-depot` w `design/assets/manifest.json`, 1.0 | Istniejące pliki `synthetic-demo`; manifest zawiera alt, warianty i SHA-256. Do oznaczonego preview. Nie przypisywać pojazdom rzeczywistej firmy. |
+| FIR-05 | Alfa Campers DEMO, kategorie, cena, meta i alt | [alfa-campers-demo-v1.md](alfa-campers-demo-v1.md), 1.0 | Kategorie z Penpota; warianty copy/meta/alt wygenerowane wg PRD i D-03. `showPrices=false`, brak rzeczywistych cen. Do stagingu. |
+| FIR-06 | Alfa Campers DEMO, zasady najmu | [alfa-campers-demo-v1.md](alfa-campers-demo-v1.md), 1.0 | Decyzja dla fixture: nie publikować. Rzeczywista firma wybierze brak/tekst/link i zatwierdzi treść lub URL. |
+
+## Granica publikacji
+
+- Auterva: przed produkcją potwierdzić podmiot, prawdziwy telefon/WhatsApp/e-mail, prawa do logo i obrazów, gotową politykę oraz zewnętrzną akceptację konkretnej wersji.
+- Pierwsza rzeczywista firma: wskazać jej nazwę i osobę upoważnioną, prawdziwe kanały, pełny adres i działającą mapę, godziny, logo/hero z prawami, treści i kategorie, zasady cen, własną politykę i ewentualny regulamin. Zewnętrzna akceptacja wyglądu i materiałów poprzedza prerejestrację. Dowód akceptacji pozostaje w kontrolowanej lokalizacji; w repo wystarczy identyfikator wersji i status.
+- Implementacja/QA musi odrzucać `example.invalid`, etykietę `DEMO`, numery z makiety i ceny przykładowe przy konfiguracji produkcyjnej. Brak materiału nie oznacza „0 zł” ani domyślnego telefonu, mapy lub polityki.
+- Po dostarczeniu tego pakietu [#6](https://github.com/KarolR2001/Auterva/issues/6) aktualizuje własną inwentaryzację i mapowanie na ekrany. Akceptacja pakietu nie jest zgodą na produkcyjne wdrożenie.
