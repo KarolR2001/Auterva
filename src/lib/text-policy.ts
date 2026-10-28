@@ -10,3 +10,17 @@ export const multilineControl = new RegExp(`(?![\\t\\n\\r])[\\p{Cc}${hidden}]`, 
 export function hasControlCharacter(value: string, multiline = false): boolean {
   return (multiline ? multilineControl : singleLineControl).test(value);
 }
+
+export const INVALID_CHARACTERS = "INVALID_CHARACTERS";
+
+/** A refused control character, with the field path(s) the route reports as `fieldErrors` (#176). */
+export class InvalidCharactersError extends Error {
+  readonly fieldErrors: Record<string, string>;
+  constructor(fieldErrors: Record<string, string>) { super(INVALID_CHARACTERS); this.fieldErrors = fieldErrors; }
+}
+
+/** Throws InvalidCharactersError for the Zod issues raised by a text refinement; other issues are left to the caller. */
+export function throwIfInvalidCharacters(issues: ReadonlyArray<{ message: string; path: PropertyKey[] }>): void {
+  const found = issues.filter((issue) => issue.message === INVALID_CHARACTERS);
+  if (found.length) throw new InvalidCharactersError(Object.fromEntries(found.map((issue) => [issue.path.map(String).join("."), INVALID_CHARACTERS])));
+}

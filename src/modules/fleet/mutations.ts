@@ -5,13 +5,13 @@ import { appendAudit } from "@/modules/audit/append";
 import { requireAuditActor } from "@/modules/audit/actor";
 import { localDate, sqlDate } from "@/modules/availability/dates";
 import { lockCompanyForWrite } from "@/modules/organizations/write-lock";
-import { hasControlCharacter } from "@/lib/text-policy";
+import { hasControlCharacter, INVALID_CHARACTERS, throwIfInvalidCharacters } from "@/lib/text-policy";
 import { validateVehiclePublication } from "./publication";
 
 const uuid = z.uuid();
 // #176: NUL and other control characters are refused; only the two descriptions keep TAB, LF and CR.
 const text = (max: number, multiline = false) => z.string().trim().max(max)
-  .refine((value) => !hasControlCharacter(value, multiline)).nullable();
+  .refine((value) => !hasControlCharacter(value, multiline), INVALID_CHARACTERS).nullable();
 const vehicleFields = z.object({
   name: text(120), slug: z.string().trim().toLowerCase().max(120)
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).nullable(),
@@ -22,7 +22,7 @@ const vehicleFields = z.object({
   color: text(80), luggage: text(120), price: z.string().regex(/^\d{1,10}(?:\.\d{1,2})?$/).nullable(),
   priceUnit: text(40), featured: z.boolean(), sortOrder: z.number().int().min(0).max(2_147_483_647),
   availableFrom: z.string().nullable(), availableTo: z.string().nullable(),
-  features: z.array(z.object({ code: z.string().trim().min(1).max(80).refine((value) => !hasControlCharacter(value)),
+  features: z.array(z.object({ code: z.string().trim().min(1).max(80).refine((value) => !hasControlCharacter(value), INVALID_CHARACTERS),
     value: text(500) }).strict()).max(100),
 }).partial().strict();
 export type VehicleFields = z.input<typeof vehicleFields>;
@@ -40,7 +40,7 @@ export class PublishingRequirementsError extends Error {
 
 function checkedFields(input: VehicleFields): Prisma.VehicleUncheckedUpdateInput & { features?: VehicleFields["features"] } {
   const parsed = vehicleFields.safeParse(input);
-  if (!parsed.success) throw new Error("FLEET_INVALID_INPUT");
+  if (!parsed.success) { throwIfInvalidCharacters(parsed.error.issues); throw new Error("FLEET_INVALID_INPUT"); }
   const { features, availableFrom, availableTo, ...fields } = parsed.data;
   if (features && new Set(features.map((feature) => feature.code)).size !== features.length) {
     throw new Error("FLEET_INVALID_INPUT");

@@ -2,7 +2,7 @@ import { createHmac, randomUUID } from "node:crypto";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { z } from "zod";
 import { getServerEnv } from "@/lib/env";
-import { hasControlCharacter } from "@/lib/text-policy";
+import { hasControlCharacter, INVALID_CHARACTERS, InvalidCharactersError } from "@/lib/text-policy";
 import { appendAudit } from "@/modules/audit/append";
 import { requireAuditActor } from "@/modules/audit/actor";
 import { paidEndExclusive } from "@/modules/service-period/state";
@@ -34,11 +34,12 @@ function normalizedInput(input: PreregisterInput) {
   const name = input.name.trim();
   const slug = input.slug.trim().toLowerCase();
   const adminEmail = input.adminEmail.trim().toLowerCase();
+  if (hasControlCharacter(name)) throw new InvalidCharactersError({ name: INVALID_CHARACTERS });
   const adminBase = normalizeHostname(input.adminBaseDomain);
   const publicBase = normalizeHostname(input.publicBaseDomain);
   if (!input.actorId || input.actorId.length > 128 || !input.sessionId || input.sessionId.length > 128
     || !uuid.test(input.idempotencyKey)
-    || !uuid.test(input.requestId) || !name || name.length > 120 || hasControlCharacter(name) || !slugPattern.test(slug)
+    || !uuid.test(input.requestId) || !name || name.length > 120 || !slugPattern.test(slug)
     || reservedSlugs.has(slug) || slug.startsWith("xn--") || !adminEmailSchema.safeParse(adminEmail).success
     || !adminBase || !publicBase || adminBase === publicBase
     || !adminBase.includes(".") || !publicBase.includes(".")

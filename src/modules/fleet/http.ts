@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { InvalidCharactersError } from "@/lib/text-policy";
 import { localDate } from "@/modules/availability/dates";
 import { takeAuthenticatedApiLimit } from "@/modules/tenancy/api-rate-limit";
 import { parseHostAuthority } from "@/modules/tenancy/host-registry";
@@ -63,6 +64,7 @@ export function only(value: Record<string, unknown>, keys: string[]) {
 function failure(error: unknown, requestId: string) {
   if (error instanceof PublishingRequirementsError) return response({ code: error.message,
     message: "Uzupełnij dane wymagane do publikacji pojazdu.", fieldErrors: error.fieldErrors }, 409, requestId);
+  if (error instanceof InvalidCharactersError) return response({ code: "INVALID_INPUT", fieldErrors: error.fieldErrors }, 400, requestId);
   const code = error instanceof Error ? error.message : "";
   if (code === "FLEET_INVALID_INPUT" || code === "FLEET_INVALID_FILTER" || code === "FLEET_INVALID_ACTIVITY") {
     return response({ code: "INVALID_INPUT" }, 400, requestId);

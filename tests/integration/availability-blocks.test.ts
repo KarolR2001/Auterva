@@ -401,12 +401,16 @@ test("service period expiry does not stop private writes, including one queued b
 
 test("NUL in reference or internalNote is a controlled 400 on create and edit", async () => {
   const vehicle = await newVehicle(orgA, "nul");
-  expect((await add(vehicle.id, { from: day(1), to: day(1), type: "OTHER", reference: "a\u0000b" })).status).toBe(400);
-  expect((await add(vehicle.id, { from: day(1), to: day(1), type: "OTHER", internalNote: "\u0000" })).status).toBe(400);
-  const block = await (await add(vehicle.id, { from: day(2), to: day(2), type: "OTHER" })).json() as { id: string };
-  const refused = await patch(vehicle.id, block.id, 0, { internalNote: "x\u0000" });
+  const created = await add(vehicle.id, { from: day(1), to: day(1), type: "OTHER", reference: "a\u0000b", internalNote: "\u0000" });
+  expect(created.status).toBe(400);
+  // #176: the answer names every refused field; the reference is one line.
+  expect(await created.json()).toEqual({ code: "INVALID_INPUT", fieldErrors: { reference: "INVALID_CHARACTERS", internalNote: "INVALID_CHARACTERS" } });
+  // The note keeps TAB and LF.
+  const block = await (await add(vehicle.id, { from: day(2), to: day(2), type: "OTHER", internalNote: "a\n\tb" })).json() as { id: string };
+  expect(block.id).toBeTruthy();
+  const refused = await patch(vehicle.id, block.id, 0, { internalNote: "x\u0000", reference: "a\nb" });
   expect(refused.status).toBe(400);
-  expect(await refused.json()).toEqual({ code: "INVALID_INPUT" });
+  expect(await refused.json()).toEqual({ code: "INVALID_INPUT", fieldErrors: { reference: "INVALID_CHARACTERS", internalNote: "INVALID_CHARACTERS" } });
   expect(await db.availabilityBlock.count({ where: { vehicleId: vehicle.id } })).toBe(1);
 });
 

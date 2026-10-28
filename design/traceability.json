@@ -936,6 +936,9 @@
         "src/modules/organizations/onboarding.ts",
         "src/app/api/auth/[...all]/route.ts",
         "docs/contracts/fleet-crud-publication.md",
+        "docs/contracts/availability-blocks.md",
+        "docs/contracts/account-operations.md",
+        "docs/contracts/company-onboarding-invitations.md",
         "docs/security/OWASP_CONTROLS.md"
       ],
       "testPaths": [

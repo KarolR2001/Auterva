@@ -604,8 +604,11 @@ test("body limits per route: the largest valid vehicle form and legal settings p
 // #176: a NUL (or another control character) in any text of an authenticated mutation is a field error, never a 500 from
 // PostgreSQL. Mutations are inventoried from the route files: a new one needs a sample body here (its text leaves are then
 // probed one by one) or an explicit classification as free of text, so it cannot ship unprobed.
-type Sample = { body: () => Record<string, unknown>; text: string[] };
-const BAD_TEXT = ["a\u0000b", "\u0000", "a\u0001b", "a\u007fb"];
+// `reported` maps a probed path to the key the route answers in `fieldErrors` (INVALID_CHARACTERS); absent for routes whose
+// own contract answers differently (settings, domains, chat).
+type Sample = { body: () => Record<string, unknown>; text: string[]; reported?: (path: string) => string | null };
+const underFields = (path: string) => path.startsWith("fields.") ? path.slice("fields.".length) : null;
+const BAD_TEXT = ["a\u0000b", "\u0000", "a\u0001b", "a\u007fb", "a\u202eb", "a\u2028b"];
 const vehicleText = () => ({ name: "Probe", brand: "Probe", model: "Probe", variant: "Probe", shortDescription: "Probe", description: "Probe",
   transmission: "Probe", drive: "Probe", fuel: "Probe", color: "Probe", luggage: "Probe", priceUnit: "Probe",
   features: [{ code: "probe", value: "Probe" }] });
@@ -614,12 +617,12 @@ const vehicleTextPaths = ["fields.name", "fields.brand", "fields.model", "fields
 const mutationSamples = (): Record<string, Sample> => {
   const day = availabilityToday();
   const common: Record<string, Sample> = {
-    "POST /vehicles/": { body: () => ({ fields: vehicleText() }), text: vehicleTextPaths },
-    "PATCH /vehicles/[id]/": { body: () => ({ expectedVersion: 0, fields: vehicleText() }), text: vehicleTextPaths },
+    "POST /vehicles/": { body: () => ({ fields: vehicleText() }), text: vehicleTextPaths, reported: underFields },
+    "PATCH /vehicles/[id]/": { body: () => ({ expectedVersion: 0, fields: vehicleText() }), text: vehicleTextPaths, reported: underFields },
     "POST /vehicles/[id]/blocks/": { body: () => ({ fields: { from: day, to: day, type: "MAINTENANCE", reference: "Probe", internalNote: "Probe" } }),
-      text: ["fields.reference", "fields.internalNote"] },
+      text: ["fields.reference", "fields.internalNote"], reported: underFields },
     "PATCH /vehicles/[id]/blocks/[blockId]/": { body: () => ({ expectedVersion: 0, fields: { reference: "Probe", internalNote: "Probe" } }),
-      text: ["fields.reference", "fields.internalNote"] },
+      text: ["fields.reference", "fields.internalNote"], reported: underFields },
     "PATCH /vehicles/[id]/images/[imageId]/": { body: () => ({ expectedVersion: 0, alt: "Probe" }), text: ["alt"] },
     "POST /chat/messages/": { body: () => ({ clientMessageId: randomUUID(), body: "Probe" }), text: ["body"] },
   };
@@ -632,7 +635,8 @@ const mutationSamples = (): Record<string, Sample> => {
   const org = "/api/platform/companies/[organizationId]";
   const event = () => randomUUID();
   samples[`POST /api/platform/companies/`] = { body: () => ({ name: "Probe", slug: `probe-${tag}`, adminEmail: `probe-${tag}@example.test`,
-    trialGranted: true, paidThrough: null, idempotencyKey: event() }), text: ["name", "slug", "adminEmail"] };
+    trialGranted: true, paidThrough: null, idempotencyKey: event() }), text: ["name", "slug", "adminEmail"],
+    reported: (path) => path === "name" ? "name" : null };
   samples[`PUT ${org}/domains/`] = { body: () => ({ hostname: "cars.example.com", expectedVersion: null, eventKey: event() }), text: ["hostname"] };
   samples[`PATCH ${org}/public-media/[segment]/`] = { body: () => ({ expectedVersion: 0, eventKey: event(), alt: "Probe" }), text: ["alt"] };
   samples[`PATCH ${org}/period/`] = { body: () => ({ paidThrough: day, expectedVersion: 0, eventKey: event() }), text: [] };
@@ -700,6 +704,7 @@ test("#176: NUL and control characters in the text of every authenticated mutati
       const cookie = platform ? cookieSuper : cookieAdminA;
       await resetBudgets();
       const send = async (body: object) => {
+        await resetBudgets();
         const request = new Request(`http://${own}${fill(route, "a", method)}`, { method, body: JSON.stringify(body),
           headers: { host: own, cookie, origin: `http://${own}`, "content-type": "application/json" } });
         const reply = await runWithTrustedClientAddress(`10.${randomBytes(3).join(".")}`, async () =>
@@ -715,6 +720,11 @@ test("#176: NUL and control characters in the text of every authenticated mutati
           const reply = await send(withLeaf(sample.body(), path, bad));
           const text = await reply.clone().text();
           if (reply.status >= 500 || reply.status < 400 || (free && reply.status !== 400)) failures.push(`${sampleKey} ${dotted} ${JSON.stringify(bad)} -> ${reply.status} ${text.slice(0, 80)}`);
+          const reported = free ? sample.reported?.(dotted) : null;
+          if (reported) {
+            const answer = JSON.parse(text) as { fieldErrors?: Record<string, string> };
+            if (JSON.stringify(answer.fieldErrors) !== JSON.stringify({ [reported]: "INVALID_CHARACTERS" })) failures.push(`${sampleKey} ${dotted} fieldErrors ${text.slice(0, 120)}`);
+          }
         }
       }
     }
@@ -724,6 +734,42 @@ test("#176: NUL and control characters in the text of every authenticated mutati
       if (saved === undefined) delete process.env[name]; else process.env[name] = saved;
     }
   }
+  // The routes classified as free of text are probed too: NUL in every string of a minimal body (or in an unexpected extra
+  // field when the body has none) is never a server error.
+  const uuidOne = randomUUID();
+  const minimal: Record<string, () => Record<string, unknown>> = {
+    "vehicles/[id]/[action]": () => ({ expectedVersion: 0 }), "vehicles/[id]/blocks/[blockId]": () => ({ expectedVersion: 0 }),
+    "vehicles/[id]/images/[imageId]": () => ({ expectedVersion: 0 }),
+    "vehicles/[id]/images/order": () => ({ items: [{ id: uuidOne, expectedVersion: 0 }] }),
+    "vehicles/[id]/images": () => ({}), "vehicles/reorder": () => ({ items: [{ id: uuidOne, expectedVersion: 0, sortOrder: 1 }] }),
+    "chat/conversation": () => ({}), "archive": () => ({ expectedOrganizationVersion: 0, eventKey: uuidOne }),
+    "restore": () => ({ expectedOrganizationVersion: 0, eventKey: uuidOne }), "public-unlock": () => ({ expectedOrganizationVersion: 0, eventKey: uuidOne }),
+    "domains": () => ({ expectedVersion: 0, eventKey: uuidOne }), "domains/activate": () => ({ expectedVersion: 0, eventKey: uuidOne }),
+    "domains/verify": () => ({ eventKey: uuidOne }), "invitations": () => ({ idempotencyKey: uuidOne }), "invitations/[invitationId]": () => ({}),
+    "settings": () => ({ group: "profile", expectedVersion: 0, eventKey: uuidOne, fields: { name: "Probe" } }),
+    "public-media/[segment]": () => ({ expectedVersion: 0, eventKey: uuidOne }),
+  };
+  let untextProbes = 0;
+  for (const { route, method, key } of mutations.filter((item) => withoutText.has(item.key))) {
+    const suffix = route.url.replace("/api/admin/", "").replace("/api/platform/companies/[organizationId]/", "").replace(/\/$/, "");
+    const base = minimal[suffix];
+    expect(base, `no minimal body for ${key}`).toBeTruthy();
+    const platform = route.group === "platform";
+    const own = platform ? host.platform : host.adminA;
+    const cookie = platform ? cookieSuper : cookieAdminA;
+    const bodies = [...leaves(base()).map((path) => withLeaf(base(), path, "a\u0000b")), { ...base(), extra: "a\u0000b" }];
+    for (const payload of bodies) {
+      await resetBudgets();
+      const request = new Request(`http://${own}${fill(route, "a", method)}`, { method, body: JSON.stringify(payload),
+        headers: { host: own, cookie, origin: `http://${own}`, "content-type": "application/json" } });
+      const reply = await runWithTrustedClientAddress(`10.${randomBytes(3).join(".")}`, async () =>
+        route.methods[method]!(request, { params: Promise.resolve(params("a", route, method)) }));
+      observed.push({ label: key, status: reply.status, text: await reply.clone().text() });
+      untextProbes++;
+      if (reply.status >= 500) failures.push(`${key} ${JSON.stringify(payload).slice(0, 80)} -> ${reply.status}`);
+    }
+  }
+  expect(untextProbes).toBeGreaterThan(40);
   expect(probes).toBeGreaterThan(150);
   expect(failures).toEqual([]);
 }, 600_000);

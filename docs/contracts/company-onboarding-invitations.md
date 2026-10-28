@@ -10,7 +10,7 @@ Prerejestracja atomowo tworzy `Organization`, jednego oczekującego `ADMIN_FIRMY
 
 | Operacja | Wejście | Odpowiedź |
 | --- | --- | --- |
-| `POST /api/platform/companies` | `{name,slug,adminEmail,trialGranted,paidThrough:LocalDate\|null,idempotencyKey:UUID}` | `200` z `organizationId`, hostami i `invitationStatus:NOT_ISSUED`; ponowienie tego samego wejścia zwraca zapisany wynik. |
+| `POST /api/platform/companies` | `{name,slug,adminEmail,trialGranted,paidThrough:LocalDate\|null,idempotencyKey:UUID}` | `400 INVALID_INPUT` z `fieldErrors: { name: "INVALID_CHARACTERS" }` dla znaku sterującego w nazwie; `200` z `organizationId`, hostami i `invitationStatus:NOT_ISSUED`; ponowienie tego samego wejścia zwraca zapisany wynik. |
 | `POST /api/platform/companies/{organizationId}/invitations` | `{idempotencyKey:UUID}` | `201` z ID, przypiętym hostem, odbiorcą, granicą 168 h i bieżącym stanem dostarczenia. Ten sam klucz nie wydaje ponownie linku. |
 | `DELETE /api/platform/companies/{organizationId}/invitations/{invitationId}` | Pusta treść | `200 {revoked:true}` lub `404`; brak cofnięcia użytego zaproszenia. |
 | `GET /api/auth/invitation/{token}` | Aktywny, dokładnie przypięty host `COMPANY_ADMIN` | `200` z nazwą firmy, odbiorcą i granicą; `404` dla obcego hosta, starego/zużytego/odwołanego/wygasłego tokenu. GET niczego nie zużywa. |
