@@ -145,6 +145,11 @@ export const rules: AlertRule[] = [
       ? maxGauge(c, metricNames.jobsOldestDue, { kind: "AUDIT_RETENTION" }) > 900 : null },
   { id: "AUDIT_PURGE_DELAYED", title: "Expired audit entries are waiting for the daily purge", severity: "ticket", owner: "operator", group: "audit",
     runbook: "#audit-retention", forEvaluations: 2, clearAfter: 2, breached: gaugeAbove(metricNames.auditOverdue, 36 * 3600, "audit") },
+  // A restore entry kept past the cutoff as unlock basis is deliberate, not a fault: the operator reviews it (a ticket that
+  // repeats every 12 h, the ticket reminder interval) so it does not stay forgotten beyond its 365 days.
+  { id: "AUDIT_UNLOCK_BASIS_HELD", title: "Audit restore entry is held past retention as unlock basis (operator review)", severity: "ticket", owner: "operator", group: "audit",
+    runbook: "#audit-retention", forEvaluations: 2, clearAfter: 2, breached: gaugeAbove(metricNames.auditHeldUnlockBasis, 0, "audit"),
+    detail: (c) => `held=${maxGauge(c, metricNames.auditHeldUnlockBasis)}` },
   { id: "AUDIT_EXPORT_FAILED", title: "Operator audit export failed", severity: "ticket", owner: "operator", group: "audit",
     runbook: "#audit-export", forEvaluations: 1, clearAfter: 2, breached: gaugeAbove(metricNames.exportFailures, 0, "audit") },
   { id: "AUDIT_EXPORT_CLEANUP_OVERDUE", title: "Audit export artifact was not removed on time", severity: "page", owner: "operator", group: "audit",

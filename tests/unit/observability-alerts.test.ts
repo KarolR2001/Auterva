@@ -144,6 +144,24 @@ test("reminders repeat a still-firing page hourly, not every evaluation", () => 
   expect(out.flatMap((n) => n.reminders).length).toBe(2); // at +60 and +120 minutes
 });
 
+test("#180: a held unlock-basis entry is an operator ticket that repeats every 12 h and clears when released", () => {
+  const engine = new AlertEngine(rules, { groupWindowMs: 0 });
+  const held = (value: number) => [s("auterva_audit_held_unlock_basis", value), up("audit")];
+  expect(drive(engine, 1, () => held(1))).toEqual([]); // one breach is not enough (hysteresis)
+  const out = drive(engine, 13 * 60, () => held(1), 1);
+  const fired = out.flatMap((n) => n.firing);
+  expect(fired.map((a) => [a.id, a.severity, a.owner, a.group])).toEqual([["AUDIT_UNLOCK_BASIS_HELD", "ticket", "operator", "audit"]]);
+  expect(fired[0].detail).toBe("held=1");
+  expect(fired[0].runbook).toBe("docs/runbooks/monitoring-incidents.md#audit-retention");
+  expect(out.flatMap((n) => n.reminders).map((a) => a.id)).toEqual(["AUDIT_UNLOCK_BASIS_HELD"]); // after 12 h
+  expect(drive(engine, 3, () => held(0), 13 * 60 + 1).flatMap((n) => n.resolved.map((a) => a.id))).toEqual(["AUDIT_UNLOCK_BASIS_HELD"]);
+  // A stale collector leaves the verdict unknown; zero never fires.
+  const quiet = new AlertEngine(rules, { groupWindowMs: 0 });
+  const ids = (list: Notification[]) => list.flatMap((n) => n.firing.map((a) => a.id));
+  expect(ids(drive(quiet, 5, () => [s("auterva_audit_held_unlock_basis", 3), up("audit", 0)]))).not.toContain("AUDIT_UNLOCK_BASIS_HELD");
+  expect(ids(drive(quiet, 5, () => held(0), 5))).toEqual([]);
+});
+
 test("a failed delivery is requeued, does not burn the cap and is retried", () => {
   const engine = new AlertEngine(rules, { groupWindowMs: 60_000, maxPerWindow: 1 });
   const make = () => [up("migrations"), s("auterva_migrations_failed", 1), s("auterva_migrations_pending", 0)];

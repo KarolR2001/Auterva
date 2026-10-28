@@ -57,6 +57,7 @@ Osobne sygnały #108, żaden nie jest ukryty sukcesem purge:
 - `AUDIT_RETENTION_STALLED` (page): job jest należny, lecz nikt go nie podejmuje >15 min; uruchom worker audytu (`scripts/audit-retention.ts worker`).
 - `AUDIT_RETENTION_NOT_COMPLETING` (page): żaden job nie zakończył się od 26 h (albo od pierwszego zaplanowanego). Sprawdź, czy worker audytu działa (heartbeat `audit-worker`, `/live` na jego `OPS_PORT`).
 - Wyczerpany lease (RUNNING z wygasłym lease i bez prób) liczy się jak `AUDIT_RETENTION_FAILED`.
+- `AUDIT_UNLOCK_BASIS_HELD` (ticket, owner operator): `auterva_audit_held_unlock_basis` > 0, czyli wpis restore firmy starszy niż cutoff jest celowo zatrzymany jako podstawa odblokowania. To przegląd, nie awaria joba: operator decyduje o koncie z wpisu (odzyskanie przez `scripts/recover-mfa.ts` albo usunięcie konta), po czym kolejny dzienny purge zwalnia wpis i alert wygasa po dwóch zdrowych ocenach. Ticket przypomina o sobie co 12 h, dopóki wartość jest dodatnia.
 - `AUDIT_PURGE_DELAYED` (ticket): najstarszy wpis jest >36 h poza cutoffem 365 dni; sprawdź dzienny job. Zatrzymany wpis restore firmy (podstawa odblokowania, [#108](../contracts/audit-retention-operations.md)) nie liczy się do opóźnienia; widać go w `auterva_audit_held_unlock_basis` (liczba wpisów starszych niż cutoff, zatrzymanych celowo). Wartość >0 nie jest awarią joba: operator przegląda wpis (odzyskanie konta przez `scripts/recover-mfa.ts` albo decyzja o usunięciu konta); wpis starszy niż 365 dni nie ma naturalnego końca bez tej decyzji.
 Nie wklejaj treści audytu do zgłoszeń.
 
