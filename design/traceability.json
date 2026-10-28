@@ -1375,14 +1375,68 @@
             "desktop": "89433e5c-4f5c-80ad-8008-d90d3f63bcc2"
           },
           "freshMfaBeforeRecoveryCodes": {
-            "mobile": "89433e5c-4f5c-80ad-8008-d978bc2374d0",
-            "desktop": "89433e5c-4f5c-80ad-8008-d97a4e1d6e10"
+            "mobile": "864f85f5-29a0-8019-8008-dbe13f10e885",
+            "desktop": "864f85f5-29a0-8019-8008-dbdf7b325dfe"
           },
           "manualRecovery": {
-            "mobile": "4e2ad814-13be-80ec-8008-cc98f6937664",
-            "desktop": "4e2ad814-13be-80ec-8008-cc96bbba80bb"
+            "mobile": "864f85f5-29a0-8019-8008-dbe14abda07f",
+            "desktop": "864f85f5-29a0-8019-8008-dbdf8b40da10"
+          },
+          "recoveryCodeEntryHitIds": {
+            "mobile": "864f85f5-29a0-8019-8008-dbe17fb4f6cd",
+            "desktop": "864f85f5-29a0-8019-8008-dbe001a93088"
           },
           "profileAndPasswordServerActionsImplemented": false
+        },
+        "platformMfaGraph": {
+          "freshFactor": {
+            "mobile": "864f85f5-29a0-8019-8008-dbe13f10e885",
+            "desktop": "864f85f5-29a0-8019-8008-dbdf7b325dfe"
+          },
+          "passwordAfterTotp": {
+            "mobile": "864f85f5-29a0-8019-8008-dbe13f356630",
+            "desktop": "864f85f5-29a0-8019-8008-dbdf7b59e9a0"
+          },
+          "expiredProof": {
+            "mobile": "864f85f5-29a0-8019-8008-dbe13f6429e4",
+            "desktop": "864f85f5-29a0-8019-8008-dbdf7b82bfc7"
+          },
+          "recoveryCode": {
+            "mobile": {
+              "default": "864f85f5-29a0-8019-8008-dbe14b0a0917",
+              "error": "864f85f5-29a0-8019-8008-dbe14b30c38f",
+              "pending": "864f85f5-29a0-8019-8008-dbe14b710566",
+              "rateLimit": "864f85f5-29a0-8019-8008-dbe157f6998c"
+            },
+            "desktop": {
+              "default": "864f85f5-29a0-8019-8008-dbdf8b75f0c5",
+              "error": "864f85f5-29a0-8019-8008-dbdf8b9c7639",
+              "pending": "864f85f5-29a0-8019-8008-dbdf8bcc60f2",
+              "rateLimit": "864f85f5-29a0-8019-8008-dbdf974962bc"
+            }
+          },
+          "passwordAfterRecoveryCode": {
+            "mobile": "864f85f5-29a0-8019-8008-dbe158315e04",
+            "desktop": "864f85f5-29a0-8019-8008-dbdf9779d0df"
+          },
+          "totpEnrollment": {
+            "mobile": "864f85f5-29a0-8019-8008-dbe1585fff06",
+            "desktop": "864f85f5-29a0-8019-8008-dbdf97b559a4"
+          },
+          "issuedCodes": {
+            "mobile": "864f85f5-29a0-8019-8008-dbe13f8ea83f",
+            "desktop": "864f85f5-29a0-8019-8008-dbdf7bc136dc"
+          },
+          "manualRecovery": {
+            "mobile": "864f85f5-29a0-8019-8008-dbe14abda07f",
+            "desktop": "864f85f5-29a0-8019-8008-dbdf8b40da10"
+          },
+          "platformLoginTargets": {
+            "mobile": "fb4e1683-f05f-8095-8008-c75bec06c851",
+            "desktop": "fb4e1683-f05f-8095-8008-c75b5b2ee55c"
+          },
+          "sourceCompanyGraphUnchanged": true,
+          "serverOutcomesRequireRuntime": true
         }
       },
       {

@@ -40,6 +40,26 @@ Istniejący ADM-15 Mobile `1e066793-8858-8051-8008-cf3e9586dccb` i Desktop `a4ab
 
 Widoczna treść kart: „Dane konta” z polem „Nazwa” i wartościami „Adres e-mail” oraz „Rola: Superadmin”; „Zmień hasło” z polami „Aktualne hasło”, „Nowe hasło” i „Potwierdź nowe hasło” oraz informacją „Po zmianie hasła wylogujemy Cię ze wszystkich urządzeń”; „MFA” ze statusem „Włączone”, wyjaśnieniem jednorazowości kodów i akcją rozpoczęcia świeżej weryfikacji przed wydaniem nowych kodów. Wartości osobowe i e-mail w makiecie są fikcyjnym fixture, nie danymi właściciela.
 
-Akcja „Wydaj nowe kody” prowadzi prototypowo do świeżej weryfikacji 07I: Mobile `89433e5c-4f5c-80ad-8008-d978bc2374d0`, Desktop `89433e5c-4f5c-80ad-8008-d97a4e1d6e10`. „Nie mam obu czynników” prowadzi do ręcznej ścieżki 07C: Mobile `4e2ad814-13be-80ec-8008-cc98f6937664`, Desktop `4e2ad814-13be-80ec-8008-cc96bbba80bb`. Te przejścia nie potwierdzają świeżego czynnika ani nie wydają kodów same w sobie. Przyciski „Zapisz nazwę” i „Zmień hasło” są statycznymi wzorcami dla #19; w Penpocie nie pokazują fikcyjnego sukcesu ani nie udają zapisu na serwerze.
+### Oddzielny graf MFA platformy
 
-Penpot pokazuje układ, treść i prototypowe przejścia. #19 wdraża formularze, walidację, stan saving/error/konflikt, klawiaturę i fokus oraz integrację API. Odbiór wizualny wymaga aktualnego renderu obu boardów; układ Mobile i Desktop obejrzano z live PNG po zapisach. Eksport Mobile raz zwrócił timeout, ponowienie po uproszczeniu ukrytej kopii zakończyło się poprawnie. VoiceOver pozostaje `DEFERRED` do #97; brak runtime w tej zmianie makiet oznacza `not-run`, nie sukces.
+PLT-10 prowadzi do poniższych **platformowych** wariantów na tej samej stronie scenariusza. Firmowy FLOW-MVP-02/07I→07J→07G i jego powroty pozostały bez zmian. W nowych boardach nie ma aktywnego celu panelu ani logowania firmy.
+
+| Stan                                               | Mobile                                 | Desktop                                |
+| -------------------------------------------------- | -------------------------------------- | -------------------------------------- |
+| 07I — świeży TOTP albo wejście do posiadanego kodu | `864f85f5-29a0-8019-8008-dbe13f10e885` | `864f85f5-29a0-8019-8008-dbdf7b325dfe` |
+| 07J — hasło po świeżym TOTP                        | `864f85f5-29a0-8019-8008-dbe13f356630` | `864f85f5-29a0-8019-8008-dbdf7b59e9a0` |
+| 07J1 — odmowa lub wygaśnięcie potwierdzenia        | `864f85f5-29a0-8019-8008-dbe13f6429e4` | `864f85f5-29a0-8019-8008-dbdf7b82bfc7` |
+| 07D — posiadany kod odzyskania                     | `864f85f5-29a0-8019-8008-dbe14b0a0917` | `864f85f5-29a0-8019-8008-dbdf8b75f0c5` |
+| 07D1 — błędny albo użyty kod                       | `864f85f5-29a0-8019-8008-dbe14b30c38f` | `864f85f5-29a0-8019-8008-dbdf8b9c7639` |
+| 07D2 — sprawdzanie kodu                            | `864f85f5-29a0-8019-8008-dbe14b710566` | `864f85f5-29a0-8019-8008-dbdf8bcc60f2` |
+| 07D3 — limit prób                                  | `864f85f5-29a0-8019-8008-dbe157f6998c` | `864f85f5-29a0-8019-8008-dbdf974962bc` |
+| 07E — hasło po zużyciu kodu                        | `864f85f5-29a0-8019-8008-dbe158315e04` | `864f85f5-29a0-8019-8008-dbdf9779d0df` |
+| 07 — nowa konfiguracja TOTP                        | `864f85f5-29a0-8019-8008-dbe1585fff06` | `864f85f5-29a0-8019-8008-dbdf97b559a4` |
+| 07G — nowa jednorazowa lista                       | `864f85f5-29a0-8019-8008-dbe13f8ea83f` | `864f85f5-29a0-8019-8008-dbdf7bc136dc` |
+| 07C — ręczna procedura po utracie obu czynników    | `864f85f5-29a0-8019-8008-dbe14abda07f` | `864f85f5-29a0-8019-8008-dbdf8b40da10` |
+
+„Wydaj nowe kody” na PLT-10 → platformowe 07I. Świeży TOTP → 07J → 07G → PLT-10. „Użyj kodu odzyskania” na 07I (Mobile hit `864f85f5-29a0-8019-8008-dbe17fb4f6cd`, Desktop hit `864f85f5-29a0-8019-8008-dbe001a93088`) → 07D → 07E → nowy TOTP 07 → 07G → PLT-10. Wariant błędu 07D1 pozwala na ponowienie przez stan sprawdzania 07D2; limit 07D3 nie ma aktywnego przedwczesnego ponowienia. Wynik API wybiera stan, prototyp nie traktuje kliknięcia jako potwierdzenia serwera. 07J1 wraca do świeżego 07I. „Nie mam obu czynników” na PLT-10 i 07D → platformowe 07C; widoczny powrót 07C i powrót z ograniczonego enrollmentu prowadzą do PLT-08 właściwego viewportu. W pełnej sesji 07I i 07J1 wracają do PLT-10. Żaden krok nie tworzy dostępu do firmy.
+
+Kopie odtworzeniowe PLT-10 przed korektą: Mobile `864f85f5-29a0-8019-8008-dbe1308ad51c`, Desktop `864f85f5-29a0-8019-8008-dbdf67f36d9c`; obie są ukryte. Kody i QR w makiecie są fikcyjnym fixture, nie danymi właściciela. Te przejścia nie potwierdzają świeżego czynnika ani nie wydają kodów same w sobie. Przyciski „Zapisz nazwę” i „Zmień hasło” są statycznymi wzorcami dla #19; w Penpocie nie pokazują fikcyjnego sukcesu ani nie udają zapisu na serwerze.
+
+Penpot pokazuje układ, treść i prototypowe przejścia. #19 wdraża formularze, walidację, stan saving/error/konflikt, klawiaturę i fokus oraz integrację API. Odbiór wizualny obejrzał live PNG PLT-10 M/D oraz nowych 07I, 07C i 07 M/D, a także 07E D. Eksport całego 07E M zwrócił timeout; osobny PNG jego zmienionego tekstu 342 × 60 px pokazał pełne trzy wiersze, z 28 px odstępu do kolejnego pola. Pełny render 07E M pozostaje `not-run`. Pozostałe warianty są klonami istniejących wzorców z przepiętym grafem, bez zmian układu. VoiceOver pozostaje `DEFERRED` do #97; brak runtime w tej zmianie makiet oznacza `not-run`, nie sukces.
