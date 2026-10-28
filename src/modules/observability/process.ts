@@ -2,6 +2,7 @@ import type { Server } from "node:http";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { createCachedReadiness, readinessReport, type CheckName, type ReadinessReport } from "./health";
 import { log, setLogComponent } from "./log";
+import { opsTokenFromEnv, publishReadinessGauges } from "./ops-http";
 import { startOpsListener } from "./ops-listener";
 
 /**
@@ -14,6 +15,7 @@ export async function initProcessObservability(component: string, options: {
   extraReadiness?: () => Record<string, { status: "ok" | "fail"; reason?: string }>;
   refresh?: () => Promise<void>;
   env?: Record<string, string | undefined>;
+  readinessTtlMs?: number;
 }): Promise<{ close(): Promise<void> }> {
   const env = options.env ?? process.env;
   setLogComponent(component);
@@ -25,9 +27,12 @@ export async function initProcessObservability(component: string, options: {
     const base = await readinessReport({ db: options.db }, options.checks ?? ["database"]);
     const checks = { ...base.checks, ...options.extraReadiness?.() };
     return { status: Object.values(checks).every((c) => c.status === "ok") ? "ok" : "fail", checks };
-  });
+  }, options.readinessTtlMs);
   const readiness = () => cached();
-  const server: Server = await startOpsListener({ port, host: env.OPS_HOST, readiness, refresh: options.refresh });
+  // Every scrape re-evaluates readiness (shared, short-lived cache), so the published gauge never outlives the
+  // dependency's real state: a single manual /ready during an outage cannot leave a stale 0 behind.
+  const refresh = async () => { publishReadinessGauges(await readiness()); await options.refresh?.(); };
+  const server: Server = await startOpsListener({ port, host: env.OPS_HOST, readiness, refresh, token: opsTokenFromEnv(env) });
   log.info("ops.listening", { operation: "ops.listen", port, outcome: "success" });
   return { close: () => new Promise((resolve) => { server.close(() => resolve()); server.closeAllConnections?.(); }) };
 }

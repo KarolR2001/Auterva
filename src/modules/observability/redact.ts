@@ -50,8 +50,9 @@ export function redactValue(key: string, value: unknown, depth = 0): unknown {
   if (Array.isArray(value)) return value.slice(0, 20).map((item) => redactValue(key, item, depth + 1));
   if (typeof value === "object") {
     const result: Record<string, unknown> = {};
-    for (const [childKey, child] of Object.entries(value as Record<string, unknown>).slice(0, 30)) {
-      result[childKey] = redactValue(childKey, child, depth + 1);
+    const source = value as Record<string, unknown>;
+    for (const childKey of Object.keys(source).slice(0, 30)) {
+      try { result[childKey] = redactValue(childKey, source[childKey], depth + 1); } catch { result[childKey] = "[unreadable]"; }
     }
     return result;
   }

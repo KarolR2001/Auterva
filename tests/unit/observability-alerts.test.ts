@@ -225,3 +225,12 @@ test("B1: a stopped audit worker is seen by completion age, exhausted lease and 
   drive(stale, 4, () => [s("auterva_worker_last_iteration_timestamp_seconds", t0 / 1000 - 3600, { worker: "audit-worker", target: "audit-worker" })]);
   expect(stale.firing().map((a) => a.id)).toEqual(["WORKER_HEARTBEAT_STALE"]);
 });
+
+test("R2: a decrease of the terminal-job gauge (rows retried or cleaned) never alerts", () => {
+  const engine = new AlertEngine(rules, { groupWindowMs: 0 });
+  const out = drive(engine, 30, (m) => [up("jobs"), s("auterva_jobs_terminal_failures", m < 10 ? 50 : 49, { kind: "MAIL_INVITATION" })]);
+  expect(out.flatMap((n) => n.firing)).toEqual([]);
+  // ...and a later genuine increase still does.
+  const later = drive(engine, 10, (m) => [up("jobs"), s("auterva_jobs_terminal_failures", m < 35 ? 49 : 50, { kind: "MAIL_INVITATION" })], 30);
+  expect(later.flatMap((n) => n.firing.map((a) => a.id))).toEqual(["MAIL_DELIVERY_FAILED"]);
+});

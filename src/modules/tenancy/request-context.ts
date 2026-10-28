@@ -1,7 +1,7 @@
 import type { PrismaClient } from "../../generated/prisma/client";
 import type { auth } from "../../lib/auth";
 import { requireAuthorizedActor } from "../auth/authorization";
-import { currentLogContext, ensureLogContext } from "../observability/log";
+import { currentLogContext } from "../observability/log";
 import { resolveHostMapping } from "./host-registry";
 
 export type RequestArea = {
@@ -49,7 +49,6 @@ export async function requireRequestContext(
   headers: Headers,
   targetOrganizationId: string,
 ): Promise<ActorContext | null> {
-  ensureLogContext(); // must run before the first await so the caller's chain shares the context (see log.ts)
   const area = await resolveRequestArea(db, headers.get("host"));
   if (!area || (area.area !== "PLATFORM" && area.area !== "COMPANY_ADMIN")) return null;
   const actor = await requireAuthorizedActor(db, instance, headers, { area: area.area, organizationId: area.organizationId });

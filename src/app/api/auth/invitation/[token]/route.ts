@@ -1,3 +1,4 @@
+import { routeContext } from "@/modules/observability/route-context";
 import { prisma } from "@/lib/prisma";
 import { createHmac, randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -27,7 +28,7 @@ function sameOrigin(request: Request, authority: string): boolean {
   } catch { return false; }
 }
 
-export async function GET(request: Request, context: { params: Promise<{ token: string }> }) {
+async function handleGET(request: Request, context: { params: Promise<{ token: string }> }) {
   const requestId = onboardingRequestId();
   const respond = (body: object, status: number, retryAfter?: number) => {
     const response = onboardingResponse(body, status, requestId, retryAfter);
@@ -57,7 +58,7 @@ export async function GET(request: Request, context: { params: Promise<{ token: 
   }
 }
 
-export async function POST(request: Request, context: { params: Promise<{ token: string }> }) {
+async function handlePOST(request: Request, context: { params: Promise<{ token: string }> }) {
   const requestId = randomUUID();
   const respond = (body: object, status: number, retryAfter?: number) => {
     const response = onboardingResponse(body, status, requestId, retryAfter);
@@ -95,3 +96,6 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     return respond({ code: "INTERNAL_ERROR" }, 500);
   }
 }
+
+export const GET = routeContext(handleGET);
+export const POST = routeContext(handlePOST);

@@ -1,6 +1,9 @@
+import { routeContext } from "@/modules/observability/route-context";
 import { orderVehicleImages } from "@/modules/media/vehicle-images-http";
 
 export const runtime = "nodejs";
-export async function PUT(request: Request, context: { params: Promise<{ id: string }> }) {
+async function handlePUT(request: Request, context: { params: Promise<{ id: string }> }) {
   return orderVehicleImages(request, "COMPANY_ADMIN", (await context.params).id);
 }
+
+export const PUT = routeContext(handlePUT);

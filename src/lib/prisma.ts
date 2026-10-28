@@ -1,13 +1,14 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/client";
 import { getServerEnv } from "./env";
-import { log } from "../modules/observability/log";
+import { log, withoutLogContext } from "../modules/observability/log";
 import { metrics, names } from "../modules/observability/metrics";
 import { safeErrorCode } from "../modules/observability/redact";
 
 function poolError(kind: string, error: Error): void {
   metrics.inc(names.dbPoolErrors, "Database pool and connection errors", { kind });
-  log.error("db.pool_error", { kind, outcome: "failure", errorName: error.name, errorCode: safeErrorCode(error) });
+  // Pool events belong to no request: never inherit the context of whoever opened the connection.
+  withoutLogContext(() => log.error("db.pool_error", { kind, outcome: "failure", errorName: error.name, errorCode: safeErrorCode(error) }));
 }
 
 export function createPrismaClient(connectionString: string): PrismaClient {

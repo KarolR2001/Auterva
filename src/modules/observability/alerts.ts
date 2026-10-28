@@ -14,6 +14,8 @@ export type RuleContext = {
   samples: Sample[];
   /** Increase of a counter over the window; counter resets count from zero. null when history is too short. */
   increase(name: string, match?: Labels, windowMs?: number): number | null;
+  /** For gauges: only positive steps count; a decrease is never a reset and never an alert. */
+  rise(name: string, match?: Labels, windowMs?: number): number | null;
   now: Date;
 };
 
@@ -38,10 +40,10 @@ const gaugeAbove = (name: string, limit: number, collector: string, match: Label
   fresh(c, collector) ? maxGauge(c, name, match) > limit : null;
 const databaseDown = (c: RuleContext) => c.samples.some((s) => s.name === "auterva_ready_check" && s.labels.check === "database" && s.value < 1);
 /** Sum of increases over several label sets; null while any window is not covered yet. */
-function increaseOf(c: RuleContext, name: string, matches: Labels[], windowMs: number): number | null {
+function increaseOf(c: RuleContext, name: string, matches: Labels[], windowMs: number, gauge = false): number | null {
   let total = 0;
   for (const match of matches) {
-    const part = c.increase(name, match, windowMs);
+    const part = gauge ? c.rise(name, match, windowMs) : c.increase(name, match, windowMs);
     if (part === null) return null;
     total += part;
   }
@@ -113,7 +115,7 @@ export const rules: AlertRule[] = [
     detail: (c) => `oldestDueSeconds=${Math.round(dueAge(c))}` },
   { id: "MAIL_DELIVERY_FAILED", title: "Transactional mail newly failed or became uncertain (last hour)", severity: "ticket", owner: "operator", group: "mail",
     runbook: "#mail", forEvaluations: 1, clearAfter: 2,
-    breached: (c) => { if (!fresh(c, "jobs")) return null; const n = increaseOf(c, metricNames.jobsTerminalFailures, mailKinds, 60 * MIN); return n === null ? null : n >= 1; } },
+    breached: (c) => { if (!fresh(c, "jobs")) return null; const n = increaseOf(c, metricNames.jobsTerminalFailures, mailKinds, 60 * MIN, true); return n === null ? null : n >= 1; } },
   { id: "MAIL_PROVIDER_ERRORS", title: "Mail provider answers with errors (last 15 minutes)", severity: "ticket", owner: "operator", group: "mail",
     runbook: "#mail", forEvaluations: 1, clearAfter: 3,
     breached: (c) => {
@@ -122,7 +124,7 @@ export const rules: AlertRule[] = [
     } },
   { id: "MEDIA_JOBS_FAILED", title: "Image processing jobs newly failed (last hour)", severity: "ticket", owner: "operator", group: "jobs",
     runbook: "#worker", forEvaluations: 1, clearAfter: 2,
-    breached: (c) => { if (!fresh(c, "jobs")) return null; const n = increaseOf(c, metricNames.jobsTerminalFailures, [{ kind: "MEDIA_PROCESS" }], 60 * MIN); return n === null ? null : n >= 1; } },
+    breached: (c) => { if (!fresh(c, "jobs")) return null; const n = increaseOf(c, metricNames.jobsTerminalFailures, [{ kind: "MEDIA_PROCESS" }], 60 * MIN, true); return n === null ? null : n >= 1; } },
   // Audit retention and operator export (#108): separate signals, none hidden behind a successful purge.
   { id: "AUDIT_RETENTION_FAILED", title: "AUDIT_RETENTION job is FAILED (attempts exhausted)", severity: "page", owner: "operator", group: "audit",
     runbook: "#audit-retention", forEvaluations: 1, clearAfter: 2,
@@ -212,7 +214,7 @@ export class AlertEngine {
 
   private context(samples: Sample[], now: Date): RuleContext {
     const history = this.history; // already contains the current point
-    return { samples, now, increase: (name, match = {}, windowMs = 5 * MIN) => {
+    const walk = (name: string, match: Labels, windowMs: number, step: (previous: number, value: number) => number): number | null => {
       const start = now.getTime() - windowMs;
       // Needs two samples; a shorter history (monitor just started) evaluates over what it has instead of staying blind.
       if (history.length < 2) return null;
@@ -222,11 +224,15 @@ export class AlertEngine {
       let previous = sumSamples(history[baselineIndex].samples, name, match);
       for (const point of history.slice(baselineIndex + 1)) {
         const value = sumSamples(point.samples, name, match);
-        total += value >= previous ? value - previous : value; // counter reset restarts from zero
+        total += step(previous, value);
         previous = value;
       }
       return total;
-    } };
+    };
+    return { samples, now,
+      // Counter reset (process restart) restarts from zero.
+      increase: (name, match = {}, windowMs = 5 * MIN) => walk(name, match, windowMs, (p, v) => (v >= p ? v - p : v)),
+      rise: (name, match = {}, windowMs = 5 * MIN) => walk(name, match, windowMs, (p, v) => Math.max(0, v - p)) };
   }
 
   /** Evaluates every rule once. Samples must already include the current scrape. */

@@ -1,4 +1,7 @@
+import { routeContext } from "@/modules/observability/route-context";
 import { readServiceStatus } from "@/modules/reminders/http";
 
 export const runtime = "nodejs";
-export async function GET(request: Request) { return readServiceStatus(request, "COMPANY_ADMIN"); }
+async function handleGET(request: Request) { return readServiceStatus(request, "COMPANY_ADMIN"); }
+
+export const GET = routeContext(handleGET);

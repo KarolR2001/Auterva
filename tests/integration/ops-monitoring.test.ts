@@ -17,13 +17,12 @@ import { createMonitor } from "../../src/modules/observability/monitor";
 import { enqueueMail } from "../../src/modules/jobs/outbox";
 
 // Worker, realtime and monitor processes run against their own migrated database, so they can never drain or
-// inspect jobs of the shared fixture (N2). Only the audit-worker test needs the fixture DB (the script refuses others).
+// inspect jobs or audit rows of the shared fixture (N2, R4).
 const sharedUrl = process.env.DATABASE_URL ?? "";
 const isolatedName = `auterva_ops_58_${randomBytes(4).toString("hex")}`;
 const isolatedUrl = (() => { const u = new URL(sharedUrl); u.pathname = `/${isolatedName}`; return u.toString(); })();
 const maintenanceUrl = (() => { const u = new URL(sharedUrl); u.pathname = "/postgres"; return u.toString(); })();
 const db = createPrismaClient(isolatedUrl);
-const shared = createPrismaClient(sharedUrl);
 const mailKey = randomBytes(32);
 const organizationId = randomUUID();
 const hostname = `ops-${organizationId}.example.test`;
@@ -73,7 +72,6 @@ afterAll(async () => {
   await db.hostMapping.deleteMany({ where: { organizationId } });
   await db.organization.deleteMany({ where: { id: organizationId } });
   await db.$disconnect();
-  await shared.$disconnect();
   const admin = new Client({ connectionString: maintenanceUrl });
   await admin.connect();
   try { await admin.query(`DROP DATABASE IF EXISTS "${isolatedName}" WITH (FORCE)`); } finally { await admin.end(); }
@@ -281,21 +279,20 @@ test("worker and realtime server killed and restarted: alerts reach the controll
 }, 180_000);
 
 test("B1: the audit worker is visible to monitoring: heartbeat, and a cleanup sweep that cannot delete bytes pages", async () => {
-  // The audit script only runs against the local fixture database, so this test uses it (and cleans up its rows).
+  // Own isolated database and own export directory (R4): no purge, no daily job and no sweep ever touches shared data.
   const id = randomUUID();
-  const directory = join(process.cwd(), ".local", "audit-exports");
+  const directory = join(dir, "audit-exports");
   const blocker = join(directory, `${id}.bin`);
   await mkdir(blocker, { recursive: true, mode: 0o700 }); // unlink of a directory fails: the bytes cannot be removed
   await writeFile(join(blocker, "keep"), "x");
   const now = new Date();
-  const startedAt = new Date(now.getTime() - 1_000);
-  await shared.auditOperatorExport.create({ data: { id, fromAt: new Date(now.getTime() - 86_400_000), toAt: now, count: 1, artifactName: `${id}.bin`,
+  await db.auditOperatorExport.create({ data: { id, fromAt: new Date(now.getTime() - 86_400_000), toAt: now, count: 1, artifactName: `${id}.bin`,
     status: "READY", digest: "b".repeat(64), createdAt: new Date(now.getTime() - 3 * 3_600_000), completedAt: new Date(now.getTime() - 2 * 3_600_000),
     expiresAt: new Date(now.getTime() - 3_600_000) } });
   const reservation = await reservePort();
   const port = reservation.port;
   await reservation.release();
-  const worker = launch("scripts/audit-retention.ts", { DATABASE_URL: sharedUrl, AUTERVA_FIXTURE: "1", OPS_PORT: String(port), OPS_METRICS_TOKEN: opsToken }, ["worker"]);
+  const worker = launch("tests/fixtures/audit-worker-ops-process.ts", { AUDIT_EXPORT_DIR: directory, OPS_PORT: String(port), OPS_METRICS_TOKEN: opsToken });
   try {
     await waitFor("audit worker ops", async () => (await opsGet(port, "/live")).ok);
     const text = await waitFor("sweep failure counter", async () => {
@@ -304,7 +301,7 @@ test("B1: the audit worker is visible to monitoring: heartbeat, and a cleanup sw
     });
     expect(text).toContain('auterva_worker_last_iteration_timestamp_seconds{worker="audit-worker"}');
     const file = join(dir, "audit-alerts.jsonl");
-    const monitor = createMonitor({ db: shared, token: opsToken, sink: createFileSink(file), engine: new AlertEngine(undefined, { groupWindowMs: 0 }),
+    const monitor = createMonitor({ db, token: opsToken, sink: createFileSink(file), engine: new AlertEngine(undefined, { groupWindowMs: 0 }),
       targets: [{ name: "audit-worker", url: `http://127.0.0.1:${port}/metrics` }] }); // real clock: heartbeat ages are real
     for (let i = 0; i < 4; i++) { await monitor.tick(); await new Promise((r) => setTimeout(r, 1_500)); }
     const firing = monitor.engine.firing().map((a) => a.id);
@@ -317,11 +314,6 @@ test("B1: the audit worker is visible to monitoring: heartbeat, and a cleanup sw
   } finally {
     worker.child.kill("SIGTERM");
     await worker.exited;
-    await shared.auditOperatorExport.deleteMany({ where: { id } });
-    // The real worker scheduled today's purge job in the shared fixture; leave no trace for other tests.
-    const jobs = await shared.job.findMany({ where: { kind: "AUDIT_RETENTION", createdAt: { gte: startedAt } }, select: { id: true } });
-    await shared.auditRetentionManifest.deleteMany({ where: { jobId: { in: jobs.map((j) => j.id) } } });
-    await shared.job.deleteMany({ where: { id: { in: jobs.map((j) => j.id) } } });
-    await rm(blocker, { recursive: true, force: true });
+    await rm(directory, { recursive: true, force: true });
   }
 }, 90_000);

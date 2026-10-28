@@ -27,21 +27,10 @@ export function runWithLogContext<T>(context: LogContext, work: () => T): T {
 const definedOnly = (context: LogContext) => Object.fromEntries(Object.entries(context).filter(([, v]) => v !== undefined));
 export function currentLogContext(): LogContext { return store.getStore() ?? {}; }
 
-/**
- * Web only: gives the current request chain one mutable context object so that an actor resolved later in an awaited
- * helper is visible to the handler's own error logging. Must be called in the synchronous prefix of the helper
- * (enterWith in a callee after an await would not reach the caller). Other processes use runWithLogContext explicitly,
- * because a long-lived server loop must never inherit one connection's actor.
- */
-export function ensureLogContext(): LogContext {
-  const existing = store.getStore();
-  if (existing) return existing;
-  if (component !== "web") return {};
-  const created: LogContext = {};
-  store.enterWith(created);
-  return created;
-}
+/** Runs `work` with no request context (pool callbacks, timers): nothing of a request may leak into such lines. */
+export function withoutLogContext<T>(work: () => T): T { return store.exit(work); }
 
+/** Fills the request's own context object (created by routeContext); without one the object is detached and harmless. */
 export function bindLogActor(context: LogContext, actor: { userId: string; role: string; organizationId: string | null }): void {
   context.actorId = actor.userId;
   context.actorRole = actor.role;
@@ -59,7 +48,11 @@ export function logEvent(level: LogLevel, event: string, fields: Record<string, 
   try {
     if (levels[level] < threshold()) return;
     const context = currentLogContext();
-    const safe = redactFields({ ...fields });
+    const copy: Record<string, unknown> = {};
+    for (const key of Object.keys(fields)) {
+      try { copy[key] = fields[key]; } catch { copy[key] = "[unreadable]"; }
+    }
+    const safe = redactFields(copy);
     const record = { ...safe, time: clock().toISOString(), level, component, event,
       requestId: context.requestId ?? safe.requestId, actorId: context.actorId ?? safe.actorId,
       actorRole: context.actorRole ?? safe.actorRole, organizationId: context.organizationId ?? safe.organizationId,

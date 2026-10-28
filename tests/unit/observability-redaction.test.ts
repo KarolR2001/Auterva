@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "vitest";
-import { bindLogActor, ensureLogContext, log, logEvent, logFailure, runWithLogContext, setLogSink } from "../../src/modules/observability/log";
+import { bindLogActor, currentLogContext, log, logEvent, logFailure, runWithLogContext, setLogSink, withoutLogContext } from "../../src/modules/observability/log";
+import { routeContext } from "../../src/modules/observability/route-context";
 import { redactFields, safeErrorCode, scrubString } from "../../src/modules/observability/redact";
 
 let restore = () => {};
@@ -81,10 +82,11 @@ test("invitation-token paths are masked (W6)", () => {
 test("a throwing getter or unserialisable field never breaks the caller (N1)", () => {
   const lines = capture();
   const hostile = { get boom(): string { throw new Error("getter"); } };
-  expect(() => logEvent("error", "x", { hostile })).not.toThrow();
+  expect(() => logEvent("error", "x", { hostile, ok: "kept" })).not.toThrow();
+  expect(lines[0]).toContain("kept");
   const circular: Record<string, unknown> = {}; circular.self = circular;
   expect(() => logEvent("error", "x", { circular })).not.toThrow();
-  expect(lines.length).toBeLessThanOrEqual(2);
+  expect(lines.length).toBeGreaterThanOrEqual(1);
 });
 
 test("stack, cause, meta and data fields, binary values, query secrets and reset links are masked (N1)", () => {
@@ -99,20 +101,35 @@ test("stack, cause, meta and data fields, binary values, query secrets and reset
   expect(line).toContain("page=2");
 });
 
-test("actor and company set by an awaited helper reach the caller's later log line (B2)", async () => {
+test("each routeContext-wrapped handler has its own actor and company, also when run from one frame in parallel (R1)", async () => {
   const lines = capture();
-  async function requireActor() {
-    const context = ensureLogContext(); // synchronous prefix, as in requireScopedActor
-    await new Promise((resolve) => setTimeout(resolve, 5));
-    bindLogActor(context, { userId: "user-1", role: "ADMIN_FIRMY", organizationId: "org-1" });
+  async function requireActor(user: string, org: string) {
+    await new Promise((resolve) => setTimeout(resolve, Math.random() * 10));
+    bindLogActor(currentLogContext(), { userId: user, role: "ADMIN_FIRMY", organizationId: org });
   }
-  async function handler(id: string) {
-    await requireActor();
-    await new Promise((resolve) => setTimeout(resolve, 5));
-    log.error("http.internal_error", { requestId: id, operation: "fleet", status: 500 });
+  const handler = routeContext(async (user: string, org: string) => {
+    await requireActor(user, org);
+    await new Promise((resolve) => setTimeout(resolve, Math.random() * 10));
+    log.error("http.internal_error", { requestId: `r-${user}`, operation: "fleet", status: 500 });
+  });
+  await Promise.all(["a", "b", "c", "d"].map((u) => handler(u, `org-${u}`)));
+  const parsed = lines.map((line) => JSON.parse(line));
+  expect(parsed).toHaveLength(4);
+  for (const line of parsed) {
+    const user = String(line.requestId).slice(2);
+    expect(line).toMatchObject({ actorId: user, organizationId: `org-${user}` });
   }
-  await Promise.all([handler("r1"), handler("r2")]);
-  for (const line of lines) expect(JSON.parse(line)).toMatchObject({ actorId: "user-1", actorRole: "ADMIN_FIRMY", organizationId: "org-1", event: "http.internal_error" });
+  log.error("after", {}); // outside any handler: nothing leaked
+  expect(JSON.parse(lines[4]).actorId).toBeUndefined();
+});
+
+test("withoutLogContext strips the request context (pool callbacks)", async () => {
+  const lines = capture();
+  await routeContext(async () => {
+    bindLogActor(currentLogContext(), { userId: "u", role: "ADMIN_FIRMY", organizationId: "o" });
+    withoutLogContext(() => log.error("db.pool_error", {}));
+  })();
+  expect(JSON.parse(lines[0]).actorId).toBeUndefined();
 });
 
 test("explicit contexts do not leak between runs (workers, realtime)", () => {
