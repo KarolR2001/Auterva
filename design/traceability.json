@@ -3,6 +3,20 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 65,
+      "scope": "Opcjonalny prywatny zbiorczy kalendarz floty jednej firmy (pojazdy x dni, paginacja, zakres do 365 dni) oparty na wspólnym rzucie dni kalendarza pojedynczego auta; bez osi wszystkich firm i bez UI.",
+      "relatedRequirementIds": ["C-F101", "FR-ADM-057", "D-15"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/availability/read.ts",
+        "src/modules/availability/http.ts",
+        "src/app/api/admin/availability/fleet/route.ts",
+        "src/app/api/platform/companies/[organizationId]/availability/fleet/route.ts",
+        "docs/contracts/availability-reads.md"
+      ],
+      "testPaths": ["tests/integration/availability-fleet-calendar.test.ts"]
+    },
+    {
       "issue": 59,
       "scope": "Pomiar obciążenia profilu P1 (zatwierdzony) i P2 (proponowany w #90), indeks i zapytanie sprawdzenia dostępności, rzut kalendarza; harness poza zwykłymi testami (pnpm perf:*), staging i profil wielu firm not-run.",
       "relatedRequirementIds": ["NFR-PERF-002", "C-N060", "C-N062", "C-N066", "D-15"],
@@ -1484,7 +1498,56 @@
             "4e2ad814-13be-80ec-8008-cc8fff9637ac"
           ]
         },
-        "navigationFollowUpIssue": 112
+        "navigationFollowUpIssue": 112,
+        "navigation": {
+          "statesInBoardOrder": ["01", "01B", "01C", "01D", "02", "02A", "03", "03B"],
+          "visibleInstanceIds": {
+            "mobile": [
+              "4e2ad814-13be-80ec-8008-cc908c621e35",
+              "fb4e1683-f05f-8095-8008-c7627a6b2289",
+              "96538b9c-ee73-800d-8008-cf0f911b9280",
+              "96538b9c-ee73-800d-8008-cf0f4f74349e",
+              "4e2ad814-13be-80ec-8008-cc908c892b53",
+              "efe3ac9b-6991-807f-8008-cf1d8eeaad2c",
+              "4e2ad814-13be-80ec-8008-cc908d709136",
+              "4e2ad814-13be-80ec-8008-cc908e33d37c"
+            ],
+            "desktop": [
+              "4e2ad814-13be-80ec-8008-cc8f9fd519c6",
+              "fb4e1683-f05f-8095-8008-c761d75790b6",
+              "96538b9c-ee73-800d-8008-cf10e237dfe4",
+              "96538b9c-ee73-800d-8008-cf10c65991fb",
+              "4e2ad814-13be-80ec-8008-cc8fe11d16bb",
+              "efe3ac9b-6991-807f-8008-cf1d3bb6b246",
+              "4e2ad814-13be-80ec-8008-cc90124ec8d9",
+              "4e2ad814-13be-80ec-8008-cc8fff9637ad"
+            ]
+          },
+          "mobileAlignedMoreLabelIds": [
+            "3ec0a9d6-f997-80bf-8008-dbeba6c39e96",
+            "3ec0a9d6-f997-80bf-8008-dbeb24e0caed",
+            "3ec0a9d6-f997-80bf-8008-dbeba793e844",
+            "3ec0a9d6-f997-80bf-8008-dbebc55772d6",
+            "3ec0a9d6-f997-80bf-8008-dbebdde837fd",
+            "3ec0a9d6-f997-80bf-8008-dbebf5ed867a",
+            "3ec0a9d6-f997-80bf-8008-dbebf7fbee52",
+            "3ec0a9d6-f997-80bf-8008-dbec1068a808"
+          ],
+          "targets": {
+            "mobile": {
+              "companies": "fb4e1683-f05f-8095-8008-c7595a575f33",
+              "messages": "fb4e1683-f05f-8095-8008-c76fcc42bde3",
+              "moreMenu": "89433e5c-4f5c-80ad-8008-d910ad0b18fd"
+            },
+            "desktop": {
+              "companies": "fb4e1683-f05f-8095-8008-c759e3b05202",
+              "messages": "fb4e1683-f05f-8095-8008-c772c96f234e",
+              "accountMenu": "89433e5c-4f5c-80ad-8008-d90d3f63bcb7"
+            }
+          },
+          "prototypeChecksDirtyOrSaving": false,
+          "runtimeUnsavedExitOverlay": "OVR-13"
+        }
       },
       {
         "id": "ACC-04",

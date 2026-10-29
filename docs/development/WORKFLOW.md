@@ -14,7 +14,7 @@ Zakres: MVP 3.1 z superadminem i wieloma firmami. [Projekt](https://github.com/u
 
 - Główny orkiestrator i agenty **Frontend, Backend, QA** pracują w osobnych sesjach Codex na jednym komputerze i koncie GitHub użytkownika. Nie wymagamy osobnych kont ani assignees; przypisania pozostają puste. Orkiestrator uruchamia role dla zatwierdzonej kolejki, a Frontend i Backend po przekazaniu PR samodzielnie podejmują następne gotowe issue swojej roli.
 - Pole Role i etykieta role:frontend/role:backend wskazują właściciela implementacji. Orkiestrator i QA odbierają to samo issue według statusu, bez zmiany Role i bez osobnych zadań odbioru.
-- Przy podjęciu issue agent zapisuje w komentarzu rolę, branch i krótki plan, następnie ustawia In progress. Ścieżkę worktree i identyfikator sesji zachowuje w lokalnym checkpoincie. Jeden aktywny wykonawca issue i najwyżej jedno In progress na rolę; ponownie odczytaj status przed rozpoczęciem.
+- Przy podjęciu issue agent zapisuje w komentarzu rolę, branch i krótki plan, następnie ustawia In progress. Ścieżkę worktree i identyfikator sesji zachowuje w lokalnym checkpoincie. Jeden aktywny wykonawca issue; w roli może pracować równolegle wielu wykonawców nad różnymi issue (D-31). Ponownie odczytaj status i komentarze przed rozpoczęciem; po zapisaniu przejęcia odczytaj je jeszcze raz. Przy dwóch przejęciach tego samego issue obowiązuje wcześniejszy komentarz, a drugi wykonawca bierze kolejne gotowe issue.
 - Po Re-open poprawia ten sam agent wykonawczy. Jeśli sesja zakończyła się, nowa sesja tej samej roli jawnie przejmuje istniejący branch i kontekst; nie rozpoczyna drugiej implementacji.
 - Każdy agent implementujący pracuje w osobnym worktree i branchu, np. codex/backend/issue-8 lub codex/frontend/issue-11. Nie przełączaj branchy ani nie zmieniaj cudzych plików we współdzielonym katalogu. Wspólne manifesty, migracje i kontrakty mają jednego edytora; uzgodnione zmiany integruj przez PR.
 - Orkiestrator i QA używają własnych worktree i sprawdzają dokładny commit/build przekazany w issue. Lokalne serwery mają różne porty i testowe bazy/schematy; bez resetowania usług innego agenta. QA czyta Penpota; nie zmienia wzorca, aby ukryć błąd.
@@ -47,7 +47,7 @@ Candidates zawiera odziedziczone SHOULD i propozycje rozwoju. Triage ustala zakr
 | Candidates | Właściciel produktu/triage: opcjonalny zakres lub nowa propozycja |
 | To do | Orkiestrator: zaplanowany zakres wykonawcy; rozpoczęcie po spełnieniu zależności |
 | Re-open | Orkiestrator po CR lub QA po testach: uwagi, dowód i oczekiwany wynik; wykonawca zostaje |
-| In progress | Frontend/Backend rozpoczyna implementację lub poprawkę; najwyżej jedno issue na rolę |
+| In progress | Frontend/Backend rozpoczyna implementację lub poprawkę; jeden wykonawca na issue, wielu w roli (D-31) |
 | Review | Wykonawca: PR gotowy do CR, issue, checkpoint aktualnego commita i wyniki kontroli; needs:cr na issue i PR; może podjąć następne gotowe issue |
 | Ready to test | Wyłącznie orkiestrator: CR: PASS dla aktualnego commita, dostępny build, fixture i instrukcja; usuwa needs:cr |
 | Test | QA wykonuje scenariusze i regresję, zapisuje wynik dla konkretnego builda/commita |
@@ -55,7 +55,7 @@ Candidates zawiera odziedziczone SHOULD i propozycje rozwoju. Triage ustala zakr
 
 Poprawka wraca Re-open → In progress → Review → Ready to test → Test. Odrzucający CR/QA usuwa needs:cr, jeśli jest obecne; wykonawca dodaje je ponownie, gdy poprawka jest gotowa do CR. Blokada środowiska to wynik blocked z przyczyną, nie automatycznie błąd implementacji. Statusy i etykiety aktualizują agenci; sama tablica nie uruchamia sesji ani review.
 
-QA: PASS pozostaje w Test do integracji przez orkiestratora. Przed merge orkiestrator sprawdza aktualne SHA, wymagane checks, zgodność z main i raporty CR/QA. Po integracji potwierdza wynik wymaganych kontroli na main; dopiero wtedy ustawia Done i zamyka issue. Nie scala PR z niewykonanym lub nieudanym obowiązkowym sprawdzeniem. PR używa **Refs #numer**; zamknięcie issue jest jawną czynnością po odbiorze i integracji.
+QA: PASS pozostaje w Test do integracji przez orkiestratora. Przed merge orkiestrator sprawdza aktualne SHA, wymagane kontrole (checks GitHub Actions albo, przy wyłączonym CI, [tryb lokalny D-29](CI.md#tryb-lokalny-d-29) na drzewie z aktualnym main), zgodność z main i raporty CR/QA. Po integracji potwierdza wynik wymaganych kontroli na main (w trybie lokalnym: drzewo merge równe sprawdzonemu drzewu albo ponowny przebieg na main); dopiero wtedy ustawia Done i zamyka issue. Nie scala PR z niewykonanym lub nieudanym obowiązkowym sprawdzeniem. PR używa **Refs #numer**; zamknięcie issue jest jawną czynnością po odbiorze i integracji.
 
 Zmiana head SHA po CR unieważnia poprzednie CR i QA. Wykonawca po zakończeniu zmian przywraca Review i needs:cr na issue/PR; orkiestrator przegląda zmianę, QA ponawia testy dotkniętych zachowań i regresję. Zmiana main od sprawdzonego base SHA wymaga ponownej oceny integracji i adekwatnych kontroli przed merge. Nie przenoś automatycznie starego PASS na nowy kod.
 
@@ -112,7 +112,7 @@ Projekt zawiera issue; powiązany PR otrzymuje needs:cr i link Refs #numer. Nie 
 
 W osobnych sesjach nadaj role: „Jesteś głównym orkiestratorem Autervy”, „Jesteś agentem Frontend”, „Jesteś agentem Backend” albo „Jesteś agentem QA”. Każdy zaczyna od AGENTS.md, tego workflow, swojego widoku i opisu issue. Rola jest zakresem sesji, nie nowym kontem ani uprawnieniem. GitHub przechowuje stan pracy; orkiestrator uruchamia role i koordynuje zatwierdzone kolejki. Etykieta nie uruchamia automatycznie agenta.
 
-Frontend i Backend po starcie roli kontynuują zatwierdzoną kolejkę bez nowego promptu na każde issue, z pierwszeństwem Re-open i limitem jednego In progress na rolę. Orkiestrator koordynuje zależności i kontrakty oraz odbiera Review; QA zaczyna odbiór po Ready to test. Decyzji wymagających akceptacji użytkownika agent nie zatwierdza sam. Gotowy backlog nie oznacza rozstrzygniętych D-xx, działającej aplikacji, CI ani infrastruktury.
+Frontend i Backend po starcie roli kontynuują zatwierdzoną kolejkę bez nowego promptu na każde issue, z pierwszeństwem Re-open; każdy wykonawca ma najwyżej jedno issue w implementacji lub poprawce, a w roli może pracować wielu wykonawców (D-31). Orkiestrator koordynuje zależności i kontrakty oraz odbiera Review; QA zaczyna odbiór po Ready to test. Decyzji wymagających akceptacji użytkownika agent nie zatwierdza sam. Gotowy backlog nie oznacza rozstrzygniętych D-xx, działającej aplikacji, CI ani infrastruktury.
 
 ## Issue i odbiór
 
