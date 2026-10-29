@@ -132,3 +132,37 @@ export async function getPublicCalendar(
     select: { from: true, to: true } });
   return { days: calendarDays(range, vehicle, blocks) };
 }
+
+export type VehicleStatus = "DRAFT" | "PUBLISHED" | "UNPUBLISHED" | "ARCHIVED";
+
+export type FleetCalendarPage = Awaited<ReturnType<typeof getPrivateFleetCalendar>>;
+
+/**
+ * Private fleet grid (#65): one page of the company's vehicles with the same day states as `getPrivateCalendar`
+ * (it shares `calendarDays`), ARCHIVED excluded unless `status` says otherwise. Count, vehicles and their blocks come from one RepeatableRead snapshot, read at
+ * request time (no cache). Blocks carry only id, dates, type and version: no `reference` or `internalNote`.
+ */
+export async function getPrivateFleetCalendar(
+  db: PrismaClient, organizationId: string, range: AvailabilityRange, page: number, pageSize: number,
+  status?: VehicleStatus,
+) {
+  // ARCHIVED vehicles accept no new blocks (D-21): they appear only when asked for explicitly.
+  const where = { organizationId, status: status ?? { not: "ARCHIVED" } };
+  const [total, vehicles] = await db.$transaction([
+    db.vehicle.count({ where }),
+    db.vehicle.findMany({ where, orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+      skip: (page - 1) * pageSize, take: pageSize,
+      select: { id: true, name: true, slug: true, status: true, availableFrom: true, availableTo: true,
+        blocks: { where: { organizationId, from: { lte: sqlDate(range.to) }, to: { gte: sqlDate(range.from) } },
+          select: { id: true, from: true, to: true, type: true, version: true }, orderBy: { from: "asc" } } } }),
+  ], { isolationLevel: "RepeatableRead" });
+  return { from: range.from, to: range.to, total, page, pageSize,
+    items: vehicles.map((vehicle) => ({ vehicleId: vehicle.id, name: vehicle.name, slug: vehicle.slug,
+      status: vehicle.status,
+      availableFrom: vehicle.availableFrom ? localDate(vehicle.availableFrom) : null,
+      availableTo: vehicle.availableTo ? localDate(vehicle.availableTo) : null,
+      days: calendarDays(range, vehicle, vehicle.blocks),
+      blocks: vehicle.blocks.map((block) => ({ id: block.id, from: localDate(block.from), to: localDate(block.to),
+        type: block.type, typeLabel: blockTypeLabels[block.type as BlockType] ?? block.type,
+        version: block.version })) })) };
+}

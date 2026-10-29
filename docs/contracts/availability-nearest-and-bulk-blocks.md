@@ -48,7 +48,7 @@ Zakres obejmuje tylko jedną firmę (C-N027: historia nie jest kopiowana między
 Dwie operacje, wspólny silnik zapisu:
 
 1. **Zbiorcze utworzenie:** jedna definicja `{from,to,type,reference?,internalNote?}` dla zbioru `vehicleIds` (serwis floty, urlop).
-2. **Kopiowanie:** istniejąca blokada (`sourceBlockId`) do `targetVehicleIds`, z opcjonalnym przesunięciem `shiftDays` (całkowite, ujemne dozwolone; arytmetyka `LocalDate`, długość zachowana). Kopiowane są daty i typ. `reference` i `internalNote` nie są kopiowane domyślnie (numer odniesienia i notatka dotyczą konkretnego wpisu i auta); trafiają do kopii wyłącznie przy jawnych `copyReference:true` i `copyNote:true` (P5).
+2. **Kopiowanie:** istniejąca blokada (`sourceBlockId`) do `targetVehicleIds`, z opcjonalnym przesunięciem `shiftDays` (całkowite, ujemne dozwolone; arytmetyka `LocalDate`, długość zachowana). Kopiowane są daty, typ i `reference`; `internalNote` wyłącznie przy jawnym `copyNote:true` (domyślnie nie, bo notatka bywa wrażliwa dla konkretnego auta; P5). Rekomendacja (nie decyzja): opcjonalny `copyReference:false`, gdy numer odniesienia nie ma trafić do kopii.
 
 Wspólne zasady (dla każdego wariantu): źródło `MANUAL`; każdy cel sprawdzany jak w #38 (należy do firmy, nie `ARCHIVED`, zakres mieści się w aktywności, brak nakładania, limity pól); `vehicleIds` bez duplikatów, nie więcej niż `K` (P4: 50, jak batch #33); nieznane lub obce `vehicleId` dają `404` bez ujawniania, czy istnieje u innej firmy (całe żądanie, bez częściowego zapisu).
 
@@ -109,7 +109,7 @@ Sukces: `201 {saved:[{vehicleId, blockId, version}], rejected:[]}`; w trybie `SK
 - **P2.** Najbliższy termin jest dostępny publicznie, wariant A (na żądanie, jeden pojazd), bez wsadu w pierwszym kroku.
 - **P3.** Zapis zbiorczy domyślnie wszystko albo nic z `dryRun`; `onConflict:"SKIP"` tylko jawnie, z dokładną listą zapisanych i odrzuconych aut.
 - **P4.** Najwyżej 50 aut w jednym żądaniu (flota ok. 100 aut wymaga dwóch żądań).
-- **P5.** `internalNote` nie jest kopiowana domyślnie; tylko z jawnym `copyNote`. Tak samo `reference` (jawny `copyReference`).
+- **P5.** `internalNote` nie jest kopiowana domyślnie; tylko z jawnym `copyNote`. `reference` jest kopiowane (jak w zatwierdzonej wersji); `copyReference` to wyłącznie rekomendacja, nie decyzja.
 - **P6.** Początkowo zbiorcze utworzenie i kopia na te same daty; `shiftDays` w kolejnym kroku.
 - **P7.** `idempotencyKey` (UUID) z receiptem ważnym 24 h; mechanizm wybiera zadanie API (patrz sekcja 2).
 
