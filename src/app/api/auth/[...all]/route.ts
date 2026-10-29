@@ -270,13 +270,19 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
     if (method === "GET") return Response.json({ sessions: await listOwnSessions(prisma, actor, secret) }, { headers: noStore });
     const parsed = endSessionsBody.safeParse(await request.clone().json().catch(() => null));
     if (!parsed.success) return Response.json({ code: "INVALID_REQUEST" }, { status: 400, headers: noStore });
-    const outcome = await prisma.$transaction(async (tx) => {
-      const current = await requireAuthorizedActor(tx, createAuth(tx, false, externalUrl.origin), request.headers, scope);
-      if (current?.sessionId !== actor.sessionId) return null;
-      return endOwnSessions(tx, { actor, proofIdentifier: challengeKey(`reauth:${parsed.data.proof}`),
-        target: parsed.data.sessionId === undefined ? { kind: "others" } : { kind: "one", ref: parsed.data.sessionId },
-        secret, requestId: auditRequestId });
-    });
+    let outcome: Awaited<ReturnType<typeof endOwnSessions>> | null;
+    try {
+      outcome = await prisma.$transaction(async (tx) => {
+        const current = await requireAuthorizedActor(tx, createAuth(tx, false, externalUrl.origin), request.headers, scope);
+        if (current?.sessionId !== actor.sessionId) return null;
+        return endOwnSessions(tx, { actor, proofIdentifier: challengeKey(`reauth:${parsed.data.proof}`),
+          target: parsed.data.sessionId === undefined ? { kind: "others" } : { kind: "one", ref: parsed.data.sessionId },
+          secret, requestId: auditRequestId });
+      });
+    } catch (error) {
+      if (retryableMfaError(error)) return mfaRetry();
+      throw error;
+    }
     if (!outcome) return neutral();
     if (outcome.ok) return Response.json({ status: true, ended: outcome.ended }, { headers: noStore });
     if (outcome.reason === "PROOF") return neutral();

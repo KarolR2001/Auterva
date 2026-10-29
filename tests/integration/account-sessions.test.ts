@@ -123,8 +123,11 @@ test("the superadmin lists and ends only their own sessions", async () => {
   const sessions = await list(platformHost, one.cookie);
   expect(sessions.length).toBeGreaterThanOrEqual(2);
   expect(sessions.filter((entry) => entry.current)).toHaveLength(1);
-  const result = await end(platformHost, one.cookie, { proof: await proofFor(platformId, one.id) });
-  expect(result.status).toBe(200);
+  // Ends exactly the second session by reference; the fixture superadmin's other sessions are not touched.
+  const target = sessions.find((entry) => !entry.current && entry.createdAt === (await db.session.findUniqueOrThrow({ where: { id: two.id } })).createdAt.toISOString());
+  expect(target).toBeDefined();
+  const result = await end(platformHost, one.cookie, { proof: await proofFor(platformId, one.id), sessionId: target!.id });
+  expect(await result.json()).toEqual({ status: true, ended: 1 });
   expect(await present(one.id, two.id)).toEqual([one.id]);
   // Not reachable from a company host.
   expect((await call(hosts[0], "GET", "sessions", one.cookie)).status).toBe(401);

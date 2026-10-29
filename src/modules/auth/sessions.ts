@@ -45,7 +45,8 @@ export type EndResult = { ok: true; ended: number } | { ok: false; reason: "PROO
 /**
  * Call inside a transaction after the caller re-authorized `actor`. Consumes the single-use reauth proof (bound to
  * this account, this session and `end-sessions`), deletes only the caller's own sessions and audits the count.
- * An unmatched reference (foreign, expired or already ended) does not consume the proof and changes nothing.
+ * An unmatched reference (foreign, expired, not listed or already ended) does not consume the proof and changes nothing.
+ * "Others" ends every other session of the account, including ones the list does not show (expired, MFA not proven).
  */
 export async function endOwnSessions(tx: Prisma.TransactionClient, input: { actor: SessionActor; proofIdentifier: string;
   target: EndTarget; secret: string; requestId: string; now?: Date }): Promise<EndResult> {
@@ -54,7 +55,9 @@ export async function endOwnSessions(tx: Prisma.TransactionClient, input: { acto
   let where: Prisma.SessionWhereInput;
   if (input.target.kind === "others") where = { userId: actor.userId, id: { not: actor.sessionId } };
   else {
-    const own = await tx.session.findMany({ where: { userId: actor.userId }, select: { id: true } });
+    // Same visibility as the list: only sessions the caller can see are addressable by reference.
+    const own = await tx.session.findMany({ where: { userId: actor.userId, expiresAt: { gt: now },
+      mfaVerifiedAt: { not: null } }, select: { id: true } });
     const match = own.find((row) => sessionRef(input.secret, actor.userId, row.id) === (input.target as { ref: string }).ref);
     if (!match) return { ok: false, reason: "NOT_FOUND" };
     if (match.id === actor.sessionId) return { ok: false, reason: "CURRENT" };
