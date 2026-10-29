@@ -72,7 +72,7 @@
     },
     {
       "path": "docs/contracts/availability-reads.md",
-      "sha256": "3ce6adde050d5d6b22469d5944ecbfb6e0c0e0df9fb82dc42096fd2113877797"
+      "sha256": "9f4d0b0f896c3f44960a2e3d029b6999556a3304405717786475af136e7a279b"
     },
     {
       "path": "docs/contracts/fleet-crud-publication.md",
@@ -84,7 +84,7 @@
     },
     {
       "path": "docs/contracts/account-operations.md",
-      "sha256": "48958d7d0cfb832e2f5c3705ec29a48ce53de4f91ca6678388c3db40a459329a"
+      "sha256": "23146fa7f8e808b00c8b8fe4ae31809a669122d21ff061e6fc615d0fa3e06abd"
     },
     {
       "path": "docs/contracts/company-onboarding-invitations.md",
