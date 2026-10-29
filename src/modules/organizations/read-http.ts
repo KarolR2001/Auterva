@@ -6,16 +6,17 @@ import { requireAuthorizedActor } from "@/modules/auth/authorization";
 import { takeAuthenticatedApiLimit } from "@/modules/tenancy/api-rate-limit";
 import { resolveRequestArea } from "@/modules/tenancy/request-context";
 import { getPlatformCompany, listPlatformCompanies } from "./read";
+import { getLaunchDiagnostics } from "./launch-diagnostics";
 import { reportInternalError } from "@/modules/observability/http-observe";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function respond(body: object, status: number, requestId: string, retryAfter?: number) {
+export function respond(body: object, status: number, requestId: string, retryAfter?: number) {
   return Response.json(body, { status, headers: { "Cache-Control": "no-store",
     "X-Request-Id": requestId, ...(retryAfter ? { "Retry-After": String(retryAfter) } : {}) } });
 }
 
-async function platformReader(request: Request, requestId: string): Promise<Response | null> {
+export async function platformReader(request: Request, requestId: string): Promise<Response | null> {
   const area = await resolveRequestArea(prisma, request.headers.get("host"));
   if (area?.area !== "PLATFORM" || area.organizationId !== null) return respond({ code: "NOT_FOUND" }, 404, requestId);
   const actor = await requireAuthorizedActor(prisma, auth, request.headers, { area: "PLATFORM", organizationId: null });
@@ -62,4 +63,16 @@ export async function platformCompanyDetail(request: Request, organizationId: st
     const result = await getPlatformCompany(prisma, organizationId, new Date());
     return result ? respond(result, 200, requestId) : respond({ code: "NOT_FOUND" }, 404, requestId);
   } catch (error) { return respond({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "companies.read")); }
+}
+
+export async function platformLaunchDiagnostics(request: Request, organizationId: string): Promise<Response> {
+  const requestId = randomUUID();
+  try {
+    const denied = await platformReader(request, requestId);
+    if (denied) return denied;
+    if (!uuid.test(organizationId)) return respond({ code: "INVALID_ID" }, 400, requestId);
+    if (new URL(request.url).search) return respond({ code: "INVALID_INPUT" }, 400, requestId);
+    const result = await getLaunchDiagnostics(prisma, organizationId, new Date());
+    return result ? respond(result, 200, requestId) : respond({ code: "NOT_FOUND" }, 404, requestId);
+  } catch (error) { return respond({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "companies.diagnostics")); }
 }

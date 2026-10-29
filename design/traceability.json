@@ -617,6 +617,18 @@
       "testPaths": ["tests/integration/company-activation.test.ts", "tests/e2e/company-onboarding.spec.ts"]
     },
     {
+      "issue": 77,
+      "scope": "Diagnostyka uruchomienia firmy dla operatora: kategorie DNS/TLS, doręczenie zaproszenia i przypomnień, ostatnia próba i dozwolone retry; odczyt tylko superadmina.",
+      "relatedRequirementIds": ["C-F035", "C-F089"],
+      "codePaths": [
+        "docs/contracts/launch-diagnostics.md",
+        "src/modules/organizations/launch-diagnostics.ts",
+        "src/modules/organizations/read-http.ts",
+        "src/app/api/platform/companies/[organizationId]/launch-diagnostics/route.ts"
+      ],
+      "testPaths": ["tests/integration/launch-diagnostics.test.ts"]
+    },
+    {
       "issue": 23,
       "scope": "Cykl domeny własnej (własność TXT, CNAME, adresy publiczne, TLS i routing), osobny host panelu i neutralny nieznany host, przekierowanie aliasu po bramce widoczności; provisioning DNS/TLS i cykliczna kontrola w #10/#58.",
       "relatedRequirementIds": ["C-F004", "C-F086", "C-F087", "C-F088", "C-F089", "C-N008", "C-N024", "C-N058"],
