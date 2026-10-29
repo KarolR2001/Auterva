@@ -1024,6 +1024,24 @@
         "tests/integration/log-actor-context.test.ts",
         "tests/e2e/auth-production.spec.ts"
       ]
+    },
+    {
+      "issue": 44,
+      "scope": "PUB-04 kontakt (kanały tel/WhatsApp/e-mail z kontekstem pojazdu i terminu, kopiowanie, godziny, adres, link do mapy, jawny stan braku kanału) oraz PUB-05/06 dokumenty firmy (tekst, link lub jawny stan braku). Strona niczego nie zapisuje; bramka całej strony przy każdym odczycie. Penpot: odczyt blocked (karta zawieszona), porównanie z makietą nie wykonane.",
+      "relatedRequirementIds": ["C-F006", "C-F106", "C-F107", "C-F112", "FR-PUB-030", "FR-PUB-031", "FR-PUB-032", "FR-PUB-033", "FR-PUB-034", "FR-PUB-035", "FR-PUB-036", "FR-PUB-037", "FR-PUB-038", "FR-PUB-039", "FR-PUB-040", "FR-PUB-041", "FR-PUB-042"],
+      "referenceScreenIds": ["PUB-04", "PUB-05", "PUB-06"],
+      "codePaths": [
+        "src/app/kontakt/page.tsx",
+        "src/app/polityka-prywatnosci/page.tsx",
+        "src/app/regulamin/page.tsx",
+        "src/components/public/contact-page.tsx",
+        "src/components/public/legal-page.tsx",
+        "src/components/public/copy-button.tsx",
+        "src/components/public/contact.module.css",
+        "src/modules/public-offer/contact-data.ts",
+        "src/modules/public-offer/contact-presentation.ts"
+      ],
+      "testPaths": ["tests/unit/contact-legal.test.tsx", "tests/e2e/public-contact.spec.ts"]
     }
   ],
   "sources": [
