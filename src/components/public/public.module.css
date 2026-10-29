@@ -138,3 +138,4 @@
 }
 .pageTitle { margin: 0 0 var(--space-2); font-size: var(--font-size-32); line-height: var(--line-height-40); font-weight: var(--font-weight-bold); overflow-wrap: anywhere; }
 @media (min-width: 768px) { .pageTitle { font-size: var(--font-size-40); line-height: var(--line-height-48); } }
+.filterDetails { display: block; }
