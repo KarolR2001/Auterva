@@ -8,6 +8,9 @@ vi.mock("next/navigation", () => ({
   notFound: () => {
     throw new Error("NOT_FOUND");
   },
+  redirect: (url: string) => {
+    throw new Error(`REDIRECT:${url}`);
+  },
 }));
 
 import AdminPage from "../../src/app/admin/page";
@@ -93,7 +96,7 @@ test("platforma wymaga sesji superadmina i odmawia po jej unieważnieniu", async
   request.headers.mockResolvedValue(
     new Headers({ host: platformHost, cookie: session.cookie }),
   );
-  await expect(HomePage()).rejects.toThrow("NOT_FOUND");
+  await expect(HomePage()).rejects.toThrow("REDIRECT:/login");
 
   request.headers.mockResolvedValue(
     new Headers({ host: platformHost, cookie: superadminSession.cookie }),
@@ -104,6 +107,16 @@ test("platforma wymaga sesji superadmina i odmawia po jej unieważnieniu", async
   expect(authorized).not.toContain("Firma Alfa");
 
   await superadminSession.dispose();
+  await expect(HomePage()).rejects.toThrow("REDIRECT:/login");
+
+  // Cold start without any session: login, never private HTML.
+  request.headers.mockResolvedValue(new Headers({ host: platformHost }));
+  await expect(HomePage()).rejects.toThrow("REDIRECT:/login");
+
+  // Unknown host stays a 404.
+  request.headers.mockResolvedValue(
+    new Headers({ host: "unknown.example.test" }),
+  );
   await expect(HomePage()).rejects.toThrow("NOT_FOUND");
 });
 
@@ -119,11 +132,24 @@ test("serwer renderuje shell tylko dla sesji i firmy bieżącego hosta", async (
   request.headers.mockResolvedValue(
     new Headers({ host: hostB, cookie: session.cookie }),
   );
-  await expect(AdminPage()).rejects.toThrow("NOT_FOUND");
+  await expect(AdminPage()).rejects.toThrow(
+    "REDIRECT:/admin/login?returnTo=%2Fadmin",
+  );
 
   await session.dispose();
   request.headers.mockResolvedValue(
     new Headers({ host: hostA, cookie: session.cookie }),
+  );
+  await expect(AdminPage()).rejects.toThrow(
+    "REDIRECT:/admin/login?returnTo=%2Fadmin",
+  );
+
+  request.headers.mockResolvedValue(new Headers({ host: hostA }));
+  await expect(AdminPage()).rejects.toThrow(
+    "REDIRECT:/admin/login?returnTo=%2Fadmin",
+  );
+  request.headers.mockResolvedValue(
+    new Headers({ host: "unknown.example.test" }),
   );
   await expect(AdminPage()).rejects.toThrow("NOT_FOUND");
 });

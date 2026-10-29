@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PanelShell } from "@/components/panel/panel-shell";
@@ -35,10 +35,19 @@ export default async function HomePage() {
           <p>Panel jest w przygotowaniu.</p>
         </PanelShell>
       );
+    redirect("/login");
   }
-  if (area?.area === "COMPANY_PUBLIC" && incoming.get("host")
-    && await resolvePublicVisibility(prisma, incoming.get("host")!)) {
-    return <main><h1>Oferta firmy</h1><p>Oferta jest w przygotowaniu.</p></main>;
+  if (
+    area?.area === "COMPANY_PUBLIC" &&
+    incoming.get("host") &&
+    (await resolvePublicVisibility(prisma, incoming.get("host")!))
+  ) {
+    return (
+      <main>
+        <h1>Oferta firmy</h1>
+        <p>Oferta jest w przygotowaniu.</p>
+      </main>
+    );
   }
   notFound();
 }

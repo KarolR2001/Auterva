@@ -495,35 +495,6 @@
       "testPaths": ["tests/unit/local-fixture.test.ts", "tests/integration/local-fixture.test.ts"]
     },
     {
-      "issue": 11,
-      "scope": "Podstawowe komponenty pierwszych ekranów na wspólnym scaffoldzie.",
-      "relatedRequirementIds": [
-        "C-N047",
-        "C-N049",
-        "C-N050",
-        "DS-N12",
-        "DS-N13",
-        "DS-N14",
-        "DS-N15",
-        "DS-N20",
-        "DS-N21"
-      ],
-      "referenceScreenIds": ["ADM-01", "ACC-07", "ADM-19"],
-      "components": [
-        { "itemId": "DS-ACT-001", "codePath": "src/components/ui/button.tsx" },
-        { "itemId": "DS-FRM-001", "codePath": "src/components/ui/form-field.tsx" },
-        { "itemId": "DS-FRM-002", "codePath": "src/components/ui/text-input.tsx" },
-        { "itemId": "DS-FRM-004", "codePath": "src/components/ui/password-input.tsx" },
-        { "itemId": "DS-FBK-001", "codePath": "src/components/ui/alert.tsx" },
-        { "itemId": "DS-FBK-014", "codePath": "src/components/ui/dialog.tsx" },
-        { "itemId": "DS-FBK-021", "codePath": "src/components/ui/announcement-region.tsx" },
-        { "itemId": "DS-NAV-001", "codePath": "src/components/ui/skip-link.tsx" }
-      ],
-      "stylePath": "src/components/ui/ui.module.css",
-      "testPath": "tests/unit/ui-foundations.test.tsx",
-      "fixturePath": "tests/fixtures/ui-check.tsx"
-    },
-    {
       "issue": 12,
       "scope": "Bootstrap superadmina, host-bound login, obowiązkowe MFA, limity i cofanie sesji; produkcyjny ingress pozostaje zależnością #13.",
       "relatedRequirementIds": ["C-F008", "C-F009", "C-F010", "C-F011", "C-F013", "C-F014", "C-F040", "C-F044", "C-N009", "C-N010", "C-N011", "C-N018"],
@@ -551,7 +522,7 @@
       "issue": 14,
       "scope": "Shell firmy i platformy po serwerowej kontroli kontekstu #13, stany dostępu/błędów oraz ochrona niezapisanych zmian; treści modułów powstają w późniejszych issue.",
       "relatedRequirementIds": ["C-F018", "C-F147", "C-F148", "C-F149", "C-F150", "DS-N07", "DS-N08", "DS-N14"],
-      "referenceScreenIds": ["ADM-04", "ADM-19", "ADM-20", "ADM-21", "PLT-01-02", "OVR-13", "OVR-17"],
+      "referenceScreenIds": ["ADM-01", "ADM-04", "ADM-19", "ADM-20", "ADM-21", "PLT-01-02", "PLT-04", "OVR-13", "OVR-17"],
       "codePaths": [
         "src/app/page.tsx",
         "src/app/admin/page.tsx",
