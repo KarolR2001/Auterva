@@ -200,7 +200,7 @@ function ErrorNotice({
 function PendingNotice({ active }: { active: boolean }) {
   return (
     <p className={styles.pending} role="status">
-      {active ? "Trwa weryfikacja. Nie wysyłaj ponownie." : ""}
+      {active ? "Trwa weryfikacja kodu. Nie wysyłaj go ponownie." : ""}
     </p>
   );
 }

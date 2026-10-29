@@ -616,7 +616,7 @@ describe("stany odzyskiwania i dostępności MFA (#132)", () => {
     await user.click(screen.getByRole("button", { name: "Nie mam dostępu do aplikacji" }));
     await user.type(screen.getByRole("textbox", { name: "Kod odzyskania" }), "kod-1");
     await user.click(screen.getByRole("button", { name: "Potwierdź kod" }));
-    expect(screen.getByRole("status")).toHaveTextContent("Trwa weryfikacja. Nie wysyłaj ponownie.");
+    expect(screen.getByRole("status")).toHaveTextContent("Trwa weryfikacja kodu. Nie wysyłaj go ponownie.");
     expect(screen.getByRole("button", { name: "Sprawdzanie…" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Użyj kodu z aplikacji" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Nie mam aplikacji ani kodów" })).toBeDisabled();
