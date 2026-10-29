@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 import { routeAllowedForArea } from "../../src/modules/tenancy/host-route-policy";
 
 test.each([
-  ["MARKETING", "/", true], ["MARKETING", "/admin/", false], ["MARKETING", "/api/auth/get-session", false],
+  ["MARKETING", "/", true], ["MARKETING", "/robots.txt", true], ["MARKETING", "/sitemap.xml", true], ["COMPANY_ADMIN", "/sitemap.xml", false], ["MARKETING", "/admin/", false], ["MARKETING", "/api/auth/get-session", false],
   ["PLATFORM", "/", true], ["PLATFORM", "/firmy/123", true], ["PLATFORM", "/api/platform/organizations", true],
   ["PLATFORM", "/api/auth/sign-in/email", true], ["PLATFORM", "/admin/", false],
   ["COMPANY_ADMIN", "/admin/", true], ["COMPANY_ADMIN", "/admin/pojazdy", true],

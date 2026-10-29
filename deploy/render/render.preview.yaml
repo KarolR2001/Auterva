@@ -1,0 +1,40 @@
+# Draft Render Blueprint for a SHORT-LIVED, FREE preview (D-09, D-16). NOT validated and NOT deployed:
+# it needs a Render account, which this repository does not create. It lives outside the repository root on
+# purpose so Render does not pick it up automatically. To try it, the owner points a new Blueprint at this path.
+#
+# Unvalidated: do not connect this Blueprint to the repository unless autoDeploy stays false for every service.
+#
+# Limits (docs/contracts/environments-hosts-operations.md): free web services sleep, the free database expires after
+# 30 days without backups, and a background worker has no free plan. So the preview serves the web UI only; WS and
+# worker are NOT part of it. The WebSocket server also binds loopback only today, so chat is not available in preview.
+# Preview data must be synthetic. Never copy staging/production credentials, R2 keys or recipient lists here.
+services:
+  - type: web
+    name: auterva-preview
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerTarget: web        # may need a Docker build arg/command check against current Render docs before first use
+    plan: free
+    autoDeploy: false        # no deploy on push; the preview is started by hand
+    healthCheckPath: /api/health/
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase: { name: auterva-preview-db, property: connectionString }
+      - key: BETTER_AUTH_SECRET
+        generateValue: true
+      - key: BETTER_AUTH_URL
+        sync: false            # set to the onrender.com URL of this service after the first deploy
+      - key: MAIL_ENVIRONMENT
+        value: preview
+      - key: MAIL_PROVIDER
+        value: sink            # no real delivery from preview
+      - key: MAIL_ALLOWED_RECIPIENTS
+        value: qa@example.test
+      - key: MAIL_PAYLOAD_KEY
+        sync: false            # 64 hex characters (openssl rand -hex 32), set by hand; unique per environment
+      # Separate preview bucket and keys only (S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY);
+      # none is created here. Without them media routes stay unavailable.
+databases:
+  - name: auterva-preview-db
+    plan: free
+    databaseName: auterva_preview

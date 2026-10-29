@@ -1,8 +1,11 @@
 import { createHash } from "node:crypto";
 import type { Job, PrismaClient } from "@/generated/prisma/client";
 import { normalizeHostname } from "@/modules/tenancy/host-registry";
+import { isReminderIntentCurrent } from "@/modules/reminders/current";
 import { decryptMailPayload, isCurrentReminderRecipient, type MailPayload } from "./outbox";
 import { failJob, quarantineMailJob, startMailAttempt, type ClaimedJob } from "./queue";
+import { currentLogContext } from "@/modules/observability/log";
+import { metrics, names } from "@/modules/observability/metrics";
 
 export type MailProviderResult = { kind: "accepted"; providerId: string } |
   { kind: "transient" | "permanent" };
@@ -61,7 +64,9 @@ async function isCurrent(db: PrismaClient, mail: MailPayload, now: Date): Promis
   if (!mail.organizationId) return false;
   const period = await db.serviceAccess.findUnique({ where: { organizationId: mail.organizationId }, select: { periodVersion: true } });
   return parsed.pathname === "/admin/" && !!period && period.periodVersion === mail.periodVersion
-    && await isCurrentReminderRecipient(db, mail.organizationId, mail.recipient);
+    && await isCurrentReminderRecipient(db, mail.organizationId, mail.recipient)
+    // The intent must still belong to the company's live effective boundary and not be superseded.
+    && await isReminderIntentCurrent(db, mail.organizationId, mail.referenceId, now);
 }
 
 async function skip(db: PrismaClient, claim: ClaimedJob, now: Date, code: string, expectedPayload: Job["payload"]): Promise<boolean> {
@@ -85,6 +90,7 @@ export async function processClaimedJob(db: PrismaClient, claim: ClaimedJob, con
   for (let attempt = 0; attempt < 4; attempt++) {
     const job = await db.job.findUnique({ where: { id: claim.id } });
     if (!job || job.status !== "RUNNING" || job.leaseToken !== claim.leaseToken) return;
+    if (job.organizationId) currentLogContext().organizationId = job.organizationId;
     if (attempt === 0) await context.afterPayloadRead?.();
     let code: string | null = null;
     let mail: MailPayload | null = null;
@@ -115,6 +121,7 @@ export async function processClaimedJob(db: PrismaClient, claim: ClaimedJob, con
   let result: MailProviderResult;
   try { result = await context.provider.send(mail, job.id); }
   catch { result = { kind: "transient" }; }
+  metrics.inc(names.mail, "Mail provider outcomes", { kind: job.kind, result: result.kind });
   await context.afterProviderResponse?.();
   const completedAt = currentTime();
   if (result.kind === "accepted") {

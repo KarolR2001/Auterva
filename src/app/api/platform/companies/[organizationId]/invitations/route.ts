@@ -1,3 +1,4 @@
+import { routeContext } from "@/modules/observability/route-context";
 import { prisma } from "@/lib/prisma";
 import { parseMailPayloadKey } from "@/modules/jobs/config";
 import { issueCompanyInvitation } from "@/modules/invitations/issue";
@@ -7,7 +8,7 @@ import { takeRateLimit } from "@/modules/auth/rate-limit";
 import { accessFailure, onboardingFailure, onboardingRequestId, onboardingResponse,
   platformOnboardingActor, readOnboardingBody, uuid } from "@/modules/organizations/http";
 
-export async function POST(request: Request, context: { params: Promise<{ organizationId: string }> }) {
+async function handlePOST(request: Request, context: { params: Promise<{ organizationId: string }> }) {
   const requestId = onboardingRequestId();
   const { organizationId } = await context.params;
   if (!uuid.test(organizationId)) return onboardingResponse({ code: "INVALID_ORGANIZATION_ID" }, 400, requestId);
@@ -38,3 +39,5 @@ export async function POST(request: Request, context: { params: Promise<{ organi
     return onboardingResponse(result, 201, requestId);
   } catch (error) { return onboardingFailure(error, requestId); }
 }
+
+export const POST = routeContext(handlePOST);

@@ -24,3 +24,10 @@ test("today uses Warsaw local day at midnight and both DST transitions", () => {
   expect(availabilityToday(new Date("2026-10-24T21:59:59Z"))).toBe("2026-10-24");
   expect(availabilityToday(new Date("2026-10-24T22:00:00Z"))).toBe("2026-10-25");
 });
+
+test("block types keep MAINTENANCE as the canonical Serwis type (D-15)", async () => {
+  const { blockTypeLabels, blockTypes } = await import("../../src/modules/availability/block-types");
+  expect(blockTypes).toEqual(["RESERVED", "MAINTENANCE", "BLOCKED", "OTHER"]);
+  expect(blockTypeLabels.MAINTENANCE).toBe("Serwis");
+  expect(blockTypes).not.toContain("SERVICE");
+});

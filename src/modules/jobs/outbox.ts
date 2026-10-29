@@ -32,6 +32,8 @@ type MailInput = {
   referenceId: string;
   token?: string;
   periodVersion?: number;
+  /** MAIL_REMINDER only: current-state text built by the reminder module; the link is appended by the outbox. */
+  copy?: { subject: string; text: (url: string) => string };
   runAt: Date;
 };
 
@@ -72,21 +74,27 @@ export function decryptMailPayload(value: unknown, key: Buffer): MailPayload {
   return payload;
 }
 
+/** A permanent, input-level refusal of a mail intent (never a transient database or network failure). */
+export class MailIntentError extends Error {
+  readonly code = "MAIL_INTENT_REJECTED";
+}
+
 export async function enqueueMail(tx: Prisma.TransactionClient, input: MailInput, key: Buffer) {
   assertKey(key);
   if (!Number.isFinite(input.runAt.getTime()) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.recipient) ||
-      !/^[a-zA-Z0-9:_-]{1,160}$/.test(input.referenceId)) throw new Error("Invalid mail intent");
+      !/^[a-zA-Z0-9:_-]{1,160}$/.test(input.referenceId)) throw new MailIntentError("Invalid mail intent");
+  if (input.copy && input.kind !== "MAIL_REMINDER") throw new MailIntentError("Invalid mail copy");
   if (input.kind === "MAIL_REMINDER") {
-    if (input.token !== undefined || !Number.isSafeInteger(input.periodVersion) || input.periodVersion! < 0) throw new Error("Invalid reminder intent");
+    if (input.token !== undefined || !Number.isSafeInteger(input.periodVersion) || input.periodVersion! < 0) throw new MailIntentError("Invalid reminder intent");
   } else if (!input.token || input.token.length > 512 || input.periodVersion !== undefined) {
-    throw new Error("Invalid token mail intent");
+    throw new MailIntentError("Invalid token mail intent");
   }
   const scope = input.scope ?? "COMPANY_ADMIN";
   if ((scope === "PLATFORM") !== (input.organizationId === null) ||
-      (scope === "PLATFORM" && input.kind !== "MAIL_PASSWORD_RESET")) throw new Error("Invalid mail scope");
+      (scope === "PLATFORM" && input.kind !== "MAIL_PASSWORD_RESET")) throw new MailIntentError("Invalid mail scope");
   if (input.organizationId) {
     const org = await tx.organization.findUnique({ where: { id: input.organizationId }, select: { archivedAt: true } });
-    if (!org || org.archivedAt) throw new Error("Inactive mail organization");
+    if (!org || org.archivedAt) throw new MailIntentError("Inactive mail organization");
   }
   let boundInvitationHost: string | null = null;
   if (input.kind === "MAIL_INVITATION") {
@@ -96,7 +104,7 @@ export async function enqueueMail(tx: Prisma.TransactionClient, input: MailInput
         invitation.tokenHash !== createHash("sha256").update(input.token!).digest("hex") ||
         !invitation.issuedHost || normalizeHostname(invitation.issuedHost) !== invitation.issuedHost ||
         invitation.usedAt || invitation.revokedAt || invitation.expiresAt <= input.runAt)
-      throw new Error("Invitation does not match mail intent");
+      throw new MailIntentError("Invitation does not match mail intent");
     boundInvitationHost = invitation.issuedHost;
   }
   if (input.kind === "MAIL_PASSWORD_RESET") {
@@ -105,24 +113,24 @@ export async function enqueueMail(tx: Prisma.TransactionClient, input: MailInput
         accounts: { where: { providerId: "credential", password: { not: null } }, select: { id: true }, take: 1 } } });
     if (!user || user.disabledAt || !user.emailVerified || user.accounts.length !== 1 || user.organizationId !== input.organizationId ||
         user.role !== (scope === "PLATFORM" ? "SUPERADMIN_AUTERVA" : "ADMIN_FIRMY")) {
-      throw new Error("Reset recipient does not match mail scope");
+      throw new MailIntentError("Reset recipient does not match mail scope");
     }
     const verification = await tx.verification.findUnique({ where: { id: input.referenceId } });
     if (!verification || verification.identifier !== `password-reset:${input.recipient.toLowerCase()}` ||
         verification.value !== createHash("sha256").update(input.token!).digest("hex")) {
-      throw new Error("Reset proof does not match mail intent");
+      throw new MailIntentError("Reset proof does not match mail intent");
     }
   }
   if (input.kind === "MAIL_REMINDER" && (!input.organizationId
     || !(await isCurrentReminderRecipient(tx, input.organizationId, input.recipient)))) {
-    throw new Error("Reminder recipient is not the current company administrator");
+    throw new MailIntentError("Reminder recipient is not the current company administrator");
   }
   const host = await tx.hostMapping.findFirst({ where: { organizationId: input.organizationId,
     area: scope, status: "ACTIVE",
     ...(boundInvitationHost ? { hostname: { equals: boundInvitationHost, mode: "insensitive" as const } } : {}) },
   orderBy: { hostname: "asc" }, select: { hostname: true } });
   const hostname = host && normalizeHostname(host.hostname);
-  if (!hostname || (boundInvitationHost && hostname !== boundInvitationHost)) throw new Error("Missing active admin host");
+  if (!hostname || (boundInvitationHost && hostname !== boundInvitationHost)) throw new MailIntentError("Missing active admin host");
   const path = input.kind === "MAIL_INVITATION" ? `/admin/zaproszenie/${encodeURIComponent(input.token!)}`
     : input.kind === "MAIL_PASSWORD_RESET" ? `${scope === "PLATFORM" ? "" : "/admin"}/reset-hasla/${encodeURIComponent(input.token!)}` : "/admin/";
   const url = `https://${hostname}${path}`;
@@ -130,7 +138,8 @@ export async function enqueueMail(tx: Prisma.TransactionClient, input: MailInput
     ? { subject: "Zaproszenie do Autervy", text: `Otwórz zaproszenie: ${url}` }
     : input.kind === "MAIL_PASSWORD_RESET"
       ? { subject: "Reset hasła Autervy", text: `Ustaw nowe hasło: ${url}` }
-      : { subject: "Przypomnienie o okresie usługi Autervy", text: `Sprawdź okres usługi w panelu: ${url}` };
+      : input.copy ? { subject: input.copy.subject, text: input.copy.text(url) }
+        : { subject: "Przypomnienie o okresie usługi Autervy", text: `Sprawdź okres usługi w panelu: ${url}` };
   const payload: MailPayload = { kind: input.kind, scope, organizationId: input.organizationId,
     recipient: input.recipient.toLowerCase(), referenceId: input.referenceId, url, ...copy,
     ...(input.periodVersion === undefined ? {} : { periodVersion: input.periodVersion }) };
@@ -139,7 +148,7 @@ export async function enqueueMail(tx: Prisma.TransactionClient, input: MailInput
   await tx.job.createMany({ data: [{ organizationId: input.organizationId, kind: input.kind,
     dedupeKey, payload: sealed, runAt: input.runAt }], skipDuplicates: true });
   const job = await tx.job.findFirstOrThrow({ where: { organizationId: input.organizationId, dedupeKey } });
-  if ((job.payload as Record<string, unknown>).digest !== sealed.digest) throw new Error("Mail intent key reused with different content");
+  if ((job.payload as Record<string, unknown>).digest !== sealed.digest) throw new MailIntentError("Mail intent key reused with different content");
   return job;
 }
 

@@ -1,5 +1,5 @@
 import { createHmac, randomUUID } from "node:crypto";
-import type { PrismaClient } from "../../generated/prisma/client";
+import type { Prisma, PrismaClient } from "../../generated/prisma/client";
 import { getServerEnv } from "../../lib/env";
 
 export type LimitDimension = { key: string; limit: number; windowMs: number };
@@ -10,12 +10,18 @@ function hashedKey(key: string) {
   return createHmac("sha256", getServerEnv().BETTER_AUTH_SECRET).update(key).digest("hex");
 }
 
-async function consume(db: PrismaClient, dimensions: LimitDimension[], now: Date, pendingFirst: boolean): Promise<{ allowed: true; reservationId?: string } | { allowed: false; retryAfter: number }> {
+type ConsumeResult = { allowed: true; reservationId?: string } | { allowed: false; retryAfter: number };
+
+async function consume(db: PrismaClient, dimensions: LimitDimension[], now: Date, pendingFirst: boolean): Promise<ConsumeResult> {
+  return db.$transaction((tx) => consumeWithin(tx, dimensions, now, pendingFirst));
+}
+
+async function consumeWithin(tx: Prisma.TransactionClient, dimensions: LimitDimension[], now: Date, pendingFirst: boolean): Promise<ConsumeResult> {
   if (!dimensions.length || dimensions.some(({ key, limit, windowMs }) => !key || !Number.isInteger(limit) || limit < 1 || !Number.isInteger(windowMs) || windowMs < 1)) {
     throw new Error("Invalid rate limit policy");
   }
   const rules = dimensions.map((rule) => ({ ...rule, keyHash: hashedKey(rule.key) }));
-  return db.$transaction(async (tx) => {
+  {
     // Every process takes locks in the same order. A collision only serializes extra keys.
     for (const keyHash of [...new Set(rules.map((rule) => rule.keyHash))].sort()) {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${keyHash}, 0))`;
@@ -42,7 +48,16 @@ async function consume(db: PrismaClient, dimensions: LimitDimension[], now: Date
       if (pendingFirst && index === 0) reservationId = eventId;
     }
     return { allowed: true as const, reservationId };
-  });
+  }
+}
+
+/**
+ * Takes the limit inside the caller's transaction, so the charge commits or rolls back together with the
+ * guarded write (chat: a retried or failed message never leaves a consumed slot). A denial writes nothing.
+ */
+export async function takeRateLimitWithin(tx: Prisma.TransactionClient, dimensions: LimitDimension[], now = new Date()): Promise<LimitResult> {
+  const result = await consumeWithin(tx, dimensions, now, false);
+  return result.allowed ? { allowed: true } : result;
 }
 
 export async function takeRateLimit(db: PrismaClient, dimensions: LimitDimension[], now = new Date()): Promise<LimitResult> {

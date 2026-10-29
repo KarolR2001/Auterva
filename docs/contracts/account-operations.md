@@ -8,7 +8,7 @@ Aktywny host `COMPANY_ADMIN` obsługuje wyłącznie administratora przypisanej f
 | --- | --- | --- |
 | `POST /api/auth/password/request-reset` | `{email, idempotencyKey: UUID}` | Zawsze `{accepted:true}` dla poprawnego żądania, niezależnie od istnienia i stanu konta; błędne dane `400`, limit `429` + `Retry-After`, brak konfiguracji poczty `503`. |
 | `POST /api/auth/password/reset` | `{token, newPassword}` | Ważny dowód: `{status:true,signInRequired:true}`; nieważny, zużyty, obcy lub wygasły: `401 INVALID_CREDENTIALS`. Błędny format `400`. |
-| `POST /api/auth/profile` | `{name}` | Pełna sesja MFA; zmienia wyłącznie nazwę (1–100 znaków). E-mail, rola, firma i MFA są tylko do odczytu; dodatkowe pola dają `400`. |
+| `POST /api/auth/profile` | `{name}` | Pełna sesja MFA; zmienia wyłącznie nazwę (1–100 znaków, jednowierszowa; znak sterujący, bidi lub U+2028/2029 daje `400 INVALID_REQUEST` z `fieldErrors: { name: "INVALID_CHARACTERS" }`). E-mail, rola, firma i MFA są tylko do odczytu; dodatkowe pola dają `400`. |
 | `POST /api/auth/password/change` | `{currentPassword,newPassword}` | Pełna sesja MFA i ponowna weryfikacja aktualnego hasła pod blokadą credential; sukces `{status:true,signInRequired:true}`, błędne dane `400`, błędny dowód `401`, wspólny limit prób auth `429` z `Retry-After`. |
 
 Nowe hasło ma 12–256 znaków. Po resecie i zmianie wszystkie sesje konta, także bieżąca, oraz niewykorzystane tokeny resetu i challenge MFA są cofnięte. Następny login wymaga hasła i MFA; faktor TOTP/kody nie są zerowane. Ekran linku resetu stosuje `Referrer-Policy: no-referrer`, bez analityki, zasobów stron trzecich i logowania pełnego URL. Sam GET/skaner nie zużywa tokenu. Frontend #19 odpowiada za ekran i komunikat o ponownym logowaniu.

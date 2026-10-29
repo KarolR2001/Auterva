@@ -154,7 +154,8 @@ test("published edits reject loss of required fields; both roles use CAS, tenant
   const renamed = await editVehicle(db, { ...platformActor(), vehicleId: id, expectedVersion: 2,
     confirmSlugChange: true, fields: { name: "Bus 10", slug: `bus-new-${id}` } });
   expect(renamed.version).toBe(3);
-  expect(await db.slugRedirect.count({ where: { organizationId: organizations[0], vehicleId: id } })).toBe(0);
+  // D-27: the old public address of a published vehicle now redirects to the vehicle.
+  expect(await db.slugRedirect.count({ where: { organizationId: organizations[0], vehicleId: id } })).toBe(1);
   await expect(editVehicle(db, { ...actor(), vehicleId: id, expectedVersion: 2,
     fields: { name: "Przestarzała zmiana" } })).rejects.toThrow("FLEET_VERSION_CONFLICT");
   const hidden = await setVehicleStatus(db, { ...actor(), vehicleId: id,
@@ -315,16 +316,17 @@ test("published offer disappears immediately after unpublish while private histo
   }
 });
 
-test("archived company denies both admin and platform mutations without changing the vehicle", async () => {
+test("archived company denies the admin and lets the superadmin edit (D-23), with the archive in the audit", async () => {
   const created = await createVehicle(db, { ...actor(1), fields: { name: "Historia" } });
   vehicles.push(created.id);
   await db.organization.update({ where: { id: organizations[1] }, data: { archivedAt: new Date() } });
   try {
     await expect(editVehicle(db, { ...actor(1), vehicleId: created.id, expectedVersion: 0,
       fields: { name: "Niedozwolone" } })).rejects.toThrow();
-    await expect(editVehicle(db, { ...platformActor(1), vehicleId: created.id, expectedVersion: 0,
-      fields: { name: "Też niedozwolone" } })).rejects.toThrow("FLEET_NOT_FOUND");
     expect((await db.vehicle.findUniqueOrThrow({ where: { id: created.id } })).name).toBe("Historia");
+    await editVehicle(db, { ...platformActor(1), vehicleId: created.id, expectedVersion: 0,
+      fields: { name: "Zmiana superadmina" } });
+    expect((await db.vehicle.findUniqueOrThrow({ where: { id: created.id } })).name).toBe("Zmiana superadmina");
   } finally {
     await db.organization.update({ where: { id: organizations[1] }, data: { archivedAt: null } });
   }

@@ -1,0 +1,4 @@
+# Fikcyjne wartosci testu redakcji z galezi #58 (commit 072eb71), zweryfikowane przez orkiestratora:
+# https://github.com/KarolR2001/Auterva/actions/runs/40605443657
+072eb71455b5459c8bba67ae4f14b16e043a3977:tests/unit/observability-redaction.test.ts:generic-api-key:16
+072eb71455b5459c8bba67ae4f14b16e043a3977:tests/unit/observability-redaction.test.ts:generic-api-key:17

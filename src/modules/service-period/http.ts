@@ -2,8 +2,10 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "node:crypto";
 import { parseHostAuthority } from "@/modules/tenancy/host-registry";
+import { readJsonObject } from "@/modules/tenancy/json-body";
 import { takeAuthenticatedApiLimit } from "@/modules/tenancy/api-rate-limit";
 import { requireRequestContext, resolveRequestArea } from "@/modules/tenancy/request-context";
+import { reportInternalError } from "@/modules/observability/http-observe";
 
 function sameCanonicalOrigin(raw: string | null, expected: URL): boolean {
   if (!raw) return false;
@@ -55,12 +57,7 @@ export function periodResponse(body: object, status = 200, requestId?: string): 
 }
 
 export async function readPeriodBody(request: Request): Promise<Record<string, unknown> | null> {
-  if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) return null;
-  try {
-    const body: unknown = await request.json();
-    return body && typeof body === "object" && !Array.isArray(body)
-      ? body as Record<string, unknown> : null;
-  } catch { return null; }
+  return readJsonObject(request);
 }
 
 export function periodFailure(error: unknown, requestId: string): Response {
@@ -76,7 +73,7 @@ export function periodFailure(error: unknown, requestId: string): Response {
   // A reused audit event key rolls back the whole mutation; never report it as idempotent success.
   if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002")
     return periodResponse({ code: "EVENT_KEY_CONFLICT" }, 409, requestId);
-  return periodResponse({ code: "INTERNAL_ERROR" }, 500, requestId);
+  return periodResponse({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "service-period"));
 }
 
 export const newPeriodRequestId = randomUUID;

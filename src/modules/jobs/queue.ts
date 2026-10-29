@@ -15,7 +15,7 @@ async function syncInvitationOutcomes(db: PrismaClient): Promise<void> {
 }
 
 export async function claimNextJob(db: PrismaClient, now: Date, leaseMs: number, mailOnly = false,
-  onlyKind?: "AUDIT_RETENTION"): Promise<ClaimedJob | null> {
+  onlyKind?: "AUDIT_RETENTION" | "MEDIA_PROCESS"): Promise<ClaimedJob | null> {
   if (!Number.isSafeInteger(leaseMs) || leaseMs < 1_000 || leaseMs > 600_000 || !Number.isFinite(now.getTime())) {
     throw new Error("Invalid job lease");
   }
@@ -35,7 +35,7 @@ export async function claimNextJob(db: PrismaClient, now: Date, leaseMs: number,
       "errorCode" = CASE WHEN kind LIKE 'MAIL\\_%' ESCAPE '\\' AND "firstSendAt" IS NOT NULL
         THEN 'MAIL_OUTCOME_UNKNOWN' ELSE 'LEASE_EXHAUSTED' END,
       "leaseToken" = NULL, "lockedUntil" = NULL,
-      payload = CASE WHEN kind = 'AUDIT_RETENTION' OR
+      payload = CASE WHEN kind IN ('AUDIT_RETENTION', 'MEDIA_PROCESS') OR
         (kind LIKE 'MAIL\\_%' ESCAPE '\\' AND "firstSendAt" IS NOT NULL)
         THEN payload ELSE jsonb_build_object('digest', payload->>'digest') END
     WHERE status = 'RUNNING' AND "lockedUntil" <= ${now}

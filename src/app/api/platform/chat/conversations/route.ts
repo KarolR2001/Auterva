@@ -1,0 +1,5 @@
+import { routeContext } from "@/modules/observability/route-context";
+import { getPlatformConversations } from "@/modules/chat/http";
+
+export const runtime = "nodejs";
+export const GET = routeContext(getPlatformConversations);

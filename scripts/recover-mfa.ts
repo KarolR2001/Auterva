@@ -1,3 +1,4 @@
+import { randomBytes, randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { pathToFileURL } from "node:url";
 import { config as loadEnv } from "dotenv";
@@ -14,7 +15,7 @@ export type OperatorRecovery = {
   identityConfirmed: boolean;
 };
 
-export async function recoverMfaByOperator(db: PrismaClient, input: OperatorRecovery): Promise<{ userId: string; revokedSessions: number }> {
+export async function recoverMfaByOperator(db: PrismaClient, input: OperatorRecovery): Promise<{ userId: string; revokedSessions: number; restoreUnlocked: boolean }> {
   const email = input.targetEmail.trim().toLowerCase();
   const operatorId = input.operatorId.trim();
   const channel = input.verifiedChannel.trim();
@@ -34,11 +35,31 @@ export async function recoverMfaByOperator(db: PrismaClient, input: OperatorReco
     await tx.twoFactor.deleteMany({ where: { userId: user.id } });
     await tx.user.update({ where: { id: user.id }, data: { twoFactorEnabled: false } });
     await tx.verification.deleteMany({ where: { identifier: { startsWith: "auterva:mfa:" }, value: { contains: `"userId":"${user.id}"` } } });
+    // A backup restore leaves an administrator it had to recreate locked: disabled and without a credential
+    // password. The same verified-identity procedure lifts exactly that state: the account is enabled with an
+    // unusable password, so the owner must use the normal password reset and then enroll a new TOTP factor.
+    const locked = await tx.user.findUnique({ where: { id: user.id }, select: { disabledAt: true } });
+    const credential = await tx.account.findFirst({ where: { userId: user.id, providerId: "credential" }, select: { id: true, password: true } });
+    // Only accounts the NEWEST company restore locked are eligible: an account that was disabled in the backup or
+    // by an operator before it is not a restore lock and is never enabled here.
+    const lastRestore = current.organizationId ? await tx.auditLog.findFirst({
+      where: { organizationId: current.organizationId, action: "COMPANY_RESTORED_FROM_BACKUP" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }], select: { safeChanges: true },
+    }) : null;
+    const lockedIds = (lastRestore?.safeChanges as { lockedUserIds?: unknown } | null)?.lockedUserIds;
+    const listed = Array.isArray(lockedIds) && lockedIds.includes(user.id);
+    const restoreUnlock = Boolean(locked?.disabledAt) && !credential?.password && listed;
+    if (restoreUnlock) {
+      await tx.user.update({ where: { id: user.id }, data: { disabledAt: null } });
+      const unusable = `${randomBytes(16).toString("hex")}:${randomBytes(64).toString("hex")}`;
+      if (credential) await tx.account.update({ where: { id: credential.id }, data: { password: unusable } });
+      else await tx.account.create({ data: { id: randomUUID(), accountId: user.id, providerId: "credential", userId: user.id, password: unusable } });
+    }
     await appendOperatorRecoveryAudit(tx, {
       operatorId, targetUserId: user.id, organizationId: current.organizationId,
-      evidenceReference: reference, revokedSessions: revoked.count,
+      evidenceReference: reference, revokedSessions: revoked.count, restoreUnlock,
     });
-    return { userId: user.id, revokedSessions: revoked.count };
+    return { userId: user.id, revokedSessions: revoked.count, restoreUnlocked: restoreUnlock };
   });
 }
 
@@ -63,8 +84,10 @@ async function runInteractiveRecovery() {
   }
   const { prisma } = await import("../src/lib/prisma");
   try {
-    await recoverMfaByOperator(prisma, { operatorId, targetEmail, verifiedChannel, evidenceReference, identityConfirmed: confirmation === "POTWIERDZAM" });
-    process.stdout.write("Old MFA and sessions revoked. The existing account must sign in and enroll a new TOTP factor.\n");
+    const result = await recoverMfaByOperator(prisma, { operatorId, targetEmail, verifiedChannel, evidenceReference, identityConfirmed: confirmation === "POTWIERDZAM" });
+    process.stdout.write(result.restoreUnlocked
+      ? "Account locked by a backup restore was enabled. The owner must use the password reset and then enroll a new TOTP factor.\n"
+      : "Old MFA and sessions revoked. The existing account must sign in and enroll a new TOTP factor.\n");
   } finally {
     await prisma.$disconnect();
   }

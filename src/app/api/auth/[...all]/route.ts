@@ -1,3 +1,5 @@
+import { routeContext } from "@/modules/observability/route-context";
+import { observeAuthResponse } from "@/modules/observability/http-observe";
 import { toNextJsHandler } from "better-auth/next-js";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
@@ -5,6 +7,7 @@ import { auth, createAuth } from "@/lib/auth";
 import { getServerEnv } from "@/lib/env";
 import { recordVerifiedMfaSession, sessionFromResponse } from "@/lib/mfa-session";
 import { prisma } from "@/lib/prisma";
+import { hasControlCharacter, INVALID_CHARACTERS } from "@/lib/text-policy";
 import { requireAuthorizedActor, requireScopedActor, resolveAuthHost } from "@/modules/auth/authorization";
 import { MfaFactorBusyError, withMfaFactorLock } from "@/modules/auth/mfa-factor-lock";
 import { completeAuthAttempt, reserveAuthAttempt, takeRateLimit } from "@/modules/auth/rate-limit";
@@ -13,6 +16,7 @@ import { appendAudit } from "@/modules/audit/append";
 import { parseHostAuthority } from "@/modules/tenancy/host-registry";
 import { currentTrustedClientAddress } from "@/modules/ingress/client-address";
 import { apiRateLimitResponse, takeAuthenticatedApiLimit } from "@/modules/tenancy/api-rate-limit";
+import { bodyExceeds, MAX_AUTH_BODY_BYTES } from "@/modules/tenancy/json-body";
 import { withErrorRequestId } from "@/modules/tenancy/request-id";
 import { changeAccountPassword, requestPasswordReset, resetPassword, updateAccountProfile } from "@/modules/auth/account-operations";
 import { parseMailPayloadKey } from "@/modules/jobs/config";
@@ -48,7 +52,7 @@ const mfaRetry = () => Response.json({ code: "MFA_RETRY" }, { status: 503, heade
 const resetRequestBody = z.object({ email: z.email().max(254), idempotencyKey: z.uuid() }).strict();
 const resetBody = z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
   newPassword: z.string().min(12).max(256) }).strict();
-const profileBody = z.object({ name: z.string().trim().min(1).max(100) }).strict();
+const profileBody = z.object({ name: z.string().trim().min(1).max(100).refine((value) => !hasControlCharacter(value), INVALID_CHARACTERS) }).strict();
 const passwordChangeBody = z.object({ currentPassword: z.string().min(1).max(256),
   newPassword: z.string().min(12).max(256) }).strict();
 const signInBody = z.object({ email: z.email(), password: z.string().max(256) }).strict();
@@ -202,6 +206,10 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
   const scope = probe ? null : await resolveAuthHost(prisma, request.headers.get("host"));
   if ((!probe && !scope) || !allowed.has(pathname)) return refusal();
   if (method === "POST" && !sameCanonicalOrigin(request.headers.get("origin"), externalUrl)) return new Response(null, { status: 403, headers: { "Cache-Control": "no-store" } });
+  // The gateway reads its JSON several times (clones); bound it first so no unauthenticated body is parsed unbounded.
+  if (method === "POST" && await bodyExceeds(request, MAX_AUTH_BODY_BYTES)) {
+    return Response.json({ code: "PAYLOAD_TOO_LARGE" }, { status: 413, headers: { "Cache-Control": "no-store" } });
+  }
   if (method === "GET" && pathname !== "/api/auth/get-session") return new Response(null, { status: 405 });
   if (method === "POST" && pathname === "/api/auth/get-session") return new Response(null, { status: 405 });
   let sourceIp: string;
@@ -255,7 +263,11 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
     const body = await request.clone().json().catch(() => null);
     if (pathname === "/api/auth/profile") {
       const parsed = profileBody.safeParse(body);
-      if (!parsed.success) return Response.json({ code: "INVALID_REQUEST" }, { status: 400, headers: noStore });
+      if (!parsed.success) {
+        const invalid = parsed.error.issues.some((issue) => issue.message === INVALID_CHARACTERS);
+        return Response.json({ code: "INVALID_REQUEST", ...(invalid ? { fieldErrors: { name: INVALID_CHARACTERS } } : {}) },
+          { status: 400, headers: noStore });
+      }
       const result = await updateAccountProfile(prisma, { headers: request.headers, scope,
         baseURL: externalUrl.origin, name: parsed.data.name, requestId: auditRequestId });
       return result ? Response.json(result, { headers: noStore }) : neutral();
@@ -531,11 +543,13 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
   return response;
 }
 
-export const GET = async (request: Request) => {
+const handleGET = async (request: Request) => {
   const requestId = randomUUID();
   return withErrorRequestId(await guarded(request, "GET", requestId), requestId);
 };
-export const POST = async (request: Request) => {
+const handlePOST = async (request: Request) => {
   const requestId = randomUUID();
-  return withErrorRequestId(await guarded(request, "POST", requestId), requestId);
+  return observeAuthResponse(request, withErrorRequestId(await guarded(request, "POST", requestId), requestId));
 };
+export const GET = routeContext(handleGET);
+export const POST = routeContext(handlePOST);
