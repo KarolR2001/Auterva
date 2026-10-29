@@ -574,6 +574,7 @@ Historyczne scenariusze v2 (15): UC-SAS-01 assisted startup; 02 multi-company; 0
 - Konto firmy pozostaje jedno; starsza otwarta decyzja o wielu administratorach z handoffu została rozstrzygnięta przez V31.
 - Decyzje właściciela z 23.10.2026 rozstrzygają D-01, D-02, D-04 i D-05. Szczegóły macierzy, publikacji, limitów i bootstrapu są kanoniczne dla implementacji MVP 3.1.
 - Decyzje właściciela z 27.10.2026 rozstrzygają D-16–D-27 (środowiska, materiały, limity, preview, archiwum, przypomnienia, SEO, hosty i przekierowania).
+- Decyzje właściciela z 28.10.2026 rozstrzygają D-28–D-31 (profil bez zakupu, kontrole lokalne, retencja podstawy odblokowania, wielu wykonawców w roli).
 
 ### Do ustalenia przed implementacją danego obszaru
 
@@ -610,6 +611,13 @@ Rozstrzygają pytania zebrane podczas CR/QA Stage 3. Gdy decyzja zmienia zachowa
 - **D-26 — hosty nowej firmy (#152):** host panelu i publiczny alias pod domenami Autervy są aktywne od prerejestracji; operator zapewnia wildcard DNS/TLS obu baz. Aktywny alias nie publikuje oferty: strona publiczna działa tylko w ważnym trialu lub okresie opłaconym i bez archiwum. Domena własna klienta nadal wymaga weryfikacji i jawnej aktywacji (#23). Zmienia [kontrakt prerejestracji](contracts/company-onboarding-invitations.md) i [kontrakt środowisk](contracts/environments-hosts-operations.md) w #152.
 - **D-27 — przekierowanie sluga (#153):** zmiana sluga opublikowanego pojazdu zapisuje przekierowanie 308 ze starego adresu (FR-ADM-035 w MVP).
 
+#### Decyzje właściciela z 28.10.2026
+
+- **D-28 — profil i budżet (#90):** profil z planu w [#90](https://github.com/KarolR2001/Auterva/issues/90) (m.in. 2 firmy po 100 pojazdów i 100 000 okresów, 100 000 odsłon/mies., szczyt 25 żądań/s przez 15 minut, 20 połączeń WS) jest przyjęty jako testowy. Bez zakupów: brak zgody na płatny staging i produkcję. #90 i zadania od niego zależne czekają na osobną zgodę (D-16); prace lokalne trwają.
+- **D-29 — kontrole bez GitHub Actions (#10):** workflow „CI” pozostaje wyłączony przez właściciela. Do jego ponownego włączenia ten sam zestaw kontroli co joby `.github/workflows/ci.yml` (m.in. `prisma validate`, lint, typecheck, unit, integracja z bootstrapem, build, E2E, audyt zależności, skan sekretów i budowa czterech obrazów) wykonuje się lokalnie, z lokalnym środowiskiem kontenerów (np. Colima), na drzewie zawierającym aktualny `main`, przed merge; wynik z SHA trafia do PR. Procedura: [CI, tryb lokalny](development/CI.md#tryb-lokalny-d-29). Zmienia D-16 w części CI; zestaw kontroli się nie zmniejsza.
+- **D-30 — retencja podstawy odblokowania (#183):** wyjątek od retencji 365 dni (D-10): najnowszy wpis `COMPANY_RESTORED_FROM_BACKUP` firmy nie jest usuwany po 365 dniach, dopóki konto z jego wykazu pozostaje zablokowane przez restore. Alert `AUDIT_UNLOCK_BASIS_HELD` przypomina operatorowi o przeglądzie. [Kontrakt retencji](contracts/audit-retention-operations.md).
+- **D-31 — wielu wykonawców w roli:** w roli Frontend i Backend może pracować równolegle wielu agentów; każdy podejmuje następne gotowe issue według Order i zależności. Jedno issue ma jednego wykonawcę, a każdy wykonawca najwyżej jedno issue w implementacji lub poprawce. Przejęcie cudzego issue odbywa się według zasad przejęcia z [workflow](development/WORKFLOW.md). Limit „najwyżej jedno In progress na rolę” zostaje zniesiony; CR orkiestratora i niezależne QA obowiązują bez zmian.
+
 ## 10. Co warto dodać — propozycje, poza obowiązkowym zakresem
 
 - **Najpierw: kontrola jakości oferty.** Lista brakujących zdjęć/opisów/kontaktu i przypomnienie o weryfikacji dostępności. Rozwija opcjonalny FR-ADM-011 i ogranicza błędne zapytania klientów.
@@ -624,6 +632,6 @@ Rozstrzygają pytania zebrane podczas CR/QA Stage 3. Gdy decyzja zmienia zachowa
 
 - Analiza źródłowa objęła pięć plików PRD, z czterema różnymi treściami. Repozytorium zachowuje kanoniczny V31 i BASELINE_FLEET; historia V2/V30 nie jest zależnością implementacji. Zachowane i wycofane wymagania są rozliczone w tym dokumencie.
 - Katalog zachowuje 71 identyfikatorów bazowych FR, 10 UC, 4 NFR-PERF oraz odniesienia do 31 REQ-MVP i 55 scenariuszy TEST-MVP z V31 §20. Scenariusze testowe są planem odbioru, nie wynikami testów.
-- Pełne pokrycie katalogu nie oznacza gotowości wszystkich kontraktów do implementacji: D-12, D-13 i D-15 pozostają ustaleniami projektowymi i mapowaniem. D-01–D-11 i D-14 mają rozstrzygnięcie z 23.10.2026, a D-16–D-27 z 27.10.2026.
+- Pełne pokrycie katalogu nie oznacza gotowości wszystkich kontraktów do implementacji: D-12, D-13 i D-15 pozostają ustaleniami projektowymi i mapowaniem. D-01–D-11 i D-14 mają rozstrzygnięcie z 23.10.2026, D-16–D-27 z 27.10.2026, a D-28–D-31 z 28.10.2026.
 - Dla każdego wdrażanego przekroju uzupełnić mapowanie wymaganie → board Penpota → kod → trwały test w `design/traceability.json`. Aktualny dokument nie dopisuje fikcyjnych ścieżek kodu ani zaliczonych testów.
 - Odbiór aplikacji wymaga [quality gates](quality-gates.md), w tym rzeczywistego PostgreSQL, izolacji firm, współbieżności, MFA, poczty, WebSocket, hostów i PWA production build.
