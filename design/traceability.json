@@ -862,6 +862,24 @@
       ]
     },
     {
+      "issue": 42,
+      "scope": "Publiczne szczegoly pojazdu (PUB-03 stan available): galeria z miniaturami, przyciskami, strzalkami, gestem i widokiem pelnoekranowym w dialogu (tylko aktualne zdjecie w pelnym wariancie, miniatury lazy), parametry, cena albo Cena na zapytanie, sprawdzenie terminu z wynikiem dostepny/niedostepny bez przyczyny blokady, kalendarz miesieczny z tekstowymi stanami dni, opis jako tekst, wyposazenie i warunki tylko gdy sa dane, linki do kontaktu z pojazdem i datami, 308 starego sluga z zachowanym query, neutralny 404 dla ukrytego pojazdu i wylaczonej firmy. Kontakt i prawo to #43/#44.",
+      "relatedRequirementIds": ["C-F093", "FR-PUB-020", "FR-PUB-021", "FR-PUB-022", "DS-N17", "DS-N18", "NFR-PERF-004"],
+      "referenceScreenIds": ["PUB-03"],
+      "codePaths": [
+        "src/app/pojazdy/[slug]/page.tsx",
+        "src/components/public/vehicle-gallery.tsx",
+        "src/components/public/availability-calendar.tsx",
+        "src/components/public/public.module.css",
+        "src/modules/public-offer/page-data.ts",
+        "src/modules/public-offer/presentation.ts"
+      ],
+      "testPaths": [
+        "tests/unit/public-presentation.test.ts",
+        "tests/e2e/public-vehicle.spec.ts"
+      ]
+    },
+    {
       "issue": 46,
       "scope": "Chroniony preview szkicu, ukrytego pojazdu i oferty firmy (admin swojej firmy lub superadmin w kontekscie firmy, takze po koncu okresu; private no-store, noindex, bez SEO, poza sitemap, zasoby tylko po autoryzacji) oraz ujednolicenie budzetu odczytu kalendarza superadmina z adapterami admin/platform. Zapisy zagniezdzone korzystaja z tych samych use case co firmowe. Bez UI (ADM-08 to Frontend).",
       "relatedRequirementIds": ["C-F016", "C-F017", "C-F018", "C-F058", "C-F099", "C-N030", "FR-ADM-034"],
