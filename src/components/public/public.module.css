@@ -199,3 +199,5 @@
   background: var(--surface-default); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); }
 .lightbox::backdrop { background: var(--surface-scrim); }
 .lightboxBar { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); margin-bottom: var(--space-3); }
+
+.filterDetails { display: block; }

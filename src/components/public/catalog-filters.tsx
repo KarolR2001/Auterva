@@ -1,5 +1,7 @@
 import { CalendarSearch } from "lucide-react";
 
+import { FilterDetails } from "./filter-details";
+
 import { catalogHref, catalogPath, sortLabels } from "@/modules/public-offer/presentation";
 import type { CatalogResult } from "@/modules/public-offer/read";
 
@@ -50,7 +52,7 @@ export function CatalogFilters({ result, today }: { result: Ok; today: string })
   const hasFilterOptions = filters.categories.length > 0 || filters.transmissions.length > 0 || seatOptions.length > 1;
   return (
     <form action={catalogPath} method="get" id="catalog-filters" className={`${styles.panel} ${styles.filterBar}`} aria-label="Filtry pojazdów">
-      <details open>
+      <FilterDetails>
         <summary className={styles.summary}>Filtry i termin{active > 0 ? ` (${active})` : ""}</summary>
         <div className={styles.filterBody}>
           <div className={styles.fields}>
@@ -98,7 +100,7 @@ export function CatalogFilters({ result, today }: { result: Ok; today: string })
             ) : null}
           </div>
         </div>
-      </details>
+      </FilterDetails>
     </form>
   );
 }

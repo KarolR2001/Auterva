@@ -10,7 +10,7 @@ type Home = NonNullable<Awaited<ReturnType<typeof getPublicHome>>>;
 
 const benefits = [
   { title: "Przejrzyste zasady", text: "Sprawdź dostępne terminy i wybierz dogodny zakres przed kontaktem." },
-  { title: "Flota na różne trasy", text: "Od kompaktowego auta po wariant rodzinny." },
+  { title: "Oferta w jednym miejscu", text: "Zobacz pojazdy, ich parametry i zdjęcia na stronie firmy." },
   { title: "Kontakt z człowiekiem", text: "Doradzimy przy wyborze pojazdu i ustalimy szczegóły wyjazdu." },
 ];
 
