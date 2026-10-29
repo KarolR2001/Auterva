@@ -124,7 +124,8 @@ test("the superadmin lists and ends only their own sessions", async () => {
   expect(sessions.length).toBeGreaterThanOrEqual(2);
   expect(sessions.filter((entry) => entry.current)).toHaveLength(1);
   // Ends exactly the second session by reference; the fixture superadmin's other sessions are not touched.
-  const target = sessions.find((entry) => !entry.current && entry.createdAt === (await db.session.findUniqueOrThrow({ where: { id: two.id } })).createdAt.toISOString());
+  const twoCreatedAt = (await db.session.findUniqueOrThrow({ where: { id: two.id } })).createdAt.toISOString();
+  const target = sessions.find((entry) => !entry.current && entry.createdAt === twoCreatedAt);
   expect(target).toBeDefined();
   const result = await end(platformHost, one.cookie, { proof: await proofFor(platformId, one.id), sessionId: target!.id });
   expect(await result.json()).toEqual({ status: true, ended: 1 });
