@@ -18,6 +18,7 @@ import { currentTrustedClientAddress } from "@/modules/ingress/client-address";
 import { apiRateLimitResponse, takeAuthenticatedApiLimit } from "@/modules/tenancy/api-rate-limit";
 import { bodyExceeds, MAX_AUTH_BODY_BYTES } from "@/modules/tenancy/json-body";
 import { withErrorRequestId } from "@/modules/tenancy/request-id";
+import { END_SESSIONS_PURPOSE, endOwnSessions, listOwnSessions } from "@/modules/auth/sessions";
 import { changeAccountPassword, requestPasswordReset, resetPassword, updateAccountProfile } from "@/modules/auth/account-operations";
 import { parseMailPayloadKey } from "@/modules/jobs/config";
 import { z } from "zod";
@@ -28,7 +29,7 @@ const allowed = new Set([
   "/api/auth/two-factor/verify-totp", "/api/auth/two-factor/verify-backup-code", "/api/auth/sign-out",
   "/api/auth/mfa/reauth", "/api/auth/mfa/rotate-backup-codes",
   "/api/auth/password/request-reset", "/api/auth/password/reset",
-  "/api/auth/password/change", "/api/auth/profile",
+  "/api/auth/password/change", "/api/auth/profile", "/api/auth/sessions", "/api/auth/sessions/end",
 ]);
 const refusal = () => new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
 const neutral = () => Response.json({ code: "INVALID_CREDENTIALS" }, { status: 401, headers: { "Cache-Control": "no-store" } });
@@ -55,6 +56,9 @@ const resetBody = z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
 const profileBody = z.object({ name: z.string().trim().min(1).max(100).refine((value) => !hasControlCharacter(value), INVALID_CHARACTERS) }).strict();
 const passwordChangeBody = z.object({ currentPassword: z.string().min(1).max(256),
   newPassword: z.string().min(12).max(256) }).strict();
+// Omitting `sessionId` ends all other sessions of the caller's own account; `sessionId` is the opaque reference from the list.
+const endSessionsBody = z.object({ proof: z.string().regex(/^[a-f0-9]{64}$/),
+  sessionId: z.string().regex(/^[a-f0-9]{32}$/).optional() }).strict();
 const signInBody = z.object({ email: z.email(), password: z.string().max(256) }).strict();
 const noStore = { "Cache-Control": "no-store" };
 class SignInScopeDenied extends Error {}
@@ -115,11 +119,13 @@ async function handleMfaManagement(request: Request, pathname: string, instance:
       const txInstance = createAuth(tx, false, baseURL);
       const currentActor = await requireAuthorizedActor(tx, txInstance, request.headers, scope);
       if (currentActor?.sessionId !== actor.sessionId) return neutral();
-      const body = await request.clone().json().catch(() => null) as { method?: unknown; code?: unknown; proof?: unknown; password?: unknown } | null;
+      const body = await request.clone().json().catch(() => null) as { method?: unknown; code?: unknown; proof?: unknown; password?: unknown; purpose?: unknown } | null;
       if (isReauth) {
         if (!body || (body.method !== "totp" && body.method !== "recovery") || typeof body.code !== "string" || body.code.length > 32) {
           return neutral();
         }
+        const purpose = body.purpose === undefined ? "rotate-backup-codes" : body.purpose;
+        if (purpose !== "rotate-backup-codes" && purpose !== END_SESSIONS_PURPOSE) return neutral();
         let valid = false;
         try {
           if (body.method === "totp" && /^\d{6}$/.test(body.code)) {
@@ -140,7 +146,7 @@ async function handleMfaManagement(request: Request, pathname: string, instance:
         const proof = randomBytes(32).toString("hex");
         await tx.verification.create({ data: {
           id: randomUUID(), identifier: challengeKey(`reauth:${proof}`),
-          value: JSON.stringify({ userId: actor.userId, sessionId: actor.sessionId, purpose: "rotate-backup-codes" }),
+          value: JSON.stringify({ userId: actor.userId, sessionId: actor.sessionId, purpose }),
           expiresAt: new Date(Date.now() + 5 * 60_000),
         } });
         return Response.json({ proof }, { headers: { "Cache-Control": "no-store" } });
@@ -210,8 +216,8 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
   if (method === "POST" && await bodyExceeds(request, MAX_AUTH_BODY_BYTES)) {
     return Response.json({ code: "PAYLOAD_TOO_LARGE" }, { status: 413, headers: { "Cache-Control": "no-store" } });
   }
-  if (method === "GET" && pathname !== "/api/auth/get-session") return new Response(null, { status: 405 });
-  if (method === "POST" && pathname === "/api/auth/get-session") return new Response(null, { status: 405 });
+  if (method === "GET" && pathname !== "/api/auth/get-session" && pathname !== "/api/auth/sessions") return new Response(null, { status: 405 });
+  if (method === "POST" && (pathname === "/api/auth/get-session" || pathname === "/api/auth/sessions")) return new Response(null, { status: 405 });
   let sourceIp: string;
   try {
     sourceIp = trustedClientAddress(currentTrustedClientAddress());
@@ -252,6 +258,30 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
       newPassword: parsed.data.newPassword, scope, hostname: externalUrl.hostname,
       now: new Date(), requestId: auditRequestId });
     return changed ? Response.json({ status: true, signInRequired: true }, { headers: noStore }) : neutral();
+  }
+  if (pathname === "/api/auth/sessions" || pathname === "/api/auth/sessions/end") {
+    if (!scope) return refusal();
+    const actor = await requireAuthorizedActor(prisma, instance, request.headers, scope);
+    if (!actor) return neutral();
+    const limit = await takeAuthenticatedApiLimit(prisma, { actorId: actor.userId,
+      organizationId: actor.organizationId }, method === "GET" ? "read" : "write");
+    if (!limit.allowed) return apiRateLimitResponse(limit.retryAfter);
+    const secret = getServerEnv().BETTER_AUTH_SECRET;
+    if (method === "GET") return Response.json({ sessions: await listOwnSessions(prisma, actor, secret) }, { headers: noStore });
+    const parsed = endSessionsBody.safeParse(await request.clone().json().catch(() => null));
+    if (!parsed.success) return Response.json({ code: "INVALID_REQUEST" }, { status: 400, headers: noStore });
+    const outcome = await prisma.$transaction(async (tx) => {
+      const current = await requireAuthorizedActor(tx, createAuth(tx, false, externalUrl.origin), request.headers, scope);
+      if (current?.sessionId !== actor.sessionId) return null;
+      return endOwnSessions(tx, { actor, proofIdentifier: challengeKey(`reauth:${parsed.data.proof}`),
+        target: parsed.data.sessionId === undefined ? { kind: "others" } : { kind: "one", ref: parsed.data.sessionId },
+        secret, requestId: auditRequestId });
+    });
+    if (!outcome) return neutral();
+    if (outcome.ok) return Response.json({ status: true, ended: outcome.ended }, { headers: noStore });
+    if (outcome.reason === "PROOF") return neutral();
+    if (outcome.reason === "CURRENT") return Response.json({ code: "CURRENT_SESSION" }, { status: 400, headers: noStore });
+    return Response.json({ code: "NOT_FOUND" }, { status: 404, headers: noStore });
   }
   if (pathname === "/api/auth/profile" || pathname === "/api/auth/password/change") {
     if (!scope || method !== "POST") return refusal();

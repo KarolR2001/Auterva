@@ -3,6 +3,20 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 72,
+      "scope": "Lista i świadome kończenie własnych sesji konta (FR-ADM-081, C-F043): referencje HMAC zamiast identyfikatorów, bez tokenów i IP, dowód reauth MFA jednorazowy i związany z celem, skutek natychmiast dla API i WebSocket (4401), audyt AUTH_SESSIONS_REVOKED; koniec okresu usługi nie kończy sesji.",
+      "relatedRequirementIds": ["FR-ADM-081", "C-F043"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/auth/sessions.ts",
+        "src/app/api/auth/[...all]/route.ts",
+        "docs/contracts/account-operations.md"
+      ],
+      "testPaths": [
+        "tests/integration/account-sessions.test.ts"
+      ]
+    },
+    {
       "issue": 59,
       "scope": "Pomiar obciążenia profilu P1 (zatwierdzony) i P2 (proponowany w #90), indeks i zapytanie sprawdzenia dostępności, rzut kalendarza; harness poza zwykłymi testami (pnpm perf:*), staging i profil wielu firm not-run.",
       "relatedRequirementIds": ["NFR-PERF-002", "C-N060", "C-N062", "C-N066", "D-15"],
