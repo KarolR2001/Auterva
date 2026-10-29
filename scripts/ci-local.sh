@@ -49,21 +49,27 @@ step() {
 
 # E2E uses the fixed ports 3305-3307, so concurrent runs of any worktree queue on one lock directory in the git
 # common dir (shared by all worktrees of this repository). Plain `mkdir` is atomic and works without flock (macOS).
-E2E_LOCK="$(git rev-parse --git-common-dir)/auterva-e2e.lock"
+E2E_LOCK="$(git rev-parse --git-common-dir)/e2e.lock"
 E2E_LOCK_TIMEOUT="${AUTERVA_E2E_LOCK_TIMEOUT:-1800}"; E2E_LOCK_POLL="${AUTERVA_E2E_LOCK_POLL:-5}"
 E2E_LOCK_HELD=0
 lockmsg() { printf '%s\n' "$1" | tee -a "$LOGDIR/e2e-lock.log" >&2; }
-lock_owner() { cat "$E2E_LOCK/pid" 2>/dev/null; }
+lock_owner() { cat "$E2E_LOCK/pid" 2>/dev/null || cat "$E2E_LOCK/owner" 2>/dev/null; }
 # A lock is stale when its owner PID no longer exists (or, without a PID file, when it is over a minute old).
 lock_is_stale() {
   local owner; owner="$(lock_owner)"
-  if [ -z "$owner" ]; then [ -n "$(find "$E2E_LOCK" -maxdepth 0 -mmin +1 2>/dev/null)" ]; return; fi
+  if [ -z "$owner" ]; then
+    # A manually taken lock (`echo name > e2e.lock/owner`, no PID) is abandoned after 40 minutes; a bare directory after one minute.
+    local age=1; [ -f "$E2E_LOCK/owner" ] && age=40
+    [ -n "$(find "$E2E_LOCK" -maxdepth 0 -mmin +"$age" 2>/dev/null)" ]; return
+  fi
   ! kill -0 "$owner" 2>/dev/null
 }
 acquire_e2e_lock() {
   local waited=0 owner moved
+  # The caller already holds the lock (e.g. an agent took e2e.lock by hand before running this script): do not wait on it.
+  if [ "${AUTERVA_E2E_LOCK_HELD:-}" = 1 ]; then lockmsg "E2E lock held by the caller (AUTERVA_E2E_LOCK_HELD=1); not taking it"; return 0; fi
   while :; do
-    if mkdir "$E2E_LOCK" 2>/dev/null; then echo "$$" > "$E2E_LOCK/pid"; E2E_LOCK_HELD=1; return 0; fi
+    if mkdir "$E2E_LOCK" 2>/dev/null; then echo "$$" > "$E2E_LOCK/pid"; echo "ci-local $$" > "$E2E_LOCK/owner"; E2E_LOCK_HELD=1; return 0; fi
     if lock_is_stale; then
       owner="$(lock_owner)"; moved="$E2E_LOCK.stale.$$"
       # Atomic rename: of several runners that see the stale lock, one wins; the others retry the mkdir.
@@ -77,6 +83,18 @@ acquire_e2e_lock() {
       lockmsg "timed out after ${waited}s waiting for the E2E lock held by process $(lock_owner)"; return 1
     fi
     if [ $((waited % 60)) -eq 0 ]; then lockmsg "waiting for the E2E lock (ports 3305-3307) held by process $(lock_owner); timeout ${E2E_LOCK_TIMEOUT}s"; fi
+    sleep "$E2E_LOCK_POLL" & wait $!; waited=$((waited + E2E_LOCK_POLL))
+  done
+}
+# Runs that do not take the lock (a manual `pnpm test:e2e`, an older script) can still hold the ports: wait for them too.
+wait_e2e_ports() {
+  local waited=0 p busy
+  while :; do
+    busy=""
+    for p in 3305 3306 3307; do lsof -iTCP:"$p" -sTCP:LISTEN -n >/dev/null 2>&1 && busy="$busy $p"; done
+    [ -z "$busy" ] && return 0
+    if [ "$waited" -ge "$E2E_LOCK_TIMEOUT" ]; then lockmsg "timed out after ${waited}s waiting for E2E ports to free up (busy:$busy)"; return 1; fi
+    if [ $((waited % 60)) -eq 0 ]; then lockmsg "waiting for E2E ports held by another process (busy:$busy); timeout ${E2E_LOCK_TIMEOUT}s"; fi
     sleep "$E2E_LOCK_POLL" & wait $!; waited=$((waited + E2E_LOCK_POLL))
   done
 }
@@ -151,8 +169,8 @@ e2e() {
   fresh_fixture && pnpm build && pnpm exec playwright install chromium && pnpm test:e2e
 }
 rm -f "$LOGDIR/e2e-lock.log"
-if acquire_e2e_lock; then step "Build and E2E" e2e; release_e2e_lock
-else res "Build and E2E" "FAIL (E2E lock not acquired: $LOGDIR/e2e-lock.log)"; FAILED=1; fi
+if acquire_e2e_lock && wait_e2e_ports; then step "Build and E2E" e2e; release_e2e_lock
+else release_e2e_lock; res "Build and E2E" "FAIL (E2E lock or ports not available: $LOGDIR/e2e-lock.log)"; FAILED=1; fi
 if [ "$FIXTURE_STARTED" = 1 ]; then scripts/local-fixture.sh stop >"$LOGDIR/fixture-stop.log" 2>&1; FIXTURE_STARTED=0; fi
 git checkout -q -- next-env.d.ts 2>/dev/null
 

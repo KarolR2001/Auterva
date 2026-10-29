@@ -50,7 +50,7 @@ function setup(v: Versions = {}, pnpmBody = "exit 1", extra: Extra = {}) {
     child.stderr.on("data", (d) => { stderr += d; });
     child.on("close", (status) => done({ status, stdout, stderr }));
   });
-  const lock = join(repo, ".git", "auterva-e2e.lock");
+  const lock = join(repo, ".git", "e2e.lock");
   return { root, repo, bin, run, runAsync, lock, out: join(root, "out.txt") };
 }
 
@@ -144,13 +144,19 @@ test("E2E waits for a lock held by a live run, then proceeds once it is released
     writeFileSync(join(t.lock, "pid"), String(holder.pid));
     const started = Date.now();
     const running = t.runAsync("27400", t.out);
-    await new Promise((r) => setTimeout(r, 2500));
+    // Release only once the run reports that it is waiting (independent of start-up time).
+    const waitLog = join(t.repo, ".local/ci-local/e2e-lock.log");
+    const until = Date.now() + 40000;
+    while (Date.now() < until && !(existsSync(waitLog) && /waiting for the E2E lock/.test(readFileSync(waitLog, "utf8")))) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    await new Promise((r) => setTimeout(r, 1500)); // it keeps waiting while the holder is alive
     expect(existsSync(t.lock)).toBe(true); // still the holder's lock, not taken
     expect(readFileSync(join(t.lock, "pid"), "utf8").trim()).toBe(String(holder.pid));
     rmSync(t.lock, { recursive: true });
     const r = await running;
     expect(r.status).toBe(0);
-    expect(Date.now() - started).toBeGreaterThanOrEqual(2000);
+    expect(Date.now() - started).toBeGreaterThanOrEqual(1500);
     expect(r.stderr).toMatch(/waiting for the E2E lock .* held by process/);
     expect(e2eLine(t.out)).toMatch(/PASS/);
     expect(existsSync(t.lock)).toBe(false);
@@ -165,7 +171,7 @@ test("E2E reports a clear FAIL when the lock does not free up in time, and leave
     writeFileSync(join(t.lock, "pid"), String(holder.pid));
     const r = await t.runAsync("27400", t.out);
     expect(r.status).toBe(1);
-    expect(e2eLine(t.out)).toMatch(/FAIL \(E2E lock not acquired/);
+    expect(e2eLine(t.out)).toMatch(/FAIL \(E2E lock or ports not available/);
     expect(r.stderr).toMatch(/timed out after 2s waiting for the E2E lock held by process/);
     expect(readFileSync(join(t.lock, "pid"), "utf8").trim()).toBe(String(holder.pid));
     expect(readFileSync(t.out, "utf8")).toMatch(/Secret scan\tPASS/); // later steps still run
@@ -188,7 +194,7 @@ test("E2E takes over a stale lock whose owner no longer exists", async () => {
 
 test("a terminated run releases the E2E lock it holds", async () => {
   // In the E2E step (the only place where the lock exists) the stub pnpm terminates the main script and then sleeps.
-  const t = setup({}, `if [ "$1" = exec ] && [ "$2" = tsx ] && [ -d .git/auterva-e2e.lock ]; then
+  const t = setup({}, `if [ "$1" = exec ] && [ "$2" = tsx ] && [ -d .git/e2e.lock ]; then
   echo "$$" > "${"$"}{TMPDIR}/stubpid"; kill -TERM "$(ps -o ppid= -p "$PPID" | tr -d ' ')"; sleep 30
 fi
 exit 0`);
@@ -198,4 +204,43 @@ exit 0`);
   expect(Date.now() - started).toBeLessThan(20000);
   expect(existsSync(join(t.root, "stubpid"))).toBe(true); // the lock existed when the stub ran
   expect(existsSync(t.lock)).toBe(false);
+}, 60000);
+
+test("E2E waits for foreign listeners on the fixed ports and fails clearly if they stay", async () => {
+  const busyStub = (t: ReturnType<typeof setup>) => stub(t.bin, "lsof", `[ -f "${"$"}{TMPDIR}/ports-busy" ]`);
+  const env = { AUTERVA_E2E_LOCK_TIMEOUT: "3", AUTERVA_E2E_LOCK_POLL: "1" };
+  const stays = setup({}, "exit 0", { env });
+  busyStub(stays);
+  writeFileSync(join(stays.root, "ports-busy"), "");
+  const failed = await stays.runAsync("27400", stays.out);
+  expect(failed.stderr).toMatch(/timed out after 3s waiting for E2E ports to free up \(busy: 3305 3306 3307\)/);
+  expect(e2eLine(stays.out)).toMatch(/FAIL \(E2E lock or ports not available/);
+  expect(existsSync(stays.lock)).toBe(false); // the lock is released when the ports never freed up
+
+  const frees = setup({}, "exit 0", { env: { AUTERVA_E2E_LOCK_TIMEOUT: "60", AUTERVA_E2E_LOCK_POLL: "1" } });
+  busyStub(frees);
+  writeFileSync(join(frees.root, "ports-busy"), "");
+  const running = frees.runAsync("27400", frees.out);
+  // Free the ports only once the run reports that it is waiting (deterministic, independent of start-up time).
+  const waitLog = join(frees.repo, ".local/ci-local/e2e-lock.log");
+  const deadline = Date.now() + 40000;
+  while (Date.now() < deadline && !(existsSync(waitLog) && /waiting for E2E ports/.test(readFileSync(waitLog, "utf8")))) {
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  rmSync(join(frees.root, "ports-busy"));
+  const ok = await running;
+  expect(ok.stderr).toMatch(/waiting for E2E ports held by another process/);
+  expect(e2eLine(frees.out)).toMatch(/PASS/);
+  expect(existsSync(frees.lock)).toBe(false);
+}, 60000);
+
+test("E2E does not wait on a lock the caller says it already holds, and leaves it in place", async () => {
+  const t = setup({}, "exit 0", { env: { AUTERVA_E2E_LOCK_HELD: "1", AUTERVA_E2E_LOCK_TIMEOUT: "2", AUTERVA_E2E_LOCK_POLL: "1" } });
+  mkdirSync(t.lock);
+  writeFileSync(join(t.lock, "owner"), "caller");
+  const r = await t.runAsync("27400", t.out);
+  expect(r.status).toBe(0);
+  expect(e2eLine(t.out)).toMatch(/PASS/);
+  expect(existsSync(t.lock)).toBe(true); // not released by ci-local
+  expect(readFileSync(join(t.lock, "owner"), "utf8").trim()).toBe("caller");
 }, 60000);
