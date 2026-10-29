@@ -25,6 +25,20 @@
       "testPaths": ["tests/unit/auth-flow.test.tsx", "tests/unit/auth-page.test.tsx", "tests/unit/auth-destination.test.ts", "tests/unit/mfa-qr.test.ts"]
     },
     {
+      "issue": 65,
+      "scope": "Opcjonalny prywatny zbiorczy kalendarz floty jednej firmy (pojazdy x dni, paginacja, zakres do 365 dni) oparty na wspólnym rzucie dni kalendarza pojedynczego auta; bez osi wszystkich firm i bez UI.",
+      "relatedRequirementIds": ["C-F101", "FR-ADM-057", "D-15"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/availability/read.ts",
+        "src/modules/availability/http.ts",
+        "src/app/api/admin/availability/fleet/route.ts",
+        "src/app/api/platform/companies/[organizationId]/availability/fleet/route.ts",
+        "docs/contracts/availability-reads.md"
+      ],
+      "testPaths": ["tests/integration/availability-fleet-calendar.test.ts"]
+    },
+    {
       "issue": 59,
       "scope": "Pomiar obciążenia profilu P1 (zatwierdzony) i P2 (proponowany w #90), indeks i zapytanie sprawdzenia dostępności, rzut kalendarza; harness poza zwykłymi testami (pnpm perf:*), staging i profil wielu firm not-run.",
       "relatedRequirementIds": ["NFR-PERF-002", "C-N060", "C-N062", "C-N066", "D-15"],
