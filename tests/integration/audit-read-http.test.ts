@@ -149,6 +149,8 @@ test("filters by time, actor, action and object stay inside the company", async 
 
   for (const search of ["?action=DROP_TABLE", "?entityType=Chat", "?actorRole=OWNER", "?limit=0", "?limit=101",
     "?from=2026-10-29", "?from=2026-10-29T10:00:00.000%2B01:00", `?from=${after}&to=${from}`, "?cursor=bm90LWEtY3Vyc29y",
+    "?from=2026-02-30T00:00:00Z", "?to=0000-01-01T00:00:00Z", "?to=2026-10-29T24:00:00Z", "?from=2026-10-29T10:00:60Z",
+    "?cursor=MjAyNi0wMi0zMFQwMDowMDowMC4wMDAwMDBafDAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMA", "?cursor=MDAwMC0wMS0wMVQwMDowMDowMC4wMDAwMDBafDAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMA", "?cursor=MjAyNi0xMC0yOVQyNDowMDowMC4wMDAwMDBafDAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMA", "?cursor=MjAyNi0xMC0yOVQxMDowMDo2MC4wMDAwMDBafDAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMA",
     "?entityId=%27%3B--", "?limit=5&limit=6", "?sql=select"]) {
     const response = await json(await adminRead(0, search));
     expect([search, response.status, response.body.code]).toEqual([search, 400, "INVALID_INPUT"]);

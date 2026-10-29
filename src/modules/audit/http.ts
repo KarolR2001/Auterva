@@ -3,11 +3,11 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { actor, response } from "@/modules/fleet/http";
 import { reportInternalError } from "@/modules/observability/http-observe";
-import { AuditReadInputError, auditReadActions, auditReadActorRoles, auditReadEntityTypes, decodeAuditCursor,
+import { AuditReadInputError, auditReadActions, auditReadActorRoles, auditReadEntityTypes, decodeAuditCursor, isValidAuditInstant,
   readAuditPage } from "./read";
 
 const instant = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/)
-  .refine((value) => !Number.isNaN(Date.parse(value))).transform((value) => new Date(value));
+  .refine(isValidAuditInstant).transform((value) => new Date(value));
 const reference = z.string().min(1).max(128).regex(/^[A-Za-z0-9:._-]+$/);
 // Allowlist of query keys; the company is never a filter, it comes from the host or the path.
 const query = z.strictObject({

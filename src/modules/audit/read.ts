@@ -33,7 +33,7 @@ export function safeAuditView(value: Prisma.JsonValue | null): Prisma.JsonObject
   return Object.keys(output).length ? output : null;
 }
 
-/** Internal, bounded tenant read. No public endpoint is exposed by this module. */
+/** Internal, bounded tenant read; the panel endpoints use `readAuditPage` below. */
 export async function listAudit(db: PrismaClient, input: {
   actorId: string; sessionId: string; organizationId: string | null; limit?: number;
 }) {
@@ -75,11 +75,23 @@ const cursorId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
 export function encodeAuditCursor(cursor: AuditCursor): string {
   return Buffer.from(`${cursor.at}|${cursor.id}`, "utf8").toString("base64url");
 }
+/**
+ * Round-trip check: V8 accepts impossible dates (2026-02-30, hour 24) and year 0000, PostgreSQL does not.
+ * The input must be `YYYY-MM-DDTHH:mm:ss[.f+]Z`; the date to the second (and milliseconds when given up to 3
+ * digits) must survive `toISOString()` unchanged, and the year must be >= 1.
+ */
+export function isValidAuditInstant(value: string): boolean {
+  const match = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,6}))?Z$/.exec(value);
+  if (!match || match[1].startsWith("0000")) return false;
+  const date = new Date(`${match[1]}.${(match[2] ?? "").slice(0, 3).padEnd(3, "0")}Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(match[1])
+    && date.toISOString().slice(20, 23) === (match[2] ?? "").slice(0, 3).padEnd(3, "0");
+}
 export function decodeAuditCursor(value: string): AuditCursor {
   if (value.length > 128 || !/^[A-Za-z0-9_-]+$/.test(value)) throw new AuditReadInputError();
   const [at, id, ...rest] = Buffer.from(value, "base64url").toString("utf8").split("|");
   if (rest.length || !at || !id || !cursorInstant.test(at) || !cursorId.test(id)
-    || Number.isNaN(Date.parse(at))) throw new AuditReadInputError();
+    || !isValidAuditInstant(at)) throw new AuditReadInputError();
   return { at, id };
 }
 
