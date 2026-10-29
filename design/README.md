@@ -6,6 +6,7 @@ Logikę i zakres określa [PRD MVP 3.1](../docs/product/PRD.md), wygląd [SPEC](
 
 - [traceability.json](traceability.json): 229 pozycji katalogu DS/PUB/ADM/OVR, dodatkowe ekrany i komponenty platformy, powiązania FR/UC oraz rzeczywiste ID. Bez statusów implementacji. Pełne nazwy ścieżek i stanów FLOW-MVP pozostają w załączniku A architektury.
 - [handoff/components.md](handoff/components.md): anatomia, warianty, zachowanie, dostępność i aliasy komponentów; typy props są kontraktem, nie gotową implementacją.
+- [handoff/platform-onboarding-navigation.md](handoff/platform-onboarding-navigation.md): cele widocznej nawigacji w PLT-04 M/D oraz ochrona wyjścia z niezapisanym formularzem.
 - [handoff/responsive.md](handoff/responsive.md): breakpointy, reflow, karty/tabele, formularze, kalendarze, czat, safe area i klawiatura.
 - [tokens](tokens/README.md): manifest tokenów i generowany CSS.
 - [assets](assets/README.md): logo i zoptymalizowane obrazy referencyjne z proweniencją; fotografie DEMO nie są danymi realnej floty.
