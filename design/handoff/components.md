@@ -575,10 +575,11 @@ type PasswordStrengthProps = {
 
 - Penpot Variant Set: `7cf0d39f-ce5c-80f6-8008-cf30d90e4d02`.
 - Library component head: `dc32726c-e29a-8032-8008-b7a4bdbeed42`.
+- MFA obu ról jest obowiązkowe w MVP 3.1. Rozdzielenie posiadanego kodu odzyskania, ręcznej procedury po utracie wszystkich czynników i niepewnego wyniku opisuje [kontrakt odzyskiwania](mfa-recovery.md). Historyczne oznaczenie P1 w katalogu wariantów nie określa priorytetu produktu.
 
 ### Anatomy i pokrycie
 
-1. nagłówek jawnie oznaczający 2FA jako P1 po stabilizacji MVP;
+1. nagłówek jawnie oznaczający obowiązkową weryfikację MFA;
 2. mobile TOTP: rzeczywista instancja `FormField` z `inputMode="numeric"` i
    `autocomplete="one-time-code"`;
 3. desktop TOTP: jedna logiczna kontrolka przedstawiona jako sześć segmentów;
@@ -611,7 +612,7 @@ type TwoFactorFormProps = {
 - sześć segmentów desktopowych jest prezentacją jednej wartości: implementacja musi obsłużyć wklejenie całego kodu, Backspace, strzałki i czytelną nazwę grupy, bez sześciokrotnego ogłaszania pola;
 - TOTP odnawia się w aplikacji uwierzytelniającej. Nie dodajemy kanału SMS ani e-mail tylko po to, aby zrealizować „resend”; retry oznacza ponowienie próby po rzeczywistym limicie serwera;
 - kod odzyskiwania jest jednorazowy, nie powinien trafiać do logów ani analityki, a błąd nie ujawnia dodatkowych danych konta;
-- komponent nie tworzy osobnej trasy ani ekranowej klawiatury. W `ADM-15` pozostaje warunkowym P1 poza MVP;
+- komponent nie tworzy osobnej trasy ani ekranowej klawiatury. Starsze umiejscowienie w `ADM-15` nie odracza obowiązkowego MFA obu ról;
 - statyczny wariant Penpota nie dowodzi konfiguracji TOTP, rate-limitingu, ważności kodu ani bezpiecznego zużycia recovery code — wymagają testów runtime i serwerowych.
 
 ## DS-AUT-006 — AccountSummary
