@@ -101,7 +101,7 @@ test("invitation delivery states come from the job; retry follows the contract",
   expect((await diag()).invitation.delivery?.errorCode).toBe("UNKNOWN");
   await setJob({ status: "UNCERTAIN", errorCode: "MAIL_OUTCOME_UNKNOWN" });
   expect((await diag()).invitation).toMatchObject({ severity: "UNCERTAIN",
-    retry: { allowed: false, reason: "OPERATOR_DECISION_REQUIRED" } });
+    retry: { allowed: false, reason: "OPERATOR_DECISION_REQUIRED", next: "REVOKE_INVITATION" } });
   await setJob({ status: "SENT", errorCode: null });
   expect((await diag()).invitation).toMatchObject({ severity: "OK", delivery: { state: "ACCEPTED_BY_PROVIDER" } });
 });
@@ -136,6 +136,27 @@ test("reminders: only the current boundary, no superseded slots, codes allowlist
   expect(d.domain.severity).toBe("ERROR");
   expect(d.overall).toBe("ERROR");
   expect(await getLaunchDiagnostics(db, randomUUID(), now)).toBeNull();
+});
+
+test("reminders: queued mail takes its state from the Job; queued and overdue pending are waiting", async () => {
+  await db.reminderIntent.deleteMany({ where: { organizationId: b } });
+  const ends = new Date("2026-11-03T10:00:00.000Z");
+  const job = await db.job.create({ data: { organizationId: b, kind: "MAIL_REMINDER", dedupeKey: `MAIL_REMINDER:${randomUUID()}`,
+    payload: { digest: "x" }, runAt: new Date(now.getTime() + 20_000), status: "PENDING", attempts: 3,
+    errorCode: "MAIL_TRANSIENT" } });
+  const row = (offsetDays: number, status: string, extra: object = {}) => ({ organizationId: b, effectiveEndsAt: ends,
+    offsetDays, channel: "EMAIL", slotAt: new Date(ends.getTime() - offsetDays * 86_400_000), source: "TRIAL",
+    periodVersion: 0, status, ...extra });
+  await db.reminderIntent.createMany({ data: [row(7, "QUEUED", { jobId: job.id }),
+    row(1, "PENDING", { slotAt: new Date(now.getTime() - 60_000) })] });
+  const d = await diag(b);
+  expect(d.reminders.items.find((i) => i.offsetDays === 7)).toMatchObject({ offsetDays: 7, state: "RETRYING", attempts: 3,
+    errorCode: "MAIL_TRANSIENT", nextAttemptAt: new Date(now.getTime() + 20_000).toISOString() });
+  expect(d.reminders.items.find((i) => i.offsetDays === 1)).toMatchObject({ offsetDays: 1, state: "PENDING" });
+  expect(d.reminders.severity).toBe("WAITING");
+  await db.job.update({ where: { id: job.id }, data: { status: "UNCERTAIN", errorCode: "MAIL_OUTCOME_UNKNOWN" } });
+  expect((await diag(b)).reminders.severity).toBe("UNCERTAIN");
+  await db.reminderIntent.deleteMany({ where: { organizationId: b } });
 });
 
 test("diagnostics is a read: no new rows, jobs or audit, and neighbour data never leaks", async () => {

@@ -11,12 +11,12 @@ import { reportInternalError } from "@/modules/observability/http-observe";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export function respond(body: object, status: number, requestId: string, retryAfter?: number) {
+function respond(body: object, status: number, requestId: string, retryAfter?: number) {
   return Response.json(body, { status, headers: { "Cache-Control": "no-store",
     "X-Request-Id": requestId, ...(retryAfter ? { "Retry-After": String(retryAfter) } : {}) } });
 }
 
-export async function platformReader(request: Request, requestId: string): Promise<Response | null> {
+async function platformReader(request: Request, requestId: string): Promise<Response | null> {
   const area = await resolveRequestArea(prisma, request.headers.get("host"));
   if (area?.area !== "PLATFORM" || area.organizationId !== null) return respond({ code: "NOT_FOUND" }, 404, requestId);
   const actor = await requireAuthorizedActor(prisma, auth, request.headers, { area: "PLATFORM", organizationId: null });
