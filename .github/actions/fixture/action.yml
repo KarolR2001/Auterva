@@ -1,0 +1,37 @@
+name: Local fixture services
+description: >-
+  PostgreSQL 18, private SeaweedFS S3 and Mailpit started by the same scripts/local-fixture.sh used locally,
+  then migrations and the A/B fixture seed. Test-only values are generated here; no real secret is used.
+runs:
+  using: composite
+  steps:
+    - name: Install PostgreSQL 18 (PGDG) and lsof
+      shell: bash
+      run: |
+        set -euo pipefail
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq postgresql-common lsof
+        # The fixture script creates its own cluster; do not auto-create a default one.
+        echo 'create_main_cluster = false' | sudo tee -a /etc/postgresql-common/createcluster.conf >/dev/null
+        sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+        sudo apt-get install -y -qq postgresql-18
+        echo /usr/lib/postgresql/18/bin >> "$GITHUB_PATH"
+        # Backup/restore tests (#60) run pg_dump and pg_restore; the client must match the PostgreSQL 18 server.
+        /usr/lib/postgresql/18/bin/pg_dump --version | grep -q 'PostgreSQL) 18\.'
+        /usr/lib/postgresql/18/bin/pg_restore --version | grep -q 'PostgreSQL) 18\.'
+    - name: Start fixture services, migrate and seed
+      shell: bash
+      run: |
+        set -euo pipefail
+        export PATH="/usr/lib/postgresql/18/bin:$PATH"
+        scripts/local-fixture.sh start
+        pnpm exec prisma migrate deploy
+        pnpm exec tsx scripts/seed-local-fixture.ts
+        scripts/local-fixture.sh seed-media
+        # Test-only values for tests that read them from the environment.
+        key="$(openssl rand -hex 32)"
+        echo "::add-mask::$key"
+        {
+          echo "MAIL_PAYLOAD_KEY=$key"
+          echo "BOOTSTRAP_TEST_DATABASE_URL=postgresql://$(id -un)@127.0.0.1:${LOCAL_PORT_BASE:-15450}/auterva_bootstrap_12"
+        } >> "$GITHUB_ENV"

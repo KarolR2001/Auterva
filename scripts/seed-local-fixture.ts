@@ -1,7 +1,9 @@
-import { pathToFileURL } from "node:url";
+import { execFileSync } from "node:child_process";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { config as loadEnv } from "dotenv";
 import { Client } from "pg";
-import { assertLocalFixtureTarget } from "./fixture-safety";
+import { assertLocalFixtureTarget, assertOwnFixtureCluster } from "./fixture-safety";
 import { FIXTURE, fixtureId as id } from "./fixture-ids";
 
 export { FIXTURE } from "./fixture-ids";
@@ -15,7 +17,7 @@ const vehicleRows = [
   [FIXTURE.vehicles[1], 0, "auto-blokowane", "Auto blokowane", id(32), "PUBLISHED", "190.00", "DAY", "2026-10-25", "2026-10-25"],
   [FIXTURE.vehicles[2], 0, "szkic-a", "Szkic A", id(32), "DRAFT", "140.00", "DAY", "2026-10-23", null],
   [FIXTURE.vehicles[3], 1, "auto-wolne", "Auto wolne", id(32), "PUBLISHED", "210.00", "DAY", "2026-03-29", "2026-11-01"],
-  [FIXTURE.vehicles[4], 1, "ukryte-b", "Ukryte B", id(32), "HIDDEN", "120.00", "DAY", "2026-10-23", null],
+  [FIXTURE.vehicles[4], 1, "ukryte-b", "Ukryte B", id(32), "UNPUBLISHED", "120.00", "DAY", "2026-10-23", null],
   [FIXTURE.vehicles[5], 1, "archiwalne-b", "Archiwalne B", id(31), "ARCHIVED", "390.00", "DAY", "2026-10-23", null],
 ] as const;
 
@@ -60,8 +62,26 @@ async function assertFixtureIdentities(db: Client) {
   }
 }
 
-export async function seedLocalFixture(db: Client, env: Record<string, string | undefined>, reset: boolean) {
+/**
+ * `--reset` from the CLI: audit rows are append-only (audit-append-and-access.md), so instead of deleting
+ * them the whole disposable local fixture schema is recreated and migrated. Only the guarded database.
+ */
+const repoDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+export async function recreateFixtureSchema(db: Client, env: Record<string, string | undefined>, root = repoDir) {
   assertLocalFixtureTarget(env);
+  await assertOwnFixtureCluster(db, root);
+  const current = await db.query("SELECT current_database() AS name");
+  if (current.rows[0]?.name !== "auterva_fixture_9") throw new Error("Refusing to recreate a non-fixture database");
+  await db.query("DROP SCHEMA public CASCADE");
+  await db.query("CREATE SCHEMA public");
+  execFileSync("pnpm", ["exec", "prisma", "migrate", "deploy"], { stdio: "inherit", env: { ...process.env, ...env } });
+}
+
+export async function seedLocalFixture(db: Client, env: Record<string, string | undefined>, reset: boolean,
+  root = repoDir) {
+  assertLocalFixtureTarget(env);
+  if (reset) await assertOwnFixtureCluster(db, root);
   await db.query("BEGIN");
   try {
     // Existing fixture IDs must still refer to the expected companies. A mixed database is refused.
@@ -88,8 +108,13 @@ export async function seedLocalFixture(db: Client, env: Record<string, string | 
       // Delete only IDs created by this seed. Unexpected dependants make the transaction fail.
       await db.query('DELETE FROM "ChatMessage" WHERE id = ANY($1::uuid[])', [[id(71), id(72)]]);
       await db.query('DELETE FROM "Conversation" WHERE id = ANY($1::uuid[])', [FIXTURE.conversations]);
-      await db.query('DELETE FROM "VehicleImage" WHERE id = ANY($1::uuid[])', [[id(51), id(52), id(54)]]);
+      await db.query('DELETE FROM "Job" WHERE kind IN (\'MEDIA_PROCESS\', \'MAIL_REMINDER\') AND "organizationId" = ANY($1::uuid[])', [orgs]);
+      await db.query('DELETE FROM "ReminderIntent" WHERE "organizationId" = ANY($1::uuid[])', [orgs]);
+      await db.query('DELETE FROM "ReminderPlan" WHERE "organizationId" = ANY($1::uuid[])', [orgs]);
+      await db.query('DELETE FROM "ImageUpload" WHERE "vehicleId" = ANY($1::uuid[])', [FIXTURE.vehicles]);
+      await db.query('DELETE FROM "VehicleImage" WHERE id = ANY($1::uuid[]) OR "vehicleId" = ANY($2::uuid[])', [[id(51), id(52), id(54)], FIXTURE.vehicles]);
       await db.query('DELETE FROM "AvailabilityBlock" WHERE id = ANY($1::uuid[])', [[id(41), id(42), id(43)]]);
+      await db.query('DELETE FROM "SlugRedirect" WHERE "vehicleId" = ANY($1::uuid[])', [FIXTURE.vehicles]);
       await db.query('DELETE FROM "Vehicle" WHERE id = ANY($1::uuid[])', [FIXTURE.vehicles]);
       await db.query('DELETE FROM "AuditLog" WHERE id = ANY($1::uuid[])', [[id(91), id(92)]]);
       await db.query('DELETE FROM "ServiceAccess" WHERE "organizationId" = ANY($1::uuid[])', [orgs]);
@@ -166,7 +191,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const db = new Client({ connectionString: target });
   try {
     await db.connect();
-    await seedLocalFixture(db, process.env, reset);
+    if (reset) await recreateFixtureSchema(db, process.env);
+    await seedLocalFixture(db, process.env, false);
     const { seedLocalAccess } = await import("./seed-local-access");
     await seedLocalAccess(db, process.env);
     process.stdout.write(`Fixture A/B ${reset ? "reset and seeded" : "seeded"}; local credentials enrolled with MFA.\n`);

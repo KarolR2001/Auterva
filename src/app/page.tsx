@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PanelShell } from "@/components/panel/panel-shell";
 import { requireAuthorizedActor } from "@/modules/auth/authorization";
+import { resolvePublicVisibility } from "@/modules/service-period/public";
 import { resolveRequestArea } from "@/modules/tenancy/request-context";
 
 export const dynamic = "force-dynamic";
@@ -35,6 +36,9 @@ export default async function HomePage() {
         </PanelShell>
       );
   }
-  // A host mapping alone cannot publish content; the public visibility use case follows separately.
+  if (area?.area === "COMPANY_PUBLIC" && incoming.get("host")
+    && await resolvePublicVisibility(prisma, incoming.get("host")!)) {
+    return <main><h1>Oferta firmy</h1><p>Oferta jest w przygotowaniu.</p></main>;
+  }
   notFound();
 }

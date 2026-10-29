@@ -575,10 +575,11 @@ type PasswordStrengthProps = {
 
 - Penpot Variant Set: `7cf0d39f-ce5c-80f6-8008-cf30d90e4d02`.
 - Library component head: `dc32726c-e29a-8032-8008-b7a4bdbeed42`.
+- MFA obu ról jest obowiązkowe w MVP 3.1. Rozdzielenie posiadanego kodu odzyskania, ręcznej procedury po utracie wszystkich czynników i niepewnego wyniku opisuje [kontrakt odzyskiwania](mfa-recovery.md). Historyczne oznaczenie P1 w katalogu wariantów nie określa priorytetu produktu.
 
 ### Anatomy i pokrycie
 
-1. nagłówek jawnie oznaczający 2FA jako P1 po stabilizacji MVP;
+1. nagłówek jawnie oznaczający obowiązkową weryfikację MFA;
 2. mobile TOTP: rzeczywista instancja `FormField` z `inputMode="numeric"` i
    `autocomplete="one-time-code"`;
 3. desktop TOTP: jedna logiczna kontrolka przedstawiona jako sześć segmentów;
@@ -611,7 +612,7 @@ type TwoFactorFormProps = {
 - sześć segmentów desktopowych jest prezentacją jednej wartości: implementacja musi obsłużyć wklejenie całego kodu, Backspace, strzałki i czytelną nazwę grupy, bez sześciokrotnego ogłaszania pola;
 - TOTP odnawia się w aplikacji uwierzytelniającej. Nie dodajemy kanału SMS ani e-mail tylko po to, aby zrealizować „resend”; retry oznacza ponowienie próby po rzeczywistym limicie serwera;
 - kod odzyskiwania jest jednorazowy, nie powinien trafiać do logów ani analityki, a błąd nie ujawnia dodatkowych danych konta;
-- komponent nie tworzy osobnej trasy ani ekranowej klawiatury. W `ADM-15` pozostaje warunkowym P1 poza MVP;
+- komponent nie tworzy osobnej trasy ani ekranowej klawiatury. Starsze umiejscowienie w `ADM-15` nie odracza obowiązkowego MFA obu ról;
 - statyczny wariant Penpota nie dowodzi konfiguracji TOTP, rate-limitingu, ważności kodu ani bezpiecznego zużycia recovery code — wymagają testów runtime i serwerowych.
 
 ## DS-AUT-006 — AccountSummary
@@ -5701,3 +5702,11 @@ Poniższe pięć pozycji jest częścią istniejącej biblioteki; component ID z
 | `DS-COM-001 ChatMessage` | Zwykły tekst, właściwy nadawca, czas i status wysłania/odczytu. Wiadomość staje się wysłana po potwierdzonym zapisie; retry nie tworzy duplikatu. Bez HTML i załączników. |
 | `DS-COM-002 ConversationItem` | Nazwa firmy, skrót ostatniej wiadomości, nieprzeczytane i oznaczenie lokalnego szkicu. Wybór odbiorcy pochodzi z autoryzowanej rozmowy. Loading, empty, filtered-empty i error są różnymi stanami listy. |
 | `DS-COM-003 MessageComposer` | Szkic lokalny osobno dla rozmowy, zachowany przy przejściu do innej rozmowy bez dialogu. Stan wysyłania/błędu/retry, typing i informacja o nowych wiadomościach; offline blokuje wysyłkę i nie tworzy kolejki. Po końcu opłaty czat nadal działa, po archiwizacji dostęp ustaje. |
+
+### Nawigacja platformy
+
+`PLT-01-02` łączy wejścia `/` i `/firmy`: oba pokazują listę firm z KPI opłaconych okresów i triali nad listą. Kanoniczne wzorce na stronach scenariuszy mobile (`fb4e1683-f05f-8095-8008-c7595a575f33`) i desktop (`fb4e1683-f05f-8095-8008-c759e3b05202`) nie tworzą osobnej trasy Pulpit ani `/ustawienia` platformy. Widoczne główne pozycje to Firmy i Wiadomości; mobile ma dodatkowy trigger „Więcej”, desktopowe Konto otwiera menu profilu. Sprawdzone cele: Firmy → PLT-01/02, Wiadomości → PLT-09, menu → mobilny board `89433e5c-4f5c-80ad-8008-d910ad0b18fd` lub desktopowy `89433e5c-4f5c-80ad-8008-d90d3f63bcb7`. Kanoniczne PLT-01/02, PLT-03 i PLT-09 oraz zagnieżdżony przykład Alfa Campers mają interakcje w aktualnym Penpocie. Historyczne ukryte warstwy nie są pozycjami runtime.
+
+Menu profilu superadmina korzysta z anatomii `DS-NAV-011 UserMenu`, ale ma osobny kontekst aktora i cele: Konto → `/konto`, Wyloguj → serwerowe unieważnienie sesji, potem `/login`. Nie używa menu firmy ani `/admin/konto`. Penpot nie ma jeszcze boardu `/konto` platformy — #103 dostarczy cel i odbiór tego ekranu przed #19; pozycja Konto pozostaje bez pozornego przejścia w prototypie. Wyloguj prowadzi prototypowo do PLT-08, co nie dowodzi unieważnienia sesji. W implementacji menu ma nazwę, `aria-haspopup`, obsługę Escape/kliknięcia poza i zwrot fokusu do triggera.
+
+Na PLT-03 i zagnieżdżonych ADM zachowaj identyfikację wybranej firmy oraz „Wróć do karty firmy”; globalne Firmy/Wiadomości nie zmieniają tożsamości superadmina. Przykładowe zagnieżdżone boardy Alfa Campers wracają do karty tej samej firmy: mobile `43eeb5e5-a1c6-801a-8008-d0265908f175` → `4e2ad814-13be-80ec-8008-ccaacecd969f`, desktop `43eeb5e5-a1c6-801a-8008-d02563417960` → `4e2ad814-13be-80ec-8008-ccadc80b0a41`. Widoczne kopie nawigacji w PLT-04 mają cele i stan Więcej/Konto opisane w [handoff nawigacji dodawania firmy](platform-onboarding-navigation.md); warunek dirty i zapis należą do runtime #25. Ukryte stare warstwy nie są widoczną pozycją. Inne kopie scenariuszy sprawdza ich pierwszy konsument przed użyciem jako golden.

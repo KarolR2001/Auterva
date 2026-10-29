@@ -38,14 +38,20 @@ download_checked() {
 
 install_tools() {
   require_local_tools
-  if [[ "$(uname -s)/$(uname -m)" != "Darwin/arm64" ]]; then
-    echo "Pinned local binaries currently target macOS arm64; install compatible SeaweedFS 4.49 and Mailpit 1.32.0 into .local/bin." >&2
-    exit 2
-  fi
-  download_checked "https://github.com/seaweedfs/seaweedfs/releases/download/4.49/darwin_arm64.tar.gz" \
-    "darwin_arm64.tar.gz" "ca708ea2b91c278a5678c16376b472162df2ccda54ecff72c7b53aaa6fb4af48" weed
-  download_checked "https://github.com/axllent/mailpit/releases/download/v1.32.0/mailpit-darwin-arm64.tar.gz" \
-    "mailpit-darwin-arm64.tar.gz" "23709bd727f20da2290de6a2a40c4685c48a3127586d77370efd1a3a595f9ef6" mailpit
+  local platform="$(uname -s)/$(uname -m)" weed_name weed_digest mailpit_name mailpit_digest
+  case "$platform" in
+    Darwin/arm64)
+      weed_name="darwin_arm64.tar.gz"; weed_digest="ca708ea2b91c278a5678c16376b472162df2ccda54ecff72c7b53aaa6fb4af48"
+      mailpit_name="mailpit-darwin-arm64.tar.gz"; mailpit_digest="23709bd727f20da2290de6a2a40c4685c48a3127586d77370efd1a3a595f9ef6" ;;
+    Linux/x86_64)
+      weed_name="linux_amd64.tar.gz"; weed_digest="3d10545b2317adc1587be02594f97e63420fe1aa7a5ba2af9c9760804574e397"
+      mailpit_name="mailpit-linux-amd64.tar.gz"; mailpit_digest="4b5993c978e8604c70d43927e2ad103b311bba3b1822fa0cf1d4ee4ec890a93c" ;;
+    *)
+      echo "Pinned local binaries target macOS arm64 and Linux x86_64; install compatible SeaweedFS 4.49 and Mailpit 1.32.0 into .local/bin." >&2
+      exit 2 ;;
+  esac
+  download_checked "https://github.com/seaweedfs/seaweedfs/releases/download/4.49/$weed_name" "$weed_name" "$weed_digest" weed
+  download_checked "https://github.com/axllent/mailpit/releases/download/v1.32.0/$mailpit_name" "$mailpit_name" "$mailpit_digest" mailpit
 }
 
 owned_process() {
@@ -143,6 +149,8 @@ start_services() {
     echo "PostgreSQL port does not belong to this fixture; refusing to continue." >&2
     exit 2
   fi
+  # Marker used by seed --reset to confirm it talks to this worktree's cluster.
+  printf '%s\n' "$pg_port" > "$local_dir/pg.port"
   if [[ "$(psql -h 127.0.0.1 -p "$pg_port" -U "$(id -un)" -d postgres -Atc "SELECT 1 FROM pg_database WHERE datname='$db_name'")" != "1" ]]; then
     createdb -h 127.0.0.1 -p "$pg_port" -U "$(id -un)" "$db_name"
   fi
@@ -199,10 +207,36 @@ seed_media() {
   echo "Three fixture covers uploaded; unsigned S3 and filer reads denied."
 }
 
+# Empties only this fixture's own bucket (CI starts with an empty one). Guards: the S3 listener must be this
+# worktree's SeaweedFS and the credentials/bucket are the ones generated for this fixture.
+reset_media() {
+  [[ -f "$local_dir/secrets.env" ]] || { echo "Start the fixture first." >&2; exit 2; }
+  owned_process weed || { echo "This fixture's SeaweedFS is not running; refusing to reset media." >&2; exit 2; }
+  refuse_foreign_listener "$s3_port" weed
+  source "$local_dir/secrets.env"
+  local bucket="auterva-fixture-media" base="http://127.0.0.1:$s3_port" listing keys key round
+  s3() { curl --silent --show-error --aws-sigv4 'aws:amz:us-east-1:s3' --user "$S3_ACCESS_KEY_ID:$S3_SECRET_ACCESS_KEY" "$@"; }
+  for round in {1..50}; do
+    listing="$(s3 --write-out $'\n%{http_code}' "$base/$bucket?list-type=2&max-keys=1000")" \
+      || { echo "Listing the fixture bucket failed (connection error)." >&2; exit 1; }
+    [[ "${listing##*$'\n'}" == "200" && "$listing" == *"<ListBucketResult"* ]] \
+      || { echo "Listing the fixture bucket failed (HTTP ${listing##*$'\n'}); refusing to report it empty." >&2; exit 1; }
+    keys="$(grep -o '<Key>[^<]*</Key>' <<< "$listing" | sed 's/<Key>\(.*\)<\/Key>/\1/' || true)"
+    [[ -n "$keys" ]] || { echo "Fixture bucket is empty."; return; }
+    while IFS= read -r key; do
+      [[ "$key" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "Unexpected object key; refusing to continue." >&2; exit 1; }
+      s3 --output /dev/null -X DELETE "$base/$bucket/$key"
+    done <<< "$keys"
+  done
+  echo "Fixture bucket could not be emptied." >&2
+  exit 1
+}
+
 case "${1:-}" in
   install) install_tools ;;
   start) start_services ;;
   seed-media) seed_media ;;
+  reset-media) reset_media ;;
   status)
     pg_isready -h 127.0.0.1 -p "$pg_port"
     owned_process weed && echo "SeaweedFS running on loopback" || echo "SeaweedFS stopped"
@@ -213,5 +247,5 @@ case "${1:-}" in
     stop_process weed
     if [[ -f "$local_dir/pg/PG_VERSION" ]]; then pg_ctl -D "$local_dir/pg" stop >/dev/null || true; fi
     ;;
-  *) echo "Usage: scripts/local-fixture.sh install|start|seed-media|status|stop" >&2; exit 2 ;;
+  *) echo "Usage: scripts/local-fixture.sh install|start|seed-media|reset-media|status|stop" >&2; exit 2 ;;
 esac

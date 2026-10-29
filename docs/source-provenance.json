@@ -25,14 +25,14 @@
       "path": "docs/design/SPEC.md",
       "role": "current-design-contract",
       "originalSha256": "57f6591f985e33c7ea225f84b9fa2ac298ff852c2843fb1c54994991608b2027",
-      "sha256": "a201d58feb95be0009c35d8b41985872f087c2201fa9511f9c6d8b8b3119f2af",
-      "transformation": "Dodano nadrzędny kontrakt 3.1 i DEC-013–020, aktualne strony Penpota, obowiązkowe MFA, granice ustawień i status prototypów; zachowano fundamenty/komponenty i przeniesiono reguły motion/copy bez historycznych wyników QA. Doprecyzowano cele nawigacji panelu firmy dla MVP w #94."
+      "sha256": "6361d27cbd219e78a42c7c525ff95b2644a688695c89fc02649f4719c7369c7f",
+      "transformation": "Dodano nadrzędny kontrakt 3.1 i DEC-013–020, aktualne strony Penpota, obowiązkowe MFA, granice ustawień i status prototypów; zachowano fundamenty/komponenty i przeniesiono reguły motion/copy bez historycznych wyników QA. Doprecyzowano nawigację panelu firmy w #94 i platformy w #102."
     }
   ],
   "derivedDocuments": [
     {
       "path": "docs/WYMAGANIA_AUTERVA.md",
-      "sha256": "a21297690aca55d505c0c8f015274040dc5fd8496c9b6ec46ef9c1e528614091"
+      "sha256": "c11b51eb85ee6fd6436dc41058b9b37c96e0f5549400c854a10edaabb09bf756"
     },
     {
       "path": "docs/ARCHITEKTURA_AUTERVA.md",
@@ -48,7 +48,7 @@
     },
     {
       "path": "docs/contracts/company-settings-and-vehicle-publication.md",
-      "sha256": "67050b6c8eb931c662c7bc1505155b35deaf075f371aa2ed2727ecfa8e4ae39e"
+      "sha256": "9d1fea239ba7fcb3d7c4c3447af42837fd7edc8a35596fc7dfd8652340efcacf"
     },
     {
       "path": "docs/contracts/service-periods-kpi-reminders.md",
@@ -56,11 +56,11 @@
     },
     {
       "path": "docs/contracts/environments-hosts-operations.md",
-      "sha256": "9e0579ff084489f3ec934021be2e26d6dd0a02546df3502a2c602adacc8968a1"
+      "sha256": "889f4d42edcaf49e86233fc96c46629bac23cf1033248eaf47e9175cdadf3eeb"
     },
     {
       "path": "docs/contracts/technical-limits-and-mfa-bootstrap.md",
-      "sha256": "aa8dceaa19719ab4bdddab8a514b0823cdaa3dff8d9b66f1ca51342883366775"
+      "sha256": "b7b96ec716d2a53f4f33c7b66bb38ec71bb03f565175d262756cbca412fa06b8"
     },
     {
       "path": "docs/contracts/data-model-and-migrations.md",
@@ -68,7 +68,39 @@
     },
     {
       "path": "docs/contracts/audit-append-and-access.md",
-      "sha256": "f1008602a899a38d2064ec79d2909013ef6a8e60bfb7dfa495ceafad0e127bd2"
+      "sha256": "f18b00b8eb2e1d907baaa1a46250065571be0c838f11f045378f930a12454318"
+    },
+    {
+      "path": "docs/contracts/availability-reads.md",
+      "sha256": "9f4d0b0f896c3f44960a2e3d029b6999556a3304405717786475af136e7a279b"
+    },
+    {
+      "path": "docs/contracts/fleet-crud-publication.md",
+      "sha256": "f56a851b547e2bfc5ee4db851186c47ad8f9bf3515461c9177db820203219aed"
+    },
+    {
+      "path": "docs/contracts/availability-blocks.md",
+      "sha256": "fe365c687810f42ffaa12af34315c20bdbdfbeb4dab1a2d392e2ace326c6da22"
+    },
+    {
+      "path": "docs/contracts/account-operations.md",
+      "sha256": "48958d7d0cfb832e2f5c3705ec29a48ce53de4f91ca6678388c3db40a459329a"
+    },
+    {
+      "path": "docs/contracts/company-onboarding-invitations.md",
+      "sha256": "46e12daf26b48de6e9e502ed5b11b906709e8571b15d5fbd3a31575bf2e2798d"
+    },
+    {
+      "path": "docs/contracts/company-invitation-activation.md",
+      "sha256": "d39a5e24a1f005fb5902bee0fc282cbcecaeddaaca7ae9d663d95780324908c5"
+    },
+    {
+      "path": "docs/contracts/platform-companies-read.md",
+      "sha256": "b6ad063a780b193353baac9f2e79e788a9aa25a91dfcd580cbfada4a2ba97faa"
+    },
+    {
+      "path": "docs/contracts/media-upload-processing.md",
+      "sha256": "4b2e287c08adbaa749d0ff01d367b935de426836c41f3134d0184bf93543c1d6"
     }
   ],
   "historicalSourcesOutsideRepository": [

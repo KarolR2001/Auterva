@@ -1,8 +1,9 @@
 import type { PrismaClient, Prisma } from "@/generated/prisma/client";
 import { requireAuditActor, requireAuditScope } from "./actor";
-import { safeAuditFieldNames, safeAuditValueFields, isSafeAuditSnapshotValue } from "./append";
+import { ARCHIVED_COMPANY_CONTEXT, safeAuditFieldNames, safeAuditValueFields, isSafeAuditSnapshotValue } from "./append";
+import { auditRetentionCutoff } from "./retention";
 
-function safeView(value: Prisma.JsonValue | null): Prisma.JsonObject | null {
+export function safeAuditView(value: Prisma.JsonValue | null): Prisma.JsonObject | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const input = value as Prisma.JsonObject;
   const output: Prisma.JsonObject = {};
@@ -14,6 +15,7 @@ function safeView(value: Prisma.JsonValue | null): Prisma.JsonObject | null {
     const count = input[key];
     if (typeof count === "number" && Number.isSafeInteger(count) && count >= 0) output[key] = count;
   }
+  if (input.context === ARCHIVED_COMPANY_CONTEXT) output.context = ARCHIVED_COMPANY_CONTEXT;
   if (typeof input.evidenceDigest === "string" && /^[a-f0-9]{64}$/.test(input.evidenceDigest)) {
     output.evidenceDigest = input.evidenceDigest;
   }
@@ -39,12 +41,13 @@ export async function listAudit(db: PrismaClient, input: {
   return db.$transaction(async (tx) => {
     const actor = await requireAuditActor(tx, input.actorId, input.sessionId);
     requireAuditScope(actor, input.organizationId);
+    const cutoff = auditRetentionCutoff(new Date());
     const rows = await tx.auditLog.findMany({
-      where: { organizationId: input.organizationId },
+      where: { organizationId: input.organizationId, createdAt: { gte: cutoff } },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: limit,
       select: { id: true, eventKey: true, organizationId: true, actorId: true, actorRole: true,
         action: true, entityType: true, entityId: true, safeChanges: true, requestId: true, createdAt: true },
     });
-    return rows.map(({ eventKey, ...row }) => ({ ...row, safeChanges: eventKey ? safeView(row.safeChanges) : null }));
+    return rows.map(({ eventKey, ...row }) => ({ ...row, safeChanges: eventKey ? safeAuditView(row.safeChanges) : null }));
   });
 }

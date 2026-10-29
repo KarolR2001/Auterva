@@ -1,3 +1,5 @@
+import { routeContext } from "@/modules/observability/route-context";
+import { observeAuthResponse } from "@/modules/observability/http-observe";
 import { toNextJsHandler } from "better-auth/next-js";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
@@ -5,6 +7,7 @@ import { auth, createAuth } from "@/lib/auth";
 import { getServerEnv } from "@/lib/env";
 import { recordVerifiedMfaSession, sessionFromResponse } from "@/lib/mfa-session";
 import { prisma } from "@/lib/prisma";
+import { hasControlCharacter, INVALID_CHARACTERS } from "@/lib/text-policy";
 import { requireAuthorizedActor, requireScopedActor, resolveAuthHost } from "@/modules/auth/authorization";
 import { MfaFactorBusyError, withMfaFactorLock } from "@/modules/auth/mfa-factor-lock";
 import { completeAuthAttempt, reserveAuthAttempt, takeRateLimit } from "@/modules/auth/rate-limit";
@@ -13,13 +16,19 @@ import { appendAudit } from "@/modules/audit/append";
 import { parseHostAuthority } from "@/modules/tenancy/host-registry";
 import { currentTrustedClientAddress } from "@/modules/ingress/client-address";
 import { apiRateLimitResponse, takeAuthenticatedApiLimit } from "@/modules/tenancy/api-rate-limit";
+import { bodyExceeds, MAX_AUTH_BODY_BYTES } from "@/modules/tenancy/json-body";
 import { withErrorRequestId } from "@/modules/tenancy/request-id";
+import { changeAccountPassword, requestPasswordReset, resetPassword, updateAccountProfile } from "@/modules/auth/account-operations";
+import { parseMailPayloadKey } from "@/modules/jobs/config";
+import { z } from "zod";
 
 export const runtime = "nodejs";
 const allowed = new Set([
   "/api/auth/get-session", "/api/auth/sign-in/email", "/api/auth/two-factor/enable",
   "/api/auth/two-factor/verify-totp", "/api/auth/two-factor/verify-backup-code", "/api/auth/sign-out",
   "/api/auth/mfa/reauth", "/api/auth/mfa/rotate-backup-codes",
+  "/api/auth/password/request-reset", "/api/auth/password/reset",
+  "/api/auth/password/change", "/api/auth/profile",
 ]);
 const refusal = () => new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
 const neutral = () => Response.json({ code: "INVALID_CREDENTIALS" }, { status: 401, headers: { "Cache-Control": "no-store" } });
@@ -40,10 +49,24 @@ const busy = () => Response.json({ code: "MFA_BUSY" }, { status: 409, headers: {
 const retryableMfaError = (error: unknown) => error instanceof MfaFactorBusyError
   || (typeof error === "object" && error !== null && "code" in error && ["P2024", "P2028", "P2034"].includes(String(error.code)));
 const mfaRetry = () => Response.json({ code: "MFA_RETRY" }, { status: 503, headers: { "Retry-After": "1", "Cache-Control": "no-store" } });
+const resetRequestBody = z.object({ email: z.email().max(254), idempotencyKey: z.uuid() }).strict();
+const resetBody = z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+  newPassword: z.string().min(12).max(256) }).strict();
+const profileBody = z.object({ name: z.string().trim().min(1).max(100).refine((value) => !hasControlCharacter(value), INVALID_CHARACTERS) }).strict();
+const passwordChangeBody = z.object({ currentPassword: z.string().min(1).max(256),
+  newPassword: z.string().min(12).max(256) }).strict();
+const signInBody = z.object({ email: z.email(), password: z.string().max(256) }).strict();
+const noStore = { "Cache-Control": "no-store" };
+class SignInScopeDenied extends Error {}
 
-async function loginEmail(request: Request) {
+async function loginCredentials(request: Request) {
   const body = await request.clone().json().catch(() => null) as { email?: unknown } | null;
-  return typeof body?.email === "string" ? body.email : "";
+  const email = typeof body?.email === "string" ? body.email : "";
+  // The gateway supports only email/password. Validate the entire DTO before
+  // choosing an account-dependent KDF path; Better Auth checks optional fields
+  // earlier than credentials and would otherwise expose an inverse timing gap.
+  const parsed = signInBody.safeParse(body);
+  return { email, valid: parsed.success };
 }
 
 function challengeCookie(header: string | null) {
@@ -60,12 +83,18 @@ function challengeKey(cookie: string) {
 
 async function matchingMfaAccount(db: PrismaClient | Prisma.TransactionClient, userId: string, scope: NonNullable<Awaited<ReturnType<typeof resolveAuthHost>>>) {
   const user = await db.user.findUnique({ where: { id: userId }, select: {
-    id: true, email: true, role: true, organizationId: true, disabledAt: true, emailVerified: true,
+    id: true, email: true, role: true, organizationId: true, disabledAt: true, emailVerified: true, twoFactorEnabled: true,
     organization: { select: { archivedAt: true } },
   } });
   if (!user || !user.emailVerified || user.disabledAt) return null;
   if (scope.area === "PLATFORM") return user.role === "SUPERADMIN_AUTERVA" && user.organizationId === null ? user : null;
   return user.role === "ADMIN_FIRMY" && user.organizationId === scope.organizationId && !user.organization?.archivedAt ? user : null;
+}
+
+async function lockCredentialAccount(tx: Prisma.TransactionClient, userId: string): Promise<boolean> {
+  const held = await tx.$queryRaw<Array<{ id: string }>>`
+    SELECT id FROM "account" WHERE "userId" = ${userId} AND "providerId" = 'credential' FOR UPDATE`;
+  return held.length === 1;
 }
 
 async function handleMfaManagement(request: Request, pathname: string, instance: typeof auth, scope: NonNullable<Awaited<ReturnType<typeof resolveAuthHost>>>, sourceIp: string, baseURL: string, auditRequestId: string) {
@@ -82,6 +111,7 @@ async function handleMfaManagement(request: Request, pathname: string, instance:
   let response: Response;
   try {
     response = await withMfaFactorLock(prisma, actor.userId, async (tx) => {
+      if (!await lockCredentialAccount(tx, actor.userId)) return neutral();
       const txInstance = createAuth(tx, false, baseURL);
       const currentActor = await requireAuthorizedActor(tx, txInstance, request.headers, scope);
       if (currentActor?.sessionId !== actor.sessionId) return neutral();
@@ -176,6 +206,10 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
   const scope = probe ? null : await resolveAuthHost(prisma, request.headers.get("host"));
   if ((!probe && !scope) || !allowed.has(pathname)) return refusal();
   if (method === "POST" && !sameCanonicalOrigin(request.headers.get("origin"), externalUrl)) return new Response(null, { status: 403, headers: { "Cache-Control": "no-store" } });
+  // The gateway reads its JSON several times (clones); bound it first so no unauthenticated body is parsed unbounded.
+  if (method === "POST" && await bodyExceeds(request, MAX_AUTH_BODY_BYTES)) {
+    return Response.json({ code: "PAYLOAD_TOO_LARGE" }, { status: 413, headers: { "Cache-Control": "no-store" } });
+  }
   if (method === "GET" && pathname !== "/api/auth/get-session") return new Response(null, { status: 405 });
   if (method === "POST" && pathname === "/api/auth/get-session") return new Response(null, { status: 405 });
   let sourceIp: string;
@@ -185,6 +219,77 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
     return new Response(null, { status: 503, headers: { "Cache-Control": "no-store" } });
   }
   const instance = probe ? auth : createAuth(prisma, false, externalUrl.origin);
+  if (pathname === "/api/auth/password/request-reset" || pathname === "/api/auth/password/reset") {
+    if (!scope || method !== "POST") return refusal();
+    const body = await request.clone().json().catch(() => null);
+    if (pathname.endsWith("/request-reset")) {
+      const parsed = resetRequestBody.safeParse(body);
+      if (!parsed.success) return Response.json({ code: "INVALID_REQUEST" }, { status: 400, headers: noStore });
+      let mailKey: Buffer;
+      try { mailKey = parseMailPayloadKey(process.env.MAIL_PAYLOAD_KEY); }
+      catch { return Response.json({ code: "MAIL_NOT_CONFIGURED" }, { status: 503, headers: noStore }); }
+      const email = parsed.data.email.trim().toLowerCase();
+      const limit = await takeRateLimit(prisma, [
+        { key: `reset:account:${email}`, limit: 3, windowMs: 60 * 60_000 },
+        { key: `reset:ip:${sourceIp}`, limit: 20, windowMs: 60 * 60_000 },
+      ]);
+      if (!limit.allowed) return Response.json({ code: "RATE_LIMITED" }, { status: 429,
+        headers: { ...noStore, "Retry-After": String(limit.retryAfter) } });
+      return Response.json(await requestPasswordReset(prisma, { email,
+        idempotencyKey: parsed.data.idempotencyKey, scope, hostname: externalUrl.hostname,
+        now: new Date(), mailKey }), { headers: noStore });
+    }
+    const parsed = resetBody.safeParse(body);
+    if (!parsed.success) return Response.json({ code: "INVALID_REQUEST" }, { status: 400, headers: noStore });
+    const limit = await takeRateLimit(prisma, [
+      { key: `reset:token:${createHmac("sha256", getServerEnv().BETTER_AUTH_SECRET).update(parsed.data.token).digest("hex")}`,
+        limit: 3, windowMs: 60 * 60_000 },
+      { key: `reset:ip:${sourceIp}`, limit: 20, windowMs: 60 * 60_000 },
+    ]);
+    if (!limit.allowed) return Response.json({ code: "RATE_LIMITED" }, { status: 429,
+      headers: { ...noStore, "Retry-After": String(limit.retryAfter) } });
+    const changed = await resetPassword(prisma, { token: parsed.data.token,
+      newPassword: parsed.data.newPassword, scope, hostname: externalUrl.hostname,
+      now: new Date(), requestId: auditRequestId });
+    return changed ? Response.json({ status: true, signInRequired: true }, { headers: noStore }) : neutral();
+  }
+  if (pathname === "/api/auth/profile" || pathname === "/api/auth/password/change") {
+    if (!scope || method !== "POST") return refusal();
+    const actor = await requireAuthorizedActor(prisma, instance, request.headers, scope);
+    if (!actor) return neutral();
+    const limit = await takeAuthenticatedApiLimit(prisma, { actorId: actor.userId,
+      organizationId: actor.organizationId }, "write");
+    if (!limit.allowed) return apiRateLimitResponse(limit.retryAfter);
+    const body = await request.clone().json().catch(() => null);
+    if (pathname === "/api/auth/profile") {
+      const parsed = profileBody.safeParse(body);
+      if (!parsed.success) {
+        const invalid = parsed.error.issues.some((issue) => issue.message === INVALID_CHARACTERS);
+        return Response.json({ code: "INVALID_REQUEST", ...(invalid ? { fieldErrors: { name: INVALID_CHARACTERS } } : {}) },
+          { status: 400, headers: noStore });
+      }
+      const result = await updateAccountProfile(prisma, { headers: request.headers, scope,
+        baseURL: externalUrl.origin, name: parsed.data.name, requestId: auditRequestId });
+      return result ? Response.json(result, { headers: noStore }) : neutral();
+    }
+    const parsed = passwordChangeBody.safeParse(body);
+    if (!parsed.success) return Response.json({ code: "INVALID_REQUEST" }, { status: 400, headers: noStore });
+    const account = await prisma.user.findUniqueOrThrow({ where: { id: actor.userId }, select: { email: true } });
+    const reservation = await reserveAuthAttempt(prisma, account.email, sourceIp);
+    if (!reservation.allowed) return Response.json({ code: "RATE_LIMITED" }, { status: 429,
+      headers: { ...noStore, "Retry-After": String(reservation.retryAfter) } });
+    let changed: boolean;
+    try {
+      changed = await changeAccountPassword(prisma, { headers: request.headers, scope,
+        baseURL: externalUrl.origin, currentPassword: parsed.data.currentPassword,
+        newPassword: parsed.data.newPassword, requestId: auditRequestId });
+    } catch (error) {
+      await completeAuthAttempt(prisma, reservation.reservationId, !retryableMfaError(error));
+      throw error;
+    }
+    await completeAuthAttempt(prisma, reservation.reservationId, !changed);
+    return changed ? Response.json({ status: true, signInRequired: true }, { headers: noStore }) : neutral();
+  }
   if (scope && pathname !== "/api/auth/sign-in/email") {
     const scoped = await requireScopedActor(prisma, instance, request.headers, scope);
     if (scoped) {
@@ -236,14 +341,15 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
     if (method === "POST") forwarded.headers.set("origin", externalUrl.origin);
     return forwarded;
   };
-  const email = pathname === "/api/auth/sign-in/email" ? await loginEmail(request) : null;
+  const credentials = pathname === "/api/auth/sign-in/email" ? await loginCredentials(request) : null;
+  const email = credentials?.email ?? null;
   const scopedUser = enrollmentActor ?? enableActor;
   const mfaEmail = challengeUser?.email ?? (scopedUser ? (await prisma.user.findUnique({ where: { id: scopedUser.userId }, select: { email: true } }))?.email : null);
   const reservation = email === null && !mfaEmail ? null : await reserveAuthAttempt(prisma, email ?? mfaEmail ?? "", sourceIp);
   if (reservation && !reservation.allowed) {
     return Response.json({ code: "RATE_LIMITED" }, { status: 429, headers: { "Cache-Control": "no-store", "Retry-After": String(reservation.retryAfter) } });
   }
-  if (invalidEnable || invalidMfa) {
+  if (invalidEnable || invalidMfa || (credentials && !credentials.valid)) {
     if (reservation?.allowed) await completeAuthAttempt(prisma, reservation.reservationId, true);
     return invalidMfa
       ? Response.json({ code: "INVALID_MFA_PROBE" }, { status: 400, headers: { "Cache-Control": "no-store" } })
@@ -253,6 +359,7 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
   try {
     if (pathname === "/api/auth/two-factor/enable" && enableActor) {
       response = await withMfaFactorLock(prisma, enableActor.userId, async (tx) => {
+        if (!await lockCredentialAccount(tx, enableActor.userId)) return neutral();
         const txInstance = createAuth(tx, false, externalUrl.origin);
         const current = await requireScopedActor(tx, txInstance, request.headers, scope!);
         if (current?.sessionId !== enableActor.sessionId || current.twoFactorEnabled) return neutral();
@@ -262,6 +369,7 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
       });
     } else if (pathname === "/api/auth/two-factor/verify-backup-code" && challengeUser) {
       response = await withMfaFactorLock(prisma, challengeUser.id, async (tx) => {
+        if (!await lockCredentialAccount(tx, challengeUser.id)) return neutral();
         const txInstance = createAuth(tx, false, externalUrl.origin);
         const current = await tx.user.findUnique({ where: { id: challengeUser.id }, select: { twoFactorEnabled: true } });
         const activeChallenge = challenge && await tx.verification.findFirst({ where: { id: challenge.id, expiresAt: { gt: new Date() } } });
@@ -284,6 +392,7 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
       });
     } else if (pathname === "/api/auth/two-factor/verify-totp" && (challengeUser || enrollmentActor)) {
       response = await withMfaFactorLock(prisma, challengeUser?.id ?? enrollmentActor!.userId, async (tx) => {
+        if (!await lockCredentialAccount(tx, challengeUser?.id ?? enrollmentActor!.userId)) return neutral();
         const txInstance = createAuth(tx, false, externalUrl.origin);
         if (challengeUser) {
           const current = await tx.user.findUnique({ where: { id: challengeUser.id }, select: { twoFactorEnabled: true } });
@@ -335,11 +444,46 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
           return signedOut;
         });
       }
+    } else if (pathname === "/api/auth/sign-in/email" && scope && email) {
+      response = await prisma.$transaction(async (tx) => {
+        const candidate = await tx.user.findFirst({ where: {
+          email: { equals: email.trim(), mode: "insensitive" },
+        }, select: { id: true } });
+        const account = candidate && await tx.account.findFirst({ where: {
+          userId: candidate.id, providerId: "credential",
+        }, select: { id: true } });
+        // Password changes hold this same account row until all old sessions
+        // are revoked. A login cannot commit an old-password session later.
+        const held = account ? await tx.$queryRaw<Array<{ id: string }>>`
+          SELECT id FROM "account" WHERE id = ${account.id} FOR UPDATE` : [];
+        const permitted = candidate && held.length ? await matchingMfaAccount(tx, candidate.id, scope) : null;
+        // Every account state traverses the same Better Auth transport, Origin,
+        // CSRF, schema and credential pipeline. If a credential appears between
+        // our lookup and BA's read, its success still rolls back without a cookie.
+        const signedIn = await toNextJsHandler(createAuth(tx, false, externalUrl.origin))[method](authRequest());
+        if (!permitted) throw new SignInScopeDenied();
+        if (signedIn.ok) {
+          const result = await signedIn.clone().json().catch(() => null) as { twoFactorRedirect?: boolean } | null;
+          if (permitted.twoFactorEnabled && !result?.twoFactorRedirect) throw new SignInScopeDenied();
+          if (result?.twoFactorRedirect) {
+            const issued = challengeCookie(signedIn.headers.getSetCookie().map((item) => item.split(";", 1)[0]).join("; "));
+            if (!permitted.twoFactorEnabled) throw new SignInScopeDenied();
+            if (!issued) throw new Error("Invalid MFA challenge at login");
+            await tx.verification.create({ data: {
+              id: randomUUID(), identifier: challengeKey(issued),
+              value: JSON.stringify({ userId: permitted.id, hostname: externalUrl.hostname }),
+              expiresAt: new Date(Date.now() + 10 * 60_000),
+            } });
+          }
+        }
+        return signedIn;
+      }, { maxWait: 5_000, timeout: 20_000 });
     } else {
       response = await handlers[method](authRequest());
     }
   } catch (error) {
     if (reservation?.allowed) await completeAuthAttempt(prisma, reservation.reservationId, !retryableMfaError(error));
+    if (error instanceof SignInScopeDenied) return neutral();
     if (error instanceof MfaFactorBusyError) return busy();
     if (retryableMfaError(error)) return mfaRetry();
     throw error;
@@ -366,14 +510,6 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
         await revokeIssuedSession(instance, response);
         if (reservation?.allowed) await completeAuthAttempt(prisma, reservation.reservationId, true);
         return neutral();
-      }
-      if (result?.twoFactorRedirect) {
-        const issued = challengeCookie(response.headers.getSetCookie().map((item) => item.split(";", 1)[0]).join("; "));
-        if (!issued) throw new Error("MFA challenge cookie missing");
-        await prisma.verification.create({ data: {
-          id: randomUUID(), identifier: challengeKey(issued), value: JSON.stringify({ userId: user.id, hostname: externalUrl.hostname }),
-          expiresAt: new Date(Date.now() + 10 * 60_000),
-        } });
       }
     }
     if (reservation?.allowed) await completeAuthAttempt(prisma, reservation.reservationId, false);
@@ -407,11 +543,13 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
   return response;
 }
 
-export const GET = async (request: Request) => {
+const handleGET = async (request: Request) => {
   const requestId = randomUUID();
   return withErrorRequestId(await guarded(request, "GET", requestId), requestId);
 };
-export const POST = async (request: Request) => {
+const handlePOST = async (request: Request) => {
   const requestId = randomUUID();
-  return withErrorRequestId(await guarded(request, "POST", requestId), requestId);
+  return observeAuthResponse(request, withErrorRequestId(await guarded(request, "POST", requestId), requestId));
 };
+export const GET = routeContext(handleGET);
+export const POST = routeContext(handlePOST);

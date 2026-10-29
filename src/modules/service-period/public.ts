@@ -1,0 +1,34 @@
+import type { PrismaClient } from "@/generated/prisma/client";
+import { resolveHostMapping } from "@/modules/tenancy/host-registry";
+import { resolveServicePeriod } from "./state";
+
+/** Re-read per request from the active public host; callers must not cache a positive result. */
+export async function resolvePublicVisibility(db: PrismaClient, authority: string, now = new Date()) {
+  const host = await resolveHostMapping(db, authority);
+  if (host?.area !== "COMPANY_PUBLIC" || !host.organizationId) return null;
+  return resolveCompanyPublicVisibility(db, host.organizationId, now);
+}
+
+/** The same rule as the public host gate, for a company already identified (protected preview, informational only). */
+export async function resolveCompanyPublicVisibility(db: PrismaClient, organizationId: string, now = new Date()) {
+  const company = await db.organization.findUnique({ where: { id: organizationId },
+    select: { id: true, firstAdminRegisteredAt: true, archivedAt: true,
+      publicUnlockRequired: true, publicRequiresPaid: true,
+      hosts: { where: { area: "COMPANY_PUBLIC", status: "ACTIVE" }, select: { id: true }, take: 1 },
+      serviceAccess: { select: { paidThrough: true, trialGranted: true, trialStartedAt: true, trialEndsAt: true } } } });
+  if (!company) return null;
+  const access = company.serviceAccess;
+  const state = resolveServicePeriod({
+    paidThrough: access?.paidThrough?.toISOString().slice(0, 10) ?? null,
+    trialGranted: access?.trialGranted ?? false,
+    trialStartedAt: access?.trialStartedAt ?? null,
+    trialEndsAt: access?.trialEndsAt ?? null,
+    registeredAt: company.firstAdminRegisteredAt,
+    archivedAt: company.archivedAt,
+    publicUnlockRequired: company.publicUnlockRequired,
+    publicRequiresPaid: company.publicRequiresPaid,
+    // On the public path the resolved host is ACTIVE by construction; preview needs the real answer.
+    domainReady: company.hosts.length > 0,
+  }, now);
+  return state.publicVisible ? { organizationId: company.id, state } : null;
+}
