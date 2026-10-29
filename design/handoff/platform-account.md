@@ -31,10 +31,12 @@ Kanoniczne boardy PLT-10 w pliku Penpota `b564c72c-f31f-81ec-8008-af198a313438`:
 
 | Wariant | Strona scenariusza                     | Board `state=default`                  | Viewport       | Pozycja „Konto” w menu platformy                  |
 | ------- | -------------------------------------- | -------------------------------------- | -------------- | ------------------------------------------------- |
-| Mobile  | `fb4e1683-f05f-8095-8008-c755dff0027c` | `2e56f6bf-6ab4-8076-8008-dbd35ead5dc9` | 390 × 1852 px  | `89433e5c-4f5c-80ad-8008-d910ad0b1908` → PLT-10 M |
+| Mobile  | `fb4e1683-f05f-8095-8008-c755dff0027c` | `2e56f6bf-6ab4-8076-8008-dbd35ead5dc9` | 390 × 1689 px  | `89433e5c-4f5c-80ad-8008-d910ad0b1908` → PLT-10 M |
 | Desktop | `fb4e1683-f05f-8095-8008-c755dff4dae6` | `315aa115-0a58-807f-8008-dbc2af057cc6` | 1440 × 1024 px | `89433e5c-4f5c-80ad-8008-d90d3f63bcc2` → PLT-10 D |
 
 Referencją wyglądu są tokeny i nawigacja platformy; ADM-15 panelu firmy nie jest celem `/konto`. W obu wariantach „Firmy” wraca do PLT-01/02, „Wiadomości” do PLT-09, a menu profilu pozostaje wejściem do konta i wylogowania. „Wyloguj” ma jedynie prototypowe przejście do PLT-08.
+
+Treść obu boardów („Platform … / Content”) to Flex/Auto Layout z instancjami DS: `Shared / Form/FormField` (Nazwa, hasła), `Shared / Action/Button` (główny i drugorzędny, z celami prototypu do 07I i 07C), karty i pigułka statusu MFA z ikoną Lucide check i obramowaniem; bez luźnych warstw absolutnych. ID boardów PLT-10 i cele nawigacji z menu nie zmieniły się; przyciski „Wydaj nowe kody” i „Nie mam obu czynników” są teraz instancjami Button z tymi samymi celami co wcześniej.
 
 Istniejący ADM-15 Mobile `1e066793-8858-8051-8008-cf3e9586dccb` i Desktop `a4abf4c9-2e1f-80fd-8008-affaaf4fb733` pokazują układ profilu i bezpieczeństwa. Mają jednak firmową nawigację oraz zakładkę sesji, więc służą tylko jako źródło anatomii kart i pól. PLT-10 korzysta z menu platformy, nie przenosi zakładki sesji ani danych firmy. Nazwa konta jest edytowalnym polem, e-mail i rola są prezentowane jako dane tylko do odczytu. Odrębne bloki hasła i MFA wyjaśniają skutek zmiany hasła oraz wymaganie świeżego czynnika przed wydaniem nowej listy kodów.
 
