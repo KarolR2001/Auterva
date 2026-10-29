@@ -48,6 +48,7 @@ export function CatalogFilters({ result, today }: { result: Ok; today: string })
   const { applied, filters } = result;
   const active = [applied.category, applied.seats, applied.transmission, applied.from, applied.sort !== "recommended" ? applied.sort : null]
     .filter(Boolean).length;
+  const clearable = [applied.category, applied.seats, applied.transmission, applied.sort !== "recommended" ? applied.sort : null].some(Boolean);
   const seatOptions = filters.seats ? Array.from({ length: filters.seats.max - filters.seats.min + 1 }, (_, index) => filters.seats!.min + index) : [];
   const hasFilterOptions = filters.categories.length > 0 || filters.transmissions.length > 0 || seatOptions.length > 1;
   return (
@@ -95,7 +96,7 @@ export function CatalogFilters({ result, today }: { result: Ok; today: string })
           <p className={styles.hint}>Terminem jest zakres od 1 do 365 dni; obie daty wliczają się do niego.</p>
           <div className={styles.filterActions}>
             <button type="submit" className={`${styles.linkButton} ${styles.linkButtonPrimary}`}>Zastosuj</button>
-            {active > 0 ? (
+            {clearable ? (
               <a href={catalogHref({ from: applied.from, to: applied.to })} className={`${styles.linkButton} ${styles.linkButtonSecondary}`}>Wyczyść filtry</a>
             ) : null}
           </div>
