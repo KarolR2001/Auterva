@@ -1,6 +1,6 @@
 # Najbliższy wolny termin i zbiorcze blokady — kontrakt discovery (#70)
 
-Status: **propozycja do decyzji właściciela, nie implementacja**. Zakres opcjonalny (COULD po stabilizacji, `docs/WYMAGANIA_AUTERVA.md` §10), poza obowiązkowym MVP. Po decyzji powstają osobne zadania API i FE (sekcja 5). Źródła: C-F102, C-F103, C-F104, C-N027, FR-ADM-051/053/055/057/058, D-15; kontrakty [odczyty #33/#59/#65](availability-reads.md) i [blokady #38](availability-blocks.md), [audyt](audit-append-and-access.md).
+Status: **zatwierdzony przez właściciela 28.10.2026 (D-32), kontrakt bez implementacji**; P1–P7 w sekcji 4 są decyzjami. Zakres opcjonalny (COULD po stabilizacji, `docs/WYMAGANIA_AUTERVA.md` §10), poza obowiązkowym MVP. Po decyzji (D-32) powstają osobne zadania API i FE (sekcja 5). Źródła: C-F102, C-F103, C-F104, C-N027, FR-ADM-051/053/055/057/058, D-15; kontrakty [odczyty #33/#59/#65](availability-reads.md) i [blokady #38](availability-blocks.md), [audyt](audit-append-and-access.md).
 
 Nie powstaje rezerwacja online, płatność ani zapis offline. Najbliższy termin to wyłącznie informacja; kontakt nadal niczego nie rezerwuje. Każdy wariant przejmuje niezmienniki: `LocalDate`/SQL DATE z końcami włącznie (jeden dzień poprawny), „dzisiaj” w `Europe/Warsaw` (`availabilityToday`), aktor/rola/firma/stan konta sprawdzane w każdej operacji, izolacja firm, brak `internalNote`/`reference`/typu/danych technicznych w odpowiedziach publicznych, brak cache wyniku (po commit następny odczyt widzi nowy stan).
 
@@ -8,7 +8,7 @@ Nie powstaje rezerwacja online, płatność ani zapis offline. Najbliższy termi
 
 ### Definicja
 
-Wejście: pojazd, długość `N` dni (z odrzuconego zapytania `from`–`to`: `N = days(to − from) + 1`, 1–365), początek szukania `S = max(from, dzisiaj)`, horyzont `H` dni. Wynik: najwcześniejszy zakres `[a, a+N−1]` z `a >= S`, który w całości mieści się w aktywności pojazdu i nie przecina żadnej blokady (ta sama reguła co `availableVehicleIds`), oraz `a+N−1 <= S+H−1`. Brak takiego zakresu to `{found:false}` (nie błąd i nie „dostępny”). Obliczenia na `LocalDate` (arytmetyka na dniach kalendarzowych, bez konwersji do stałych 24 h/UTC), więc DST i rok przestępny nie przesuwają dnia.
+Wejście: pojazd, długość `N` dni (z odrzuconego zapytania `from`–`to`: `N = days(to − from) + 1`, 1–365), początek szukania `S = max(from, dzisiaj)`, horyzont `H` dni. Wynik: najwcześniejszy zakres `[a, a+N−1]` z `a >= S`, który w całości mieści się w aktywności pojazdu i nie przecina żadnej blokady (ta sama reguła co `availableVehicleIds`), oraz `a+N−1 <= S+H−1`. Brak takiego zakresu to `{found:false}` (nie błąd i nie „dostępny”). Obliczenia na `LocalDate` z tą samą arytmetyką dni co `src/modules/availability/dates.ts` (dni kalendarzowe, bez konwersji do stałych 24 h/UTC), więc DST i rok przestępny nie przesuwają dnia.
 
 Przykłady (dzisiaj = 2027-03-10, aktywność od 2027-01-01, otwarty koniec):
 
@@ -26,18 +26,18 @@ Przykłady (dzisiaj = 2027-03-10, aktywność od 2027-01-01, otwarty koniec):
 
 | Wariant | Opis | Koszt | Ryzyko |
 |---|---|---|---|
-| **A (rekomendowany)** Obliczenie na żądanie, jeden pojazd | Jedno zapytanie: blokady pojazdu w oknie `[S, S+H−1]` po indeksie `AvailabilityBlock(vehicleId, from DESC)`, luki wyznaczane w pamięci lub `LEAD()`; złożoność O(liczba blokad w oknie), nie O(H·blokady). | Jedno dodatkowe zapytanie; limit istniejącego rozmiaru okna. Bez migracji. | Wynik jest informacją chwilową; commit blokady po odczycie unieważnia go (tak jak `check`). |
+| **A (wybrany, P2)** Obliczenie na żądanie, jeden pojazd | Jedno zapytanie: blokady pojazdu w oknie `[S, S+H−1]` po indeksie `AvailabilityBlock(vehicleId, from DESC)`, luki wyznaczane w pamięci lub `LEAD()`; złożoność O(liczba blokad w oknie), nie O(H·blokady). | Jedno dodatkowe zapytanie; limit istniejącego rozmiaru okna. Bez migracji. | Wynik jest informacją chwilową; commit blokady po odczycie unieważnia go (tak jak `check`). |
 | B Wsad do 50 slugów | Jak A dla listy slugów (zasady batcha #33: 1–50 różnych, duplikat = 400, nieznane/ukryte pomijane). | Do 50 zapytań lub jedno zapytanie po `ANY(uuid[])`. | Wzmocnienie kosztu na anonimowym adresie; wymaga osobnego budżetu. |
 | C Materializacja/cache | Zapisana tabela „następny wolny dzień”. | Migracja, unieważnianie przy każdej mutacji blokady i aktywności. | Narusza „brak starego pozytywnego wyniku”; odrzucone. |
 
-Rekomendacja: A, w drugim kroku B tylko jeśli FE realnie pokazuje alternatywy z terminami.
+Decyzja (P2): A; wariant B dopiero w drugim kroku i tylko jeśli FE realnie pokazuje alternatywy z terminami.
 
 ### Kontrakt API (wariant A)
 
 - Publiczny `POST /api/public/availability/next` z `{slug,from,to}` → `200 {found:true,from,to}` lub `{found:false}`. Reguły hosta, widoczności i okresu usługi jak `check` (#33): niepubliczny host, firma po końcu okresu/archiwalna, ukryty/obcy/nieistniejący pojazd → `404`; zły format `400`; `from` przed dzisiaj `422`; `no-store`, wspólny limit publiczny 60/min na zaufany adres. Odpowiedź nie zawiera typu, przyczyny, `reference`, notatki ani informacji, że luka wynika z blokady a nie z aktywności.
-- Prywatny odpowiednik (admin/superadmin) nie jest potrzebny: panel ma kalendarz #33/#65. Gdyby był, działa pod regułami prywatnymi (limit 120/min na aktora i firmę, historia dozwolona).
+- Zgodnie z P2 (publicznie) wersja publiczna jest podstawowa. Prywatny odpowiednik (admin/superadmin) nie jest wymagany: panel ma kalendarz #33/#65. Gdyby powstał, działa pod regułami prywatnymi (limit 120/min na aktora i firmę, historia dozwolona).
 - Horyzont jest stałą serwera, nie parametrem klienta (klient nie podnosi kosztu). Zakres wejściowy nadal 1–365 dni; wynik nie wykracza poza `S+H−1`.
-- Ujawnienie: daty wynikowe mają ten sam poziom szczegółu co `GET .../calendar` (dzienne stany publicznie widoczne), nie rewelują niczego nowego.
+- Ujawnienie: daty wynikowe mają ten sam poziom szczegółu co `GET .../calendar` (dzienne stany publicznie widoczne), nie ujawniają niczego nowego.
 
 Koszt testowy (przy wdrożeniu): jeden dzień, wspólna granica końca/początku, dziura o długości N−1 i N, otwarty koniec aktywności, początek aktywności po `S`, koniec aktywności przed końcem luki, rok przestępny i DST Warszawa (zamrożony zegar), ukryty pojazd, firma wygasła/archiwalna, A/B, świeżość po mutacji blokady w osobnym kontekście, brak pól prywatnych w JSON.
 
@@ -48,9 +48,9 @@ Zakres obejmuje tylko jedną firmę (C-N027: historia nie jest kopiowana między
 Dwie operacje, wspólny silnik zapisu:
 
 1. **Zbiorcze utworzenie:** jedna definicja `{from,to,type,reference?,internalNote?}` dla zbioru `vehicleIds` (serwis floty, urlop).
-2. **Kopiowanie:** istniejąca blokada (`sourceBlockId`) do `targetVehicleIds`, z opcjonalnym przesunięciem `shiftDays` (całkowite, ujemne dozwolone; arytmetyka `LocalDate`, długość zachowana). Kopiowane są daty, typ i `reference`; `internalNote` wyłącznie przy jawnym `copyNote:true` (domyślnie nie, bo notatka bywa wrażliwa dla konkretnego auta).
+2. **Kopiowanie:** istniejąca blokada (`sourceBlockId`) do `targetVehicleIds`, z opcjonalnym przesunięciem `shiftDays` (całkowite, ujemne dozwolone; arytmetyka `LocalDate`, długość zachowana). Kopiowane są daty i typ. `reference` i `internalNote` nie są kopiowane domyślnie (numer odniesienia i notatka dotyczą konkretnego wpisu i auta); trafiają do kopii wyłącznie przy jawnych `copyReference:true` i `copyNote:true` (P5).
 
-Wspólne zasady (dla każdego wariantu): źródło `MANUAL`; każdy cel sprawdzany jak w #38 (należy do firmy, nie `ARCHIVED`, zakres mieści się w aktywności, brak nakładania, limity pól); `vehicleIds` bez duplikatów, nie więcej niż `K` (rekomendacja: 50, jak batch #33); nieznane lub obce `vehicleId` dają `404` bez ujawniania, czy istnieje u innej firmy (całe żądanie, bez częściowego zapisu).
+Wspólne zasady (dla każdego wariantu): źródło `MANUAL`; każdy cel sprawdzany jak w #38 (należy do firmy, nie `ARCHIVED`, zakres mieści się w aktywności, brak nakładania, limity pól); `vehicleIds` bez duplikatów, nie więcej niż `K` (P4: 50, jak batch #33); nieznane lub obce `vehicleId` dają `404` bez ujawniania, czy istnieje u innej firmy (całe żądanie, bez częściowego zapisu).
 
 ### Kolejność blokad (bezpieczeństwo współbieżności)
 
@@ -58,14 +58,14 @@ Transakcja: aktor → `Organization FOR NO KEY UPDATE` → wiersze `Vehicle FOR 
 
 ### Warianty polityki zapisu
 
-| | A. Wszystko albo nic (rekomendowany jako domyślny) | B. Częściowy zapis | C. Podgląd, potem zapis |
+| | A. Wszystko albo nic (domyślny, P3) | B. Częściowy zapis | C. Podgląd, potem zapis |
 |---|---|---|---|
 | Zachowanie | Jedna transakcja; przy jakimkolwiek konflikcie rollback, `0` zapisów | Zapisuje wolne auta, pomija kolidujące | `dryRun:true` zwraca raport bez zapisu; właściwy zapis ponownie sprawdza stan |
 | Co wie użytkownik | Dokładnie: nic nie zapisano, pełna lista przyczyn | Dokładnie: lista zapisanych i lista odrzuconych | Raport jest chwilowy; zapis nadal może zwrócić inny wynik |
 | Koszt | Najprostszy; zgodny z atomowością #38 | Idempotencja i audyt per pozycja; trudniejsze wycofanie | Dodatkowy odczyt; wymaga UI dwuetapowego |
 | Ryzyko | Jedno kolidujące auto blokuje całą serię (dla floty 50 aut częste) | Użytkownik przeoczy odrzucone auta; „sukces” mylący; częściowy stan trudny do wycofania | Podgląd bywa uznany za rezerwację terminu (nie jest) |
 
-Rekomendacja: **A jako domyślny tryb z `dryRun` (C)**, tryb **B jako jawne `onConflict:"SKIP"`** dopiero po decyzji właściciela (pytanie P3). Dzięki temu domyślnie nikt nie zostaje z niejasnym stanem.
+Decyzja (P3): **A jako domyślny tryb z `dryRun` (C)**, tryb **B tylko jako jawne `onConflict:"SKIP"`**. Dzięki temu domyślnie nikt nie zostaje z niejasnym stanem.
 
 ### Raport konfliktów
 
@@ -83,8 +83,8 @@ Sukces: `201 {saved:[{vehicleId, blockId, version}], rejected:[]}`; w trybie `SK
 ### Audyt, retry, limity
 
 - Audyt: jedno `BLOCK_CREATED` na zapisaną blokadę (jak #38, `changedFields` bez typu/reference/notatki), wspólny `requestId` jednego żądania; brak wpisów dla odrzuconych aut w `ALL_OR_NOTHING`.
-- Idempotencja: `idempotencyKey: UUID` z trwałym receiptem 24 h (jak preregistracja i reset hasła). Ten sam klucz i wejście zwraca zapisany wynik; inne wejście pod tym kluczem to `409 IDEMPOTENCY_KEY_CONFLICT`. Bez tego ponowienie po timeoucie dałoby `BULK_CONFLICTS` z własnymi blokadami. Wymaga addytywnej migracji tabeli receiptów albo użycia istniejącego mechanizmu (do ustalenia w zadaniu API).
-- Limit zapisów: wspólny budżet zapisów 60/min na aktora; jedno żądanie zbiorcze liczy się jako jeden zapis, więc rekomendacja to limit `K=50` aut i maksymalny rozmiar ciała (jak inne JSON).
+- Idempotencja (decyzja P7): wymagany `idempotencyKey: UUID` z trwałym receiptem ważnym **24 h**. Ten sam klucz i wejście w tym czasie zwraca zapisany wynik; inne wejście pod tym kluczem to `409 IDEMPOTENCY_KEY_CONFLICT`; po 24 h klucz można użyć ponownie. Bez tego ponowienie po timeoucie dałoby `BULK_CONFLICTS` z własnymi blokadami. Mechanizm wybiera zadanie API, byle spełniał TTL 24 h: istniejący `OperationReceipt` nie ma TTL, więc wymaga wygasania (np. kolumny wygaśnięcia i czyszczenia) albo osobnej, addytywnej tabeli receiptów.
+- Limit zapisów: wspólny budżet zapisów 60/min na aktora; limit `K=50` aut (P4) i maksymalny rozmiar ciała jak inne JSON. Rekomendacja (nie decyzja): żądanie zbiorcze waży tyle jednostek budżetu, ile ma aut, żeby jedno żądanie 50 aut nie kosztowało tyle co jeden zapis; waga do ustalenia w zadaniu API.
 - Świeżość: po commit następny publiczny odczyt (`check`, `calendar`, `batch`, `next`) czyta bieżące rekordy; brak cache, więc nie ma unieważniania.
 
 ### Przykłady (dzisiaj 2027-03-10)
@@ -103,23 +103,23 @@ Sukces: `201 {saved:[{vehicleId, blockId, version}], rejected:[]}`; w trybie `SK
 - #65: kalendarz zbiorczy floty służy jako ekran podglądu przed zbiorczym zapisem (te same dni i blokady); zbiorcze blokowanie z jego siatki to zadanie FE.
 - #38: pojedynczy zapis pozostaje bez zmian; zbiorczy zapis używa tych samych walidacji, kodów błędów i audytu.
 
-## 4. Pytania do właściciela (z rekomendacją)
+## 4. Decyzje właściciela (P1–P7, zatwierdzone 28.10.2026, D-32)
 
-- **P1. Horyzont najbliższego terminu.** Kontekst: im dalszy horyzont, tym rzadziej `found:false`, ale wartość informacji maleje; koszt zapytania zależy głównie od liczby blokad w oknie, nie od `H`. Opcje 90/180/365 dni. Rekomendacja: 180 dni, stała serwera.
-- **P2. Czy publicznie pokazywać „najbliższy wolny termin”, czy tylko w panelu.** Kontekst: dane dzienne są już publiczne, więc to nie nowe ujawnienie, ale nowy anonimowy koszt odczytu. Rekomendacja: publicznie, wariant A, bez wsadu w pierwszym kroku.
-- **P3. Polityka zapisu zbiorczego.** Kontekst: patrz tabela. Rekomendacja: domyślnie wszystko albo nic z `dryRun`; `SKIP` tylko na jawne życzenie, pokazany z dokładną listą zapisanych i odrzuconych aut.
-- **P4. Maksimum aut w jednym zbiorczym zapisie.** Rekomendacja: 50 (zgodnie z batchem #33; flota ok. 100 aut wymaga dwóch żądań).
-- **P5. Kopiowanie notatki wewnętrznej.** Rekomendacja: domyślnie nie kopiować, jawny `copyNote`.
-- **P6. Kopiowanie z przesunięciem.** Czy w ogóle potrzebne (np. cykliczne przeglądy) czy wystarczy kopia na te same daty? Rekomendacja: początkowo tylko zbiorcze utworzenie i kopia na te same daty, `shiftDays` w kolejnym kroku.
-- **P7. Idempotencja.** Czy wymagać `idempotencyKey` (rekomendacja: tak, kosztem addytywnej migracji receiptów lub użycia istniejącego mechanizmu).
+- **P1.** Horyzont najbliższego terminu: 180 dni, stała serwera.
+- **P2.** Najbliższy termin jest dostępny publicznie, wariant A (na żądanie, jeden pojazd), bez wsadu w pierwszym kroku.
+- **P3.** Zapis zbiorczy domyślnie wszystko albo nic z `dryRun`; `onConflict:"SKIP"` tylko jawnie, z dokładną listą zapisanych i odrzuconych aut.
+- **P4.** Najwyżej 50 aut w jednym żądaniu (flota ok. 100 aut wymaga dwóch żądań).
+- **P5.** `internalNote` nie jest kopiowana domyślnie; tylko z jawnym `copyNote`. Tak samo `reference` (jawny `copyReference`).
+- **P6.** Początkowo zbiorcze utworzenie i kopia na te same daty; `shiftDays` w kolejnym kroku.
+- **P7.** `idempotencyKey` (UUID) z receiptem ważnym 24 h; mechanizm wybiera zadanie API (patrz sekcja 2).
 
 ## 5. Planowane zadania po decyzji (propozycje)
 
 | Zadanie | Rola | Zależności | Kryterium QA |
 |---|---|---|---|
-| API najbliższego wolnego terminu (`POST /api/public/availability/next`) | Backend | decyzje P1, P2; #33, #59 | przykłady z sekcji 1, świeżość po mutacji, brak pól prywatnych, A/B |
-| API zbiorczego tworzenia i kopiowania blokad | Backend | decyzje P3–P7; #38 | all-or-nothing, raport konfliktów, równoległe zapisy w obu kolejnościach z aktywnością #28, idempotencja, audyt |
+| API najbliższego wolnego terminu (`POST /api/public/availability/next`) | Backend | decyzje P1, P2 (zatwierdzone); #33, #59 | przykłady z sekcji 1, świeżość po mutacji, brak pól prywatnych, A/B |
+| API zbiorczego tworzenia i kopiowania blokad | Backend | decyzje P3–P7 (zatwierdzone); #38 | all-or-nothing, raport konfliktów, równoległe zapisy w obu kolejnościach z aktywnością #28, idempotencja, audyt |
 | FE: zbiorcze blokowanie z kalendarza floty i podgląd konfliktów | Frontend | API powyżej, #65, **nowe stany w Penpocie przed UI** | pełny raport zapisanych/odrzuconych, klawiatura, mobile 320–1920 |
 | FE: pokazanie najbliższego wolnego terminu na ofercie | Frontend | API najbliższego terminu, stan w Penpocie | tekst + ikona statusu, brak sugestii rezerwacji |
 
-Kryteria akceptacji #70: właściciel zatwierdza lub odrzuca zakres oraz odpowiada na P1–P7; do tego czasu nie ma kodu ani zadań implementacyjnych.
+Kryteria akceptacji #70: właściciel zatwierdził zakres i P1–P7 (D-32). Zadania API i FE tworzy orkiestrator według powyższej tabeli; do ich realizacji nie ma kodu.
