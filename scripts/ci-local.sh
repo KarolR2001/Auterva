@@ -40,10 +40,50 @@ STEP_PID=""
 step() {
   local name="$1" rc; shift
   # Background + wait, so the signal trap runs at once instead of after the step.
-  ( "$@" ) >"$LOGDIR/$name.log" 2>&1 &
+  # </dev/null: a background step reading stdin would get SIGTTIN under job control and stop the whole run.
+  ( "$@" ) </dev/null >"$LOGDIR/$name.log" 2>&1 &
   STEP_PID=$!; wait "$STEP_PID"; rc=$?; STEP_PID=""
   if [ "$rc" -eq 0 ]; then res "$name" "PASS $(summary "$LOGDIR/$name.log")"
   else res "$name" "FAIL ($LOGDIR/$name.log)"; FAILED=1; fi
+}
+
+# E2E uses the fixed ports 3305-3307, so concurrent runs of any worktree queue on one lock directory in the git
+# common dir (shared by all worktrees of this repository). Plain `mkdir` is atomic and works without flock (macOS).
+E2E_LOCK="$(git rev-parse --git-common-dir)/auterva-e2e.lock"
+E2E_LOCK_TIMEOUT="${AUTERVA_E2E_LOCK_TIMEOUT:-1800}"; E2E_LOCK_POLL="${AUTERVA_E2E_LOCK_POLL:-5}"
+E2E_LOCK_HELD=0
+lockmsg() { printf '%s\n' "$1" | tee -a "$LOGDIR/e2e-lock.log" >&2; }
+lock_owner() { cat "$E2E_LOCK/pid" 2>/dev/null; }
+# A lock is stale when its owner PID no longer exists (or, without a PID file, when it is over a minute old).
+lock_is_stale() {
+  local owner; owner="$(lock_owner)"
+  if [ -z "$owner" ]; then [ -n "$(find "$E2E_LOCK" -maxdepth 0 -mmin +1 2>/dev/null)" ]; return; fi
+  ! kill -0 "$owner" 2>/dev/null
+}
+acquire_e2e_lock() {
+  local waited=0 owner moved
+  while :; do
+    if mkdir "$E2E_LOCK" 2>/dev/null; then echo "$$" > "$E2E_LOCK/pid"; E2E_LOCK_HELD=1; return 0; fi
+    if lock_is_stale; then
+      owner="$(lock_owner)"; moved="$E2E_LOCK.stale.$$"
+      # Atomic rename: of several runners that see the stale lock, one wins; the others retry the mkdir.
+      if mv "$E2E_LOCK" "$moved" 2>/dev/null; then
+        if [ "$(cat "$moved/pid" 2>/dev/null)" = "$owner" ]; then lockmsg "taking over stale E2E lock of finished process ${owner:-unknown}"; rm -rf "$moved"
+        else mv "$moved" "$E2E_LOCK" 2>/dev/null || rm -rf "$moved"; fi   # we moved a lock that was just retaken: put it back
+      fi
+      continue
+    fi
+    if [ "$waited" -ge "$E2E_LOCK_TIMEOUT" ]; then
+      lockmsg "timed out after ${waited}s waiting for the E2E lock held by process $(lock_owner)"; return 1
+    fi
+    if [ $((waited % 60)) -eq 0 ]; then lockmsg "waiting for the E2E lock (ports 3305-3307) held by process $(lock_owner); timeout ${E2E_LOCK_TIMEOUT}s"; fi
+    sleep "$E2E_LOCK_POLL" & wait $!; waited=$((waited + E2E_LOCK_POLL))
+  done
+}
+release_e2e_lock() {
+  # Only the owner removes the lock.
+  if [ "$E2E_LOCK_HELD" = 1 ] && [ "$(lock_owner)" = "$$" ]; then rm -rf "$E2E_LOCK"; fi
+  E2E_LOCK_HELD=0
 }
 
 QTMP=""; FIXTURE_STARTED=0
@@ -57,6 +97,7 @@ cleanup() {
     rm -rf "$QTMP"
   fi
   if [ "$FIXTURE_STARTED" = 1 ]; then scripts/local-fixture.sh stop >/dev/null 2>&1; fi
+  release_e2e_lock
   git checkout -q -- next-env.d.ts 2>/dev/null
   exit "$rc"
 }
@@ -86,7 +127,8 @@ quality() {
     BETTER_AUTH_URL=http://127.0.0.1:3305 pnpm test:unit )
   local rc=$?; git worktree remove --force "$tmp" >/dev/null 2>&1 || { rm -rf "$tmp"; git worktree prune; }; return $rc
 }
-QTMP="$(mktemp -d)"
+QTMP="$(mktemp -d)" || refuse "cannot create a temporary directory (mktemp -d failed)"
+[ -d "$QTMP" ] || refuse "temporary directory $QTMP does not exist"
 step "Lint, typecheck, unit" quality
 
 # Same steps as .github/actions/fixture, on a fresh schema: --reset drops this fixture's own schema and re-migrates.
@@ -108,7 +150,9 @@ e2e() {
   for p in 3305 3306 3307; do lsof -iTCP:"$p" -sTCP:LISTEN -n >/dev/null && { echo "port $p busy"; return 1; }; done
   fresh_fixture && pnpm build && pnpm exec playwright install chromium && pnpm test:e2e
 }
-step "Build and E2E" e2e
+rm -f "$LOGDIR/e2e-lock.log"
+if acquire_e2e_lock; then step "Build and E2E" e2e; release_e2e_lock
+else res "Build and E2E" "FAIL (E2E lock not acquired: $LOGDIR/e2e-lock.log)"; FAILED=1; fi
 if [ "$FIXTURE_STARTED" = 1 ]; then scripts/local-fixture.sh stop >"$LOGDIR/fixture-stop.log" 2>&1; FIXTURE_STARTED=0; fi
 git checkout -q -- next-env.d.ts 2>/dev/null
 

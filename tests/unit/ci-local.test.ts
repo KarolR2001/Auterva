@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -18,7 +18,8 @@ const stub = (bin: string, name: string, body: string) => {
 };
 
 type Versions = { gitleaks?: string; node?: string; pgdump?: string; buildx?: boolean; docker?: boolean };
-function setup(v: Versions = {}, pnpmBody = "exit 1") {
+type Extra = { gitleaksGit?: string; mktempFails?: boolean; env?: Record<string, string> };
+function setup(v: Versions = {}, pnpmBody = "exit 1", extra: Extra = {}) {
   const root = mkdtempSync(join(tmpdir(), "ci-local-"));
   roots.push(root);
   const repo = join(root, "repo"), bin = join(root, "bin");
@@ -27,18 +28,30 @@ function setup(v: Versions = {}, pnpmBody = "exit 1") {
   writeFileSync(join(repo, ".github/workflows/ci.yml"), 'env:\n      GITLEAKS_VERSION: "8.30.1"\n');
   writeFileSync(join(repo, "package.json"), '{\n  "engines": {\n    "node": "24.20.0"\n  }\n}\n');
   writeFileSync(join(repo, ".gitignore"), ".local/\n");
+  mkdirSync(join(repo, "scripts"));
+  writeFileSync(join(repo, "scripts/local-fixture.sh"), "#!/bin/bash\nexit 0\n");
+  chmodSync(join(repo, "scripts/local-fixture.sh"), 0o755);
   git(repo, "init", "-q", "-b", "main");
   git(repo, "add", "-A");
   git(repo, "commit", "-q", "-m", "init");
-  stub(bin, "gitleaks", `echo ${v.gitleaks ?? "8.30.1"}`);
+  stub(bin, "gitleaks", `if [ "$1" = git ]; then ${extra.gitleaksGit ?? "exit 0"}; fi; echo ${v.gitleaks ?? "8.30.1"}`);
+  if (extra.mktempFails) stub(bin, "mktemp", "exit 1");
   stub(bin, "node", `if [ "$1" = --version ]; then echo v${v.node ?? "24.20.0"}; else exec "${process.execPath}" "$@"; fi`);
   stub(bin, "pg_dump", `echo "pg_dump (PostgreSQL) ${v.pgdump ?? "18.1"}"`);
   if (v.docker !== false) stub(bin, "docker", v.buildx === false ? 'test "$1" != buildx' : "exit 0");
   stub(bin, "pnpm", pnpmBody);
-  const run = (...args: string[]) => spawnSync("/bin/bash", [script, ...args], {
-    cwd: repo, encoding: "utf8", env: { PATH: `${bin}:/usr/bin:/bin`, HOME: root, TMPDIR: root, NODE_ENV: "test" },
+  const env: NodeJS.ProcessEnv = { PATH: `${bin}:/usr/bin:/bin`, HOME: root, TMPDIR: root, NODE_ENV: "test" as const, ...extra.env };
+  const run = (...args: string[]) => spawnSync("/bin/bash", [script, ...args], { cwd: repo, encoding: "utf8", env });
+  // Async variant: stdin stays an open, silent pipe (like a terminal that never sends EOF).
+  const runAsync = (...args: string[]) => new Promise<{ status: number | null; stdout: string; stderr: string }>((done) => {
+    const child: ChildProcessWithoutNullStreams = spawn("/bin/bash", [script, ...args], { cwd: repo, env });
+    let stdout = "", stderr = "";
+    child.stdout.on("data", (d) => { stdout += d; });
+    child.stderr.on("data", (d) => { stderr += d; });
+    child.on("close", (status) => done({ status, stdout, stderr }));
   });
-  return { root, repo, bin, run, out: join(root, "out.txt") };
+  const lock = join(repo, ".git", "auterva-e2e.lock");
+  return { root, repo, bin, run, runAsync, lock, out: join(root, "out.txt") };
 }
 
 test("refuses to start on a dirty tree (tracked, staged or untracked) but ignores ignored files", () => {
@@ -83,7 +96,7 @@ test("accepts matching tool versions and reaches the install step", () => {
   expect(readFileSync(t.out, "utf8")).toMatch(/tools\tnode v24\.20\.0; gitleaks 8\.30\.1; pg_dump 18\.1/);
 });
 
-test("SIGTERM stops a running step at once, removes the quality worktree and leaves no step process", () => {
+test("SIGTERM stops a running step at once, removes the quality worktree and leaves no step process", async () => {
   // The stub pnpm records its PID, terminates the main script (stub -> subshell -> step subshell -> script)
   // and then would sleep for 30 s; the run must end within seconds and the stub must be gone.
   const t = setup({}, `if [ "$1" = install ] && [ "$(basename "$PWD")" = quality ]; then
@@ -100,5 +113,89 @@ exit 0`);
   expect(Date.now() - started).toBeLessThan(15000);
   expect(existsSync(qpath)).toBe(false);
   expect(git(t.repo, "worktree", "list").stdout.trim().split("\n")).toHaveLength(1);
-  expect(() => process.kill(stubPid, 0)).toThrow(); // ESRCH: the step process is gone
+  // ESRCH: the step process is gone (it may be a zombie for a moment, so poll up to ~2 s).
+  const alive = () => { try { process.kill(stubPid, 0); return true; } catch { return false; } };
+  const deadline = Date.now() + 2000;
+  while (alive() && Date.now() < deadline) await new Promise((r) => setTimeout(r, 50));
+  expect(alive()).toBe(false);
 }, 30000);
+
+test("a step that reads stdin does not hang or stop the run", async () => {
+  const t = setup({}, "exit 0", { gitleaksGit: "cat >/dev/null" });
+  const r = await t.runAsync("27400", t.out);
+  expect(r.status).toBe(0);
+  expect(readFileSync(t.out, "utf8")).toMatch(/Secret scan\tPASS/);
+}, 30000);
+
+test("refuses to start when mktemp fails instead of using an empty path", () => {
+  const r = setup({}, "exit 0", { mktempFails: true }).run("27400", join(tmpdir(), "ci-local-unused.txt"));
+  expect(r.status).toBe(2);
+  expect(r.stderr).toMatch(/cannot create a temporary directory/);
+});
+
+const live = () => spawn("/bin/sleep", ["60"], { stdio: "ignore" });
+const e2eLine = (out: string) => readFileSync(out, "utf8").split("\n").find((line) => line.startsWith("Build and E2E")) ?? "";
+
+test("E2E waits for a lock held by a live run, then proceeds once it is released and cleans up", async () => {
+  const t = setup({}, "exit 0", { env: { AUTERVA_E2E_LOCK_TIMEOUT: "30", AUTERVA_E2E_LOCK_POLL: "1" } });
+  const holder = live();
+  try {
+    mkdirSync(t.lock);
+    writeFileSync(join(t.lock, "pid"), String(holder.pid));
+    const started = Date.now();
+    const running = t.runAsync("27400", t.out);
+    await new Promise((r) => setTimeout(r, 2500));
+    expect(existsSync(t.lock)).toBe(true); // still the holder's lock, not taken
+    expect(readFileSync(join(t.lock, "pid"), "utf8").trim()).toBe(String(holder.pid));
+    rmSync(t.lock, { recursive: true });
+    const r = await running;
+    expect(r.status).toBe(0);
+    expect(Date.now() - started).toBeGreaterThanOrEqual(2000);
+    expect(r.stderr).toMatch(/waiting for the E2E lock .* held by process/);
+    expect(e2eLine(t.out)).toMatch(/PASS/);
+    expect(existsSync(t.lock)).toBe(false);
+  } finally { holder.kill(); }
+}, 60000);
+
+test("E2E reports a clear FAIL when the lock does not free up in time, and leaves the holder's lock alone", async () => {
+  const t = setup({}, "exit 0", { env: { AUTERVA_E2E_LOCK_TIMEOUT: "2", AUTERVA_E2E_LOCK_POLL: "1" } });
+  const holder = live();
+  try {
+    mkdirSync(t.lock);
+    writeFileSync(join(t.lock, "pid"), String(holder.pid));
+    const r = await t.runAsync("27400", t.out);
+    expect(r.status).toBe(1);
+    expect(e2eLine(t.out)).toMatch(/FAIL \(E2E lock not acquired/);
+    expect(r.stderr).toMatch(/timed out after 2s waiting for the E2E lock held by process/);
+    expect(readFileSync(join(t.lock, "pid"), "utf8").trim()).toBe(String(holder.pid));
+    expect(readFileSync(t.out, "utf8")).toMatch(/Secret scan\tPASS/); // later steps still run
+  } finally { holder.kill(); }
+}, 60000);
+
+test("E2E takes over a stale lock whose owner no longer exists", async () => {
+  const t = setup({}, "exit 0", { env: { AUTERVA_E2E_LOCK_TIMEOUT: "5", AUTERVA_E2E_LOCK_POLL: "1" } });
+  const finished = spawnSync("/usr/bin/true");
+  mkdirSync(t.lock);
+  writeFileSync(join(t.lock, "pid"), String(finished.pid));
+  const started = Date.now();
+  const r = await t.runAsync("27400", t.out);
+  expect(r.status).toBe(0);
+  expect(r.stderr).toMatch(new RegExp(`taking over stale E2E lock of finished process ${finished.pid}`));
+  expect(e2eLine(t.out)).toMatch(/PASS/);
+  expect(Date.now() - started).toBeLessThan(25000);
+  expect(existsSync(t.lock)).toBe(false);
+}, 60000);
+
+test("a terminated run releases the E2E lock it holds", async () => {
+  // In the E2E step (the only place where the lock exists) the stub pnpm terminates the main script and then sleeps.
+  const t = setup({}, `if [ "$1" = exec ] && [ "$2" = tsx ] && [ -d .git/auterva-e2e.lock ]; then
+  echo "$$" > "${"$"}{TMPDIR}/stubpid"; kill -TERM "$(ps -o ppid= -p "$PPID" | tr -d ' ')"; sleep 30
+fi
+exit 0`);
+  const started = Date.now();
+  const r = await t.runAsync("27400", t.out);
+  expect(r.status).toBe(143);
+  expect(Date.now() - started).toBeLessThan(20000);
+  expect(existsSync(join(t.root, "stubpid"))).toBe(true); // the lock existed when the stub ran
+  expect(existsSync(t.lock)).toBe(false);
+}, 60000);
