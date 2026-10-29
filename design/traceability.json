@@ -3,6 +3,23 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 74,
+      "scope": "Opcjonalny prywatny odczyt audytu do paneli: admin firmy tylko własna firma (ADM-17), superadmin firma wybrana w ścieżce, także archiwalna; filtry czasu/aktora/działania/obiektu w granicach firmy, kursor (createdAt z mikrosekundami, id), redakcja jak przy zapisie, tylko GET; bez audytu platformy i bez UI.",
+      "relatedRequirementIds": ["C-F151", "C-N019", "C-N037", "C-N040", "FR-ADM-070", "FR-ADM-071", "D-10", "D-30"],
+      "referenceScreenIds": ["ADM-17", "OVR-18"],
+      "codePaths": [
+        "prisma/migrations/20261029120000_audit_read_cursor_issue_74/migration.sql",
+        "prisma/schema.prisma",
+        "src/modules/audit/read.ts",
+        "src/modules/audit/http.ts",
+        "src/modules/audit/append.ts",
+        "src/app/api/admin/audit/route.ts",
+        "src/app/api/platform/companies/[organizationId]/audit/route.ts",
+        "docs/contracts/audit-append-and-access.md"
+      ],
+      "testPaths": ["tests/integration/audit-read-http.test.ts"]
+    },
+    {
       "issue": 65,
       "scope": "Opcjonalny prywatny zbiorczy kalendarz floty jednej firmy (pojazdy x dni, paginacja, zakres do 365 dni) oparty na wspólnym rzucie dni kalendarza pojedynczego auta; bez osi wszystkich firm i bez UI.",
       "relatedRequirementIds": ["C-F101", "FR-ADM-057", "D-15"],
