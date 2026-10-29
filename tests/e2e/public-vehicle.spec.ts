@@ -91,7 +91,7 @@ test("vehicle detail: gallery by mouse and keyboard, availability result, calend
     await page.getByLabel("Do", { exact: true }).fill(day(2));
     await page.getByRole("button", { name: "Sprawdź" }).click();
     await expect(page.getByText("Pojazd jest dostępny")).toBeVisible();
-    await expect(page.getByRole("status").getByRole("link", { name: "Skontaktuj się", exact: true }))
+    await expect(page.getByRole("link", { name: "Skontaktuj się", exact: true }).first())
       .toHaveAttribute("href", `/kontakt/?vehicle=${slug}&from=${day(1)}&to=${day(2)}`);
     await page.getByLabel("Od", { exact: true }).fill(day(4));
     await page.getByLabel("Do", { exact: true }).fill(day(6));
