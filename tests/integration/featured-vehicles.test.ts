@@ -136,7 +136,7 @@ test("an administrator cannot change a vehicle of another company by id", async 
     fields: { featured: false } })).rejects.toThrow("FLEET_NOT_FOUND");
   // Same company in the operation but a foreign vehicle id: the company-scoped lookup finds nothing.
   await expect(editVehicle(db, { ...admin(0), organizationId: organizations[0], vehicleId: vehicleB,
-    expectedVersion: before.version, fields: { featured: false } })).rejects.toThrow();
+    expectedVersion: before.version, fields: { featured: false } })).rejects.toThrow("FLEET_NOT_FOUND");
   await expect(editVehicle(db, { ...admin(1), organizationId: organizations[0], vehicleId: vehicleA[0],
     expectedVersion: await version(vehicleA[0]), fields: { featured: false } })).rejects.toThrow("FLEET_NOT_FOUND");
   expect(await db.vehicle.findUniqueOrThrow({ where: { id: vehicleB } })).toEqual(before);
@@ -167,7 +167,7 @@ test("an archived company has no public home; the superadmin can still change fe
   try {
     expect(await getPublicHome(db, hosts[0])).toBeNull();
     await expect(editVehicle(db, { ...admin(0), vehicleId: vehicleA[2], expectedVersion: await version(vehicleA[2]),
-      fields: { featured: true } })).rejects.toThrow(/FLEET_NOT_FOUND|not authorized/);
+      fields: { featured: true } })).rejects.toThrow("Audit actor is not authorized");
     const changed = await editVehicle(db, { ...platform(0), vehicleId: vehicleA[2], expectedVersion: await version(vehicleA[2]),
       fields: { featured: true } });
     expect((await db.vehicle.findUniqueOrThrow({ where: { id: changed.id } })).featured).toBe(true);
