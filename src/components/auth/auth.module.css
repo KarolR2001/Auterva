@@ -56,21 +56,63 @@
 }
 .secret {
   display: block;
+  font-family: inherit;
   margin-top: var(--space-3);
   overflow-wrap: anywhere;
   font-weight: 700;
 }
+.notices {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}
+.pending:empty {
+  display: none;
+}
+.pending {
+  margin: 0;
+  font-size: var(--font-size-14);
+  line-height: 20px;
+}
+.setup {
+  display: grid;
+  gap: var(--space-4);
+}
+.qr {
+  display: block;
+  width: 192px;
+  max-width: 100%;
+  height: auto;
+}
+.qrBackground {
+  fill: var(--surface-default);
+}
+.qrModules {
+  fill: var(--text-primary);
+}
+.codesBox {
+  padding: var(--space-5);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+}
+.codesTitle {
+  margin: 0 0 var(--space-4);
+  font-size: var(--font-size-12);
+  font-weight: 600;
+  line-height: 16px;
+}
 .codes {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
+  margin: 0;
   padding: 0;
   list-style: none;
 }
 .codes li {
   overflow-wrap: anywhere;
-  padding: var(--space-2);
-  background: var(--surface-subtle);
+  font-size: var(--font-size-18);
+  font-weight: 600;
+  line-height: 24px;
 }
 .manualAction {
   margin-top: var(--space-6);
@@ -128,7 +170,7 @@
   margin-top: 76px;
 }
 @media (max-width: 767px) {
-  .page[data-view="mfa"] .context {
+  .page[data-view="mfa"][data-step="challenge"] .context {
     display: none;
   }
   .page[data-step="setup"] {
@@ -198,8 +240,6 @@
     min-height: 0;
   }
 }
-@media (max-width: 359px) {
-  .codes {
-    grid-template-columns: 1fr;
-  }
+.codes code {
+  font-family: inherit;
 }

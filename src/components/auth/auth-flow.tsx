@@ -61,23 +61,28 @@ async function postAuth(
   }
 }
 
-function errorMessage(
-  result: ApiResult,
-  kind: "login" | "mfa" | "rotate",
-): string {
+type RequestKind = "login" | "password" | "mfa" | "recovery" | "rotate";
+
+function errorMessage(result: ApiResult, kind: RequestKind): string {
   const { response, data } = result;
   if (response.status === 429)
-    return "Zbyt wiele prób. Odczekaj i spróbuj ponownie.";
+    return "Limit prób. Odczekaj czas podany przez usługę przed kolejną próbą.";
   if (response.status === 409 || data.code === "MFA_BUSY")
     return "Trwa inna operacja MFA. Spróbuj ponownie za chwilę.";
   if (response.status === 503 || data.code === "MFA_RETRY")
     return "Usługa chwilowo niedostępna. Spróbuj ponownie.";
   if (response.status >= 500)
     return "Usługa chwilowo niedostępna. Spróbuj ponownie.";
-  if (kind === "login") return "Adres e-mail lub hasło są nieprawidłowe.";
+  // Archived companies and blocked accounts receive the same neutral 401 as bad credentials.
+  if (kind === "login")
+    return "Nie udało się zalogować. Sprawdź dane i spróbuj ponownie.";
+  if (kind === "password")
+    return "Nie udało się potwierdzić hasła. Sprawdź je i spróbuj ponownie.";
   if (kind === "rotate")
     return "Nie udało się wydać kodów. Ponów potwierdzenie czynnika i hasła.";
-  return "Nie udało się potwierdzić kodu. Sprawdź go lub zaloguj się ponownie.";
+  if (kind === "recovery")
+    return "Kod jest nieprawidłowy lub został użyty. Wpisz inny kod.";
+  return "Kod jest nieprawidłowy lub wygasł. Wpisz aktualny kod z aplikacji.";
 }
 
 function useAuthRequest() {
@@ -101,7 +106,7 @@ function useAuthRequest() {
   async function run(
     path: string,
     body: Record<string, unknown>,
-    kind: "login" | "mfa" | "rotate",
+    kind: RequestKind,
     onSuccess: (data: JsonResult) => boolean | void,
     onUncertain?: () => void,
     onDenied?: (response: Response) => void,
@@ -192,11 +197,20 @@ function ErrorNotice({
   );
 }
 
+function PendingNotice({ active }: { active: boolean }) {
+  return (
+    <p className={styles.pending} role="status">
+      {active ? "Trwa weryfikacja. Nie wysyłaj ponownie." : ""}
+    </p>
+  );
+}
+
 export function LoginForm({
   area,
   returnTo,
   recoverCodes,
-}: AuthProps) {
+  sessionExpired,
+}: AuthProps & { sessionExpired?: boolean }) {
   const [visibility, setVisibility] = useState<"hidden" | "shown">("hidden");
   const request = useAuthRequest();
   const form = useForm<LoginValues>({
@@ -217,6 +231,19 @@ export function LoginForm({
       <p className={styles.intro}>{area === "company"
         ? "Zarządzaj flotą i dostępnością. Po haśle potwierdzisz logowanie kodem MFA."
         : "Dostęp dla operatorów Autervy • po haśle wymagany drugi składnik MFA."}</p>
+      {(sessionExpired || recoverCodes) && (
+        <div className={styles.notices}>
+          {sessionExpired && (
+            <Alert tone="info" title="Twoja sesja wygasła. Zaloguj się ponownie." />
+          )}
+          {recoverCodes && (
+            <Alert tone="info" title="Po zalogowaniu wydasz nowe kody odzyskania.">
+              Potwierdzisz świeży kod z aplikacji i hasło. Poprzedniej listy nie
+              można odczytać ponownie.
+            </Alert>
+          )}
+        </div>
+      )}
       <form
         className={`${styles.form} ${styles.loginForm}`}
         noValidate
@@ -248,7 +275,6 @@ export function LoginForm({
             type="email"
             autoComplete="username"
             inputMode="email"
-            aria-label="Adres e-mail"
             {...form.register("email")}
           />
         </FormField>
@@ -271,7 +297,7 @@ export function LoginForm({
           loadingLabel="Logowanie…"
           disabled={request.cooldown > 0}
         >
-          Zaloguj się
+          {request.cooldown > 0 ? "Ponów po limicie" : "Zaloguj się"}
         </Button>
       </form>
     </AuthFrame>
@@ -287,6 +313,7 @@ type MfaStep =
   | "uncertain"
   | "restoreFactor"
   | "restorePassword"
+  | "proofExpired"
   | "manual";
 export function MfaFlow({
   area,
@@ -306,6 +333,7 @@ export function MfaFlow({
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState("");
   const [proof, setProof] = useState("");
+  const [afterRecovery, setAfterRecovery] = useState(false);
   const [recoveryIntent, setRecoveryIntent] = useState(Boolean(recoverCodes));
   const [secret, setSecret] = useState("");
   const [totpUri, setTotpUri] = useState("");
@@ -330,6 +358,12 @@ export function MfaFlow({
   const finish = () => window.location.replace(safeReturnTo(area, returnTo));
   const mfaPath = area === "company" ? "/admin/mfa" : "/mfa";
   const mfaUrl = `${mfaPath}?returnTo=${encodeURIComponent(safeReturnTo(area, returnTo))}`;
+  const changeStep = (next: MfaStep) => {
+    request.clearError();
+    codeForm.reset();
+    passwordForm.reset();
+    setStep(next);
+  };
   const markUncertain = (from: MfaStep) => {
     if (["setup", "restoreFactor", "restorePassword"].includes(from)) {
       setRecoveryIntent(true);
@@ -370,43 +404,49 @@ export function MfaFlow({
           enterRestore();
         else finish();
       } else if (response.status === 401)
+        // The server page decides: limited session → enrollment, pending challenge → challenge, none → login.
         window.location.replace(
           `${mfaUrl}${recoveryIntent ? "&recoverCodes=1" : ""}`,
         );
-      else
-        setCheckError(
-          "Nie można teraz sprawdzić sesji. Spróbuj ponownie po przywróceniu połączenia.",
-        );
+      else setCheckError("unavailable");
     } catch {
-      setCheckError(
-        "Nie można teraz sprawdzić sesji. Spróbuj ponownie po przywróceniu połączenia.",
-      );
+      setCheckError("unavailable");
     } finally {
       clearTimeout(timeout);
       setChecking(false);
     }
   };
-  const codeLabel =
-    step === "recovery"
-      ? "Kod odzyskania"
-      : step === "restoreFactor"
-        ? "Nowy kod z aplikacji"
-        : "Kod z aplikacji";
+  const submitLabel = (label: string) =>
+    request.cooldown > 0 ? "Ponów po limicie" : label;
   const title =
-    step === "password" || step === "setup"
-      ? "Włącz dodatkową ochronę"
-      : step === "codes"
-        ? "Zapisz kody odzyskania"
-        : step === "restoreFactor" || step === "restorePassword"
-          ? "Wydaj nowe kody odzyskania"
-          : step === "uncertain"
-            ? "Sprawdź stan MFA"
-            : step === "manual"
-              ? "Nie masz dostępu do kodów?"
-              : step === "recovery"
-                ? "Użyj kodu odzyskania"
-            : "Potwierdź logowanie";
+    step === "password"
+      ? afterRecovery
+        ? "Potwierdź hasło"
+        : "Włącz dodatkową ochronę"
+      : step === "setup"
+        ? "Włącz dodatkową ochronę"
+        : step === "codes"
+          ? "Zapisz kody odzyskania"
+          : step === "restoreFactor"
+            ? "Wydaj nowe kody"
+            : step === "restorePassword"
+              ? "Potwierdź hasło"
+              : step === "proofExpired"
+                ? "Weryfikacja wygasła"
+                : step === "uncertain"
+                  ? "Sprawdź stan MFA"
+                  : step === "manual"
+                    ? "Nie masz dostępu do kodów?"
+                    : step === "recovery"
+                      ? "Użyj kodu odzyskania"
+                      : "Potwierdź logowanie";
   const loginPath = area === "company" ? "/admin/login" : "/login";
+  const loginHref = `${loginPath}?returnTo=${encodeURIComponent(safeReturnTo(area, returnTo))}${recoveryIntent ? "&recoverCodes=1" : ""}`;
+  const showContext = !(
+    step === "setup" ||
+    step === "manual" ||
+    (step === "password" && !afterRecovery)
+  );
   return (
     <AuthFrame
       area={area}
@@ -414,7 +454,7 @@ export function MfaFlow({
       view="mfa"
       step={step}
       title={title}
-      context={step === "challenge" ? "Weryfikacja MFA" : undefined}
+      context={showContext ? "Weryfikacja MFA" : undefined}
       footer={["challenge", "setup", "manual"].includes(step)
         ? "MFA wymagane dla kont administratorów • kod jednorazowy"
         : undefined}
@@ -423,7 +463,7 @@ export function MfaFlow({
       {step === "manual" && (
         <>
           <p className={styles.intro}>Skontaktuj się z pomocą Autervy. Odzyskanie dostępu wymaga ręcznego potwierdzenia tożsamości przez właściciela. Sam reset hasła nie wyłącza MFA.</p>
-          <Button variant="secondary" width="fill" className={styles.manualAction} onClick={() => setStep("recovery")}>Wróć do kodu odzyskania</Button>
+          <Button variant="secondary" width="fill" className={styles.manualAction} onClick={() => changeStep("recovery")}>Wróć do kodu odzyskania</Button>
         </>
       )}
       {step === "password" && (
@@ -434,7 +474,7 @@ export function MfaFlow({
             request.run(
               "two-factor/enable",
               { password, method: "totp" },
-              "mfa",
+              "password",
               (data) => {
                 if (
                   typeof data.totpURI === "string" &&
@@ -461,14 +501,17 @@ export function MfaFlow({
             ),
           )}
         >
-          <p>
-            Połącz aplikację uwierzytelniającą z kontem. Potwierdź hasło, aby
-            rozpocząć.
+          <p className={styles.intro}>
+            {afterRecovery
+              ? "Kod odzyskania został przyjęty. Aby ponownie skonfigurować MFA, potwierdź hasło. Dostęp do panelu nadal jest ograniczony."
+              : "Połącz aplikację uwierzytelniającą z kontem. Potwierdź hasło, aby rozpocząć."}
           </p>
           <PasswordInput
             id="mfa-password"
-            label="Potwierdź hasło"
+            label={afterRecovery ? "Hasło" : "Potwierdź hasło"}
             autoComplete="current-password"
+            placeholder="Wpisz hasło"
+            hint={afterRecovery ? "Hasło nie zastępuje drugiego składnika." : undefined}
             visibility={visibility}
             onVisibilityChange={setVisibility}
             error={passwordForm.formState.errors.password?.message}
@@ -481,7 +524,7 @@ export function MfaFlow({
             loadingLabel="Przygotowywanie…"
             disabled={request.cooldown > 0}
           >
-            Rozpocznij konfigurację
+            {submitLabel(afterRecovery ? "Potwierdź hasło" : "Rozpocznij konfigurację")}
           </Button>
         </form>
       )}
@@ -499,10 +542,11 @@ export function MfaFlow({
                 ? "two-factor/verify-backup-code"
                 : "two-factor/verify-totp",
               { code, trustDevice: false },
-              "mfa",
+              step === "recovery" ? "recovery" : "mfa",
               (data) => {
                 if (step === "recovery" && data.enrollmentRequired === true) {
                   codeForm.reset();
+                  setAfterRecovery(true);
                   setStep("password");
                   return true;
                 }
@@ -537,17 +581,17 @@ export function MfaFlow({
           })}
         >
           {step === "setup" && (
-            <div>
-              <p>Zeskanuj kod w aplikacji uwierzytelniającej, a następnie wpisz otrzymany kod.</p>
+            <div className={styles.setup}>
+              <p className={styles.intro}>Zeskanuj kod w aplikacji uwierzytelniającej, a następnie wpisz otrzymany kod.</p>
               {totpUri && <MfaQr uri={totpUri} />}
-              <p>Nie możesz zeskanować kodu? Wpisz klucz ręcznie:
+              <p className={styles.intro}>Nie możesz zeskanować kodu? Wpisz klucz ręcznie:
                 <code className={styles.secret}>{secret}</code>
               </p>
             </div>
           )}
           {step === "recovery" && (
-            <p>
-              Wpisz jeden z zapisanych kodów odzyskania. Po użyciu
+            <p className={styles.intro}>
+              Wpisz jeden z zapisanych kodów. Można go użyć tylko raz. Potem
               skonfigurujesz MFA ponownie.
             </p>
           )}
@@ -561,11 +605,11 @@ export function MfaFlow({
             <TextInput
               autoComplete="one-time-code"
               inputMode={step === "recovery" ? "text" : "numeric"}
-              aria-label={codeLabel}
               placeholder={step === "recovery" ? "Wpisz kod odzyskania" : "000 000"}
               {...codeForm.register("code")}
             />
           </FormField>
+          <PendingNotice active={request.loading} />
           <ErrorNotice message={request.error} cooldown={request.cooldown} />
           <Button
             type="submit"
@@ -573,36 +617,53 @@ export function MfaFlow({
             loadingLabel="Sprawdzanie…"
             disabled={request.cooldown > 0}
           >
-            {step === "setup" ? "Włącz MFA i pokaż kody" : "Potwierdź kod"}
+            {submitLabel(step === "setup" ? "Włącz MFA i pokaż kody" : "Potwierdź kod")}
           </Button>
           {step !== "setup" && (
             <Button
               variant="secondary"
               width="fill"
-              onClick={() => {
-                request.clearError();
-                codeForm.reset();
-                setStep(step === "recovery" ? "challenge" : "recovery");
-              }}
+              disabled={request.loading}
+              onClick={() => changeStep(step === "recovery" ? "challenge" : "recovery")}
             >
-              {step === "recovery" ? "Użyj aplikacji" : "Nie mam dostępu do aplikacji"}
+              {step === "recovery" ? "Użyj kodu z aplikacji" : "Nie mam dostępu do aplikacji"}
+            </Button>
+          )}
+          {step === "recovery" && (
+            <Button
+              variant="tertiary"
+              width="fill"
+              disabled={request.loading}
+              onClick={() => changeStep("manual")}
+            >
+              Nie mam aplikacji ani kodów
             </Button>
           )}
         </form>
       )}
       {step === "uncertain" && (
         <div className={styles.form}>
-          <Alert tone="warning" title="Nie wiadomo, czy operacja została zakończona">
-            Nie ponawiaj teraz tej próby. Sprawdź stan sesji, aby bezpiecznie
-            kontynuować.
-          </Alert>
-          {checkError && <ErrorNotice message={checkError} cooldown={0} />}
+          <p className={styles.intro}>
+            Nie wiadomo, czy operacja została zakończona. Nie wysyłaj ponownie
+            tego samego kodu. Sprawdź stan, aby bezpiecznie kontynuować.
+          </p>
+          {checkError ? (
+            <Alert tone="error" title="Nie udało się sprawdzić sesji.">
+              Wynik nadal jest niepotwierdzony. Spróbuj ponownie po
+              przywróceniu połączenia.
+            </Alert>
+          ) : (
+            <Alert tone="warning" title="Stan niepotwierdzony.">
+              Jeśli sprawdzenie sesji się nie powiedzie, pozostań tutaj i
+              spróbuj ponownie po odzyskaniu połączenia.
+            </Alert>
+          )}
           <Button
             onClick={() => void checkSession()}
             loading={checking}
             loadingLabel="Sprawdzanie…"
           >
-            Sprawdź stan
+            {checkError ? "Ponów odczyt sesji" : "Sprawdź stan"}
           </Button>
         </div>
       )}
@@ -634,23 +695,25 @@ export function MfaFlow({
             );
           })}
         >
-          <p>
-            Kody mogły zostać wydane, ale odpowiedź nie dotarła. Aby otrzymać
-            nową listę, potwierdź świeży kod z aplikacji i hasło. Poprzednie
-            kody stracą ważność.
+          <p className={styles.intro}>
+            Poprzednia lista nie jest dostępna. Potwierdź świeży kod z
+            aplikacji, a następnie hasło. Nowa lista unieważni stare kody.
           </p>
           <FormField
             id="mfa-restore-code"
             label="Nowy kod z aplikacji"
             required
+            hint="Użyj aktualnego kodu."
             error={codeForm.formState.errors.code?.message}
           >
             <TextInput
               autoComplete="one-time-code"
               inputMode="numeric"
+              placeholder="000 000"
               {...codeForm.register("code")}
             />
           </FormField>
+          <PendingNotice active={request.loading} />
           <ErrorNotice message={request.error} cooldown={request.cooldown} />
           <Button
             type="submit"
@@ -658,7 +721,7 @@ export function MfaFlow({
             loadingLabel="Sprawdzanie…"
             disabled={request.cooldown > 0}
           >
-            Potwierdź czynnik
+            {submitLabel("Potwierdź kod")}
           </Button>
         </form>
       )}
@@ -686,20 +749,26 @@ export function MfaFlow({
               },
               () => markUncertain("restorePassword"),
               (response) => {
+                // A refused or expired one-time proof is never retried; a fresh factor is required.
                 if (response.status === 401) {
                   setProof("");
                   passwordForm.reset();
-                  setStep("restoreFactor");
+                  setStep("proofExpired");
                 }
               },
             );
           })}
         >
-          <p>Potwierdź hasło, aby wydać nowe jednorazowe kody odzyskania.</p>
+          <p className={styles.intro}>
+            Świeży czynnik został potwierdzony. Potwierdź hasło, aby wydać nową
+            jednorazową listę kodów odzyskania.
+          </p>
           <PasswordInput
             id="mfa-restore-password"
-            label="Potwierdź hasło"
+            label="Hasło"
             autoComplete="current-password"
+            placeholder="Wpisz hasło"
+            hint="Po wydaniu nowej listy stare kody wygasną."
             visibility={visibility}
             onVisibilityChange={setVisibility}
             error={passwordForm.formState.errors.password?.message}
@@ -712,48 +781,61 @@ export function MfaFlow({
             loadingLabel="Wydawanie…"
             disabled={request.cooldown > 0}
           >
-            Wydaj nowe kody
+            {submitLabel("Wydaj nowe kody")}
+          </Button>
+          <Button
+            variant="secondary"
+            width="fill"
+            disabled={request.loading}
+            onClick={() => {
+              setProof("");
+              changeStep("restoreFactor");
+            }}
+          >
+            Wróć do weryfikacji
           </Button>
         </form>
       )}
+      {step === "proofExpired" && (
+        <div className={styles.form}>
+          <p className={styles.intro}>
+            Nie wydano nowych kodów. Potwierdź ponownie świeży kod z aplikacji,
+            a potem hasło.
+          </p>
+          <Alert tone="error" title="Potwierdzenie wygasło lub zostało odrzucone.">
+            Zacznij od nowego kodu.
+          </Alert>
+          <Button onClick={() => changeStep("restoreFactor")}>
+            Ponów weryfikację
+          </Button>
+        </div>
+      )}
       {step === "codes" && (
         <div className={styles.form}>
-          <p>
-            Zapisz kody w bezpiecznym miejscu. Każdy można użyć tylko raz; po
-            zamknięciu nie będą ponownie pokazane.
+          <p className={styles.intro}>
+            Zapisz nową listę w bezpiecznym miejscu. Każdy kod działa tylko raz.
+            Po opuszczeniu tego widoku nie pokażemy ich ponownie.
           </p>
-          <ul className={styles.codes}>
-            {backupCodes.map((code) => (
-              <li key={code}>
-                <code>{code}</code>
-              </li>
-            ))}
-          </ul>
+          <section className={styles.codesBox} aria-labelledby="mfa-codes-title">
+            <h2 id="mfa-codes-title" className={styles.codesTitle}>
+              Jednorazowe kody odzyskania
+            </h2>
+            <ul className={styles.codes}>
+              {backupCodes.map((code) => (
+                <li key={code}>
+                  <code>{code}</code>
+                </li>
+              ))}
+            </ul>
+          </section>
           <Button onClick={finish}>Zapisałem kody</Button>
         </div>
       )}
-      {["challenge", "recovery", "setup", "manual"].includes(step) ? (
-        <Link
-          className={styles.loginLink}
-          href={`${loginPath}?returnTo=${encodeURIComponent(safeReturnTo(area, returnTo))}${recoveryIntent ? "&recoverCodes=1" : ""}`}
-        >
+      {["challenge", "setup", "manual", "uncertain"].includes(step) ? (
+        <Link className={styles.loginLink} href={loginHref}>
           Wróć do logowania
         </Link>
       ) : null}
-      {step === "recovery" && (
-        <Button
-          variant="tertiary"
-          width="fill"
-          className={styles.manualAction}
-          onClick={() => {
-            request.clearError();
-            codeForm.reset();
-            setStep("manual");
-          }}
-        >
-          Nie mam aplikacji ani kodów
-        </Button>
-      )}
     </AuthFrame>
   );
 }

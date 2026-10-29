@@ -15,7 +15,17 @@ import { LoginForm, MfaFlow } from "./auth-flow";
 type SearchParams = Promise<{
   returnTo?: string | string[];
   recoverCodes?: string | string[];
+  session?: string | string[];
 }>;
+
+// Better Auth keeps a pending MFA challenge in a short-lived `*.two_factor` cookie.
+// Its absence only routes the user to the login screen; every MFA call is still decided by the API.
+function hasPendingChallenge(cookieHeader: string | null): boolean {
+  return (cookieHeader ?? "").split(";").some((part) => {
+    const [name, ...value] = part.trim().split("=");
+    return Boolean(name?.endsWith(".two_factor") && value.join("="));
+  });
+}
 
 export async function AuthPage({
   area,
@@ -86,6 +96,11 @@ export async function AuthPage({
       `${loginPath}?returnTo=${encodeURIComponent(returnTo)}${recoverCodes ? "&recoverCodes=1" : ""}`,
     );
   }
+  if (stage === "mfa" && !scoped && !hasPendingChallenge(incoming.get("cookie")))
+    // Neither a limited session nor a pending challenge: the sign-in attempt expired or was revoked.
+    redirect(
+      `${loginPath}?returnTo=${encodeURIComponent(returnTo)}&session=expired${recoverCodes ? "&recoverCodes=1" : ""}`,
+    );
   if (stage === "login")
     return (
       <LoginForm
@@ -93,6 +108,7 @@ export async function AuthPage({
         companyName={companyName}
         returnTo={returnTo}
         recoverCodes={recoverCodes}
+        sessionExpired={params.session === "expired"}
       />
     );
   return (

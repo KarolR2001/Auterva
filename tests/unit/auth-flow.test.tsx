@@ -25,7 +25,8 @@ describe("logowanie na właściwym hoście", () => {
       screen.getByRole("heading", { name: "Zaloguj się do panelu" }),
     ).toBeVisible();
     expect(screen.getByText("Panel administratora")).toBeVisible();
-    const email = screen.getByRole("textbox", { name: "Adres e-mail" });
+    // The accessible name equals the visible label, so voice control can target it.
+    const email = screen.getByRole("textbox", { name: "E-mail" });
     const password = screen.getByLabelText("Hasło");
     expect(email).toHaveAttribute("autocomplete", "username");
     expect(password).toHaveAttribute("autocomplete", "current-password");
@@ -37,7 +38,7 @@ describe("logowanie na właściwym hoście", () => {
     await user.type(password, "PoprawneHasło123!");
     await user.click(screen.getByRole("button", { name: "Zaloguj się" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Adres e-mail lub hasło są nieprawidłowe",
+      "Nie udało się zalogować. Sprawdź dane i spróbuj ponownie.",
     );
     expect(screen.queryByText(/konto istnieje|konto nie istnieje/i)).toBeNull();
     expect(password).toHaveValue("PoprawneHasło123!");
@@ -85,7 +86,7 @@ describe("logowanie na właściwym hoście", () => {
     const user = userEvent.setup();
     render(<LoginForm area="company" />);
     await user.type(
-      screen.getByRole("textbox", { name: "Adres e-mail" }),
+      screen.getByRole("textbox", { name: "E-mail" }),
       "admin@example.test",
     );
     await user.type(
@@ -97,7 +98,7 @@ describe("logowanie na właściwym hoście", () => {
       /usługa|spróbuj ponownie/i,
     );
     expect(screen.getByRole("alert")).not.toHaveTextContent(
-      /hasło są nieprawidłowe/i,
+      /sprawdź dane/i,
     );
     expect(screen.getByLabelText("Hasło", { exact: true })).toHaveValue(
       "PoprawneHasło123!",
@@ -116,15 +117,18 @@ describe("obowiązkowe MFA", () => {
     const user = userEvent.setup();
     render(<MfaFlow area="company" initialMode="challenge" />);
     await user.type(
-      screen.getByRole("textbox", { name: "Kod z aplikacji" }),
+      screen.getByRole("textbox", { name: "Kod MFA" }),
       "123456",
     );
     await user.click(screen.getByRole("button", { name: "Potwierdź kod" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Ponów za 900 s.",
     );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Limit prób. Odczekaj czas podany przez usługę przed kolejną próbą.",
+    );
     expect(
-      screen.getByRole("button", { name: "Potwierdź kod" }),
+      screen.getByRole("button", { name: "Ponów po limicie" }),
     ).toBeDisabled();
   });
 
@@ -136,7 +140,7 @@ describe("obowiązkowe MFA", () => {
     const user = userEvent.setup();
     render(<MfaFlow area="company" initialMode="challenge" />);
     await user.type(
-      screen.getByRole("textbox", { name: "Kod z aplikacji" }),
+      screen.getByRole("textbox", { name: "Kod MFA" }),
       "123456",
     );
     await user.click(screen.getByRole("button", { name: "Potwierdź kod" }));
@@ -164,7 +168,7 @@ describe("obowiązkowe MFA", () => {
     const user = userEvent.setup();
     render(<MfaFlow area="company" initialMode="challenge" recoverCodes />);
     await user.type(
-      screen.getByRole("textbox", { name: "Kod z aplikacji" }),
+      screen.getByRole("textbox", { name: "Kod MFA" }),
       "123456",
     );
     await user.click(screen.getByRole("button", { name: "Potwierdź kod" }));
@@ -173,13 +177,13 @@ describe("obowiązkowe MFA", () => {
     );
     expect(
       await screen.findByRole("heading", {
-        name: "Wydaj nowe kody odzyskania",
+        name: "Wydaj nowe kody",
       }),
     ).toBeVisible();
     expect(
       screen.getByRole("textbox", { name: "Nowy kod z aplikacji" }),
     ).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Potwierdź kod" })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Kod MFA" })).toBeNull();
     expect(request).toHaveBeenCalledTimes(2);
   });
 
@@ -219,7 +223,7 @@ describe("obowiązkowe MFA", () => {
     const user = userEvent.setup();
     render(<MfaFlow area="platform" initialMode="challenge" />);
     await user.type(
-      screen.getByRole("textbox", { name: "Kod z aplikacji" }),
+      screen.getByRole("textbox", { name: "Kod MFA" }),
       "123456",
     );
     await user.click(screen.getByRole("button", { name: "Potwierdź kod" }));
@@ -228,8 +232,12 @@ describe("obowiązkowe MFA", () => {
     ).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Sprawdź stan" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      /nie można teraz sprawdzić sesji/i,
+      /nie udało się sprawdzić sesji.*wynik nadal jest niepotwierdzony/i,
     );
+    expect(
+      screen.getByRole("button", { name: "Ponów odczyt sesji" }),
+    ).toBeEnabled();
+    expect(screen.queryByRole("textbox", { name: "Kod MFA" })).toBeNull();
     expect(request).toHaveBeenCalledTimes(2);
     expect(request).toHaveBeenNthCalledWith(
       2,
@@ -245,15 +253,15 @@ describe("obowiązkowe MFA", () => {
     const user = userEvent.setup();
     render(<MfaFlow area="company" initialMode="challenge" />);
     await user.type(
-      screen.getByRole("textbox", { name: "Kod z aplikacji" }),
+      screen.getByRole("textbox", { name: "Kod MFA" }),
       "123456",
     );
     await user.click(screen.getByRole("button", { name: "Potwierdź kod" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      /nie udało się potwierdzić kodu/i,
+      "Kod jest nieprawidłowy lub wygasł. Wpisz aktualny kod z aplikacji.",
     );
     expect(
-      screen.getByRole("textbox", { name: "Kod z aplikacji" }),
+      screen.getByRole("textbox", { name: "Kod MFA" }),
     ).toHaveValue("123456");
     expect(screen.queryByRole("button", { name: "Sprawdź stan" })).toBeNull();
   });
@@ -284,7 +292,7 @@ describe("obowiązkowe MFA", () => {
     );
     await screen.findByText("ABCDEF123456");
     await user.type(
-      screen.getByRole("textbox", { name: "Kod z aplikacji" }),
+      screen.getByRole("textbox", { name: "Kod MFA" }),
       "123456",
     );
     await user.click(screen.getByRole("button", { name: "Włącz MFA i pokaż kody" }));
@@ -292,13 +300,13 @@ describe("obowiązkowe MFA", () => {
       await screen.findByRole("button", { name: "Sprawdź stan" }),
     ).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Sprawdź stan" }));
-    expect(await screen.findByText(/kody mogły zostać wydane/i)).toBeVisible();
+    expect(await screen.findByText(/poprzednia lista nie jest dostępna/i)).toBeVisible();
     await user.type(
       screen.getByRole("textbox", { name: "Nowy kod z aplikacji" }),
       "654321",
     );
-    await user.click(screen.getByRole("button", { name: "Potwierdź czynnik" }));
-    await user.type(screen.getByLabelText("Potwierdź hasło"), "Hasło123!");
+    await user.click(screen.getByRole("button", { name: "Potwierdź kod" }));
+    await user.type(await screen.findByLabelText("Hasło"), "Hasło123!");
     await user.click(screen.getByRole("button", { name: "Wydaj nowe kody" }));
     expect(await screen.findByText("nowy-kod-1")).toBeVisible();
     expect(request).toHaveBeenNthCalledWith(
@@ -330,8 +338,8 @@ describe("obowiązkowe MFA", () => {
       screen.getByRole("textbox", { name: "Nowy kod z aplikacji" }),
       "123456",
     );
-    await user.click(screen.getByRole("button", { name: "Potwierdź czynnik" }));
-    await user.type(screen.getByLabelText("Potwierdź hasło"), "Hasło123!");
+    await user.click(screen.getByRole("button", { name: "Potwierdź kod" }));
+    await user.type(await screen.findByLabelText("Hasło"), "Hasło123!");
     await user.click(screen.getByRole("button", { name: "Wydaj nowe kody" }));
     expect(
       await screen.findByRole("button", { name: "Sprawdź stan" }),
@@ -347,7 +355,7 @@ describe("obowiązkowe MFA", () => {
       screen.getByRole("textbox", { name: "Nowy kod z aplikacji" }),
       "654321",
     );
-    await user.click(screen.getByRole("button", { name: "Potwierdź czynnik" }));
+    await user.click(screen.getByRole("button", { name: "Potwierdź kod" }));
     expect(request).toHaveBeenCalledTimes(4);
     expect(request).toHaveBeenNthCalledWith(
       4,
@@ -369,15 +377,20 @@ describe("obowiązkowe MFA", () => {
       screen.getByRole("textbox", { name: "Nowy kod z aplikacji" }),
       "123456",
     );
-    await user.click(screen.getByRole("button", { name: "Potwierdź czynnik" }));
-    await user.type(screen.getByLabelText("Potwierdź hasło"), "Hasło123!");
+    await user.click(screen.getByRole("button", { name: "Potwierdź kod" }));
+    await user.type(await screen.findByLabelText("Hasło"), "Hasło123!");
     await user.click(screen.getByRole("button", { name: "Wydaj nowe kody" }));
     expect(
-      await screen.findByRole("textbox", { name: "Nowy kod z aplikacji" }),
-    ).toBeVisible();
+      await screen.findByRole("heading", { name: "Weryfikacja wygasła" }),
+    ).toHaveFocus();
     expect(screen.getByRole("alert")).toHaveTextContent(
-      /ponów potwierdzenie czynnika i hasła/i,
+      "Potwierdzenie wygasło lub zostało odrzucone.",
     );
+    expect(screen.queryByLabelText("Hasło")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Ponów weryfikację" }));
+    expect(
+      screen.getByRole("textbox", { name: "Nowy kod z aplikacji" }),
+    ).toHaveValue("");
     expect(request).toHaveBeenCalledTimes(2);
   });
 
@@ -403,7 +416,7 @@ describe("obowiązkowe MFA", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       /inna operacja MFA|spróbuj ponownie/i,
     );
-    expect(screen.queryByText(/nieprawidłowy kod/i)).toBeNull();
+    expect(screen.queryByText(/nieprawidłowy lub został użyty/i)).toBeNull();
     expect(request).toHaveBeenCalledWith(
       "/api/auth/two-factor/verify-backup-code/",
       expect.objectContaining({
@@ -436,7 +449,7 @@ describe("obowiązkowe MFA", () => {
     expect(await screen.findByText("ABCDEF123456")).toBeVisible();
     expect(screen.queryByText("kod-1")).toBeNull();
     await user.type(
-      screen.getByRole("textbox", { name: "Kod z aplikacji" }),
+      screen.getByRole("textbox", { name: "Kod MFA" }),
       "123456",
     );
     await user.click(screen.getByRole("button", { name: "Włącz MFA i pokaż kody" }));
@@ -485,5 +498,159 @@ describe("obowiązkowe MFA", () => {
     expect(screen.getByText(/ręcznego potwierdzenia tożsamości/i)).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Wróć do kodu odzyskania" }));
     expect(screen.getByRole("textbox", { name: "Kod odzyskania" })).toBeVisible();
+  });
+});
+
+describe("stany odzyskiwania i dostępności MFA (#132)", () => {
+  const replace = () => {
+    const spy = vi.fn();
+    vi.spyOn(window, "location", "get").mockReturnValue({
+      ...window.location,
+      replace: spy,
+    } as Location);
+    return spy;
+  };
+
+  it("nazwa dostępna każdego pola zawiera widoczną etykietę, bez nadpisania aria-label", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<LoginForm area="platform" />);
+    expect(screen.getByRole("textbox", { name: "Adres e-mail" })).not.toHaveAttribute("aria-label");
+    unmount();
+    render(<MfaFlow area="company" initialMode="challenge" />);
+    const code = screen.getByRole("textbox", { name: "Kod MFA" });
+    expect(code).toHaveAccessibleName("Kod MFA");
+    expect(code).not.toHaveAttribute("aria-label");
+    expect(code).toHaveAttribute("autocomplete", "one-time-code");
+    expect(code).toHaveAccessibleDescription("Kod jest ważny tylko przez krótki czas");
+    await user.click(screen.getByRole("button", { name: "Nie mam dostępu do aplikacji" }));
+    const recovery = screen.getByRole("textbox", { name: "Kod odzyskania" });
+    expect(recovery).not.toHaveAttribute("aria-label");
+    expect(recovery).toHaveAccessibleDescription("Kod jest jednorazowy");
+  });
+
+  it("obsługuje challenge klawiaturą: kolejność fokusu, Enter i fokus na nagłówku nowego kroku", async () => {
+    const request = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json({ code: "INVALID_CREDENTIALS" }, { status: 401 }));
+    const user = userEvent.setup();
+    render(<MfaFlow area="platform" initialMode="challenge" returnTo="/firmy" />);
+    await user.tab();
+    expect(screen.getByRole("textbox", { name: "Kod MFA" })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Potwierdź kod" })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Nie mam dostępu do aplikacji" })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("link", { name: "Wróć do logowania" })).toHaveAttribute(
+      "href",
+      "/login?returnTo=%2Ffirmy",
+    );
+    await user.click(screen.getByRole("textbox", { name: "Kod MFA" }));
+    await user.paste("123456");
+    await user.keyboard("{Enter}");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Kod jest nieprawidłowy lub wygasł");
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("textbox", { name: "Kod MFA" })).toHaveValue("123456");
+    screen.getByRole("button", { name: "Nie mam dostępu do aplikacji" }).focus();
+    await user.keyboard("{Enter}");
+    expect(screen.getByRole("heading", { name: "Użyj kodu odzyskania" })).toHaveFocus();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("kod odzyskania prowadzi przez hasło, nowy TOTP i nową listę kodów do panelu", async () => {
+    const navigate = replace();
+    const request = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json({ enrollmentRequired: true }))
+      .mockResolvedValueOnce(
+        Response.json({ method: "totp", totpURI: "otpauth://totp/Auterva:a?secret=NEWSECRET234&issuer=Auterva" }),
+      )
+      .mockResolvedValueOnce(Response.json({ status: true, backupCodes: ["nowy-1", "nowy-2"] }));
+    const user = userEvent.setup();
+    render(<MfaFlow area="company" initialMode="challenge" returnTo="/admin/pojazdy" />);
+    await user.click(screen.getByRole("button", { name: "Nie mam dostępu do aplikacji" }));
+    expect(screen.getByText("Weryfikacja MFA")).toBeVisible();
+    await user.type(screen.getByRole("textbox", { name: "Kod odzyskania" }), "abcd-efgh");
+    await user.click(screen.getByRole("button", { name: "Potwierdź kod" }));
+    expect(await screen.findByRole("heading", { name: "Potwierdź hasło" })).toHaveFocus();
+    expect(screen.getByText(/kod odzyskania został przyjęty/i)).toBeVisible();
+    await user.type(screen.getByLabelText("Hasło"), "Hasło123!");
+    await user.click(screen.getByRole("button", { name: "Potwierdź hasło" }));
+    expect(await screen.findByText("NEWSECRET234")).toBeVisible();
+    await user.type(screen.getByRole("textbox", { name: "Kod MFA" }), "123456");
+    await user.click(screen.getByRole("button", { name: "Włącz MFA i pokaż kody" }));
+    expect(await screen.findByRole("heading", { name: "Zapisz kody odzyskania" })).toHaveFocus();
+    expect(screen.getByRole("list")).toHaveTextContent("nowy-1nowy-2");
+    expect(navigate).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Zapisałem kody" }));
+    expect(navigate).toHaveBeenCalledWith("/admin/pojazdy");
+    expect(request.mock.calls.map(([url]) => url)).toEqual([
+      "/api/auth/two-factor/verify-backup-code/",
+      "/api/auth/two-factor/enable/",
+      "/api/auth/two-factor/verify-totp/",
+    ]);
+  });
+
+  it("błędny lub użyty kod odzyskania daje neutralny komunikat i zachowuje wpis", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({ code: "INVALID_CREDENTIALS" }, { status: 401 }),
+    );
+    const user = userEvent.setup();
+    render(<MfaFlow area="company" initialMode="challenge" />);
+    await user.click(screen.getByRole("button", { name: "Nie mam dostępu do aplikacji" }));
+    await user.type(screen.getByRole("textbox", { name: "Kod odzyskania" }), "zuzyty-kod");
+    await user.click(screen.getByRole("button", { name: "Potwierdź kod" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Kod jest nieprawidłowy lub został użyty. Wpisz inny kod.",
+    );
+    expect(screen.getByRole("textbox", { name: "Kod odzyskania" })).toHaveValue("zuzyty-kod");
+  });
+
+  it("w trakcie weryfikacji kodu odzyskania blokuje ponowne wysłanie i zmianę ścieżki", async () => {
+    let complete!: (response: Response) => void;
+    const request = vi.spyOn(globalThis, "fetch").mockImplementation(
+      () => new Promise<Response>((resolve) => { complete = resolve; }),
+    );
+    const user = userEvent.setup();
+    render(<MfaFlow area="company" initialMode="challenge" />);
+    await user.click(screen.getByRole("button", { name: "Nie mam dostępu do aplikacji" }));
+    await user.type(screen.getByRole("textbox", { name: "Kod odzyskania" }), "kod-1");
+    await user.click(screen.getByRole("button", { name: "Potwierdź kod" }));
+    expect(screen.getByRole("status")).toHaveTextContent("Trwa weryfikacja. Nie wysyłaj ponownie.");
+    expect(screen.getByRole("button", { name: "Sprawdzanie…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Użyj kodu z aplikacji" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Nie mam aplikacji ani kodów" })).toBeDisabled();
+    await user.keyboard("{Enter}");
+    expect(request).toHaveBeenCalledTimes(1);
+    complete(Response.json({ code: "INVALID_CREDENTIALS" }, { status: 401 }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Użyj kodu z aplikacji" })).toBeEnabled(),
+    );
+  });
+
+  it("rotacja pozwala wrócić do świeżej weryfikacji bez ponownego użycia proof", async () => {
+    const request = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json({ proof: "a".repeat(64) }));
+    const user = userEvent.setup();
+    render(<MfaFlow area="platform" initialMode="restore" />);
+    expect(screen.getByRole("textbox", { name: "Nowy kod z aplikacji" })).toHaveAccessibleDescription(
+      "Użyj aktualnego kodu.",
+    );
+    await user.type(screen.getByRole("textbox", { name: "Nowy kod z aplikacji" }), "123456");
+    await user.click(screen.getByRole("button", { name: "Potwierdź kod" }));
+    expect(await screen.findByText(/świeży czynnik został potwierdzony/i)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Wróć do weryfikacji" }));
+    expect(screen.getByRole("heading", { name: "Wydaj nowe kody" })).toHaveFocus();
+    expect(screen.getByRole("textbox", { name: "Nowy kod z aplikacji" })).toHaveValue("");
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it("logowanie informuje o wygasłej sesji i o zachowanym zamiarze nowych kodów", () => {
+    render(<LoginForm area="company" sessionExpired recoverCodes />);
+    const notices = screen.getAllByRole("status");
+    expect(notices[0]).toHaveTextContent("Twoja sesja wygasła. Zaloguj się ponownie.");
+    expect(notices[1]).toHaveTextContent("Po zalogowaniu wydasz nowe kody odzyskania.");
+    expect(screen.queryByRole("link", { name: /rejestracj/i })).toBeNull();
   });
 });

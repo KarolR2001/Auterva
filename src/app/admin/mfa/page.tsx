@@ -6,6 +6,7 @@ export default function Page({
   searchParams: Promise<{
     returnTo?: string | string[];
     recoverCodes?: string | string[];
+    session?: string | string[];
   }>;
 }) {
   return <AuthPage area="company" stage="mfa" searchParams={searchParams} />;

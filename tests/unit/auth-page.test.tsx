@@ -7,9 +7,14 @@ const mocks = vi.hoisted(() => ({
   notFound: vi.fn(),
   redirect: vi.fn(),
   company: vi.fn(),
+  cookie: { value: "" },
 }));
 vi.mock("next/headers", () => ({
-  headers: async () => new Headers({ host: "company.test" }),
+  headers: async () =>
+    new Headers({
+      host: "company.test",
+      ...(mocks.cookie.value ? { cookie: mocks.cookie.value } : {}),
+    }),
 }));
 vi.mock("next/navigation", () => ({
   notFound: () => {
@@ -43,6 +48,8 @@ beforeEach(() => {
   mocks.authorized.mockResolvedValue(null);
   mocks.scoped.mockResolvedValue(null);
   mocks.company.mockResolvedValue({ name: "Firma A" });
+  // A pending MFA challenge cookie issued by sign-in (value is opaque to the page).
+  mocks.cookie.value = "theme=x; better-auth.two_factor=pending-challenge";
 });
 
 describe("serwerowe wejście auth", () => {
@@ -191,6 +198,44 @@ describe("serwerowe wejście auth", () => {
     expect(mocks.redirect).toHaveBeenCalledWith(
       "/admin/login?returnTo=%2Fadmin",
     );
+  });
+
+  it("bez sesji i oczekującego challenge kieruje z MFA do logowania z informacją o wygaśnięciu", async () => {
+    mocks.cookie.value = "theme=x; better-auth.two_factor=";
+    await expect(
+      AuthPage({
+        area: "company",
+        stage: "mfa",
+        searchParams: Promise.resolve({ returnTo: "/admin/pojazdy", recoverCodes: "1" }),
+      }),
+    ).rejects.toThrow("REDIRECT");
+    expect(mocks.redirect).toHaveBeenCalledWith(
+      "/admin/login?returnTo=%2Fadmin%2Fpojazdy&session=expired&recoverCodes=1",
+    );
+    mocks.host.mockResolvedValue({ area: "PLATFORM", organizationId: null });
+    mocks.cookie.value = "";
+    await expect(
+      AuthPage({ area: "platform", stage: "mfa", searchParams: Promise.resolve({}) }),
+    ).rejects.toThrow("REDIRECT");
+    expect(mocks.redirect).toHaveBeenLastCalledWith("/login?returnTo=%2F&session=expired");
+    const login = await AuthPage({
+      area: "platform",
+      stage: "login",
+      searchParams: Promise.resolve({ session: "expired" }),
+    });
+    expect(login.type).toBe(LoginForm);
+    expect(login.props.sessionExpired).toBe(true);
+  });
+
+  it("ograniczona sesja enrolmentu nie wymaga cookie challenge", async () => {
+    mocks.cookie.value = "";
+    mocks.scoped.mockResolvedValue({ userId: "admin-a", twoFactorEnabled: false });
+    const element = await AuthPage({
+      area: "company",
+      stage: "mfa",
+      searchParams: Promise.resolve({}),
+    });
+    expect(element.props.initialMode).toBe("enroll");
   });
 
   it("formularz logowania pokazuje tylko dla prawidłowego hosta bez sesji", async () => {
