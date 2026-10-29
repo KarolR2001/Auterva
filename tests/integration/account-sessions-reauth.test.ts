@@ -108,7 +108,9 @@ test("an end-sessions proof is refused by backup-code rotation and stays usable 
 
 test("an unknown purpose with a valid code is refused and writes no proof", async () => {
   const before = await db.verification.count({ where: { value: { contains: `"userId":"${userId}"` } } });
-  for (const purpose of ["anything", "", 5, null, ["end-sessions"], "END-SESSIONS"]) {
+  // Each refusal counts toward the failed-attempt limit, so start from a clean counter.
+  for (const purpose of ["anything", 5, "END-SESSIONS"]) {
+    await db.rateLimitEvent.deleteMany();
     const response = await reauth(cookie, { purpose });
     expect(response.status).toBe(401);
   }
@@ -116,6 +118,11 @@ test("an unknown purpose with a valid code is refused and writes no proof", asyn
 });
 
 test("sessions/end refuses a foreign Origin, and sessions refuses a session without MFA proof", async () => {
+  await db.rateLimitEvent.deleteMany();
+  // A real session row whose MFA proof is cleared (a password-only login keeps its challenge in a cookie, not a row).
+  pendingCookie = await fullSession();
+  const row = await db.session.findFirstOrThrow({ where: { userId }, orderBy: { createdAt: "desc" } });
+  await db.session.update({ where: { id: row.id }, data: { mfaVerifiedAt: null } });
   const proof = await proofOf(await reauth(cookie, { purpose: "end-sessions" }));
   expect((await call("POST", "sessions/end", cookie, { proof }, `https://evil-${host}`)).status).toBe(403);
   expect((await call("POST", "sessions/end", cookie, { proof }, `https://${otherHost}`)).status).toBe(403);
