@@ -1303,13 +1303,82 @@
             "mobile": "4e2ad814-13be-80ec-8008-cc98e7641a9a",
             "desktop": "4e2ad814-13be-80ec-8008-cc95e2b4b5f4"
           },
-          "recovery": {
+          "manualRecovery": {
             "mobile": "4e2ad814-13be-80ec-8008-cc98f6937664",
             "desktop": "4e2ad814-13be-80ec-8008-cc96bbba80bb"
           },
-          "sharedMfa": {
+          "historicalCompositeEnrollment": {
             "mobile": "4e2ad814-13be-80ec-8008-cc9fbbe9363e",
-            "desktop": "4e2ad814-13be-80ec-8008-cc9f9f862e0d"
+            "desktop": "4e2ad814-13be-80ec-8008-cc9f9f862e0d",
+            "canonical": false,
+            "reason": "Historyczny złożony enrollment z CTA bez aktualnej ścieżki kodów; wzorcem MVP jest 07 → 07G, a weryfikację pokazuje ACC-07."
+          },
+          "prototypeRecoveryEntry": {
+            "mobile": {
+              "boardId": "4e2ad814-13be-80ec-8008-cc98f67cd79b",
+              "triggerId": "4e2ad814-13be-80ec-8008-cc98f67cd7a2"
+            },
+            "desktop": {
+              "boardId": "4e2ad814-13be-80ec-8008-cc95e2db8769",
+              "triggerId": "4e2ad814-13be-80ec-8008-cc95e2db876f"
+            }
+          },
+          "totpChallenge": {
+            "mobile": "2f81c084-f559-80fe-8008-dbb8f7ae8efa",
+            "desktop": "2f81c084-f559-80fe-8008-dbb95a36748f"
+          },
+          "recoveryCode": {
+            "mobile": {
+              "default": "89433e5c-4f5c-80ad-8008-d9772125fce1",
+              "error": "89433e5c-4f5c-80ad-8008-d977b0957fc6",
+              "pending": "89433e5c-4f5c-80ad-8008-d977e674eafe",
+              "rateLimit": "89433e5c-4f5c-80ad-8008-d977e6a1827a"
+            },
+            "desktop": {
+              "default": "89433e5c-4f5c-80ad-8008-d979bfb8c22a",
+              "error": "89433e5c-4f5c-80ad-8008-d97a095fc6e2",
+              "pending": "89433e5c-4f5c-80ad-8008-d97a0987eb1c",
+              "rateLimit": "89433e5c-4f5c-80ad-8008-d97a09c1c3e0"
+            }
+          },
+          "recoveryPassword": {
+            "mobile": "89433e5c-4f5c-80ad-8008-d978941801a9",
+            "desktop": "89433e5c-4f5c-80ad-8008-d97a2cff22b7"
+          },
+          "issuedCodes": {
+            "mobile": "89433e5c-4f5c-80ad-8008-d97894702d92",
+            "desktop": "89433e5c-4f5c-80ad-8008-d97a2d574f37"
+          },
+          "uncertainResult": {
+            "mobile": "89433e5c-4f5c-80ad-8008-d97894a37e06",
+            "desktop": "89433e5c-4f5c-80ad-8008-d97a2d96c553"
+          },
+          "sessionReadPrototype": {
+            "simulationOnly": true,
+            "outcomes": {
+              "mobile": "2f81c084-f559-80fe-8008-dbba3483c90b",
+              "desktop": "2f81c084-f559-80fe-8008-dbb9b0e9f554"
+            },
+            "readError": {
+              "mobile": "2f81c084-f559-80fe-8008-dbba34d9280e",
+              "desktop": "2f81c084-f559-80fe-8008-dbb9bb564dda"
+            },
+            "noSessionWithRecoveryIntent": {
+              "mobile": "2f81c084-f559-80fe-8008-dbba352032e5",
+              "desktop": "2f81c084-f559-80fe-8008-dbb9bba8e2fa"
+            }
+          },
+          "rotateFreshFactor": {
+            "mobile": "89433e5c-4f5c-80ad-8008-d978bc2374d0",
+            "desktop": "89433e5c-4f5c-80ad-8008-d97a4e1d6e10"
+          },
+          "rotatePassword": {
+            "mobile": "89433e5c-4f5c-80ad-8008-d978bc7013ef",
+            "desktop": "89433e5c-4f5c-80ad-8008-d97a4e735e8b"
+          },
+          "expiredProof": {
+            "mobile": "89433e5c-4f5c-80ad-8008-d978bcc38d44",
+            "desktop": "89433e5c-4f5c-80ad-8008-d97a4ec58f20"
           }
         }
       },
@@ -1924,7 +1993,36 @@
         },
         "mvpMenuOptions": ["Ukryj", "Archiwizuj"],
         "menuActionTargets": ["OVR-10", "OVR-11"],
-        "menuActionState": "Statyczny wzorzec; kontekst vehicleId i potwierdzenia przed #34/#35 domyka #107.",
+        "menuActionState": "#107: referencyjna Toyota M/D ma działające otwarcie menu i właściwych potwierdzeń oraz Anuluj; potwierdzenie bez symulowanej mutacji. Inne pojazdy zachowują ogólny wzorzec i wymagają danych wybranego wiersza w #34/#35.",
+        "vehicleMenuContract": {
+          "issue": 107,
+          "referenceVehicle": "Toyota Proace Verso",
+          "referenceStatus": "PUBLISHED",
+          "mobile": {
+            "moreHitId": "89433e5c-4f5c-80ad-8008-d6769ca03475",
+            "menuId": "d924335c-ac21-80ff-8008-dbf2b28071c4",
+            "hideHitId": "d924335c-ac21-80ff-8008-dbf2b28071c6",
+            "archiveHitId": "d924335c-ac21-80ff-8008-dbf2b28071c7",
+            "hideConfirmationId": "1e066793-8858-8051-8008-cf443b6e4403",
+            "archiveConfirmationId": "1e066793-8858-8051-8008-cf443b6e4413"
+          },
+          "desktop": {
+            "moreHitId": "89433e5c-4f5c-80ad-8008-d677823e2265",
+            "menuId": "d924335c-ac21-80ff-8008-dbf2be15e41e",
+            "hideHitId": "d924335c-ac21-80ff-8008-dbf2be15e420",
+            "archiveHitId": "d924335c-ac21-80ff-8008-dbf2be15e421",
+            "hideConfirmationId": "1e066793-8858-8051-8008-cf443e7400d5",
+            "archiveConfirmationId": "1e066793-8858-8051-8008-cf443e7400e5"
+          },
+          "statusOptions": {
+            "PUBLISHED": ["Ukryj", "Archiwizuj"],
+            "DRAFT": ["Archiwizuj"],
+            "UNPUBLISHED": ["Archiwizuj"],
+            "ARCHIVED": []
+          },
+          "runtimeOwnerIssues": [34, 35],
+          "runtimeContext": ["organizationId", "vehicleId", "status", "version", "actorRole"]
+        },
         "otherVehicleActions": "Osobne cele Edytuj i Kalendarz używają trasy danego pojazdu; statyczny ADM-09 przedstawia wyłącznie Mercedesa."
       },
       "assetIds": [
@@ -8266,6 +8364,15 @@
       ],
       "originalPriority": "UNSPECIFIED",
       "statesSpec": "Wywołanie: „Ukryj”",
+      "prototypeContract": {
+        "issue": 107,
+        "referenceVehicle": "Toyota Proace Verso",
+        "cancelHitIds": {
+          "mobile": "1e066793-8858-8051-8008-cf443b6e4408",
+          "desktop": "1e066793-8858-8051-8008-cf443e7400da"
+        },
+        "confirmationMutation": "not-simulated; runtime #34/#35 uses server response"
+      },
       "penpot": {
         "pageId": "a4abf4c9-2e1f-80fd-8008-afc9717d55df",
         "boardIds": {
@@ -8288,6 +8395,15 @@
       ],
       "originalPriority": "UNSPECIFIED",
       "statesSpec": "Wywołanie: „Archiwizuj”",
+      "prototypeContract": {
+        "issue": 107,
+        "referenceVehicle": "Toyota Proace Verso",
+        "cancelHitIds": {
+          "mobile": "1e066793-8858-8051-8008-cf443b6e4418",
+          "desktop": "1e066793-8858-8051-8008-cf443e7400ea"
+        },
+        "confirmationMutation": "not-simulated; archived vehicle has no panel restore"
+      },
       "penpot": {
         "pageId": "a4abf4c9-2e1f-80fd-8008-afc9717d55df",
         "boardIds": {
