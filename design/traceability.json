@@ -1026,6 +1026,21 @@
         "tests/integration/log-actor-context.test.ts",
         "tests/e2e/auth-production.spec.ts"
       ]
+    },
+    {
+      "issue": 45,
+      "scope": "MKT-01 marketingowy onepage Autervy na hoście MARKETING (SSR, metadane i canonical, kontakt nieaktywny do czasu prawdziwych danych); materiały AUT-01–05 jako DEMO (D-17).",
+      "relatedRequirementIds": ["C-F001", "C-F019", "C-F020", "C-F021", "C-F138", "C-F139", "C-F140", "C-F141", "C-F142", "C-R018", "DS-N22", "DS-N23"],
+      "referenceScreenIds": ["MKT-01"],
+      "codePaths": [
+        "src/app/page.tsx",
+        "src/components/marketing/marketing-page.tsx",
+        "src/components/marketing/marketing.module.css",
+        "src/components/marketing/marketing-images.ts",
+        "src/modules/marketing/content.ts",
+        "src/modules/marketing/metadata.ts"
+      ],
+      "testPaths": ["tests/unit/marketing-page.test.tsx", "tests/e2e/marketing.spec.ts"]
     }
   ],
   "sources": [
@@ -1431,6 +1446,10 @@
               "mobile": "fb4e1683-f05f-8095-8008-c76fcc42bde3",
               "desktop": "fb4e1683-f05f-8095-8008-c772c96f234e"
             },
+            "account": {
+              "mobile": "2e56f6bf-6ab4-8076-8008-dbd35ead5dc9",
+              "desktop": "315aa115-0a58-807f-8008-dbc2af057cc6"
+            },
             "logoutAfterServerAction": {
               "mobile": "fb4e1683-f05f-8095-8008-c75bec06c851",
               "desktop": "fb4e1683-f05f-8095-8008-c75b5b2ee55c"
@@ -1442,8 +1461,92 @@
             "desktopHitId": "43eeb5e5-a1c6-801a-8008-d02563417960",
             "desktopBoardId": "4e2ad814-13be-80ec-8008-ccadc80b0a41"
           },
-          "accountBoardFollowUpIssue": 103,
           "prototypeLogoutIsNotSessionInvalidation": true
+        }
+      },
+      {
+        "id": "PLT-10",
+        "name": "Konto superadmina",
+        "pageIds": {
+          "mobile": "fb4e1683-f05f-8095-8008-c755dff0027c",
+          "desktop": "fb4e1683-f05f-8095-8008-c755dff4dae6"
+        },
+        "boardIds": {
+          "mobile": ["2e56f6bf-6ab4-8076-8008-dbd35ead5dc9"],
+          "desktop": ["315aa115-0a58-807f-8008-dbc2af057cc6"]
+        },
+        "designIssue": 103,
+        "implementationFollowUpIssue": 19,
+        "requirementIds": ["C-F041", "FR-ADM-080", "C-R007", "D-05"],
+        "handoffPath": "design/handoff/platform-account.md",
+        "prototypeActions": {
+          "accountMenuItemIds": {
+            "mobile": "89433e5c-4f5c-80ad-8008-d910ad0b1908",
+            "desktop": "89433e5c-4f5c-80ad-8008-d90d3f63bcc2"
+          },
+          "freshMfaBeforeRecoveryCodes": {
+            "mobile": "864f85f5-29a0-8019-8008-dbe13f10e885",
+            "desktop": "864f85f5-29a0-8019-8008-dbdf7b325dfe"
+          },
+          "manualRecovery": {
+            "mobile": "864f85f5-29a0-8019-8008-dbe14abda07f",
+            "desktop": "864f85f5-29a0-8019-8008-dbdf8b40da10"
+          },
+          "recoveryCodeEntryHitIds": {
+            "mobile": "864f85f5-29a0-8019-8008-dbe17fb4f6cd",
+            "desktop": "864f85f5-29a0-8019-8008-dbe001a93088"
+          },
+          "profileAndPasswordServerActionsImplemented": false
+        },
+        "platformMfaGraph": {
+          "freshFactor": {
+            "mobile": "864f85f5-29a0-8019-8008-dbe13f10e885",
+            "desktop": "864f85f5-29a0-8019-8008-dbdf7b325dfe"
+          },
+          "passwordAfterTotp": {
+            "mobile": "864f85f5-29a0-8019-8008-dbe13f356630",
+            "desktop": "864f85f5-29a0-8019-8008-dbdf7b59e9a0"
+          },
+          "expiredProof": {
+            "mobile": "864f85f5-29a0-8019-8008-dbe13f6429e4",
+            "desktop": "864f85f5-29a0-8019-8008-dbdf7b82bfc7"
+          },
+          "recoveryCode": {
+            "mobile": {
+              "default": "864f85f5-29a0-8019-8008-dbe14b0a0917",
+              "error": "864f85f5-29a0-8019-8008-dbe14b30c38f",
+              "pending": "864f85f5-29a0-8019-8008-dbe14b710566",
+              "rateLimit": "864f85f5-29a0-8019-8008-dbe157f6998c"
+            },
+            "desktop": {
+              "default": "864f85f5-29a0-8019-8008-dbdf8b75f0c5",
+              "error": "864f85f5-29a0-8019-8008-dbdf8b9c7639",
+              "pending": "864f85f5-29a0-8019-8008-dbdf8bcc60f2",
+              "rateLimit": "864f85f5-29a0-8019-8008-dbdf974962bc"
+            }
+          },
+          "passwordAfterRecoveryCode": {
+            "mobile": "864f85f5-29a0-8019-8008-dbe158315e04",
+            "desktop": "864f85f5-29a0-8019-8008-dbdf9779d0df"
+          },
+          "totpEnrollment": {
+            "mobile": "864f85f5-29a0-8019-8008-dbe1585fff06",
+            "desktop": "864f85f5-29a0-8019-8008-dbdf97b559a4"
+          },
+          "issuedCodes": {
+            "mobile": "864f85f5-29a0-8019-8008-dbe13f8ea83f",
+            "desktop": "864f85f5-29a0-8019-8008-dbdf7bc136dc"
+          },
+          "manualRecovery": {
+            "mobile": "864f85f5-29a0-8019-8008-dbe14abda07f",
+            "desktop": "864f85f5-29a0-8019-8008-dbdf8b40da10"
+          },
+          "platformLoginTargets": {
+            "mobile": "fb4e1683-f05f-8095-8008-c75bec06c851",
+            "desktop": "fb4e1683-f05f-8095-8008-c75b5b2ee55c"
+          },
+          "sourceCompanyGraphUnchanged": true,
+          "serverOutcomesRequireRuntime": true
         }
       },
       {
