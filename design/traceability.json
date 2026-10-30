@@ -1073,6 +1073,21 @@
         "tests/integration/log-actor-context.test.ts",
         "tests/e2e/auth-production.spec.ts"
       ]
+    },
+    {
+      "issue": 45,
+      "scope": "MKT-01 marketingowy onepage Autervy na hoście MARKETING (SSR, metadane i canonical, kontakt nieaktywny do czasu prawdziwych danych); materiały AUT-01–05 jako DEMO (D-17).",
+      "relatedRequirementIds": ["C-F001", "C-F019", "C-F020", "C-F021", "C-F138", "C-F139", "C-F140", "C-F141", "C-F142", "C-R018", "DS-N22", "DS-N23"],
+      "referenceScreenIds": ["MKT-01"],
+      "codePaths": [
+        "src/app/page.tsx",
+        "src/components/marketing/marketing-page.tsx",
+        "src/components/marketing/marketing.module.css",
+        "src/components/marketing/marketing-images.ts",
+        "src/modules/marketing/content.ts",
+        "src/modules/marketing/metadata.ts"
+      ],
+      "testPaths": ["tests/unit/marketing-page.test.tsx", "tests/e2e/marketing.spec.ts"]
     }
   ],
   "sources": [
