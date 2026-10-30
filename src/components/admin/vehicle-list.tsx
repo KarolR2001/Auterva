@@ -42,7 +42,7 @@ function updated(value: string) {
   return new Intl.DateTimeFormat("pl-PL", { dateStyle: "medium", timeZone: "Europe/Warsaw" }).format(new Date(value));
 }
 
-export function VehicleList({ context = companyContext }: { context?: PanelContext }) {
+export function VehicleList({ context = companyContext, title }: { context?: PanelContext; title: string }) {
   const [query, setQuery] = useState(emptyQuery);
   const [searchText, setSearchText] = useState("");
   const [view, setView] = useState<View>({ state: "loading" });
@@ -106,6 +106,7 @@ export function VehicleList({ context = companyContext }: { context?: PanelConte
 
   return (
     <section className={styles.page} aria-labelledby="fleet-title" aria-busy={view.state === "loading"}>
+      <title>{title}</title>
       <header className={styles.pageHead}>
         <h1 id="fleet-title" className={styles.title}>Pojazdy</h1>
         <a className={styles.primaryLink} href={`${context.hrefBase}/pojazdy/nowy/`}><Plus aria-hidden="true" size={20} />Dodaj pojazd</a>

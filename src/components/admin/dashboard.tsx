@@ -34,7 +34,8 @@ function day(value: string) {
   return new Intl.DateTimeFormat("pl-PL", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${value}T00:00:00.000Z`));
 }
 
-export function Dashboard({ context = companyContext }: { context?: PanelContext }) {
+/** `title` is the document title; it comes from the authorized server page, so a denied request never carries it. */
+export function Dashboard({ context = companyContext, title }: { context?: PanelContext; title: string }) {
   const [view, setView] = useState<View>({ state: "loading" });
   const [service, setService] = useState<ServiceStatus | null>(null);
   const [reload, setReload] = useState(0);
@@ -73,6 +74,7 @@ export function Dashboard({ context = companyContext }: { context?: PanelContext
 
   return (
     <section className={styles.page} aria-labelledby="dash-title" aria-busy={view.state === "loading"}>
+      <title>{title}</title>
       <header className={styles.pageHead}>
         <h1 id="dash-title" className={styles.title}>Panel</h1>
         <div className={styles.quick}>
