@@ -7,6 +7,7 @@ import { marketingContact } from "@/modules/marketing/content";
 import { marketingMetadata } from "@/modules/marketing/metadata";
 import { prisma } from "@/lib/prisma";
 import { PanelShell } from "@/components/panel/panel-shell";
+import { CompanyListView } from "@/components/platform/company-list";
 import { requireAuthorizedActor } from "@/modules/auth/authorization";
 import { resolvePublicVisibility } from "@/modules/service-period/public";
 import { resolveRequestArea } from "@/modules/tenancy/request-context";
@@ -39,7 +40,7 @@ export default async function HomePage() {
           title="Firmy"
           currentPath="/"
         >
-          <p>Panel jest w przygotowaniu.</p>
+          <CompanyListView />
         </PanelShell>
       );
   }

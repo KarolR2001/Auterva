@@ -3,6 +3,28 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 27,
+      "scope": "Lista firm z wyszukiwaniem, filtrem archiwum i dwoma KPI, karta firmy z osobnymi stanami okresu, rejestracji, publikacji, konta i archiwum; zmiana okresu z wersją, podglądem skrócenia i zachowaniem danych po błędzie; domena własna z instrukcją DNS; zaproszenie i archiwizacja. Bez billingu i potwierdzenia przelewu.",
+      "relatedRequirementIds": ["C-F015", "C-F016", "C-F017", "C-F018", "C-F045", "C-F046", "C-F047", "C-F048", "C-F049", "C-F068", "C-F069", "C-F070", "C-F071", "C-F072", "C-F084", "C-F086", "C-F087", "C-F088", "C-F089", "C-R007", "C-R013"],
+      "referenceScreenIds": ["PLT-01-02", "PLT-03"],
+      "scenarioStates": {
+        "list": "CompanyListView (PLT-01-02)",
+        "card": "CompanyCardView (PLT-03)",
+        "periodUnsaved": "PeriodSection z niezapisaną zmianą (FLOW-MVP-07 01)"
+      },
+      "codePaths": [
+        "src/app/firmy/page.tsx",
+        "src/app/firmy/[organizationId]/page.tsx",
+        "src/app/page.tsx",
+        "src/components/platform/company-list.tsx",
+        "src/components/platform/company-card.tsx",
+        "src/components/platform/domain-section.tsx",
+        "src/components/platform/platform-api.ts",
+        "src/components/platform/platform.module.css"
+      ],
+      "testPaths": ["tests/unit/platform-companies.test.tsx", "tests/e2e/platform-companies.spec.ts"]
+    },
+    {
       "issue": 15,
       "scope": "Logowanie obu ról, obowiązkowe MFA (enrollment, challenge, kod odzyskania z ponownym enrollmentem, ręczna procedura), niepewny wynik z odczytem sesji, ponowne wydanie kodów, neutralne odmowy (także archiwum/blokada konta), limit z pełnym Retry-After i wygaśnięcie challenge/sesji na hostach właściwego obszaru.",
       "relatedRequirementIds": ["C-F010", "C-F011", "C-F013", "C-F014", "C-F040", "C-F044", "FR-ADM-001", "FR-ADM-002", "FR-ADM-003", "FR-ADM-004", "FR-ADM-005", "FR-ADM-007"],
@@ -37,6 +59,21 @@
         "src/app/admin/mfa/page.tsx"
       ],
       "testPaths": ["tests/unit/auth-flow.test.tsx", "tests/unit/auth-page.test.tsx", "tests/unit/auth-destination.test.ts", "tests/unit/mfa-qr.test.tsx", "tests/e2e/auth-ui.spec.ts"]
+    },
+    {
+      "issue": 72,
+      "scope": "Lista i świadome kończenie własnych sesji konta (FR-ADM-081, C-F043): referencje HMAC zamiast identyfikatorów, bez tokenów i IP, dowód reauth MFA jednorazowy i związany z celem, skutek natychmiast dla API i WebSocket (4401), audyt AUTH_SESSIONS_REVOKED; koniec okresu usługi nie kończy sesji.",
+      "relatedRequirementIds": ["FR-ADM-081", "C-F043"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/auth/sessions.ts",
+        "src/app/api/auth/[...all]/route.ts",
+        "docs/contracts/account-operations.md"
+      ],
+      "testPaths": [
+        "tests/integration/account-sessions.test.ts",
+        "tests/integration/account-sessions-reauth.test.ts"
+      ]
     },
     {
       "issue": 65,
