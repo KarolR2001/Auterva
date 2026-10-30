@@ -30,7 +30,7 @@ export function AvailabilityCalendar({ slug, month, today, days, range, minMonth
     return `${base}?${params.toString()}#kalendarz`;
   };
   const inRange = (date: string) => Boolean(range.from && range.to && date >= range.from && date <= range.to);
-  const stateOf = (date: string): DayState => (date < today ? "past" : days.get(date) === false ? "unavailable" : "available");
+  const stateOf = (date: string): DayState => (date < today ? "past" : days.get(date) === true ? "available" : "unavailable");
   return (
     <section className={styles.calendar} id="kalendarz" aria-labelledby="calendar-title">
       <div className={styles.calendarHead}>

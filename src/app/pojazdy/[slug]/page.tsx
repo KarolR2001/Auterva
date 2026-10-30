@@ -108,6 +108,7 @@ export default async function VehiclePage({ params, searchParams }: Props) {
                   <div className={styles.stateActions}>
                     <LinkButton href={toContact}>{availability.available ? "Skontaktuj się" : "Skontaktuj się po alternatywę"}</LinkButton>
                     {!availability.available ? <LinkButton href="#sprawdz-termin" variant="secondary">Zmień termin</LinkButton> : null}
+                    {!availability.available ? <LinkButton href={catalogHref({ from: picked.range.from, to: picked.range.to })} variant="secondary">Zobacz pojazdy dostępne w tym terminie</LinkButton> : null}
                   </div>
                 </div>
               ) : <p className={styles.small}>Wybierz zakres dat. Dostępność jest informacyjna i nie stanowi rezerwacji terminu.</p>}

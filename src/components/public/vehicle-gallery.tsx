@@ -42,7 +42,7 @@ export function VehicleGallery({ images, name }: { images: GalleryImage[]; name:
 
   return (
     <section className={styles.gallery} aria-roledescription="galeria" aria-label={`Zdjęcia: ${name}`}>
-      <div className={styles.galleryViewer} tabIndex={0} onKeyDown={onKeyDown} onPointerDown={onPointerDown} onPointerUp={onPointerUp}
+      <div className={styles.galleryViewer} role="group" aria-roledescription="podgląd zdjęć" tabIndex={0} onKeyDown={onKeyDown} onPointerDown={onPointerDown} onPointerUp={onPointerUp}
         aria-label={`Zdjęcie ${index + 1} z ${count}. Strzałki w lewo i w prawo zmieniają zdjęcie.`}>
         {/* eslint-disable-next-line @next/next/no-img-element -- public media variants are served by our own API route */}
         <img key={current.id} src={current.urls.large} alt={alt(current, index)} width={current.width ?? undefined} height={current.height ?? undefined}
