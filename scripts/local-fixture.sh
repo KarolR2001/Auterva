@@ -142,6 +142,12 @@ start_services() {
   refuse_foreign_listener "$smtp_port" mailpit
   refuse_foreign_listener "$mail_ui_port" mailpit
   if ! pg_ctl -D "$local_dir/pg" status >/dev/null 2>&1; then
+    # Unix socket paths are limited to 103 bytes on macOS (107 on Linux); a long worktree path would only surface as "could not start server".
+    sock_path="$local_dir/.s.PGSQL.$pg_port"
+    if (( ${#sock_path} > 103 )); then
+      echo "PostgreSQL socket path is ${#sock_path} bytes (limit 103): $sock_path. Use a worktree path at least $(( ${#sock_path} - 103 )) characters shorter." >&2
+      exit 2
+    fi
     pg_ctl -D "$local_dir/pg" -l "$local_dir/log/postgres.log" \
       -o "-h 127.0.0.1 -p $pg_port -k $local_dir" start >/dev/null
   fi
