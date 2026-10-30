@@ -76,6 +76,26 @@
       "testPaths": ["tests/integration/availability-query-regression.test.ts", "tests/unit/perf-generator.test.ts"]
     },
     {
+      "issue": 26,
+      "scope": "Ekran aktywacji zaproszenia /admin/zaproszenie/[token]: odczyt bez skutków, firma i adresat z serwera, hasło z potwierdzeniem, jeden POST, wszystkie stany tokenu/sieci/limitu, wynik publicznej strony z siteState serwera i przejście do logowania/MFA.",
+      "relatedRequirementIds": ["C-F026", "C-F027", "C-F028", "C-F029", "C-F030", "C-F031", "C-F032", "C-F033", "C-F037", "C-F038", "C-F039", "C-F052", "C-F108", "D-11"],
+      "referenceScreenIds": ["ACC-04"],
+      "scenarioStates": {
+        "valid": "ActivationFlow phase=ready (ACC-04 state=valid, M 1e066793-8858-8051-8008-cf3e9d891551, D 269b07ba-69e5-8066-8008-c84b98156520)",
+        "invalidUsedExpiredRevoked": "ActivationFlow phase=invalid (neutralne 404, bez formularza)",
+        "network": "POST bez odpowiedzi: ponowienie tym samym hasłem zwraca zapisany wynik; GET: phase=unavailable",
+        "limit": "429: phase=limited (GET) albo cooldown z Retry-After (POST)",
+        "success": "ActivationFlow phase=done; READY, DOMAIN_PENDING, PERIOD_EXPIRED, RESTORE_LOCKED"
+      },
+      "unmappedStates": ["Makieta ACC-04 ma miernik siły hasła i reguły wielkich liter, cyfry i znaku specjalnego; kontrakt #22 wymaga tylko 12–256 znaków, więc ekran pokazuje wyłącznie regułę długości, żeby nie obiecywać nieegzekwowanych reguł."],
+      "components": [],
+      "codePaths": [
+        "src/components/auth/activation-flow.tsx",
+        "src/app/admin/zaproszenie/[token]/page.tsx"
+      ],
+      "testPaths": ["tests/e2e/company-activation-ui.spec.ts"]
+    },
+    {
       "issue": 150,
       "scope": "Budżet odczytu superadmina (D-19): jeden klucz api:read:{actor}:platform we wszystkich firmach i w prywatnym kalendarzu, administratorzy z osobnymi licznikami oraz osobny konfigurowalny budżet pobierania bajtów zdjęć w panelu i preview (AUTERVA_MEDIA_RATE_LIMIT, domyślnie 600/min, błędna wartość to błąd startu).",
       "relatedRequirementIds": ["D-04", "D-19"],
