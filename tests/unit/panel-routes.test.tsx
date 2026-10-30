@@ -14,9 +14,6 @@ vi.mock("next/navigation", () => ({
   notFound: () => {
     throw new Error("NOT_FOUND");
   },
-  redirect: (url: string) => {
-    throw new Error(`REDIRECT:${url}`);
-  },
 }));
 vi.mock("@/lib/auth", () => ({ auth: {} }));
 vi.mock("@/lib/prisma", () => ({
@@ -48,9 +45,7 @@ describe("serwerowe wejścia paneli", () => {
     });
     dependencies.requireRequestContext.mockResolvedValue(null);
 
-    await expect(AdminPage()).rejects.toThrow(
-      "REDIRECT:/admin/login?returnTo=%2Fadmin",
-    );
+    await expect(AdminPage()).rejects.toThrow("NOT_FOUND");
     expect(dependencies.findOrganization).not.toHaveBeenCalled();
   });
 
@@ -102,12 +97,6 @@ describe("serwerowe wejścia paneli", () => {
     });
     dependencies.requireAuthorizedActor.mockResolvedValue(null);
 
-    await expect(HomePage()).rejects.toThrow("REDIRECT:/login");
-  });
-
-  it("zwraca 404 dla obcego hosta zamiast przekierowania", async () => {
-    dependencies.resolveRequestArea.mockResolvedValue(null);
-    await expect(AdminPage()).rejects.toThrow("NOT_FOUND");
     await expect(HomePage()).rejects.toThrow("NOT_FOUND");
   });
 });

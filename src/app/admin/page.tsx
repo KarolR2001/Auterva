@@ -1,6 +1,6 @@
 import { PwaRegistration } from "./pwa-registration";
 import { headers } from "next/headers";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PanelShell } from "@/components/panel/panel-shell";
@@ -21,8 +21,7 @@ export default async function AdminPage() {
     incoming,
     area.organizationId,
   );
-  // Cold start (PWA start_url) or expired session: send to the login of this host; no private HTML is rendered.
-  if (!actor) redirect("/admin/login?returnTo=%2Fadmin");
+  if (!actor) notFound();
   const organization = await prisma.organization.findUnique({
     where: { id: actor.organizationId },
     select: { name: true },
