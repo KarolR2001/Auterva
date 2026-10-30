@@ -852,6 +852,25 @@
       ]
     },
     {
+      "issue": 34,
+      "scope": "Panel firmy ADM-04 i ADM-05 na prawdziwym API floty (hosty firmy, kontekst superadmina przez PanelContext): lista z wyszukiwaniem, filtrem publikacji, aktywnosci i dostepnosci dzis, paginacja, kolejnosc przyciskami z klawiatury (zapis /vehicles/reorder), menu Wiecej z Ukryj i Archiwizuj po potwierdzeniu z wersja wiersza, stany loading, pusta flota, brak wynikow i blad. Dashboard: opublikowane, aktywne, dostepne i niedostepne dzis (data Warszawy), najblizsze blokady z linkiem do kalendarza pojazdu, status strony i okresu. Poza zakresem: nawigacja paneli i wspolne stany dostepu (#14), formularz #35, kalendarz #38, filtr kategorii (brak listy kategorii w API), ostrzezenia jakosci danych i status czatu.",
+      "relatedRequirementIds": ["C-F095", "C-F097", "FR-ADM-010", "FR-ADM-020", "FR-ADM-021", "FR-ADM-022"],
+      "referenceScreenIds": ["ADM-04", "ADM-05"],
+      "codePaths": [
+        "src/app/admin/page.tsx",
+        "src/app/admin/guard.ts",
+        "src/app/admin/pojazdy/page.tsx",
+        "src/components/admin/dashboard.tsx",
+        "src/components/admin/vehicle-list.tsx",
+        "src/components/admin/fleet-api.ts",
+        "src/components/admin/admin.module.css"
+      ],
+      "testPaths": [
+        "tests/unit/admin-fleet.test.ts",
+        "tests/e2e/admin-fleet.spec.ts"
+      ]
+    },
+    {
       "issue": 46,
       "scope": "Chroniony preview szkicu, ukrytego pojazdu i oferty firmy (admin swojej firmy lub superadmin w kontekscie firmy, takze po koncu okresu; private no-store, noindex, bez SEO, poza sitemap, zasoby tylko po autoryzacji) oraz ujednolicenie budzetu odczytu kalendarza superadmina z adapterami admin/platform. Zapisy zagniezdzone korzystaja z tych samych use case co firmowe. Bez UI (ADM-08 to Frontend).",
       "relatedRequirementIds": ["C-F016", "C-F017", "C-F018", "C-F058", "C-F099", "C-N030", "FR-ADM-034"],
