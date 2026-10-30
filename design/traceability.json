@@ -39,6 +39,45 @@
       "testPaths": ["tests/unit/auth-flow.test.tsx", "tests/unit/auth-page.test.tsx", "tests/unit/auth-destination.test.ts", "tests/unit/mfa-qr.test.tsx", "tests/e2e/auth-ui.spec.ts"]
     },
     {
+      "issue": 19,
+      "scope": "Reset hasła (prośba z neutralnym wynikiem, ustawienie nowego hasła z jednorazowym linkiem), konto obu ról (nazwa, e-mail i rola tylko do odczytu), zmiana hasła z cofnięciem sesji, wydanie nowych kodów przez świeżą weryfikację MFA, wylogowanie z potwierdzeniem serwera; PasswordStrength (DS-AUT-004) zgodny z polityką serwera 12–256 znaków.",
+      "relatedRequirementIds": ["C-F041", "C-F042", "C-F044", "FR-ADM-006", "FR-ADM-007", "FR-ADM-080", "FR-ADM-082"],
+      "referenceScreenIds": ["ADM-02", "ADM-03", "ADM-15", "PLT-10"],
+      "scenarioStates": {
+        "resetRequestNeutral": "ResetRequestForm sent (ADM-02)",
+        "setNewPassword": "SetNewPasswordForm form/mismatch/loading/success/expired (ADM-03, DS-AUT-003)",
+        "passwordStrength": "PasswordStrength weak/medium/strong (DS-AUT-004)",
+        "account": "AccountView: Dane konta, Zmień hasło, MFA (ADM-15 anatomia, PLT-10)",
+        "freshMfaForCodes": "AccountView → MfaFlow recoverCodes (PLT-10 → 07I)",
+        "manualRecovery": "AccountView Nie mam obu czynników (PLT-10 → 07C)"
+      },
+      "unmappedStates": ["Brak celu w makiecie dla 07D2 „Użyj kodu z aplikacji” (zgłoszone, bez zgadywania).", "Rotacja TOTP w pełnej sesji (D-05 pkt 5): API nie ma endpointu; konto oferuje tylko ponowne wydanie kodów i odzyskanie kodem."],
+      "components": [
+        { "itemId": "DS-AUT-002", "codePath": "src/components/auth/reset-flow.tsx" },
+        { "itemId": "DS-AUT-003", "codePath": "src/components/auth/reset-flow.tsx" },
+        { "itemId": "DS-AUT-004", "codePath": "src/components/auth/password-strength.tsx" },
+        { "itemId": "DS-AUT-007", "codePath": "src/components/account/account-view.tsx" }
+      ],
+      "codePaths": [
+        "src/components/auth/reset-flow.tsx",
+        "src/components/auth/reset-page.tsx",
+        "src/components/auth/auth-host.ts",
+        "src/components/auth/password-policy.ts",
+        "src/components/auth/password-strength.tsx",
+        "src/components/account/account-view.tsx",
+        "src/components/account/account-page.tsx",
+        "src/components/account/account.module.css",
+        "src/app/admin/reset-hasla/page.tsx",
+        "src/app/admin/reset-hasla/[token]/page.tsx",
+        "src/app/reset-hasla/page.tsx",
+        "src/app/reset-hasla/[token]/page.tsx",
+        "src/app/admin/konto/page.tsx",
+        "src/app/konto/page.tsx",
+        "src/modules/tenancy/host-route-policy.ts"
+      ],
+      "testPaths": ["tests/unit/password-policy.test.tsx", "tests/unit/reset-flow.test.tsx", "tests/unit/account-view.test.tsx", "tests/unit/account-page.test.tsx", "tests/unit/host-route-policy.test.ts", "tests/e2e/account-ui.spec.ts"]
+    },
+    {
       "issue": 65,
       "scope": "Opcjonalny prywatny zbiorczy kalendarz floty jednej firmy (pojazdy x dni, paginacja, zakres do 365 dni) oparty na wspólnym rzucie dni kalendarza pojedynczego auta; bez osi wszystkich firm i bez UI.",
       "relatedRequirementIds": ["C-F101", "FR-ADM-057", "D-15"],
