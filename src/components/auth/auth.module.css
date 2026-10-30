@@ -243,3 +243,61 @@
 .codes code {
   font-family: inherit;
 }
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.strength {
+  display: grid;
+  gap: var(--space-3);
+}
+.strengthLabel {
+  margin: 0;
+  font-size: var(--font-size-14);
+  font-weight: 600;
+  line-height: 20px;
+}
+.strengthTrack {
+  height: var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-default);
+}
+.strengthBar {
+  height: 100%;
+  background: var(--text-primary);
+}
+.strengthList {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-14);
+  line-height: 20px;
+}
+.strengthList li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.strengthList li[data-met="false"] {
+  color: var(--text-secondary);
+}
+.linkRow {
+  margin: 0;
+  font-size: var(--font-size-14);
+}
+.linkRow a {
+  color: var(--text-primary);
+  font-weight: 600;
+  text-underline-offset: 3px;
+}
+.linkRow a:focus-visible {
+  outline: 2px solid var(--border-strong);
+  outline-offset: 3px;
+}

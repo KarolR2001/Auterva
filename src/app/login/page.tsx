@@ -7,6 +7,7 @@ export default function Page({
     returnTo?: string | string[];
     recoverCodes?: string | string[];
     session?: string | string[];
+    password?: string | string[];
   }>;
 }) {
   return <AuthPage area="platform" stage="login" searchParams={searchParams} />;
