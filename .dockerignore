@@ -15,6 +15,8 @@ test-results
 docs
 design/*
 !design/tokens
+# #45: the marketing page imports this DEMO photo at build time.
+!design/assets/generated/generated-2026-10-13/public-fleet-depot-*
 tests
 .env
 .env.*
