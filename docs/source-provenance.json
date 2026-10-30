@@ -32,7 +32,7 @@
   "derivedDocuments": [
     {
       "path": "docs/WYMAGANIA_AUTERVA.md",
-      "sha256": "c11b51eb85ee6fd6436dc41058b9b37c96e0f5549400c854a10edaabb09bf756"
+      "sha256": "f8e34ad8634b0278ae194c7e9934ca6f209e2b3fcfe6f9569ca3dffdf3d6f6be"
     },
     {
       "path": "docs/ARCHITEKTURA_AUTERVA.md",
@@ -72,7 +72,7 @@
     },
     {
       "path": "docs/contracts/availability-reads.md",
-      "sha256": "9f4d0b0f896c3f44960a2e3d029b6999556a3304405717786475af136e7a279b"
+      "sha256": "4f8ec72b0c4462c6ea590f4a4db1f5201934d13c247f9022e0c65d4a5b0e7341"
     },
     {
       "path": "docs/contracts/fleet-crud-publication.md",
