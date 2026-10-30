@@ -44,7 +44,7 @@ async function decodeRenderedQr(page: Page) {
   if (!decoded) throw new Error("Rendered QR is not decodable");
   const totp = OTPAuth.URI.parse(decoded.data);
   if (!(totp instanceof OTPAuth.TOTP)) throw new Error("Rendered QR is not a TOTP URI");
-  await expect(page.locator("code").first()).toHaveText(totp.secret.base32);
+  await expect(page.locator("code").first()).toHaveText(totp.secret.base32.replace(/(.{4})(?=.)/g, "$1 "));
   return totp;
 }
 
