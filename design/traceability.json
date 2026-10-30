@@ -1993,7 +1993,36 @@
         },
         "mvpMenuOptions": ["Ukryj", "Archiwizuj"],
         "menuActionTargets": ["OVR-10", "OVR-11"],
-        "menuActionState": "Statyczny wzorzec; kontekst vehicleId i potwierdzenia przed #34/#35 domyka #107.",
+        "menuActionState": "#107: referencyjna Toyota M/D ma działające otwarcie menu i właściwych potwierdzeń oraz Anuluj; potwierdzenie bez symulowanej mutacji. Inne pojazdy zachowują ogólny wzorzec i wymagają danych wybranego wiersza w #34/#35.",
+        "vehicleMenuContract": {
+          "issue": 107,
+          "referenceVehicle": "Toyota Proace Verso",
+          "referenceStatus": "PUBLISHED",
+          "mobile": {
+            "moreHitId": "89433e5c-4f5c-80ad-8008-d6769ca03475",
+            "menuId": "d924335c-ac21-80ff-8008-dbf2b28071c4",
+            "hideHitId": "d924335c-ac21-80ff-8008-dbf2b28071c6",
+            "archiveHitId": "d924335c-ac21-80ff-8008-dbf2b28071c7",
+            "hideConfirmationId": "1e066793-8858-8051-8008-cf443b6e4403",
+            "archiveConfirmationId": "1e066793-8858-8051-8008-cf443b6e4413"
+          },
+          "desktop": {
+            "moreHitId": "89433e5c-4f5c-80ad-8008-d677823e2265",
+            "menuId": "d924335c-ac21-80ff-8008-dbf2be15e41e",
+            "hideHitId": "d924335c-ac21-80ff-8008-dbf2be15e420",
+            "archiveHitId": "d924335c-ac21-80ff-8008-dbf2be15e421",
+            "hideConfirmationId": "1e066793-8858-8051-8008-cf443e7400d5",
+            "archiveConfirmationId": "1e066793-8858-8051-8008-cf443e7400e5"
+          },
+          "statusOptions": {
+            "PUBLISHED": ["Ukryj", "Archiwizuj"],
+            "DRAFT": ["Archiwizuj"],
+            "UNPUBLISHED": ["Archiwizuj"],
+            "ARCHIVED": []
+          },
+          "runtimeOwnerIssues": [34, 35],
+          "runtimeContext": ["organizationId", "vehicleId", "status", "version", "actorRole"]
+        },
         "otherVehicleActions": "Osobne cele Edytuj i Kalendarz używają trasy danego pojazdu; statyczny ADM-09 przedstawia wyłącznie Mercedesa."
       },
       "assetIds": [
@@ -8335,6 +8364,15 @@
       ],
       "originalPriority": "UNSPECIFIED",
       "statesSpec": "Wywołanie: „Ukryj”",
+      "prototypeContract": {
+        "issue": 107,
+        "referenceVehicle": "Toyota Proace Verso",
+        "cancelHitIds": {
+          "mobile": "1e066793-8858-8051-8008-cf443b6e4408",
+          "desktop": "1e066793-8858-8051-8008-cf443e7400da"
+        },
+        "confirmationMutation": "not-simulated; runtime #34/#35 uses server response"
+      },
       "penpot": {
         "pageId": "a4abf4c9-2e1f-80fd-8008-afc9717d55df",
         "boardIds": {
@@ -8357,6 +8395,15 @@
       ],
       "originalPriority": "UNSPECIFIED",
       "statesSpec": "Wywołanie: „Archiwizuj”",
+      "prototypeContract": {
+        "issue": 107,
+        "referenceVehicle": "Toyota Proace Verso",
+        "cancelHitIds": {
+          "mobile": "1e066793-8858-8051-8008-cf443b6e4418",
+          "desktop": "1e066793-8858-8051-8008-cf443e7400ea"
+        },
+        "confirmationMutation": "not-simulated; archived vehicle has no panel restore"
+      },
       "penpot": {
         "pageId": "a4abf4c9-2e1f-80fd-8008-afc9717d55df",
         "boardIds": {
