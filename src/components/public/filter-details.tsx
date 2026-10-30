@@ -11,7 +11,11 @@ import styles from "./public.module.css";
 export function FilterDetails({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLDetailsElement | null>(null);
   useEffect(() => {
-    if (window.matchMedia("(min-width: 768px)").matches && ref.current) ref.current.open = true;
+    const openPanel = () => { if (ref.current) ref.current.open = true; };
+    if (window.matchMedia("(min-width: 768px)").matches || window.location.hash === "#catalog-filters") openPanel();
+    const onHash = () => { if (window.location.hash === "#catalog-filters") openPanel(); };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
   }, []);
   return <details ref={ref} className={styles.filterDetails}>{children}</details>;
 }
