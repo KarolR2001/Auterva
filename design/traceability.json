@@ -17,7 +17,33 @@
         "src/app/api/platform/companies/[organizationId]/audit/route.ts",
         "docs/contracts/audit-append-and-access.md"
       ],
-      "testPaths": ["tests/integration/audit-read-http.test.ts"]
+      "testPaths": ["tests/integration/audit-read-http.test.ts", "tests/unit/audit-cursor.test.ts"]
+    },
+    {
+      "issue": 70,
+      "scope": "Discovery (bez kodu): kontrakt najbliższego wolnego terminu i zbiorczych/kopiowanych blokad z wariantami i raportem konfliktów; decyzje właściciela P1-P7 zapisane jako D-32, implementacja w osobnych zadaniach.",
+      "relatedRequirementIds": ["C-F102", "C-F103", "C-F104", "C-N027", "FR-ADM-055", "D-15"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "docs/contracts/availability-nearest-and-bulk-blocks.md",
+        "docs/contracts/availability-reads.md"
+      ],
+      "testPaths": []
+    },
+    {
+      "issue": 72,
+      "scope": "Lista i świadome kończenie własnych sesji konta (FR-ADM-081, C-F043): referencje HMAC zamiast identyfikatorów, bez tokenów i IP, dowód reauth MFA jednorazowy i związany z celem, skutek natychmiast dla API i WebSocket (4401), audyt AUTH_SESSIONS_REVOKED; koniec okresu usługi nie kończy sesji.",
+      "relatedRequirementIds": ["FR-ADM-081", "C-F043"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/auth/sessions.ts",
+        "src/app/api/auth/[...all]/route.ts",
+        "docs/contracts/account-operations.md"
+      ],
+      "testPaths": [
+        "tests/integration/account-sessions.test.ts",
+        "tests/integration/account-sessions-reauth.test.ts"
+      ]
     },
     {
       "issue": 65,
