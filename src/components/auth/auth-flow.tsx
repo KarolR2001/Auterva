@@ -117,7 +117,21 @@ function useAuthRequest() {
     setError("");
     try {
       const result = await postAuth(path, body);
-      if (!result.response.ok) {
+      const { response, data } = result;
+      // An MFA mutation may be committed before a 5xx (gateway 502/504, failure after commit),
+      // so only the explicit technical retry answers (409 MFA_BUSY, 503 MFA_RETRY) are safe to resend.
+      const safeRetry =
+        response.status === 409 ||
+        (response.status === 503 && data.code === "MFA_RETRY");
+      if (
+        !response.ok &&
+        kind !== "login" &&
+        response.status >= 500 &&
+        !safeRetry &&
+        onUncertain
+      )
+        onUncertain();
+      else if (!response.ok) {
         setError(errorMessage(result, kind));
         onDenied?.(result.response);
         if ([409, 429, 503].includes(result.response.status)) {
@@ -282,6 +296,7 @@ export function LoginForm({
           id="auth-password"
           label="Hasło"
           autoComplete="current-password"
+          required
           placeholder={area === "platform" ? "Wpisz hasło" : undefined}
           hint={area === "platform" ? "Wielkość liter ma znaczenie." : undefined}
           visibility={visibility}
@@ -532,7 +547,8 @@ export function MfaFlow({
         <form
           className={styles.form}
           noValidate
-          onSubmit={codeForm.handleSubmit(({ code }) => {
+          onSubmit={codeForm.handleSubmit(({ code: rawCode }) => {
+            const code = step === "recovery" ? rawCode : rawCode.replace(/\s+/g, "");
             if (step !== "recovery" && !/^\d{6}$/.test(code)) {
               request.setError("Kod z aplikacji musi mieć 6 cyfr.");
               return;
@@ -585,7 +601,7 @@ export function MfaFlow({
               <p className={styles.intro}>Zeskanuj kod w aplikacji uwierzytelniającej, a następnie wpisz otrzymany kod.</p>
               {totpUri && <MfaQr uri={totpUri} />}
               <p className={styles.intro}>Nie możesz zeskanować kodu? Wpisz klucz ręcznie:
-                <code className={styles.secret}>{secret}</code>
+                <code className={styles.secret}>{secret.replace(/(.{4})(?=.)/g, "$1 ")}</code>
               </p>
             </div>
           )}
@@ -671,7 +687,8 @@ export function MfaFlow({
         <form
           className={styles.form}
           noValidate
-          onSubmit={codeForm.handleSubmit(({ code }) => {
+          onSubmit={codeForm.handleSubmit(({ code: rawCode }) => {
+            const code = rawCode.replace(/\s+/g, "");
             if (!/^\d{6}$/.test(code)) {
               request.setError("Kod z aplikacji musi mieć 6 cyfr.");
               return;

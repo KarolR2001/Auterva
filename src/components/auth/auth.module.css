@@ -149,13 +149,13 @@
   margin-top: var(--space-10);
 }
 .page[data-area="platform"] .loginForm {
-  margin-top: 0;
+  margin-top: 44px;
 }
 .loginForm > div:nth-of-type(-n + 2) {
   margin-inline: var(--space-5);
 }
 .loginForm label[for="auth-password"]::after {
-  content: " *";
+  content: " *" / "";
 }
 .loginForm > button {
   margin-top: var(--space-8);

@@ -290,7 +290,7 @@ describe("obowiązkowe MFA", () => {
     await user.click(
       screen.getByRole("button", { name: "Rozpocznij konfigurację" }),
     );
-    await screen.findByText("ABCDEF123456");
+    await screen.findByText("ABCD EF12 3456");
     await user.type(
       screen.getByRole("textbox", { name: "Kod MFA" }),
       "123456",
@@ -446,7 +446,7 @@ describe("obowiązkowe MFA", () => {
     await user.click(
       screen.getByRole("button", { name: "Rozpocznij konfigurację" }),
     );
-    expect(await screen.findByText("ABCDEF123456")).toBeVisible();
+    expect(await screen.findByText("ABCD EF12 3456")).toBeVisible();
     expect(screen.queryByText("kod-1")).toBeNull();
     await user.type(
       screen.getByRole("textbox", { name: "Kod MFA" }),
@@ -477,7 +477,7 @@ describe("obowiązkowe MFA", () => {
       screen.getByRole("button", { name: "Rozpocznij konfigurację" }),
     );
     expect(await screen.findByRole("img", { name: "Kod QR do konfiguracji MFA" })).toBeVisible();
-    expect(screen.getByText("ABCDEF123456")).toBeVisible();
+    expect(screen.getByText("ABCD EF12 3456")).toBeVisible();
     expect(document.querySelector('img[src^="http"]')).toBeNull();
   });
 
@@ -576,7 +576,7 @@ describe("stany odzyskiwania i dostępności MFA (#132)", () => {
     expect(screen.getByText(/kod odzyskania został przyjęty/i)).toBeVisible();
     await user.type(screen.getByLabelText("Hasło"), "Hasło123!");
     await user.click(screen.getByRole("button", { name: "Potwierdź hasło" }));
-    expect(await screen.findByText("NEWSECRET234")).toBeVisible();
+    expect(await screen.findByText("NEWS ECRE T234")).toBeVisible();
     await user.type(screen.getByRole("textbox", { name: "Kod MFA" }), "123456");
     await user.click(screen.getByRole("button", { name: "Włącz MFA i pokaż kody" }));
     expect(await screen.findByRole("heading", { name: "Zapisz kody odzyskania" })).toHaveFocus();
@@ -652,5 +652,70 @@ describe("stany odzyskiwania i dostępności MFA (#132)", () => {
     expect(notices[0]).toHaveTextContent("Twoja sesja wygasła. Zaloguj się ponownie.");
     expect(notices[1]).toHaveTextContent("Po zalogowaniu wydasz nowe kody odzyskania.");
     expect(screen.queryByRole("link", { name: /rejestracj/i })).toBeNull();
+  });
+});
+
+describe("5xx na mutacji MFA (D-05, #132)", () => {
+  const enroll = () =>
+    Response.json({ totpURI: "otpauth://totp/Auterva?secret=ABCDEF123456" });
+  async function toSetupAndSubmit(second: Response, code = "123456") {
+    const request = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(enroll())
+      .mockResolvedValueOnce(second);
+    const user = userEvent.setup();
+    render(<MfaFlow area="platform" initialMode="enroll" />);
+    await user.type(screen.getByLabelText("Potwierdź hasło"), "Hasło123!");
+    await user.click(screen.getByRole("button", { name: "Rozpocznij konfigurację" }));
+    await screen.findByText("ABCD EF12 3456");
+    await user.type(screen.getByRole("textbox", { name: "Kod MFA" }), code);
+    await user.click(screen.getByRole("button", { name: "Włącz MFA i pokaż kody" }));
+    return request;
+  }
+
+  it.each([500, 502, 504])(
+    "enrollment: %i to stan niepewny bez ponowienia kodu",
+    async (status) => {
+      const request = await toSetupAndSubmit(Response.json({}, { status }));
+      expect(await screen.findByRole("button", { name: "Sprawdź stan" })).toBeVisible();
+      expect(screen.queryByRole("button", { name: "Włącz MFA i pokaż kody" })).toBeNull();
+      expect(request).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it("enrollment: spacje w kodzie z aplikacji są ignorowane", async () => {
+    const request = await toSetupAndSubmit(
+      Response.json({ backupCodes: ["k1"] }),
+      "123 456",
+    );
+    await screen.findByText("k1");
+    expect(JSON.parse(String(request.mock.calls[1][1]?.body)).code).toBe("123456");
+  });
+
+  it.each([500, 502, 504])(
+    "challenge: %i na verify-totp to stan niepewny",
+    async (status) => {
+      const request = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(Response.json({}, { status }));
+      const user = userEvent.setup();
+      render(<MfaFlow area="company" initialMode="challenge" />);
+      await user.type(screen.getByRole("textbox", { name: "Kod MFA" }), "123456");
+      await user.click(screen.getByRole("button", { name: /Zweryfikuj|Zaloguj|Potwierdź/ }));
+      expect(await screen.findByRole("button", { name: "Sprawdź stan" })).toBeVisible();
+      expect(request).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each([
+    [409, { code: "MFA_BUSY" }],
+    [503, { code: "MFA_RETRY" }],
+  ])("%i %j pozostaje ponowieniem po Retry-After", async (status, body) => {
+    const request = await toSetupAndSubmit(
+      Response.json(body, { status, headers: { "Retry-After": "2" } }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(/spróbuj ponownie/i);
+    expect(screen.queryByRole("button", { name: "Sprawdź stan" })).toBeNull();
+    expect(request).toHaveBeenCalledTimes(2);
   });
 });
