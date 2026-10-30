@@ -124,6 +124,17 @@ describe("konto: zmiana hasła", () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/admin/login?password=changed"));
   });
 
+  it("5xx przy zmianie hasła jest wynikiem niepewnym rozstrzyganym odczytem sesji", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json({}, { status: 503 }))
+      .mockResolvedValueOnce(Response.json(null));
+    const user = userEvent.setup();
+    render(<AccountView area="company" account={account} />);
+    await fill(user);
+    await user.click(screen.getByRole("button", { name: "Zmień hasło" }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/admin/login?password=changed"));
+  });
+
   it("nie wysyła zbyt krótkiego ani niezgodnego hasła", async () => {
     const request = vi.spyOn(globalThis, "fetch");
     const user = userEvent.setup();

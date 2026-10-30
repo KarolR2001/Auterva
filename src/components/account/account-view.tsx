@@ -121,6 +121,18 @@ export function AccountView({
     return () => window.removeEventListener("pageshow", onShow);
   }, []);
 
+  // The outcome is unknown; a revoked session proves the change was committed.
+  const uncertain = async () => {
+    const alive = await sessionAlive();
+    if (alive === false) toLogin("password=changed");
+    else
+      change.setError(
+        alive === true
+          ? "Nie udało się potwierdzić zmiany. Hasło nie zostało zmienione. Spróbuj ponownie."
+          : "Nie wiemy, czy hasło zostało zmienione. Odśwież stronę, aby to sprawdzić.",
+      );
+  };
+
   if (signedOut)
     return (
       <main className={styles.page}>
@@ -261,18 +273,10 @@ export function AccountView({
                 toLogin("password=changed");
                 return true;
               },
-              async () => {
-                // The outcome is unknown; a revoked session proves the change was committed.
-                const alive = await sessionAlive();
-                if (alive === false) toLogin("password=changed");
-                else
-                  change.setError(
-                    alive === true
-                      ? "Nie udało się połączyć. Hasło nie zostało zmienione. Spróbuj ponownie."
-                      : "Nie udało się połączyć. Nie wiemy, czy hasło zostało zmienione. Odśwież stronę, aby to sprawdzić.",
-                  );
-              },
+              uncertain,
               async (response) => {
+                // A 5xx may follow a committed change: resolve it like a lost response.
+                if (response.status >= 500) return uncertain();
                 if (response.status !== 401) return;
                 if ((await sessionAlive()) === false) toLogin("session=expired");
                 else
