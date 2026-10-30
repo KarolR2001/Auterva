@@ -25,7 +25,7 @@
       "path": "docs/design/SPEC.md",
       "role": "current-design-contract",
       "originalSha256": "57f6591f985e33c7ea225f84b9fa2ac298ff852c2843fb1c54994991608b2027",
-      "sha256": "776626ef4ae13037c5c3f424a5cba294fd2c751d299a569fc42e483b523a9d0a",
+      "sha256": "6cbbc214b0458e5a3b8d90714254ba9bc11412d9a53a11c7aa7805bde3e78fea",
       "transformation": "Dodano nadrzędny kontrakt 3.1 i DEC-013–020, aktualne strony Penpota, obowiązkowe MFA, granice ustawień i status prototypów; zachowano fundamenty/komponenty i przeniesiono reguły motion/copy bez historycznych wyników QA. Doprecyzowano nawigację panelu firmy w #94 i platformy w #102, a w #107 menu akcji pojazdu ADM-05 (publikacja tylko w formularzu)."
     }
   ],
