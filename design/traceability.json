@@ -3,6 +3,21 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 72,
+      "scope": "Lista i świadome kończenie własnych sesji konta (FR-ADM-081, C-F043): referencje HMAC zamiast identyfikatorów, bez tokenów i IP, dowód reauth MFA jednorazowy i związany z celem, skutek natychmiast dla API i WebSocket (4401), audyt AUTH_SESSIONS_REVOKED; koniec okresu usługi nie kończy sesji.",
+      "relatedRequirementIds": ["FR-ADM-081", "C-F043"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/auth/sessions.ts",
+        "src/app/api/auth/[...all]/route.ts",
+        "docs/contracts/account-operations.md"
+      ],
+      "testPaths": [
+        "tests/integration/account-sessions.test.ts",
+        "tests/integration/account-sessions-reauth.test.ts"
+      ]
+    },
+    {
       "issue": 65,
       "scope": "Opcjonalny prywatny zbiorczy kalendarz floty jednej firmy (pojazdy x dni, paginacja, zakres do 365 dni) oparty na wspólnym rzucie dni kalendarza pojedynczego auta; bez osi wszystkich firm i bez UI.",
       "relatedRequirementIds": ["C-F101", "FR-ADM-057", "D-15"],
