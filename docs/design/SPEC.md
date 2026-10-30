@@ -1497,7 +1497,7 @@ Toolbar: wyszukiwanie, status publikacji, kategoria, aktywność, dostępność,
 
 - karty z miniaturą, nazwą, statusami i datą zmiany,
 - primary quick action „Edytuj” lub „Kalendarz”,
-- menu dla publikacji/ukrycia/archiwizacji,
+- menu dla ukrycia/archiwizacji (publikacja tylko w formularzu `ADM-06/07`),
 - filtry w bottom sheet,
 - przycisk dodania w nagłówku lub FAB.
 
@@ -1507,8 +1507,12 @@ Toolbar: wyszukiwanie, status publikacji, kategoria, aktywność, dostępność,
 - brak wyników → reset filtrów,
 - wiersz/karta → `ADM-07`,
 - kalendarz → `ADM-09`,
-- podgląd → `ADM-08`,
-- akcje statusu → `OVR-09`, `OVR-10`, `OVR-11`.
+- podgląd (SHOULD) → `ADM-08`,
+- akcje statusu w menu → `OVR-10`, `OVR-11`; publikacja → `ADM-06/07` → `OVR-09`.
+
+Referencją menu dodatkowego jest opublikowana Toyota Proace Verso w `ADM-05` M/D. Jej „Więcej” otwiera wariant z „Ukryj” → `OVR-10` i „Archiwizuj” → `OVR-11`; oba potwierdzenia nazywają ten sam pojazd, a „Anuluj” zamyka dialog bez zapisu. To demonstracja nawigacji, nie wykonanie mutacji. Pozostałe demonstracyjne pojazdy zachowują ogólne menu i wymagają danych wybranego wiersza przy implementacji #34/#35 — nie wolno kierować ich do potwierdzenia Toyoty.
+
+W produkcie opcje zależą od bieżącego statusu pojazdu: `PUBLISHED` pozwala ukryć albo archiwizować; `DRAFT` i `UNPUBLISHED` pozwalają archiwizować, a publikacja pozostaje przepływem formularza `ADM-06/07` z walidacją D-02; `ARCHIVED` nie udostępnia mutacji. Podgląd `ADM-08` jest SHOULD i nie jest akcją menu MVP. Przed potwierdzeniem UI zachowuje `vehicleId`, wersję i kontekst firmy; po potwierdzeniu pokazuje wynik dopiero z odpowiedzi serwera. Błąd i konflikt utrzymują dialog/kontekst oraz umożliwiają bezpieczne ponowienie po odczycie aktualnej wersji. W panelu platformy superadmin działa jako własny aktor w jawnie wybranej firmie.
 
 ## 9.13. `ADM-06` i `ADM-07` — Formularz pojazdu
 
@@ -1860,7 +1864,7 @@ flowchart TD
     VEHICLES -->|Nowy| NEW
     VEHICLES -->|Edytuj| EDIT
     VEHICLES -->|Kalendarz| VCAL
-    VEHICLES -->|Podgląd| PREVIEW
+    VEHICLES -->|Podgląd SHOULD| PREVIEW
 
     NEW -->|Zapisz szkic| EDIT
     NEW -->|Podgląd| PREVIEW
@@ -1948,10 +1952,10 @@ Panel administratora i część publiczna nie mają wspólnej nawigacji użytkow
 | `ADM-04` | Najbliższa blokada | — | `ADM-09`/`OVR-07` |
 | `ADM-05` | Edytuj | — | `ADM-07` |
 | `ADM-05` | Kalendarz | — | `ADM-09` |
-| `ADM-05` | Podgląd | — | `ADM-08` |
-| `ADM-05` | Opublikuj | wymagania spełnione | `OVR-09` → toast |
+| `ADM-05` | Podgląd (SHOULD, poza menu MVP) | — | `ADM-08` |
+| `ADM-05` | Edytuj → publikacja | publikacja tylko w formularzu, nie w menu listy | `ADM-07` |
 | `ADM-05` | Ukryj | status published | `OVR-10` → lista |
-| `ADM-05` | Archiwizuj | potwierdzenie | `OVR-11` → lista |
+| `ADM-05` | Archiwizuj | pojazd nie jest zarchiwizowany, potwierdzenie | `OVR-11` → lista po sukcesie serwera |
 | `ADM-06` | Zapisz szkic | minimalne dane technicznie poprawne | `ADM-07` + toast |
 | `ADM-06/07` | Publikuj | komplet danych | `OVR-09` → status PUBLISHED |
 | `ADM-06/07` | Publikuj | braki | `ValidationSummary`, bez zmiany trasy |
