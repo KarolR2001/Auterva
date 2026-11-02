@@ -45,7 +45,9 @@
       "referenceScreenIds": ["ADM-02", "ADM-03", "ADM-15", "PLT-10"],
       "scenarioStates": {
         "resetRequestNeutral": "ResetRequestForm sent (ADM-02)",
+        "resetRequestUncertain": "ResetRequestForm 5xx/utrata odpowiedzi, ponowienie z tym samym kluczem (ADM-02)",
         "setNewPassword": "SetNewPasswordForm form/mismatch/loading/success/expired (ADM-03, DS-AUT-003)",
+        "setNewPasswordUncertain": "SetNewPasswordForm 5xx/utrata odpowiedzi, bez fałszywego sukcesu (ADM-03)",
         "passwordStrength": "PasswordStrength weak/medium/strong (DS-AUT-004)",
         "account": "AccountView: Dane konta, Zmień hasło, MFA (ADM-15 anatomia, PLT-10)",
         "freshMfaForCodes": "AccountView → MfaFlow recoverCodes (PLT-10 → 07I)",

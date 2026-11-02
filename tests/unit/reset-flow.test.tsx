@@ -54,6 +54,21 @@ describe("prośba o reset hasła", () => {
     expect(screen.queryByText(/wyślemy instrukcję resetu hasła\.$/)).not.toBeNull();
   });
 
+  it("5xx po żądaniu pokazuje wynik niepewny i ponawia ten sam klucz", async () => {
+    const request = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json({}, { status: 502 }))
+      .mockResolvedValueOnce(Response.json({ accepted: true }));
+    const user = userEvent.setup();
+    render(<ResetRequestForm area="company" />);
+    await user.type(screen.getByRole("textbox", { name: /Adres e-mail/ }), "a@example.test");
+    await user.click(screen.getByRole("button", { name: "Wyślij instrukcję" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Nie wiemy, czy żądanie dotarło");
+    await user.click(screen.getByRole("button", { name: "Wyślij instrukcję" }));
+    await waitFor(() => expect(request).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(String(request.mock.calls[0][1]?.body)).idempotencyKey)
+      .toBe(JSON.parse(String(request.mock.calls[1][1]?.body)).idempotencyKey);
+  });
+
   it("limit blokuje ponowienie i nie pokazuje sukcesu", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       Response.json({ code: "RATE_LIMITED" }, { status: 429, headers: { "Retry-After": "30" } }),
@@ -120,6 +135,17 @@ describe("ustawienie nowego hasła", () => {
 
   it("utrata połączenia zachowuje pola i nie ogłasza sukcesu", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new TypeError("offline"));
+    const user = userEvent.setup();
+    render(<SetNewPasswordForm area="company" token={token} />);
+    await user.type(screen.getByLabelText("Nowe hasło"), "Dlugie haslo 12345!");
+    await user.type(screen.getByLabelText("Potwierdź nowe hasło"), "Dlugie haslo 12345!");
+    await user.click(screen.getByRole("button", { name: "Zapisz nowe hasło" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Nie wiemy, czy hasło zostało zmienione");
+    expect(screen.getByLabelText("Nowe hasło")).toHaveValue("Dlugie haslo 12345!");
+  });
+
+  it("5xx po zmianie hasła zachowuje pola i pokazuje wynik niepewny", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}, { status: 502 }));
     const user = userEvent.setup();
     render(<SetNewPasswordForm area="company" token={token} />);
     await user.type(screen.getByLabelText("Nowe hasło"), "Dlugie haslo 12345!");

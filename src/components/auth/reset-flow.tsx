@@ -88,6 +88,12 @@ export function ResetRequestForm({ area }: AuthProps) {
                 request.setError(
                   "Nie udało się połączyć. Nie wiemy, czy żądanie dotarło. Spróbuj ponownie.",
                 ),
+              (response) => {
+                if (response.status >= 500)
+                  request.setError(
+                    "Nie wiemy, czy żądanie dotarło. Spróbuj ponownie.",
+                  );
+              },
             );
           })}
         >
@@ -230,6 +236,10 @@ export function SetNewPasswordForm({
                 if (response.status === 401) {
                   form.reset();
                   setState("expired");
+                } else if (response.status >= 500) {
+                  request.setError(
+                    "Nie wiemy, czy hasło zostało zmienione. Spróbuj ponownie albo zaloguj się nowym hasłem.",
+                  );
                 }
               },
             ),
