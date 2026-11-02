@@ -132,14 +132,8 @@
   outline: 2px solid var(--border-strong);
   outline-offset: 3px;
 }
-.page[data-area="company"][data-view="login"] .card {
-  margin-top: var(--space-2);
-}
 .page[data-area="platform"][data-view="login"] .context {
   margin-bottom: var(--space-3);
-}
-.page[data-area="company"][data-view="login"] .card h1 {
-  margin-bottom: 84px;
 }
 .page[data-area="platform"][data-view="login"] .card h1 {
   margin-bottom: var(--space-20);
@@ -163,13 +157,35 @@
 .page[data-area="platform"] .loginForm > button {
   margin-top: var(--space-5);
 }
-.page[data-area="company"][data-view="login"] .footer {
-  margin-top: var(--space-20);
-}
 .page[data-area="platform"][data-view="login"] .footer {
   margin-top: 76px;
 }
 @media (max-width: 767px) {
+  .page[data-area="company"][data-view="login"] {
+    padding-top: 28px;
+  }
+  .page[data-area="company"][data-view="login"] .card {
+    margin-top: var(--space-10);
+  }
+  .page[data-area="company"][data-view="login"] .context {
+    margin-bottom: var(--space-5);
+  }
+  .page[data-area="company"][data-view="login"] .card h1 {
+    margin-bottom: 56px;
+  }
+  .page[data-area="company"][data-view="login"] .intro {
+    line-height: var(--line-height-20);
+  }
+  .page[data-area="company"][data-view="login"] .loginForm {
+    margin-top: var(--space-12);
+    gap: 44px;
+  }
+  .page[data-area="company"][data-view="login"] .loginForm > button {
+    margin-top: var(--space-12);
+  }
+  .page[data-area="company"][data-view="login"] .footer {
+    margin-top: 68px;
+  }
   .page[data-view="mfa"][data-step="challenge"] .context {
     display: none;
   }
