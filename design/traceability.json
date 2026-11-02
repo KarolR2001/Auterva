@@ -890,6 +890,7 @@
         "src/components/public/public-chrome.tsx",
         "src/components/public/public-home.tsx",
         "src/components/public/catalog-filters.tsx",
+        "src/components/public/date-range-field.tsx",
         "src/components/public/vehicle-card.tsx",
         "src/components/public/state-page.tsx",
         "src/components/public/public.module.css",
@@ -898,6 +899,7 @@
       ],
       "testPaths": [
         "tests/unit/public-presentation.test.ts",
+        "tests/unit/public-home-visual.test.tsx",
         "tests/e2e/public-site.spec.ts"
       ]
     },
