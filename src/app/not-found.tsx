@@ -76,10 +76,6 @@ async function panelNotFound() {
   return null;
 }
 
-export default async function NotFound() {
-  const panel = await panelNotFound().catch(() => null);
-  return panel ?? <Neutral />;
-
 // #57: Next's built-in 404 page ships an inline <style> without a nonce, which the document CSP blocks. This page
 // uses no inline style. It never names a company or a reason for a disabled site (TEST-MVP-10, C-N057): the
 // brand and contact appear only when the central gate lets the offer through (PUB-07); a public host that

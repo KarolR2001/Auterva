@@ -19,7 +19,6 @@ export const emptyCompanyForm: CompanyFormValues = {
 const slugPattern = /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$/;
 const reservedSlugs = new Set(["admin", "api", "app", "auth", "assets", "cdn", "mail", "marketing",
   "platform", "static", "status", "support", "www", "staging", "preview", "dev", "smtp", "mx"]);
-// eslint-disable-next-line no-control-regex
 const controlCharacter = /[\u0000-\u001f\u007f-\u009f]/;
 
 const polishLetters: Record<string, string> = { ł: "l", Ł: "l" };

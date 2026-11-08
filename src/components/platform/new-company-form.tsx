@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useId, useRef, useState, type FormEvent } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
 
-import { UnsavedChangesDialog } from "../panel/unsaved-changes-dialog";
-import { useNavigationGuard } from "../panel/use-navigation-guard";
+import { navigation, useUnsavedChanges } from "../panel/unsaved-changes-guard";
 import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
 import { FormField } from "../ui/form-field";
@@ -55,7 +55,22 @@ export function NewCompanyForm({ adminBaseDomain, publicBaseDomain }: Props) {
 
   const dirty = isCompanyFormDirty(values);
   const saving = status === "saving";
-  const guard = useNavigationGuard(saving ? "busy" : dirty ? "dirty" : "free");
+  const [savedId, setSavedId] = useState<string | null>(null);
+  const redirectOnSave = useRef(true);
+  const submitRef = useRef<(navigateAfter: boolean) => Promise<boolean>>(async () => false);
+  // The shell guards its links, "Wyloguj" and tab close; "Zapisz i wyjdź" saves through this callback.
+  useUnsavedChanges({
+    dirty: dirty && !savedId,
+    saving,
+    contextLabel: "formularzu nowej firmy",
+    save: async () => {
+      if (!(await submitRef.current(false))) throw new Error("not saved");
+    },
+  });
+  // The form is clean once the company is saved; only then may the page move on without the leave warning.
+  useEffect(() => {
+    if (savedId && redirectOnSave.current) navigation.assign(`/firmy/${savedId}/?zapisano=1`);
+  }, [savedId]);
 
   function update(next: Partial<CompanyFormValues>, field: CompanyField) {
     setValues((current) => {
@@ -79,7 +94,7 @@ export function NewCompanyForm({ adminBaseDomain, publicBaseDomain }: Props) {
   }, []);
 
   // Returns true when the company was saved. Never throws.
-  const submit = useCallback(async (): Promise<boolean> => {
+  const submit = useCallback(async (navigateAfter = true): Promise<boolean> => {
     const current = valuesRef.current;
     const problem = validateCompanyForm(current);
     const count = Object.keys(problem).length;
@@ -108,7 +123,9 @@ export function NewCompanyForm({ adminBaseDomain, publicBaseDomain }: Props) {
       const body: unknown = await response.json().catch(() => null);
       const outcome = classifyCreateResponse(response.status, body, response.headers.get("Retry-After"));
       if (outcome.kind === "saved") {
-        guard.leave(`/firmy/${outcome.organizationId}/?zapisano=1`);
+        redirectOnSave.current = navigateAfter;
+        setSavedId(outcome.organizationId);
+        setStatus("idle");
         return true;
       }
       if (outcome.kind === "uncertain") throw new Error("uncertain");
@@ -141,7 +158,8 @@ export function NewCompanyForm({ adminBaseDomain, publicBaseDomain }: Props) {
       requestAnimationFrame(() => summary.current?.focus());
       return false;
     }
-  }, [focusFirstProblem, guard]);
+  }, [focusFirstProblem]);
+  useEffect(() => { submitRef.current = submit; }, [submit]);
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -160,7 +178,6 @@ export function NewCompanyForm({ adminBaseDomain, publicBaseDomain }: Props) {
         <div ref={summary} tabIndex={-1} className={styles.summary}>
           {saving && <Alert tone="info" title="Zapisywanie firmy… Poczekaj na potwierdzenie.">Trwa zapisywanie danych firmy. Zaproszenie wyślesz osobno po zapisie.</Alert>}
           {!saving && notice && <Alert tone={notice.tone} title={notice.title}>{notice.text}</Alert>}
-          {guard.blockedWhileBusy && <p role="status">Trwa zapisywanie. Poczekaj na potwierdzenie przed opuszczeniem formularza.</p>}
         </div>
 
         <fieldset className={styles.section} disabled={saving}>
@@ -199,13 +216,13 @@ export function NewCompanyForm({ adminBaseDomain, publicBaseDomain }: Props) {
           <div role="radiogroup" aria-label="Rodzaj okresu" className={styles.radios}>
             <label className={styles.radio}>
               <input id="company-period-trial" type="radio" name="periodKind" checked={values.periodKind === "trial"}
-                aria-invalid={errors.periodKind ? true : undefined} aria-describedby={errors.periodKind ? "company-period-error" : undefined}
+                aria-describedby={errors.periodKind ? "company-period-error" : undefined}
                 onChange={() => update({ periodKind: "trial", paidThrough: "" }, "periodKind")} />
               <span>Trial — dokładnie 336 godzin od rejestracji administratora</span>
             </label>
             <label className={styles.radio}>
               <input id="company-period-paid" type="radio" name="periodKind" checked={values.periodKind === "paid"}
-                aria-invalid={errors.periodKind ? true : undefined} aria-describedby={errors.periodKind ? "company-period-error" : undefined}
+                aria-describedby={errors.periodKind ? "company-period-error" : undefined}
                 onChange={() => update({ periodKind: "paid" }, "periodKind")} />
               <span>Opłacony okres — do wskazanego dnia włącznie</span>
             </label>
@@ -222,24 +239,11 @@ export function NewCompanyForm({ adminBaseDomain, publicBaseDomain }: Props) {
 
         <div className={styles.actions}>
           <Button type="submit" loading={saving} loadingLabel="Zapisywanie firmy">{retry ? "Ponów zapis" : status === "failed" ? "Zapisz firmę" : "Zapisz firmę"}</Button>
-          <a className={styles.cancel} href="/firmy">Anuluj</a>
+          <Link className={styles.cancel} href="/firmy/" prefetch={false}>Anuluj</Link>
         </div>
         <p className={styles.hint}>Najpierw zapisz firmę. Zaproszenie wyślesz z jej karty, po sprawdzeniu adresu e-mail i konfiguracji.</p>
       </form>
 
-      <UnsavedChangesDialog
-        open={guard.target !== null && !saving}
-        contextLabel="formularzu nowej firmy"
-        onStay={guard.stay}
-        onDiscard={() => { if (guard.target) guard.leave(guard.target); }}
-        onSaveAndLeave={async () => {
-          const target = guard.target;
-          const saved = await submit();
-          // submit() navigates to the new company on success; invalid or failed data stays on the form.
-          if (!saved) guard.stay();
-          else if (target) guard.leave(target);
-        }}
-      />
     </>
   );
 }
