@@ -1,6 +1,6 @@
 # Najbliższy wolny termin i zbiorcze blokady — kontrakt discovery (#70)
 
-Status: **zatwierdzony przez właściciela 28.10.2026 (D-32), kontrakt bez implementacji**; P1–P7 w sekcji 4 są decyzjami. Zakres opcjonalny (COULD po stabilizacji, `docs/WYMAGANIA_AUTERVA.md` §10), poza obowiązkowym MVP. Po decyzji (D-32) powstają osobne zadania API i FE (sekcja 5). Źródła: C-F102, C-F103, C-F104, C-N027, FR-ADM-051/053/055/057/058, D-15; kontrakty [odczyty #33/#59/#65](availability-reads.md) i [blokady #38](availability-blocks.md), [audyt](audit-append-and-access.md).
+Status: **zatwierdzony przez właściciela 28.10.2026 (D-32); API zbiorczych blokad zaimplementowane w #215 (sekcja 2.1), pozostałe warianty bez implementacji**; P1–P7 w sekcji 4 są decyzjami. Zakres opcjonalny (COULD po stabilizacji, `docs/WYMAGANIA_AUTERVA.md` §10), poza obowiązkowym MVP. Po decyzji (D-32) powstają osobne zadania API i FE (sekcja 5). Źródła: C-F102, C-F103, C-F104, C-N027, FR-ADM-051/053/055/057/058, D-15; kontrakty [odczyty #33/#59/#65](availability-reads.md) i [blokady #38](availability-blocks.md), [audyt](audit-append-and-access.md).
 
 Nie powstaje rezerwacja online, płatność ani zapis offline. Najbliższy termin to wyłącznie informacja; kontakt nadal niczego nie rezerwuje. Każdy wariant przejmuje niezmienniki: `LocalDate`/SQL DATE z końcami włącznie (jeden dzień poprawny), „dzisiaj” w `Europe/Warsaw` (`availabilityToday`), aktor/rola/firma/stan konta sprawdzane w każdej operacji, izolacja firm, brak `internalNote`/`reference`/typu/danych technicznych w odpowiedziach publicznych, brak cache wyniku (po commit następny odczyt widzi nowy stan).
 
@@ -83,9 +83,35 @@ Sukces: `201 {saved:[{vehicleId, blockId, version}], rejected:[]}`; w trybie `SK
 ### Audyt, retry, limity
 
 - Audyt: jedno `BLOCK_CREATED` na zapisaną blokadę (jak #38, `changedFields` bez typu/reference/notatki), wspólny `requestId` jednego żądania; brak wpisów dla odrzuconych aut w `ALL_OR_NOTHING`.
-- Idempotencja (decyzja P7): wymagany `idempotencyKey: UUID` z trwałym receiptem ważnym **24 h**. Ten sam klucz i wejście w tym czasie zwraca zapisany wynik; inne wejście pod tym kluczem to `409 IDEMPOTENCY_KEY_CONFLICT`; po 24 h klucz można użyć ponownie. Bez tego ponowienie po timeoucie dałoby `BULK_CONFLICTS` z własnymi blokadami. Mechanizm wybiera zadanie API, byle spełniał TTL 24 h: istniejący `OperationReceipt` nie ma TTL, więc wymaga wygasania (np. kolumny wygaśnięcia i czyszczenia) albo osobnej, addytywnej tabeli receiptów.
+- Idempotencja (decyzja P7): wymagany `idempotencyKey: UUID` z trwałym receiptem ważnym **24 h**. Ten sam klucz i wejście w tym czasie zwraca zapisany wynik; inne wejście pod tym kluczem to `409 IDEMPOTENCY_KEY_CONFLICT`; po 24 h klucz można użyć ponownie. Bez tego ponowienie po timeoucie dałoby `BULK_CONFLICTS` z własnymi blokadami. Wybrany mechanizm (#215, sekcja 2.1): `OperationReceipt` z kolumną `expiresAt`.
 - Limit zapisów: wspólny budżet zapisów 60/min na aktora; limit `K=50` aut (P4) i maksymalny rozmiar ciała jak inne JSON. Rekomendacja (nie decyzja): żądanie zbiorcze waży tyle jednostek budżetu, ile ma aut, żeby jedno żądanie 50 aut nie kosztowało tyle co jeden zapis; waga do ustalenia w zadaniu API.
 - Świeżość: po commit następny publiczny odczyt (`check`, `calendar`, `batch`, `next`) czyta bieżące rekordy; brak cache, więc nie ma unieważniania.
+
+### 2.1 Kontrakt API zbiorczych blokad (#215, doprecyzowanie uwag QA #70)
+
+Ścieżki (obie operacje, `POST`, prefiks `/api/admin` albo `/api/platform/companies/{organizationId}`; reguły hosta, MFA, `Origin`, roli, firmy, stanu konta, archiwum D-23 i budżet zapisów jak w [#38](availability-blocks.md)): `{prefiks}/blocks/bulk` (zbiorcze utworzenie) i `{prefiks}/blocks/copy` (kopia). Ciało `application/json` jest ścisłe (nieznane pole, np. `shiftDays`, to `400 INVALID_INPUT`); odpowiedzi `no-store` z `X-Request-Id`.
+
+| Pole | `blocks/bulk` | `blocks/copy` |
+|---|---|---|
+| `idempotencyKey` (UUID, w ciele) | wymagany przy zapisie, pomijalny przy `dryRun:true` | j.w. |
+| cele | `vehicleIds`: 1–50 różnych UUID | `targetVehicleIds`: 1–50 różnych UUID |
+| definicja | `fields: {from,to,type,reference?,internalNote?}` (jak #38) | `sourceBlockId` (blokada tej samej firmy); kopiowane daty, typ i `reference`; `internalNote` tylko przy `copyNote:true` (domyślnie `false`) |
+| `onConflict` | `"ABORT"` (domyślnie: wszystko albo nic) albo `"SKIP"` (jawny częściowy zapis) | j.w. |
+| `dryRun` | `false` domyślnie | j.w. |
+
+`copyReference` z rekomendacji nie jest wdrożone (nie jest decyzją: `reference` jest zawsze kopiowane, P5). Źródło `MANUAL`; zbiorcze utworzenie i kopia dotyczą tych samych dat (P6, bez `shiftDays`).
+
+Odpowiedzi:
+
+- `201 {saved:[{vehicleId,blockId,version}], rejected:[]}`: wszystkie zapisane (kolejność jak w żądaniu).
+- `200 {saved, rejected}`: tylko `onConflict:"SKIP"`, gdy choć jeden pojazd został odrzucony (także gdy `saved` jest puste); `saved.length + rejected.length = liczba pojazdów`.
+- `409 {code:"BULK_CONFLICTS", saved:[], rejected:[{vehicleId, code, conflict?}]}`: tylko `ABORT`; nic nie zapisano, audytu ani receiptu nie ma; raport zawiera **wszystkie** odrzucone pojazdy w kolejności żądania. `code`: `BLOCK_VEHICLE_ARCHIVED`, `BLOCK_DATA_INVALID` (stary wiersz źródła przekracza limity pól), `BLOCK_OUTSIDE_ACTIVITY`, `BLOCK_OVERLAP` (z `conflict:{id,from,to,type,version}` najwcześniejszej kolidującej blokady); jeden pojazd ma jeden kod, w tej kolejności ważności.
+- `dryRun:true`: zawsze `200 {dryRun:true, onConflict, wouldSave:[{vehicleId}], saved:[], rejected:[...]}` bez zapisu, audytu i receiptu; `wouldSave` pokazuje, co zapisałby prawdziwy zapis w tym samym `onConflict` (przy `ABORT` z jakimkolwiek odrzuceniem jest puste). To chwilowy raport, nie rezerwacja; właściwy zapis ponownie sprawdza stan pod blokadami. Podgląd zużywa budżet zapisów jak zapis.
+- Błędy żądania bez zapisu: `400 INVALID_INPUT` (także NUL i znaki sterujące, `fieldErrors` z kluczem ścieżki, np. `fields.reference`), `404 NOT_FOUND` (nieznany lub obcy pojazd albo źródło, bez ujawniania, czy istnieje u innej firmy; całe żądanie), `403 FORBIDDEN`, `429 RATE_LIMITED`, `409 IDEMPOTENCY_KEY_CONFLICT`. Rzadki `409 BLOCK_OVERLAP` bez `conflict` oznacza zadziałanie bariery GiST przy zapisie spoza protokołu blokad (całe żądanie wycofane).
+
+Idempotencja (P7): receipt w `OperationReceipt` (`operation` `BULK_CREATE`/`BULK_COPY`, zakres firma + aktor + obszar + klucz) z nową, nullable kolumną `expiresAt` = zapis + 24 h; wiersze bez `expiresAt` (rejestracja firmy) są nietknięte. Receipt powstaje w tej samej transakcji co zapis i tylko gdy zapisano co najmniej jedną blokadę (`409` i zerowy `SKIP` go nie zostawiają, więc ponowienie po usunięciu przyczyny liczy się od nowa). Ten sam klucz i wejście (skrót wejścia: pojazdy, definicja/źródło, `copyNote`, `onConflict`) w 24 h zwraca zapisany status i ciało bez ponownego zapisu i audytu; inne wejście to `409 IDEMPOTENCY_KEY_CONFLICT`; wygasły receipt jest usuwany przy następnym żądaniu tej firmy, klucz można użyć ponownie. Równoległe ponowienia szereguje blokada firmy (receipt czytany po niej): jedno wykonanie, identyczne odpowiedzi.
+
+Współbieżność i audyt: dokładnie kolejność z sekcji „Kolejność blokad” (jedno zapytanie `SELECT ... WHERE id = ANY(...) ORDER BY id FOR UPDATE`), odczyt aktywności i kolidujących blokad dopiero po blokadach, audyt `BLOCK_CREATED` per zapisana blokada w tej samej transakcji ze wspólnym `requestId`; superadmin zapisuje jako własny aktor (w archiwum z `context: "ARCHIVED_COMPANY"`). Waga budżetu zapisów (rekomendacja) nie jest wdrożona: żądanie zużywa jedną jednostkę, a limit pojazdów (50) ogranicza czas blokad. Migracja `20261108100000_operation_receipt_expiry_issue_215` jest addytywna (kolumna `expiresAt` i indeks `(organizationId, expiresAt)`); odtworzenie: `DROP INDEX`, `DROP COLUMN`.
 
 ### Przykłady (dzisiaj 2027-03-10)
 
