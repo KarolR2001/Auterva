@@ -222,6 +222,21 @@ test("E2E takes over a manual lock older than 40 minutes", async () => {
   expect(existsSync(t.lock)).toBe(false);
 }, 60000);
 
+test("prisma generate runs explicitly before lint in the clean worktree and once in the main tree", async () => {
+  // pnpm skips postinstall when the lockfile is unchanged, so a new schema must not depend on it.
+  const t = setup({}, 'echo "$PWD $*" >> "$TMPDIR/pnpm.log"; exit 0', { env: { AUTERVA_E2E_LOCK_TIMEOUT: "5", AUTERVA_E2E_LOCK_POLL: "1" } });
+  const r = await t.runAsync("27400", t.out);
+  expect(r.status).toBe(0);
+  const lines = readFileSync(join(t.root, "pnpm.log"), "utf8").trim().split("\n");
+  const idx = (re: RegExp) => lines.findIndex((l) => re.test(l));
+  const mainGen = idx(/repo exec prisma generate$/);
+  expect(mainGen).toBeGreaterThan(idx(/repo install /) - 1);
+  const qGen = idx(/quality exec prisma generate$/);
+  expect(qGen).toBeGreaterThan(-1);
+  expect(qGen).toBeLessThan(idx(/quality lint$/));
+  expect(qGen).toBeGreaterThan(idx(/quality install /));
+}, 60000);
+
 test("a terminated run releases the E2E lock it holds", async () => {
   // In the E2E step (the only place where the lock exists) the stub pnpm terminates the main script and then sleeps.
   const t = setup({}, `if [ "$1" = exec ] && [ "$2" = tsx ] && [ -d .git/e2e.lock ]; then

@@ -138,12 +138,16 @@ printf 'head\t%s\n' "$(git rev-parse HEAD)" >> "$OUT"
 printf 'tools\tnode %s; gitleaks %s; pg_dump %s; docker %s\n' "$(node --version)" "$(gitleaks version 2>/dev/null)" \
   "$(pg_dump --version 2>/dev/null | awk '{print $3}')" "$(docker version --format '{{.Server.Version}} {{.Server.Os}}/{{.Server.Arch}}' 2>/dev/null)" >> "$OUT"
 pnpm install --frozen-lockfile >"$LOGDIR/install.log" 2>&1 || { res install FAIL; exit 1; }
+# pnpm skips postinstall (which runs prisma generate) when the lockfile is unchanged, so a new schema would leave a stale client.
+GEN_URL=postgresql://ci@127.0.0.1:5432/generate_only
+DATABASE_URL="$GEN_URL" pnpm exec prisma generate >>"$LOGDIR/install.log" 2>&1 </dev/null || { res "prisma generate" FAIL; exit 1; }
 
 # CI runs this job on a fresh checkout: use a clean detached worktree so no .env/.env.local is loaded by vitest.
 quality() {
   local tmp="$QTMP/quality"
   git worktree add -q --detach "$tmp" HEAD || return 1
   ( cd "$tmp" && pnpm install --frozen-lockfile --prefer-offline &&
+    DATABASE_URL="$GEN_URL" pnpm exec prisma generate &&
     DATABASE_URL=postgresql://ci@127.0.0.1:5432/validate_only pnpm exec prisma validate &&
     pnpm lint && pnpm typecheck &&
     DATABASE_URL=postgresql://ci@127.0.0.1:5432/unit_placeholder \
