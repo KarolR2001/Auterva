@@ -293,7 +293,8 @@ test("superadmin: desktop login and TOTP challenge on the platform host", async 
     await expect(page.getByRole("heading", { name: "Potwierdź logowanie" })).toBeVisible();
     await noHorizontalOverflow(page);
     await snap(page, "platform-challenge");
-    expect(await statusOf(page, "/")).toBe(404);
+    // Only a pending challenge, no session yet: the panel route sends to login (opaque redirect) instead of rendering.
+    expect(await statusOf(page, "/")).not.toBe(200);
     await page.getByRole("textbox", { name: "Kod MFA" }).fill(totp.generate());
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(`${origin}/`);
