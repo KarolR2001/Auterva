@@ -208,6 +208,7 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
           <div className={styles.stateActions}>
             <LinkButton href={contactHref(slug, result)}>{check.status === "done" && !check.available ? "Skontaktuj się po alternatywę" : "Skontaktuj się"}</LinkButton>
             {check.status === "done" && !check.available ? <LinkButton href="#sprawdz-termin" variant="secondary">Zmień termin</LinkButton> : null}
+            {check.status === "done" && !check.available ? <LinkButton href={catalogHref({ from: check.range.from, to: check.range.to })} variant="secondary">Zobacz pojazdy dostępne w tym terminie</LinkButton> : null}
           </div>
         ) : null}
         {alternativesRange ? (
