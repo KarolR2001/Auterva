@@ -17,6 +17,12 @@ async function clearLocalIpEvents(db: Db) {
     createHmac("sha256", secret).update(`auth:ip:${address}`).digest("hex")) } } });
 }
 
+/** URL match tolerant of the trailingSlash redirect (path with or without "/"). */
+function urlAt(origin: string, path: string, query = "") {
+  const esc = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`^${esc(origin)}${esc(path)}/?${esc(query)}$`);
+}
+
 async function noHorizontalOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 }
@@ -78,7 +84,7 @@ test("company admin: reset, account, password change, logout and expired service
     const neutral = "Jeśli konto z tym adresem istnieje, wyślemy instrukcję resetu hasła.";
     await page.goto(`${origin}/admin/login`);
     await page.getByRole("link", { name: "Nie pamiętasz hasła?" }).click();
-    await expect(page).toHaveURL(`${origin}/admin/reset-hasla`);
+    await expect(page).toHaveURL(urlAt(origin, "/admin/reset-hasla"));
     for (const address of [`nobody-${randomUUID()}@example.test`, email]) {
       await page.goto(`${origin}/admin/reset-hasla`);
       await page.getByRole("textbox", { name: /Adres e-mail/ }).fill(address);
@@ -125,7 +131,7 @@ test("company admin: reset, account, password change, logout and expired service
     await page.getByRole("textbox", { name: "Kod MFA" }).fill(totp.generate());
     await page.getByRole("button", { name: "Włącz MFA i pokaż kody" }).click();
     await page.getByRole("button", { name: "Zapisałem kody" }).click();
-    await expect(page).toHaveURL(`${origin}/admin/`);
+    await expect(page).toHaveURL(urlAt(origin, "/admin"));
 
     await page.goto(`${origin}/admin/konto`);
     await expect(page.getByRole("heading", { name: "Konto", exact: true })).toBeVisible();
@@ -156,13 +162,13 @@ test("company admin: reset, account, password change, logout and expired service
     await page.getByLabel("Aktualne hasło").fill("Wrong current password 1!");
     await page.getByRole("button", { name: "Zmień hasło" }).click();
     await expect(page.getByRole("main").getByRole("alert")).toContainText("Sprawdź aktualne hasło");
-    await expect(page).toHaveURL(`${origin}/admin/konto`);
+    await expect(page).toHaveURL(urlAt(origin, "/admin/konto"));
     await snap(page, "account-password-error");
 
     // Correct change: all sessions revoked, back to login with the notice.
     await page.getByLabel("Aktualne hasło").fill(resetPassword);
     await page.getByRole("button", { name: "Zmień hasło" }).click();
-    await expect(page).toHaveURL(`${origin}/admin/login?password=changed`);
+    await expect(page).toHaveURL(urlAt(origin, "/admin/login", "?password=changed"));
     await expect(page.getByText("Hasło zostało zmienione.")).toBeVisible();
     expect(await db.session.count({ where: { userId: registered.user.id } })).toBe(0);
     await page.goto(`${origin}/admin/konto`);
@@ -173,11 +179,11 @@ test("company admin: reset, account, password change, logout and expired service
     await signInUi(page, origin, email, finalPassword);
     await page.getByRole("textbox", { name: "Kod MFA" }).fill(totp.generate());
     await page.keyboard.press("Enter");
-    await expect(page).toHaveURL(`${origin}/admin/`);
+    await expect(page).toHaveURL(urlAt(origin, "/admin"));
     await page.goto(`${origin}/admin/konto`);
     await expect(page.getByText(email)).toBeVisible();
     await page.getByRole("button", { name: "Wyloguj" }).click();
-    await expect(page).toHaveURL(`${origin}/admin/login`);
+    await expect(page).toHaveURL(urlAt(origin, "/admin/login"));
     expect(await db.session.count({ where: { userId: registered.user.id } })).toBe(0);
     await page.goBack();
     await expect(page.getByText(email)).toHaveCount(0);
@@ -223,14 +229,14 @@ test("superadmin: account on the platform host only, name saved, MFA actions wit
 
     // Not signed in: the account redirects to the platform login, and the company route does not exist here.
     await page.goto(`${origin}/konto`);
-    await expect(page).toHaveURL(/\/login\?returnTo=%2Fkonto$/);
+    await expect(page).toHaveURL(/\/login\/?\?returnTo=%2Fkonto$/);
     expect((await page.request.get(`${origin}/admin/konto`)).status()).toBe(404);
     await page.getByRole("textbox", { name: "Adres e-mail" }).fill(account.email);
     await page.getByLabel("Hasło", { exact: true }).fill(account.password);
     await page.getByRole("button", { name: "Zaloguj się" }).click();
     await page.getByRole("textbox", { name: "Kod MFA" }).fill(totp.generate());
     await page.keyboard.press("Enter");
-    await expect(page).toHaveURL(`${origin}/konto`);
+    await expect(page).toHaveURL(urlAt(origin, "/konto"));
     await expect(page.getByText("Superadmin", { exact: true })).toBeVisible();
     await expect(page.getByText(account.email)).toBeVisible();
     await expect(page.getByRole("button", { name: /wyłącz/i })).toHaveCount(0);
@@ -243,7 +249,7 @@ test("superadmin: account on the platform host only, name saved, MFA actions wit
     await page.getByRole("button", { name: "Nie mam obu czynników" }).click();
     await expect(page.getByText(/ręcznej procedury właściciela/)).toBeVisible();
     await page.getByRole("button", { name: "Wyloguj" }).click();
-    await expect(page).toHaveURL(`${origin}/login`);
+    await expect(page).toHaveURL(urlAt(origin, "/login"));
   } finally {
     await clearLocalIpEvents(db);
     if (superadminId) {

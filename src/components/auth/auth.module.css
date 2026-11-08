@@ -184,7 +184,8 @@
     margin-top: var(--space-12);
   }
   .page[data-area="company"][data-view="login"] .footer {
-    margin-top: 68px;
+    /* 68 px to the ADM-01 board position, minus the 64 px taken by the reset link row. */
+    margin-top: 4px;
   }
   .page[data-view="mfa"][data-step="challenge"] .context {
     display: none;
