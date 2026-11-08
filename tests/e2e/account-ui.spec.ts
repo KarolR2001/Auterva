@@ -156,7 +156,7 @@ test("company admin: reset, account, password change, logout and expired service
     await page.getByLabel("Potwierdź nowe hasło").fill(finalPassword);
     await page.context().setOffline(true);
     await page.getByRole("button", { name: "Zmień hasło" }).click();
-    await expect(page.getByRole("main").getByRole("alert")).toContainText("Nie udało się połączyć");
+    await expect(page.getByRole("main").getByRole("alert")).toContainText("Nie wiemy, czy hasło zostało zmienione");
     await page.context().setOffline(false);
     await expect(page.getByLabel("Nowe hasło", { exact: true })).toHaveValue(finalPassword);
     expect(await db.session.count({ where: { userId: registered.user.id } })).toBeGreaterThan(0);
