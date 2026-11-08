@@ -8,6 +8,7 @@ export type PanelAccessState =
   | "allowed"
   | "service-expired"
   | "session-expired"
+  | "signed-out"
   | "forbidden"
   | "archived"
   | "loading";
@@ -47,6 +48,10 @@ export function PanelAccess({ state, area, children }: PanelAccessProps) {
       description:
         "Dla bezpieczeństwa zakończyliśmy sesję. Zaloguj się ponownie, aby wrócić do panelu.",
     },
+    "signed-out": {
+      title: "Wylogowano",
+      description: "Zakończyłeś sesję. Zaloguj się ponownie, aby wrócić do panelu.",
+    },
     forbidden: {
       title: "Brak dostępu",
       description: "Nie możesz otworzyć tej sekcji.",
@@ -66,10 +71,18 @@ export function PanelAccess({ state, area, children }: PanelAccessProps) {
         <span className={styles.eyebrow}>Auterva</span>
         <h1 id="panel-access-title">{content.title}</h1>
         <p>{content.description}</p>
-        {state === "session-expired" && (
+        {(state === "session-expired" || state === "signed-out") && (
           <a
             className={styles.linkButton}
-            href={area === "company" ? "/admin/login" : "/login"}
+            href={
+              state === "signed-out"
+                ? area === "company"
+                  ? "/admin/login"
+                  : "/login"
+                : area === "company"
+                  ? "/admin/login?returnTo=%2Fadmin"
+                  : "/login?returnTo=%2F"
+            }
           >
             Przejdź do logowania
           </a>

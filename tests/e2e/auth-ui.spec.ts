@@ -294,7 +294,8 @@ test("superadmin: desktop login and TOTP challenge on the platform host", async 
     await noHorizontalOverflow(page);
     await snap(page, "platform-challenge");
     // Only a pending challenge, no session yet: the panel route sends to login (opaque redirect) instead of rendering.
-    expect(await statusOf(page, "/")).not.toBe(200);
+    // Playwright reports a manual redirect as an opaque response (status 0); a 200 page or a 500 would both fail.
+    expect(await statusOf(page, "/")).toBe(0);
     await page.getByRole("textbox", { name: "Kod MFA" }).fill(totp.generate());
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(`${origin}/`);

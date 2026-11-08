@@ -43,7 +43,10 @@ export default async function HomePage() {
           <p>Panel jest w przygotowaniu.</p>
         </PanelShell>
       );
-    return denyPanel(auth, incoming, "platform");
+    return denyPanel(prisma, auth, incoming, {
+      area: "PLATFORM",
+      organizationId: null,
+    });
   }
   if (
     area?.area === "COMPANY_PUBLIC" &&

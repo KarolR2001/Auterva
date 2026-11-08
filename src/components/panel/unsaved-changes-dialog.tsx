@@ -18,7 +18,7 @@ type UnsavedChangesDialogProps = {
   contextLabel?: string;
   onStay: () => void;
   onDiscard: () => void | Promise<void>;
-  onSaveAndLeave: () => void | Promise<void>;
+  onSaveAndLeave?: () => void | Promise<void>;
 };
 
 export const UnsavedChangesSuspensionContext = createContext(false);
@@ -46,7 +46,7 @@ export function UnsavedChangesDialog({
     setError(null);
     setPending(action);
     try {
-      await (action === "save" ? onSaveAndLeave() : onDiscard());
+      await (action === "save" ? onSaveAndLeave?.() : onDiscard());
     } catch {
       setError(
         action === "save"
@@ -105,7 +105,10 @@ export function UnsavedChangesDialog({
             className={styles.unsavedDescription}
           >
             Masz niezapisane zmiany{contextLabel ? ` w: ${contextLabel}` : ""}.
-            Możesz zostać, odrzucić zmiany albo zapisać je przed wyjściem.
+            {" "}
+            {onSaveAndLeave
+              ? "Możesz zostać, odrzucić zmiany albo zapisać je przed wyjściem."
+              : "Możesz zostać albo odrzucić zmiany i wyjść."}
           </DialogPrimitive.Description>
           {error && (
             <p role="alert" className={styles.unsavedError}>
@@ -129,14 +132,16 @@ export function UnsavedChangesDialog({
             >
               Odrzuć zmiany
             </Button>
-            <Button
-              disabled={Boolean(pending)}
-              loading={pending === "save"}
-              loadingLabel="Zapisywanie zmian"
-              onClick={() => void run("save")}
-            >
-              Zapisz i wyjdź
-            </Button>
+            {onSaveAndLeave && (
+              <Button
+                disabled={Boolean(pending)}
+                loading={pending === "save"}
+                loadingLabel="Zapisywanie zmian"
+                onClick={() => void run("save")}
+              >
+                Zapisz i wyjdź
+              </Button>
+            )}
           </div>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>

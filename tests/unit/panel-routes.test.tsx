@@ -6,6 +6,7 @@ const dependencies = vi.hoisted(() => ({
   resolveRequestArea: vi.fn(),
   requireRequestContext: vi.fn(),
   requireAuthorizedActor: vi.fn(),
+  requireScopedActor: vi.fn(),
   findOrganization: vi.fn(),
   getSession: vi.fn(),
 }));
@@ -31,10 +32,12 @@ vi.mock("@/modules/tenancy/request-context", () => ({
 }));
 vi.mock("@/modules/auth/authorization", () => ({
   requireAuthorizedActor: dependencies.requireAuthorizedActor,
+  requireScopedActor: dependencies.requireScopedActor,
 }));
 
 import AdminPage from "../../src/app/admin/page";
 import HomePage from "../../src/app/page";
+import NotFound from "../../src/app/not-found";
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -138,5 +141,83 @@ describe("serwerowe wejścia paneli", () => {
     dependencies.getSession.mockResolvedValue(null);
 
     await expect(HomePage()).rejects.toThrow("REDIRECT:/login");
+  });
+
+  it("własna sesja ograniczona (bez TOTP) trafia do MFA, a sesja z TOTP bez dowodu zostaje 404", async () => {
+    dependencies.resolveRequestArea.mockResolvedValue({
+      area: "COMPANY_ADMIN",
+      organizationId: "firma-alfa",
+    });
+    dependencies.requireRequestContext.mockResolvedValue(null);
+    dependencies.getSession.mockResolvedValue({ user: { id: "admin" } });
+    dependencies.requireScopedActor.mockResolvedValue({
+      twoFactorEnabled: false,
+    });
+    await expect(AdminPage()).rejects.toThrow(
+      "REDIRECT:/admin/mfa?returnTo=%2Fadmin",
+    );
+    dependencies.requireScopedActor.mockResolvedValue({
+      twoFactorEnabled: true,
+    });
+    await expect(AdminPage()).rejects.toThrow("NOT_FOUND");
+    expect(dependencies.findOrganization).not.toHaveBeenCalled();
+  });
+});
+
+describe("panelowe 404 (ADM-20)", () => {
+  it("autoryzowana sesja firmy widzi shell z komunikatem i powrotem do startu", async () => {
+    dependencies.resolveRequestArea.mockResolvedValue({
+      area: "COMPANY_ADMIN",
+      organizationId: "firma-alfa",
+    });
+    dependencies.requireRequestContext.mockResolvedValue({
+      actorId: "admin-alfa",
+      role: "ADMIN_FIRMY",
+      organizationId: "firma-alfa",
+      sessionId: "sesja-alfa",
+    });
+    dependencies.findOrganization.mockResolvedValue({ name: "Firma Alfa" });
+    const html = renderToStaticMarkup(await NotFound());
+    expect(html).toContain('aria-label="Nawigacja panelu"');
+    expect(html).toContain("Nie znaleziono strony");
+    expect(html).toContain('href="/admin"');
+    expect(html).toContain("Przejdź do panelu");
+    expect(html).not.toContain("jest w przygotowaniu");
+  });
+
+  it("autoryzowany superadmin widzi shell platformy z powrotem do startu", async () => {
+    dependencies.resolveRequestArea.mockResolvedValue({
+      area: "PLATFORM",
+      organizationId: null,
+    });
+    dependencies.requireAuthorizedActor.mockResolvedValue({
+      userId: "superadmin",
+      role: "SUPERADMIN_AUTERVA",
+      organizationId: null,
+      sessionId: "sesja-platformy",
+    });
+    const html = renderToStaticMarkup(await NotFound());
+    expect(html).toContain('aria-label="Nawigacja panelu"');
+    expect(html).toContain('href="/"');
+  });
+
+  it("anonim, obca sesja i nieznany host dostają tylko neutralną stronę", async () => {
+    dependencies.resolveRequestArea.mockResolvedValue({
+      area: "COMPANY_ADMIN",
+      organizationId: "firma-alfa",
+    });
+    dependencies.requireRequestContext.mockResolvedValue(null);
+    for (const area of [
+      { area: "COMPANY_ADMIN", organizationId: "firma-alfa" },
+      { area: "PLATFORM", organizationId: null },
+      { area: "MARKETING", organizationId: null },
+      null,
+    ]) {
+      dependencies.resolveRequestArea.mockResolvedValue(area);
+      dependencies.requireAuthorizedActor.mockResolvedValue(null);
+      const html = renderToStaticMarkup(await NotFound());
+      expect(html).toBe("<main><h1>Nie znaleziono strony</h1></main>");
+    }
+    expect(dependencies.findOrganization).not.toHaveBeenCalled();
   });
 });

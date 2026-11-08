@@ -22,7 +22,10 @@ export default async function AdminPage() {
     incoming,
     area.organizationId,
   );
-  if (!actor) return denyPanel(auth, incoming, "company");
+  if (!actor) return denyPanel(prisma, auth, incoming, {
+      area: "COMPANY_ADMIN",
+      organizationId: area.organizationId,
+    });
   const organization = await prisma.organization.findUnique({
     where: { id: actor.organizationId },
     select: { name: true },
