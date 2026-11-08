@@ -1,6 +1,7 @@
 import { CalendarSearch } from "lucide-react";
 
 import { FilterDetails } from "./filter-details";
+import { DateRangeField } from "./date-range-field";
 
 import { catalogHref, catalogPath, sortLabels } from "@/modules/public-offer/presentation";
 import type { CatalogResult } from "@/modules/public-offer/read";
@@ -9,28 +10,13 @@ import styles from "./public.module.css";
 
 type Ok = Extract<CatalogResult, { ok: true }>;
 
-function DateFields({ today, from, to, required }: { today: string; from: string | null; to: string | null; required: boolean }) {
-  return (
-    <>
-      <div className={styles.field}>
-        <label className={styles.label} htmlFor="filter-from">Od</label>
-        <input id="filter-from" name="from" type="date" min={today} defaultValue={from ?? ""} required={required} className={styles.dateInput} />
-      </div>
-      <div className={styles.field}>
-        <label className={styles.label} htmlFor="filter-to">Do</label>
-        <input id="filter-to" name="to" type="date" min={today} defaultValue={to ?? ""} required={required} className={styles.dateInput} />
-      </div>
-    </>
-  );
-}
-
 /** Home checker (PUB-01): a GET form to the catalog, so the chosen range lives in the URL and in history. */
 export function AvailabilityChecker({ today }: { today: string }) {
   return (
     <form action={catalogPath} method="get" className={styles.panel} aria-labelledby="checker-title">
       <h2 id="checker-title" className={styles.panelTitle}>Sprawdź termin</h2>
       <div className={`${styles.fields} ${styles.fieldsChecker}`}>
-        <DateFields today={today} from={null} to={null} required />
+        <DateRangeField from={null} to={null} required today={today} />
         <button type="submit" className={`${styles.linkButton} ${styles.linkButtonPrimary}`}>
           <CalendarSearch aria-hidden="true" size={18} />Sprawdź
         </button>
@@ -84,7 +70,7 @@ export function CatalogFilters({ result, today }: { result: Ok; today: string })
                 </select>
               </div>
             ) : null}
-            <DateFields today={today} from={applied.from} to={applied.to} required={false} />
+            <DateRangeField from={applied.from} to={applied.to} required={false} today={today} />
             <div className={styles.field}>
               <label className={styles.label} htmlFor="filter-sort">Sortowanie</label>
               <select id="filter-sort" name="sort" defaultValue={applied.sort} className={styles.select}>
