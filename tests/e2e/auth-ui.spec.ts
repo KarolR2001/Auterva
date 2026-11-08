@@ -44,7 +44,7 @@ async function decodeRenderedQr(page: Page) {
   if (!decoded) throw new Error("Rendered QR is not decodable");
   const totp = OTPAuth.URI.parse(decoded.data);
   if (!(totp instanceof OTPAuth.TOTP)) throw new Error("Rendered QR is not a TOTP URI");
-  await expect(page.locator("code").first()).toHaveText(totp.secret.base32);
+  await expect(page.locator("code").first()).toHaveText(totp.secret.base32.replace(/(.{4})(?=.)/g, "$1 "));
   return totp;
 }
 
@@ -75,6 +75,47 @@ async function signIn(page: Page, origin: string, email: string, password: strin
   await page.getByLabel("Hasło", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Zaloguj się" }).click();
 }
+
+test("ADM-01 mobile keeps the login landmarks aligned with the 390×844 board", async ({ page, baseURL }) => {
+  if (!baseURL) throw new Error("Missing trusted ingress URL");
+  await page.setViewportSize({ width: 390, height: 844 });
+  const db = createPrismaClient(process.env.DATABASE_URL ?? "");
+  const company = randomUUID();
+  const host = `auth-layout-${company}.example.test`;
+  await db.organization.create({ data: { id: company, slug: `auth-layout-${company}` } });
+  await db.hostMapping.create({ data: { hostname: host, area: "COMPANY_ADMIN", organizationId: company, status: "ACTIVE" } });
+  try {
+    await page.goto(`http://${host}:${new URL(baseURL).port}/admin/login/`);
+    const landmarks = [
+      ["brand", page.getByText("AUTERVA", { exact: true }), 28],
+      ["context", page.getByText("Panel administratora", { exact: true }), 96],
+      ["title", page.getByRole("heading", { name: "Zaloguj się do panelu" }), 132],
+      ["intro", page.getByText("Zarządzaj flotą i dostępnością. Po haśle potwierdzisz logowanie kodem MFA."), 228],
+      ["email", page.locator('label[for="auth-email"]'), 316],
+      ["password", page.locator('label[for="auth-password"]'), 464],
+      ["submit", page.getByRole("button", { name: "Zaloguj się" }), 633],
+      ["security", page.getByText("MFA wymagane • brak publicznej rejestracji"), 748],
+    ] as const;
+    for (const [name, element, expectedTop] of landmarks) {
+      const box = await element.boundingBox();
+      expect(box, `${name} is visible`).not.toBeNull();
+      if (name === "brand" || name === "context" || name === "title") {
+        expect(box!.x, `${name} left edge`).toBe(24);
+        expect(box!.width, `${name} width`).toBe(342);
+      }
+      expect(Math.abs(box!.y - expectedTop), `${name} top: ${box!.y}`).toBeLessThanOrEqual(8);
+    }
+    await snap(page, "company-login-default");
+    for (const width of [320, 390, 430, 768, 1024, 1440, 1920]) {
+      await page.setViewportSize({ width, height: width < 768 ? 844 : 1024 });
+      await noHorizontalOverflow(page);
+    }
+  } finally {
+    await db.hostMapping.delete({ where: { hostname: host } });
+    await db.organization.delete({ where: { id: company } });
+    await db.$disconnect();
+  }
+});
 
 test("company admin: login, enrollment with rendered QR, challenge, lost response, recovery code and archive", async ({ page, baseURL }) => {
   test.setTimeout(180_000);
