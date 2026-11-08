@@ -162,6 +162,7 @@ start_services() {
       -s3.port="$s3_port" -s3.port.grpc="$((port_base + 101))" \
       -admin.port="$admin_port" -admin.port.grpc="$((port_base + 107))" -admin.port.legacy=0 -admin.ui=false \
       -webdav=false -s3.port.iceberg=0 -s3.port.lance=0 -s3.iam=false \
+      -volume.max=200 -master.volumeSizeLimitMB=64 \
       -s3.config="$local_dir/s3.json" -bucket=auterva-fixture-media \
       >"$local_dir/log/weed.log" 2>&1 &
     echo "$!" > "$local_dir/weed.pid"
