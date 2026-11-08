@@ -58,7 +58,7 @@ test("nieznana ścieżka panelu: shell z powrotem do startu dla autoryzowanej se
     await context.clearCookies();
     await context.addCookies([{ ...asCookie(`better-auth.session_token=${limited}`), url: origin(host.c) }]);
     await page.goto(`${origin(host.c)}/admin/`);
-    await expect(page).toHaveURL(new RegExp(`^${origin(host.c)}/admin/mfa\\?returnTo=%2Fadmin`));
+    await expect(page).toHaveURL(new RegExp(`^${origin(host.c)}/admin/mfa/?\\?returnTo=%2Fadmin`));
     await expect(page.getByRole("navigation", { name: "Nawigacja panelu" })).toHaveCount(0);
     // The same limited session on another company's host stays a neutral 404.
     await context.clearCookies();
