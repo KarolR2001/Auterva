@@ -9,6 +9,7 @@ const dependencies = vi.hoisted(() => ({
   requireScopedActor: vi.fn(),
   findOrganization: vi.fn(),
   getSession: vi.fn(),
+  resolveHostMapping: vi.fn(),
 }));
 
 vi.mock("next/headers", () => ({ headers: dependencies.headers }));
@@ -29,6 +30,13 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/modules/tenancy/request-context", () => ({
   resolveRequestArea: dependencies.resolveRequestArea,
   requireRequestContext: dependencies.requireRequestContext,
+}));
+vi.mock("@/modules/public-offer/page-data", () => ({
+  requestHost: async () => "panel.example.test",
+  loadHome: async () => null,
+}));
+vi.mock("@/modules/tenancy/host-registry", () => ({
+  resolveHostMapping: dependencies.resolveHostMapping,
 }));
 vi.mock("@/modules/auth/authorization", () => ({
   requireAuthorizedActor: dependencies.requireAuthorizedActor,
@@ -162,6 +170,14 @@ describe("serwerowe wejścia paneli", () => {
     await expect(AdminPage()).rejects.toThrow("NOT_FOUND");
     expect(dependencies.findOrganization).not.toHaveBeenCalled();
   });
+
+  it("nieznany host nie dostaje panelu (strona publiczna PUB-10 z #41)", async () => {
+    dependencies.resolveRequestArea.mockResolvedValue(null);
+    dependencies.resolveHostMapping.mockResolvedValue(null);
+    const html = renderToStaticMarkup(await NotFound());
+    expect(html).not.toContain("Nawigacja panelu");
+    expect(dependencies.findOrganization).not.toHaveBeenCalled();
+  });
 });
 
 describe("panelowe 404 (ADM-20)", () => {
@@ -211,9 +227,9 @@ describe("panelowe 404 (ADM-20)", () => {
       { area: "COMPANY_ADMIN", organizationId: "firma-alfa" },
       { area: "PLATFORM", organizationId: null },
       { area: "MARKETING", organizationId: null },
-      null,
     ]) {
       dependencies.resolveRequestArea.mockResolvedValue(area);
+      dependencies.resolveHostMapping.mockResolvedValue(area);
       dependencies.requireAuthorizedActor.mockResolvedValue(null);
       const html = renderToStaticMarkup(await NotFound());
       expect(html).toBe("<main><h1>Nie znaleziono strony</h1></main>");
