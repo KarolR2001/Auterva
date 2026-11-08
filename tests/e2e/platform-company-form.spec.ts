@@ -25,6 +25,11 @@ test("superadmin dodaje firmę, widzi zapis osobno od zaproszenia i cofa zaprosz
     const [cookieName, ...cookieValue] = session.cookie.split("=");
     await context.addCookies([{ name: cookieName, value: cookieValue.join("="), url: origin }]);
 
+    const seen: string[] = [];
+    page.on("dialog", (dialog) => { seen.push(`dialog:${dialog.type()}`); void dialog.dismiss(); });
+    page.on("console", (message) => { if (message.type() === "error") seen.push(`console:${message.text().slice(0, 200)}`); });
+    page.on("pageerror", (error) => seen.push(`pageerror:${error.message.slice(0, 200)}`));
+    page.on("response", (response) => { if (response.request().method() !== "GET") seen.push(`${response.request().method()} ${response.status()} ${new URL(response.url()).pathname}`); });
     await page.goto(`${origin}/firmy/nowa/`);
     await expect(page.getByRole("heading", { name: "Dodaj firmę" }).first()).toBeVisible();
     // Empty submit: precise errors, focus on the first field, nothing saved.
@@ -46,7 +51,9 @@ test("superadmin dodaje firmę, widzi zapis osobno od zaproszenia i cofa zaprosz
     await expect(page.getByLabel(/Nazwa firmy/)).toHaveValue("Plt04 Wypożyczalnia Łódź");
 
     await page.getByRole("button", { name: "Zapisz firmę" }).click();
-    await expect(page).toHaveURL(new RegExp(`/firmy/[0-9a-f-]{36}/\\?zapisano=1`));
+    await expect(page).toHaveURL(new RegExp(`/firmy/[0-9a-f-]{36}/\\?zapisano=1`)).catch((error: Error) => {
+      throw new Error(`${error.message}\nSEEN: ${JSON.stringify(seen)}`);
+    });
     organizationId = new URL(page.url()).pathname.split("/")[2];
     await expect(page.getByText(/Zapisano firmę\./)).toBeVisible();
     await expect(page.getByText(/Strona nie jest opublikowana/)).toBeVisible();
