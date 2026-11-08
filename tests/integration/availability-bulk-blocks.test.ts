@@ -28,7 +28,6 @@ const publicIp = () => `10.${randomBytes(3).join(".")}`;
 let platformId = "";
 let ownedPlatformId: string | null = null;
 let cookies = { a: "", b: "", d: "", platform: "" };
-let sessionA = "";
 
 async function newVehicle(organizationId: string, slug = "bulk", from: string | null = day(0), to: string | null = day(60), status = "PUBLISHED") {
   const id = randomUUID();
@@ -66,7 +65,6 @@ beforeAll(async () => {
   }
   sessions.push(await verifiedFixtureSession(db, platformId));
   cookies = { a: sessions[0].cookie, b: sessions[1].cookie, d: sessions[2].cookie, platform: sessions[3].cookie };
-  sessionA = (await db.session.findUniqueOrThrow({ where: { token: cookies.a.split("=")[1].split(".")[0] } })).id;
 });
 
 async function resetBudgets() {
@@ -95,11 +93,10 @@ function request(path: string, host: string, cookie: string, data: object, origi
   return new Request(`http://127.0.0.1:3381${path}`, { method, headers: { host, origin, cookie,
     "content-type": "application/json" }, body: JSON.stringify(data) });
 }
-const noContext = { params: Promise.resolve({}) };
 const bulk = (data: object, who: "a" | "b" | "d" = "a") => adminBulk(
-  request("/api/admin/blocks/bulk", hosts[`admin${who.toUpperCase()}` as "adminA"], cookies[who], data), noContext as never);
+  request("/api/admin/blocks/bulk", hosts[`admin${who.toUpperCase()}` as "adminA"], cookies[who], data));
 const copy = (data: object, who: "a" | "b" | "d" = "a") => adminCopy(
-  request("/api/admin/blocks/copy", hosts[`admin${who.toUpperCase()}` as "adminA"], cookies[who], data), noContext as never);
+  request("/api/admin/blocks/copy", hosts[`admin${who.toUpperCase()}` as "adminA"], cookies[who], data));
 const platform = (kind: "bulk" | "copy", organizationId: string, data: object, cookie = cookies.platform) =>
   (kind === "bulk" ? platformBulk : platformCopy)(
     request(`/api/platform/companies/${organizationId}/blocks/${kind}`, hosts.platform, cookie, data),
@@ -330,9 +327,9 @@ test("isolation A/B: another company's vehicles and source blocks answer 404 and
   // An admin cannot use the platform path, and foreign hosts refuse cookies of another company.
   expect((await platform("bulk", orgA, { idempotencyKey: randomUUID(), vehicleIds: [mine.id], fields: fields(12, 12) }, cookies.a)).status).toBe(403);
   expect((await adminBulk(request("/api/admin/blocks/bulk", hosts.adminB, cookies.a,
-    { idempotencyKey: randomUUID(), vehicleIds: [theirs.id], fields: fields(13, 13) }), noContext as never)).status).toBe(403);
+    { idempotencyKey: randomUUID(), vehicleIds: [theirs.id], fields: fields(13, 13) }))).status).toBe(403);
   expect((await adminBulk(request("/api/admin/blocks/bulk", hosts.adminA, cookies.a,
-    { idempotencyKey: randomUUID(), vehicleIds: [mine.id], fields: fields(13, 13) }, "http://evil.example.test"), noContext as never)).status).toBe(403);
+    { idempotencyKey: randomUUID(), vehicleIds: [mine.id], fields: fields(13, 13) }, "http://evil.example.test"))).status).toBe(403);
 });
 
 test("superadmin acts in the company context as own actor; archived company refuses the admin but not the superadmin (D-23)", async () => {
