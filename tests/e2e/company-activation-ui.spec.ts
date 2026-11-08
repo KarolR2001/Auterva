@@ -84,7 +84,10 @@ test("activation page: open does not activate, validation, double submit, lost r
     await page.route("**/api/auth/invitation/**", async (route) => {
       if (route.request().method() !== "POST" || dropped) return route.continue();
       dropped = true;
-      await route.fetch();
+      // route.fetch resolves DNS in Node, not Chromium: send the real POST to loopback with the fixture Host.
+      const target = new URL(route.request().url());
+      target.hostname = "127.0.0.1";
+      await route.fetch({ url: target.toString(), headers: { ...route.request().headers(), host: fixture.host + ":" + target.port } });
       await route.abort("failed");
     });
     await fill(page, password);
@@ -94,7 +97,7 @@ test("activation page: open does not activate, validation, double submit, lost r
     await page.getByRole("button", { name: "Aktywuj konto" }).click();
     await expect(page.getByRole("heading", { name: "Konto jest aktywne" })).toBeVisible();
     await expect(page.getByText("Strona firmy jest uruchomiona")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Przejdź do logowania" })).toHaveAttribute("href", "/admin/login");
+    await expect(page.getByRole("link", { name: "Przejdź do logowania" })).toHaveAttribute("href", "/admin/login/");
     expect(await db.auditLog.count({ where: { organizationId: fixture.organizationId, action: "INVITATION_ACCEPTED" } })).toBe(1);
     expect(await db.account.count({ where: { user: { organizationId: fixture.organizationId } } })).toBe(1);
     // Spent link: neutral dead end without a form.
