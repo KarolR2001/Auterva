@@ -23,6 +23,14 @@ import styles from "./auth.module.css";
 
 const NEUTRAL =
   "Jeśli konto z tym adresem istnieje, wyślemy instrukcję resetu hasła.";
+// crypto.randomUUID exists only in secure contexts; getRandomValues also works on plain-http hosts.
+function requestKey(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
 const requestSchema = z.object({
   email: z.email("Podaj poprawny adres e-mail"),
 });
@@ -71,7 +79,7 @@ export function ResetRequestForm({ area }: AuthProps) {
           onSubmit={form.handleSubmit(({ email }) => {
             const normalized = email.trim().toLowerCase();
             const key =
-              attempt.email === normalized ? attempt.key : crypto.randomUUID();
+              attempt.email === normalized ? attempt.key : requestKey();
             setAttempt({ email: normalized, key });
             void request.run(
               "password/request-reset",

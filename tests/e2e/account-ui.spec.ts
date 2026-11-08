@@ -86,7 +86,7 @@ test("company admin: reset, account, password change, logout and expired service
     await page.getByRole("link", { name: "Nie pamiętasz hasła?" }).click();
     await expect(page).toHaveURL(urlAt(origin, "/admin/reset-hasla"));
     for (const address of [`nobody-${randomUUID()}@example.test`, email]) {
-      await page.goto(`${origin}/admin/reset-hasla`, { waitUntil: "networkidle" });
+      await page.goto(`${origin}/admin/reset-hasla`);
       await page.getByRole("textbox", { name: /Adres e-mail/ }).fill(address);
       const answered = page.waitForResponse((r) => r.url().includes("/api/auth/password/request-reset"));
       await page.getByRole("button", { name: "Wyślij instrukcję" }).click();
