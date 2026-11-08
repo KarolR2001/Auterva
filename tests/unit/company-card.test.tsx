@@ -23,7 +23,7 @@ const shell = (child: React.ReactNode) => render(
 describe("karta firmy i zaproszenie (#25)", () => {
   it("po zapisie nie twierdzi, że firma jest opublikowana, i oddziela zapis od wysyłki", () => {
     shell(<CompanyCard initial={base} justSaved />);
-    expect(screen.getByText("Firma zapisana.")).toBeInTheDocument();
+    expect(screen.getByText(/Zapisano firmę\./)).toBeInTheDocument();
     expect(screen.getByText(/Strona nie jest opublikowana/)).toBeInTheDocument();
     expect(screen.getByText("Zaproszenie nie zostało wydane")).toBeInTheDocument();
     expect(screen.queryByText("Opublikowana")).toBeNull();

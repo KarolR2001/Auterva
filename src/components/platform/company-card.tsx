@@ -40,7 +40,7 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
   const [company, setCompany] = useState(initial);
   const [busy, setBusy] = useState<"issue" | "revoke" | "refresh" | null>(null);
   const [notice, setNotice] = useState<Notice>(justSaved
-    ? { tone: "success", title: "Firma zapisana.", text: "Strona nie jest opublikowana. Wyślij zaproszenie administratorowi — wysyłka jest osobnym krokiem." } : null);
+    ? { tone: "success", title: "Zapisano firmę. Możesz teraz wysłać zaproszenie administratorowi.", text: "Strona nie jest opublikowana. Wysyłka zaproszenia jest osobnym krokiem." } : null);
   const issueKey = useRef<string | null>(null);
   const status = useRef<HTMLDivElement>(null);
   // A running mutation keeps the shell from leaving the page before its answer is known.

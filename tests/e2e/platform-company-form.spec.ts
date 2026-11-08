@@ -48,7 +48,7 @@ test("superadmin dodaje firmę, widzi zapis osobno od zaproszenia i cofa zaprosz
     await page.getByRole("button", { name: "Zapisz firmę" }).click();
     await expect(page).toHaveURL(new RegExp(`/firmy/[0-9a-f-]{36}/\\?zapisano=1`));
     organizationId = new URL(page.url()).pathname.split("/")[2];
-    await expect(page.getByText("Firma zapisana.")).toBeVisible();
+    await expect(page.getByText(/Zapisano firmę\./)).toBeVisible();
     await expect(page.getByText(/Strona nie jest opublikowana/)).toBeVisible();
     await expect(page.getByText("Zaproszenie nie zostało wydane")).toBeVisible();
     expect(await db.invitation.count({ where: { organizationId } })).toBe(0);
