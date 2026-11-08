@@ -16,13 +16,16 @@ vi.mock("next/navigation", () => ({
 import AdminPage from "../../src/app/admin/page";
 import HomePage from "../../src/app/page";
 import { createPrismaClient } from "../../src/lib/prisma";
-import { verifiedFixtureSession } from "../fixtures/verified-session";
+import {
+  ensureControlledSuperadminMfa,
+  verifiedFixtureSession,
+} from "../fixtures/verified-session";
 
 const db = createPrismaClient(process.env.DATABASE_URL ?? "");
 const organizationA = randomUUID();
 const organizationB = randomUUID();
 const userId = randomUUID();
-const superadminId = randomUUID();
+let superadminId: string;
 const hostA = `admin-${randomUUID()}.example.test`;
 const hostB = `admin-${randomUUID()}.example.test`;
 const platformHost = `platform-${randomUUID()}.example.test`;
@@ -64,25 +67,23 @@ beforeAll(async () => {
       role: "ADMIN_FIRMY",
     },
   });
-  await db.user.create({
-    data: {
-      id: superadminId,
-      name: "Superadmin",
-      email: `platform-${superadminId}@example.test`,
-      emailVerified: true,
-      twoFactorEnabled: true,
-      role: "SUPERADMIN_AUTERVA",
-    },
+  // The schema allows exactly one superadmin (user_one_superadmin): reuse the fixture one.
+  const platform = await db.user.findFirst({
+    where: { role: "SUPERADMIN_AUTERVA" },
+    select: { id: true },
   });
+  if (!platform) throw new Error("Fixture superadmin required");
+  superadminId = platform.id;
+  await ensureControlledSuperadminMfa(db, superadminId);
   session = await verifiedFixtureSession(db, userId);
   superadminSession = await verifiedFixtureSession(db, superadminId);
 });
 
 afterAll(async () => {
-  await db.session.deleteMany({
-    where: { userId: { in: [userId, superadminId] } },
-  });
-  await db.user.deleteMany({ where: { id: { in: [userId, superadminId] } } });
+  await session.dispose();
+  await superadminSession.dispose();
+  await db.session.deleteMany({ where: { userId } });
+  await db.user.deleteMany({ where: { id: userId } });
   await db.hostMapping.deleteMany({
     where: { hostname: { in: [hostA, hostB, platformHost] } },
   });

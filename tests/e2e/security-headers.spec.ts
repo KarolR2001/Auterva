@@ -90,7 +90,9 @@ test("built ingress: security headers, nonce CSP, CSRF from a sibling host and b
       ["platform", "/api/platform/companies/"], ["publicSite", "/admin/"], ["publicSite", "/api/admin/vehicles/"],
       ["publicSite", "/api/platform/companies/"], ["marketing", "/api/admin/vehicles/"]] as const) {
       const denied = await send(port, authority(name), path);
-      expect([401, 403, 404], `${name} ${path}`).toContain(denied.status);
+      // Anonymous panel entry on its own host goes to that host's login (#14); everything else stays a denial.
+      const panelEntry = (name === "admin" && path === "/admin/") || (name === "platform" && path === "/");
+      expect(panelEntry ? [307] : [401, 403, 404], `${name} ${path}`).toContain(denied.status);
       expect(denied.text, `${name} ${path}`).not.toMatch(/Panel Auterva|Platforma Auterva|\bvehicles\b|\"items\"/);
       expect(header(denied, "cache-control"), `${name} ${path}`).toMatch(/no-store|private/);
     }
@@ -381,7 +383,7 @@ test("RSC and prefetch requests for the panels never carry panel content: 404 fo
     // Control: the same request with the right session does carry the panel, so the assertions above can fail.
     const allowed = await send(port, host.adminA, "/admin/?_rsc", { headers: { RSC: "1", cookie: cookieA } });
     expect(allowed.status).toBe(200);
-    expect(allowed.text).toMatch(/Panel Auterva/);
+    expect(allowed.text).toContain("PanelShell");
     expect(allowed.text).not.toContain("NEXT_HTTP_ERROR_FALLBACK");
   } finally {
     await db.session.deleteMany({ where: { id: { in: noMfaIds } } });

@@ -298,7 +298,7 @@ test("superadmin: desktop login and TOTP challenge on the platform host", async 
     await page.getByRole("textbox", { name: "Kod MFA" }).fill(totp.generate());
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(`${origin}/`);
-    await expect(page.getByRole("heading", { name: "Platforma Auterva" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Firmy" })).toBeVisible();
   } finally {
     await clearLocalIpEvents(db);
     if (superadminId) await db.session.deleteMany({ where: { userId: superadminId, createdAt: { gte: started } } });

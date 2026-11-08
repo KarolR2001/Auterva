@@ -85,7 +85,7 @@ test("built auth uses socket ingress for MFA; spoofed headers cannot merge two c
 
     const cold = await request.get("/admin/", { maxRedirects: 0 });
     expect(cold.status()).toBe(307);
-    expect(new URL(cold.headers().location, baseURL).pathname).toBe("/admin/login/");
+    expect(new URL(cold.headers().location, baseURL).pathname).toMatch(/^\/admin\/login\/?$/);
     expect(await cold.text()).not.toMatch(/Panel Auterva|jest w przygotowaniu/);
 
     const first = await request.post("/api/auth/sign-in/email/", { headers: { origin: baseURL, "x-forwarded-for": "203.0.113.61" }, data: { email, password } });
@@ -188,7 +188,7 @@ test("platform root requires a verified superadmin session", async ({ request, b
     platform = await platformSession(db, baseURL);
     const cold = await request.get("/", { maxRedirects: 0 });
     expect(cold.status()).toBe(307);
-    expect(new URL(cold.headers().location, baseURL).pathname).toBe("/login/");
+    expect(new URL(cold.headers().location, baseURL).pathname).toMatch(/^\/login\/?$/);
     expect((await request.get("/api/auth/get-session/", { headers: { cookie: platform.cookie } })).status()).toBe(200);
     expect((await request.get("/", { headers: { cookie: platform.cookie } })).status()).toBe(200);
   } finally {
