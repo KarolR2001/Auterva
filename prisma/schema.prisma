@@ -474,6 +474,7 @@ model AuditLog {
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
   @@index([organizationId, createdAt])
+  @@index([organizationId, createdAt, id])
   @@index([createdAt, id])
   @@index([requestId])
 }
@@ -546,9 +547,11 @@ model OperationReceipt {
   inputHash      String
   result         Json
   createdAt      DateTime      @default(now()) @db.Timestamptz(6)
+  expiresAt      DateTime?     @db.Timestamptz(6)
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
   @@unique([organizationId, actorId, area, operation, idempotencyKey])
+  @@index([organizationId, expiresAt])
 }
 
 model PlatformLegalDocument {

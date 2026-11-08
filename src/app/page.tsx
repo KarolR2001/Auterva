@@ -8,17 +8,21 @@ import { marketingMetadata } from "@/modules/marketing/metadata";
 import { prisma } from "@/lib/prisma";
 import { denyPanel } from "@/components/panel/deny-panel";
 import { PanelShell } from "@/components/panel/panel-shell";
+import { PublicHome } from "@/components/public/public-home";
 import { requireAuthorizedActor } from "@/modules/auth/authorization";
-import { resolvePublicVisibility } from "@/modules/service-period/public";
+import { loadHome, requestHost, todayWarsaw } from "@/modules/public-offer/page-data";
+import { toNextMetadata } from "@/modules/public-offer/seo";
 import { resolveRequestArea } from "@/modules/tenancy/request-context";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const host = (await headers()).get("host");
-  return (await resolveRequestArea(prisma, host))?.area === "MARKETING"
-    ? marketingMetadata(host)
-    : {};
+  const host = await requestHost();
+  const area = host ? await resolveRequestArea(prisma, host) : null;
+  if (area?.area === "MARKETING") return marketingMetadata(host);
+  if (area?.area !== "COMPANY_PUBLIC" || !host) return {};
+  const home = await loadHome(host);
+  return home ? toNextMetadata(home.seo) : { robots: { index: false, follow: false } };
 }
 
 export default async function HomePage() {
@@ -48,17 +52,10 @@ export default async function HomePage() {
       organizationId: null,
     });
   }
-  if (
-    area?.area === "COMPANY_PUBLIC" &&
-    incoming.get("host") &&
-    (await resolvePublicVisibility(prisma, incoming.get("host")!))
-  ) {
-    return (
-      <main>
-        <h1>Oferta firmy</h1>
-        <p>Oferta jest w przygotowaniu.</p>
-      </main>
-    );
+  if (area?.area === "COMPANY_PUBLIC" && incoming.get("host")) {
+    // The central gate runs inside the read on every request; a disabled company is the same 404 as an unknown host.
+    const home = await loadHome(incoming.get("host")!);
+    if (home) return <PublicHome home={home} today={todayWarsaw()} />;
   }
   notFound();
 }
