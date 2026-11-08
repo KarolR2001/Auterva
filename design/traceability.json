@@ -3,6 +3,49 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 74,
+      "scope": "Opcjonalny prywatny odczyt audytu do paneli: admin firmy tylko własna firma (ADM-17), superadmin firma wybrana w ścieżce, także archiwalna; filtry czasu/aktora/działania/obiektu w granicach firmy, kursor (createdAt z mikrosekundami, id), redakcja jak przy zapisie, tylko GET; bez audytu platformy i bez UI.",
+      "relatedRequirementIds": ["C-F151", "C-N019", "C-N037", "C-N040", "FR-ADM-070", "FR-ADM-071", "D-10", "D-30"],
+      "referenceScreenIds": ["ADM-17", "OVR-18"],
+      "codePaths": [
+        "prisma/migrations/20261029120000_audit_read_cursor_issue_74/migration.sql",
+        "prisma/schema.prisma",
+        "src/modules/audit/read.ts",
+        "src/modules/audit/http.ts",
+        "src/modules/audit/append.ts",
+        "src/app/api/admin/audit/route.ts",
+        "src/app/api/platform/companies/[organizationId]/audit/route.ts",
+        "docs/contracts/audit-append-and-access.md"
+      ],
+      "testPaths": ["tests/integration/audit-read-http.test.ts", "tests/unit/audit-cursor.test.ts"]
+    },
+    {
+      "issue": 70,
+      "scope": "Discovery (bez kodu): kontrakt najbliższego wolnego terminu i zbiorczych/kopiowanych blokad z wariantami i raportem konfliktów; decyzje właściciela P1-P7 zapisane jako D-32, implementacja w osobnych zadaniach.",
+      "relatedRequirementIds": ["C-F102", "C-F103", "C-F104", "C-N027", "FR-ADM-055", "D-15"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "docs/contracts/availability-nearest-and-bulk-blocks.md",
+        "docs/contracts/availability-reads.md"
+      ],
+      "testPaths": []
+    },
+    {
+      "issue": 72,
+      "scope": "Lista i świadome kończenie własnych sesji konta (FR-ADM-081, C-F043): referencje HMAC zamiast identyfikatorów, bez tokenów i IP, dowód reauth MFA jednorazowy i związany z celem, skutek natychmiast dla API i WebSocket (4401), audyt AUTH_SESSIONS_REVOKED; koniec okresu usługi nie kończy sesji.",
+      "relatedRequirementIds": ["FR-ADM-081", "C-F043"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/auth/sessions.ts",
+        "src/app/api/auth/[...all]/route.ts",
+        "docs/contracts/account-operations.md"
+      ],
+      "testPaths": [
+        "tests/integration/account-sessions.test.ts",
+        "tests/integration/account-sessions-reauth.test.ts"
+      ]
+    },
+    {
       "issue": 65,
       "scope": "Opcjonalny prywatny zbiorczy kalendarz floty jednej firmy (pojazdy x dni, paginacja, zakres do 365 dni) oparty na wspólnym rzucie dni kalendarza pojedynczego auta; bez osi wszystkich firm i bez UI.",
       "relatedRequirementIds": ["C-F101", "FR-ADM-057", "D-15"],
@@ -617,6 +660,18 @@
       "testPaths": ["tests/integration/company-activation.test.ts", "tests/e2e/company-onboarding.spec.ts"]
     },
     {
+      "issue": 77,
+      "scope": "Diagnostyka uruchomienia firmy dla operatora: kategorie DNS/TLS, doręczenie zaproszenia i przypomnień, ostatnia próba i dozwolone retry; odczyt tylko superadmina.",
+      "relatedRequirementIds": ["C-F035", "C-F089"],
+      "codePaths": [
+        "docs/contracts/launch-diagnostics.md",
+        "src/modules/organizations/launch-diagnostics.ts",
+        "src/modules/organizations/read-http.ts",
+        "src/app/api/platform/companies/[organizationId]/launch-diagnostics/route.ts"
+      ],
+      "testPaths": ["tests/integration/launch-diagnostics.test.ts"]
+    },
+    {
       "issue": 23,
       "scope": "Cykl domeny własnej (własność TXT, CNAME, adresy publiczne, TLS i routing), osobny host panelu i neutralny nieznany host, przekierowanie aliasu po bramce widoczności; provisioning DNS/TLS i cykliczna kontrola w #10/#58.",
       "relatedRequirementIds": ["C-F004", "C-F086", "C-F087", "C-F088", "C-F089", "C-N008", "C-N024", "C-N058"],
@@ -864,6 +919,7 @@
         "src/components/public/public-chrome.tsx",
         "src/components/public/public-home.tsx",
         "src/components/public/catalog-filters.tsx",
+        "src/components/public/date-range-field.tsx",
         "src/components/public/vehicle-card.tsx",
         "src/components/public/state-page.tsx",
         "src/components/public/public.module.css",
@@ -872,6 +928,7 @@
       ],
       "testPaths": [
         "tests/unit/public-presentation.test.ts",
+        "tests/unit/public-home-visual.test.tsx",
         "tests/e2e/public-site.spec.ts"
       ]
     },
@@ -1056,6 +1113,21 @@
         "src/modules/public-offer/contact-presentation.ts"
       ],
       "testPaths": ["tests/unit/contact-legal.test.tsx", "tests/e2e/public-contact.spec.ts"]
+    },
+    {
+      "issue": 45,
+      "scope": "MKT-01 marketingowy onepage Autervy na hoście MARKETING (SSR, metadane i canonical, kontakt nieaktywny do czasu prawdziwych danych); materiały AUT-01–05 jako DEMO (D-17).",
+      "relatedRequirementIds": ["C-F001", "C-F019", "C-F020", "C-F021", "C-F138", "C-F139", "C-F140", "C-F141", "C-F142", "C-R018", "DS-N22", "DS-N23"],
+      "referenceScreenIds": ["MKT-01"],
+      "codePaths": [
+        "src/app/page.tsx",
+        "src/components/marketing/marketing-page.tsx",
+        "src/components/marketing/marketing.module.css",
+        "src/components/marketing/marketing-images.ts",
+        "src/modules/marketing/content.ts",
+        "src/modules/marketing/metadata.ts"
+      ],
+      "testPaths": ["tests/unit/marketing-page.test.tsx", "tests/e2e/marketing.spec.ts"]
     }
   ],
   "sources": [
@@ -1461,6 +1533,10 @@
               "mobile": "fb4e1683-f05f-8095-8008-c76fcc42bde3",
               "desktop": "fb4e1683-f05f-8095-8008-c772c96f234e"
             },
+            "account": {
+              "mobile": "2e56f6bf-6ab4-8076-8008-dbd35ead5dc9",
+              "desktop": "315aa115-0a58-807f-8008-dbc2af057cc6"
+            },
             "logoutAfterServerAction": {
               "mobile": "fb4e1683-f05f-8095-8008-c75bec06c851",
               "desktop": "fb4e1683-f05f-8095-8008-c75b5b2ee55c"
@@ -1472,8 +1548,92 @@
             "desktopHitId": "43eeb5e5-a1c6-801a-8008-d02563417960",
             "desktopBoardId": "4e2ad814-13be-80ec-8008-ccadc80b0a41"
           },
-          "accountBoardFollowUpIssue": 103,
           "prototypeLogoutIsNotSessionInvalidation": true
+        }
+      },
+      {
+        "id": "PLT-10",
+        "name": "Konto superadmina",
+        "pageIds": {
+          "mobile": "fb4e1683-f05f-8095-8008-c755dff0027c",
+          "desktop": "fb4e1683-f05f-8095-8008-c755dff4dae6"
+        },
+        "boardIds": {
+          "mobile": ["2e56f6bf-6ab4-8076-8008-dbd35ead5dc9"],
+          "desktop": ["315aa115-0a58-807f-8008-dbc2af057cc6"]
+        },
+        "designIssue": 103,
+        "implementationFollowUpIssue": 19,
+        "requirementIds": ["C-F041", "FR-ADM-080", "C-R007", "D-05"],
+        "handoffPath": "design/handoff/platform-account.md",
+        "prototypeActions": {
+          "accountMenuItemIds": {
+            "mobile": "89433e5c-4f5c-80ad-8008-d910ad0b1908",
+            "desktop": "89433e5c-4f5c-80ad-8008-d90d3f63bcc2"
+          },
+          "freshMfaBeforeRecoveryCodes": {
+            "mobile": "864f85f5-29a0-8019-8008-dbe13f10e885",
+            "desktop": "864f85f5-29a0-8019-8008-dbdf7b325dfe"
+          },
+          "manualRecovery": {
+            "mobile": "864f85f5-29a0-8019-8008-dbe14abda07f",
+            "desktop": "864f85f5-29a0-8019-8008-dbdf8b40da10"
+          },
+          "recoveryCodeEntryHitIds": {
+            "mobile": "864f85f5-29a0-8019-8008-dbe17fb4f6cd",
+            "desktop": "864f85f5-29a0-8019-8008-dbe001a93088"
+          },
+          "profileAndPasswordServerActionsImplemented": false
+        },
+        "platformMfaGraph": {
+          "freshFactor": {
+            "mobile": "864f85f5-29a0-8019-8008-dbe13f10e885",
+            "desktop": "864f85f5-29a0-8019-8008-dbdf7b325dfe"
+          },
+          "passwordAfterTotp": {
+            "mobile": "864f85f5-29a0-8019-8008-dbe13f356630",
+            "desktop": "864f85f5-29a0-8019-8008-dbdf7b59e9a0"
+          },
+          "expiredProof": {
+            "mobile": "864f85f5-29a0-8019-8008-dbe13f6429e4",
+            "desktop": "864f85f5-29a0-8019-8008-dbdf7b82bfc7"
+          },
+          "recoveryCode": {
+            "mobile": {
+              "default": "864f85f5-29a0-8019-8008-dbe14b0a0917",
+              "error": "864f85f5-29a0-8019-8008-dbe14b30c38f",
+              "pending": "864f85f5-29a0-8019-8008-dbe14b710566",
+              "rateLimit": "864f85f5-29a0-8019-8008-dbe157f6998c"
+            },
+            "desktop": {
+              "default": "864f85f5-29a0-8019-8008-dbdf8b75f0c5",
+              "error": "864f85f5-29a0-8019-8008-dbdf8b9c7639",
+              "pending": "864f85f5-29a0-8019-8008-dbdf8bcc60f2",
+              "rateLimit": "864f85f5-29a0-8019-8008-dbdf974962bc"
+            }
+          },
+          "passwordAfterRecoveryCode": {
+            "mobile": "864f85f5-29a0-8019-8008-dbe158315e04",
+            "desktop": "864f85f5-29a0-8019-8008-dbdf9779d0df"
+          },
+          "totpEnrollment": {
+            "mobile": "864f85f5-29a0-8019-8008-dbe1585fff06",
+            "desktop": "864f85f5-29a0-8019-8008-dbdf97b559a4"
+          },
+          "issuedCodes": {
+            "mobile": "864f85f5-29a0-8019-8008-dbe13f8ea83f",
+            "desktop": "864f85f5-29a0-8019-8008-dbdf7bc136dc"
+          },
+          "manualRecovery": {
+            "mobile": "864f85f5-29a0-8019-8008-dbe14abda07f",
+            "desktop": "864f85f5-29a0-8019-8008-dbdf8b40da10"
+          },
+          "platformLoginTargets": {
+            "mobile": "fb4e1683-f05f-8095-8008-c75bec06c851",
+            "desktop": "fb4e1683-f05f-8095-8008-c75b5b2ee55c"
+          },
+          "sourceCompanyGraphUnchanged": true,
+          "serverOutcomesRequireRuntime": true
         }
       },
       {
@@ -2020,7 +2180,36 @@
         },
         "mvpMenuOptions": ["Ukryj", "Archiwizuj"],
         "menuActionTargets": ["OVR-10", "OVR-11"],
-        "menuActionState": "Statyczny wzorzec; kontekst vehicleId i potwierdzenia przed #34/#35 domyka #107.",
+        "menuActionState": "#107: referencyjna Toyota M/D ma działające otwarcie menu i właściwych potwierdzeń oraz Anuluj; potwierdzenie bez symulowanej mutacji. Inne pojazdy zachowują ogólny wzorzec i wymagają danych wybranego wiersza w #34/#35.",
+        "vehicleMenuContract": {
+          "issue": 107,
+          "referenceVehicle": "Toyota Proace Verso",
+          "referenceStatus": "PUBLISHED",
+          "mobile": {
+            "moreHitId": "89433e5c-4f5c-80ad-8008-d6769ca03475",
+            "menuId": "d924335c-ac21-80ff-8008-dbf2b28071c4",
+            "hideHitId": "d924335c-ac21-80ff-8008-dbf2b28071c6",
+            "archiveHitId": "d924335c-ac21-80ff-8008-dbf2b28071c7",
+            "hideConfirmationId": "1e066793-8858-8051-8008-cf443b6e4403",
+            "archiveConfirmationId": "1e066793-8858-8051-8008-cf443b6e4413"
+          },
+          "desktop": {
+            "moreHitId": "89433e5c-4f5c-80ad-8008-d677823e2265",
+            "menuId": "d924335c-ac21-80ff-8008-dbf2be15e41e",
+            "hideHitId": "d924335c-ac21-80ff-8008-dbf2be15e420",
+            "archiveHitId": "d924335c-ac21-80ff-8008-dbf2be15e421",
+            "hideConfirmationId": "1e066793-8858-8051-8008-cf443e7400d5",
+            "archiveConfirmationId": "1e066793-8858-8051-8008-cf443e7400e5"
+          },
+          "statusOptions": {
+            "PUBLISHED": ["Ukryj", "Archiwizuj"],
+            "DRAFT": ["Archiwizuj"],
+            "UNPUBLISHED": ["Archiwizuj"],
+            "ARCHIVED": []
+          },
+          "runtimeOwnerIssues": [34, 35],
+          "runtimeContext": ["organizationId", "vehicleId", "status", "version", "actorRole"]
+        },
         "otherVehicleActions": "Osobne cele Edytuj i Kalendarz używają trasy danego pojazdu; statyczny ADM-09 przedstawia wyłącznie Mercedesa."
       },
       "assetIds": [
@@ -8362,6 +8551,15 @@
       ],
       "originalPriority": "UNSPECIFIED",
       "statesSpec": "Wywołanie: „Ukryj”",
+      "prototypeContract": {
+        "issue": 107,
+        "referenceVehicle": "Toyota Proace Verso",
+        "cancelHitIds": {
+          "mobile": "1e066793-8858-8051-8008-cf443b6e4408",
+          "desktop": "1e066793-8858-8051-8008-cf443e7400da"
+        },
+        "confirmationMutation": "not-simulated; runtime #34/#35 uses server response"
+      },
       "penpot": {
         "pageId": "a4abf4c9-2e1f-80fd-8008-afc9717d55df",
         "boardIds": {
@@ -8384,6 +8582,15 @@
       ],
       "originalPriority": "UNSPECIFIED",
       "statesSpec": "Wywołanie: „Archiwizuj”",
+      "prototypeContract": {
+        "issue": 107,
+        "referenceVehicle": "Toyota Proace Verso",
+        "cancelHitIds": {
+          "mobile": "1e066793-8858-8051-8008-cf443b6e4418",
+          "desktop": "1e066793-8858-8051-8008-cf443e7400ea"
+        },
+        "confirmationMutation": "not-simulated; archived vehicle has no panel restore"
+      },
       "penpot": {
         "pageId": "a4abf4c9-2e1f-80fd-8008-afc9717d55df",
         "boardIds": {

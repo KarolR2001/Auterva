@@ -1,6 +1,7 @@
 import { CalendarSearch } from "lucide-react";
 
 import { FilterDetails } from "./filter-details";
+import { DateRangeField } from "./date-range-field";
 
 import { catalogHref, catalogPath, sortLabels } from "@/modules/public-offer/presentation";
 import type { CatalogResult } from "@/modules/public-offer/read";
@@ -9,28 +10,13 @@ import styles from "./public.module.css";
 
 type Ok = Extract<CatalogResult, { ok: true }>;
 
-function DateFields({ today, from, to, required }: { today: string; from: string | null; to: string | null; required: boolean }) {
-  return (
-    <>
-      <div className={styles.field}>
-        <label className={styles.label} htmlFor="filter-from">Od</label>
-        <input id="filter-from" name="from" type="date" min={today} defaultValue={from ?? ""} required={required} className={styles.dateInput} />
-      </div>
-      <div className={styles.field}>
-        <label className={styles.label} htmlFor="filter-to">Do</label>
-        <input id="filter-to" name="to" type="date" min={today} defaultValue={to ?? ""} required={required} className={styles.dateInput} />
-      </div>
-    </>
-  );
-}
-
 /** Home checker (PUB-01): a GET form to the catalog, so the chosen range lives in the URL and in history. */
 export function AvailabilityChecker({ today }: { today: string }) {
   return (
     <form action={catalogPath} method="get" className={styles.panel} aria-labelledby="checker-title">
       <h2 id="checker-title" className={styles.panelTitle}>Sprawdź termin</h2>
       <div className={`${styles.fields} ${styles.fieldsChecker}`}>
-        <DateFields today={today} from={null} to={null} required />
+        <DateRangeField from={null} to={null} required today={today} />
         <button type="submit" className={`${styles.linkButton} ${styles.linkButtonPrimary}`}>
           <CalendarSearch aria-hidden="true" size={18} />Sprawdź
         </button>
@@ -48,6 +34,7 @@ export function CatalogFilters({ result, today }: { result: Ok; today: string })
   const { applied, filters } = result;
   const active = [applied.category, applied.seats, applied.transmission, applied.from, applied.sort !== "recommended" ? applied.sort : null]
     .filter(Boolean).length;
+  const clearable = [applied.category, applied.seats, applied.transmission, applied.sort !== "recommended" ? applied.sort : null].some(Boolean);
   const seatOptions = filters.seats ? Array.from({ length: filters.seats.max - filters.seats.min + 1 }, (_, index) => filters.seats!.min + index) : [];
   const hasFilterOptions = filters.categories.length > 0 || filters.transmissions.length > 0 || seatOptions.length > 1;
   return (
@@ -83,7 +70,7 @@ export function CatalogFilters({ result, today }: { result: Ok; today: string })
                 </select>
               </div>
             ) : null}
-            <DateFields today={today} from={applied.from} to={applied.to} required={false} />
+            <DateRangeField from={applied.from} to={applied.to} required={false} today={today} />
             <div className={styles.field}>
               <label className={styles.label} htmlFor="filter-sort">Sortowanie</label>
               <select id="filter-sort" name="sort" defaultValue={applied.sort} className={styles.select}>
@@ -95,7 +82,7 @@ export function CatalogFilters({ result, today }: { result: Ok; today: string })
           <p className={styles.hint}>Terminem jest zakres od 1 do 365 dni; obie daty wliczają się do niego.</p>
           <div className={styles.filterActions}>
             <button type="submit" className={`${styles.linkButton} ${styles.linkButtonPrimary}`}>Zastosuj</button>
-            {active > 0 ? (
+            {clearable ? (
               <a href={catalogHref({ from: applied.from, to: applied.to })} className={`${styles.linkButton} ${styles.linkButtonSecondary}`}>Wyczyść filtry</a>
             ) : null}
           </div>

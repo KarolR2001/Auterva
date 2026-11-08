@@ -92,13 +92,22 @@ test("public home and catalog: empty offer, results, filters in the URL, Back, n
     // A price of 0 is "no price", never "0 zł".
     await expect(page.getByText("Cena na zapytanie").first()).toBeVisible();
     await expect(page.getByText("0 zł")).toHaveCount(0);
+    await page.setViewportSize({ width: 390, height: 844 });
+    const contactBand = page.locator("section[aria-labelledby='contact-title']");
+    await expect(contactBand).toHaveCSS("background-color", "rgb(21, 21, 21)");
+    await expect(contactBand).toHaveCSS("color", "rgb(242, 242, 242)");
+    await expect(contactBand.getByRole("link", { name: "Napisz do nas" })).toHaveCSS("background-color", "rgb(242, 242, 242)");
+    for (const width of [320, 600]) {
+      await page.setViewportSize({ width, height: 844 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    }
+    await page.setViewportSize({ width: 1280, height: 800 });
     await shoot(page, "pub-01-home");
     const html = (await rawGet(port, host, "/")).body;
     for (const secret of ["E2E-REF-SECRET", "E2E-NOTE-SECRET", "MAINTENANCE", "Szkic Ukryty", "Firma Inna E2E"]) expect(html).not.toContain(secret);
 
     // 3. Catalog: filters live in the URL; the date checker of the home carries the range to the cards.
-    await page.getByLabel("Od", { exact: true }).fill(day(3));
-    await page.getByLabel("Do", { exact: true }).fill(day(4));
+    await page.getByRole("textbox", { name: "Termin od — do" }).fill(`${day(3)} – ${day(4)}`);
     await page.getByRole("button", { name: "Sprawdź" }).click();
     await expect(page).toHaveURL(new RegExp(`/pojazdy/\\?from=${day(3)}&to=${day(4)}$`));
     await expect(page.getByRole("heading", { name: "Znajdź pojazd na swoją trasę" })).toBeVisible();
