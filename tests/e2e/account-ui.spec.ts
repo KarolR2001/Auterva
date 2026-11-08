@@ -172,7 +172,7 @@ test("company admin: reset, account, password change, logout and expired service
     await expect(page.getByText("Hasło zostało zmienione.")).toBeVisible();
     expect(await db.session.count({ where: { userId: registered.user.id } })).toBe(0);
     await page.goto(`${origin}/admin/konto`);
-    await expect(page).toHaveURL(/\/admin\/login\?returnTo=%2Fadmin%2Fkonto$/);
+    await expect(page).toHaveURL(/\/admin\/login\/?\?returnTo=%2Fadmin%2Fkonto$/);
 
     // Logout waits for the server; Back does not restore private data.
     await clearLocalIpEvents(db);
