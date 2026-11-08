@@ -13,3 +13,33 @@ Każdy wpis zapisuje UTC `createdAt`, aktora i rolę, firmę docelową, typ i ID
 Zapis superadmina w zarchiwizowanej firmie (D-23, #151) dostaje w `safeChanges` pole `context: "ARCHIVED_COMPANY"` (jedyna wartość, allowlista w odczycie); `appendAudit` ustala je pod blokadą firmy dla akcji ustawień, brandingu, pojazdu, mediów i blokad, nigdy dla archiwizacji i przywrócenia. Typowane akcje obejmują auth (ukończony login, logout, hasło/sesje/MFA), firmę, zaproszenie, okres, domenę, branding, ustawienia, pojazd (utworzenie/zmiana/publikacja/ukrycie/archiwizacja), media i CRUD blokady. W #16 działający konsumenci to auth i odzyskiwanie operatora; nie istnieją jeszcze mutacje firmy/floty/mediów, dlatego ich wpisy będą wdrażane razem z właściwymi use cases, bez fikcyjnych zdarzeń. Każdy przyszły zapis krytyczny musi użyć `appendAudit` w swojej transakcji i testu rollback/A-B/rzeczywistej roli.
 
 Retencja audytu wynosi 365 dni według D-10. Ten moduł append/read nie usuwa wierszy. Odrębny [kontrakt maintenance #108](audit-retention-operations.md) opisuje worker, operatorowy eksport lokalnej fixture i purge bez endpointu panelu. Archiwizacja firmy nie czyści audytu. Docelowy storage, polityka produkcyjna i test usuwania/eksportu po terminie pozostają do odbioru w #58/#60.
+
+## Odczyt w panelach — #74
+
+Zakres ról wynika ze źródeł, nie z tej implementacji:
+
+- **Administrator firmy** czyta wyłącznie historię własnej firmy, łącznie ze zmianami superadmina i operatora pokazanymi z ich rzeczywistym aktorem (PRD 3.1 [ADM-17](../product/PRD.md): „Tylko historia danej firmy. Zmiana wykonana przez superadmina ma właściwego aktora”; [OVR-18](../product/PRD.md): „Odróżnić audit firmy i operatora”; [architektura](../ARCHITEKTURA_AUTERVA.md) `GET /api/admin/audit` — „tenantowy audyt”). Firma pochodzi z hosta panelu. W zarchiwizowanej firmie administrator nie ma dostępu ([archiwizacja](company-archive-restore.md)).
+- **Superadmin** czyta audyt firmy jawnie wybranej w ścieżce, także zarchiwizowanej (sekcja wyżej: „superadmin jawnie wybiera firmę”; architektura: „Superadmin może przeglądać archiwum […] jawnie wybiera firmę w zagnieżdżonym obszarze”, FLOW-MVP-11).
+- **Audyt platformy** (wiersze bez `organizationId`, np. logowanie superadmina, restore całej bazy) nie ma endpointu panelu. Źródła nie rozstrzygają jego przeglądu (PLT-06 tylko „wykorzystać istniejący prosty audyt, jeśli jest gotowy”); wymaga osobnej decyzji właściciela.
+
+| Metoda i ścieżka | Host | Aktor |
+|---|---|---|
+| `GET /api/admin/audit/` | `COMPANY_ADMIN` firmy | `ADMIN_FIRMY` tej firmy |
+| `GET /api/platform/companies/{organizationId}/audit/` | `PLATFORM` | `SUPERADMIN_AUTERVA` |
+
+Bramki jak przy innych odczytach paneli: host i obszar, sesja z pełnym MFA, rola, konto (zweryfikowany e-mail, `disabledAt`), archiwizacja firmy administratora, budżet odczytów (`429 RATE_LIMITED` z `Retry-After`), `Cache-Control: no-store`, `X-Request-Id`. W transakcji odczytu `requireAuditActor` ponownie sprawdza sesję, MFA, rolę i stan konta. Każda trasa eksportuje wyłącznie `GET` w `routeContext`. Nie ma metody edycji, kasowania, eksportu ani SQL.
+
+Parametry zapytania (allowlista; nieznany lub powtórzony klucz, w tym `organizationId`, daje `400 INVALID_INPUT`):
+
+- `limit` 1–100, domyślnie 50; `cursor` — nieprzezroczysty `nextCursor` z poprzedniej strony;
+- `from`, `to` — chwile UTC `YYYY-MM-DDTHH:mm:ss(.sss)Z`, przedział półotwarty `[from, to)`, `from < to`; dzień w Europe/Warsaw przelicza klient;
+- `actorRole` ∈ `ADMIN_FIRMY`, `SUPERADMIN_AUTERVA`, `OPERATOR`; `actorId`;
+- `action` z zamkniętej listy typowanych akcji i akcji operatora; `entityType` z zamkniętej listy typów; `entityId`.
+
+Filtry zawsze łączą się z firmą z kontekstu. Obcy obiekt, aktor lub firma dają pustą stronę, a nie błąd zdradzający istnienie danych. Dolną granicą jest zawsze świeżo liczony cutoff retencji 365 dni (D-10); wiersze starsze, także wstrzymany przez D-30 wpis `COMPANY_RESTORED_FROM_BACKUP`, nie są pokazywane w panelu (przegląd operatora: [retencja](audit-retention-operations.md)).
+
+Wynik `200`: `{ entries: [{ id, createdAt, actor: { id, role }, action, entity: { type, id }, requestId, changes }], nextCursor }`. `createdAt` to UTC ISO z milisekundami. `changes` przechodzi przez tę samą allowlistę co zapis (`safeAuditView`): nazwy pól, bezpieczne `before`/`after`, liczniki, `context: "ARCHIVED_COMPANY"`, skrót dowodu operatora. Wartości tekstów, kontaktu, notatek (`internalNote`), czatu, haseł, tokenów i IP nie trafiają do odpowiedzi, nawet gdy wiersz zapisano poza `appendAudit`; wiersz bez `eventKey` ma `changes: null`. `eventKey` i `organizationId` nie są zwracane.
+
+Paginacja: najnowsze pierwsze, porządek `(createdAt DESC, id DESC)`, warunek kursora `(createdAt, id) < (kursor)`. Kursor niesie `createdAt` z mikrosekundami (precyzja `TIMESTAMPTZ(6)`), więc wpisy z tej samej milisekundy nie giną. Wpisy dopisane w trakcie przeglądania są nowsze od pierwszej strony i nie przesuwają kolejnych stron: brak zgubionych i zdublowanych wpisów; nowe wpisy widać po odświeżeniu pierwszej strony. Zmodyfikowany kursor przesuwa tylko pozycję w granicach tej samej firmy. Addytywna migracja `20261029120000_audit_read_cursor_issue_74` dodaje indeks `("organizationId", "createdAt", "id")`.
+
+Błędy: `400 INVALID_INPUT`, `400 INVALID_ID` (ścieżka superadmina), `403 FORBIDDEN` (brak sesji/MFA, zła rola, obca lub nieistniejąca firma, archiwum firmy administratora, wyłączone konto), `404 NOT_FOUND` (host innego obszaru), `429 RATE_LIMITED`, `500 INTERNAL_ERROR`. Testy: `tests/integration/audit-read-http.test.ts`.

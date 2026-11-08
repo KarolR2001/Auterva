@@ -39,8 +39,40 @@
       "testPaths": ["tests/unit/auth-flow.test.tsx", "tests/unit/auth-page.test.tsx", "tests/unit/auth-destination.test.ts", "tests/unit/mfa-qr.test.tsx", "tests/e2e/auth-ui.spec.ts"]
     },
     {
+      "issue": 67,
+      "scope": "Wyróżnianie pojazdów na home firmy (FR-PUB-002, D-22): publicznie tylko PUBLISHED z featured i do featuredVehicleCount w kolejności firmy; zmiana wyróżnienia lub kolejności w edycji pojazdu zapisuje audyt (featured, sortOrder) i działa od następnego odczytu tylko w jednej firmie; brak wyróżnionych to pusta lista bez danych zastępczych.",
+      "relatedRequirementIds": ["FR-PUB-002", "D-22", "D-23"],
+      "referenceScreenIds": ["PUB-01"],
+      "codePaths": [
+        "src/modules/fleet/mutations.ts",
+        "src/modules/public-offer/read.ts",
+        "docs/contracts/public-offer-seo.md",
+        "docs/contracts/fleet-crud-publication.md"
+      ],
+      "testPaths": [
+        "tests/integration/featured-vehicles.test.ts"
+      ]
+    },
+    {
+      "issue": 74,
+      "scope": "Opcjonalny prywatny odczyt audytu do paneli: admin firmy tylko własna firma (ADM-17), superadmin firma wybrana w ścieżce, także archiwalna; filtry czasu/aktora/działania/obiektu w granicach firmy, kursor (createdAt z mikrosekundami, id), redakcja jak przy zapisie, tylko GET; bez audytu platformy i bez UI.",
+      "relatedRequirementIds": ["C-F151", "C-N019", "C-N037", "C-N040", "FR-ADM-070", "FR-ADM-071", "D-10", "D-30"],
+      "referenceScreenIds": ["ADM-17", "OVR-18"],
+      "codePaths": [
+        "prisma/migrations/20261029120000_audit_read_cursor_issue_74/migration.sql",
+        "prisma/schema.prisma",
+        "src/modules/audit/read.ts",
+        "src/modules/audit/http.ts",
+        "src/modules/audit/append.ts",
+        "src/app/api/admin/audit/route.ts",
+        "src/app/api/platform/companies/[organizationId]/audit/route.ts",
+        "docs/contracts/audit-append-and-access.md"
+      ],
+      "testPaths": ["tests/integration/audit-read-http.test.ts", "tests/unit/audit-cursor.test.ts"]
+    },
+    {
       "issue": 70,
-      "scope": "Discovery (bez kodu): kontrakt najbliższego wolnego terminu i zbiorczych/kopiowanych blokad z wariantami i raportem konfliktów; decyzje właściciela P1-P7 zapisane jako D-32, implementacja w osobnych zadaniach.",
+      "scope": "Kontrakt discovery najbliższego wolnego terminu i zbiorczych/kopiowanych blokad z wariantami i raportem konfliktów; decyzje właściciela P1-P7 zapisane jako D-32. Kontrakt jest źródłem implementacji w osobnych zadaniach (API zbiorczych blokad: #215); sam #70 nie zawiera kodu.",
       "relatedRequirementIds": ["C-F102", "C-F103", "C-F104", "C-N027", "FR-ADM-055", "D-15"],
       "referenceScreenIds": [],
       "codePaths": [
@@ -48,6 +80,26 @@
         "docs/contracts/availability-reads.md"
       ],
       "testPaths": []
+    },
+    {
+      "issue": 215,
+      "scope": "API zbiorczego tworzenia i kopiowania blokad (POST blocks/bulk i blocks/copy, admin i superadmin w kontekście firmy): domyślnie wszystko albo nic (onConflict ABORT) z dryRun, jawny SKIP, maks. 50 pojazdów, internalNote tylko z copyNote, bez shiftDays (P6), idempotencja z receiptem 24 h, blokady firmy i pojazdów w rosnącej kolejności id, audyt w tej samej transakcji.",
+      "relatedRequirementIds": ["C-F102", "C-F103", "C-F104", "C-N027", "FR-ADM-055", "D-15"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/availability/bulk-blocks.ts",
+        "src/modules/availability/bulk-blocks-http.ts",
+        "src/app/api/admin/blocks/bulk/route.ts",
+        "src/app/api/admin/blocks/copy/route.ts",
+        "src/app/api/platform/companies/[organizationId]/blocks/bulk/route.ts",
+        "src/app/api/platform/companies/[organizationId]/blocks/copy/route.ts",
+        "prisma/migrations/20261108100000_operation_receipt_expiry_issue_215/migration.sql",
+        "docs/contracts/availability-nearest-and-bulk-blocks.md"
+      ],
+      "testPaths": [
+        "tests/integration/availability-bulk-blocks.test.ts",
+        "tests/integration/security-regression.test.ts"
+      ]
     },
     {
       "issue": 72,
@@ -949,6 +1001,24 @@
         "tests/unit/public-presentation.test.ts",
         "tests/unit/public-home-visual.test.tsx",
         "tests/e2e/public-site.spec.ts"
+      ]
+    },
+    {
+      "issue": 42,
+      "scope": "Publiczne szczegoly pojazdu (PUB-03 stan available): galeria z miniaturami, przyciskami, strzalkami, gestem i widokiem pelnoekranowym w dialogu (tylko aktualne zdjecie w pelnym wariancie, miniatury lazy), parametry, cena albo Cena na zapytanie, sprawdzenie terminu z wynikiem dostepny/niedostepny bez przyczyny blokady, kalendarz miesieczny z tekstowymi stanami dni, opis jako tekst, wyposazenie i warunki tylko gdy sa dane, linki do kontaktu z pojazdem i datami, 308 starego sluga z zachowanym query, neutralny 404 dla ukrytego pojazdu i wylaczonej firmy. Kontakt i prawo to #43/#44.",
+      "relatedRequirementIds": ["C-F093", "FR-PUB-020", "FR-PUB-021", "FR-PUB-022", "DS-N17", "DS-N18", "NFR-PERF-004"],
+      "referenceScreenIds": ["PUB-03"],
+      "codePaths": [
+        "src/app/pojazdy/[slug]/page.tsx",
+        "src/components/public/vehicle-gallery.tsx",
+        "src/components/public/availability-calendar.tsx",
+        "src/components/public/public.module.css",
+        "src/modules/public-offer/page-data.ts",
+        "src/modules/public-offer/presentation.ts"
+      ],
+      "testPaths": [
+        "tests/unit/public-presentation.test.ts",
+        "tests/e2e/public-vehicle.spec.ts"
       ]
     },
     {
