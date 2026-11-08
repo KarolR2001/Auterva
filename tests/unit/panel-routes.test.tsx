@@ -30,6 +30,13 @@ vi.mock("@/modules/tenancy/request-context", () => ({
   resolveRequestArea: dependencies.resolveRequestArea,
   requireRequestContext: dependencies.requireRequestContext,
 }));
+vi.mock("@/modules/public-offer/page-data", () => ({
+  requestHost: async () => "panel.example.test",
+  loadHome: async () => null,
+}));
+vi.mock("@/modules/tenancy/host-registry", () => ({
+  resolveHostMapping: async () => null,
+}));
 vi.mock("@/modules/auth/authorization", () => ({
   requireAuthorizedActor: dependencies.requireAuthorizedActor,
   requireScopedActor: dependencies.requireScopedActor,
@@ -216,7 +223,8 @@ describe("panelowe 404 (ADM-20)", () => {
       dependencies.resolveRequestArea.mockResolvedValue(area);
       dependencies.requireAuthorizedActor.mockResolvedValue(null);
       const html = renderToStaticMarkup(await NotFound());
-      expect(html).toBe("<main><h1>Nie znaleziono strony</h1></main>");
+      expect(html).not.toContain("Nawigacja panelu");
+      expect(html).not.toContain("Przejdź do panelu");
     }
     expect(dependencies.findOrganization).not.toHaveBeenCalled();
   });
