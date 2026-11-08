@@ -53,7 +53,7 @@
         "freshMfaForCodes": "AccountView → MfaFlow recoverCodes (PLT-10 → 07I)",
         "manualRecovery": "AccountView Nie mam obu czynników (PLT-10 → 07C)"
       },
-      "unmappedStates": ["Brak celu w makiecie dla 07D2 „Użyj kodu z aplikacji” (zgłoszone, bez zgadywania).", "Rotacja TOTP w pełnej sesji (D-05 pkt 5): API nie ma endpointu; konto oferuje tylko ponowne wydanie kodów i odzyskanie kodem."],
+      "unmappedStates": ["Brak celu w makiecie dla 07D2 „Użyj kodu z aplikacji” (zgłoszone, bez zgadywania).", "PLT-10 D: ukryty slot Actions (Action / Primary → FLOW-MVP-02, Action / Secondary → FLOW-MVP-06) nie ma odpowiednika w kodzie konta; nie renderowany (odczyt Penpota 08.11).", "Rotacja TOTP w pełnej sesji (D-05 pkt 5): API nie ma endpointu; konto oferuje tylko ponowne wydanie kodów i odzyskanie kodem."],
       "components": [
         { "itemId": "DS-AUT-002", "codePath": "src/components/auth/reset-flow.tsx" },
         { "itemId": "DS-AUT-003", "codePath": "src/components/auth/reset-flow.tsx" },
