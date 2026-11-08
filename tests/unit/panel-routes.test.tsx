@@ -7,6 +7,7 @@ const dependencies = vi.hoisted(() => ({
   requireRequestContext: vi.fn(),
   requireAuthorizedActor: vi.fn(),
   findOrganization: vi.fn(),
+  getSession: vi.fn(),
 }));
 
 vi.mock("next/headers", () => ({ headers: dependencies.headers }));
@@ -14,8 +15,13 @@ vi.mock("next/navigation", () => ({
   notFound: () => {
     throw new Error("NOT_FOUND");
   },
+  redirect: (url: string) => {
+    throw new Error(`REDIRECT:${url}`);
+  },
 }));
-vi.mock("@/lib/auth", () => ({ auth: {} }));
+vi.mock("@/lib/auth", () => ({
+  auth: { api: { getSession: dependencies.getSession } },
+}));
 vi.mock("@/lib/prisma", () => ({
   prisma: { organization: { findUnique: dependencies.findOrganization } },
 }));
@@ -44,9 +50,31 @@ describe("serwerowe wejścia paneli", () => {
       organizationId: "firma-alfa",
     });
     dependencies.requireRequestContext.mockResolvedValue(null);
+    dependencies.getSession.mockResolvedValue({ user: { id: "obcy" } });
 
     await expect(AdminPage()).rejects.toThrow("NOT_FOUND");
     expect(dependencies.findOrganization).not.toHaveBeenCalled();
+  });
+
+  it("zimny start panelu firmy bez sesji prowadzi do loginu tego hosta bez prywatnej treści", async () => {
+    dependencies.resolveRequestArea.mockResolvedValue({
+      area: "COMPANY_ADMIN",
+      organizationId: "firma-alfa",
+    });
+    dependencies.requireRequestContext.mockResolvedValue(null);
+    dependencies.getSession.mockResolvedValue(null);
+
+    await expect(AdminPage()).rejects.toThrow(
+      "REDIRECT:/admin/login?returnTo=%2Fadmin",
+    );
+    expect(dependencies.findOrganization).not.toHaveBeenCalled();
+  });
+
+  it("obcy host bez dopasowania pozostaje 404, nie loginem", async () => {
+    dependencies.resolveRequestArea.mockResolvedValue(null);
+    await expect(AdminPage()).rejects.toThrow("NOT_FOUND");
+    await expect(HomePage()).rejects.toThrow("NOT_FOUND");
+    expect(dependencies.getSession).not.toHaveBeenCalled();
   });
 
   it("wyświetla shell firmy dopiero po autoryzacji i odczycie tej samej firmy", async () => {
@@ -96,7 +124,19 @@ describe("serwerowe wejścia paneli", () => {
       organizationId: null,
     });
     dependencies.requireAuthorizedActor.mockResolvedValue(null);
+    dependencies.getSession.mockResolvedValue({ user: { id: "admin-firmy" } });
 
     await expect(HomePage()).rejects.toThrow("NOT_FOUND");
+  });
+
+  it("zimny start platformy bez sesji prowadzi do /login", async () => {
+    dependencies.resolveRequestArea.mockResolvedValue({
+      area: "PLATFORM",
+      organizationId: null,
+    });
+    dependencies.requireAuthorizedActor.mockResolvedValue(null);
+    dependencies.getSession.mockResolvedValue(null);
+
+    await expect(HomePage()).rejects.toThrow("REDIRECT:/login");
   });
 });

@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { afterAll, beforeAll, expect, test } from "vitest";
+import { afterAll, beforeAll, expect, test, vi } from "vitest";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { activateCompanyInvitation } from "../../src/modules/invitations/activate";
 import { decryptMailPayload, type MailPayload } from "../../src/modules/jobs/outbox";
@@ -450,39 +450,47 @@ test("panel API: admin reads own company only, superadmin reads a company card, 
   await processDueReminders(db, at("2026-10-25T08:00:00.000Z"), key, organizations);
   const adminSession = await verifiedFixtureSession(db, a.userId);
   sessions.push(adminSession);
-  const call = (host: string, cookie: string, path = "/api/admin/service-period") =>
-    adminStatus(new Request(`http://${host}${path}`, { headers: { host, cookie } }));
-  const own = await call(a.adminHost, adminSession.cookie);
-  expect(own.status).toBe(200);
-  expect(own.headers.get("cache-control")).toBe("no-store");
-  expect(own.headers.get("x-request-id")).toBeTruthy();
-  const body = await own.json();
-  expect(body).toMatchObject({ organizationId: a.organizationId,
-    period: { headline: "TRIAL", trialValid: true, effectiveSource: "TRIAL" } });
-  expect(body.reminders).toHaveLength(1);
-  expect(body.reminders[0]).toMatchObject({ offsetDays: 7, source: "TRIAL" });
-  expect(JSON.stringify(body)).not.toContain(b.organizationId);
-  expect(JSON.stringify(body)).not.toContain("internalNote");
-  // Admin A's session on company B's host or without a session is refused.
-  expect((await call(b.adminHost, adminSession.cookie)).status).toBe(403);
-  expect((await call(a.adminHost, "better-auth.session_token=forged")).status).toBe(403);
-  expect((await call(a.publicHost, adminSession.cookie)).status).toBe(404);
-  expect((await call(a.adminHost, adminSession.cookie, "/api/admin/service-period?x=1")).status).toBe(400);
-  const platform = (organizationId: string, host = platformHost, cookie = platformHttp.cookie) =>
-    platformStatus(new Request(`http://${host}/api/platform/companies/${organizationId}/service-period`,
-      { headers: { host, cookie } }), { params: Promise.resolve({ organizationId }) });
-  const card = await platform(b.organizationId);
-  expect(card.status).toBe(200);
-  expect(await card.json()).toMatchObject({ organizationId: b.organizationId, period: { headline: "TRIAL" } });
-  expect((await platform(b.organizationId, a.adminHost)).status).toBe(404);
-  expect((await platform(b.organizationId, platformHost, adminSession.cookie)).status).toBe(403);
-  expect((await platform("not-a-uuid")).status).toBe(400);
-  // Expiry never blocks the panel: after the trial and no payment the API answers with the notice.
-  const expired = adminStatus(new Request(`http://${a.adminHost}/api/admin/service-period`,
-    { headers: { host: a.adminHost, cookie: adminSession.cookie } }));
-  expect((await expired).status).toBe(200);
-  expect((await getServiceStatus(db, a.organizationId, at("2026-11-02T00:00:00.000Z")))!.expiredNotice)
-    .toContain("Konto aktywne.");
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(at("2026-10-25T08:00:01.000Z"));
+  try {
+    const call = (host: string, cookie: string, path = "/api/admin/service-period") =>
+      adminStatus(new Request(`http://${host}${path}`, { headers: { host, cookie } }));
+    const own = await call(a.adminHost, adminSession.cookie);
+    expect(own.status).toBe(200);
+    expect(own.headers.get("cache-control")).toBe("no-store");
+    expect(own.headers.get("x-request-id")).toBeTruthy();
+    const body = await own.json();
+    expect(body.serverTime).toBe("2026-10-25T08:00:01.000Z");
+    expect(body).toMatchObject({ organizationId: a.organizationId,
+      period: { headline: "TRIAL", trialValid: true, effectiveSource: "TRIAL" } });
+    expect(body.reminders).toHaveLength(1);
+    expect(body.reminders[0]).toMatchObject({ offsetDays: 7, source: "TRIAL" });
+    expect(JSON.stringify(body)).not.toContain(b.organizationId);
+    expect(JSON.stringify(body)).not.toContain("internalNote");
+    // Admin A's session on company B's host or without a session is refused.
+    expect((await call(b.adminHost, adminSession.cookie)).status).toBe(403);
+    expect((await call(a.adminHost, "better-auth.session_token=forged")).status).toBe(403);
+    expect((await call(a.publicHost, adminSession.cookie)).status).toBe(404);
+    expect((await call(a.adminHost, adminSession.cookie, "/api/admin/service-period?x=1")).status).toBe(400);
+    const platform = (organizationId: string, host = platformHost, cookie = platformHttp.cookie) =>
+      platformStatus(new Request(`http://${host}/api/platform/companies/${organizationId}/service-period`,
+        { headers: { host, cookie } }), { params: Promise.resolve({ organizationId }) });
+    const card = await platform(b.organizationId);
+    expect(card.status).toBe(200);
+    expect(await card.json()).toMatchObject({ organizationId: b.organizationId, period: { headline: "TRIAL" } });
+    expect((await platform(b.organizationId, a.adminHost)).status).toBe(404);
+    expect((await platform(b.organizationId, platformHost, adminSession.cookie)).status).toBe(403);
+    expect((await platform("not-a-uuid")).status).toBe(400);
+    // Expiry never blocks the panel: after the trial and no payment the API answers with the notice.
+    vi.setSystemTime(at("2026-11-02T00:00:00.000Z"));
+    const expired = await call(a.adminHost, adminSession.cookie);
+    expect(expired.status).toBe(200);
+    expect(await expired.json()).toMatchObject({ period: { headline: "EXPIRED", trialValid: false } });
+    expect((await getServiceStatus(db, a.organizationId, at("2026-11-02T00:00:00.000Z")))!.expiredNotice)
+      .toContain("Konto aktywne.");
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 test("a failing item does not starve the rest of the sweep and stays retryable", async () => {

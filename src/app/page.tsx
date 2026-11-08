@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { marketingContact } from "@/modules/marketing/content";
 import { marketingMetadata } from "@/modules/marketing/metadata";
 import { prisma } from "@/lib/prisma";
+import { denyPanel } from "@/components/panel/deny-panel";
 import { PanelShell } from "@/components/panel/panel-shell";
 import { CompanyListView } from "@/components/platform/company-list";
 import { requireAuthorizedActor } from "@/modules/auth/authorization";
@@ -43,6 +44,7 @@ export default async function HomePage() {
           <CompanyListView />
         </PanelShell>
       );
+    return denyPanel(auth, incoming, "platform");
   }
   if (
     area?.area === "COMPANY_PUBLIC" &&

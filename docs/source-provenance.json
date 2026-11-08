@@ -25,14 +25,14 @@
       "path": "docs/design/SPEC.md",
       "role": "current-design-contract",
       "originalSha256": "57f6591f985e33c7ea225f84b9fa2ac298ff852c2843fb1c54994991608b2027",
-      "sha256": "776626ef4ae13037c5c3f424a5cba294fd2c751d299a569fc42e483b523a9d0a",
+      "sha256": "6cbbc214b0458e5a3b8d90714254ba9bc11412d9a53a11c7aa7805bde3e78fea",
       "transformation": "Dodano nadrzędny kontrakt 3.1 i DEC-013–020, aktualne strony Penpota, obowiązkowe MFA, granice ustawień i status prototypów; zachowano fundamenty/komponenty i przeniesiono reguły motion/copy bez historycznych wyników QA. Doprecyzowano nawigację panelu firmy w #94 i platformy w #102, a w #107 menu akcji pojazdu ADM-05 (publikacja tylko w formularzu)."
     }
   ],
   "derivedDocuments": [
     {
       "path": "docs/WYMAGANIA_AUTERVA.md",
-      "sha256": "c11b51eb85ee6fd6436dc41058b9b37c96e0f5549400c854a10edaabb09bf756"
+      "sha256": "f8e34ad8634b0278ae194c7e9934ca6f209e2b3fcfe6f9569ca3dffdf3d6f6be"
     },
     {
       "path": "docs/ARCHITEKTURA_AUTERVA.md",
@@ -72,7 +72,7 @@
     },
     {
       "path": "docs/contracts/availability-reads.md",
-      "sha256": "9f4d0b0f896c3f44960a2e3d029b6999556a3304405717786475af136e7a279b"
+      "sha256": "4f8ec72b0c4462c6ea590f4a4db1f5201934d13c247f9022e0c65d4a5b0e7341"
     },
     {
       "path": "docs/contracts/fleet-crud-publication.md",
