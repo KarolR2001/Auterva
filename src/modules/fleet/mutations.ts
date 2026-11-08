@@ -12,6 +12,8 @@ const uuid = z.uuid();
 // #176: NUL and other control characters are refused; only the two descriptions keep TAB, LF and CR.
 const text = (max: number, multiline = false) => z.string().trim().max(max)
   .refine((value) => !hasControlCharacter(value, multiline), INVALID_CHARACTERS).nullable();
+/** One range for `sortOrder` in PATCH and reorder (#230): the PostgreSQL int4 maximum is valid. */
+const MAX_SORT_ORDER = 2_147_483_647;
 const vehicleFields = z.object({
   name: text(120), slug: z.string().trim().toLowerCase().max(120)
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).nullable(),
@@ -20,7 +22,7 @@ const vehicleFields = z.object({
   shortDescription: text(500, true), description: text(20_000, true), seats: z.number().int().min(1).max(1_000).nullable(),
   doors: z.number().int().min(1).max(100).nullable(), transmission: text(80), drive: text(80), fuel: text(80),
   color: text(80), luggage: text(120), price: z.string().regex(/^\d{1,10}(?:\.\d{1,2})?$/).nullable(),
-  priceUnit: text(40), featured: z.boolean(), sortOrder: z.number().int().min(0).max(2_147_483_647),
+  priceUnit: text(40), featured: z.boolean(), sortOrder: z.number().int().min(0).max(MAX_SORT_ORDER),
   availableFrom: z.string().nullable(), availableTo: z.string().nullable(),
   features: z.array(z.object({ code: z.string().trim().min(1).max(80).refine((value) => !hasControlCharacter(value), INVALID_CHARACTERS),
     value: text(500) }).strict()).max(100),
@@ -54,6 +56,11 @@ function checkedFields(input: VehicleFields): Prisma.VehicleUncheckedUpdateInput
     ...(availableTo === undefined ? {} : { availableTo: availableTo === null ? null : sqlDate(availableTo) }),
     ...(features === undefined ? {} : { features }),
   };
+}
+
+/** Same range as the PATCH schema above (#230). */
+function sortOrderValue(value: number): boolean {
+  return Number.isSafeInteger(value) && value >= 0 && value <= MAX_SORT_ORDER;
 }
 
 function version(value: number): boolean {
@@ -250,7 +257,7 @@ export async function reorderVehicles(db: PrismaClient, input: Operation & { ite
   if (!Array.isArray(input.items) || input.items.length < 1 || input.items.length > 100
     || new Set(input.items.map((item) => item.id)).size !== input.items.length
     || input.items.some((item) => !uuid.safeParse(item.id).success || !version(item.expectedVersion)
-      || !version(item.sortOrder))) throw new Error("FLEET_INVALID_INPUT");
+      || !sortOrderValue(item.sortOrder))) throw new Error("FLEET_INVALID_INPUT");
   return db.$transaction(async (tx) => {
     await authorizedCompany(tx, input);
     const ordered = [...input.items].sort((a, b) => a.id.localeCompare(b.id));
