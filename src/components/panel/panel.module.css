@@ -265,6 +265,12 @@
   padding: var(--space-8);
 }
 
+.shellBusyNotice {
+  margin: 0 0 var(--space-4);
+  color: var(--text-error);
+  line-height: var(--line-height-24);
+}
+
 .shellMobileNav {
   display: none;
 }

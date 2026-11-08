@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { marketingContact } from "@/modules/marketing/content";
 import { marketingMetadata } from "@/modules/marketing/metadata";
 import { prisma } from "@/lib/prisma";
+import { denyPanel } from "@/components/panel/deny-panel";
 import { PanelShell } from "@/components/panel/panel-shell";
 import { requireAuthorizedActor } from "@/modules/auth/authorization";
 import { resolvePublicVisibility } from "@/modules/service-period/public";
@@ -42,6 +43,10 @@ export default async function HomePage() {
           <p>Panel jest w przygotowaniu.</p>
         </PanelShell>
       );
+    return denyPanel(prisma, auth, incoming, {
+      area: "PLATFORM",
+      organizationId: null,
+    });
   }
   if (
     area?.area === "COMPANY_PUBLIC" &&

@@ -574,7 +574,7 @@ Historyczne scenariusze v2 (15): UC-SAS-01 assisted startup; 02 multi-company; 0
 - Konto firmy pozostaje jedno; starsza otwarta decyzja o wielu administratorach z handoffu została rozstrzygnięta przez V31.
 - Decyzje właściciela z 23.10.2026 rozstrzygają D-01, D-02, D-04 i D-05. Szczegóły macierzy, publikacji, limitów i bootstrapu są kanoniczne dla implementacji MVP 3.1.
 - Decyzje właściciela z 27.10.2026 rozstrzygają D-16–D-27 (środowiska, materiały, limity, preview, archiwum, przypomnienia, SEO, hosty i przekierowania).
-- Decyzje właściciela z 28.10.2026 rozstrzygają D-28–D-31 (profil bez zakupu, kontrole lokalne, retencja podstawy odblokowania, wielu wykonawców w roli).
+- Decyzje właściciela z 28.10.2026 rozstrzygają D-28–D-32 (profil bez zakupu, kontrole lokalne, retencja podstawy odblokowania, wielu wykonawców w roli, najbliższy wolny termin i zbiorcze blokady).
 
 ### Do ustalenia przed implementacją danego obszaru
 
@@ -618,6 +618,8 @@ Rozstrzygają pytania zebrane podczas CR/QA Stage 3. Gdy decyzja zmienia zachowa
 - **D-30 — retencja podstawy odblokowania (#183):** wyjątek od retencji 365 dni (D-10): najnowszy wpis `COMPANY_RESTORED_FROM_BACKUP` firmy nie jest usuwany po 365 dniach, dopóki konto z jego wykazu pozostaje zablokowane przez restore. Alert `AUDIT_UNLOCK_BASIS_HELD` przypomina operatorowi o przeglądzie. [Kontrakt retencji](contracts/audit-retention-operations.md).
 - **D-31 — wielu wykonawców w roli:** w roli Frontend i Backend może pracować równolegle wielu agentów; każdy podejmuje następne gotowe issue według Order i zależności. Jedno issue ma jednego wykonawcę, a każdy wykonawca najwyżej jedno issue w implementacji lub poprawce. Przejęcie cudzego issue odbywa się według zasad przejęcia z [workflow](development/WORKFLOW.md). Limit „najwyżej jedno In progress na rolę” zostaje zniesiony; CR orkiestratora i niezależne QA obowiązują bez zmian.
 
+- **D-32 — najbliższy wolny termin i zbiorcze blokady (#70, opcjonalne, poza obowiązkowym MVP):** właściciel zatwierdził 28.10.2026 rekomendacje P1–P7 z [kontraktu](contracts/availability-nearest-and-bulk-blocks.md): horyzont 180 dni (stała serwera); najbliższy termin publicznie, obliczany na żądanie dla jednego pojazdu, bez wsadu w pierwszym kroku; zapis zbiorczy domyślnie wszystko albo nic z `dryRun`, a częściowy zapis (`SKIP`) tylko jawnie, z dokładną listą zapisanych i odrzuconych aut; najwyżej 50 aut w żądaniu; `internalNote` nie jest kopiowana bez jawnego `copyNote`; kopiowanie z przesunięciem dat (`shiftDays`) w kolejnym kroku, najpierw zbiorcze utworzenie i kopia na te same daty; wymagany `idempotencyKey` (UUID) z receiptem ważnym 24 h. Implementacja w osobnych zadaniach API i FE; nowe stany UI wymagają makiety Penpota przed kodem. Bez rezerwacji online i zapisu offline.
+
 ## 10. Co warto dodać — propozycje, poza obowiązkowym zakresem
 
 - **Najpierw: kontrola jakości oferty.** Lista brakujących zdjęć/opisów/kontaktu i przypomnienie o weryfikacji dostępności. Rozwija opcjonalny FR-ADM-011 i ogranicza błędne zapytania klientów.
@@ -632,6 +634,6 @@ Rozstrzygają pytania zebrane podczas CR/QA Stage 3. Gdy decyzja zmienia zachowa
 
 - Analiza źródłowa objęła pięć plików PRD, z czterema różnymi treściami. Repozytorium zachowuje kanoniczny V31 i BASELINE_FLEET; historia V2/V30 nie jest zależnością implementacji. Zachowane i wycofane wymagania są rozliczone w tym dokumencie.
 - Katalog zachowuje 71 identyfikatorów bazowych FR, 10 UC, 4 NFR-PERF oraz odniesienia do 31 REQ-MVP i 55 scenariuszy TEST-MVP z V31 §20. Scenariusze testowe są planem odbioru, nie wynikami testów.
-- Pełne pokrycie katalogu nie oznacza gotowości wszystkich kontraktów do implementacji: D-12, D-13 i D-15 pozostają ustaleniami projektowymi i mapowaniem. D-01–D-11 i D-14 mają rozstrzygnięcie z 23.10.2026, D-16–D-27 z 27.10.2026, a D-28–D-31 z 28.10.2026.
+- Pełne pokrycie katalogu nie oznacza gotowości wszystkich kontraktów do implementacji: D-12, D-13 i D-15 pozostają ustaleniami projektowymi i mapowaniem. D-01–D-11 i D-14 mają rozstrzygnięcie z 23.10.2026, D-16–D-27 z 27.10.2026, a D-28–D-32 z 28.10.2026.
 - Dla każdego wdrażanego przekroju uzupełnić mapowanie wymaganie → board Penpota → kod → trwały test w `design/traceability.json`. Aktualny dokument nie dopisuje fikcyjnych ścieżek kodu ani zaliczonych testów.
 - Odbiór aplikacji wymaga [quality gates](quality-gates.md), w tym rzeczywistego PostgreSQL, izolacji firm, współbieżności, MFA, poczty, WebSocket, hostów i PWA production build.

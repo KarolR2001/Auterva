@@ -1,6 +1,7 @@
 import { PwaRegistration } from "./pwa-registration";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
+import { denyPanel } from "@/components/panel/deny-panel";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PanelShell } from "@/components/panel/panel-shell";
@@ -21,7 +22,10 @@ export default async function AdminPage() {
     incoming,
     area.organizationId,
   );
-  if (!actor) notFound();
+  if (!actor) return denyPanel(prisma, auth, incoming, {
+      area: "COMPANY_ADMIN",
+      organizationId: area.organizationId,
+    });
   const organization = await prisma.organization.findUnique({
     where: { id: actor.organizationId },
     select: { name: true },

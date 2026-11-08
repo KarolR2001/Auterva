@@ -79,7 +79,7 @@ describe("stany dostępu panelu", () => {
     );
     expect(screen.getByRole("link", { name: "Przejdź do logowania" })).toHaveAttribute(
       "href",
-      "/admin/login",
+      "/admin/login?returnTo=%2Fadmin",
     );
 
     rerender(
@@ -89,7 +89,7 @@ describe("stany dostępu panelu", () => {
     );
     expect(screen.getByRole("link", { name: "Przejdź do logowania" })).toHaveAttribute(
       "href",
-      "/login",
+      "/login?returnTo=%2F",
     );
   });
 });

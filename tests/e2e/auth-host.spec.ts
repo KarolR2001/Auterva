@@ -254,3 +254,34 @@ test("an open panel distinguishes network failure from server revocation", async
     await db.$disconnect();
   }
 });
+
+test("a cold start of the company panel without a session lands on the login of the same host", async ({
+  page,
+  baseURL,
+}) => {
+  if (!baseURL) throw new Error("Missing E2E base URL");
+  const db = createPrismaClient(process.env.DATABASE_URL ?? "");
+  const organizationId = randomUUID();
+  const hostname = `cold-${randomUUID()}.localhost`;
+  const origin = new URL(baseURL);
+  origin.hostname = hostname;
+  await db.organization.create({
+    data: {
+      id: organizationId,
+      slug: `cold-${organizationId}`,
+      name: "Firma Zimna",
+    },
+  });
+  await db.hostMapping.create({
+    data: { hostname, area: "COMPANY_ADMIN", organizationId, status: "ACTIVE" },
+  });
+  try {
+    await page.goto(`${origin.origin}/admin/`);
+    await expect(page).toHaveURL(/\/admin\/login\/?\?returnTo=%2Fadmin$/);
+    await expect(page.getByText("Panel jest w przygotowaniu.")).toHaveCount(0);
+  } finally {
+    await db.hostMapping.deleteMany({ where: { hostname } });
+    await db.organization.deleteMany({ where: { id: organizationId } });
+    await db.$disconnect();
+  }
+});
