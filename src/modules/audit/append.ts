@@ -68,6 +68,9 @@ const archiveWriteActions = new Set<AuditAction>(["SETTINGS_CHANGED", "BRANDING_
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type AuditAction = keyof typeof actionEntity;
+/** Typed actions and the entity types they target; the panel read filters by these closed lists (#74). */
+export const auditActionNames: readonly AuditAction[] = Object.keys(actionEntity) as AuditAction[];
+export const auditEntityTypes: readonly string[] = [...new Set(Object.values(actionEntity))];
 export type AppendAuditInput = {
   actorId: string;
   sessionId: string;
