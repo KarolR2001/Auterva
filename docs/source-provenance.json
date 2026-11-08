@@ -68,7 +68,7 @@
     },
     {
       "path": "docs/contracts/audit-append-and-access.md",
-      "sha256": "f18b00b8eb2e1d907baaa1a46250065571be0c838f11f045378f930a12454318"
+      "sha256": "60d6fed3f39e5ad2bc47b7b749b460b1b7a769227b4c93f10c61ddb8100add9a"
     },
     {
       "path": "docs/contracts/availability-reads.md",
