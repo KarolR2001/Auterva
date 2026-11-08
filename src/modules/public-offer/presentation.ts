@@ -101,3 +101,52 @@ export function pluralVehicles(count: number): string {
   if (rest10 >= 2 && rest10 <= 4 && !(rest100 >= 12 && rest100 <= 14)) return `${count} pojazdy`;
   return `${count} pojazdów`;
 }
+
+// --- Vehicle detail (#42): month calendar and date range of the availability check ---------------------------
+
+const monthNames = ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień",
+  "Październik", "Listopad", "Grudzień"];
+const monthIndex = (month: string) => Number(month.slice(0, 4)) * 12 + Number(month.slice(5, 7)) - 1;
+const monthOfIndex = (index: number) => `${Math.floor(index / 12)}-${pad((index % 12) + 1)}`;
+
+export const monthLabel = (month: string) => `${monthNames[Number(month.slice(5, 7)) - 1]} ${month.slice(0, 4)}`;
+export const shiftMonth = (month: string, delta: number) => monthOfIndex(monthIndex(month) + delta);
+/** The calendar shows the current Warsaw month up to a year ahead; anything else falls back to the current month. */
+export function parseMonth(value: string | undefined, today: string): string {
+  const current = today.slice(0, 7);
+  if (!value || !/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) return current;
+  const offset = monthIndex(value) - monthIndex(current);
+  return offset < 0 || offset > 12 ? current : value;
+}
+
+/** Days of `month` with their weekday (0 = Monday), for a 7-column grid that starts on Monday. */
+export function monthDays(month: string): { date: string; weekday: number }[] {
+  const year = Number(month.slice(0, 4));
+  const first = Number(month.slice(5, 7)) - 1;
+  const count = new Date(Date.UTC(year, first + 1, 0)).getUTCDate();
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date(Date.UTC(year, first, index + 1));
+    return { date: date.toISOString().slice(0, 10), weekday: (date.getUTCDay() + 6) % 7 };
+  });
+}
+
+/** The part of a month the public calendar API may be asked about (never before today); null for a past month. */
+export function calendarRange(month: string, today: string): { from: string; to: string } | null {
+  const days = monthDays(month);
+  const last = days[days.length - 1].date;
+  if (last < today) return null;
+  return { from: days[0].date < today ? today : days[0].date, to: last };
+}
+
+export type DayState = "past" | "available" | "unavailable";
+
+export const pluralDays = (count: number) => (count === 1 ? "1 dzień" : `${count} dni`);
+
+/** Link to the contact page of one vehicle with the chosen range (C-F092): no context is lost between pages. */
+export function contactHref(vehicleSlug: string | null, range: { from: string | null; to: string | null }): string {
+  const params = new URLSearchParams();
+  if (vehicleSlug) params.set("vehicle", vehicleSlug);
+  if (range.from && range.to) { params.set("from", range.from); params.set("to", range.to); }
+  const query = params.toString();
+  return query ? `/kontakt/?${query}` : "/kontakt/";
+}

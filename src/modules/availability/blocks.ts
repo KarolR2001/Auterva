@@ -15,13 +15,13 @@ const uuid = z.uuid();
 const optionalText = (max: number, multiline = false) => z.string().trim().max(max)
   .refine((value) => !hasControlCharacter(value, multiline), INVALID_CHARACTERS).transform((value) => value || null).nullable();
 const dateField = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-const createFields = z.object({ from: dateField, to: dateField, type: z.enum(blockTypes),
+export const createFields = z.object({ from: dateField, to: dateField, type: z.enum(blockTypes),
   reference: optionalText(120).optional(), internalNote: optionalText(2000, true).optional() }).strict();
 const editFields = createFields.partial().strict();
 export type BlockCreateFields = z.input<typeof createFields>;
 export type BlockEditFields = z.input<typeof editFields>;
 
-type Conflict = { id: string; from: string; to: string; type: BlockType; version: number };
+export type Conflict = { id: string; from: string; to: string; type: BlockType; version: number };
 
 /** Readable, atomic refusal; the existing entry is exposed only to the authorised company actor. */
 export class BlockOverlapError extends Error {
@@ -54,10 +54,11 @@ function dto(block: { id: string; vehicleId: string; from: Date; to: Date; type:
  * conflict with the KEY SHARE taken by audit inserts, so a block write cannot form a cycle with MFA login,
  * which holds account rows and inserts an audit row for the same company.
  */
-async function authorizeAndLockCompany(tx: Prisma.TransactionClient, input: Operation) {
+export async function authorizeAndLockCompany(tx: Prisma.TransactionClient, input: Operation) {
   const actor = await requireAuditActor(tx, input.actorId, input.sessionId);
   if (actor.role === "ADMIN_FIRMY" && actor.organizationId !== input.organizationId) throw new Error("FLEET_NOT_FOUND");
   if (!(await lockCompanyForWrite(tx, actor, input.organizationId, "NO_KEY_UPDATE"))) throw new Error("FLEET_NOT_FOUND");
+  return actor;
 }
 
 async function lockedVehicle(tx: Prisma.TransactionClient, input: Operation & { vehicleId: string }) {
