@@ -76,11 +76,7 @@
     },
     {
       "path": "docs/contracts/fleet-crud-publication.md",
-<<<<<<< HEAD
-      "sha256": "59773e1c96bb5347dd5c1a16d39ea2f13c0e164fa4ac715c8c454ab938e74942"
-=======
-      "sha256": "b405cbb4e171cb4f9cac8981b0180c0ea69776abbf638fa4538d375f49a04233"
->>>>>>> origin/main
+      "sha256": "306f806b6e0b116253481a749451e27dd8999c19be68d3ac2c288be3b53a9063"
     },
     {
       "path": "docs/contracts/availability-blocks.md",

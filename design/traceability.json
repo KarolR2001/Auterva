@@ -14,6 +14,7 @@
       ],
       "testPaths": [
         "tests/integration/vehicle-sort-order-migration.test.ts"
+      ]
     },
     {
       "issue": 67,
