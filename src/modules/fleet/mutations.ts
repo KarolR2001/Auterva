@@ -215,11 +215,14 @@ export async function editVehicle(db: PrismaClient, input: Operation & { vehicle
           oldSlug: before.slug }, update: { vehicleId: input.vehicleId } });
       }
       const after = await tx.vehicle.findUniqueOrThrow({ where: { id: input.vehicleId } });
+      // #67: a featured or order change alters the company home, so it is audited with its values (safe fields).
+      const homeFields = (["featured", "sortOrder"] as const).filter((key) => before[key] !== after[key]);
       await appendAudit(tx, { actorId: input.actorId, sessionId: input.sessionId,
         organizationId: input.organizationId, action: "VEHICLE_UPDATED", entityId: input.vehicleId,
         eventKey: randomUUID(), requestId: input.requestId,
-        changes: { changedFields: slugChanged ? ["slug", "version"] : ["version"], before: { version: before.version },
-          after: { version: after.version } } });
+        changes: { changedFields: [...(slugChanged ? ["slug"] : []), ...homeFields, "version"],
+          before: { ...Object.fromEntries(homeFields.map((key) => [key, before[key]])), version: before.version },
+          after: { ...Object.fromEntries(homeFields.map((key) => [key, after[key]])), version: after.version } } });
       return projection(after);
     });
   } catch (error) { normalizeError(error); }
