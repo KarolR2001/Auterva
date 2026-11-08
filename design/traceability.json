@@ -926,6 +926,32 @@
       ]
     },
     {
+      "issue": 41,
+      "scope": "Publiczny home i katalog firmy (SSR, tylko PUBLISHED): pusta oferta, wyniki, brak wynikow, filtry kategoria/miejsca/skrzynia/daty/sortowanie w URL (formularz GET, Back odtwarza stan, daty w linkach kart i kontaktu), blad zapytania, 404 aktywnej firmy (PUB-07), blad (PUB-08), strona wylaczona (PUB-09) i nieznany adres (PUB-10) bez prywatnej przyczyny; kopie M/D wg Penpota; CSP z nonce. Szczegoly pojazdu, kontakt i prawo to #42-#44.",
+      "relatedRequirementIds": ["C-F090", "C-F091", "C-F092", "C-F108", "C-F109", "C-F110", "C-F111", "C-F113", "C-F114", "FR-PUB-001", "FR-PUB-003", "FR-PUB-010", "FR-PUB-011", "FR-PUB-012", "FR-PUB-013", "FR-PUB-014", "FR-PUB-015"],
+      "referenceScreenIds": ["PUB-01", "PUB-02", "PUB-01-02-empty-offer", "PUB-07", "PUB-08", "PUB-09", "PUB-10"],
+      "codePaths": [
+        "src/app/page.tsx",
+        "src/app/pojazdy/page.tsx",
+        "src/app/not-found.tsx",
+        "src/app/error.tsx",
+        "src/components/public/public-chrome.tsx",
+        "src/components/public/public-home.tsx",
+        "src/components/public/catalog-filters.tsx",
+        "src/components/public/date-range-field.tsx",
+        "src/components/public/vehicle-card.tsx",
+        "src/components/public/state-page.tsx",
+        "src/components/public/public.module.css",
+        "src/modules/public-offer/page-data.ts",
+        "src/modules/public-offer/presentation.ts"
+      ],
+      "testPaths": [
+        "tests/unit/public-presentation.test.ts",
+        "tests/unit/public-home-visual.test.tsx",
+        "tests/e2e/public-site.spec.ts"
+      ]
+    },
+    {
       "issue": 46,
       "scope": "Chroniony preview szkicu, ukrytego pojazdu i oferty firmy (admin swojej firmy lub superadmin w kontekscie firmy, takze po koncu okresu; private no-store, noindex, bez SEO, poza sitemap, zasoby tylko po autoryzacji) oraz ujednolicenie budzetu odczytu kalendarza superadmina z adapterami admin/platform. Zapisy zagniezdzone korzystaja z tych samych use case co firmowe. Bez UI (ADM-08 to Frontend).",
       "relatedRequirementIds": ["C-F016", "C-F017", "C-F018", "C-F058", "C-F099", "C-N030", "FR-ADM-034"],
