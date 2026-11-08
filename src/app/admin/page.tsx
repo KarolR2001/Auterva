@@ -1,10 +1,16 @@
 import { Dashboard } from "@/components/admin/dashboard";
-import { PwaRegistration } from "./pwa-registration";
+import { PanelShell } from "@/components/panel/panel-shell";
 import { requireCompanyAdminPage } from "./guard";
+import { PwaRegistration } from "./pwa-registration";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
-  await requireCompanyAdminPage();
-  return <main><Dashboard title="Panel Auterva" /><PwaRegistration /></main>;
+  const { sessionId, companyName } = await requireCompanyAdminPage();
+  return (
+    <PanelShell area="company" accessState="allowed" expectedSessionId={sessionId} title={companyName} currentPath="/admin">
+      <Dashboard title={`Panel · ${companyName}`} />
+      <PwaRegistration />
+    </PanelShell>
+  );
 }

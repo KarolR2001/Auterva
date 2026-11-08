@@ -105,10 +105,9 @@ export function VehicleList({ context = companyContext, title }: { context?: Pan
   }
 
   return (
-    <section className={styles.page} aria-labelledby="fleet-title" aria-busy={view.state === "loading"}>
+    <section className={styles.page} aria-label="Lista pojazdów" aria-busy={view.state === "loading"}>
       <title>{title}</title>
       <header className={styles.pageHead}>
-        <h1 id="fleet-title" className={styles.title}>Pojazdy</h1>
         <a className={styles.primaryLink} href={`${context.hrefBase}/pojazdy/nowy/`}><Plus aria-hidden="true" size={20} />Dodaj pojazd</a>
       </header>
       <form className={styles.toolbar} role="search" aria-label="Filtry listy pojazdów" onSubmit={(event) => { event.preventDefault(); set({ search: searchText }); }}>

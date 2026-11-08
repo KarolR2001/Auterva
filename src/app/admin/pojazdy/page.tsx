@@ -1,9 +1,14 @@
 import { VehicleList } from "@/components/admin/vehicle-list";
+import { PanelShell } from "@/components/panel/panel-shell";
 import { requireCompanyAdminPage } from "../guard";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminVehiclesPage() {
-  await requireCompanyAdminPage();
-  return <main><VehicleList title="Pojazdy · Panel Auterva" /></main>;
+  const { sessionId, companyName } = await requireCompanyAdminPage();
+  return (
+    <PanelShell area="company" accessState="allowed" expectedSessionId={sessionId} title="Pojazdy" currentPath="/admin/pojazdy">
+      <VehicleList title={`Pojazdy · ${companyName}`} />
+    </PanelShell>
+  );
 }

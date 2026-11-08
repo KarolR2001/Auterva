@@ -76,7 +76,7 @@ export function Dashboard({ context = companyContext, title }: { context?: Panel
     <section className={styles.page} aria-labelledby="dash-title" aria-busy={view.state === "loading"}>
       <title>{title}</title>
       <header className={styles.pageHead}>
-        <h1 id="dash-title" className={styles.title}>Panel</h1>
+        <h2 id="dash-title" className={styles.title}>Panel</h2>
         <div className={styles.quick}>
           <a className={styles.primaryLink} href={`${context.hrefBase}/pojazdy/nowy/`}><Plus aria-hidden="true" size={20} />Dodaj pojazd</a>
           <a className={styles.secondaryLink} href={`${context.hrefBase}/kalendarz/`}><CalendarPlus aria-hidden="true" size={20} />Dodaj blokadę</a>
