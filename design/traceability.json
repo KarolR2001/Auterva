@@ -3,6 +3,21 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 67,
+      "scope": "Wyróżnianie pojazdów na home firmy (FR-PUB-002, D-22): publicznie tylko PUBLISHED z featured i do featuredVehicleCount w kolejności firmy; zmiana wyróżnienia lub kolejności w edycji pojazdu zapisuje audyt (featured, sortOrder) i działa od następnego odczytu tylko w jednej firmie; brak wyróżnionych to pusta lista bez danych zastępczych.",
+      "relatedRequirementIds": ["FR-PUB-002", "D-22", "D-23"],
+      "referenceScreenIds": ["PUB-01"],
+      "codePaths": [
+        "src/modules/fleet/mutations.ts",
+        "src/modules/public-offer/read.ts",
+        "docs/contracts/public-offer-seo.md",
+        "docs/contracts/fleet-crud-publication.md"
+      ],
+      "testPaths": [
+        "tests/integration/featured-vehicles.test.ts"
+      ]
+    },
+    {
       "issue": 74,
       "scope": "Opcjonalny prywatny odczyt audytu do paneli: admin firmy tylko własna firma (ADM-17), superadmin firma wybrana w ścieżce, także archiwalna; filtry czasu/aktora/działania/obiektu w granicach firmy, kursor (createdAt z mikrosekundami, id), redakcja jak przy zapisie, tylko GET; bez audytu platformy i bez UI.",
       "relatedRequirementIds": ["C-F151", "C-N019", "C-N037", "C-N040", "FR-ADM-070", "FR-ADM-071", "D-10", "D-30"],
