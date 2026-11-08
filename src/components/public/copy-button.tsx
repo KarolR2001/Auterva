@@ -50,7 +50,7 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
         {state === "copied" ? "Skopiowano" : "Kopiuj"}
       </button>
       <span role="status" className={styles.copyStatus}>
-        {state === "failed" ? "Nie udało się skopiować. Zaznacz tekst i skopiuj go ręcznie." : ""}
+        {state === "failed" ? "Nie udało się skopiować. Zaznacz tekst i skopiuj go ręcznie." : state === "copied" ? `Skopiowano: ${label.replace(/^Kopiuj: /, "")}` : ""}
       </span>
     </span>
   );

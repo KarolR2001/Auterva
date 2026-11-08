@@ -28,7 +28,7 @@ function Block({ title, icon, children }: { title: string; icon?: ReactNode; chi
 }
 
 /** PUB-04. The page never records anything: the links open the visitor's own phone, WhatsApp or mail client. */
-export function ContactPage({ contact, brand, header }: { contact: Contact; brand: PublicBrand; header: PublicContact }) {
+export function ContactPage({ contact, brand, header, termsAvailable }: { contact: Contact; brand: PublicBrand; header: PublicContact; termsAvailable: boolean }) {
   const { channels, message, hours, address, availabilityNotice } = contact;
   const range = message.range;
   const map = mapHref(address.map);
@@ -100,7 +100,7 @@ export function ContactPage({ contact, brand, header }: { contact: Contact; bran
           <Block title="Dokumenty">
             <ul className={styles.docs}>
               <li><a href="/polityka-prywatnosci/" className={styles.link}>Polityka prywatności</a></li>
-              <li><a href="/regulamin/" className={styles.link}>Regulamin</a></li>
+              {termsAvailable ? <li><a href="/regulamin/" className={styles.link}>Regulamin</a></li> : null}
             </ul>
           </Block>
         </div>

@@ -111,8 +111,14 @@ test("contact with vehicle and dates, copy, missing channel, documents per compa
     await shoot("pub-05-privacy");
     await page.goto(`${origin("a")}/regulamin/`);
     await expect(page.getByRole("link", { name: /Otwórz: Regulamin/ })).toHaveAttribute("href", "https://firma-a.example/regulamin.pdf");
-    await page.goto(`${origin("b")}/regulamin/`);
-    await expect(page.getByText(/nie udostępniła jeszcze tego dokumentu/)).toBeVisible();
+    await expect(page.getByRole("link", { name: "Skontaktuj się z firmą" })).toHaveAttribute("href", "/kontakt/");
+    // Terms are optional: company B has none, so the screen is a 404 and the contact page does not link to it.
+    expect((await rawGet(port, host.b, "/regulamin/")).status).toBe(404);
+    await page.goto(`${origin("b")}/kontakt/`);
+    await expect(page.getByRole("link", { name: "Regulamin" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Polityka prywatności" }).first()).toBeVisible();
+    await page.goto(`${origin("a")}/kontakt/`);
+    await expect(page.getByRole("main").getByRole("link", { name: "Regulamin" })).toHaveAttribute("href", "/regulamin/");
     await page.goto(`${origin("b")}/polityka-prywatnosci/`);
     await expect(page.getByRole("link", { name: /Otwórz: Polityka prywatności/ })).toHaveAttribute("href", "https://firma-b.example/polityka");
     expect((await rawGet(port, host.b, "/polityka-prywatnosci/")).body).not.toContain("Polityka A");

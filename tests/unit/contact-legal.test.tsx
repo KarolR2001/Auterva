@@ -21,7 +21,7 @@ const contact = (extra: Partial<ContactProp>) => ({ ...base, channels: [phone, m
 
 describe("kontakt (PUB-04)", () => {
   it("pokazuje kanały z linkami i oznacza preferowany tekstem", () => {
-    render(<ContactPage contact={contact({})} brand={brand} header={[]} />);
+    render(<ContactPage contact={contact({})} brand={brand} header={[]} termsAvailable />);
     expect(screen.getByRole("heading", { level: 1, name: "Kontakt" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Zadzwoń" })).toHaveAttribute("href", "tel:+48600000111");
     expect(screen.getByRole("link", { name: "Napisz e-mail" })).toHaveAttribute("href", "mailto:a@example.test?subject=Zapytanie");
@@ -30,7 +30,7 @@ describe("kontakt (PUB-04)", () => {
 
   it("pokazuje pojazd, termin i treść wiadomości oraz nie obiecuje rezerwacji", () => {
     const text = "Dzień dobry, interesuje mnie pojazd Kamper X w terminie 2026-11-10 – 2026-11-12.";
-    const { container } = render(<ContactPage brand={brand} header={[]}
+    const { container } = render(<ContactPage brand={brand} header={[]} termsAvailable
       contact={contact({ message: { text, vehicle: { slug: "kamper-x", name: "Kamper X" }, range: { from: "2026-11-10", to: "2026-11-12" } } })} />);
     expect(screen.getByText("Kamper X")).toBeInTheDocument();
     expect(screen.getByText(text)).toBeInTheDocument();
@@ -39,24 +39,32 @@ describe("kontakt (PUB-04)", () => {
   });
 
   it("bez kanału pokazuje jawny stan zamiast pustej akcji", () => {
-    const { container } = render(<ContactPage contact={contact({ channels: [] })} brand={brand} header={[]} />);
+    const { container } = render(<ContactPage contact={contact({ channels: [] })} brand={brand} header={[]} termsAvailable />);
     expect(screen.getByText("Firma nie podała jeszcze kanału kontaktu")).toBeInTheDocument();
     expect(container.querySelector('a[href^="tel:"], a[href^="mailto:"], a[href*="wa.me"]')).toBeNull();
+  });
+
+  it("link Regulamin pojawia się tylko, gdy regulamin jest dostępny", () => {
+    const { rerender } = render(<ContactPage contact={contact({})} brand={brand} header={[]} termsAvailable={false} />);
+    expect(screen.queryByRole("link", { name: "Regulamin" })).not.toBeInTheDocument();
+    rerender(<ContactPage contact={contact({})} brand={brand} header={[]} termsAvailable />);
+    expect(screen.getByRole("link", { name: "Regulamin" })).toHaveAttribute("href", "/regulamin/");
   });
 
   it("kopiuje wartość kanału i ogłasza wynik", async () => {
     const user = userEvent.setup();
     const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
-    render(<ContactPage contact={contact({})} brand={brand} header={[]} />);
+    render(<ContactPage contact={contact({})} brand={brand} header={[]} termsAvailable />);
     await user.click(screen.getByRole("button", { name: "Kopiuj: Telefon +48 600 000 111" }));
     expect(writeText).toHaveBeenCalledWith("+48 600 000 111");
     expect(await screen.findByText("Skopiowano")).toBeInTheDocument();
+    expect(screen.getAllByRole("status").map((el) => el.textContent)).toContain("Skopiowano: Telefon +48 600 000 111");
   });
 
   it("gdy schowek jest niedostępny, podaje komunikat tekstowy", async () => {
     const user = userEvent.setup();
     vi.spyOn(navigator.clipboard, "writeText").mockRejectedValue(new Error("denied"));
-    render(<ContactPage contact={contact({})} brand={brand} header={[]} />);
+    render(<ContactPage contact={contact({})} brand={brand} header={[]} termsAvailable />);
     await user.click(screen.getByRole("button", { name: "Kopiuj: Telefon +48 600 000 111" }));
     expect(await screen.findByText(/Nie udało się skopiować/)).toBeInTheDocument();
   });

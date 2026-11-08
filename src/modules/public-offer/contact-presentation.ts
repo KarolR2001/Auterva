@@ -25,3 +25,8 @@ export function mapHref(map: { latitude: number | string | null; longitude: numb
   if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
   return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=16/${lat}/${lon}`;
 }
+
+/** An optional document is offered only when the company gave a text or a usable link (SPEC 9.6, FR-PUB-042). */
+export function documentAvailable(legal: { status: "TEXT" | "LINK" | "MISSING"; url: string | null } | null): boolean {
+  return legal !== null && (legal.status === "TEXT" || safeDocumentUrl(legal.url) !== null);
+}

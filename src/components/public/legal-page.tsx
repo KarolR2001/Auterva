@@ -39,6 +39,7 @@ export function LegalPage({ legal, brand, contact }: { legal: Legal; brand: Publ
                   </a>
                 </>
               )}
+            <p className={styles.hint}>Pytania? <a href="/kontakt/" className={styles.link}>Skontaktuj się z firmą</a>.</p>
           </article>
         )}
       </div>

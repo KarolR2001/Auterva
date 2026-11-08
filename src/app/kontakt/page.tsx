@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { ContactPage } from "@/components/public/contact-page";
-import { loadContact } from "@/modules/public-offer/contact-data";
-import { contactContext } from "@/modules/public-offer/contact-presentation";
+import { loadContact, loadLegal } from "@/modules/public-offer/contact-data";
+import { contactContext, documentAvailable } from "@/modules/public-offer/contact-presentation";
 import { loadHome, requestHost } from "@/modules/public-offer/page-data";
 import { toNextMetadata } from "@/modules/public-offer/seo";
 
@@ -28,5 +28,6 @@ export default async function Page({ searchParams }: Props) {
   const contact = await loadContact(host, vehicle, from, to);
   const home = contact ? await loadHome(host) : null;
   if (!contact || !home) notFound();
-  return <ContactPage contact={contact} brand={{ name: home.company.name, logo: home.company.logo }} header={home.contact} />;
+  const termsAvailable = documentAvailable(await loadLegal(host, "terms"));
+  return <ContactPage contact={contact} termsAvailable={termsAvailable} brand={{ name: home.company.name, logo: home.company.logo }} header={home.contact} />;
 }
