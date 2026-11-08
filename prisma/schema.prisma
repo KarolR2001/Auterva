@@ -474,6 +474,7 @@ model AuditLog {
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
   @@index([organizationId, createdAt])
+  @@index([organizationId, createdAt, id])
   @@index([createdAt, id])
   @@index([requestId])
 }
