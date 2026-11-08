@@ -157,7 +157,8 @@ test("company admin: login, enrollment with rendered QR, challenge, lost respons
     await page.getByLabel("Hasło", { exact: true }).fill(password);
     await page.getByRole("button", { name: "Zaloguj się" }).click();
     await expect(page.getByRole("heading", { name: "Włącz dodatkową ochronę" })).toBeVisible();
-    expect(await statusOf(page, "/admin/")).toBe(404);
+    // Own limited session: the panel route sends on to MFA (opaque manual redirect), never renders the panel.
+    expect(await statusOf(page, "/admin/")).toBe(0);
     await page.getByLabel("Potwierdź hasło").fill(password);
     await page.getByRole("button", { name: "Rozpocznij konfigurację" }).click();
     const totp = await decodeRenderedQr(page);
@@ -216,7 +217,8 @@ test("company admin: login, enrollment with rendered QR, challenge, lost respons
     await page.getByRole("button", { name: "Potwierdź kod" }).click();
     await expect(page.getByRole("heading", { name: "Potwierdź hasło" })).toBeFocused();
     await snap(page, "company-recovery-password");
-    expect(await statusOf(page, "/admin/")).toBe(404);
+    // Own limited session: the panel route sends on to MFA (opaque manual redirect), never renders the panel.
+    expect(await statusOf(page, "/admin/")).toBe(0);
     await page.getByLabel("Hasło", { exact: true }).fill(password);
     await page.getByRole("button", { name: "Potwierdź hasło" }).click();
     const renewed = await decodeRenderedQr(page);

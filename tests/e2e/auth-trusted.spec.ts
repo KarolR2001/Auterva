@@ -102,7 +102,11 @@ test("built auth uses socket ingress for MFA; spoofed headers cannot merge two c
     })).status).toBe(401);
     expect(await db.auditLog.count({ where: { actorId: registered.user.id, action: "AUTH_LOGOUT" } })).toBe(0);
     expect((await request.post("/api/auth/sign-in/email/", { headers: { origin: baseURL }, data: { email, password } })).status()).toBe(200);
-    expect((await request.get("/admin/")).status()).toBe(404);
+    // Own limited session (password only, no factor yet): on to MFA enrolment of the same host, no panel content (#14).
+    const limitedPanel = await request.get("/admin/", { maxRedirects: 0 });
+    expect(limitedPanel.status()).toBe(307);
+    expect(limitedPanel.headers()["location"]).toMatch(/\/admin\/mfa\?returnTo=%2Fadmin/);
+    expect(await limitedPanel.text()).not.toContain("Nawigacja panelu");
     const enrollment = await request.post("/api/auth/two-factor/enable/", { headers: { origin: baseURL }, data: { password, method: "totp" } });
     expect(enrollment.status()).toBe(200);
     const setup = await enrollment.json() as { totpURI: string };
