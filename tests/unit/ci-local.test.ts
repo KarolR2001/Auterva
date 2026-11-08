@@ -1,5 +1,5 @@
 import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, utimesSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterAll, expect, test } from "vitest";
@@ -189,6 +189,36 @@ test("E2E takes over a stale lock whose owner no longer exists", async () => {
   expect(r.stderr).toMatch(new RegExp(`taking over stale E2E lock of finished process ${finished.pid}`));
   expect(e2eLine(t.out)).toMatch(/PASS/);
   expect(Date.now() - started).toBeLessThan(25000);
+  expect(existsSync(t.lock)).toBe(false);
+}, 60000);
+
+test("E2E waits on a fresh manual lock of another agent (owner name, no pid) and leaves it in place until the timeout", async () => {
+  const t = setup({}, "exit 0", { env: { AUTERVA_E2E_LOCK_TIMEOUT: "3", AUTERVA_E2E_LOCK_POLL: "1" } });
+  mkdirSync(t.lock);
+  writeFileSync(join(t.lock, "owner"), "agent-A");
+  let missing = 0, polling = true;
+  const poll = (async () => { while (polling) { if (!existsSync(join(t.lock, "owner"))) missing++; await new Promise((r) => setTimeout(r, 10)); } })();
+  const r = await t.runAsync("27400", t.out);
+  polling = false; await poll;
+  expect(r.status).toBe(1);
+  expect(e2eLine(t.out)).toMatch(/FAIL \(E2E lock or ports not available/);
+  expect(r.stderr).toMatch(/timed out after 3s waiting for the E2E lock held by manual owner agent-A/);
+  expect(missing).toBe(0); // the lock never disappeared (not moved aside) while waiting
+  expect(readFileSync(join(t.lock, "owner"), "utf8").trim()).toBe("agent-A");
+  expect(existsSync(`${t.lock}/e2e.lock.stale`)).toBe(false);
+  expect(readFileSync(t.out, "utf8")).toMatch(/Secret scan\tPASS/);
+}, 60000);
+
+test("E2E takes over a manual lock older than 40 minutes", async () => {
+  const t = setup({}, "exit 0", { env: { AUTERVA_E2E_LOCK_TIMEOUT: "5", AUTERVA_E2E_LOCK_POLL: "1" } });
+  mkdirSync(t.lock);
+  writeFileSync(join(t.lock, "owner"), "agent-A");
+  const old = new Date(Date.now() - 41 * 60 * 1000);
+  utimesSync(t.lock, old, old);
+  const r = await t.runAsync("27400", t.out);
+  expect(r.status).toBe(0);
+  expect(r.stderr).toMatch(/taking over abandoned manual E2E lock/);
+  expect(e2eLine(t.out)).toMatch(/PASS/);
   expect(existsSync(t.lock)).toBe(false);
 }, 60000);
 

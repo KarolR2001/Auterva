@@ -53,36 +53,42 @@ E2E_LOCK="$(git rev-parse --git-common-dir)/e2e.lock"
 E2E_LOCK_TIMEOUT="${AUTERVA_E2E_LOCK_TIMEOUT:-1800}"; E2E_LOCK_POLL="${AUTERVA_E2E_LOCK_POLL:-5}"
 E2E_LOCK_HELD=0
 lockmsg() { printf '%s\n' "$1" | tee -a "$LOGDIR/e2e-lock.log" >&2; }
-lock_owner() { cat "$E2E_LOCK/pid" 2>/dev/null || cat "$E2E_LOCK/owner" 2>/dev/null; }
-# A lock is stale when its owner PID no longer exists (or, without a PID file, when it is over a minute old).
-lock_is_stale() {
-  local owner; owner="$(lock_owner)"
-  if [ -z "$owner" ]; then
-    # A manually taken lock (`echo name > e2e.lock/owner`, no PID) is abandoned after 40 minutes; a bare directory after one minute.
-    local age=1; [ -f "$E2E_LOCK/owner" ] && age=40
-    [ -n "$(find "$E2E_LOCK" -maxdepth 0 -mmin +"$age" 2>/dev/null)" ]; return
-  fi
-  ! kill -0 "$owner" 2>/dev/null
+# PID of a lock taken by ci-local: only a numeric `pid` file counts. A manual lock (`echo <name> > e2e.lock/owner`) has no PID.
+lock_pid() { local p; p="$(cat "$E2E_LOCK/pid" 2>/dev/null)"; case "$p" in ''|*[!0-9]*) ;; *) printf '%s' "$p";; esac; }
+lock_desc() { local p; p="$(lock_pid)"; if [ -n "$p" ]; then printf "process %s" "$p"; else printf "manual owner %s" "$(cat "$E2E_LOCK/owner" 2>/dev/null)"; fi; }
+lock_owner() { local p; p="$(lock_pid)"; if [ -n "$p" ]; then printf '%s' "$p"; else cat "$E2E_LOCK/owner" 2>/dev/null; fi; }
+# Abandoned = its PID no longer exists; without a PID (manual lock) only by age: 40 min with an `owner` file, 1 minute for a bare directory.
+# $1 is the PID read once by the caller (empty for a manual lock).
+lock_is_abandoned() {
+  if [ -n "$1" ]; then ! kill -0 "$1" 2>/dev/null; return; fi
+  local age=1; [ -f "$E2E_LOCK/owner" ] && age=40
+  [ -n "$(find "$E2E_LOCK" -maxdepth 0 -mmin +"$age" 2>/dev/null)" ]
+}
+# Removes an abandoned lock. Returns 0 only when it removed exactly the lock that was judged abandoned.
+take_over_abandoned_lock() {
+  local pid="$1" moved="$E2E_LOCK.stale.$$"
+  rm -rf "$moved"
+  # Atomic rename: of several runners that see the abandoned lock, one wins. $moved never exists, so mv cannot nest.
+  mv "$E2E_LOCK" "$moved" 2>/dev/null || return 1
+  if [ "$(cat "$moved/pid" 2>/dev/null)" = "$pid" ]; then rm -rf "$moved"; return 0; fi
+  # It is not the lock we checked (retaken in between): put it back, but only into an empty place.
+  [ -e "$E2E_LOCK" ] || mv "$moved" "$E2E_LOCK" 2>/dev/null || true
+  return 1
 }
 acquire_e2e_lock() {
-  local waited=0 owner moved
+  local waited=0 pid
   # The caller already holds the lock (e.g. an agent took e2e.lock by hand before running this script): do not wait on it.
   if [ "${AUTERVA_E2E_LOCK_HELD:-}" = 1 ]; then lockmsg "E2E lock held by the caller (AUTERVA_E2E_LOCK_HELD=1); not taking it"; return 0; fi
   while :; do
     if mkdir "$E2E_LOCK" 2>/dev/null; then echo "$$" > "$E2E_LOCK/pid"; echo "ci-local $$" > "$E2E_LOCK/owner"; E2E_LOCK_HELD=1; return 0; fi
-    if lock_is_stale; then
-      owner="$(lock_owner)"; moved="$E2E_LOCK.stale.$$"
-      # Atomic rename: of several runners that see the stale lock, one wins; the others retry the mkdir.
-      if mv "$E2E_LOCK" "$moved" 2>/dev/null; then
-        if [ "$(cat "$moved/pid" 2>/dev/null)" = "$owner" ]; then lockmsg "taking over stale E2E lock of finished process ${owner:-unknown}"; rm -rf "$moved"
-        else mv "$moved" "$E2E_LOCK" 2>/dev/null || rm -rf "$moved"; fi   # we moved a lock that was just retaken: put it back
-      fi
-      continue
+    pid="$(lock_pid)"   # read once; the same value is judged and later compared
+    if lock_is_abandoned "$pid" && take_over_abandoned_lock "$pid"; then
+      if [ -n "$pid" ]; then lockmsg "taking over stale E2E lock of finished process $pid"; else lockmsg "taking over abandoned manual E2E lock (older than its age limit)"; fi; continue
     fi
     if [ "$waited" -ge "$E2E_LOCK_TIMEOUT" ]; then
-      lockmsg "timed out after ${waited}s waiting for the E2E lock held by process $(lock_owner)"; return 1
+      lockmsg "timed out after ${waited}s waiting for the E2E lock held by $(lock_desc)"; return 1
     fi
-    if [ $((waited % 60)) -eq 0 ]; then lockmsg "waiting for the E2E lock (ports 3305-3307) held by process $(lock_owner); timeout ${E2E_LOCK_TIMEOUT}s"; fi
+    if [ $((waited % 60)) -eq 0 ]; then lockmsg "waiting for the E2E lock (ports 3305-3307) held by $(lock_desc); timeout ${E2E_LOCK_TIMEOUT}s"; fi
     sleep "$E2E_LOCK_POLL" & wait $!; waited=$((waited + E2E_LOCK_POLL))
   done
 }

@@ -144,8 +144,9 @@ start_services() {
   if ! pg_ctl -D "$local_dir/pg" status >/dev/null 2>&1; then
     # Unix socket paths are limited to 103 bytes on macOS (107 on Linux); a long worktree path would only surface as "could not start server".
     sock_path="$local_dir/.s.PGSQL.$pg_port"
-    if (( ${#sock_path} > 103 )); then
-      echo "PostgreSQL socket path is ${#sock_path} bytes (limit 103): $sock_path. Use a worktree path at least $(( ${#sock_path} - 103 )) characters shorter." >&2
+    sock_len="$(printf %s "$sock_path" | LC_ALL=C wc -c | tr -d ' ')"   # bytes, not characters
+    if (( sock_len > 103 )); then
+      echo "PostgreSQL socket path is $sock_len bytes (limit 103): $sock_path. Use a worktree path at least $(( sock_len - 103 )) bytes shorter." >&2
       exit 2
     fi
     pg_ctl -D "$local_dir/pg" -l "$local_dir/log/postgres.log" \
