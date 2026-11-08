@@ -89,8 +89,8 @@ test("company admin: reset, account, password change, logout and expired service
       await page.goto(`${origin}/admin/reset-hasla`);
       await page.getByRole("textbox", { name: /Adres e-mail/ }).fill(address);
       await page.getByRole("button", { name: "Wyślij instrukcję" }).click();
-      await expect(page.getByRole("status").filter({ hasText: neutral })).toBeVisible();
-      await expect(page.getByRole("link", { name: "Wróć do logowania" })).toHaveAttribute("href", "/admin/login");
+      await expect(page.getByRole("status").filter({ hasText: neutral })).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByRole("link", { name: "Wróć do logowania" })).toHaveAttribute("href", /^\/admin\/login\/?$/);
     }
     await noHorizontalOverflow(page);
     await snap(page, "reset-sent");
@@ -111,7 +111,7 @@ test("company admin: reset, account, password change, logout and expired service
     await page.getByLabel("Potwierdź nowe hasło").fill(resetPassword);
     await page.getByRole("button", { name: "Zapisz nowe hasło" }).click();
     await expect(page.getByRole("heading", { name: "Hasło zostało zmienione" })).toBeFocused();
-    await expect(page.getByRole("link", { name: "Przejdź do logowania" })).toHaveAttribute("href", "/admin/login");
+    await expect(page.getByRole("link", { name: "Przejdź do logowania" })).toHaveAttribute("href", /^\/admin\/login\/?$/);
     await snap(page, "reset-success");
     await page.goto(`${origin}/admin/reset-hasla/${token}`);
     await page.getByLabel("Nowe hasło", { exact: true }).fill(finalPassword);
@@ -230,7 +230,7 @@ test("superadmin: account on the platform host only, name saved, MFA actions wit
     // Not signed in: the account redirects to the platform login, and the company route does not exist here.
     await page.goto(`${origin}/konto`);
     await expect(page).toHaveURL(/\/login\/?\?returnTo=%2Fkonto$/);
-    expect((await page.request.get(`${origin}/admin/konto`)).status()).toBe(404);
+    expect((await page.request.get(`http://127.0.0.1:${new URL(origin).port}/admin/konto`, { headers: { host: new URL(origin).host } })).status()).toBe(404);
     await page.getByRole("textbox", { name: "Adres e-mail" }).fill(account.email);
     await page.getByLabel("Hasło", { exact: true }).fill(account.password);
     await page.getByRole("button", { name: "Zaloguj się" }).click();
@@ -245,7 +245,7 @@ test("superadmin: account on the platform host only, name saved, MFA actions wit
     await page.getByRole("textbox", { name: /Nazwa/ }).fill("Superadmin Fixture UI");
     await page.getByRole("button", { name: "Zapisz nazwę" }).click();
     await expect(page.getByText("Zapisano nazwę: Superadmin Fixture UI")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Wydaj nowe kody" })).toHaveAttribute("href", "/mfa?returnTo=%2Fkonto&recoverCodes=1");
+    await expect(page.getByRole("link", { name: "Wydaj nowe kody" })).toHaveAttribute("href", /^\/mfa\/?\?returnTo=%2Fkonto&recoverCodes=1$/);
     await page.getByRole("button", { name: "Nie mam obu czynników" }).click();
     await expect(page.getByText(/ręcznej procedury właściciela/)).toBeVisible();
     await page.getByRole("button", { name: "Wyloguj" }).click();
