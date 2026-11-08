@@ -305,6 +305,27 @@ test("idempotency: same key and input replays the stored result for 24 h, other 
   expect(await blocksOf(ids)).toBe(6);
 });
 
+test("expired receipt cleanup removes only this company's expired bulk receipts, never rows without expiry or other companies", async () => {
+  const [car] = await fleet(1);
+  const old = new Date(Date.now() - 1000);
+  const mk = (organizationId: string | null, actorId: string, operation: string, expiresAt: Date | null) => db.operationReceipt.create({
+    data: { organizationId, actorId, area: "COMPANY_ADMIN", operation, idempotencyKey: randomUUID(), inputHash: "h", result: {}, expiresAt } });
+  const expiredOwn = await mk(orgA, adminA, "BULK_CREATE", old);
+  const noExpiry = await mk(orgA, adminA, "CREATE_COMPANY", null);
+  const expiredOther = await mk(orgB, adminB, "BULK_CREATE", old);
+  const future = await mk(orgA, adminA, "BULK_COPY", new Date(Date.now() + 3_600_000));
+  expect((await bulk({ idempotencyKey: randomUUID(), vehicleIds: [car.id], fields: fields(3, 3) })).status).toBe(201);
+  const left = new Set((await db.operationReceipt.findMany({ where: { id: { in: [expiredOwn.id, noExpiry.id, expiredOther.id, future.id] } } })).map((row) => row.id));
+  expect(left.has(expiredOwn.id)).toBe(false);
+  expect([noExpiry.id, expiredOther.id, future.id].every((id) => left.has(id))).toBe(true);
+  // The same key for bulk and copy is not a conflict: the receipt scope includes the operation.
+  const key = randomUUID();
+  const source = await db.availabilityBlock.findFirstOrThrow({ where: { vehicleId: car.id } });
+  const [other] = await fleet(1);
+  expect((await bulk({ idempotencyKey: key, vehicleIds: [other.id], fields: fields(9, 9) })).status).toBe(201);
+  expect((await copy({ idempotencyKey: key, sourceBlockId: source.id, targetVehicleIds: [(await fleet(1))[0].id] })).status).toBe(201);
+});
+
 test("isolation A/B: another company's vehicles and source blocks answer 404 and change nothing", async () => {
   const mine = await newVehicle(orgA);
   const theirs = await newVehicle(orgB);

@@ -18,6 +18,7 @@ function failure(error: unknown, requestId: string) {
   const code = error instanceof Error ? error.message : "";
   if (code === "BLOCK_INVALID_INPUT" || code === "FLEET_INVALID_INPUT") return response({ code: "INVALID_INPUT" }, 400, requestId);
   if (code === "FLEET_NOT_FOUND" || code === "BLOCK_NOT_FOUND") return response({ code: "NOT_FOUND" }, 404, requestId);
+  if (code === "BLOCK_DATA_INVALID") return response({ code }, 422, requestId);
   if (code === "IDEMPOTENCY_KEY_CONFLICT") return response({ code }, 409, requestId);
   if (code === "Audit actor is not authorized") return response({ code: "FORBIDDEN" }, 403, requestId);
   return response({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "availability.bulk-blocks"));
