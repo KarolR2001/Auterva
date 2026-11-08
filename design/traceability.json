@@ -554,6 +554,7 @@
         "src/app/admin/page.tsx",
         "src/components/panel/panel-states.tsx",
         "src/components/panel/panel-shell.tsx",
+        "src/components/panel/deny-panel.ts",
         "src/components/panel/unsaved-changes-dialog.tsx"
       ],
       "stylePath": "src/components/panel/panel.module.css",
@@ -563,7 +564,9 @@
         "tests/unit/panel-states.test.tsx",
         "tests/unit/panel-shell.test.tsx",
         "tests/unit/unsaved-changes-dialog.test.tsx",
-        "tests/e2e/auth-host.spec.ts"
+        "tests/e2e/auth-host.spec.ts",
+        "tests/e2e/auth-trusted.spec.ts",
+        "tests/e2e/security-headers.spec.ts"
       ],
       "fixturePath": "tests/fixtures/panel-check.tsx"
     },

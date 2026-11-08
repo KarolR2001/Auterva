@@ -86,7 +86,7 @@ test("built auth uses socket ingress for MFA; spoofed headers cannot merge two c
     const cold = await request.get("/admin/", { maxRedirects: 0 });
     expect(cold.status()).toBe(307);
     expect(new URL(cold.headers().location, baseURL).pathname).toMatch(/^\/admin\/login\/?$/);
-    expect(await cold.text()).not.toMatch(/Panel Auterva|jest w przygotowaniu/);
+    expect(await cold.text()).not.toMatch(/Panel Auterva|PanelShell|jest w przygotowaniu/);
 
     const first = await request.post("/api/auth/sign-in/email/", { headers: { origin: baseURL, "x-forwarded-for": "203.0.113.61" }, data: { email, password } });
     expect(first.status()).toBe(200);

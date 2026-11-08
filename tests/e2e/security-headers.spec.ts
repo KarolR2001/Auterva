@@ -93,7 +93,7 @@ test("built ingress: security headers, nonce CSP, CSRF from a sibling host and b
       // Anonymous panel entry on its own host goes to that host's login (#14); everything else stays a denial.
       const panelEntry = (name === "admin" && path === "/admin/") || (name === "platform" && path === "/");
       expect(panelEntry ? [307] : [401, 403, 404], `${name} ${path}`).toContain(denied.status);
-      expect(denied.text, `${name} ${path}`).not.toMatch(/Panel Auterva|Platforma Auterva|\bvehicles\b|\"items\"/);
+      expect(denied.text, `${name} ${path}`).not.toMatch(/Panel Auterva|Platforma Auterva|PanelShell|Nawigacja panelu|\bvehicles\b|\"items\"/);
       expect(header(denied, "cache-control"), `${name} ${path}`).toMatch(/no-store|private/);
     }
 
@@ -355,7 +355,7 @@ test("RSC and prefetch requests for the panels never carry panel content: 404 fo
             expect(reply.status, name).toBe(200);
             if (!form.startsWith("Next-Router-Prefetch")) expect(reply.text, name).toContain("NEXT_REDIRECT");
           }
-          expect(reply.text, name).not.toMatch(/Panel Auterva|Platforma Auterva|jest w przygotowaniu/);
+          expect(reply.text, name).not.toMatch(/Panel Auterva|Platforma Auterva|PanelShell|Nawigacja panelu|jest w przygotowaniu/);
           for (const marker of [`RSC-SEKRET-a-${tag}`, `RSC-SEKRET-b-${tag}`, org.a, org.b, `sec-rsc-a-${tag}`, `sec-rsc-b-${tag}`]) expect(reply.text, `${name} ${marker}`).not.toContain(marker);
           expect(header(reply, "cache-control"), name).toMatch(/no-store|private/);
           continue;
@@ -374,7 +374,7 @@ test("RSC and prefetch requests for the panels never carry panel content: 404 fo
           // A prefetch answers with a content-free segment shell instead of the digest.
           if (reply.status === 200 && !form.startsWith("Next-Router-Prefetch")) expect(reply.text, name).toContain("NEXT_HTTP_ERROR_FALLBACK;404");
         }
-        expect(reply.text, name).not.toMatch(/Panel Auterva|Platforma Auterva|jest w przygotowaniu/);
+        expect(reply.text, name).not.toMatch(/Panel Auterva|Platforma Auterva|PanelShell|Nawigacja panelu|jest w przygotowaniu/);
         // Company markers: nothing of either company (name, id, slug, e-mail) may appear in a denied answer.
         for (const marker of [`RSC-SEKRET-a-${tag}`, `RSC-SEKRET-b-${tag}`, org.a, org.b, `sec-rsc-a-${tag}`, `sec-rsc-b-${tag}`]) expect(reply.text, `${name} ${marker}`).not.toContain(marker);
         expect(header(reply, "cache-control"), name).toMatch(/no-store|private/);
