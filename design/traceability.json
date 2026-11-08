@@ -3,6 +3,20 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 227,
+      "scope": "Ograniczenie bazy sortOrder >= 0 dla pojazdów (z CR #67): migracja zatrzymuje się jawnym błędem przy istniejących wierszach ujemnych, naruszenie zapisu poza API mapuje się na FLEET_INVALID_INPUT bez treści wiersza; API bez zmian.",
+      "relatedRequirementIds": ["FR-PUB-002", "D-22"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "prisma/migrations/20261108110000_vehicle_sort_order_check_issue_227/migration.sql",
+        "src/modules/fleet/mutations.ts",
+        "docs/contracts/fleet-crud-publication.md"
+      ],
+      "testPaths": [
+        "tests/integration/vehicle-sort-order-migration.test.ts"
+      ]
+    },
+    {
       "issue": 70,
       "scope": "Discovery (bez kodu): kontrakt najbliższego wolnego terminu i zbiorczych/kopiowanych blokad z wariantami i raportem konfliktów; decyzje właściciela P1-P7 zapisane jako D-32, implementacja w osobnych zadaniach.",
       "relatedRequirementIds": ["C-F102", "C-F103", "C-F104", "C-N027", "FR-ADM-055", "D-15"],
