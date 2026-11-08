@@ -47,7 +47,7 @@ async function panelNotFound() {
         title={organization.name ?? "Panel firmy"}
         currentPath="/admin/404"
       >
-        <PanelFeedback kind="not-found" dashboardHref="/admin" />
+        <PanelFeedback kind="not-found" dashboardHref="/admin" headingLevel="h2" />
       </PanelShell>
     );
   }
@@ -65,7 +65,7 @@ async function panelNotFound() {
         title="Firmy"
         currentPath="/404"
       >
-        <PanelFeedback kind="not-found" dashboardHref="/" />
+        <PanelFeedback kind="not-found" dashboardHref="/" headingLevel="h2" />
       </PanelShell>
     );
   }
