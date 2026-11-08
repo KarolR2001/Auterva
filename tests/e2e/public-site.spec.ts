@@ -51,7 +51,11 @@ test("public home and catalog: empty offer, results, filters in the URL, Back, n
       await db.siteSettings.create({ data: { organizationId: id, publicName: name, phone: "+48 600 000 111", email: "e2e@example.test",
         heroText: "Podróż zaczyna się od dobrego auta.", shortDescription: "Opis firmy do testu.", featuredVehicleCount: 3, showPrices: id === org } });
     }
+    const adminHost = `site-e2e-admin-${org}.example.test`;
+    const platformHost = `site-e2e-platform-${org}.example.test`;
     await db.hostMapping.createMany({ data: [
+      { hostname: adminHost, organizationId: org, area: "COMPANY_ADMIN", status: "ACTIVE" },
+      { hostname: platformHost, area: "PLATFORM", status: "ACTIVE" },
       { hostname: host, organizationId: org, area: "COMPANY_PUBLIC", status: "ACTIVE" },
       { hostname: hostOther, organizationId: other, area: "COMPANY_PUBLIC", status: "ACTIVE" },
     ] });
@@ -88,13 +92,22 @@ test("public home and catalog: empty offer, results, filters in the URL, Back, n
     // A price of 0 is "no price", never "0 zł".
     await expect(page.getByText("Cena na zapytanie").first()).toBeVisible();
     await expect(page.getByText("0 zł")).toHaveCount(0);
+    await page.setViewportSize({ width: 390, height: 844 });
+    const contactBand = page.locator("section[aria-labelledby='contact-title']");
+    await expect(contactBand).toHaveCSS("background-color", "rgb(21, 21, 21)");
+    await expect(contactBand).toHaveCSS("color", "rgb(242, 242, 242)");
+    await expect(contactBand.getByRole("link", { name: "Napisz do nas" })).toHaveCSS("background-color", "rgb(242, 242, 242)");
+    for (const width of [320, 600]) {
+      await page.setViewportSize({ width, height: 844 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    }
+    await page.setViewportSize({ width: 1280, height: 800 });
     await shoot(page, "pub-01-home");
     const html = (await rawGet(port, host, "/")).body;
     for (const secret of ["E2E-REF-SECRET", "E2E-NOTE-SECRET", "MAINTENANCE", "Szkic Ukryty", "Firma Inna E2E"]) expect(html).not.toContain(secret);
 
     // 3. Catalog: filters live in the URL; the date checker of the home carries the range to the cards.
-    await page.getByLabel("Od", { exact: true }).fill(day(3));
-    await page.getByLabel("Do", { exact: true }).fill(day(4));
+    await page.getByRole("textbox", { name: "Termin od — do" }).fill(`${day(3)} – ${day(4)}`);
     await page.getByRole("button", { name: "Sprawdź" }).click();
     await expect(page).toHaveURL(new RegExp(`/pojazdy/\\?from=${day(3)}&to=${day(4)}$`));
     await expect(page.getByRole("heading", { name: "Znajdź pojazd na swoją trasę" })).toBeVisible();
@@ -118,6 +131,15 @@ test("public home and catalog: empty offer, results, filters in the URL, Back, n
     await expect(page.getByRole("heading", { name: "Alfa Terra" })).toBeVisible();
     await page.goForward();
     await expect(page.getByLabel("Kategoria")).toHaveValue(categories[1].code);
+
+    // 4b. On a phone the filter panel starts collapsed (results first) and opens with its summary; wide screens open it.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${origin}/pojazdy/`);
+    await expect(page.getByRole("heading", { name: "Alfa Horizon" })).toBeVisible();
+    await expect(page.getByLabel("Kategoria")).toBeHidden();
+    await page.getByText(/^Filtry i termin/).click();
+    await expect(page.getByLabel("Kategoria")).toBeVisible();
+    await page.setViewportSize({ width: 1280, height: 800 });
 
     // 5. No results offers the three ways out and keeps the dates.
     await page.goto(`${origin}/pojazdy/?seats=7&transmission=Manualna&from=${day(3)}&to=${day(4)}`);
@@ -149,6 +171,14 @@ test("public home and catalog: empty offer, results, filters in the URL, Back, n
     await page.goto(`${origin}/pojazdy/nie-ma/`);
     await expect(page.getByRole("heading", { name: "Nie znaleziono tej strony" })).toBeVisible();
     await shoot(page, "pub-07-not-found");
+
+    // 9b. Panel and platform hosts keep the plain neutral 404: the public "unknown address" text would mislead there.
+    for (const [panelHost, path] of [[adminHost, "/admin/nie-ma/"], [platformHost, "/firmy/nie-ma/"]]) {
+      const plain = await rawGet(port, panelHost, path);
+      expect(plain.status, panelHost).toBe(404);
+      expect(plain.body, panelHost).toContain("Nie znaleziono strony");
+      for (const publicText of ["Nieznany adres", "aktywnej strony firmy", "niedostępna", "Firma Strony E2E"]) expect(plain.body, panelHost).not.toContain(publicText);
+    }
 
     // 10. Disabling the period cuts the whole site cold, with one neutral page and no company data.
     await db.organization.update({ where: { id: org }, data: { publicRequiresPaid: true } });

@@ -10,7 +10,7 @@ type Home = NonNullable<Awaited<ReturnType<typeof getPublicHome>>>;
 
 const benefits = [
   { title: "Przejrzyste zasady", text: "Sprawdź dostępne terminy i wybierz dogodny zakres przed kontaktem." },
-  { title: "Flota na różne trasy", text: "Od kompaktowego auta po wariant rodzinny." },
+  { title: "Oferta w jednym miejscu", text: "Zobacz pojazdy, ich parametry i zdjęcia na stronie firmy." },
   { title: "Kontakt z człowiekiem", text: "Doradzimy przy wyborze pojazdu i ustalimy szczegóły wyjazdu." },
 ];
 
@@ -34,7 +34,11 @@ export function PublicHome({ home, today }: { home: Home; today: string }) {
     <PublicPage brand={brand} contact={contact}>
       <section className={styles.hero} aria-labelledby="home-title">
         <div className={`${styles.container} ${styles.heroGrid}`}>
-          <div>
+          {company.hero
+            // eslint-disable-next-line @next/next/no-img-element -- public media variants are served by our own API route
+            ? <img src={company.hero.urls.large} alt={company.hero.alt ?? ""} width={company.hero.width ?? undefined} height={company.hero.height ?? undefined} className={styles.heroMedia} />
+            : null}
+          <div className={styles.heroCopy}>
             <p className={styles.eyebrow}>{company.name} · wynajem pojazdów</p>
             <h1 id="home-title" className={styles.h1}>{company.heroText ?? company.name}</h1>
             {company.shortDescription ? <p className={styles.lead}>{company.shortDescription}</p> : null}
@@ -43,10 +47,6 @@ export function PublicHome({ home, today }: { home: Home; today: string }) {
             </div>
             <AvailabilityChecker today={today} />
           </div>
-          {company.hero
-            // eslint-disable-next-line @next/next/no-img-element -- public media variants are served by our own API route
-            ? <img src={company.hero.urls.large} alt={company.hero.alt ?? ""} width={company.hero.width ?? undefined} height={company.hero.height ?? undefined} className={styles.heroMedia} />
-            : null}
         </div>
       </section>
       {home.featured.length > 0 ? (
@@ -70,7 +70,7 @@ export function PublicHome({ home, today }: { home: Home; today: string }) {
           </ul>
         </div>
       </section>
-      <section className={styles.section} aria-labelledby="contact-title">
+      <section className={`${styles.section} ${styles.ctaSection}`} aria-labelledby="contact-title">
         <div className={`${styles.container} ${styles.ctaBand}`}>
           <div>
             <h2 id="contact-title" className={styles.h2}>Masz pytania przed wyjazdem?</h2>

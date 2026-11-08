@@ -99,6 +99,8 @@ test("vehicle detail: gallery by mouse and keyboard, availability result, calend
     await expect(page.getByText("Pojazd jest niedostępny w tym terminie")).toBeVisible();
     await expect(page.getByRole("link", { name: "Skontaktuj się po alternatywę" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Zmień termin" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Zobacz pojazdy dostępne w tym terminie" }))
+      .toHaveAttribute("href", `/pojazdy/?from=${day(4)}&to=${day(6)}`);
     if (process.env.PUB_SHOTS) {
       for (const [label, width, height] of [["m", 390, 844], ["d", 1440, 1024]] as const) {
         await page.setViewportSize({ width, height });
@@ -107,6 +109,13 @@ test("vehicle detail: gallery by mouse and keyboard, availability result, calend
     }
     // The blocked days are named as unavailable in text (not only by shape).
     await expect(page.locator("td", { hasText: "niedostępny" }).first()).toBeVisible();
+    // Inside the chosen range an unavailable day keeps its own marker (dashed inverse outline) that an available one lacks.
+    const blocked = page.locator("td", { hasText: "niedostępny, wybrany zakres" }).first();
+    const free = page.locator("td", { hasText: /dostępny, wybrany zakres/ }).filter({ hasNotText: "niedostępny" }).first();
+    await expect(blocked).toHaveCSS("outline-style", "dashed");
+    await expect(blocked).toHaveCSS("text-decoration-line", "line-through");
+    await expect(free).toHaveCSS("outline-style", "none");
+    await expect(free).toHaveCSS("text-decoration-line", "none");
     const html = (await rawGet(port, host, `/pojazdy/${slug}/?from=${day(4)}&to=${day(6)}`)).body;
     for (const secret of ["DET-REF-SECRET", "DET-NOTE-SECRET", "MAINTENANCE"]) expect(html).not.toContain(secret);
     // A past start is explained, not silently accepted.

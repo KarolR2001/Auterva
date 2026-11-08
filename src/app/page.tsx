@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
+import { MarketingPage } from "@/components/marketing/marketing-page";
 import { auth } from "@/lib/auth";
+import { marketingContact } from "@/modules/marketing/content";
+import { marketingMetadata } from "@/modules/marketing/metadata";
 import { prisma } from "@/lib/prisma";
 import { PublicHome } from "@/components/public/public-home";
 import { requireAuthorizedActor } from "@/modules/auth/authorization";
@@ -14,6 +17,7 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata(): Promise<Metadata> {
   const host = await requestHost();
   const area = host ? await resolveRequestArea(prisma, host) : null;
+  if (area?.area === "MARKETING") return marketingMetadata(host);
   if (area?.area !== "COMPANY_PUBLIC" || !host) return {};
   const home = await loadHome(host);
   return home ? toNextMetadata(home.seo) : { robots: { index: false, follow: false } };
@@ -22,7 +26,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function HomePage() {
   const incoming = new Headers(await headers());
   const area = await resolveRequestArea(prisma, incoming.get("host"));
-  if (area?.area === "MARKETING") return <main><h1>Auterva</h1></main>;
+  if (area?.area === "MARKETING") return <MarketingPage contact={marketingContact} />;
   if (area?.area === "PLATFORM" && area.organizationId === null
     && await requireAuthorizedActor(prisma, auth, incoming, { area: "PLATFORM", organizationId: null })) {
     return <main><h1>Platforma Auterva</h1><p>Panel jest w przygotowaniu.</p></main>;

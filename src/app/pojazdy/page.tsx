@@ -64,7 +64,8 @@ export default async function CatalogPage({ searchParams }: Props) {
               {result.state === "NO_RESULTS" ? (
                 <StateBlock level={2} icon={<SearchX size={24} />} title="Brak pojazdów dla tych filtrów"
                   actions={<>
-                    <LinkButton href={catalogHref({ from: applied.from, to: applied.to })}>Wyczyść filtry</LinkButton>
+                    {applied.category || applied.seats || applied.transmission || applied.sort !== "recommended"
+                      ? <LinkButton href={catalogHref({ from: applied.from, to: applied.to })}>Wyczyść filtry</LinkButton> : null}
                     <LinkButton href="#catalog-filters" variant="secondary">Zmień termin</LinkButton>
                     <LinkButton href={contactHref} variant="secondary">Skontaktuj się po alternatywę</LinkButton>
                   </>}>

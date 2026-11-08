@@ -141,7 +141,7 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
   while (flat.length % 7 !== 0) flat.push(null);
   const rows = Array.from({ length: flat.length / 7 }, (_, at) => flat.slice(at * 7, at * 7 + 7));
   const ready = calendar.status === "ready" ? calendar.days : null;
-  const stateOf = (date: string): DayState | "unknown" => (date < today ? "past" : !ready ? "unknown" : ready[date] === false ? "unavailable" : "available");
+  const stateOf = (date: string): DayState | "unknown" => (date < today ? "past" : !ready ? "unknown" : ready[date] === true ? "available" : "unavailable");
   const inRange = (date: string) => Boolean(from && to && date >= from && date <= to) || (pickingEnd && date === from);
   const monthHref = (target: string) => {
     const params = new URLSearchParams();
