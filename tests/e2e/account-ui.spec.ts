@@ -201,6 +201,7 @@ test("company admin: reset, account, password change, logout and expired service
       await db.passwordResetRequest.deleteMany({ where: { userId: user.id } });
     }
     await db.auditLog.deleteMany({ where: { organizationId: company } });
+    await db.job.deleteMany({ where: { organizationId: company } });
     await db.user.deleteMany({ where: { email } });
     await db.serviceAccess.deleteMany({ where: { organizationId: company } });
     await db.hostMapping.deleteMany({ where: { hostname: adminHost } });
