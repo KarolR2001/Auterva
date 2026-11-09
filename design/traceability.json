@@ -643,6 +643,25 @@
       ]
     },
     {
+      "issue": 260,
+      "scope": "Karta statusu usługi zgodna z TEN-04 w zakresie danych DTO #54: chip nagłówka \"Opłacony\", przycisk \"Napisz do Autervy\" zamiast linku w tekście. Wiersz \"Konto administratora\" pominięty: DTO nie zawiera danych konta administratora, a nowego API nie dodajemy. Przycisk prowadzi do /admin/czat (trasa z #52, merge po #52).",
+      "relatedRequirementIds": [
+        "C-F058",
+        "C-F084"
+      ],
+      "referenceScreenIds": [
+        "TEN-04"
+      ],
+      "codePaths": [
+        "src/components/panel/service-status.tsx"
+      ],
+      "stylePath": "src/components/panel/panel.module.css",
+      "testPaths": [
+        "tests/unit/service-status.test.tsx",
+        "tests/e2e/service-status-panel.spec.ts"
+      ]
+    },
+    {
       "issue": 14,
       "scope": "Shell firmy i platformy po serwerowej kontroli kontekstu #13, stany dostępu/błędów oraz ochrona niezapisanych zmian; treści modułów powstają w późniejszych issue.",
       "relatedRequirementIds": ["C-F018", "C-F147", "C-F148", "C-F149", "C-F150", "DS-N07", "DS-N08", "DS-N14"],

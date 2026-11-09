@@ -34,6 +34,7 @@ test("built company panel: trial date is not a payment, expiry keeps the panel w
     await expect(card).toContainText("Okres próbny do");
     await expect(card).toContainText("to nie jest opłata");
     await expect(card).not.toContainText(/opłacone do/i);
+    await expect(card.getByRole("link", { name: "Napisz do Autervy" })).toHaveAttribute("href", "/admin/czat");
     await expect(page.getByText("Usługa wygasła")).toHaveCount(0);
 
     // The trial has ended: the panel keeps working, shows the exact notice and a way to the chat.
