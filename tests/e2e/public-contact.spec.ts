@@ -63,11 +63,11 @@ test("contact with vehicle and dates, copy, missing channel, documents per compa
 
     // 1. Context: the vehicle and the dates reach the message and every link, correctly encoded.
     await page.goto(`${origin("a")}/kontakt/?vehicle=kamper-${car}&from=${day(3)}&to=${day(5)}`);
-    await expect(page.getByRole("heading", { level: 1, name: "Kontakt" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Porozmawiajmy o właściwym samochodzie" })).toBeVisible();
     await expect(page.getByText("Kamper & Co").first()).toBeVisible();
     const phone = page.getByRole("link", { name: "Zadzwoń" });
     await expect(phone).toHaveAttribute("href", "tel:+48600000111");
-    const wa = await page.getByRole("link", { name: "Napisz na WhatsApp" }).getAttribute("href");
+    const wa = await page.getByRole("link", { name: "Otwórz WhatsApp" }).getAttribute("href");
     const waUrl = new URL(wa!);
     expect(waUrl.origin + waUrl.pathname).toBe("https://wa.me/48600000222");
     expect(waUrl.searchParams.get("text")).toContain("Kamper & Co");
@@ -79,7 +79,7 @@ test("contact with vehicle and dates, copy, missing channel, documents per compa
     await expect(page.getByText("Preferowany kanał")).toBeVisible();
     await expect(page.getByText("Pn–Pt 9:00–17:00")).toBeVisible();
     await expect(page.getByText("ul. Testowa 1")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Zobacz na mapie" })).toHaveAttribute("href", /openstreetmap\.org\/\?mlat=52\.2297&mlon=21\.0122/);
+    await expect(page.getByRole("link", { name: "Otwórz w mapach" })).toHaveAttribute("href", /openstreetmap\.org\/\?mlat=52\.2297&mlon=21\.0122/);
     await shoot("pub-04-contact");
 
     // 2. Copy works without a handler for the channel; the page shows no booking promise and records nothing.
