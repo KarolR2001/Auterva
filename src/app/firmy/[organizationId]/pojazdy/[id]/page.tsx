@@ -9,7 +9,7 @@ export default async function CompanyVehiclePage({ params }: { params: Promise<{
   const { organizationId, id } = await params;
   if (!uuid.test(id)) notFound();
   return PlatformCompanyPage({
-    organizationId, currentPath: "/firmy", title: "Edycja pojazdu",
+    organizationId, currentPath: "/firmy", title: "Edycja pojazdu", requireVehicleId: id,
     children: ({ name }) => <PlatformVehicleForm key={`${organizationId}:${id}`} organizationId={organizationId} vehicleId={id} title={`Edycja pojazdu · ${name}`} />,
   });
 }

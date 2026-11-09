@@ -586,6 +586,20 @@
       ]
     },
     {
+      "issue": 289,
+      "scope": "Serwerowe 404 dla obcego lub nieistniejącego pojazdu na trasach floty platformy /firmy/{id}/pojazdy/{id}/ i .../kalendarz/ (po autoryzacji superadmina i weryfikacji firmy, zapytanie zawężone do firmy z URL); wspólny helper requireVehicleInCompany z #284.",
+      "relatedRequirementIds": ["FR-ADM-030", "FR-ADM-050"],
+      "referenceScreenIds": ["ADM-07", "ADM-09"],
+      "codePaths": [
+        "src/components/panel/require-vehicle.ts",
+        "src/app/firmy/[organizationId]/company-page.tsx",
+        "src/app/firmy/[organizationId]/pojazdy/[id]/page.tsx",
+        "src/app/firmy/[organizationId]/pojazdy/[id]/kalendarz/page.tsx",
+        "src/app/admin/company-panel.tsx"
+      ],
+      "testPaths": ["tests/e2e/platform-vehicle-404.spec.ts", "tests/e2e/admin-vehicle-404.spec.ts"]
+    },
+    {
       "issue": 284,
       "scope": "Pięć drobnych poprawek P3 z odbiorów QA: pole opisu zdjęcia pojazdu pokazuje opis domyślny jako placeholder (pole puste = opis domyślny, bez doklejania tekstu), rozmiar małych plików w KB zamiast 0,00 MB, serwerowe 404 dla obcego lub nieistniejącego pojazdu na trasach panelu firmy formularza i kalendarza, etykieta kontrolek materiału z opisu zamiast pozycji, jeden komunikat przy 401 na zmianie hasła (baner dopiero po rozstrzygnięciu sesji, potem tylko błąd pola). Poza zakresem: trasy platformy (#47).",
       "relatedRequirementIds": ["FR-ADM-045", "FR-ADM-040", "FR-ADM-050"],
