@@ -28,6 +28,9 @@ export default async function AdminChatPage() {
     );
   }
   const { conversationId } = found;
+  // The company's own name signs its messages (TEN-11); read here, no new API.
+  const organization = await prisma.organization.findUnique({ where: { id: actor.organizationId }, select: { name: true } });
+  const companyName = organization?.name?.trim() || "Twoja firma";
   return (
     <PanelShell
       area="company"
@@ -42,6 +45,8 @@ export default async function AdminChatPage() {
         conversationId={conversationId}
         apiBase="/api/admin/chat"
         peerLabel="Auterva"
+        peerWith="Autervą"
+        companyName={companyName}
         loginHref="/admin/login?returnTo=%2Fadmin%2Fczat"
       />
     </PanelShell>

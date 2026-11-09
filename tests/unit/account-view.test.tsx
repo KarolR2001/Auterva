@@ -93,7 +93,7 @@ describe("konto: zmiana hasła", () => {
     });
   });
 
-  it("błędne aktualne hasło przy żywej sesji zostaje na stronie z komunikatem", async () => {
+  it("błędne aktualne hasło przy żywej sesji to błąd pola z aria-invalid i fokusem, bez banera", async () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(Response.json({ code: "INVALID_CREDENTIALS" }, { status: 401 }))
       .mockResolvedValueOnce(Response.json({ session: { id: "s" }, user: { id: "u" } }));
@@ -101,7 +101,11 @@ describe("konto: zmiana hasła", () => {
     render(<AccountView area="company" account={account} />);
     await fill(user);
     await user.click(screen.getByRole("button", { name: "Zmień hasło" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Sprawdź aktualne hasło");
+    const current = screen.getByLabelText("Aktualne hasło");
+    await waitFor(() => expect(current).toHaveAttribute("aria-invalid", "true"));
+    expect(screen.getByText("Aktualne hasło jest nieprawidłowe.")).toBeVisible();
+    expect(screen.queryByText(/Sprawdź aktualne hasło/)).toBeNull();
+    await waitFor(() => expect(current).toHaveFocus());
     expect(replace).not.toHaveBeenCalled();
     expect(screen.getByLabelText("Nowe hasło")).toHaveValue("Nowe haslo 12345!");
   });
@@ -115,7 +119,7 @@ describe("konto: zmiana hasła", () => {
     render(<AccountView area="company" account={account} />);
     await fill(user);
     await user.click(screen.getByRole("button", { name: "Zmień hasło" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Hasło nie zostało zmienione");
+    expect(await screen.findByRole("alert")).toHaveTextContent("hasło prawdopodobnie nie zostało zmienione");
     expect(replace).not.toHaveBeenCalled();
     request
       .mockRejectedValueOnce(new TypeError("offline"))
@@ -133,6 +137,20 @@ describe("konto: zmiana hasła", () => {
     await fill(user);
     await user.click(screen.getByRole("button", { name: "Zmień hasło" }));
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/admin/login?password=changed"));
+  });
+
+  it("po błędzie zapisu nazwy fokus wraca do pola", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({ code: "INVALID_REQUEST" }, { status: 400 }),
+    );
+    const user = userEvent.setup();
+    render(<AccountView area="company" account={account} />);
+    const name = screen.getByRole("textbox", { name: /Nazwa/ });
+    await user.clear(name);
+    await user.type(name, "X");
+    await user.click(screen.getByRole("button", { name: "Zapisz nazwę" }));
+    expect(await screen.findByRole("alert")).toBeVisible();
+    await waitFor(() => expect(name).toHaveFocus());
   });
 
   it("nie wysyła zbyt krótkiego ani niezgodnego hasła", async () => {

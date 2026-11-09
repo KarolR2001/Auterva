@@ -74,6 +74,9 @@ test("activation page: open does not activate, validation, double submit, lost r
     await fill(page, "short", "short");
     await page.getByRole("button", { name: "Aktywuj konto" }).click();
     await expect(page.getByText("Hasło musi mieć co najmniej 12 znaków")).toBeVisible();
+    // DS-AUT-004: text level and a textual checklist; only the length is required.
+    await expect(page.getByText("Siła hasła: Słabe")).toBeVisible();
+    await expect(page.getByText(/Co najmniej 12 znaków \(wymagane\)/)).toContainText("oczekuje");
     await fill(page, password, `${password}x`);
     await page.getByRole("button", { name: "Aktywuj konto" }).click();
     await expect(page.getByText("Hasła muszą być identyczne")).toBeVisible();

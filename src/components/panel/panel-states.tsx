@@ -16,17 +16,27 @@ export type PanelAccessState =
 type PanelAccessProps = {
   state: PanelAccessState;
   area: "company" | "platform";
+  /** Exact server text (D-11) for an expired period; replaces the generic body. */
+  expiredNotice?: string | null;
   children: ReactNode;
 };
 
-export function PanelAccess({ state, area, children }: PanelAccessProps) {
+export function PanelAccess({ state, area, expiredNotice, children }: PanelAccessProps) {
   if (state === "allowed" || state === "service-expired") {
     return (
       <>
         {state === "service-expired" && (
           <Alert tone="warning" title="Usługa wygasła">
-            Panel i zapisane formularze pozostają dostępne. Publiczna strona
-            firmy jest wstrzymana do odnowienia usługi.
+            {expiredNotice ??
+              "Panel i zapisane formularze pozostają dostępne. Publiczna strona firmy jest wstrzymana do odnowienia usługi."}
+            {area === "company" && (
+              <>
+                {" "}
+                <a className={styles.textLink} href="/admin/czat">
+                  Przejdź do czatu z Autervą
+                </a>
+              </>
+            )}
           </Alert>
         )}
         {children}

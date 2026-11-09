@@ -17,6 +17,10 @@ import styles from "./panel.module.css";
 type UnsavedChangesDialogProps = {
   open: boolean;
   contextLabel?: string;
+  /** The entry stays stored on this device: "Odrzuć zmiany" would mislead, so the exit is labelled as leaving only. */
+  keepsEntry?: boolean;
+  /** Leaving (sign-out) deletes the locally stored entry: the standard labels stay and the text says so. */
+  removesEntry?: boolean;
   onStay: () => void;
   onDiscard: () => void | Promise<void>;
   onSaveAndLeave?: () => void | Promise<void>;
@@ -29,6 +33,8 @@ export const UnsavedChangesSuspensionContext = createContext(false);
 export function UnsavedChangesDialog({
   open,
   contextLabel,
+  keepsEntry = false,
+  removesEntry = false,
   onStay,
   onDiscard,
   onSaveAndLeave,
@@ -114,11 +120,23 @@ export function UnsavedChangesDialog({
             id={descriptionId}
             className={styles.unsavedDescription}
           >
-            Masz niezapisane zmiany{contextLabel ? ` w: ${contextLabel}` : ""}.
-            {" "}
-            {onSaveAndLeave
-              ? "Możesz zostać, odrzucić zmiany albo zapisać je przed wyjściem."
-              : "Możesz zostać albo odrzucić zmiany i wyjść."}
+            {keepsEntry ? (
+              <>
+                {contextLabel ?? "Wpis czeka na wysłanie"}. Zostaje na tym
+                urządzeniu, więc możesz wyjść bez wysyłania i wrócić do niej
+                później albo zostać tutaj.
+              </>
+            ) : (
+              <>
+                {removesEntry &&
+                  "Po wylogowaniu niewysłany wpis zostanie usunięty z tego urządzenia. "}
+                Masz niezapisane zmiany{contextLabel ? ` w: ${contextLabel}` : ""}.
+                {" "}
+                {onSaveAndLeave
+                  ? "Możesz zostać, odrzucić zmiany albo zapisać je przed wyjściem."
+                  : "Możesz zostać albo odrzucić zmiany i wyjść."}
+              </>
+            )}
           </DialogPrimitive.Description>
           {error && (
             <p role="alert" className={styles.unsavedError}>
@@ -134,13 +152,13 @@ export function UnsavedChangesDialog({
               Zostań
             </Button>
             <Button
-              variant="destructive"
+              variant={keepsEntry ? "secondary" : "destructive"}
               disabled={Boolean(pending)}
               loading={pending === "discard"}
-              loadingLabel="Odrzucanie zmian"
+              loadingLabel={keepsEntry ? "Wychodzenie" : "Odrzucanie zmian"}
               onClick={() => void run("discard")}
             >
-              Odrzuć zmiany
+              {keepsEntry ? "Wyjdź bez wysyłania" : "Odrzuć zmiany"}
             </Button>
             {onSaveAndLeave && (
               <Button

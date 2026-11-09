@@ -21,6 +21,9 @@ type Props = {
   conversationId: string | null;
   apiBase: string; // "/api/admin/chat"
   peerLabel: string;
+  companyName: string;
+  /** Instrumental form for the subtitle ("kontakt z Autervą"); defaults to peerLabel. */
+  peerWith?: string;
   loginHref: string;
 };
 
@@ -38,7 +41,7 @@ function wsUrl(organizationId: string, after: string | null) {
   return `${scheme}://${window.location.host}/ws?organizationId=${encodeURIComponent(organizationId)}${after ? `&after=${encodeURIComponent(after)}` : ""}`;
 }
 
-export function ChatPanel({ accountId, organizationId, conversationId: initialConversation, apiBase, peerLabel, loginHref }: Props) {
+export function ChatPanel({ accountId, organizationId, conversationId: initialConversation, apiBase, peerLabel, companyName, peerWith, loginHref }: Props) {
   const [phase, setPhase] = useState<"loading" | "error" | "ready">("loading");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [conversationId, setConversationId] = useState(initialConversation);
@@ -102,7 +105,8 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
   }, [accountId, conversationKey, draft, draftKeyLoaded]);
   // A chat draft never blocks leaving (exception of #14), but a message that was not confirmed does: it is warned about.
   useUnsavedChanges({ dirty: draft.length > 0, chatDraft: true });
-  useUnsavedChanges({ dirty: pending !== null, contextLabel: "Wiadomość czeka na wysłanie" });
+  // The unsent message is persisted locally (savePending), so leaving keeps it: the guard names the exit accordingly.
+  useUnsavedChanges({ dirty: pending !== null, contextLabel: "Wiadomość czeka na wysłanie", keepsEntry: true });
   const retryAfter = pending?.failure?.retryAfter ?? null;
   useEffect(() => {
     if (!pending || !retryAfter) return;
@@ -397,9 +401,10 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
   }, [messages]);
   return (
     <section className={styles.chat} aria-labelledby="chat-title">
-      <h2 id="chat-title" className={styles.srOnly}>Czat z {peerLabel}</h2>
+      <h2 id="chat-title" className={styles.srOnly}>Czat z {peerWith ?? peerLabel}</h2>
+      <p className={styles.subtitle}>{companyName} · kontakt z {peerWith ?? peerLabel}</p>
       <div className={styles.status} role="status">
-        {connection === "online" && <span>Połączono na żywo.</span>}
+        {connection === "online" && <span><span className={styles.onlineDot} aria-hidden="true" />Online</span>}
         {connection === "connecting" && <span>Łączenie…</span>}
         {connection === "reconnecting" && <span><CircleAlert size={16} aria-hidden="true" /> Brak połączenia na żywo — łączymy ponownie. Wysłanie nadal działa, a tekst zostaje.</span>}
         {connection === "session-lost" && <span><CircleAlert size={16} aria-hidden="true" /> Sesja wygasła. <a href={loginHref}>Zaloguj się ponownie</a>; szkic zostaje na tym urządzeniu.</span>}
@@ -426,7 +431,7 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
             <div key={message.id}>
               {header && <p className={styles.day}>{header}</p>}
               <article className={styles.message} data-own={message.own || undefined} data-message-id={message.id}>
-                <p className={styles.sender}>{message.own ? "Ty" : peerLabel}</p>
+                <p className={styles.sender}>{message.own ? companyName : peerLabel}</p>
                 <p className={styles.body}>{message.body}</p>
                 <p className={styles.meta}>
                   <time dateTime={message.createdAt}>{time.format(new Date(message.createdAt))}</time>
@@ -438,7 +443,7 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
         })}
         {pending && (
           <article className={styles.message} data-own data-pending={pending.status}>
-            <p className={styles.sender}>Ty</p>
+            <p className={styles.sender}>{companyName}</p>
             <p className={styles.body}>{pending.body}</p>
             <p className={styles.meta}>
               {pending.status === "sending" ? "Wysyłanie…" : pending.status === "uncertain" ? "Niepewny wynik wysyłki" : "Nie wysłano"}
@@ -472,7 +477,7 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
         <p id="chat-composer-hint" className={styles.hint}>
           {overLimit ? "Wiadomość może mieć najwyżej 4 000 znaków."
             : nearLimit ? `Zostało ${MAX_CODE_POINTS - [...draft].length} znaków.`
-            : `Szkic zapisuje się na tym urządzeniu. Ctrl/⌘ + Enter wysyła. Bez załączników.`}
+            : `Szkic ${companyName} · odbiorca: ${peerLabel}, zapisany na tym urządzeniu • Ctrl/⌘ + Enter wysyła • bez załączników`}
         </p>
         <Button type="submit" icon={<Send size={16} aria-hidden="true" />}
           disabled={!draft.trim() || overLimit || pending !== null}>

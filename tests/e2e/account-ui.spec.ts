@@ -4,7 +4,7 @@ import { expect, test, type Page } from "@playwright/test";
 import * as OTPAuth from "otpauth";
 import { createAuth } from "../../src/lib/auth";
 import { createPrismaClient } from "../../src/lib/prisma";
-import { ensureControlledFixtureAccess } from "../fixtures/verified-session";
+import { ensureControlledFixtureAccess, verifiedFixtureSession } from "../fixtures/verified-session";
 
 // Reset, account, password change and logout against the built app behind the local ingress.
 test.use({ launchOptions: { args: ["--host-resolver-rules=MAP *.example.test 127.0.0.1"] } });
@@ -23,8 +23,20 @@ function urlAt(origin: string, path: string, query = "") {
   return new RegExp(`^${esc(origin)}${esc(path)}/?${esc(query)}$`);
 }
 
+/** The page must not scroll sideways at any supported width; the original viewport is restored. */
 async function noHorizontalOverflow(page: Page) {
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  const original = page.viewportSize();
+  try {
+    for (const width of [320, 390, 768, 1024, 1920]) {
+      await page.setViewportSize({ width, height: original?.height ?? 900 });
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+        `horizontal overflow at ${width}px`,
+      ).toBe(true);
+    }
+  } finally {
+    if (original) await page.setViewportSize(original);
+  }
 }
 
 /** Optional reference renders for the Penpot comparison (ACCOUNT_UI_SCREENSHOTS=<dir>) at 390 and 1440 px. */
@@ -153,6 +165,9 @@ test("company admin: reset, account, password change, logout and expired service
     // Offline: no pretend success for the password change; fields stay.
     await page.getByLabel("Aktualne hasło").fill(resetPassword);
     await page.getByLabel("Nowe hasło", { exact: true }).fill(finalPassword);
+    // DS-AUT-004 in the account form: the level is text, the checklist is textual too.
+    await expect(page.getByText(/^Siła hasła: (Średnie|Mocne)$/)).toBeVisible();
+    await expect(page.getByText(/Co najmniej 12 znaków/)).toContainText("spełnione");
     await page.getByLabel("Potwierdź nowe hasło").fill(finalPassword);
     await page.context().setOffline(true);
     await page.getByRole("button", { name: "Zmień hasło" }).click();
@@ -161,10 +176,12 @@ test("company admin: reset, account, password change, logout and expired service
     await expect(page.getByLabel("Nowe hasło", { exact: true })).toHaveValue(finalPassword);
     expect(await db.session.count({ where: { userId: registered.user.id } })).toBeGreaterThan(0);
 
-    // Wrong current password: neutral message, session kept.
+    // Wrong current password: a field error with aria-invalid and focus on the field, session kept.
     await page.getByLabel("Aktualne hasło").fill("Wrong current password 1!");
     await page.getByRole("button", { name: "Zmień hasło" }).click();
-    await expect(page.getByRole("main").getByRole("alert")).toContainText("Sprawdź aktualne hasło");
+    await expect(page.getByLabel("Aktualne hasło")).toHaveAttribute("aria-invalid", "true");
+    await expect(page.getByRole("main").getByText("Aktualne hasło jest nieprawidłowe.")).toBeVisible();
+    await expect(page.getByLabel("Aktualne hasło")).toBeFocused();
     await expect(page).toHaveURL(urlAt(origin, "/admin/konto"));
     await snap(page, "account-password-error");
 
@@ -255,6 +272,29 @@ test("superadmin: account on the platform host only, name saved, MFA actions wit
     await expect(page.getByRole("link", { name: "Wydaj nowe kody" })).toHaveAttribute("href", /^\/mfa\/?\?returnTo=%2Fkonto&recoverCodes=1$/);
     await page.getByRole("button", { name: "Nie mam obu czynników" }).click();
     await expect(page.getByText(/ręcznej procedury właściciela/)).toBeVisible();
+    // #73: another session of the same account appears; ending it needs a fresh MFA proof and is confirmed by the server.
+    const other = await verifiedFixtureSession(db, superadminId);
+    await page.getByRole("link", { name: "Aktywne sesje" }).click();
+    await expect(page).toHaveURL(urlAt(origin, "/konto/sesje"));
+    await expect(page.getByText("Ta sesja", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Zakończ sesję:/ })).toHaveCount(1);
+    expect(await page.content()).not.toMatch(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/); // no IP address
+    const before = await db.session.count({ where: { userId: superadminId } });
+    await page.getByRole("button", { name: /Zakończ sesję:/ }).click();
+    await expect(page.getByRole("heading", { name: /Zakończyć sesję/ })).toBeVisible();
+    await page.getByLabel("Kod z aplikacji").fill("000000");
+    await page.getByRole("button", { name: "Zakończ tę sesję" }).click();
+    await expect(page.getByText(/Kod jest nieprawidłowy/)).toBeVisible();
+    expect(await db.session.count({ where: { userId: superadminId } })).toBe(before); // a wrong code ends nothing
+    await page.getByLabel("Kod z aplikacji").fill(totp.generate({ timestamp: Date.now() + 30_000 }));
+    await page.getByRole("button", { name: "Zakończ tę sesję" }).click();
+    await expect(page.getByText("Zakończono 1 sesję.")).toBeVisible();
+    // The opener and the confirmation are gone: focus must land on the notice, not on <body>.
+    await expect(page.locator('[role="status"][tabindex="-1"]')).toBeFocused();
+    await expect(page.getByRole("button", { name: /Zakończ sesję:/ })).toHaveCount(0);
+    expect(await db.session.count({ where: { userId: superadminId } })).toBe(before - 1);
+    await other.dispose();
+    await page.getByRole("link", { name: "Konto", exact: true }).click();
     await page.getByRole("button", { name: "Wyloguj" }).click();
     await expect(page).toHaveURL(urlAt(origin, "/login"));
   } finally {
