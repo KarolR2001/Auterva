@@ -15,13 +15,17 @@ Warstwa serwerowa dla stron #41–#44 oraz publiczne API JSON. Moduł: `src/modu
 
 | Ścieżka | Wynik 200 |
 |---|---|
-| `/api/public/offer/` | home: `offerState` `EMPTY` (zapowiedź) lub `HAS_VEHICLES`, firma, wyróżnione (`featuredVehicleCount`), kontakt, `seo` |
+| `/api/public/offer/` | home: `offerState` `EMPTY` (zapowiedź) lub `HAS_VEHICLES`, firma, wyróżnione (patrz niżej), kontakt, `seo` |
 | `/api/public/vehicles/` | katalog (poniżej) |
 | `/api/public/vehicles/{slug}/` | `{kind:"FOUND", vehicle, availabilityNotice, contact, display, seo}`; stary slug (zapisany przez #153 przy zmianie sluga opublikowanego pojazdu) prowadzący do pojazdu `PUBLISHED` `308` z `Location: /api/public/vehicles/{nowy}/` (query zachowane) i `body.path` = ścieżka strony; nieznany/obcy/nieopublikowany `404 {code:"NOT_FOUND", offerPath:"/"}` |
 | `/api/public/contact/?vehicle=&from=&to=` | kanały, godziny, adres, `message`, `seo` |
 | `/api/public/legal/{privacy|terms}/` | `status` `TEXT`/`LINK`/`MISSING`, `text`, `url`, `seo` |
 
 Błędy: `404 {code:"NOT_FOUND"}` (firma niepubliczna lub nieznany host; brak pojazdu dodaje `offerPath`, więc oba przypadki da się odróżnić tylko dla aktywnej firmy), `400 INVALID_QUERY|INVALID_CURSOR`, `422 PAST_DATE`, `429 RATE_LIMITED` + `Retry-After`, `503 TRUSTED_INGRESS_REQUIRED`, `500 INTERNAL_ERROR`. SSR wywołuje funkcje bezpośrednio i nie używa tych tras ani ich limitu.
+
+## Wyróżnione pojazdy na home (#67, FR-PUB-002, D-22)
+
+`featured` to najwyżej `featuredVehicleCount` (0–12, ustawienie firmy) pojazdów `PUBLISHED` z flagą `featured`, w kolejności firmy (`sortOrder`, potem `id`), z tą samą kartą co katalog. Pojazd ukryty, zarchiwizowany lub szkic nie jest wyróżniony, a kolejny wyróżniony zajmuje jego miejsce; ponowna publikacja przywraca go na właściwe miejsce. Odczyt nie jest cache'owany, więc zmiana flagi, statusu, kolejności lub liczby działa od następnego odczytu i dotyczy tylko firmy hosta. Fallback jest jawny: przy `featuredVehicleCount` 0, braku wyróżnionych lub `offerState` `EMPTY` lista `featured` jest pusta (`[]`), bez uzupełniania innymi pojazdami i bez danych zastępczych; pełna oferta pozostaje w katalogu, a UI (#68) ukrywa sekcję. Zmiana flagi lub kolejności w `PATCH` pojazdu zapisuje audyt `VEHICLE_UPDATED` z `featured`/`sortOrder` w `changedFields` oraz wartościami przed/po.
 
 ## Katalog: filtry, sortowanie, paginacja
 

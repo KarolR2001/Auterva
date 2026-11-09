@@ -181,7 +181,7 @@
     gap: 44px;
   }
   .page[data-area="company"][data-view="login"] .loginForm > button {
-    margin-top: var(--space-12);
+    margin-top: var(--space-8);
   }
   .page[data-area="company"][data-view="login"] .footer {
     /* 68 px to the ADM-01 board position, minus the 64 px taken by the reset link row. */

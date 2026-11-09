@@ -40,10 +40,74 @@ STEP_PID=""
 step() {
   local name="$1" rc; shift
   # Background + wait, so the signal trap runs at once instead of after the step.
-  ( "$@" ) >"$LOGDIR/$name.log" 2>&1 &
+  # </dev/null: a background step reading stdin would get SIGTTIN under job control and stop the whole run.
+  ( "$@" ) </dev/null >"$LOGDIR/$name.log" 2>&1 &
   STEP_PID=$!; wait "$STEP_PID"; rc=$?; STEP_PID=""
   if [ "$rc" -eq 0 ]; then res "$name" "PASS $(summary "$LOGDIR/$name.log")"
   else res "$name" "FAIL ($LOGDIR/$name.log)"; FAILED=1; fi
+}
+
+# E2E uses the fixed ports 3305-3307, so concurrent runs of any worktree queue on one lock directory in the git
+# common dir (shared by all worktrees of this repository). Plain `mkdir` is atomic and works without flock (macOS).
+E2E_LOCK="$(git rev-parse --git-common-dir)/e2e.lock"
+E2E_LOCK_TIMEOUT="${AUTERVA_E2E_LOCK_TIMEOUT:-1800}"; E2E_LOCK_POLL="${AUTERVA_E2E_LOCK_POLL:-5}"
+E2E_LOCK_HELD=0
+lockmsg() { printf '%s\n' "$1" | tee -a "$LOGDIR/e2e-lock.log" >&2; }
+# PID of a lock taken by ci-local: only a numeric `pid` file counts. A manual lock (`echo <name> > e2e.lock/owner`) has no PID.
+lock_pid() { local p; p="$(cat "$E2E_LOCK/pid" 2>/dev/null)"; case "$p" in ''|*[!0-9]*) ;; *) printf '%s' "$p";; esac; }
+lock_desc() { local p; p="$(lock_pid)"; if [ -n "$p" ]; then printf "process %s" "$p"; else printf "manual owner %s" "$(cat "$E2E_LOCK/owner" 2>/dev/null)"; fi; }
+lock_owner() { local p; p="$(lock_pid)"; if [ -n "$p" ]; then printf '%s' "$p"; else cat "$E2E_LOCK/owner" 2>/dev/null; fi; }
+# Abandoned = its PID no longer exists; without a PID (manual lock) only by age: 40 min with an `owner` file, 1 minute for a bare directory.
+# $1 is the PID read once by the caller (empty for a manual lock).
+lock_is_abandoned() {
+  if [ -n "$1" ]; then ! kill -0 "$1" 2>/dev/null; return; fi
+  local age=1; [ -f "$E2E_LOCK/owner" ] && age=40
+  [ -n "$(find "$E2E_LOCK" -maxdepth 0 -mmin +"$age" 2>/dev/null)" ]
+}
+# Removes an abandoned lock. Returns 0 only when it removed exactly the lock that was judged abandoned.
+take_over_abandoned_lock() {
+  local pid="$1" moved="$E2E_LOCK.stale.$$"
+  rm -rf "$moved"
+  # Atomic rename: of several runners that see the abandoned lock, one wins. $moved never exists, so mv cannot nest.
+  mv "$E2E_LOCK" "$moved" 2>/dev/null || return 1
+  if [ "$(cat "$moved/pid" 2>/dev/null)" = "$pid" ]; then rm -rf "$moved"; return 0; fi
+  # It is not the lock we checked (retaken in between): put it back, but only into an empty place.
+  [ -e "$E2E_LOCK" ] || mv "$moved" "$E2E_LOCK" 2>/dev/null || true
+  return 1
+}
+acquire_e2e_lock() {
+  local waited=0 pid
+  # The caller already holds the lock (e.g. an agent took e2e.lock by hand before running this script): do not wait on it.
+  if [ "${AUTERVA_E2E_LOCK_HELD:-}" = 1 ]; then lockmsg "E2E lock held by the caller (AUTERVA_E2E_LOCK_HELD=1); not taking it"; return 0; fi
+  while :; do
+    if mkdir "$E2E_LOCK" 2>/dev/null; then echo "$$" > "$E2E_LOCK/pid"; echo "ci-local $$" > "$E2E_LOCK/owner"; E2E_LOCK_HELD=1; return 0; fi
+    pid="$(lock_pid)"   # read once; the same value is judged and later compared
+    if lock_is_abandoned "$pid" && take_over_abandoned_lock "$pid"; then
+      if [ -n "$pid" ]; then lockmsg "taking over stale E2E lock of finished process $pid"; else lockmsg "taking over abandoned manual E2E lock (older than its age limit)"; fi; continue
+    fi
+    if [ "$waited" -ge "$E2E_LOCK_TIMEOUT" ]; then
+      lockmsg "timed out after ${waited}s waiting for the E2E lock held by $(lock_desc)"; return 1
+    fi
+    if [ $((waited % 60)) -eq 0 ]; then lockmsg "waiting for the E2E lock (ports 3305-3307) held by $(lock_desc); timeout ${E2E_LOCK_TIMEOUT}s"; fi
+    sleep "$E2E_LOCK_POLL" & wait $!; waited=$((waited + E2E_LOCK_POLL))
+  done
+}
+# Runs that do not take the lock (a manual `pnpm test:e2e`, an older script) can still hold the ports: wait for them too.
+wait_e2e_ports() {
+  local waited=0 p busy
+  while :; do
+    busy=""
+    for p in 3305 3306 3307; do lsof -iTCP:"$p" -sTCP:LISTEN -n >/dev/null 2>&1 && busy="$busy $p"; done
+    [ -z "$busy" ] && return 0
+    if [ "$waited" -ge "$E2E_LOCK_TIMEOUT" ]; then lockmsg "timed out after ${waited}s waiting for E2E ports to free up (busy:$busy)"; return 1; fi
+    if [ $((waited % 60)) -eq 0 ]; then lockmsg "waiting for E2E ports held by another process (busy:$busy); timeout ${E2E_LOCK_TIMEOUT}s"; fi
+    sleep "$E2E_LOCK_POLL" & wait $!; waited=$((waited + E2E_LOCK_POLL))
+  done
+}
+release_e2e_lock() {
+  # Only the owner removes the lock.
+  if [ "$E2E_LOCK_HELD" = 1 ] && [ "$(lock_owner)" = "$$" ]; then rm -rf "$E2E_LOCK"; fi
+  E2E_LOCK_HELD=0
 }
 
 QTMP=""; FIXTURE_STARTED=0
@@ -57,6 +121,7 @@ cleanup() {
     rm -rf "$QTMP"
   fi
   if [ "$FIXTURE_STARTED" = 1 ]; then scripts/local-fixture.sh stop >/dev/null 2>&1; fi
+  release_e2e_lock
   git checkout -q -- next-env.d.ts 2>/dev/null
   exit "$rc"
 }
@@ -73,12 +138,16 @@ printf 'head\t%s\n' "$(git rev-parse HEAD)" >> "$OUT"
 printf 'tools\tnode %s; gitleaks %s; pg_dump %s; docker %s\n' "$(node --version)" "$(gitleaks version 2>/dev/null)" \
   "$(pg_dump --version 2>/dev/null | awk '{print $3}')" "$(docker version --format '{{.Server.Version}} {{.Server.Os}}/{{.Server.Arch}}' 2>/dev/null)" >> "$OUT"
 pnpm install --frozen-lockfile >"$LOGDIR/install.log" 2>&1 || { res install FAIL; exit 1; }
+# pnpm skips postinstall (which runs prisma generate) when the lockfile is unchanged, so a new schema would leave a stale client.
+GEN_URL=postgresql://ci@127.0.0.1:5432/generate_only
+DATABASE_URL="$GEN_URL" pnpm exec prisma generate >>"$LOGDIR/install.log" 2>&1 </dev/null || { res "prisma generate" FAIL; exit 1; }
 
 # CI runs this job on a fresh checkout: use a clean detached worktree so no .env/.env.local is loaded by vitest.
 quality() {
   local tmp="$QTMP/quality"
   git worktree add -q --detach "$tmp" HEAD || return 1
   ( cd "$tmp" && pnpm install --frozen-lockfile --prefer-offline &&
+    DATABASE_URL="$GEN_URL" pnpm exec prisma generate &&
     DATABASE_URL=postgresql://ci@127.0.0.1:5432/validate_only pnpm exec prisma validate &&
     pnpm lint && pnpm typecheck &&
     DATABASE_URL=postgresql://ci@127.0.0.1:5432/unit_placeholder \
@@ -86,7 +155,8 @@ quality() {
     BETTER_AUTH_URL=http://127.0.0.1:3305 pnpm test:unit )
   local rc=$?; git worktree remove --force "$tmp" >/dev/null 2>&1 || { rm -rf "$tmp"; git worktree prune; }; return $rc
 }
-QTMP="$(mktemp -d)"
+QTMP="$(mktemp -d)" || refuse "cannot create a temporary directory (mktemp -d failed)"
+[ -d "$QTMP" ] || refuse "temporary directory $QTMP does not exist"
 step "Lint, typecheck, unit" quality
 
 # Same steps as .github/actions/fixture, on a fresh schema: --reset drops this fixture's own schema and re-migrates.
@@ -108,7 +178,9 @@ e2e() {
   for p in 3305 3306 3307; do lsof -iTCP:"$p" -sTCP:LISTEN -n >/dev/null && { echo "port $p busy"; return 1; }; done
   fresh_fixture && pnpm build && pnpm exec playwright install chromium && pnpm test:e2e
 }
-step "Build and E2E" e2e
+rm -f "$LOGDIR/e2e-lock.log"
+if acquire_e2e_lock && wait_e2e_ports; then step "Build and E2E" e2e; release_e2e_lock
+else release_e2e_lock; res "Build and E2E" "FAIL (E2E lock or ports not available: $LOGDIR/e2e-lock.log)"; FAILED=1; fi
 if [ "$FIXTURE_STARTED" = 1 ]; then scripts/local-fixture.sh stop >"$LOGDIR/fixture-stop.log" 2>&1; FIXTURE_STARTED=0; fi
 git checkout -q -- next-env.d.ts 2>/dev/null
 
