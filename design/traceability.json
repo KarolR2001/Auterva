@@ -1271,13 +1271,12 @@
     },
     {
       "issue": 234,
-      "scope": "Naruszenie CSP przez <style> wstrzykiwany przez blokadę przewijania Radix (menu panelu, OVR-13): nonce odpowiedzi przekazany do runtime webpacka bez unsafe-inline; asercja e2e braku naruszeń przy otwartym menu na desktopie i mobile.",
+      "scope": "Naruszenie CSP przez <style> wstrzykiwany przez blokadę przewijania Radix (menu panelu, OVR-13): nonce bieżącego dokumentu (odczyt z DOM, przyjęty raz, nie z propsa RSC) przekazany do runtime webpacka bez unsafe-inline; asercja e2e braku naruszeń przy otwartym menu na desktopie i mobile oraz po router.refresh().",
       "relatedRequirementIds": ["C-F018", "DS-N07"],
       "referenceScreenIds": ["OVR-13", "ADM-04"],
       "codePaths": [
         "src/app/layout.tsx",
-        "src/components/csp-nonce.tsx",
-        "src/modules/tenancy/csp.ts"
+        "src/components/csp-nonce.tsx"
       ],
       "testPaths": ["tests/e2e/panel-shell.spec.ts"]
     }
