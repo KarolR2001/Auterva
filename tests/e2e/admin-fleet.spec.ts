@@ -198,7 +198,8 @@ test("fleet order over several pages and an unknown outcome of hiding", async ({
     await page.getByRole("button", { name: "Przesuń „V19” w dół" }).click();
     await expect(page.getByText("Strona 2 z 2")).toBeVisible();
     await expect(page.getByText("(strona 2)")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Przesuń „V19” w górę" })).toBeFocused();
+    // Focus stays on the same control (down) of the moved vehicle, now on page 2.
+    await expect(page.getByRole("button", { name: "Przesuń „V19” w dół" })).toBeFocused();
     expect((await order()).slice(18, 22)).toEqual(["V18", "V20", "V19", "V21"]);
     await page.getByRole("button", { name: "Przesuń „V19” w górę" }).click();
     await expect(page.getByText("Strona 1 z 2")).toBeVisible();
