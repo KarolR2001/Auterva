@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { expect, test } from "@playwright/test";
+import { expect as baseExpect, test } from "@playwright/test";
 import sharp from "sharp";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { availabilityToday, sqlDate } from "../../src/modules/availability/dates";
@@ -12,7 +12,7 @@ import { ensureControlledSuperadminMfa, verifiedFixtureSession } from "../fixtur
 // #47: the superadmin manages one company's fleet, photos, calendar and protected preview from its card (mobile width),
 // every write is theirs and the chosen company's; another company, the archive (D-23), an expired period and an anonymous visitor.
 test.use({ launchOptions: { args: ["--host-resolver-rules=MAP *.example.test 127.0.0.1"] }, actionTimeout: 15_000, navigationTimeout: 30_000 });
-expect.configure({ timeout: 15_000 });
+const expect = baseExpect.configure({ timeout: 15_000 });
 
 test("company fleet by the superadmin: card -> fleet -> form -> photos -> calendar -> preview -> back, isolation, archive, noindex", async ({ baseURL, browser }) => {
   test.setTimeout(300_000);
