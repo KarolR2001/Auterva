@@ -3,6 +3,19 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 265,
+      "scope": "Poprawki z QA #27: po niepewnym wyniku zapisu okresu (5xx, brak odpowiedzi) najpierw odczyt stanu, potem komunikat zgodny z faktem (zapisano / nie zapisano / zmieniono w innej sesji); lista firm `/firmy/` z tą samą polityką hosta co `/` i `/firmy/{id}/` (anonim do loginu platformy, inna sesja 404); ikona statusu w wierszu obok tekstu.",
+      "relatedRequirementIds": ["C-F045", "C-F046", "C-F068", "C-F069"],
+      "referenceScreenIds": ["PLT-01-02", "PLT-03"],
+      "codePaths": [
+        "src/app/firmy/page.tsx",
+        "src/components/platform/company-ops.tsx",
+        "src/components/platform/company-list.tsx",
+        "src/components/platform/platform.module.css"
+      ],
+      "testPaths": ["tests/unit/platform-companies.test.tsx", "tests/unit/panel-routes.test.tsx", "tests/e2e/platform-companies.spec.ts"]
+    },
+    {
       "issue": 27,
       "scope": "Lista firm z wyszukiwaniem, filtrem archiwum i dwoma KPI, karta firmy z osobnymi stanami okresu, rejestracji, publikacji, konta i archiwum; zmiana okresu z wersją, podglądem skrócenia i zachowaniem danych po błędzie; domena własna z instrukcją DNS; zaproszenie i archiwizacja. Bez billingu i potwierdzenia przelewu.",
       "relatedRequirementIds": ["C-F015", "C-F016", "C-F017", "C-F018", "C-F045", "C-F046", "C-F047", "C-F048", "C-F049", "C-F068", "C-F069", "C-F070", "C-F071", "C-F072", "C-F084", "C-F086", "C-F087", "C-F088", "C-F089", "C-R007", "C-R013"],
@@ -71,6 +84,27 @@
         "src/app/admin/mfa/page.tsx"
       ],
       "testPaths": ["tests/unit/auth-flow.test.tsx", "tests/unit/auth-page.test.tsx", "tests/unit/auth-destination.test.ts", "tests/unit/mfa-qr.test.tsx", "tests/e2e/auth-ui.spec.ts"]
+    },
+    {
+      "issue": 252,
+      "scope": "Wskaźnik siły hasła DS-AUT-004 (SPEC 6.10, handoff components.md): wspólny PasswordStrength z etykietą, paskiem i checklistą tekstową, aria-live tylko dla poziomu; w resecie i zmianie hasła z #19, aktywacja z #26 po merge PR #228. Polityka serwera 12–256 znaków; długość jest jedynym kryterium „wymagane”, litery, cyfra i znak specjalny są oznaczone „zalecane” (nie blokują wysłania).",
+      "relatedRequirementIds": ["FR-ADM-006", "FR-ADM-007", "FR-ADM-080", "FR-ADM-082"],
+      "referenceScreenIds": ["ADM-03", "PLT-10"],
+      "scenarioStates": {
+        "passwordStrength": "PasswordStrength weak/medium/strong (DS-AUT-004)"
+      },
+      "unmappedStates": ["Porównanie z planszami DS-AUT-004 i ACC-04 w Penpocie: blocked (wtyczka Penpota nie odpowiada po dwóch próbach 08.11).", "Aktywacja z #26: PasswordStrength podłączony w activation-flow."],
+      "components": [
+        { "itemId": "DS-AUT-004", "codePath": "src/components/auth/password-strength.tsx" }
+      ],
+      "codePaths": [
+        "src/components/auth/password-strength.tsx",
+        "src/components/auth/password-policy.ts",
+        "src/components/auth/reset-flow.tsx",
+        "src/components/auth/activation-flow.tsx",
+        "src/components/account/account-view.tsx"
+      ],
+      "testPaths": ["tests/unit/password-policy.test.tsx", "tests/unit/activation-flow.test.tsx", "tests/e2e/account-ui.spec.ts", "tests/e2e/company-activation-ui.spec.ts"]
     },
     {
       "issue": 19,
@@ -714,6 +748,45 @@
       ]
     },
     {
+      "issue": 55,
+      "scope": "Status okresu usługi, data, widoczność i adres strony publicznej oraz nieblokujące przypomnienia 7/1/0 w panelu firmy (TEN-04, ADM-04); po wygaśnięciu panel działa dalej, komunikat D-11 i link do czatu; firma niczego nie edytuje. Dane z prywatnego API #54, odświeżane po zmianie okresu.",
+      "relatedRequirementIds": ["C-F058", "C-F059", "C-F060", "C-F061", "C-F062", "C-F063", "C-F064", "C-F065", "C-F066", "C-F067", "C-F084", "C-F125", "C-N054"],
+      "referenceScreenIds": ["TEN-04", "ADM-04"],
+      "codePaths": [
+        "src/app/admin/company-panel.tsx",
+        "src/app/admin/page.tsx",
+        "src/app/admin/usluga/page.tsx",
+        "src/components/panel/service-status.tsx",
+        "src/components/panel/panel-states.tsx",
+        "src/components/panel/panel-shell.tsx"
+      ],
+      "stylePath": "src/components/panel/panel.module.css",
+      "testPaths": [
+        "tests/unit/service-status.test.tsx",
+        "tests/unit/panel-states.test.tsx",
+        "tests/e2e/service-status-panel.spec.ts"
+      ]
+    },
+    {
+      "issue": 260,
+      "scope": "Karta statusu usługi zgodna z TEN-04 w zakresie danych DTO #54: chip nagłówka \"Opłacony\", przycisk \"Napisz do Autervy\" zamiast linku w tekście. Wiersz \"Konto administratora\" pominięty: DTO nie zawiera danych konta administratora, a nowego API nie dodajemy. Przycisk prowadzi do /admin/czat (trasa z #52, merge po #52).",
+      "relatedRequirementIds": [
+        "C-F058",
+        "C-F084"
+      ],
+      "referenceScreenIds": [
+        "TEN-04"
+      ],
+      "codePaths": [
+        "src/components/panel/service-status.tsx"
+      ],
+      "stylePath": "src/components/panel/panel.module.css",
+      "testPaths": [
+        "tests/unit/service-status.test.tsx",
+        "tests/e2e/service-status-panel.spec.ts"
+      ]
+    },
+    {
       "issue": 14,
       "scope": "Shell firmy i platformy po serwerowej kontroli kontekstu #13, stany dostępu/błędów oraz ochrona niezapisanych zmian; treści modułów powstają w późniejszych issue.",
       "relatedRequirementIds": ["C-F018", "C-F147", "C-F148", "C-F149", "C-F150", "DS-N07", "DS-N08", "DS-N14"],
@@ -851,6 +924,19 @@
         "src/modules/jobs/processor.ts"
       ],
       "testPaths": ["tests/integration/password-reset.test.ts", "tests/integration/password-lock-order.test.ts", "tests/integration/password-change-limit.test.ts", "tests/integration/auth-login-neutral-work.test.ts", "tests/isolated/bootstrap-superadmin.test.ts"]
+    },
+    {
+      "issue": 253,
+      "scope": "Poprawki dostępności formularzy reset hasła i konta po CR #19: fokus na tytule po sukcesie prośby o reset i na polu po błędzie (reset, ustawienie hasła, nazwa, zmiana hasła), błędne aktualne hasło jako błąd pola z aria-invalid, 5xx przy zmianie hasła rozstrzyga odczyt sesji (komunikat bez pozornej pewności), usunięte martwe gałęzie 5xx, brak poziomego overflow konta przy 320/390/768/1024/1920. Miernik siły hasła poza zakresem (#252).",
+      "relatedRequirementIds": ["C-F041", "C-F042", "C-F044", "FR-ADM-006", "FR-ADM-080"],
+      "referenceScreenIds": ["ADM-02", "ADM-03", "ADM-15", "PLT-10"],
+      "codePaths": [
+        "src/components/auth/use-refocus.ts",
+        "src/components/auth/auth-flow.tsx",
+        "src/components/auth/reset-flow.tsx",
+        "src/components/account/account-view.tsx"
+      ],
+      "testPaths": ["tests/unit/reset-flow.test.tsx", "tests/unit/account-view.test.tsx", "tests/e2e/account-ui.spec.ts"]
     },
     {
       "issue": 20,
@@ -1187,7 +1273,7 @@
       "unmappedStates": ["Uklad listy i filtrow zalezy od szerokosci obszaru tresci (sidebar 240 px): karty do okolo 1200 px viewportu, tabela ADM-05 D od okolo 1280 px (prog kontenera 1040 px = 1280 px minus sidebar 240 px).", "Lista pojazdow nie ma sortowania kolumny Ostatnia zmiana z makiety ADM-05 D: API floty sortuje tylko po sortOrder (kolejnosc publiczna).", "Akcje Dodaj pojazd, Edytuj, Kalendarz i Dodaj blokade sa ukryte, dopoki ich strony nie istnieja (flagi routes w fleet-api.ts; #35 wlacza formularz, #38 kalendarz pojazdu), zeby nie bylo martwych linkow.", "Karta Blokady w 7 dni i najblizsze blokady licza pierwsze 100 pojazdow floty (odczyt kalendarza floty ma limit pageSize 100).", "Porownanie Mobile ADM-04/05 z Penpotem nie bylo powtorzone przy tej poprawce."],
       "codePaths": [
         "src/app/admin/page.tsx",
-        "src/app/admin/guard.ts",
+        "src/app/admin/company-panel.tsx",
         "src/app/admin/pojazdy/page.tsx",
         "src/components/admin/dashboard.tsx",
         "src/components/admin/vehicle-list.tsx",
@@ -1492,6 +1578,22 @@
       "testPaths": ["tests/unit/marketing-page.test.tsx", "tests/e2e/marketing.spec.ts"]
     },
     {
+      "issue": 73,
+      "scope": "ADM-16 aktywne sesje konta (/admin/konto/sesje, /konto/sesje): własne sesje z nieprzejrzystą referencją, bieżąca oznaczona, bez IP i user agenta; zakończenie jednej albo pozostałych po świeżym reauth MFA z celem end-sessions (jeden dowód, ponowienie 503 MFA_RETRY z tym samym dowodem); niepewny wynik 5xx potwierdza dopiero odczyt listy z serwera; sukces tylko po potwierdzeniu serwera.",
+      "relatedRequirementIds": ["C-F043", "FR-ADM-081"],
+      "referenceScreenIds": ["ADM-16", "PLT-10"],
+      "codePaths": [
+        "src/app/admin/konto/sesje/page.tsx",
+        "src/app/konto/sesje/page.tsx",
+        "src/components/account/sessions-page.tsx",
+        "src/components/account/sessions-view.tsx",
+        "src/components/account/sessions-model.ts",
+        "src/components/account/account-view.tsx",
+        "src/components/account/account.module.css"
+      ],
+      "testPaths": ["tests/unit/sessions-view.test.tsx", "tests/e2e/account-ui.spec.ts"]
+    },
+    {
       "issue": 52,
       "scope": "TEN-11 czat firmy z Autervą (/admin/czat): historia i starsze strony, wysyłka z trwałym potwierdzeniem i tym samym clientMessageId przy ponowieniu, statusy Wysłano/Przeczytano, pisanie, wznowienie połączenia od kursora, 4401 bez ponownego łączenia, read po ok. 500 ms widoczności, akcja Nowe wiadomości bez wymuszonego scrolla, szkic lokalny per (konto, rozmowa) usuwany przy wylogowaniu i wyjęty z guardu niezapisanych zmian, wskaźnik nowych wiadomości w nawigacji. Bez załączników i poczty. Widok superadmina (skrzynka, rozmowa w kontekście firmy) poza zakresem.",
       "relatedRequirementIds": ["C-F115", "C-F116", "C-F117", "C-F118", "C-F119", "C-F120", "C-F121", "C-F122", "C-F123", "C-F124", "C-F125", "C-F126", "C-F127", "C-F128", "C-F129", "C-F130", "C-F131", "C-F132", "C-F133", "C-N051", "C-N054", "DS-N09"],
@@ -1537,6 +1639,21 @@
         "src/modules/invitations/view-state.ts"
       ],
       "testPaths": ["tests/unit/new-company-form.test.ts", "tests/unit/company-card.test.tsx", "tests/unit/company-domain.test.tsx", "tests/e2e/platform-company-form.spec.ts"]
+    },
+    {
+      "issue": 249,
+      "scope": "Teksty czatu firmy według TEN-11 (podtytuł „Firma · kontakt z Autervą”, status Online, podpis własnych wiadomości nazwą firmy, podpowiedź szkicu) bez zmian logiki; guard niewysłanej wiadomości z etykietą „Wyjdź bez wysyłania”, bo wpis zostaje w storage (odstępstwo od stałych etykiet OVR-13 do decyzji agenta Penpota). Statusy wiadomości tylko Wysłano/Przeczytano (C-F121). Porównanie z Penpotem DEFERRED (#263).",
+      "relatedRequirementIds": ["C-F121", "C-F122", "C-F132", "C-F133", "DS-N09"],
+      "referenceScreenIds": ["TEN-11", "OVR-13"],
+      "codePaths": [
+        "src/components/chat/chat-panel.tsx",
+        "src/components/chat/chat.module.css",
+        "src/app/admin/czat/page.tsx",
+        "src/components/panel/unsaved-changes-dialog.tsx",
+        "src/components/panel/unsaved-changes-guard.tsx",
+        "src/components/panel/panel-shell.tsx"
+      ],
+      "testPaths": ["tests/unit/chat-panel.test.tsx"]
     }
   ],
   "sources": [

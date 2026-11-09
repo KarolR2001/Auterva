@@ -8,7 +8,6 @@ import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
 import {
-  errorMessage,
   postAuth,
   useAuthRequest,
   ErrorNotice,
@@ -16,6 +15,7 @@ import {
 import type { AuthArea } from "../auth/auth-destination";
 import { evaluatePassword } from "../auth/password-policy";
 import { PasswordStrength } from "../auth/password-strength";
+import { useRefocus } from "../auth/use-refocus";
 import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
 import { FormField } from "../ui/form-field";
@@ -65,7 +65,7 @@ function paths(area: AuthArea) {
 }
 
 /** The server decides: wrong password and a revoked session both answer 401, so ask the session. */
-async function sessionAlive(): Promise<boolean | "unknown"> {
+export async function sessionAlive(): Promise<boolean | "unknown"> {
   try {
     const response = await fetch("/api/auth/get-session/", {
       credentials: "same-origin",
@@ -108,6 +108,9 @@ export function AccountView({
   const next = useWatch({ control: passwordForm.control, name: "next" });
   const strength = evaluatePassword(next ?? "");
 
+  useRefocus(profile.settled, () => "account-name");
+  useRefocus(change.settled, () => "account-current");
+
   const toLogin = (query: string) => {
     setSignedOut(true);
     window.location.replace(query ? `${where.login}?${query}` : where.login);
@@ -128,7 +131,7 @@ export function AccountView({
     else
       change.setError(
         alive === true
-          ? "Nie udało się potwierdzić zmiany. Hasło nie zostało zmienione. Spróbuj ponownie."
+          ? "Nie udało się potwierdzić zmiany. Sesja nadal działa, więc hasło prawdopodobnie nie zostało zmienione. Spróbuj ponownie."
           : "Nie wiemy, czy hasło zostało zmienione. Odśwież stronę, aby to sprawdzić.",
       );
   };
@@ -275,14 +278,17 @@ export function AccountView({
               },
               uncertain,
               async (response) => {
-                // A 5xx may follow a committed change: resolve it like a lost response.
-                if (response.status >= 500) return uncertain();
+                // 5xx never gets here: request.run sends it to `uncertain`, which asks get-session.
                 if (response.status !== 401) return;
                 if ((await sessionAlive()) === false) toLogin("session=expired");
-                else
-                  change.setError(
-                    errorMessage({ response, data: {} }, "changePassword"),
-                  );
+                else {
+                  // A live session with a 401 means the current password was refused: a field error, not a banner.
+                  change.setError("");
+                  passwordForm.setError("current", {
+                    type: "server",
+                    message: "Aktualne hasło jest nieprawidłowe.",
+                  });
+                }
               },
             ),
           )}
@@ -338,6 +344,14 @@ export function AccountView({
             Zmień hasło
           </Button>
         </form>
+      </section>
+
+      <section className={styles.card} aria-labelledby="account-sessions">
+        <h2 id="account-sessions">Sesje</h2>
+        <p>Zobacz, gdzie konto jest zalogowane, i zakończ wybraną sesję albo wszystkie pozostałe.</p>
+        <Link className={styles.linkButton} href={`${where.account}/sesje/`} prefetch={false}>
+          Aktywne sesje
+        </Link>
       </section>
 
       <section className={styles.card} aria-labelledby="account-mfa">
