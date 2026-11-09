@@ -34,19 +34,19 @@ test("nieznana ścieżka panelu: shell z powrotem do startu dla autoryzowanej se
 
     // Authorized session: the panel 404 inside the shell, a real 404 status, a link back to the start.
     await context.addCookies([{ ...asCookie(sessions[0].cookie), url: origin(host.a) }]);
-    const response = await page.goto(`${origin(host.a)}/admin/pojazdy`);
+    const response = await page.goto(`${origin(host.a)}/admin/nieznana-sciezka`);
     expect(response?.status()).toBe(404);
     await expect(page.getByRole("navigation", { name: "Nawigacja panelu" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Nie znaleziono strony" })).toBeVisible();
     await page.getByRole("link", { name: "Przejdź do panelu" }).click();
-    await expect(page).toHaveURL(`${origin(host.a)}/admin`);
+    await expect(page).toHaveURL(`${origin(host.a)}/admin/`);
     await expect(page.getByRole("navigation", { name: "Nawigacja panelu" })).toBeVisible();
 
     // The same path for a foreign company's session and with no session: no panel content, no company data.
     for (const [label, cookies] of [["foreign session", [{ ...asCookie(sessions[1].cookie), url: origin(host.a) }]], ["anonymous", []]] as const) {
       await context.clearCookies();
       if (cookies.length) await context.addCookies([...cookies]);
-      const denied = await page.goto(`${origin(host.a)}/admin/pojazdy`);
+      const denied = await page.goto(`${origin(host.a)}/admin/nieznana-sciezka`);
       expect(denied?.status(), label).toBe(404);
       const html = await page.content();
       expect(html, label).not.toContain("Nawigacja panelu");
@@ -58,7 +58,7 @@ test("nieznana ścieżka panelu: shell z powrotem do startu dla autoryzowanej se
     await context.clearCookies();
     await context.addCookies([{ ...asCookie(`better-auth.session_token=${limited}`), url: origin(host.c) }]);
     await page.goto(`${origin(host.c)}/admin/`);
-    await expect(page).toHaveURL(new RegExp(`^${origin(host.c)}/admin/mfa\\?returnTo=%2Fadmin`));
+    await expect(page).toHaveURL(new RegExp(`^${origin(host.c)}/admin/mfa/?\\?returnTo=%2Fadmin`));
     await expect(page.getByRole("navigation", { name: "Nawigacja panelu" })).toHaveCount(0);
     // The same limited session on another company's host stays a neutral 404.
     await context.clearCookies();

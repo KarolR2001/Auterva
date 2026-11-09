@@ -621,6 +621,12 @@
         "src/components/panel/deny-panel.ts",
         "src/components/panel/unsaved-changes-dialog.tsx"
       ],
+      "unmappedStates": [
+        "ADM-04 D: wyszukiwarka „Szukaj pojazdu lub blokady” w topbarze nie jest renderowana w shellu (martwa kontrolka bez trasy wyszukiwania); powstaje z listą floty i dashboardem w #34.",
+        "ADM-04 D/M: chip „Online” (SPEC 7.11: status online/PWA) nie jest renderowany; wskaźnik połączenia i instalacji należy do PWA #56.",
+        "ADM-04 stany service-expired i archived: komponent PanelAccess je obsługuje, ale trasa nie ma danych okresu usługi w shellu; baner „Usługa wygasła” i status usługi należą do #55. Archiwizacja blokuje sesję (neutralne 404 / Sesja wygasła), zgodnie z PRD 3.1.",
+        "ADM-04 awatar z inicjałami: shell nie ma imienia użytkownika, więc awatar pokazuje ikonę konta i nazwę dostępną „Menu użytkownika”."
+      ],
       "stylePath": "src/components/panel/panel.module.css",
       "testPaths": [
         "tests/unit/panel-routes.test.tsx",
@@ -1042,7 +1048,8 @@
       "issue": 34,
       "scope": "Panel firmy ADM-04 i ADM-05 na prawdziwym API floty (hosty firmy, kontekst superadmina przez PanelContext): lista z wyszukiwaniem, filtrem publikacji, aktywnosci i dostepnosci dzis, paginacja, kolejnosc przyciskami z klawiatury (zapis /vehicles/reorder), menu Wiecej z Ukryj i Archiwizuj po potwierdzeniu z wersja wiersza, stany loading, pusta flota, brak wynikow i blad. Dashboard: opublikowane, aktywne, dostepne i niedostepne dzis (data Warszawy), najblizsze blokady z linkiem do kalendarza pojazdu, status strony i okresu. Poza zakresem: nawigacja paneli i wspolne stany dostepu (#14), formularz #35, kalendarz #38, filtr kategorii (brak listy kategorii w API), ostrzezenia jakosci danych i status czatu.",
       "relatedRequirementIds": ["C-F095", "C-F097", "FR-ADM-010", "FR-ADM-020", "FR-ADM-021", "FR-ADM-022"],
-      "referenceScreenIds": ["ADM-04", "ADM-05"],
+      "referenceScreenIds": ["ADM-04", "ADM-05", "OVR-10", "OVR-11"],
+      "unmappedStates": ["Lista pojazdow nie ma sortowania kolumny Ostatnia zmiana z makiety ADM-05 D: API floty sortuje tylko po sortOrder (kolejnosc publiczna).", "Akcje Dodaj pojazd, Edytuj, Kalendarz i Dodaj blokade sa ukryte, dopoki ich strony nie istnieja (flagi routes w fleet-api.ts; #35 wlacza formularz, #38 kalendarz pojazdu), zeby nie bylo martwych linkow.", "Karta Blokady w 7 dni i najblizsze blokady licza pierwsze 100 pojazdow floty (odczyt kalendarza floty ma limit pageSize 100).", "Porownanie Mobile ADM-04/05 z Penpotem nie bylo powtorzone przy tej poprawce."],
       "codePaths": [
         "src/app/admin/page.tsx",
         "src/app/admin/guard.ts",
