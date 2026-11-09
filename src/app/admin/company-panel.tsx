@@ -14,7 +14,13 @@ import { requireRequestContext, resolveRequestArea } from "@/modules/tenancy/req
  * Server frame of a company panel page: authorizes the actor for the host's company, reads the
  * service status on the server (private, uncached) and hands it to the client frame.
  */
-export async function CompanyPanelPage({ currentPath, children }: { currentPath: string; children: ReactNode }) {
+export async function CompanyPanelPage({ currentPath, title, children }: {
+  currentPath: string;
+  /** Heading of the shell; defaults to the company name. */
+  title?: string;
+  /** The page content; a function receives the company name (for the document title) once the actor is authorized. */
+  children: ReactNode | ((context: { companyName: string }) => ReactNode);
+}) {
   const incoming = new Headers(await headers());
   const area = await resolveRequestArea(prisma, incoming.get("host"));
   if (area?.area !== "COMPANY_ADMIN" || !area.organizationId) notFound();
@@ -31,10 +37,11 @@ export async function CompanyPanelPage({ currentPath, children }: { currentPath:
     .then(({ conversationId }) => readState(prisma, { actorId: actor.actorId, role: "ADMIN_FIRMY", organizationId: actor.organizationId }, conversationId))
     .then((state) => state.unread > 0)
     .catch(() => false);
+  const companyName = organization.name ?? "Panel firmy";
   return (
     <ServiceStatusProvider area="company" initial={status} publicHost={publicHost?.hostname ?? null}
-      expectedSessionId={actor.sessionId} title={organization.name ?? "Panel firmy"} currentPath={currentPath} unreadChat={unreadChat}>
-      {children}
+      expectedSessionId={actor.sessionId} title={title ?? companyName} currentPath={currentPath} unreadChat={unreadChat}>
+      {typeof children === "function" ? children({ companyName }) : children}
     </ServiceStatusProvider>
   );
 }
