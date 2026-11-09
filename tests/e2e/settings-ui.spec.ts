@@ -103,7 +103,9 @@ test("settings UI: superadmin saves a section, keeps data on conflict and valida
     await page.route("**/public-media/hero/", async (route) => {
       if (dropped) return route.continue();
       dropped = true;
-      await route.fetch();
+      // Node does not know the fixture host mapping of the browser, so the real request goes to loopback with the original Host.
+      const request = route.request();
+      await route.fetch({ url: `http://127.0.0.1:${port}${new URL(request.url()).pathname}`, headers: { ...request.headers(), host: `${platformHost}:${port}` } });
       await route.abort("failed");
     });
     await page.getByLabel("Wybierz plik: Zdjęcia hero").setInputFiles(heroPath);
