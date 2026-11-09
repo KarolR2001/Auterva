@@ -312,6 +312,51 @@
   white-space: nowrap;
 }
 
+.shellConnection {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-width-hairline) solid var(--status-success-border);
+  border-radius: var(--radius-full);
+  background: var(--status-success-surface);
+  color: var(--status-success-text);
+  font-size: var(--font-size-14);
+  line-height: var(--line-height-24);
+}
+
+.shellConnection[data-online="false"] {
+  border: var(--border-width-active) solid var(--status-error-border);
+  background: var(--status-error-surface);
+  color: var(--status-error-text);
+}
+
+.shellUpdate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width-hairline) solid var(--status-info-border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  line-height: var(--line-height-24);
+}
+
+.shellUpdate button {
+  min-height: var(--touch-target-mobile);
+  padding: 0 var(--space-4);
+  border: var(--border-width-hairline) solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-default);
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
 .shellProfileTrigger {
   flex-shrink: 0;
   display: inline-flex;

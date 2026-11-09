@@ -803,7 +803,7 @@
       ],
       "unmappedStates": [
         "ADM-04 D: wyszukiwarka „Szukaj pojazdu lub blokady” w topbarze nie jest renderowana w shellu (martwa kontrolka bez trasy wyszukiwania); powstaje z listą floty i dashboardem w #34.",
-        "ADM-04 D/M: chip „Online” (SPEC 7.11: status online/PWA) nie jest renderowany; wskaźnik połączenia i instalacji należy do PWA #56.",
+        "ADM-04 D/M: chip „Online/Offline” i instalacja PWA zostały dostarczone w #56 (src/components/pwa/pwa-provider.tsx, panel-shell.tsx).",
         "ADM-04 stany service-expired i archived: komponent PanelAccess je obsługuje, ale trasa nie ma danych okresu usługi w shellu; baner „Usługa wygasła” i status usługi należą do #55. Archiwizacja blokuje sesję (neutralne 404 / Sesja wygasła), zgodnie z PRD 3.1.",
         "ADM-04 awatar z inicjałami: shell nie ma imienia użytkownika, więc awatar pokazuje ikonę konta i nazwę dostępną „Menu użytkownika”."
       ],
@@ -1567,6 +1567,28 @@
         "src/lib/client-uuid.ts"
       ],
       "testPaths": ["tests/unit/chat-protocol.test.ts", "tests/unit/chat-panel.test.tsx", "tests/e2e/chat-ui.spec.ts"]
+    },
+    {
+      "issue": 56,
+      "scope": "Bezpieczna instalowalna PWA panelu firmy: manifest (id, start_url i scope /admin/), ikony PNG i maskable, service worker rejestrowany wyłącznie z layoutu /admin (host firmy; host platformy, marketingu i publiczny odpowiadają 404 na /sw.js, manifest i ekran offline), precache tylko /_next/static/ i neutralnego ekranu offline, nawigacje NetworkOnly z fallbackiem offline i ponowieniem, brak background sync i kolejki offline; aktualizacja workera czeka na zgodę użytkownika i przy niezapisanym formularzu przechodzi przez guard #14; wylogowanie i wygaśnięcie sesji usuwają cache inne niż wersjonowany precache; chip Online/Offline (tekst + ikona) i przycisk instalacji w shellu. Ekran offline jest statyczny (/admin/offline.html), bo wymaga działania bez sieci i bez aplikacji; trasa ADM-18 /admin/offline w SPEC odpowiada temu plikowi. Penpot ADM-18/ADM-19: DEFERRED (#263), nie próbowano porównania; rzeczywiste Android Chrome / iOS Safari i VoiceOver: DEFERRED (#97).",
+      "relatedRequirementIds": ["C-F143", "C-F144", "C-F145", "C-F146", "FR-PWA-001", "FR-PWA-002", "FR-PWA-003", "FR-PWA-004", "FR-PWA-005", "C-N031"],
+      "referenceScreenIds": ["ADM-18", "ADM-19", "OVR-16"],
+      "codePaths": [
+        "src/app/sw.ts",
+        "src/app/admin/layout.tsx",
+        "src/components/pwa/pwa-provider.tsx",
+        "src/components/panel/panel-shell.tsx",
+        "src/components/panel/panel.module.css",
+        "public/admin/manifest.webmanifest",
+        "public/admin/offline.html",
+        "public/admin/offline.css",
+        "next.config.mjs"
+      ],
+      "testPaths": [
+        "tests/unit/pwa-provider.test.tsx",
+        "tests/unit/host-route-policy.test.ts",
+        "tests/e2e/pwa.spec.ts"
+      ]
     },
     {
       "issue": 234,
