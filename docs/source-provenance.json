@@ -36,7 +36,7 @@
     },
     {
       "path": "docs/ARCHITEKTURA_AUTERVA.md",
-      "sha256": "5c745811dd53029956b96dc8967c03aa61ab009cda40c4da9ea117cf4821e665"
+      "sha256": "232db78ec60d8e624d861e40993459df059bea6cd6c37101a5dd2780ab831a10"
     },
     {
       "path": "docs/adr/0001-penpot.md",
@@ -68,7 +68,7 @@
     },
     {
       "path": "docs/contracts/audit-append-and-access.md",
-      "sha256": "f18b00b8eb2e1d907baaa1a46250065571be0c838f11f045378f930a12454318"
+      "sha256": "60d6fed3f39e5ad2bc47b7b749b460b1b7a769227b4c93f10c61ddb8100add9a"
     },
     {
       "path": "docs/contracts/availability-reads.md",
@@ -76,7 +76,7 @@
     },
     {
       "path": "docs/contracts/fleet-crud-publication.md",
-      "sha256": "f56a851b547e2bfc5ee4db851186c47ad8f9bf3515461c9177db820203219aed"
+      "sha256": "306f806b6e0b116253481a749451e27dd8999c19be68d3ac2c288be3b53a9063"
     },
     {
       "path": "docs/contracts/availability-blocks.md",
