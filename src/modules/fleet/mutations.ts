@@ -110,8 +110,18 @@ async function validateCategory(tx: Prisma.TransactionClient, categoryId: string
   }
 }
 
-function normalizeError(error: unknown): never {
-  if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") {
+/** #227: the database guard "vehicle_sort_order_non_negative" (CHECK "sortOrder" >= 0); the failing row is in the driver `detail` (and the message may echo it), so neither is passed on. */
+export function isSortOrderViolation(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const meta = (error as { meta?: { driverAdapterError?: { cause?: { originalCode?: string; originalMessage?: string } } } }).meta;
+  const cause = meta?.driverAdapterError?.cause;
+  return cause?.originalCode === "23514" && Boolean(cause.originalMessage?.includes("vehicle_sort_order_non_negative"));
+}
+
+function normalizeError(error: unknown, slugWrites = true): never {
+  if (isSortOrderViolation(error)) throw new Error("FLEET_INVALID_INPUT");
+  // Reorder writes no slug, so a unique violation there is not a slug conflict and passes through unchanged.
+  if (slugWrites && typeof error === "object" && error !== null && "code" in error && error.code === "P2002") {
     throw new Error("FLEET_SLUG_CONFLICT");
   }
   throw error;
@@ -261,7 +271,7 @@ export async function reorderVehicles(db: PrismaClient, input: Operation & { ite
     || new Set(input.items.map((item) => item.id)).size !== input.items.length
     || input.items.some((item) => !uuid.safeParse(item.id).success || !version(item.expectedVersion)
       || !sortOrderValue(item.sortOrder))) throw new Error("FLEET_INVALID_INPUT");
-  return db.$transaction(async (tx) => {
+  try { return await db.$transaction(async (tx) => {
     await authorizedCompany(tx, input);
     const ordered = [...input.items].sort((a, b) => a.id.localeCompare(b.id));
     for (const item of ordered) await lockVehicle(tx, input.organizationId, item.id);
@@ -288,5 +298,5 @@ export async function reorderVehicles(db: PrismaClient, input: Operation & { ite
       updated.push(vehicle);
     }
     return updated;
-  });
+  }); } catch (error) { normalizeError(error, false); }
 }
