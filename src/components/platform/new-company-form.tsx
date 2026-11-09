@@ -9,7 +9,7 @@ import { Button } from "../ui/button";
 import { FormField } from "../ui/form-field";
 import { TextInput } from "../ui/text-input";
 import {
-  classifyCreateResponse, emptyCompanyForm, formFingerprint, isCompanyFormDirty, slugFromName,
+  classifyCreateResponse, emptyCompanyForm, formFingerprint, isCompanyFormDirty, newIdempotencyKey, slugFromName,
   toCreateBody, validateCompanyForm, type CompanyField, type CompanyFormValues, type FieldErrors,
 } from "@/modules/organizations/new-company-form";
 import styles from "./platform.module.css";
@@ -109,7 +109,7 @@ export function NewCompanyForm({ adminBaseDomain, publicBaseDomain }: Props) {
     const fingerprint = formFingerprint(current);
     // An uncertain outcome (timeout, 5xx) keeps its key so the retry cannot create a second company.
     if (attempt.current?.fingerprint !== fingerprint)
-      attempt.current = { fingerprint, key: crypto.randomUUID() };
+      attempt.current = { fingerprint, key: newIdempotencyKey() };
     setErrors({});
     setNotice(null);
     setStatus("saving");

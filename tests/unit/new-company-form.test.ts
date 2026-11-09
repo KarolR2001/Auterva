@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  classifyCreateResponse, emptyCompanyForm, formFingerprint, slugFromName, toCreateBody, validateCompanyForm,
+  classifyCreateResponse, emptyCompanyForm, newIdempotencyKey, formFingerprint, slugFromName, toCreateBody, validateCompanyForm,
 } from "../../src/modules/organizations/new-company-form";
 import { canIssueInvitation, canRevokeInvitation, invitationView } from "../../src/modules/invitations/view-state";
 
@@ -43,5 +43,14 @@ describe("formularz nowej firmy (#25)", () => {
     expect(canIssueInvitation({ kind: "failed" }, false, false)).toBe(true);
     expect(canIssueInvitation({ kind: "sent" }, true, false)).toBe(false);
     expect(invitationView(null, now).kind).toBe("none");
+  });
+  it("klucz idempotencji działa także bez crypto.randomUUID (kontekst niezabezpieczony)", () => {
+    const original = crypto.randomUUID;
+    Object.defineProperty(crypto, "randomUUID", { value: undefined, configurable: true });
+    try {
+      expect(newIdempotencyKey()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    } finally {
+      Object.defineProperty(crypto, "randomUUID", { value: original, configurable: true });
+    }
   });
 });

@@ -11,6 +11,7 @@ import {
   canIssueInvitation, canRevokeInvitation, classifyInvitationError, invitationView,
   type InvitationDto, type InvitationView,
 } from "@/modules/invitations/view-state";
+import { newIdempotencyKey } from "@/modules/organizations/new-company-form";
 import styles from "./platform.module.css";
 
 export type CompanyCardDto = {
@@ -89,7 +90,7 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
     if (busy) return;
     setBusy("issue");
     setNotice(null);
-    issueKey.current ??= crypto.randomUUID();
+    issueKey.current ??= newIdempotencyKey();
     let response: Response | null = null;
     try {
       response = await fetch(`/api/platform/companies/${company.organizationId}/invitations/`, {
