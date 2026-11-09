@@ -174,7 +174,7 @@ test("fleet order over several pages and an unknown outcome of hiding", async ({
     await page.goto(`${base}/admin/pojazdy/`);
     await expect(page.locator("tbody tr")).toHaveCount(20);
     // No horizontal page scroll next to the 240 px sidebar at 320 px, 768 px and 1024 px.
-    for (const width of [320, 768, 1024]) {
+    for (const width of [320, 768, 1024, 1200, 1280]) {
       await page.setViewportSize({ width, height: 900 });
       await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), { message: `viewport ${width}` }).toBe(true);
     }

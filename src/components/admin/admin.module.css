@@ -60,7 +60,7 @@
 .muted { color: var(--text-secondary); }
 .iconButton[aria-disabled="true"] { color: var(--text-disabled); cursor: not-allowed; }
 .rowTitle span:focus-visible, .h2:focus-visible { outline: var(--border-width-active) solid var(--focus-ring); outline-offset: var(--focus-offset); }
-@container (max-width: 899px) {
+@container (max-width: 1039px) {
   .table, .table tbody, .table tr, .table td { display: block; }
   .tableHead { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
   .table tbody { display: grid; gap: var(--space-3); }
@@ -69,4 +69,4 @@
   .table td.actions { display: flex; }
   .table td[data-label]::before { content: attr(data-label) ": "; font-weight: var(--font-weight-semibold); }
 }
-@container (min-width: 900px) { .row:hover { background: var(--surface-subtle); } }
+@container (min-width: 1040px) { .row:hover { background: var(--surface-subtle); } }
