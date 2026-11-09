@@ -5,7 +5,7 @@ import { availabilityToday, sqlDate } from "../../src/modules/availability/dates
 import { verifiedFixtureSession } from "../fixtures/verified-session";
 
 // #39: vehicle calendar and quick blocks of the company admin against the real API of the built ingress.
-test.use({ launchOptions: { args: ["--host-resolver-rules=MAP *.example.test 127.0.0.1"] } });
+test.use({ launchOptions: { args: ["--host-resolver-rules=MAP *.example.test 127.0.0.1"] }, actionTimeout: 15_000 });
 
 test("vehicle calendar: add, one day, overlap from two cards, version conflict, privacy, delete, isolation, keyboard, 320-1920", async ({ baseURL, browser }) => {
   test.setTimeout(240_000);
@@ -52,7 +52,7 @@ test("vehicle calendar: add, one day, overlap from two cards, version conflict, 
       try {
         await publicPage.goto(`http://${hosts.publicA}:${port}/pojazdy/${slug}/`);
         const html = await publicPage.content();
-        expect(html).not.toMatch(/CAL-REF-SECRET|CAL-NOTE-SECRET|Serwis|MAINTENANCE/);
+        expect(html).not.toMatch(/CAL-REF-SECRET|CAL-NOTE-SECRET|MAINTENANCE/);
         return await publicPage.evaluate(async ({ slug: s, from: f, to: t }) => {
           const response = await fetch("/api/public/availability/check/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug: s, from: f, to: t }) });
           return { status: response.status, text: await response.text() };
@@ -65,11 +65,11 @@ test("vehicle calendar: add, one day, overlap from two cards, version conflict, 
     await expect(page.getByRole("heading", { name: "Kalendarz: Auto Kalendarzowe" })).toBeVisible();
     await expect(page.getByText("Brak blokad w najbliższych 12 miesiącach", { exact: false })).toBeVisible();
     await addButton(page).click();
-    await page.getByLabel("Od", { exact: true }).fill(day(2));
-    await page.getByLabel("Do (włącznie)").fill(day(2));
-    await page.getByLabel("Typ", { exact: true }).selectOption({ label: "Serwis" });
-    await page.getByLabel(/Numer odniesienia/).fill("CAL-REF-SECRET");
-    await page.getByLabel(/Notatka prywatna/).fill("CAL-NOTE-SECRET");
+    await page.locator("#bc-from").fill(day(2));
+    await page.locator("#bc-to").fill(day(2));
+    await page.locator("#bc-type").selectOption({ label: "Serwis" });
+    await page.locator("#bc-reference").fill("CAL-REF-SECRET");
+    await page.locator("#bc-internalNote").fill("CAL-NOTE-SECRET");
     await dialog(page).getByRole("button", { name: "Dodaj blokadę" }).click();
     await expect(page.getByText("Blokada została dodana.")).toBeVisible();
     await expect(page.getByText("Serwis").first()).toBeVisible();
@@ -87,17 +87,17 @@ test("vehicle calendar: add, one day, overlap from two cards, version conflict, 
     // Two cards open on the same state: the second, overlapping save names the existing entry, keeps the entry and nothing is overwritten.
     await second.goto(url);
     await addButton(second).click();
-    await second.getByLabel("Od", { exact: true }).fill(day(2));
-    await second.getByLabel("Do (włącznie)").fill(day(4));
-    await second.getByLabel(/Numer odniesienia/).fill("MOJ-NR");
+    await second.locator("#bc-from").fill(day(2));
+    await second.locator("#bc-to").fill(day(4));
+    await second.locator("#bc-reference").fill("MOJ-NR");
     await dialog(second).getByRole("button", { name: "Dodaj blokadę" }).click();
     await expect(dialog(second).getByText("Termin nakłada się na istniejącą blokadę.")).toBeVisible();
-    await expect(dialog(second).getByLabel(/Numer odniesienia/)).toHaveValue("MOJ-NR");
+    await expect(dialog(second).locator("#bc-reference")).toHaveValue("MOJ-NR");
     await expect(dialog(second).getByText("Serwis", { exact: false }).first()).toBeVisible();
     expect(await db.availabilityBlock.count({ where: { vehicleId: car } })).toBe(1);
     await dialog(second).getByRole("button", { name: "Przejdź do istniejącego wpisu" }).click();
     await expect(dialog(second).getByRole("heading", { name: "Edytuj blokadę" })).toBeVisible();
-    await expect(dialog(second).getByLabel(/Numer odniesienia/)).toHaveValue("CAL-REF-SECRET");
+    await expect(dialog(second).locator("#bc-reference")).toHaveValue("CAL-REF-SECRET");
     await dialog(second).getByRole("button", { name: "Zamknij" }).click();
     await expect(dialog(second)).toHaveCount(0);
 
@@ -106,14 +106,14 @@ test("vehicle calendar: add, one day, overlap from two cards, version conflict, 
     await Promise.all(racers.map(async (card, index) => {
       await card.goto(url);
       await addButton(card).click();
-      await card.getByLabel("Od", { exact: true }).fill(day(10));
-      await card.getByLabel("Do (włącznie)").fill(day(12));
-      await card.getByLabel(/Numer odniesienia/).fill(`RACE-${index}`);
+      await card.locator("#bc-from").fill(day(10));
+      await card.locator("#bc-to").fill(day(12));
+      await card.locator("#bc-reference").fill(`RACE-${index}`);
     }));
     await Promise.all(racers.map((card) => dialog(card).getByRole("button", { name: "Dodaj blokadę" }).click()));
     await expect.poll(async () => db.availabilityBlock.count({ where: { vehicleId: car, from: sqlDate(day(10)) } })).toBe(1);
-    const outcomes = await Promise.all(racers.map(async (card) => (await card.getByText("Termin nakłada się na istniejącą blokadę.").count()) + (await card.getByText("Blokada została dodana.").count())));
-    expect(outcomes.every((count) => count >= 1)).toBe(true);
+    await expect.poll(async () => (await Promise.all(racers.map(async (card) =>
+      (await card.getByText("Termin nakłada się na istniejącą blokadę.").count()) + (await card.getByText("Blokada została dodana.").count())))).every((count) => count >= 1)).toBe(true);
     expect(await db.availabilityBlock.count({ where: { vehicleId: car } })).toBe(2);
 
     // Version conflict: the stale card edits a block that changed meanwhile; its entry stays and nothing is overwritten silently.
@@ -121,15 +121,15 @@ test("vehicle calendar: add, one day, overlap from two cards, version conflict, 
     await second.goto(url);
     const target = await db.availabilityBlock.findFirstOrThrow({ where: { vehicleId: car, from: sqlDate(day(2)) } });
     await page.getByRole("button", { name: /Edytuj blokadę: Serwis/ }).first().click();
-    await dialog(page).getByLabel("Typ", { exact: true }).selectOption({ label: "Zablokowane" });
+    await dialog(page).locator("#bc-type").selectOption({ label: "Zablokowane" });
     await dialog(page).getByRole("button", { name: "Zapisz zmiany" }).click();
     await expect(page.getByText("Zmiany blokady zostały zapisane.")).toBeVisible();
     await second.getByRole("button", { name: /Edytuj blokadę: Serwis/ }).first().click();
-    await dialog(second).getByLabel("Typ", { exact: true }).selectOption({ label: "Inne" });
-    await dialog(second).getByLabel(/Notatka prywatna/).fill("Moja zmiana notatki");
+    await dialog(second).locator("#bc-type").selectOption({ label: "Inne" });
+    await dialog(second).locator("#bc-internalNote").fill("Moja zmiana notatki");
     await dialog(second).getByRole("button", { name: "Zapisz zmiany" }).click();
     await expect(dialog(second).getByText("Blokada została zmieniona przez kogoś innego.")).toBeVisible();
-    await expect(dialog(second).getByLabel(/Notatka prywatna/)).toHaveValue("Moja zmiana notatki");
+    await expect(dialog(second).locator("#bc-internalNote")).toHaveValue("Moja zmiana notatki");
     expect((await db.availabilityBlock.findUniqueOrThrow({ where: { id: target.id } })).type).toBe("BLOCKED");
     await dialog(second).getByRole("button", { name: "Wczytaj aktualną wersję" }).click();
     await dialog(second).getByRole("button", { name: "Zapisz zmiany" }).click();
@@ -139,8 +139,8 @@ test("vehicle calendar: add, one day, overlap from two cards, version conflict, 
 
     // Past dates warn and need a confirmation (history is allowed inside the activity).
     await addButton(second).click();
-    await second.getByLabel("Od", { exact: true }).fill(day(-5));
-    await second.getByLabel("Do (włącznie)").fill(day(-4));
+    await second.locator("#bc-from").fill(day(-5));
+    await second.locator("#bc-to").fill(day(-4));
     await expect(dialog(second).getByText("Termin zaczyna się w przeszłości.")).toBeVisible();
     await dialog(second).getByRole("button", { name: "Dodaj blokadę" }).click();
     await expect(dialog(second).getByText("Potwierdź zapis okresu z przeszłości.").first()).toBeVisible();

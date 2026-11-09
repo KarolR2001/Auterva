@@ -180,7 +180,7 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today, ti
 
   function finish(done: Notice) {
     setUncertain(null); closeDialog();
-    setNotice(done); setAnnouncement(`${done.title} ${done.text ?? ""}`.trim());
+    setNotice(done); // the notice is a live region itself; a second announcement would be read twice
     refreshAll();
   }
 

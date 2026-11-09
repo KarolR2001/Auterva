@@ -567,6 +567,28 @@
       ]
     },
     {
+      "issue": 39,
+      "scope": "Kalendarz pojazdu ADM-09 i overlaye OVR-06/07/08 w panelu firmy na prawdziwym API blokad i odczytu prywatnego (kontekst superadmina przez PanelContext): miesiac z dniami z odpowiedzi serwera (wolny, zajety z typem i ikona, poza aktywnoscia, nieznany przy bledzie odczytu, nigdy stary wynik po zapisie), nawigacja strzalkami/Home/End/PageUp/PageDown z roving tabindex i pelnymi etykietami dat (DS-N16), skroty Dzisiaj i miesiace, wybor zakresu dwoma dniami albo polami dat, lista nadchodzacych blokad i historia na zadanie, dodanie/edycja/usuniecie (usuwanie po potwierdzeniu), jeden dzien i granice wlacznie, Serwis jako MAINTENANCE, prywatny numer i notatka tylko w panelu, konflikt BLOCK_OVERLAP z przejsciem do istniejacego wpisu bez utraty wpisanej tresci, konflikt wersji z trojstronnym scaleniem, ostrzezenie i potwierdzenie dla dat przeszlych, niepewny wynik 5xx/sieci rozstrzygany odczytem stanu bez drugiego zapisu, dirty guard, archiwum pojazdu (tylko usuwanie), sticky CTA mobile, flaga routes.vehicleCalendar wlaczona. Poza zakresem: trasa kalendarza po stronie superadmina (w src/app nie ma stron platformy dla floty; komponent przyjmuje PanelContext), kalendarz calej floty ADM-10 (#65/#66), wybor pojazdu w szybkim flow poza lista pojazdow, zbiorcze blokady (#215, FE opcjonalny).",
+      "relatedRequirementIds": ["C-F100", "C-F102", "C-F103", "C-F104", "C-F105", "FR-ADM-050", "FR-ADM-051", "FR-ADM-052", "FR-ADM-053", "FR-ADM-054", "FR-ADM-055", "FR-ADM-056", "DS-N16"],
+      "referenceScreenIds": ["ADM-09", "OVR-06", "OVR-07", "OVR-08"],
+      "unmappedStates": [
+        "Porownanie z Penpotem ADM-09 Mobile/Desktop (boardy z issue) odroczone: karta Penpota uspiona, #263.",
+        "Trasa kalendarza superadmina nie istnieje: strony platformy dla floty nie sa wdrozone, wiec nested superadmin ma tylko API i gotowy komponent z PanelContext.",
+        "Lista nadchodzacych blokad obejmuje 12 miesiecy (limit odczytu 365 dni); dalsze terminy widac w miesiacu kalendarza.",
+        "Szybki flow mobile zaczyna sie na liscie pojazdow lub na dashboardzie (wybor auta), potem dni, typ, zapis; osobny wybor auta w kalendarzu nie powstal."
+      ],
+      "codePaths": [
+        "src/app/admin/pojazdy/[id]/kalendarz/page.tsx",
+        "src/components/admin/vehicle-calendar.tsx",
+        "src/components/admin/vehicle-calendar-model.ts",
+        "src/components/admin/vehicle-calendar.module.css",
+        "src/components/admin/calendar-api.ts",
+        "src/components/admin/fleet-api.ts",
+        "docs/contracts/availability-blocks.md"
+      ],
+      "testPaths": ["tests/unit/vehicle-calendar.test.tsx", "tests/e2e/vehicle-calendar.spec.ts"]
+    },
+    {
       "issue": 38,
       "scope": "Serwerowy CRUD ręcznych blokad z kontrolą kolizji pod blokadą wiersza Vehicle, wersją, audytem i natychmiastowym publicznym odczytem; UI blokad w osobnym issue.",
       "relatedRequirementIds": ["C-F007", "C-F100", "C-F102", "C-F103", "C-F104", "C-F105", "C-N027", "C-N031", "FR-ADM-050", "FR-ADM-051", "FR-ADM-052", "FR-ADM-053", "FR-ADM-054", "FR-ADM-055", "FR-ADM-058", "D-15"],
