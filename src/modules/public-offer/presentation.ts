@@ -150,3 +150,9 @@ export function contactHref(vehicleSlug: string | null, range: { from: string | 
   const query = params.toString();
   return query ? `/kontakt/?${query}` : "/kontakt/";
 }
+
+/** LocalDate arithmetic in UTC, so a month or DST change never shifts the day. */
+export const addDays = (date: string, delta: number) => new Date(Date.parse(`${date}T00:00:00Z`) + delta * 86_400_000).toISOString().slice(0, 10);
+/** "czwartek, 12 listopada 2026": the readable date for labels and status text, never ISO. */
+export const longDate = (date: string) =>
+  new Intl.DateTimeFormat("pl-PL", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`));
