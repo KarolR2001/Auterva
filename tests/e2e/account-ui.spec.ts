@@ -173,10 +173,12 @@ test("company admin: reset, account, password change, logout and expired service
     await expect(page.getByLabel("Nowe hasło", { exact: true })).toHaveValue(finalPassword);
     expect(await db.session.count({ where: { userId: registered.user.id } })).toBeGreaterThan(0);
 
-    // Wrong current password: neutral message, session kept.
+    // Wrong current password: a field error with aria-invalid and focus on the field, session kept.
     await page.getByLabel("Aktualne hasło").fill("Wrong current password 1!");
     await page.getByRole("button", { name: "Zmień hasło" }).click();
-    await expect(page.getByRole("main").getByRole("alert")).toContainText("Sprawdź aktualne hasło");
+    await expect(page.getByLabel("Aktualne hasło")).toHaveAttribute("aria-invalid", "true");
+    await expect(page.getByRole("main").getByText("Aktualne hasło jest nieprawidłowe.")).toBeVisible();
+    await expect(page.getByLabel("Aktualne hasło")).toBeFocused();
     await expect(page).toHaveURL(urlAt(origin, "/admin/konto"));
     await snap(page, "account-password-error");
 
