@@ -55,7 +55,8 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
   const [check, setCheck] = useState<Check>(() =>
     initial.invalid ? { status: "invalid", message: problemMessages[initial.invalid === "PAST_DATE" ? "PAST" : "MISSING"] }
       : initialRange?.ok && initial.available !== null ? { status: "done", range: initialRange, available: initial.available } : { status: "idle" });
-  const [alternatives, setAlternatives] = useState<Alternatives>({ status: "idle" });
+  const [alternatives, setAlternatives] = useState<Alternatives>(() =>
+    initialRange?.ok && initial.available === false ? (others.length === 0 ? { status: "ready", items: [] } : { status: "loading" }) : { status: "idle" });
   const [month, setMonth] = useState(initial.month);
   const monthRef = useRef(initial.month);
   const [focusDate, setFocusDate] = useState<string | null>(null);
@@ -75,20 +76,24 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
     window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
   }
 
+  async function fetchAlternatives(range: Range): Promise<Alternatives> {
+    try {
+      const { body } = await request<{ results: { slug: string; available: boolean }[] }>("/api/public/availability/batch",
+        { method: "POST", body: JSON.stringify({ slugs: others.map((other) => other.slug), from: range.from, to: range.to }) });
+      if (!body || !Array.isArray(body.results)) return { status: "error" };
+      const free = new Set(body.results.filter((result) => result.available === true).map((result) => result.slug));
+      return { status: "ready", items: others.filter((other) => free.has(other.slug)) };
+    } catch {
+      return { status: "error" };
+    }
+  }
+
   async function loadAlternatives(range: Range) {
     const ticket = alts.current.next();
     if (others.length === 0) { setAlternatives({ status: "ready", items: [] }); return; }
     setAlternatives({ status: "loading" });
-    try {
-      const { body } = await request<{ results: { slug: string; available: boolean }[] }>("/api/public/availability/batch",
-        { method: "POST", body: JSON.stringify({ slugs: others.map((other) => other.slug), from: range.from, to: range.to }) });
-      if (!alts.current.isCurrent(ticket)) return;
-      if (!body || !Array.isArray(body.results)) { setAlternatives({ status: "error" }); return; }
-      const free = new Set(body.results.filter((result) => result.available === true).map((result) => result.slug));
-      setAlternatives({ status: "ready", items: others.filter((other) => free.has(other.slug)) });
-    } catch {
-      if (alts.current.isCurrent(ticket)) setAlternatives({ status: "error" });
-    }
+    const answer = await fetchAlternatives(range);
+    if (alts.current.isCurrent(ticket)) setAlternatives(answer);
   }
 
   async function runCheck(nextFrom: string, nextTo: string) {
@@ -190,6 +195,13 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
       if (node) { node.focus(); wantFocus.current = false; }
     }
   });
+  // A result rendered by the server (shared link, no script before hydration) also needs its alternatives.
+  useEffect(() => {
+    if (!(initialRange?.ok && initial.available === false && others.length > 0)) return;
+    const ticket = alts.current.next();
+    void fetchAlternatives(initialRange).then((answer) => { if (alts.current.isCurrent(ticket)) setAlternatives(answer); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, for the server-rendered result
+  }, []);
   const checkedRange = check.status === "done" ? { from: check.range.from, to: check.range.to } : null;
   const checkedKey = checkedRange ? `${checkedRange.from}/${checkedRange.to}` : "";
   useEffect(() => {
