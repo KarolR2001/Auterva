@@ -58,6 +58,22 @@ describe("nawigacja panelu", () => {
     expect(screen.getByRole("main")).toHaveTextContent("Lista pojazdów");
   });
 
+  it("pokazuje okruszek z jednym h1 i przypina Ustawienia oraz Konto na dole paska bocznego", () => {
+    render(
+      <PanelShell area="company" accessState="allowed" title="Firma Alfa" currentPath="/admin" onLogout={vi.fn()}>
+        <p>Treść</p>
+      </PanelShell>,
+    );
+    const crumbs = screen.getByRole("navigation", { name: "Okruszki" });
+    expect(within(crumbs).getByText("Panel")).toBeVisible();
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(within(crumbs).getByRole("heading", { level: 1, name: "Firma Alfa" })).toBeVisible();
+    const sidebar = screen.getByRole("navigation", { name: "Nawigacja panelu" });
+    const labels = within(sidebar).getAllByRole("link").map((link) => link.textContent);
+    expect(labels).toEqual(["Auterva", "Dashboard", "Pojazdy", "Czat z Autervą", "Ustawienia", "Konto"]);
+    expect(screen.getByRole("button", { name: "Menu użytkownika" })).toBeVisible();
+  });
+
   it("utrzymuje aktora platformy i powrót do wybranej firmy bez pulpitu platformy", () => {
     render(
       <PanelShell
