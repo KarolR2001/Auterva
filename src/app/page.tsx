@@ -8,6 +8,7 @@ import { marketingMetadata } from "@/modules/marketing/metadata";
 import { prisma } from "@/lib/prisma";
 import { denyPanel } from "@/components/panel/deny-panel";
 import { PanelShell } from "@/components/panel/panel-shell";
+import { CompanyListView } from "@/components/platform/company-list";
 import { PublicHome } from "@/components/public/public-home";
 import { requireAuthorizedActor } from "@/modules/auth/authorization";
 import { loadHome, requestHost, todayWarsaw } from "@/modules/public-offer/page-data";
@@ -44,7 +45,7 @@ export default async function HomePage() {
           title="Firmy"
           currentPath="/"
         >
-          <p>Panel jest w przygotowaniu.</p>
+          <CompanyListView />
         </PanelShell>
       );
     return denyPanel(prisma, auth, incoming, {

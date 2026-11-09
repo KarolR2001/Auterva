@@ -1,0 +1,124 @@
+import { CalendarDays, Clock, Mail, MapPin, MessageCircle, Phone, Star } from "lucide-react";
+import type { ReactNode } from "react";
+
+import { LinkButton, PublicPage, type PublicBrand, type PublicContact } from "./public-chrome";
+import { CopyButton } from "./copy-button";
+import { StateBlock } from "./state-page";
+import styles from "./contact.module.css";
+import type { getPublicContact } from "@/modules/public-offer/read";
+import { formatRangeLong } from "@/modules/public-offer/presentation";
+import { mapHref } from "@/modules/public-offer/contact-presentation";
+import { serializeJsonLd } from "@/modules/public-offer/seo";
+
+type Contact = NonNullable<Awaited<ReturnType<typeof getPublicContact>>>;
+
+const channelInfo = {
+  PHONE: { label: "Telefon", action: "Zadzwoń teraz", lead: "Zadzwoń", Icon: Phone },
+  WHATSAPP: { label: "WhatsApp", action: "Otwórz WhatsApp →", lead: "Napisz na WhatsApp", Icon: MessageCircle },
+  EMAIL: { label: "E-mail", action: "Napisz e-mail", lead: "Napisz e-mail", Icon: Mail },
+} as const;
+
+function Block({ title, icon, children }: { title: string; icon?: ReactNode; children: ReactNode }) {
+  return (
+    <section className={styles.block}>
+      <h2 className={styles.blockTitle}>{icon}{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+/** PUB-04. The page never records anything: the links open the visitor's own phone, WhatsApp or mail client. */
+export function ContactPage({ contact, brand, header, termsAvailable }: { contact: Contact; brand: PublicBrand; header: PublicContact; termsAvailable: boolean }) {
+  const { channels, message, hours, address, availabilityNotice } = contact;
+  const range = message.range;
+  const map = mapHref(address.map);
+  const place = [address.line, [address.postalCode, address.city].filter(Boolean).join(" "), address.country].filter(Boolean);
+  const jsonLd = contact.seo.jsonLd.map((entry) => serializeJsonLd(entry));
+  const headerRange = { from: range?.from ?? null, to: range?.to ?? null };
+  const catalogLink = message.vehicle ? `/pojazdy/${message.vehicle.slug}/` : "/pojazdy/";
+
+  return (
+    <PublicPage brand={brand} contact={header} range={headerRange}>
+      <div className={styles.container}>
+        <header className={styles.hero}>
+          <p className={styles.eyebrow}>Kontakt</p>
+          <h1 className={styles.title}>Porozmawiajmy o właściwym samochodzie</h1>
+          <p className={styles.lead}>
+            Skontaktuj się z {contact.name}, aby ustalić szczegóły wynajmu. Ta strona nie rezerwuje terminu ani nie zapisuje Twoich danych.
+          </p>
+        </header>
+
+        {message.vehicle || range ? (
+          <section className={styles.context} aria-labelledby="context-title">
+            <h2 id="context-title" className={styles.blockTitle}>Twoje zapytanie</h2>
+            <ul className={styles.contextList}>
+              {message.vehicle ? <li><span><strong>Pojazd:</strong> {message.vehicle.name}</span></li> : null}
+              {range ? <li><CalendarDays aria-hidden="true" size={16} /><span><strong>Termin:</strong> {formatRangeLong(range.from, range.to)}</span></li> : null}
+            </ul>
+            {message.text ? (
+              <>
+                <p className={styles.hint}>Ta wiadomość jest dodawana do linków WhatsApp i e-mail. Możesz ją zmienić przed wysłaniem.</p>
+                <p className={styles.message}>{message.text}</p>
+                <CopyButton value={message.text} label="Kopiuj treść wiadomości" />
+              </>
+            ) : null}
+            <p className={styles.hint}>Firma potwierdza dostępność po kontakcie. Sprawdzenie nie jest rezerwacją.</p>
+          </section>
+        ) : null}
+
+        {channels.length > 0 ? (
+          <ul className={styles.channels} aria-label="Kanały kontaktu">
+            {channels.map((channel) => {
+              const { label, action, lead, Icon } = channelInfo[channel.kind as keyof typeof channelInfo];
+              return (
+                <li key={channel.kind} className={channel.preferred ? `${styles.channel} ${styles.channelPreferred}` : styles.channel}>
+                  <p className={styles.channelHead}><Icon aria-hidden="true" size={20} /><span>{label}</span>
+                    {channel.preferred ? <span className={styles.badge}><Star aria-hidden="true" size={12} />Preferowany kanał</span> : null}
+                  </p>
+                  {channel.preferred ? <p className={styles.channelLead}>{lead} — odpowiadamy najszybciej</p> : null}
+                  <p className={styles.channelValue}>{channel.value}</p>
+                  <div className={styles.channelActions}>
+                    <LinkButton href={channel.href} variant={channel.preferred ? "inverse" : "secondary"}>{action}</LinkButton>
+                    <CopyButton value={channel.value} label={`Kopiuj: ${label} ${channel.value}`} />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <StateBlock level={2} icon={<Phone size={24} />} title="Firma nie podała jeszcze kanału kontaktu"
+            actions={<LinkButton href={catalogLink} variant="secondary">Wróć do ofert</LinkButton>}>
+            Spróbuj ponownie później. Nie ma tu telefonu, WhatsApp ani adresu e-mail do użycia.
+          </StateBlock>
+        )}
+
+        {!message.vehicle && !range ? (
+          <section className={styles.prepare} aria-labelledby="prepare-title">
+            <h2 id="prepare-title" className={styles.blockTitle}>Przygotuj do rozmowy</h2>
+            <p className={styles.hint}>Zapytanie o pojazd najlepiej wysłać z nazwą pojazdu i terminem. Firma potwierdza dostępność po kontakcie; to nie jest rezerwacja.</p>
+            <a href={catalogLink} className={styles.link}>Wybierz pojazd i termin w ofercie</a>
+          </section>
+        ) : null}
+
+        <div className={styles.blocks}>
+          {hours ? <Block title="Godziny kontaktu" icon={<Clock aria-hidden="true" size={20} />}><p className={styles.pre}>{hours}</p></Block> : null}
+          {place.length > 0 ? (
+            <Block title="Adres" icon={<MapPin aria-hidden="true" size={20} />}>
+              <div className={styles.mapArt} aria-hidden="true"><MapPin size={28} /></div>
+              <address className={styles.address}>{place.map((line) => <span key={line}>{line}</span>)}</address>
+              {map ? <a href={map} className={styles.link} rel="noopener noreferrer">Otwórz w mapach</a> : null}
+            </Block>
+          ) : null}
+          {availabilityNotice ? <Block title="Dostępność"><p className={styles.pre}>{availabilityNotice}</p></Block> : null}
+          <Block title="Dokumenty">
+            <ul className={styles.docs}>
+              <li><a href="/polityka-prywatnosci/" className={styles.link}>Polityka prywatności</a></li>
+              {termsAvailable ? <li><a href="/regulamin/" className={styles.link}>Regulamin</a></li> : null}
+            </ul>
+          </Block>
+        </div>
+      </div>
+      {jsonLd.map((json, index) => <script key={index} type="application/ld+json" dangerouslySetInnerHTML={{ __html: json }} />)}
+    </PublicPage>
+  );
+}

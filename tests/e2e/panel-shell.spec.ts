@@ -75,7 +75,7 @@ test("nieznana ścieżka panelu: shell z powrotem do startu dla autoryzowanej se
 });
 
 // 320 px with a very long company name: the topbar truncates the title (ellipsis) and the page does not scroll sideways.
-test("panel firmy 320 px: długa nazwa firmy nie powoduje poziomego przewijania", async ({ page, context, baseURL }) => {
+test("panel firmy 320 i 390 px: długa nazwa firmy bez poziomego przewijania i bez nakładania okruszka", async ({ page, context, baseURL }) => {
   if (!baseURL) throw new Error("Missing trusted ingress URL");
   const db = createPrismaClient(process.env.DATABASE_URL ?? "");
   const tag = randomUUID().slice(0, 8);
@@ -93,15 +93,86 @@ test("panel firmy 320 px: długa nazwa firmy nie powoduje poziomego przewijania"
     session = await verifiedFixtureSession(db, userId);
     const [name, ...value] = session.cookie.split("=");
     await context.addCookies([{ name, value: value.join("="), url: origin }]);
-    await page.setViewportSize({ width: 320, height: 700 });
-    for (const path of ["/admin/", "/admin/pojazdy/"]) {
-      await page.goto(`${origin}${path}`);
-      await expect(page.getByRole("button", { name: "Menu użytkownika" })).toBeVisible();
-      expect(await page.evaluate(() => document.documentElement.scrollWidth), path).toBeLessThanOrEqual(320);
-      // The profile trigger stays fully inside the viewport.
-      const box = await page.getByRole("button", { name: "Menu użytkownika" }).boundingBox();
-      expect(box!.x + box!.width, path).toBeLessThanOrEqual(320);
+    for (const width of [320, 390]) {
+      await page.setViewportSize({ width, height: 800 });
+      for (const path of ["/admin/", "/admin/pojazdy/"]) {
+        const at = `${width}px ${path}`;
+        await page.goto(`${origin}${path}`);
+        await expect(page.getByRole("button", { name: "Menu użytkownika" })).toBeVisible();
+        expect(await page.evaluate(() => document.documentElement.scrollWidth), at).toBeLessThanOrEqual(width);
+        // On mobile the "Panel" breadcrumb root is hidden, so it cannot overlap the truncated title.
+        const root = page.locator("nav[aria-label='Okruszki'] li").first();
+        await expect(root, at).toBeHidden();
+        const title = await page.locator("nav[aria-label='Okruszki'] h1").boundingBox();
+        const trigger = await page.getByRole("button", { name: "Menu użytkownika" }).boundingBox();
+        expect(title!.x + title!.width, at).toBeLessThanOrEqual(trigger!.x);
+        expect(trigger!.x + trigger!.width, at).toBeLessThanOrEqual(width);
+      }
     }
+  } finally {
+    if (session) await session.dispose();
+    await db.user.deleteMany({ where: { id: userId } });
+    await db.hostMapping.deleteMany({ where: { organizationId: orgId } });
+    await db.organization.deleteMany({ where: { id: orgId } });
+    await db.$disconnect();
+  }
+});
+
+// #234: the panel's dialogs (user menu, "Więcej") must not trip the nonce CSP: no inline <style> without a nonce.
+test("panel firmy: otwarte menu użytkownika i Więcej nie powodują naruszeń CSP", async ({ page, context, baseURL }) => {
+  if (!baseURL) throw new Error("Missing trusted ingress URL");
+  const db = createPrismaClient(process.env.DATABASE_URL ?? "");
+  const tag = randomUUID().slice(0, 8);
+  const orgId = randomUUID();
+  const userId = randomUUID();
+  const hostname = `panel-csp-${tag}.example.test`;
+  const origin = `http://${hostname}:${new URL(baseURL).port}`;
+  let session: Awaited<ReturnType<typeof verifiedFixtureSession>> | null = null;
+  try {
+    await db.organization.create({ data: { id: orgId, slug: `panel-csp-${tag}`, name: `Firma CSP ${tag}`, firstAdminRegisteredAt: new Date() } });
+    await db.user.create({ data: { id: userId, name: "Panel CSP", email: `panel-csp-${tag}@example.test`, role: "ADMIN_FIRMY",
+      organizationId: orgId, emailVerified: true, twoFactorEnabled: true } });
+    await db.hostMapping.create({ data: { hostname, area: "COMPANY_ADMIN", organizationId: orgId, status: "ACTIVE" } });
+    session = await verifiedFixtureSession(db, userId);
+    const [name, ...value] = session.cookie.split("=");
+    await context.addCookies([{ name, value: value.join("="), url: origin }]);
+    const violations: string[] = [];
+    await page.addInitScript(() => {
+      (window as unknown as { __csp: string[] }).__csp = [];
+      document.addEventListener("securitypolicyviolation", (event) => {
+        (window as unknown as { __csp: string[] }).__csp.push(`${event.violatedDirective} ${event.blockedURI}`);
+      });
+    });
+    page.on("console", (message) => { if (/content security policy/i.test(message.text())) violations.push(message.text().slice(0, 200)); });
+
+    for (const [width, trigger] of [[1440, "Menu użytkownika"], [390, "Więcej"]] as const) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`${origin}/admin/`);
+      await page.getByRole("button", { name: trigger }).click();
+      await expect(page.getByRole("dialog")).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      const inPage = await page.evaluate(() => (window as unknown as { __csp: string[] }).__csp);
+      expect(inPage, `${trigger} securitypolicyviolation`).toEqual([]);
+    }
+
+    // A server refresh renders the root layout again with a NEW request nonce (Proxy makes one per request). The
+    // scroll-lock style of a dialog opened afterwards must still carry the nonce of the document's CSP.
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${origin}/admin/`);
+    const documentNonce = await page.evaluate(() => document.querySelector<HTMLScriptElement>("script[nonce]")?.nonce ?? "");
+    expect(documentNonce).not.toBe("");
+    const refreshed = page.waitForResponse((response) => response.url().includes("_rsc=") && response.status() === 200);
+    await page.evaluate(() => (window as unknown as { next: { router: { refresh: () => void } } }).next.router.refresh());
+    const rsc = await refreshed;
+    expect(rsc.headers()["content-security-policy"] ?? "", "the refresh response carries another nonce").not.toContain(`'nonce-${documentNonce}'`);
+    await page.getByRole("button", { name: "Menu użytkownika" }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+    expect(await page.evaluate(() => (window as unknown as { __csp: string[] }).__csp), "after router.refresh()").toEqual([]);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    expect(violations).toEqual([]);
   } finally {
     if (session) await session.dispose();
     await db.user.deleteMany({ where: { id: userId } });
