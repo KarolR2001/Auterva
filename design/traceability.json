@@ -1058,13 +1058,32 @@
       "codePaths": [
         "src/app/pojazdy/[slug]/page.tsx",
         "src/components/public/vehicle-gallery.tsx",
-        "src/components/public/availability-calendar.tsx",
+        "src/components/public/availability-panel.tsx",
         "src/components/public/public.module.css",
         "src/modules/public-offer/page-data.ts",
         "src/modules/public-offer/presentation.ts"
       ],
       "testPaths": [
         "tests/unit/public-presentation.test.ts",
+        "tests/e2e/public-vehicle.spec.ts"
+      ]
+    },
+    {
+      "issue": 43,
+      "scope": "Interaktywna dostepnosc na publicznej stronie pojazdu (PUB-03): kalendarz miesieczny z nawigacja do roku naprzod i wyborem zakresu klikiem, alternatywne pola dat, wynik dostepny/niedostepny bez przyczyny (check/calendar/batch API #33), walidacja zakresu (od dzisiaj Europe/Warsaw, konce wlacznie, 1-365 dni), loading i blad czyszcza poprzedni pozytywny wynik, spozniona odpowiedz nie nadpisuje nowszej (bilet najnowszego zadania), zmiana pol wycofuje wynik, inne auta dostepne w tych samych datach, kontakt dostaje dokladny pojazd i termin, dzialanie bez skryptu jako formularz GET, alternatywy z do 50 kandydatow bez falszywego zadne przy wiekszej flocie, kalendarz DS-N16 z roving tabindex, strzalkami i pelna nazwa daty. Penpot PUB-03 (390/1440): blocked, wtyczka zawieszona.",
+      "relatedRequirementIds": ["C-F094", "C-F102", "C-F105", "FR-PUB-023", "FR-PUB-024", "FR-PUB-025", "FR-PUB-026", "DS-N11", "DS-N16"],
+      "referenceScreenIds": ["PUB-02", "PUB-03"],
+      "codePaths": [
+        "src/app/pojazdy/[slug]/page.tsx",
+        "src/components/public/availability-panel.tsx",
+        "src/components/public/contact-cta.tsx",
+        "src/components/public/public.module.css",
+        "src/modules/public-offer/availability-client.ts",
+        "src/modules/public-offer/presentation.ts"
+      ],
+      "testPaths": [
+        "tests/unit/availability-client.test.ts",
+        "tests/e2e/public-availability.spec.ts",
         "tests/e2e/public-vehicle.spec.ts"
       ]
     },
