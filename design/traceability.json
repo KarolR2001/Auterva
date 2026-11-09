@@ -1237,6 +1237,18 @@
         "src/modules/marketing/metadata.ts"
       ],
       "testPaths": ["tests/unit/marketing-page.test.tsx", "tests/e2e/marketing.spec.ts"]
+    },
+    {
+      "issue": 234,
+      "scope": "Naruszenie CSP przez <style> wstrzykiwany przez blokadę przewijania Radix (menu panelu, OVR-13): nonce odpowiedzi przekazany do runtime webpacka bez unsafe-inline; asercja e2e braku naruszeń przy otwartym menu na desktopie i mobile.",
+      "relatedRequirementIds": ["C-F018", "DS-N07"],
+      "referenceScreenIds": ["OVR-13", "ADM-04"],
+      "codePaths": [
+        "src/app/layout.tsx",
+        "src/components/csp-nonce.tsx",
+        "src/modules/tenancy/csp.ts"
+      ],
+      "testPaths": ["tests/e2e/panel-shell.spec.ts"]
     }
   ],
   "sources": [
