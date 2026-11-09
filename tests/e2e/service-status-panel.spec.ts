@@ -57,3 +57,49 @@ test("built company panel: trial date is not a payment, expiry keeps the panel w
     await db.$disconnect();
   }
 });
+
+test("built company panel: a very long public host never widens the page", async ({ baseURL, page }) => {
+  if (!baseURL) throw new Error("Missing trusted ingress URL");
+  const db = createPrismaClient(process.env.DATABASE_URL ?? "");
+  const organizationId = randomUUID();
+  const userId = randomUUID();
+  const adminHost = `service-${randomUUID()}.localhost`;
+  // Labels stay within the 63-character DNS limit; the totals are 64 and 190 characters.
+  const label = (size: number, seed: string) => `${seed}${"a".repeat(size - seed.length)}`;
+  const hosts = [`${label(30, "h")}.${label(30, "x")}.pl`, `${label(63, "i")}.${label(63, "j")}.${label(59, "k")}.pl`];
+  expect(hosts.map((host) => host.length)).toEqual([64, 190]);
+  const now = new Date();
+  try {
+    await db.organization.create({ data: { id: organizationId, slug: `service-${organizationId}`, name: "Firma Host", firstAdminRegisteredAt: now } });
+    await db.hostMapping.create({ data: { hostname: adminHost, area: "COMPANY_ADMIN", organizationId, status: "ACTIVE" } });
+    await db.user.create({ data: { id: userId, name: "Administrator Host", email: `service-${userId}@example.test`,
+      emailVerified: true, twoFactorEnabled: true, role: "ADMIN_FIRMY", organizationId } });
+    await db.serviceAccess.create({ data: { organizationId, trialGranted: true, trialStartedAt: now, trialEndsAt: new Date(now.getTime() + TRIAL) } });
+    const session = await verifiedFixtureSession(db, userId);
+    try {
+      const origin = new URL(baseURL);
+      origin.hostname = adminHost;
+      await page.context().addCookies([{ name: "better-auth.session_token", value: session.cookie.slice(session.cookie.indexOf("=") + 1), url: origin.origin }]);
+      for (const host of hosts) {
+        await db.hostMapping.deleteMany({ where: { organizationId, area: "COMPANY_PUBLIC" } });
+        await db.hostMapping.create({ data: { hostname: host, area: "COMPANY_PUBLIC", organizationId, status: "ACTIVE" } });
+        for (const width of [320, 1920]) {
+          await page.setViewportSize({ width, height: 900 });
+          await page.goto(`${origin.origin}/admin/usluga/`);
+          await expect(page.getByTestId("service-status")).toBeVisible();
+          await expect(page.getByRole("link", { name: host })).toBeVisible();
+          const scroll = await page.evaluate(() => document.documentElement.scrollWidth);
+          expect(scroll, `${host.length} znaków przy ${width} px`).toBeLessThanOrEqual(width);
+        }
+      }
+    } finally {
+      await session.dispose();
+    }
+  } finally {
+    await db.serviceAccess.deleteMany({ where: { organizationId } });
+    await db.hostMapping.deleteMany({ where: { organizationId } });
+    await db.user.deleteMany({ where: { id: userId } });
+    await db.organization.deleteMany({ where: { id: organizationId } });
+    await db.$disconnect();
+  }
+});

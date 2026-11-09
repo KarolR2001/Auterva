@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarClock, Globe, GlobeLock, LoaderCircle } from "lucide-react";
+import { CalendarClock, CircleCheck, CircleSlash, Globe, GlobeLock } from "lucide-react";
 import { createContext, useContext, useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 
 import type { ServiceStatusDto } from "@/modules/reminders/read";
@@ -135,26 +135,35 @@ export function ServiceStatusCard(): ReactNode {
   const visible = dto.site.publicVisible;
   const SiteIcon = visible ? Globe : GlobeLock;
   const headline = { PAID: "Usługa opłacona", TRIAL: "Okres próbny", EXPIRED: "Okres usługi zakończony", NOT_STARTED: "Okres usługi nie rozpoczął się" }[dto.period.headline];
+  const active = dto.period.headline === "PAID" || dto.period.headline === "TRIAL";
   return (
-    <section aria-labelledby="service-status-title" data-testid="service-status">
-      <h2 id="service-status-title">{headline}</h2>
-      {refresh === "failed" ? <p role="status"><LoaderCircle aria-hidden="true" size={16} /> Dane mogą być nieaktualne. Ponawiamy odczyt.</p> : null}
-      <dl>
+    <section className={styles.serviceCard} aria-labelledby="service-status-title" data-testid="service-status">
+      <div className={styles.serviceHead}>
+        <h2 id="service-status-title" className={styles.serviceTitle}>Status usługi</h2>
+        <span className={`${styles.chip} ${active ? styles.chipOk : styles.chipOff}`}>
+          {active ? <CircleCheck aria-hidden="true" size={16} /> : <CircleSlash aria-hidden="true" size={16} />}{headline}
+        </span>
+      </div>
+      {refresh === "failed" ? <p className={styles.serviceNote}>Dane mogą być nieaktualne. Ponawiamy odczyt.</p> : null}
+      <dl className={styles.serviceRows}>
         {periodLines(dto).map((line) => (
-          <div key={line.label}>
-            <dt><CalendarClock aria-hidden="true" size={16} /> {line.label}</dt>
-            <dd>{line.detail}</dd>
+          <div key={line.label} className={styles.serviceRow}>
+            <dt className={styles.serviceLabel}><CalendarClock aria-hidden="true" size={16} />{line.label}</dt>
+            <dd className={styles.serviceValue}>{line.detail}</dd>
           </div>
         ))}
-        <div>
-          <dt><SiteIcon aria-hidden="true" size={16} /> Strona publiczna</dt>
-          <dd>
-            {visible ? "Widoczna" : "Niewidoczna"}. {siteText[dto.site.state]}
-            {visible && publicHost ? <> Adres: <a className={styles.textLink} href={`https://${publicHost}/`}>{publicHost}</a></> : null}
+        <div className={styles.serviceRow}>
+          <dt className={styles.serviceLabel}><SiteIcon aria-hidden="true" size={16} />Strona publiczna</dt>
+          <dd className={styles.serviceValue}>
+            <span className={`${styles.chip} ${visible ? styles.chipOk : styles.chipOff}`}>
+              {visible ? <CircleCheck aria-hidden="true" size={16} /> : <CircleSlash aria-hidden="true" size={16} />}{visible ? "Widoczna" : "Niewidoczna"}
+            </span>
+            <span className={styles.serviceDetail}>{siteText[dto.site.state]}</span>
+            {visible && publicHost ? <span className={styles.serviceDetail}>Adres: <a className={`${styles.textLink} ${styles.serviceHost}`} href={`https://${publicHost}/`}>{publicHost}</a></span> : null}
           </dd>
         </div>
       </dl>
-      <p>Okres usługi, okres próbny i adres zmienia wyłącznie Auterva. Pytania: <a className={styles.textLink} href="/admin/czat">czat z Autervą</a>.</p>
+      <p className={styles.serviceNote}>Okres usługi, okres próbny i adres zmienia wyłącznie Auterva. Pytania: <a className={styles.textLink} href="/admin/czat">czat z Autervą</a>.</p>
     </section>
   );
 }
