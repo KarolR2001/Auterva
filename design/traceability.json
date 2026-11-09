@@ -3,6 +3,26 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 27,
+      "scope": "Lista firm z wyszukiwaniem, filtrem archiwum i dwoma KPI, karta firmy z osobnymi stanami okresu, rejestracji, publikacji, konta i archiwum; zmiana okresu z wersją, podglądem skrócenia i zachowaniem danych po błędzie; domena własna z instrukcją DNS; zaproszenie i archiwizacja. Bez billingu i potwierdzenia przelewu.",
+      "relatedRequirementIds": ["C-F015", "C-F016", "C-F017", "C-F018", "C-F045", "C-F046", "C-F047", "C-F048", "C-F049", "C-F068", "C-F069", "C-F070", "C-F071", "C-F072", "C-F084", "C-F086", "C-F087", "C-F088", "C-F089", "C-R007", "C-R013"],
+      "referenceScreenIds": ["PLT-01-02", "PLT-03"],
+      "scenarioStates": {
+        "list": "CompanyListView (PLT-01-02)",
+        "card": "CompanyCardView (PLT-03)",
+        "periodUnsaved": "PeriodSection z niezapisaną zmianą (FLOW-MVP-07 01)"
+      },
+      "codePaths": [
+        "src/app/firmy/page.tsx",
+        "src/app/page.tsx",
+        "src/components/platform/company-list.tsx",
+        "src/components/platform/company-ops.tsx",
+        "src/components/platform/platform-api.ts"
+      ],
+      "testPaths": ["tests/unit/platform-companies.test.tsx", "tests/e2e/platform-companies.spec.ts"],
+      "sharedWith": "Karta firmy, zaproszenie i domena własna: #25 (company-card.tsx, company-domain.tsx, strona /firmy/[organizationId]); #27 dokłada do niej status, okres z wersją i archiwum (company-ops.tsx) oraz listę firm."
+    },
+    {
       "issue": 227,
       "scope": "Ograniczenie bazy sortOrder >= 0 dla pojazdów (z CR #67): migracja zatrzymuje się jawnym błędem przy istniejących wierszach ujemnych, naruszenie zapisu poza API mapuje się na FLEET_INVALID_INPUT bez treści wiersza; API bez zmian.",
       "relatedRequirementIds": ["FR-PUB-002", "D-22"],
@@ -1351,6 +1371,17 @@
         "src/modules/marketing/metadata.ts"
       ],
       "testPaths": ["tests/unit/marketing-page.test.tsx", "tests/e2e/marketing.spec.ts"]
+    },
+    {
+      "issue": 234,
+      "scope": "Naruszenie CSP przez <style> wstrzykiwany przez blokadę przewijania Radix (menu panelu, OVR-13): nonce bieżącego dokumentu (odczyt z DOM, przyjęty raz, nie z propsa RSC) przekazany do runtime webpacka bez unsafe-inline; asercja e2e braku naruszeń przy otwartym menu na desktopie i mobile oraz po router.refresh().",
+      "relatedRequirementIds": ["C-F018", "DS-N07"],
+      "referenceScreenIds": ["OVR-13", "ADM-04"],
+      "codePaths": [
+        "src/app/layout.tsx",
+        "src/components/csp-nonce.tsx"
+      ],
+      "testPaths": ["tests/e2e/panel-shell.spec.ts"]
     },
     {
       "issue": 25,
