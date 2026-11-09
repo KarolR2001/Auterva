@@ -3,6 +3,7 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
   createContext,
+  type RefObject,
   useContext,
   useEffect,
   useId,
@@ -19,6 +20,8 @@ type UnsavedChangesDialogProps = {
   onStay: () => void;
   onDiscard: () => void | Promise<void>;
   onSaveAndLeave?: () => void | Promise<void>;
+  /** Where focus goes when the opener is gone (e.g. a menu that closed before the dialog opened): the menu trigger. */
+  returnFocusRef?: RefObject<HTMLElement | null>;
 };
 
 export const UnsavedChangesSuspensionContext = createContext(false);
@@ -29,6 +32,7 @@ export function UnsavedChangesDialog({
   onStay,
   onDiscard,
   onSaveAndLeave,
+  returnFocusRef,
 }: UnsavedChangesDialogProps) {
   const suspended = useContext(UnsavedChangesSuspensionContext);
   const descriptionId = useId();
@@ -76,9 +80,11 @@ export function UnsavedChangesDialog({
           onOpenAutoFocus={(event) => {
             event.preventDefault();
             setError(null);
+            // <body> is not an opener: it means the opener (a closed menu) is already gone.
+            const active = document.activeElement;
             previousFocus.current =
-              document.activeElement instanceof HTMLElement
-                ? document.activeElement
+              active instanceof HTMLElement && active !== document.body
+                ? active
                 : null;
             actions.current?.querySelector("button")?.focus();
           }}
@@ -87,9 +93,13 @@ export function UnsavedChangesDialog({
               event.preventDefault();
               return;
             }
-            if (previousFocus.current) {
+            const candidates = [previousFocus.current, returnFocusRef?.current ?? null];
+            const target = candidates.find(
+              (element) => element?.isConnected && element !== document.body,
+            );
+            if (target) {
               event.preventDefault();
-              previousFocus.current.focus();
+              target.focus();
             }
           }}
           onEscapeKeyDown={(event) => {

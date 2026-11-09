@@ -74,6 +74,50 @@ test("nieznana ścieżka panelu: shell z powrotem do startu dla autoryzowanej se
   }
 });
 
+// 320 px with a very long company name: the topbar truncates the title (ellipsis) and the page does not scroll sideways.
+test("panel firmy 320 i 390 px: długa nazwa firmy bez poziomego przewijania i bez nakładania okruszka", async ({ page, context, baseURL }) => {
+  if (!baseURL) throw new Error("Missing trusted ingress URL");
+  const db = createPrismaClient(process.env.DATABASE_URL ?? "");
+  const tag = randomUUID().slice(0, 8);
+  const orgId = randomUUID();
+  const userId = randomUUID();
+  const hostname = `panel-320-${tag}.example.test`;
+  const origin = `http://${hostname}:${new URL(baseURL).port}`;
+  let session: Awaited<ReturnType<typeof verifiedFixtureSession>> | null = null;
+  try {
+    await db.organization.create({ data: { id: orgId, slug: `panel-320-${tag}`, firstAdminRegisteredAt: new Date(),
+      name: `Wypożyczalnia Samochodów Kempingowych i Przyczep Rekreacyjnych Bardzo Długa Nazwa ${tag}` } });
+    await db.user.create({ data: { id: userId, name: "Panel 320", email: `panel-320-${tag}@example.test`, role: "ADMIN_FIRMY",
+      organizationId: orgId, emailVerified: true, twoFactorEnabled: true } });
+    await db.hostMapping.create({ data: { hostname, area: "COMPANY_ADMIN", organizationId: orgId, status: "ACTIVE" } });
+    session = await verifiedFixtureSession(db, userId);
+    const [name, ...value] = session.cookie.split("=");
+    await context.addCookies([{ name, value: value.join("="), url: origin }]);
+    for (const width of [320, 390]) {
+      await page.setViewportSize({ width, height: 800 });
+      for (const path of ["/admin/", "/admin/pojazdy/"]) {
+        const at = `${width}px ${path}`;
+        await page.goto(`${origin}${path}`);
+        await expect(page.getByRole("button", { name: "Menu użytkownika" })).toBeVisible();
+        expect(await page.evaluate(() => document.documentElement.scrollWidth), at).toBeLessThanOrEqual(width);
+        // On mobile the "Panel" breadcrumb root is hidden, so it cannot overlap the truncated title.
+        const root = page.locator("nav[aria-label='Okruszki'] li").first();
+        await expect(root, at).toBeHidden();
+        const title = await page.locator("nav[aria-label='Okruszki'] h1").boundingBox();
+        const trigger = await page.getByRole("button", { name: "Menu użytkownika" }).boundingBox();
+        expect(title!.x + title!.width, at).toBeLessThanOrEqual(trigger!.x);
+        expect(trigger!.x + trigger!.width, at).toBeLessThanOrEqual(width);
+      }
+    }
+  } finally {
+    if (session) await session.dispose();
+    await db.user.deleteMany({ where: { id: userId } });
+    await db.hostMapping.deleteMany({ where: { organizationId: orgId } });
+    await db.organization.deleteMany({ where: { id: orgId } });
+    await db.$disconnect();
+  }
+});
+
 // #234: the panel's dialogs (user menu, "Więcej") must not trip the nonce CSP: no inline <style> without a nonce.
 test("panel firmy: otwarte menu użytkownika i Więcej nie powodują naruszeń CSP", async ({ page, context, baseURL }) => {
   if (!baseURL) throw new Error("Missing trusted ingress URL");

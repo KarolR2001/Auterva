@@ -9,7 +9,6 @@ import { useEffect } from "react";
 // (`router.refresh()`, `?_rsc=`) included, so a value passed down from the server tree would be wrong after the
 // first refresh. It is therefore read from the document itself (its scripts carry the nonce of its CSP) and only
 // adopted once, never replaced.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- assigned for the webpack runtime, read by libraries
 declare let __webpack_nonce__: string | undefined;
 
 function adoptDocumentNonce() {
