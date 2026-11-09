@@ -20,6 +20,7 @@ import {
   formatInstant,
   formatLocalDate,
   periodLabel,
+  newEventKey,
   platformRequest,
   shorteningEffect,
   visibilityReason,
@@ -238,7 +239,7 @@ function PeriodSection({ company, base, reload }: SectionProps) {
   const [uncertain, setUncertain] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [fieldError, setFieldError] = useState("");
-  const eventKey = useRef(crypto.randomUUID());
+  const eventKey = useRef<string>(newEventKey());
   const dirty = draft !== server;
   const next = draft === "" ? null : draft;
   const effect = dirty ? shorteningEffect(company, next) : null;
@@ -263,7 +264,7 @@ function PeriodSection({ company, base, reload }: SectionProps) {
     setFieldError("");
     setNotice(null);
     setUncertain(false);
-    eventKey.current = crypto.randomUUID();
+    eventKey.current = newEventKey();
   }
 
   async function save() {
@@ -291,7 +292,7 @@ function PeriodSection({ company, base, reload }: SectionProps) {
       setTouched(false);
       setConflict(false);
       setUncertain(false);
-      eventKey.current = crypto.randomUUID();
+      eventKey.current = newEventKey();
       setNotice({ tone: "success", text: "Okres usługi został zapisany." });
       await reload();
       return;
@@ -395,7 +396,7 @@ function PeriodSection({ company, base, reload }: SectionProps) {
                   if (fresh) {
                     setConflict(false);
                     setConfirming(false);
-                    eventKey.current = crypto.randomUUID();
+                    eventKey.current = newEventKey();
                     setNotice({
                       tone: "warning",
                       text: `Aktualnie zapisano: ${fresh.period.paidThrough ? `do ${formatLocalDate(fresh.period.paidThrough)} włącznie` : "brak opłaty"}. Zapisz swoją datę ponownie, jeśli nadal ją chcesz.`,
@@ -443,7 +444,7 @@ function PeriodSection({ company, base, reload }: SectionProps) {
 function InvitationSection({ company, base, reload }: SectionProps) {
   const [busy, setBusy] = useState<"issue" | "revoke" | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
-  const issueKey = useRef(crypto.randomUUID());
+  const issueKey = useRef<string>(newEventKey());
   const invitation = company.invitation;
   const pending = company.registration.status === "PENDING";
   const expired = invitation ? new Date(invitation.expiresAt) <= new Date() : false;
@@ -465,7 +466,7 @@ function InvitationSection({ company, base, reload }: SectionProps) {
     });
     setBusy(null);
     if (result.ok) {
-      issueKey.current = crypto.randomUUID();
+      issueKey.current = newEventKey();
       setNotice({
         tone: "success",
         text:
@@ -476,7 +477,7 @@ function InvitationSection({ company, base, reload }: SectionProps) {
       await reload();
       return;
     }
-    if (!isUncertain(result)) issueKey.current = crypto.randomUUID();
+    if (!isUncertain(result)) issueKey.current = newEventKey();
     setNotice(
       failureNotice(result, {
         INVITATION_DELIVERY_UNCERTAIN:
@@ -556,7 +557,7 @@ function ArchiveSection({ company, base, reload }: SectionProps) {
   const [dialog, setDialog] = useState<"archive" | "restore" | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
-  const keyRef = useRef(crypto.randomUUID());
+  const keyRef = useRef<string>(newEventKey());
   const archived = !!company.archivedAt;
   const needsUnlock = !archived && company.publication.unlockRequired;
 
@@ -572,7 +573,7 @@ function ArchiveSection({ company, base, reload }: SectionProps) {
     setBusy(false);
     setDialog(null);
     if (result.ok) {
-      keyRef.current = crypto.randomUUID();
+      keyRef.current = newEventKey();
       setNotice({
         tone: "success",
         text:
@@ -585,7 +586,7 @@ function ArchiveSection({ company, base, reload }: SectionProps) {
       await reload();
       return;
     }
-    if (!isUncertain(result)) keyRef.current = crypto.randomUUID();
+    if (!isUncertain(result)) keyRef.current = newEventKey();
     setNotice(
       failureNotice(result, {
         COMPANY_VERSION_CONFLICT: "Firma została zmieniona w innej sesji. Odświeżyliśmy kartę; sprawdź stan i spróbuj ponownie.",

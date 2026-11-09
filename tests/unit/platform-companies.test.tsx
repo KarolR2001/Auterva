@@ -12,6 +12,7 @@ import {
   visibilityReason,
   type PlatformCompany,
 } from "../../src/components/platform/platform-api";
+import { newEventKey } from "../../src/components/platform/platform-api";
 
 const ID = "11111111-1111-4111-8111-111111111111";
 
@@ -188,5 +189,17 @@ describe("karta firmy i zmiana okresu", () => {
     expect(screen.getByRole("button", { name: "Sprawdź stan" })).toBeVisible();
     expect(screen.getByLabelText("Opłacono do dnia włącznie")).toHaveValue("2027-01-31");
     expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "PATCH")).toHaveLength(1);
+  });
+});
+
+describe("klucz zdarzenia w kontekście niezabezpieczonym", () => {
+  it("działa bez crypto.randomUUID (host HTTP) i daje poprawny UUID v4", () => {
+    const original = crypto.randomUUID;
+    Object.defineProperty(crypto, "randomUUID", { value: undefined, configurable: true });
+    try {
+      expect(newEventKey()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    } finally {
+      Object.defineProperty(crypto, "randomUUID", { value: original, configurable: true });
+    }
   });
 });

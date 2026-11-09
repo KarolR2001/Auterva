@@ -6,7 +6,7 @@ import { Button } from "../ui/button";
 import { FormField } from "../ui/form-field";
 import { TextInput } from "../ui/text-input";
 import { failureNotice, isUncertain, NoticeView, type Notice } from "./company-card";
-import { formatInstant, platformRequest, type PlatformCompany } from "./platform-api";
+import { formatInstant, newEventKey, platformRequest, type PlatformCompany } from "./platform-api";
 import styles from "./platform.module.css";
 
 type DomainState = {
@@ -60,7 +60,7 @@ export function DomainSection({
   const [fieldError, setFieldError] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
-  const eventKey = useRef(crypto.randomUUID());
+  const eventKey = useRef<string>(newEventKey());
 
   const load = useCallback(async () => {
     const result = await platformRequest<DomainState>(`${base}/domains/`);
@@ -88,14 +88,14 @@ export function DomainSection({
     });
     setBusy(false);
     if (result.ok) {
-      eventKey.current = crypto.randomUUID();
+      eventKey.current = newEventKey();
       setNotice({ tone: "success", text: "Zapisano stan domeny." });
       setHostname("");
       await load();
       await onChanged();
       return;
     }
-    if (!isUncertain(result)) eventKey.current = crypto.randomUUID();
+    if (!isUncertain(result)) eventKey.current = newEventKey();
     if (result.code === "INVALID_HOSTNAME") setFieldError("Wpisz samą nazwę hosta, np. wynajem.firma.pl.");
     if (result.code === "DOMAIN_TAKEN") setFieldError("Ten adres jest już używany.");
     setNotice(
