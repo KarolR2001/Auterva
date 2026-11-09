@@ -18,7 +18,16 @@ export default async function AdminChatPage() {
   if (area?.area !== "COMPANY_ADMIN" || !area.organizationId) notFound();
   const actor = await requireRequestContext(prisma, auth, incoming, area.organizationId);
   if (!actor) return denyPanel(prisma, auth, incoming, { area: "COMPANY_ADMIN", organizationId: area.organizationId });
-  const { conversationId } = await findConversation(prisma, { actorId: actor.actorId, sessionId: actor.sessionId, organizationId: actor.organizationId });
+  const found = await findConversation(prisma, { actorId: actor.actorId, sessionId: actor.sessionId, organizationId: actor.organizationId })
+    .catch(() => null);
+  if (!found) {
+    return (
+      <PanelShell area="company" accessState="allowed" expectedSessionId={actor.sessionId} title="Czat z Autervą" currentPath="/admin/czat">
+        <p role="alert">Nie udało się wczytać rozmowy. Odśwież stronę albo spróbuj za chwilę: <a href="/admin/czat">Spróbuj ponownie</a>.</p>
+      </PanelShell>
+    );
+  }
+  const { conversationId } = found;
   return (
     <PanelShell
       area="company"

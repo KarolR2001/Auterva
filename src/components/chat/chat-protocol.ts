@@ -80,7 +80,7 @@ export function classifySend(status: number | null, code: string | null, retryAf
   if (status === 429) return { kind: "failed", retryAfter: Number.isFinite(seconds) && seconds > 0 ? seconds : null,
     message: "Za dużo wiadomości w krótkim czasie. Poczekaj chwilę i ponów." };
   if (status === 401 || status === 403) return { kind: "failed", retryAfter: null,
-    message: "Brak dostępu albo sesja wygasła. Zaloguj się ponownie; tekst zostaje w szkicu." };
+    message: "Brak dostępu albo sesja wygasła. Zaloguj się ponownie — niewysłany tekst zostaje na tym urządzeniu i będzie czekał na ponowienie." };
   if (code === "MESSAGE_TOO_LONG") return { kind: "failed", retryAfter: null, message: "Wiadomość może mieć najwyżej 4 000 znaków." };
   if (code === "INVALID_MESSAGE") return { kind: "failed", retryAfter: null, message: "Wiadomość jest pusta albo zawiera niedozwolone znaki." };
   if (code === "CHAT_ORGANIZATION_ARCHIVED") return { kind: "failed", retryAfter: null, message: "Ta firma jest zarchiwizowana — nie można pisać." };

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent } from "@testing-library/react";
 
 import { ChatPanel } from "../../src/components/chat/chat-panel";
-import { loadDraft } from "../../src/components/chat/draft-store";
+import { loadDraft, loadPending } from "../../src/components/chat/draft-store";
 import { PanelShell } from "../../src/components/panel/panel-shell";
 
 class FakeSocket {
@@ -128,9 +128,9 @@ describe("czat firmy (#52)", () => {
 
   it("read dopiero po ok. 500 ms faktycznej widoczności najnowszej wiadomości drugiej strony", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    let notify: ((entries: { isIntersecting: boolean }[]) => void) | null = null;
+    let notify: ((entries: object[]) => void) | null = null;
     vi.stubGlobal("IntersectionObserver", class {
-      constructor(callback: (entries: { isIntersecting: boolean }[]) => void) { notify = callback; }
+      constructor(callback: (entries: object[]) => void) { notify = callback; }
       observe() {} disconnect() {}
     });
     vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json(history([m("1", false, "pytanie")])));
@@ -140,11 +140,104 @@ describe("czat firmy (#52)", () => {
     act(() => socket.emit({ type: "ready", protocol: 1, conversationId: "conv-1", cursor: "cur-1", backlog: "none", state: { ...state, unread: 1 } }));
     await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
     expect(socket.sent).toEqual([]); // not visible yet: nothing is read
-    act(() => notify?.([{ isIntersecting: true }]));
+    act(() => notify?.([{ isIntersecting: true, intersectionRatio: 1 }]));
     await act(async () => { await vi.advanceTimersByTimeAsync(300); });
     expect(socket.sent).toEqual([]);
     await act(async () => { await vi.advanceTimersByTimeAsync(300); });
     expect(socket.sent.map((frame) => JSON.parse(frame))).toEqual([{ type: "read", messageId: "1" }]);
+  });
+
+  it("nieudana wysyłka przeżywa przeładowanie: tekst wraca, ponowienie tym samym kluczem, bez auto-wysyłki", async () => {
+    const user = userEvent.setup();
+    const keys: string[] = [];
+    let offline = true;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+      if (init?.method === "POST") {
+        keys.push(JSON.parse(String(init.body)).clientMessageId);
+        if (offline) throw new TypeError("offline");
+        return Response.json({ message: m("n1", true, "ważny tekst"), conversationId: "conv-1", deduplicated: true }, { status: 200 });
+      }
+      return Response.json(history([]));
+    });
+    const first = renderChat();
+    await waitFor(() => expect(screen.getByText(/Brak wiadomości/)).toBeInTheDocument());
+    await user.type(screen.getByRole("textbox", { name: /Napisz wiadomość/ }), "ważny tekst");
+    await user.click(screen.getByRole("button", { name: "Wyślij" }));
+    await waitFor(() => expect(screen.getByText("Niepewny wynik wysyłki")).toBeInTheDocument());
+    expect(loadPending("konto-a", "conv-1")?.body).toBe("ważny tekst");
+    first.unmount(); // reload
+    offline = false;
+    renderChat();
+    await waitFor(() => expect(screen.getByText("ważny tekst")).toBeInTheDocument());
+    expect(screen.getByText("Niepewny wynik wysyłki")).toBeInTheDocument();
+    expect(keys).toHaveLength(1); // nothing sent automatically
+    await user.click(screen.getByRole("button", { name: "Ponów wysyłkę" }));
+    await waitFor(() => expect(screen.getByText(/Wysłano/)).toBeInTheDocument());
+    expect(keys[1]).toBe(keys[0]);
+    expect(loadPending("konto-a", "conv-1")).toBeNull();
+  });
+
+  it.each([401, 502])("odpowiedź %i zostawia tekst w trwałym magazynie i ostrzega przy wyjściu", async (status) => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) =>
+      init?.method === "POST" ? new Response(null, { status }) : Response.json(history([])));
+    renderChat();
+    await waitFor(() => expect(screen.getByText(/Brak wiadomości/)).toBeInTheDocument());
+    await user.type(screen.getByRole("textbox", { name: /Napisz wiadomość/ }), "do zachowania");
+    await user.click(screen.getByRole("button", { name: "Wyślij" }));
+    await waitFor(() => expect(loadPending("konto-a", "conv-1")?.body).toBe("do zachowania"));
+    const unload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(true);
+  });
+
+  it("własna wiadomość z WebSocket o tym samym clientMessageId zdejmuje dymek niepewnego wyniku", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) =>
+      init?.method === "POST" ? new Response(null, { status: 502 }) : Response.json(history([])));
+    renderChat();
+    await waitFor(() => expect(FakeSocket.instances).toHaveLength(1));
+    await user.type(screen.getByRole("textbox", { name: /Napisz wiadomość/ }), "abc");
+    await user.click(screen.getByRole("button", { name: "Wyślij" }));
+    await waitFor(() => expect(screen.getByText("Niepewny wynik wysyłki")).toBeInTheDocument());
+    const key = loadPending("konto-a", "conv-1")!.clientMessageId;
+    act(() => FakeSocket.instances[0].emit({ type: "message", conversationId: "conv-1", cursor: "c2", message: { ...m("n1", true, "abc"), clientMessageId: key } }));
+    expect(screen.queryByText("Niepewny wynik wysyłki")).toBeNull();
+    expect(loadPending("konto-a", "conv-1")).toBeNull();
+  });
+
+  it("429 z Retry-After blokuje ponowienie na podany czas", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) =>
+      init?.method === "POST" ? new Response(null, { status: 429, headers: { "Retry-After": "5" } }) : Response.json(history([])));
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderChat();
+    await waitFor(() => expect(screen.getByText(/Brak wiadomości/)).toBeInTheDocument());
+    await user.type(screen.getByRole("textbox", { name: /Napisz wiadomość/ }), "x");
+    await user.click(screen.getByRole("button", { name: "Wyślij" }));
+    const blocked = await screen.findByRole("button", { name: "Poczekaj chwilę" });
+    expect(blocked).toBeDisabled();
+    await act(async () => { await vi.advanceTimersByTimeAsync(5100); });
+    expect(screen.getByRole("button", { name: "Ponów wysyłkę" })).toBeEnabled();
+  });
+
+  it("read także dla wiadomości wyższej niż lista (zajmuje większość okna, ratio < 0,6)", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let notify: ((entries: object[]) => void) | null = null;
+    vi.stubGlobal("IntersectionObserver", class {
+      constructor(callback: (entries: object[]) => void) { notify = callback; }
+      observe() {} disconnect() {}
+    });
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json(history([m("1", false, "x".repeat(3000))])));
+    renderChat();
+    await waitFor(() => expect(FakeSocket.instances).toHaveLength(1));
+    const socket = FakeSocket.instances[0];
+    act(() => socket.emit({ type: "ready", protocol: 1, conversationId: "conv-1", cursor: "cur-1", backlog: "none", state: { ...state, unread: 1 } }));
+    act(() => notify?.([{ isIntersecting: true, intersectionRatio: 0.2, rootBounds: { height: 500 }, intersectionRect: { height: 500 } }]));
+    await act(async () => { await vi.advanceTimersByTimeAsync(700); });
+    expect(socket.sent.map((frame) => JSON.parse(frame))).toEqual([{ type: "read", messageId: "1" }]);
+    // a barely visible slice of a tall message is still not "read"
+    act(() => notify?.([{ isIntersecting: true, intersectionRatio: 0.02, rootBounds: { height: 500 }, intersectionRect: { height: 40 } }]));
   });
 
   it("nowa wiadomość nie przewija czytającego historię; akcja prowadzi do nowych", async () => {

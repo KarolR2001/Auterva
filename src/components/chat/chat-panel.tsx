@@ -11,7 +11,7 @@ import {
   appendMessages, classifySend, isSessionLoss, parseFrame, prependMessages, readOwnIds, reconnectDelay,
   READ_DWELL_MS, TYPING_EXPIRY_MS, TYPING_THROTTLE_MS, type ChatMessage, type SendFailure, type ServerFrame,
 } from "./chat-protocol";
-import { loadDraft, saveDraft } from "./draft-store";
+import { clearPending, loadDraft, loadPending, saveDraft, savePending } from "./draft-store";
 import { newClientUuid } from "@/lib/client-uuid";
 import styles from "./chat.module.css";
 
@@ -48,7 +48,7 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
   const [peerTyping, setPeerTyping] = useState(false);
   const [readThrough, setReadThrough] = useState<string | null>(null);
   const [newBelow, setNewBelow] = useState(0);
-  const [pending, setPending] = useState<Pending | null>(null);
+  const [pending, setPendingState] = useState<Pending | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const conversationKey = conversationId ?? `org:${organizationId}`;
   const [draft, setDraft] = useState("");
@@ -68,18 +68,50 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
   const lastReadSent = useRef<string | null>(null);
   const unreadFromServer = useRef(0);
   const messagesRef = useRef(messages);
+  const pendingRef = useRef<Pending | null>(null);
+  // The ref is updated together with the state: the key-change effect must never see a stale pending message.
+  const setPending = useCallback((next: Pending | null) => { pendingRef.current = next; setPendingState(next); }, []);
+  const draftRef = useRef("");
+  const keyRef = useRef(conversationKey);
+  const [retryExpired, setRetryExpired] = useState<Pending | null>(null);
 
-  // The draft belongs to (account, conversation): load it when the key changes, never carry it over (C-F124).
+  // The draft and an unconfirmed message belong to (account, conversation): load them when the key changes (C-F124).
+  // A first conversation moves from `org:` to its id once known: what the user typed or failed to send moves along.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- external store (localStorage) read after mount
-    setDraft(loadDraft(accountId, conversationKey));
+    const previous = keyRef.current;
+    keyRef.current = conversationKey;
+    const moved = previous !== conversationKey && previous.startsWith("org:");
+    const carriedDraft = moved ? draftRef.current : "";
+    setDraft(carriedDraft || loadDraft(accountId, conversationKey));
+    if (moved && carriedDraft) saveDraft(accountId, previous, "");
+    const carried = moved ? pendingRef.current : null;
+    if (carried) {
+      savePending(accountId, conversationKey, { clientMessageId: carried.clientMessageId, body: carried.body,
+        status: carried.status === "failed" ? "failed" : "uncertain", message: carried.failure?.message ?? classifySend(null, null, null).message });
+      clearPending(accountId, previous);
+    } else {
+      const stored = loadPending(accountId, conversationKey);
+      setPending(stored && { clientMessageId: stored.clientMessageId, body: stored.body, status: stored.status,
+        failure: { kind: stored.status, retryAfter: null, message: stored.message || classifySend(null, null, null).message } });
+    }
     setDraftKeyLoaded(conversationKey);
-  }, [accountId, conversationKey]);
+  }, [accountId, conversationKey, setPending]);
+  useEffect(() => { draftRef.current = draft; }, [draft]);
   useEffect(() => {
     if (draftKeyLoaded === conversationKey) saveDraft(accountId, conversationKey, draft);
   }, [accountId, conversationKey, draft, draftKeyLoaded]);
-  // A chat draft never blocks leaving: the shell guard has an explicit exception for it (#14).
+  // A chat draft never blocks leaving (exception of #14), but a message that was not confirmed does: it is warned about.
   useUnsavedChanges({ dirty: draft.length > 0, chatDraft: true });
+  useUnsavedChanges({ dirty: pending !== null, contextLabel: "Wiadomość czeka na wysłanie" });
+  const retryAfter = pending?.failure?.retryAfter ?? null;
+  useEffect(() => {
+    if (!pending || !retryAfter) return;
+    const timer = window.setTimeout(() => setRetryExpired(pending), retryAfter * 1000);
+    return () => window.clearTimeout(timer);
+  }, [pending, retryAfter]);
+  const retryBlocked = retryAfter !== null && retryExpired !== pending;
+
+  const settle = useCallback((key: string) => { clearPending(accountId, key); setPending(null); }, [accountId, setPending]);
 
   useEffect(() => { messagesRef.current = messages; }, [messages]);
 
@@ -156,6 +188,7 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
       case "message":
         if (frame.cursor) cursor.current = frame.cursor;
         if (!frame.message.own) setPeerTyping(false);
+        else if (pendingRef.current && frame.message.clientMessageId === pendingRef.current.clientMessageId) settle(keyRef.current);
         setMessages((current) => {
           const next = appendMessages(current, [frame.message]);
           if (next !== current && !frame.message.own && !atBottom.current) setNewBelow((count) => count + 1);
@@ -164,6 +197,7 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
         break;
       case "sent":
         if (frame.cursor) cursor.current = frame.cursor;
+        if (pendingRef.current && frame.message.clientMessageId === pendingRef.current.clientMessageId) settle(keyRef.current);
         setMessages((current) => appendMessages(current, [frame.message]));
         break;
       case "read":
@@ -179,7 +213,7 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
       case "error":
         break;
     }
-  }, [catchUp, reportUnread]);
+  }, [catchUp, reportUnread, settle]);
 
   // Live channel: after the first page; reconnects from the last cursor, never on a revoked session (4401).
   useEffect(() => {
@@ -269,9 +303,11 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
       }, READ_DWELL_MS);
     };
     const observer = new IntersectionObserver((entries) => {
-      visible.intersecting = entries.some((entry) => entry.isIntersecting);
+      // A message taller than the list can never reach 60% of itself: it counts when it fills most of the list.
+      visible.intersecting = entries.some((entry) => entry.isIntersecting && (entry.intersectionRatio >= 0.6
+        || (entry.rootBounds !== null && entry.rootBounds.height > 0 && entry.intersectionRect.height >= 0.6 * entry.rootBounds.height)));
       arm();
-    }, { root: list.current, threshold: 0.6 });
+    }, { root: list.current, threshold: Array.from({ length: 21 }, (_, step) => step / 20) });
     observer.observe(element);
     document.addEventListener("visibilitychange", arm);
     return () => {
@@ -292,6 +328,9 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
   }
 
   const send = useCallback(async (text: string, clientMessageId: string) => {
+    const keyAtSend = keyRef.current;
+    // Stored before the request: if the tab dies mid-flight the text and its key survive, as an uncertain result.
+    savePending(accountId, keyAtSend, { clientMessageId, body: text, status: "uncertain", message: classifySend(null, null, null).message });
     setPending({ clientMessageId, body: text, status: "sending", failure: null });
     setAnnouncement("Wysyłanie wiadomości…");
     let response: Response | null = null;
@@ -306,7 +345,12 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
       const result = (await response.json().catch(() => null)) as { message?: ChatMessage; conversationId?: string } | null;
       // Success is the server's durable answer, never the click (C-F130).
       if (result?.message) setMessages((current) => appendMessages(current, [result.message!]));
-      if (result?.conversationId) setConversationId(result.conversationId);
+      clearPending(accountId, keyAtSend);
+      clearPending(accountId, keyRef.current);
+      if (result?.conversationId) {
+        if (!conversationId && draftRef.current) saveDraft(accountId, result.conversationId, draftRef.current);
+        setConversationId(result.conversationId);
+      }
       setPending(null);
       setAnnouncement("Wiadomość wysłana.");
       atBottom.current = true;
@@ -314,9 +358,10 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
     }
     const code = response ? ((await response.json().catch(() => null)) as { code?: string } | null)?.code ?? null : null;
     const failure = classifySend(response ? response.status : null, code, response?.headers.get("Retry-After") ?? null);
+    savePending(accountId, keyRef.current, { clientMessageId, body: text, status: failure.kind, message: failure.message });
     setPending({ clientMessageId, body: text, status: failure.kind, failure });
     setAnnouncement(failure.message);
-  }, [apiBase, conversationId]);
+  }, [accountId, apiBase, conversationId, setPending]);
 
   function submit() {
     const text = draft.replace(/\r\n?/g, "\n");
@@ -325,13 +370,14 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
     void send(text, newClientUuid());
   }
   function retry() {
+    if (retryBlocked) return;
     if (pending && pending.status !== "sending") void send(pending.body, pending.clientMessageId);
   }
   function editAgain() {
     if (!pending) return;
     // Only a definitive failure may be edited: the new text gets a new key, an uncertain one keeps its identity.
     setDraft((current) => (current ? `${pending.body}\n${current}` : pending.body));
-    setPending(null);
+    settle(keyRef.current);
     composer.current?.focus();
   }
 
@@ -400,7 +446,7 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
             {pending.failure && <p role="alert" className={styles.failure}>{pending.failure.message}</p>}
             {pending.status !== "sending" && (
               <div className={styles.actions}>
-                <Button size="sm" onClick={retry}>Ponów wysyłkę</Button>
+                <Button size="sm" onClick={retry} disabled={retryBlocked}>{retryBlocked ? "Poczekaj chwilę" : "Ponów wysyłkę"}</Button>
                 {pending.status === "failed" && <Button size="sm" variant="secondary" onClick={editAgain}>Edytuj tekst</Button>}
               </div>
             )}
