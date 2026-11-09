@@ -27,3 +27,11 @@ test("PWA assets are scoped to the company admin host", () => {
   expect(routeAllowedForArea("COMPANY_PUBLIC", "/sw.js")).toBe(false);
   expect(routeAllowedForArea("PLATFORM", "/admin/manifest.webmanifest")).toBe(false);
 });
+
+test("PWA offline screen and icons are served only on the company admin host", () => {
+  for (const path of ["/admin/offline.html", "/admin/offline.css", "/admin/icon-192.png", "/admin/icon-512.png", "/admin/icon-maskable-512.png"]) {
+    expect(routeAllowedForArea("COMPANY_ADMIN", path)).toBe(true);
+    for (const area of ["MARKETING", "PLATFORM", "COMPANY_PUBLIC"] as const) expect(routeAllowedForArea(area, path)).toBe(false);
+  }
+  for (const area of ["MARKETING", "PLATFORM", "COMPANY_PUBLIC"] as const) expect(routeAllowedForArea(area, "/sw.js")).toBe(false);
+});

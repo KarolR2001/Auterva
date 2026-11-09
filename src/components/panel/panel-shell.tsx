@@ -8,11 +8,15 @@ import {
   LayoutDashboard,
   Menu,
   MessageCircle,
+  RefreshCw,
   Settings,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { clearAllDrafts } from "../chat/draft-store";
+import { clearNonStaticCaches, usePwa } from "../pwa/pwa-provider";
 import { ChatUnreadContext } from "./chat-unread";
 import { SkipLink } from "../ui/skip-link";
 import { PanelAccess, type PanelAccessState } from "./panel-states";
@@ -86,6 +90,9 @@ export function PanelShell({
   const [revokedAccess, setRevokedAccess] = useState<
     "session-expired" | "forbidden" | null
   >(null);
+  useEffect(() => {
+    if (revokedAccess) void clearNonStaticCaches();
+  }, [revokedAccess]);
   const [connectionError, setConnectionError] = useState(false);
   const [connectionEpoch, setConnectionEpoch] = useState(0);
   const [retryKey, setRetryKey] = useState(0);
@@ -201,8 +208,8 @@ function AvailablePanelShell({
   currentPath,
   unreadChat: initialUnreadChat = false,
   companyContext,
-  canInstallPwa = false,
-  onInstallPwa,
+  canInstallPwa: canInstallOverride = false,
+  onInstallPwa: onInstallOverride,
   onLogout,
   children,
   connectionError,
@@ -211,6 +218,9 @@ function AvailablePanelShell({
   connectionError: boolean;
   connectionEpoch: number;
 }) {
+  const pwa = usePwa();
+  const canInstallPwa = canInstallOverride || pwa.canInstall;
+  const onInstallPwa = onInstallOverride ?? (() => void pwa.install());
   const [menuOpen, setMenuOpen] = useState(false);
   const [openedEpoch, setOpenedEpoch] = useState(0);
   const [menuMode, setMenuMode] = useState<"mobile" | "desktop">("mobile");
@@ -222,7 +232,7 @@ function AvailablePanelShell({
   const [liveUnread, setLiveUnread] = useState<number | null>(null);
   const unreadChat = liveUnread === null ? initialUnreadChat : liveUnread > 0;
   const [leaveTarget, setLeaveTarget] = useState<
-    { kind: "href"; href: string } | { kind: "logout" } | null
+    { kind: "href"; href: string } | { kind: "logout" } | { kind: "update" } | null
   >(null);
   const [busyNotice, setBusyNotice] = useState(false);
   const [menuSource, setMenuSource] = useState<"avatar" | "more">("avatar");
@@ -313,6 +323,22 @@ function AvailablePanelShell({
     else setLeaveTarget({ kind: "logout" });
   }
 
+  // A waiting service worker takes over only on this explicit request; unsaved forms go through the same guard (FR-PWA-004).
+  function requestUpdate() {
+    const guard = registry.state();
+    if (guard === "free") return applyUpdate();
+    returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    if (guard === "busy") setBusyNotice(true);
+    else setLeaveTarget({ kind: "update" });
+  }
+
+  function applyUpdate() {
+    // "Leaving" switches the tab-close guard off, so it is set only once an update really started and is undone
+    // when the new worker does not take over.
+    const started = pwa.applyUpdate(() => { leaving.current = false; });
+    if (started) leaving.current = true;
+  }
+
   function stayOnPage() {
     // Focus returns through the dialog (opener, else the menu trigger): see UnsavedChangesDialog.
     setLeaveTarget(null);
@@ -321,6 +347,11 @@ function AvailablePanelShell({
   async function leave(target: NonNullable<typeof leaveTarget>) {
     if (target.kind === "logout") {
       await logoutOrThrow();
+      setLeaveTarget(null);
+      return;
+    }
+    if (target.kind === "update") {
+      applyUpdate();
       setLeaveTarget(null);
       return;
     }
@@ -345,6 +376,7 @@ function AvailablePanelShell({
     await (onLogout ?? signOutOnCurrentHost)();
     // Sign-out removes the chat drafts kept in this browser (D-08, C-F123).
     clearAllDrafts();
+    await clearNonStaticCaches();
     leaving.current = true;
     setLoggedOut(true);
   }
@@ -446,6 +478,12 @@ function AvailablePanelShell({
                 </li>
               </ol>
             </nav>
+            {area === "company" && (
+              <span className={styles.shellConnection} data-online={pwa.online} aria-live="polite">
+                {pwa.online ? <Wifi size={16} aria-hidden="true" /> : <WifiOff size={16} aria-hidden="true" />}
+                <span>{pwa.online ? "Online" : "Offline"}</span>
+              </span>
+            )}
             <button
               type="button"
               className={styles.shellProfileTrigger}
@@ -482,6 +520,19 @@ function AvailablePanelShell({
                 Trwa zapisywanie zmian. Poczekaj na zakończenie, zanim opuścisz
                 tę stronę.
               </p>
+            )}
+            {area === "company" && pwa.updateReady && (
+              <div role="status" aria-label="Aktualizacja panelu" className={styles.shellUpdate}>
+                <RefreshCw size={16} aria-hidden="true" />
+                <span>
+                  {pwa.updateFailed
+                    ? "Nie udało się zastosować aktualizacji. Dane w formularzu pozostały bez zmian; spróbuj ponownie."
+                    : "Dostępna nowa wersja panelu. Odświeżenie nastąpi dopiero po Twojej zgodzie."}
+                </span>
+                <button type="button" onClick={requestUpdate}>
+                  Odśwież teraz
+                </button>
+              </div>
             )}
             {children}
           </main>
