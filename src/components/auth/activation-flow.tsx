@@ -1,7 +1,6 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CircleCheck, Circle } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
@@ -10,6 +9,8 @@ import { z } from "zod";
 import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
 import { PasswordInput } from "../ui/password-input";
+import { evaluatePassword } from "./password-policy";
+import { PasswordStrength } from "./password-strength";
 import styles from "./auth.module.css";
 
 const schema = z
@@ -196,18 +197,15 @@ export function ActivationFlow({ token }: { token: string }) {
       </Frame>
     );
   }
-  const long = password.length >= 12;
+  const strength = evaluatePassword(password ?? "");
   return (
     <Frame title="Aktywuj konto">
       <p className={styles.intro}>{phase.invitation.name} • {phase.invitation.recipientEmail}. Ustaw hasło do panelu. Otwarcie linku nie aktywuje konta; zrobi to dopiero przycisk poniżej.</p>
       <form className={styles.form} noValidate onSubmit={onSubmit}>
         <PasswordInput id="activation-password" label="Nowe hasło" autoComplete="new-password" placeholder="Wpisz nowe hasło"
-          hint="Użyj co najmniej 12 znaków." visibility={visibility} onVisibilityChange={setVisibility}
+          hint="12–256 znaków" aria-describedby="activation-strength" visibility={visibility} onVisibilityChange={setVisibility}
           error={form.formState.errors.password?.message} readOnly={uncertain} {...form.register("password")} />
-        <p className={styles.pending} data-met={long}>
-          {long ? <CircleCheck aria-hidden="true" size={16} /> : <Circle aria-hidden="true" size={16} />}{" "}
-          {long ? "Spełnione: co najmniej 12 znaków" : "Wymagane: co najmniej 12 znaków"}
-        </p>
+        <PasswordStrength id="activation-strength" level={strength.level} criteria={strength.criteria} />
         <PasswordInput id="activation-confirm" label="Powtórz hasło" autoComplete="new-password" placeholder="Wpisz hasło ponownie"
           hint="Oba hasła muszą być identyczne." visibility={visibility} onVisibilityChange={setVisibility}
           error={form.formState.errors.confirm?.message} readOnly={uncertain} {...form.register("confirm")} />

@@ -78,3 +78,27 @@ describe("aktywacja konta: wynik POST", () => {
     expect(screen.getByText("Publikacja strony czeka na odblokowanie")).toBeVisible();
   });
 });
+
+describe("aktywacja konta: wskaźnik siły hasła (DS-AUT-004)", () => {
+  it("pokazuje poziom i checklistę, z długością jako wymaganą, a resztą jako zalecaną", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => invitation());
+    const user = userEvent.setup();
+    render(<ActivationFlow token={token} />);
+    await screen.findByRole("heading", { name: "Aktywuj konto" });
+    expect(screen.getByText("Siła hasła: Słabe")).toBeVisible();
+    expect(screen.getByLabelText("Nowe hasło")).toHaveAccessibleDescription(/Siła hasła: Słabe/);
+    const items = screen.getAllByRole("listitem");
+    expect(items[0]).toHaveTextContent("Co najmniej 12 znaków (wymagane): oczekuje");
+    for (const item of items.slice(1)) expect(item).toHaveTextContent("(zalecane)");
+    await user.type(screen.getByLabelText("Nowe hasło"), "Abcdefghij1!");
+    expect(screen.getByText("Siła hasła: Mocne")).toBeVisible();
+    expect(screen.getAllByRole("listitem")[0]).toHaveTextContent("(wymagane): spełnione");
+  });
+
+  it("zalecane kryteria nie blokują wysłania hasła o 12 znakach", async () => {
+    const { request } = await submit(() => Response.json({ siteState: "READY" }), "correct horse battery");
+    expect(await screen.findByRole("heading", { name: "Konto jest aktywne" })).toBeVisible();
+    expect(request.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1);
+  });
+});
+

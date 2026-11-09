@@ -35,6 +35,26 @@ describe("prośba o reset hasła", () => {
     expect(screen.getByRole("link", { name: "Wróć do logowania" })).toHaveAttribute("href", "/admin/login");
   });
 
+  it("po sukcesie fokus przechodzi na tytuł, a po błędzie wraca do pola e-mail", async () => {
+    const request = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json({}, { status: 502 }))
+      .mockResolvedValueOnce(Response.json({ accepted: true }));
+    const user = userEvent.setup();
+    render(<ResetRequestForm area="company" />);
+    const email = screen.getByRole("textbox", { name: /Adres e-mail/ });
+    await user.type(email, "ktos@example.test");
+    await user.click(screen.getByRole("button", { name: "Wyślij instrukcję" }));
+    expect(await screen.findByRole("alert")).toBeVisible();
+    await waitFor(() => expect(email).toHaveFocus());
+    await user.click(screen.getByRole("button", { name: "Wyślij instrukcję" }));
+    await screen.findByText(/Link jest ważny 30 minut/);
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { level: 1 })).toHaveFocus(),
+    );
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
   it("ponawia ten sam klucz po utracie odpowiedzi, a nowy dla innego adresu", async () => {
     const request = vi
       .spyOn(globalThis, "fetch")
@@ -153,5 +173,6 @@ describe("ustawienie nowego hasła", () => {
     await user.click(screen.getByRole("button", { name: "Zapisz nowe hasło" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Nie wiemy, czy hasło zostało zmienione");
     expect(screen.getByLabelText("Nowe hasło")).toHaveValue("Dlugie haslo 12345!");
+    await waitFor(() => expect(screen.getByLabelText("Nowe hasło")).toHaveFocus());
   });
 });

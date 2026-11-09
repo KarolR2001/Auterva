@@ -12,6 +12,8 @@ export type GuardEntry = {
   saving?: boolean;
   save?: () => void | Promise<void>;
   contextLabel?: string;
+  /** The unsent entry stays stored on this device, so leaving does not discard it (e.g. a chat message). */
+  keepsEntry?: boolean;
 };
 
 export type GuardState = "free" | "dirty" | "busy";
@@ -22,6 +24,7 @@ export type GuardRegistry = {
   save: () => Promise<void> | undefined;
   hasSave: () => boolean;
   label: () => string | undefined;
+  keepsEntry: () => boolean;
 };
 
 export function createGuardRegistry(): GuardRegistry {
@@ -45,6 +48,7 @@ export function createGuardRegistry(): GuardRegistry {
       return Promise.all(saves.map((save) => save())).then(() => undefined);
     },
     label: () => active().find((entry) => entry.contextLabel)?.contextLabel,
+    keepsEntry: () => { const list = active(); return list.length > 0 && list.every((entry) => entry.keepsEntry); },
   };
 }
 
@@ -57,6 +61,7 @@ type UseUnsavedChangesOptions = {
   saving?: boolean;
   save?: () => void | Promise<void>;
   contextLabel?: string;
+  keepsEntry?: boolean;
   // Chat drafts are kept by the chat itself and never block leaving (contract of #14).
   chatDraft?: boolean;
 };
@@ -70,6 +75,7 @@ export function useUnsavedChanges({
   saving = false,
   save,
   contextLabel,
+  keepsEntry = false,
   chatDraft = false,
 }: UseUnsavedChangesOptions) {
   const registry = useContext(UnsavedChangesGuardContext);
@@ -85,8 +91,9 @@ export function useUnsavedChanges({
       dirty,
       saving,
       contextLabel,
+      keepsEntry,
       save: hasSave ? () => saveRef.current?.() : undefined,
     });
     return () => registry.register(id, null);
-  }, [registry, id, dirty, saving, contextLabel, chatDraft, hasSave]);
+  }, [registry, id, dirty, saving, contextLabel, keepsEntry, chatDraft, hasSave]);
 }

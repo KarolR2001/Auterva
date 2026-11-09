@@ -305,6 +305,9 @@
 .strengthList li[data-met="false"] {
   color: var(--text-secondary);
 }
+.strengthKind {
+  color: var(--text-secondary);
+}
 .linkRow {
   margin: 0;
   font-size: var(--font-size-14);

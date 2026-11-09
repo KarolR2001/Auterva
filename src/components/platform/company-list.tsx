@@ -200,13 +200,17 @@ function CompanyRow({ company }: { company: PlatformCompany }) {
         <div>
           <dt>Widoczność</dt>
           <dd className={visible ? styles.ok : styles.off}>
-            {visible ? (
-              <CircleCheck size={16} aria-hidden="true" />
-            ) : (
-              <CircleSlash size={16} aria-hidden="true" />
-            )}{" "}
-            {visible ? "Widoczna" : "Wyłączona"}
-            {!visible && <span className={styles.detail}>{visibilityReason(company)}</span>}
+            <span className={styles.statusLine}>
+              {visible ? (
+                <CircleCheck size={16} aria-hidden="true" />
+              ) : (
+                <CircleSlash size={16} aria-hidden="true" />
+              )}
+              <span>
+                {visible ? "Widoczna" : "Wyłączona"}
+                {!visible && <span className={styles.detail}>{visibilityReason(company)}</span>}
+              </span>
+            </span>
           </dd>
         </div>
         <div>

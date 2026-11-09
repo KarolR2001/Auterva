@@ -567,3 +567,117 @@
     width: 100%;
   }
 }
+
+/* TEN-04: read-only service status card */
+.serviceCard {
+  margin-top: var(--space-4);
+  padding: var(--space-6);
+  border: var(--border-width-hairline) solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-default);
+  max-width: 720px;
+  overflow-wrap: anywhere;
+}
+
+.serviceHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.serviceTitle {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-24);
+  line-height: var(--line-height-30);
+  font-weight: var(--font-weight-semibold);
+}
+
+.serviceRows {
+  margin: 0;
+  display: grid;
+}
+
+.serviceRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  padding: var(--space-4) 0;
+  border-top: var(--border-width-hairline) solid var(--border-subtle);
+}
+
+.serviceLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-semibold);
+}
+
+.serviceValue {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-16);
+  line-height: var(--line-height-24);
+}
+
+.serviceDetail {
+  color: var(--text-secondary);
+  font-size: var(--font-size-14);
+  line-height: var(--line-height-20);
+  min-width: 0;
+}
+
+.serviceNote {
+  margin: var(--space-4) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-14);
+  line-height: var(--line-height-20);
+}
+
+.serviceHost {
+  display: inline;
+  min-height: 0;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border: var(--border-width-hairline) solid var(--status-success-border);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-medium);
+}
+
+.chipOk {
+  color: var(--status-success-text);
+  background: var(--status-success-surface);
+}
+
+.chipOff {
+  color: var(--status-unavailable-text);
+  background: var(--status-unavailable-surface);
+  border-color: var(--status-unavailable-border);
+}
+
+@media (min-width: 768px) {
+  .serviceRow { grid-template-columns: 200px minmax(0, 1fr); gap: var(--space-4); }
+}
+
+.serviceActions {
+  margin-top: var(--space-4);
+}
