@@ -6,6 +6,14 @@ import { afterAll, expect, test } from "vitest";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { enqueueMail } from "../../src/modules/jobs/outbox";
 
+/**
+ * Real child processes, a real HTTP/WebSocket server or a PostgreSQL migration run in this file; under parallel
+ * ci-local runs (load average far above the core count, #247) they take several times longer than the default 5 s.
+ * The inner waits stay bounded (readiness and state polls, 30 s), so this limit only has to cover them. No assertion
+ * is weakened.
+ */
+const TEST_TIMEOUT_MS = 90_000;
+
 const db = createPrismaClient(process.env.DATABASE_URL ?? "");
 const key = randomBytes(32);
 const organizationId = randomUUID();
@@ -26,7 +34,7 @@ afterAll(async () => {
   await db.organization.deleteMany({ where: { id: organizationId } });
   await db.$disconnect();
   if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
-});
+}, TEST_TIMEOUT_MS);
 
 async function setup() {
   if (server) return;
@@ -83,7 +91,7 @@ function startActualWorker(recipient: string) {
   return child;
 }
 
-function waitMessage(child: ChildProcess, expected: string, timeoutMs = 5_000): Promise<void> {
+function waitMessage(child: ChildProcess, expected: string, timeoutMs = 30_000): Promise<void> {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => { cleanup(); reject(new Error(`Worker did not report ${expected}`)); }, timeoutMs);
     const onMessage = (message: unknown) => {
@@ -96,7 +104,7 @@ function waitMessage(child: ChildProcess, expected: string, timeoutMs = 5_000): 
   });
 }
 
-async function waitStatus(id: string, status: string, timeoutMs = 5_000): Promise<void> {
+async function waitStatus(id: string, status: string, timeoutMs = 30_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if ((await db.job.findUnique({ where: { id }, select: { status: true } }))?.status === status) return;
@@ -121,7 +129,7 @@ test("killed worker after claim and after provider response resumes without dupl
     expect(effects.get(job.id)).toBe(`fixture:${job.id}`);
     expect(attempts.filter((key) => key === job.id)).toHaveLength(hold === "after_claim" ? 1 : 2);
   }
-});
+}, TEST_TIMEOUT_MS);
 
 test("two actual worker entrypoints claim one job once", async () => {
   await setup();
@@ -135,4 +143,4 @@ test("two actual worker entrypoints claim one job once", async () => {
   expect(await db.job.findUniqueOrThrow({ where: { id: job.id } })).toMatchObject({
     status: "SENT", attempts: 1, providerId: `sink:${job.id}`,
   });
-});
+}, TEST_TIMEOUT_MS);

@@ -5,6 +5,14 @@ import { createAuth } from "../../src/lib/auth";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { GET, POST } from "../../src/app/api/auth/[...all]/route";
 
+/**
+ * Real child processes, a real HTTP/WebSocket server or a PostgreSQL migration run in this file; under parallel
+ * ci-local runs (load average far above the core count, #247) they take several times longer than the default 5 s.
+ * The inner waits stay bounded (readiness and state polls, 30 s), so this limit only has to cover them. No assertion
+ * is weakened.
+ */
+const TEST_TIMEOUT_MS = 90_000;
+
 const db = createPrismaClient(process.env.DATABASE_URL ?? "");
 const instance = createAuth(db, true);
 const organizationId = randomUUID();
@@ -33,7 +41,7 @@ beforeAll(async () => {
   await db.user.update({ where: { id: registered.user.id }, data: { role: "ADMIN_FIRMY", organizationId, emailVerified: true } });
   const other = await instance.api.signUpEmail({ body: { name: "Other company fixture", email: otherEmail, password } });
   await db.user.update({ where: { id: other.user.id }, data: { role: "ADMIN_FIRMY", organizationId: otherOrganizationId, emailVerified: true } });
-});
+}, TEST_TIMEOUT_MS);
 
 afterAll(async () => {
   await db.rateLimitEvent.deleteMany();
@@ -45,7 +53,7 @@ afterAll(async () => {
   await db.hostMapping.deleteMany({ where: { hostname: { in: [hostname, otherHostname, publicHost, platformHost] } } });
   await db.organization.deleteMany({ where: { id: { in: [organizationId, otherOrganizationId] } } });
   await db.$disconnect();
-});
+}, TEST_TIMEOUT_MS);
 
 function request(host: string, path: string, body?: object, cookie?: string) {
   const origin = `https://${host}`;
@@ -79,7 +87,7 @@ test("auth HTTP accepts only an active admin host and closes signup/public/other
     if (previous === undefined) delete process.env.AUTERVA_AUTH_PROBE;
     else process.env.AUTERVA_AUTH_PROBE = previous;
   }
-});
+}, TEST_TIMEOUT_MS);
 
 test("a valid company password on the platform host leaves no issued session", async () => {
   const before = await db.session.count({ where: { user: { email } } });
@@ -87,7 +95,7 @@ test("a valid company password on the platform host leaves no issued session", a
   expect(response.status).toBe(401);
   expect(response.headers.getSetCookie()).toEqual([]);
   expect(await db.session.count({ where: { user: { email } } })).toBe(before);
-});
+}, TEST_TIMEOUT_MS);
 
 test("MFA enrollment session is limited to the user's own admin host", async () => {
   const login = await POST(request(hostname, "sign-in/email", { email, password }));
@@ -240,7 +248,7 @@ test("MFA enrollment session is limited to the user's own admin host", async () 
   expect(signOutRace.some((response) => response.status === 200)).toBe(true);
   expect(await db.auditLog.count({ where: { actorId: fixtureUserId, action: "AUTH_LOGOUT" } })).toBe(1);
   expect((await GET(request(hostname, "get-session", undefined, completeCookie))).status).toBe(401);
-});
+}, TEST_TIMEOUT_MS);
 
 test("the public gateway enforces five account failures and twenty source attempts", async () => {
   await db.rateLimitEvent.deleteMany();
@@ -260,7 +268,7 @@ test("the public gateway enforces five account failures and twenty source attemp
   const ipLimit = await POST(request(hostname, "sign-in/email", { email: `unknown-${randomUUID()}@example.test`, password: "Wrong password 9384!" }));
   expect(ipLimit.status).toBe(429);
   expect(Number(ipLimit.headers.get("Retry-After"))).toBeGreaterThan(0);
-});
+}, TEST_TIMEOUT_MS);
 
 test("malformed MFA and failed enrollment passwords consume the shared account budget", async () => {
   await db.rateLimitEvent.deleteMany();
@@ -286,7 +294,7 @@ test("malformed MFA and failed enrollment passwords consume the shared account b
   const blocked = await POST(request(otherHostname, "two-factor/enable", { method: "totp", password }, otherCookie));
   expect(blocked.status).toBe(429);
   expect(Number(blocked.headers.get("Retry-After"))).toBeGreaterThan(0);
-});
+}, TEST_TIMEOUT_MS);
 
 test("login with a recovery code revokes earlier sessions and requires new TOTP enrollment", async () => {
   await db.rateLimitEvent.deleteMany();
@@ -398,4 +406,4 @@ test("login with a recovery code revokes earlier sessions and requires new TOTP 
   }
   const verifiedCookie = [...mergedCookies.values()].join("; ");
   expect((await GET(request(otherHostname, "get-session", undefined, verifiedCookie))).status).toBe(200);
-});
+}, TEST_TIMEOUT_MS);
