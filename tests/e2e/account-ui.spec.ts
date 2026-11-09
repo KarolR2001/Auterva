@@ -190,6 +190,8 @@ test("company admin: reset, account, password change, logout and expired service
     expect(await db.session.count({ where: { userId: registered.user.id } })).toBe(0);
     await page.goBack();
     await expect(page.getByText(email)).toHaveCount(0);
+    // Back may land on the previously cached /admin/ document; any server navigation must send it to login.
+    await page.reload();
     await expect(page).toHaveURL(/\/admin\/login/);
   } finally {
     await clearLocalIpEvents(db);
