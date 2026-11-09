@@ -557,6 +557,7 @@ function AvailablePanelShell({
     <UnsavedChangesDialog
       open={leaveTarget !== null}
       contextLabel={registry.label()}
+      keepsEntry={registry.keepsEntry()}
       onStay={stayOnPage}
       returnFocusRef={returnFocus}
       onDiscard={() => leave(leaveTarget!)}

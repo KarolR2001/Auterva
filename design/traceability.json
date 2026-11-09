@@ -1494,6 +1494,21 @@
         "src/modules/invitations/view-state.ts"
       ],
       "testPaths": ["tests/unit/new-company-form.test.ts", "tests/unit/company-card.test.tsx", "tests/unit/company-domain.test.tsx", "tests/e2e/platform-company-form.spec.ts"]
+    },
+    {
+      "issue": 249,
+      "scope": "Teksty czatu firmy według TEN-11 (podtytuł „Firma · kontakt z Autervą”, status Online, podpis własnych wiadomości nazwą firmy, podpowiedź szkicu) bez zmian logiki; guard niewysłanej wiadomości z etykietą „Wyjdź bez wysyłania”, bo wpis zostaje w storage (odstępstwo od stałych etykiet OVR-13 do decyzji agenta Penpota). Statusy wiadomości tylko Wysłano/Przeczytano (C-F121). Porównanie z Penpotem DEFERRED (#263).",
+      "relatedRequirementIds": ["C-F121", "C-F122", "C-F132", "C-F133", "DS-N09"],
+      "referenceScreenIds": ["TEN-11", "OVR-13"],
+      "codePaths": [
+        "src/components/chat/chat-panel.tsx",
+        "src/components/chat/chat.module.css",
+        "src/app/admin/czat/page.tsx",
+        "src/components/panel/unsaved-changes-dialog.tsx",
+        "src/components/panel/unsaved-changes-guard.tsx",
+        "src/components/panel/panel-shell.tsx"
+      ],
+      "testPaths": ["tests/unit/chat-panel.test.tsx"]
     }
   ],
   "sources": [
