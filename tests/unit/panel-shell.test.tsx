@@ -704,3 +704,21 @@ describe("ochrona niezapisanych zmian w shellu (OVR-13)", () => {
     expect(unload.defaultPrevented).toBe(false);
   });
 });
+
+describe("awatar w topbarze (#14)", () => {
+  it("aria-expanded awatara odzwierciedla otwarte menu i wraca po zamknięciu", async () => {
+    const user = userEvent.setup();
+    render(
+      <PanelShell area="company" accessState="allowed" title="Panel" currentPath="/admin" onLogout={vi.fn()}>
+        <p>Treść</p>
+      </PanelShell>,
+    );
+    const avatar = screen.getByRole("button", { name: "Menu użytkownika" });
+    expect(avatar).toHaveAttribute("aria-expanded", "false");
+    await user.click(avatar);
+    await waitFor(() => expect(avatar).toHaveAttribute("aria-expanded", "true"));
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(avatar).toHaveAttribute("aria-expanded", "false"));
+    expect(avatar).toHaveFocus();
+  });
+});
