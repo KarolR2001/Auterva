@@ -769,6 +769,23 @@
       "testPaths": ["tests/integration/launch-diagnostics.test.ts"]
     },
     {
+      "issue": 247,
+      "scope": "Deterministyczne testy integracyjne z procesami potomnymi, serwerem HTTP/WebSocket i migracją pod obciążeniem: jawny, uzasadniony limit testów i hooków oraz ograniczone (30 s) oczekiwania wewnętrzne na gotowość, bez osłabiania asercji.",
+      "relatedRequirementIds": ["C-F067", "C-N004", "C-N019"],
+      "referenceScreenIds": [],
+      "codePaths": [],
+      "testPaths": [
+        "tests/integration/jobs-process.test.ts",
+        "tests/integration/audit-retention-process.test.ts",
+        "tests/integration/audit-export.test.ts",
+        "tests/integration/audit-retention.test.ts",
+        "tests/integration/media-decode.test.ts",
+        "tests/integration/auth-http.test.ts",
+        "tests/integration/chat-realtime.test.ts",
+        "tests/integration/backup-restore.test.ts"
+      ]
+    },
+    {
       "issue": 23,
       "scope": "Cykl domeny własnej (własność TXT, CNAME, adresy publiczne, TLS i routing), osobny host panelu i neutralny nieznany host, przekierowanie aliasu po bramce widoczności; provisioning DNS/TLS i cykliczna kontrola w #10/#58.",
       "relatedRequirementIds": ["C-F004", "C-F086", "C-F087", "C-F088", "C-F089", "C-N008", "C-N024", "C-N058"],
