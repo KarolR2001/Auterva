@@ -12,8 +12,8 @@ export type PublicBrand = { name: string; logo: { urls: { large: string }; alt: 
 export type PublicContact = { kind: string; value: string; href: string }[];
 
 export function LinkButton({ href, children, variant = "primary", fill = false, className }:
-  { href: string; children: ReactNode; variant?: "primary" | "secondary"; fill?: boolean; className?: string }) {
-  return <a href={href} className={[styles.linkButton, variant === "primary" ? styles.linkButtonPrimary : styles.linkButtonSecondary,
+  { href: string; children: ReactNode; variant?: "primary" | "secondary" | "inverse"; fill?: boolean; className?: string }) {
+  return <a href={href} className={[styles.linkButton, variant === "primary" ? styles.linkButtonPrimary : variant === "inverse" ? styles.linkButtonInverse : styles.linkButtonSecondary,
     fill && styles.fill, className].filter(Boolean).join(" ")}>{children}</a>;
 }
 

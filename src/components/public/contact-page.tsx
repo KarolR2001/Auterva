@@ -13,9 +13,9 @@ import { serializeJsonLd } from "@/modules/public-offer/seo";
 type Contact = NonNullable<Awaited<ReturnType<typeof getPublicContact>>>;
 
 const channelInfo = {
-  PHONE: { label: "Telefon", action: "Zadzwoń", Icon: Phone },
-  WHATSAPP: { label: "WhatsApp", action: "Napisz na WhatsApp", Icon: MessageCircle },
-  EMAIL: { label: "E-mail", action: "Napisz e-mail", Icon: Mail },
+  PHONE: { label: "Telefon", action: "Zadzwoń teraz", lead: "Zadzwoń", Icon: Phone },
+  WHATSAPP: { label: "WhatsApp", action: "Otwórz WhatsApp →", lead: "Napisz na WhatsApp", Icon: MessageCircle },
+  EMAIL: { label: "E-mail", action: "Napisz e-mail", lead: "Napisz e-mail", Icon: Mail },
 } as const;
 
 function Block({ title, icon, children }: { title: string; icon?: ReactNode; children: ReactNode }) {
@@ -40,10 +40,13 @@ export function ContactPage({ contact, brand, header, termsAvailable }: { contac
   return (
     <PublicPage brand={brand} contact={header} range={headerRange}>
       <div className={styles.container}>
-        <h1 className={styles.title}>Kontakt</h1>
-        <p className={styles.lead}>
-          Skontaktuj się z {contact.name}, aby ustalić szczegóły wynajmu. Ta strona nie rezerwuje terminu ani nie zapisuje Twoich danych.
-        </p>
+        <header className={styles.hero}>
+          <p className={styles.eyebrow}>Kontakt</p>
+          <h1 className={styles.title}>Porozmawiajmy o właściwym samochodzie</h1>
+          <p className={styles.lead}>
+            Skontaktuj się z {contact.name}, aby ustalić szczegóły wynajmu. Ta strona nie rezerwuje terminu ani nie zapisuje Twoich danych.
+          </p>
+        </header>
 
         {message.vehicle || range ? (
           <section className={styles.context} aria-labelledby="context-title">
@@ -66,15 +69,16 @@ export function ContactPage({ contact, brand, header, termsAvailable }: { contac
         {channels.length > 0 ? (
           <ul className={styles.channels} aria-label="Kanały kontaktu">
             {channels.map((channel) => {
-              const { label, action, Icon } = channelInfo[channel.kind as keyof typeof channelInfo];
+              const { label, action, lead, Icon } = channelInfo[channel.kind as keyof typeof channelInfo];
               return (
-                <li key={channel.kind} className={styles.channel}>
+                <li key={channel.kind} className={channel.preferred ? `${styles.channel} ${styles.channelPreferred}` : styles.channel}>
                   <p className={styles.channelHead}><Icon aria-hidden="true" size={20} /><span>{label}</span>
                     {channel.preferred ? <span className={styles.badge}><Star aria-hidden="true" size={12} />Preferowany kanał</span> : null}
                   </p>
+                  {channel.preferred ? <p className={styles.channelLead}>{lead} — odpowiadamy najszybciej</p> : null}
                   <p className={styles.channelValue}>{channel.value}</p>
                   <div className={styles.channelActions}>
-                    <LinkButton href={channel.href} variant={channel.preferred ? "primary" : "secondary"}>{action}</LinkButton>
+                    <LinkButton href={channel.href} variant={channel.preferred ? "inverse" : "secondary"}>{action}</LinkButton>
                     <CopyButton value={channel.value} label={`Kopiuj: ${label} ${channel.value}`} />
                   </div>
                 </li>
@@ -88,12 +92,21 @@ export function ContactPage({ contact, brand, header, termsAvailable }: { contac
           </StateBlock>
         )}
 
+        {!message.vehicle && !range ? (
+          <section className={styles.prepare} aria-labelledby="prepare-title">
+            <h2 id="prepare-title" className={styles.blockTitle}>Przygotuj do rozmowy</h2>
+            <p className={styles.hint}>Zapytanie o pojazd najlepiej wysłać z nazwą pojazdu i terminem. Firma potwierdza dostępność po kontakcie; to nie jest rezerwacja.</p>
+            <a href={catalogLink} className={styles.link}>Wybierz pojazd i termin w ofercie</a>
+          </section>
+        ) : null}
+
         <div className={styles.blocks}>
           {hours ? <Block title="Godziny kontaktu" icon={<Clock aria-hidden="true" size={20} />}><p className={styles.pre}>{hours}</p></Block> : null}
           {place.length > 0 ? (
             <Block title="Adres" icon={<MapPin aria-hidden="true" size={20} />}>
+              <div className={styles.mapArt} aria-hidden="true"><MapPin size={28} /></div>
               <address className={styles.address}>{place.map((line) => <span key={line}>{line}</span>)}</address>
-              {map ? <a href={map} className={styles.link} rel="noopener noreferrer">Zobacz na mapie</a> : null}
+              {map ? <a href={map} className={styles.link} rel="noopener noreferrer">Otwórz w mapach</a> : null}
             </Block>
           ) : null}
           {availabilityNotice ? <Block title="Dostępność"><p className={styles.pre}>{availabilityNotice}</p></Block> : null}

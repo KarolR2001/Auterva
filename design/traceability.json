@@ -1168,6 +1168,21 @@
       "testPaths": ["tests/unit/contact-legal.test.tsx", "tests/e2e/public-contact.spec.ts"]
     },
     {
+      "issue": 235,
+      "scope": "PUB-04 wygląd po QA #44: hero z eyebrow, ciemna karta preferowanego kanału z nagłówkiem akcji, pozostałe kanały w kartach (desktop 2 kolumny pod pełnoszerokim preferowanym), pełnoszerokie przyciski na mobile, akcje „Zadzwoń teraz”/„Otwórz WhatsApp →”/„Otwórz w mapach”, dekoracyjna grafika mapy, blok „Przygotuj do rozmowy” bez kontekstu; komunikat po kopiowaniu i temat e-maila bez nowej linii. Logika kontaktu bez zmian. Porównanie z Penpotem PUB-04 M/D nie wykonane w tym przebiegu (wtyczka Penpot uśpiona, timeout); oparte na eksportach i opisie QA #44 oraz SPEC 9.4. Makieta ma też „Obszar odbioru” i obszar działania: brak pola w DTO, nie dodano (osobna decyzja).",
+      "relatedRequirementIds": ["C-F106", "FR-PUB-030", "FR-PUB-031", "FR-PUB-032"],
+      "referenceScreenIds": ["PUB-04"],
+      "codePaths": [
+        "src/components/public/contact-page.tsx",
+        "src/components/public/contact.module.css",
+        "src/components/public/copy-button.tsx",
+        "src/components/public/public-chrome.tsx",
+        "src/components/public/public.module.css",
+        "src/modules/public-offer/read.ts"
+      ],
+      "testPaths": ["tests/unit/contact-legal.test.tsx", "tests/e2e/public-contact.spec.ts"]
+    },
+    {
       "issue": 45,
       "scope": "MKT-01 marketingowy onepage Autervy na hoście MARKETING (SSR, metadane i canonical, kontakt nieaktywny do czasu prawdziwych danych); materiały AUT-01–05 jako DEMO (D-17).",
       "relatedRequirementIds": ["C-F001", "C-F019", "C-F020", "C-F021", "C-F138", "C-F139", "C-F140", "C-F141", "C-F142", "C-R018", "DS-N22", "DS-N23"],
