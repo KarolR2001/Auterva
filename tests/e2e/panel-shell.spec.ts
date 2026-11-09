@@ -75,7 +75,7 @@ test("nieznana ścieżka panelu: shell z powrotem do startu dla autoryzowanej se
 });
 
 // 320 px with a very long company name: the topbar truncates the title (ellipsis) and the page does not scroll sideways.
-test("panel firmy 320 px: długa nazwa firmy nie powoduje poziomego przewijania", async ({ page, context, baseURL }) => {
+test("panel firmy 320 i 390 px: długa nazwa firmy bez poziomego przewijania i bez nakładania okruszka", async ({ page, context, baseURL }) => {
   if (!baseURL) throw new Error("Missing trusted ingress URL");
   const db = createPrismaClient(process.env.DATABASE_URL ?? "");
   const tag = randomUUID().slice(0, 8);
@@ -93,14 +93,21 @@ test("panel firmy 320 px: długa nazwa firmy nie powoduje poziomego przewijania"
     session = await verifiedFixtureSession(db, userId);
     const [name, ...value] = session.cookie.split("=");
     await context.addCookies([{ name, value: value.join("="), url: origin }]);
-    await page.setViewportSize({ width: 320, height: 700 });
-    for (const path of ["/admin/", "/admin/pojazdy/"]) {
-      await page.goto(`${origin}${path}`);
-      await expect(page.getByRole("button", { name: "Menu użytkownika" })).toBeVisible();
-      expect(await page.evaluate(() => document.documentElement.scrollWidth), path).toBeLessThanOrEqual(320);
-      // The profile trigger stays fully inside the viewport.
-      const box = await page.getByRole("button", { name: "Menu użytkownika" }).boundingBox();
-      expect(box!.x + box!.width, path).toBeLessThanOrEqual(320);
+    for (const width of [320, 390]) {
+      await page.setViewportSize({ width, height: 800 });
+      for (const path of ["/admin/", "/admin/pojazdy/"]) {
+        const at = `${width}px ${path}`;
+        await page.goto(`${origin}${path}`);
+        await expect(page.getByRole("button", { name: "Menu użytkownika" })).toBeVisible();
+        expect(await page.evaluate(() => document.documentElement.scrollWidth), at).toBeLessThanOrEqual(width);
+        // On mobile the "Panel" breadcrumb root is hidden, so it cannot overlap the truncated title.
+        const root = page.locator("nav[aria-label='Okruszki'] li").first();
+        await expect(root, at).toBeHidden();
+        const title = await page.locator("nav[aria-label='Okruszki'] h1").boundingBox();
+        const trigger = await page.getByRole("button", { name: "Menu użytkownika" }).boundingBox();
+        expect(title!.x + title!.width, at).toBeLessThanOrEqual(trigger!.x);
+        expect(trigger!.x + trigger!.width, at).toBeLessThanOrEqual(width);
+      }
     }
   } finally {
     if (session) await session.dispose();
