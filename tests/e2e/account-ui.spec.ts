@@ -271,6 +271,8 @@ test("superadmin: account on the platform host only, name saved, MFA actions wit
     await page.getByLabel("Kod z aplikacji").fill(totp.generate({ timestamp: Date.now() + 30_000 }));
     await page.getByRole("button", { name: "Zakończ tę sesję" }).click();
     await expect(page.getByText("Zakończono 1 sesję.")).toBeVisible();
+    // The opener and the confirmation are gone: focus must land on the notice, not on <body>.
+    await expect(page.locator('[role="status"][tabindex="-1"]')).toBeFocused();
     await expect(page.getByRole("button", { name: /Zakończ sesję:/ })).toHaveCount(0);
     expect(await db.session.count({ where: { userId: superadminId } })).toBe(before - 1);
     await other.dispose();

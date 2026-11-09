@@ -65,7 +65,7 @@ function paths(area: AuthArea) {
 }
 
 /** The server decides: wrong password and a revoked session both answer 401, so ask the session. */
-async function sessionAlive(): Promise<boolean | "unknown"> {
+export async function sessionAlive(): Promise<boolean | "unknown"> {
   try {
     const response = await fetch("/api/auth/get-session/", {
       credentials: "same-origin",

@@ -10,6 +10,7 @@ import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
 import { FormField } from "../ui/form-field";
 import { TextInput } from "../ui/text-input";
+import { sessionAlive } from "./account-view";
 import {
   classifyEnd, deviceLabel, endBody, endConfirmedByList, formatWhen, orderSessions, otherSessions, reauthBody,
   targetDescription, type EndTarget, type ProofMethod, type SessionDto,
@@ -35,19 +36,24 @@ export function SessionsView({ area }: { area: AuthArea }) {
   const [hasProof, setHasProof] = useState(false);
   const confirmation = useRef<HTMLDivElement>(null);
   const opener = useRef<HTMLElement | null>(null);
+  const noticeRegion = useRef<HTMLDivElement>(null);
+
+  const toLogin = useCallback(() => {
+    window.location.replace(`${login}?returnTo=${encodeURIComponent(account)}&session=expired`);
+  }, [account, login]);
 
   const load = useCallback(async (): Promise<SessionDto[] | null> => {
     try {
       const response = await fetch("/api/auth/sessions/", { credentials: "same-origin", cache: "no-store" });
       if (response.status === 401 || response.status === 403) {
-        window.location.replace(`${login}?returnTo=${encodeURIComponent(account)}&session=expired`);
+        toLogin();
         return null;
       }
       if (!response.ok) return null;
       const body = (await response.json()) as { sessions?: SessionDto[] };
       return Array.isArray(body.sessions) ? orderSessions(body.sessions) : null;
     } catch { return null; }
-  }, [account, login]);
+  }, [toLogin]);
 
   const refresh = useCallback(async () => {
     setPhase((current) => (current === "ready" ? current : "loading"));
@@ -77,6 +83,18 @@ export function SessionsView({ area }: { area: AuthArea }) {
     requestAnimationFrame(() => opener.current?.focus());
   }
 
+  /** The opener and the confirmation vanish after a finished action: keep the keyboard user in the notice. */
+  function focusNotice() {
+    requestAnimationFrame(() => noticeRegion.current?.focus());
+  }
+
+  /** 401 also answers a revoked or archived session: ask the session before blaming the code. */
+  async function sessionLost(): Promise<boolean> {
+    if ((await sessionAlive()) !== false) return false;
+    toLogin();
+    return true;
+  }
+
   async function confirmEnd() {
     if (!target || busy) return;
     setBusy(true);
@@ -90,6 +108,7 @@ export function SessionsView({ area }: { area: AuthArea }) {
         try { reauth = await postAuth("mfa/reauth", body); } catch { reauth = null; }
         const issued = reauth?.data.proof;
         if (!reauth || !reauth.response.ok || typeof issued !== "string" || !/^[a-f0-9]{64}$/.test(issued)) {
+          if (reauth?.response.status === 401 && (await sessionLost())) return;
           setCodeError(!reauth ? "Nie udało się połączyć. Nic nie zostało zakończone."
             : reauth.response.status === 429 ? "Za dużo prób. Poczekaj chwilę i spróbuj ponownie."
             : reauth.response.status >= 500 ? "Usługa chwilowo niedostępna. Nic nie zostało zakończone."
@@ -107,6 +126,7 @@ export function SessionsView({ area }: { area: AuthArea }) {
         status = result.response.status; data = result.data; retryAfter = result.response.headers.get("Retry-After");
       } catch { status = null; }
       const outcome = classifyEnd(status, data, retryAfter);
+      if (outcome.kind === "proof-rejected" && (await sessionLost())) return;
       const before = sessions;
       if (outcome.kind === "ended" || outcome.kind === "already-gone") {
         const after = await refresh();
@@ -117,11 +137,13 @@ export function SessionsView({ area }: { area: AuthArea }) {
           ? { tone: "success", title: outcome.ended === 1 ? "Zakończono 1 sesję." : `Zakończono sesje: ${outcome.ended}.`,
               text: after ? "Lista pokazuje stan potwierdzony przez serwer." : "Nie udało się odświeżyć listy — odśwież ją przyciskiem." }
           : { tone: "info", title: "Ta sesja była już zakończona.", text: "Lista została odświeżona." });
+        focusNotice();
       } else if (outcome.kind === "uncertain") {
         const after = await load();
         if (after && endConfirmedByList(target, before, after)) {
           setSessions(after); proof.current = null; setHasProof(false); setTarget(null);
           setNotice({ tone: "success", title: "Sesja została zakończona.", text: "Potwierdzone odczytem listy z serwera." });
+          focusNotice();
         } else {
           if (after) setSessions(after);
           setNotice({ tone: "error", title: "Nie wiemy, czy sesja została zakończona.",
@@ -156,7 +178,7 @@ export function SessionsView({ area }: { area: AuthArea }) {
       <h1 className={styles.title}>Aktywne sesje</h1>
       <p>Widzisz wyłącznie sesje własnego konta. Adres IP i dane przeglądarki poza nazwą urządzenia nie są pokazywane.</p>
 
-      <div role="status" aria-live="polite">
+      <div ref={noticeRegion} tabIndex={-1} role="status" aria-live="polite">
         {notice && <Alert tone={notice.tone} title={notice.title}>{notice.text}</Alert>}
       </div>
 
@@ -202,7 +224,8 @@ export function SessionsView({ area }: { area: AuthArea }) {
       )}
 
       {target && description && (
-        <section ref={confirmation} className={styles.card} aria-labelledby="end-title" role="group">
+        <section ref={confirmation} className={styles.card} aria-labelledby="end-title" role="group"
+          onKeyDown={(event) => { if (event.key === "Escape" && !busy) { event.stopPropagation(); close(); } }}>
           <h2 id="end-title">{description.title}</h2>
           <p>{description.effect}</p>
           <p>Potwierdź to świeżym kodem MFA. Dowód jest jednorazowy, ważny 5 minut i dotyczy tylko kończenia sesji.</p>

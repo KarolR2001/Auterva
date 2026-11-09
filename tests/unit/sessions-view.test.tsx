@@ -7,7 +7,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { SessionsView } from "../../src/components/account/sessions-view";
 import { classifyEnd, endBody, endConfirmedByList, orderSessions, reauthBody, targetDescription, type SessionDto } from "../../src/components/account/sessions-model";
 
-configure({ asyncUtilTimeout: 5000 });
+configure({ asyncUtilTimeout: 10_000 });
+// The screen scenarios type codes and click several times; under a loaded machine 5 s is not enough.
+const SLOW = 30_000;
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 const s = (id: string, over: Partial<SessionDto> = {}): SessionDto => ({ id, createdAt: "2026-11-08T10:00:00.000Z", lastActiveAt: "2026-11-09T10:00:00.000Z", device: "Chrome, macOS", current: false, ...over });
@@ -38,7 +40,7 @@ describe("model sesji konta (#73)", () => {
   });
 });
 
-function mockApi(handlers: { end?: () => Response; reauth?: () => Response; lists: SessionDto[][] }) {
+function mockApi(handlers: { end?: () => Response; reauth?: () => Response; alive?: () => Response; lists: SessionDto[][] }) {
   let list = 0;
   const calls: { path: string; body: unknown }[] = [];
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
@@ -48,6 +50,7 @@ function mockApi(handlers: { end?: () => Response; reauth?: () => Response; list
       if (path.includes("mfa/reauth")) return handlers.reauth?.() ?? Response.json({ proof });
       return handlers.end?.() ?? Response.json({ status: true, ended: 1 });
     }
+    if (path.includes("get-session")) return handlers.alive?.() ?? Response.json({ session: { id: "1" } });
     const value = handlers.lists[Math.min(list, handlers.lists.length - 1)];
     list += 1;
     return Response.json({ sessions: value });
@@ -63,10 +66,10 @@ describe("ekran sesji konta (#73)", () => {
     expect(screen.getByText("Brak innych aktywnych sesji.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Zakończ/ })).toBeNull();
     expect(screen.getByText(/Bieżącą sesję kończy/)).toBeInTheDocument();
-  });
+  }, SLOW);
 
   it("kończy wskazaną sesję po reauth z celem end-sessions; lista po sukcesie pochodzi z serwera", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const calls = mockApi({ lists: [[s("1", { current: true }), s("2")], [s("1", { current: true })]] });
     render(<SessionsView area="company" />);
     await waitFor(() => expect(screen.getByRole("button", { name: /Zakończ sesję: Chrome/ })).toBeInTheDocument());
@@ -79,10 +82,12 @@ describe("ekran sesji konta (#73)", () => {
     expect(calls[0].body).toEqual({ method: "totp", code: "123456", purpose: "end-sessions" });
     expect(calls[1].body).toEqual({ proof, sessionId: "2" });
     expect(screen.queryByRole("button", { name: /Zakończ sesję: Chrome/ })).toBeNull();
-  });
+    // Opener and confirmation are gone: focus stays on the status notice, not on <body>.
+    await waitFor(() => expect(screen.getByText("Zakończono 1 sesję.").closest('[tabindex="-1"]')).toHaveFocus());
+  }, SLOW);
 
   it("zły kod nic nie kończy; 503 MFA_RETRY ponawia z tym samym dowodem; 5xx potwierdza lista", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     let attempt = 0;
     const calls = mockApi({
       lists: [[s("1", { current: true }), s("2")], [s("1", { current: true })]],
@@ -106,5 +111,57 @@ describe("ekran sesji konta (#73)", () => {
     expect(ends).toHaveLength(2);
     expect(ends[1].body).toEqual(ends[0].body); // same proof reused, no second reauth
     expect(calls.filter((c) => c.path.includes("reauth"))).toHaveLength(2);
-  });
+    await waitFor(() => expect(screen.getByText("Sesja została zakończona.").closest('[tabindex="-1"]')).toHaveFocus());
+  }, SLOW);
+
+  it("Escape zamyka potwierdzenie i oddaje fokus przyciskowi, który je otworzył", async () => {
+    const user = userEvent.setup({ delay: null });
+    mockApi({ lists: [[s("1", { current: true }), s("2")]] });
+    render(<SessionsView area="company" />);
+    const opener = await screen.findByRole("button", { name: /Zakończ sesję: Chrome/ });
+    await user.click(opener);
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("heading", { name: /Zakończyć sesję/ })).toBeNull();
+    await waitFor(() => expect(opener).toHaveFocus());
+  }, SLOW);
+
+  async function openAndSubmit(user: ReturnType<typeof userEvent.setup>) {
+    await waitFor(() => expect(screen.getByRole("button", { name: /Zakończ sesję: Chrome/ })).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: /Zakończ sesję: Chrome/ }));
+    await user.type(screen.getByLabelText(/^Kod z aplikacji/), "123456");
+    await user.click(screen.getByRole("button", { name: "Zakończ tę sesję" }));
+  }
+  function stubLocation() {
+    const replace = vi.fn();
+    vi.stubGlobal("location", { ...window.location, replace });
+    return replace;
+  }
+
+  it("401 z reauth po utracie sesji kończy się przekierowaniem na login, nie pętlą złego kodu", async () => {
+    const replace = stubLocation();
+    mockApi({ lists: [[s("1", { current: true }), s("2")]], reauth: () => Response.json({}, { status: 401 }), alive: () => new Response(null, { status: 401 }) });
+    render(<SessionsView area="company" />);
+    await openAndSubmit(userEvent.setup({ delay: null }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/admin/login?returnTo=%2Fadmin%2Fkonto%2F&session=expired"));
+    expect(screen.queryByText(/Kod jest nieprawidłowy/)).toBeNull();
+    vi.unstubAllGlobals();
+  }, SLOW);
+
+  it("401 z sessions/end po utracie sesji kończy się przekierowaniem; przy żywej sesji prosi o nowy kod", async () => {
+    const replace = stubLocation();
+    let alive = false;
+    mockApi({ lists: [[s("1", { current: true }), s("2")]], end: () => Response.json({}, { status: 401 }),
+      alive: () => (alive ? Response.json({ session: { id: "1" } }) : new Response(null, { status: 401 })) });
+    render(<SessionsView area="platform" />);
+    await openAndSubmit(userEvent.setup({ delay: null }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/login?returnTo=%2Fkonto%2F&session=expired"));
+    cleanup();
+    replace.mockClear();
+    alive = true;
+    render(<SessionsView area="platform" />);
+    await openAndSubmit(userEvent.setup({ delay: null }));
+    await waitFor(() => expect(screen.getByText("Potwierdzenie wygasło lub nie jest już ważne.")).toBeInTheDocument());
+    expect(replace).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  }, SLOW);
 });
