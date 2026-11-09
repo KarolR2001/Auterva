@@ -101,10 +101,12 @@ describe("czat firmy (#52)", () => {
     expect(screen.getByText("Alfa Rent", { selector: "p" })).toBeInTheDocument(); // own message signed with the company
     expect(screen.queryByText("Ty", { exact: true })).toBeNull();
     expect(screen.getByText(/Szkic Alfa Rent · odbiorca: Auterva/)).toBeInTheDocument();
-    expect(screen.queryByText("Online")).toBeNull(); // not before the live channel is up
+    // The shell's network chip (#56) also says "Online"; only the chat's own status is meant here.
+    const chatOnline = () => screen.queryAllByText("Online").filter((node) => !node.closest("[data-online]"));
+    expect(chatOnline()).toHaveLength(0); // not before the live channel is up
     await waitFor(() => expect(FakeSocket.instances).toHaveLength(1));
     act(() => FakeSocket.instances[0].emit({ type: "ready", protocol: 1, conversationId: "conv-1", cursor: "cur-1", backlog: "none", state }));
-    expect(screen.getByText("Online")).toBeInTheDocument();
+    expect(chatOnline()).toHaveLength(1);
     expect(screen.getByText(/Wysłano/)).toBeInTheDocument();
     expect(screen.queryByText(/Dostarczono/)).toBeNull();
   });
