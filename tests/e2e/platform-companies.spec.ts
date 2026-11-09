@@ -79,7 +79,7 @@ test("superadmin: search, card, period save, version conflict and archive keep o
     await page.getByRole("searchbox").fill(marker);
     await expect(page.getByText("Brak firm dla wybranych kryteriów.")).toBeVisible();
     await page.getByRole("checkbox", { name: "Pokaż zarchiwizowane" }).check();
-    await expect(page.getByRole("article").filter({ hasText: marker }).getByText("Zarchiwizowana")).toBeVisible();
+    await expect(page.getByRole("article").filter({ hasText: marker }).getByText("Zarchiwizowana", { exact: true })).toBeVisible();
   } finally {
     await db.auditLog.deleteMany({ where: { organizationId: org } });
     await db.reminderIntent.deleteMany({ where: { organizationId: org } });
