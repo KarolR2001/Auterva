@@ -1252,6 +1252,22 @@
         "src/modules/marketing/metadata.ts"
       ],
       "testPaths": ["tests/unit/marketing-page.test.tsx", "tests/e2e/marketing.spec.ts"]
+    },
+    {
+      "issue": 73,
+      "scope": "ADM-16 aktywne sesje konta (/admin/konto/sesje, /konto/sesje): własne sesje z nieprzejrzystą referencją, bieżąca oznaczona, bez IP i user agenta; zakończenie jednej albo pozostałych po świeżym reauth MFA z celem end-sessions (jeden dowód, ponowienie 503 MFA_RETRY z tym samym dowodem); niepewny wynik 5xx potwierdza dopiero odczyt listy z serwera; sukces tylko po potwierdzeniu serwera.",
+      "relatedRequirementIds": ["C-F043", "FR-ADM-081"],
+      "referenceScreenIds": ["ADM-16", "PLT-10"],
+      "codePaths": [
+        "src/app/admin/konto/sesje/page.tsx",
+        "src/app/konto/sesje/page.tsx",
+        "src/components/account/sessions-page.tsx",
+        "src/components/account/sessions-view.tsx",
+        "src/components/account/sessions-model.ts",
+        "src/components/account/account-view.tsx",
+        "src/components/account/account.module.css"
+      ],
+      "testPaths": ["tests/unit/sessions-view.test.tsx", "tests/e2e/account-ui.spec.ts"]
     }
   ],
   "sources": [

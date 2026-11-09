@@ -340,6 +340,14 @@ export function AccountView({
         </form>
       </section>
 
+      <section className={styles.card} aria-labelledby="account-sessions">
+        <h2 id="account-sessions">Sesje</h2>
+        <p>Zobacz, gdzie konto jest zalogowane, i zakończ wybraną sesję albo wszystkie pozostałe.</p>
+        <Link className={styles.linkButton} href={`${where.account}/sesje/`} prefetch={false}>
+          Aktywne sesje
+        </Link>
+      </section>
+
       <section className={styles.card} aria-labelledby="account-mfa">
         <h2 id="account-mfa">MFA</h2>
         <p className={styles.pill}>

@@ -4,7 +4,7 @@ import { expect, test, type Page } from "@playwright/test";
 import * as OTPAuth from "otpauth";
 import { createAuth } from "../../src/lib/auth";
 import { createPrismaClient } from "../../src/lib/prisma";
-import { ensureControlledFixtureAccess } from "../fixtures/verified-session";
+import { ensureControlledFixtureAccess, verifiedFixtureSession } from "../fixtures/verified-session";
 
 // Reset, account, password change and logout against the built app behind the local ingress.
 test.use({ launchOptions: { args: ["--host-resolver-rules=MAP *.example.test 127.0.0.1"] } });
@@ -252,6 +252,27 @@ test("superadmin: account on the platform host only, name saved, MFA actions wit
     await expect(page.getByRole("link", { name: "Wydaj nowe kody" })).toHaveAttribute("href", /^\/mfa\/?\?returnTo=%2Fkonto&recoverCodes=1$/);
     await page.getByRole("button", { name: "Nie mam obu czynników" }).click();
     await expect(page.getByText(/ręcznej procedury właściciela/)).toBeVisible();
+    // #73: another session of the same account appears; ending it needs a fresh MFA proof and is confirmed by the server.
+    const other = await verifiedFixtureSession(db, superadminId);
+    await page.getByRole("link", { name: "Aktywne sesje" }).click();
+    await expect(page).toHaveURL(urlAt(origin, "/konto/sesje"));
+    await expect(page.getByText("Ta sesja", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Zakończ sesję:/ })).toHaveCount(1);
+    expect(await page.content()).not.toMatch(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/); // no IP address
+    const before = await db.session.count({ where: { userId: superadminId } });
+    await page.getByRole("button", { name: /Zakończ sesję:/ }).click();
+    await expect(page.getByRole("heading", { name: /Zakończyć sesję/ })).toBeVisible();
+    await page.getByLabel("Kod z aplikacji").fill("000000");
+    await page.getByRole("button", { name: "Zakończ tę sesję" }).click();
+    await expect(page.getByText(/Kod jest nieprawidłowy/)).toBeVisible();
+    expect(await db.session.count({ where: { userId: superadminId } })).toBe(before); // a wrong code ends nothing
+    await page.getByLabel("Kod z aplikacji").fill(totp.generate({ timestamp: Date.now() + 30_000 }));
+    await page.getByRole("button", { name: "Zakończ tę sesję" }).click();
+    await expect(page.getByText("Zakończono 1 sesję.")).toBeVisible();
+    await expect(page.getByRole("button", { name: /Zakończ sesję:/ })).toHaveCount(0);
+    expect(await db.session.count({ where: { userId: superadminId } })).toBe(before - 1);
+    await other.dispose();
+    await page.getByRole("link", { name: "Konto", exact: true }).click();
     await page.getByRole("button", { name: "Wyloguj" }).click();
     await expect(page).toHaveURL(urlAt(origin, "/login"));
   } finally {
