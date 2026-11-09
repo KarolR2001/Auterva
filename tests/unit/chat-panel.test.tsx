@@ -97,7 +97,7 @@ describe("czat firmy (#52)", () => {
     renderChat();
     await waitFor(() => expect(screen.getByText("pytanie")).toBeInTheDocument());
     expect(screen.getByText("Alfa Rent · kontakt z Autervą")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Czat z Autervą" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Czat z Autervą" })).toBeInTheDocument();
     expect(screen.getByText("Alfa Rent", { selector: "p" })).toBeInTheDocument(); // own message signed with the company
     expect(screen.queryByText("Ty", { exact: true })).toBeNull();
     expect(screen.getByText(/Szkic Alfa Rent · odbiorca: Auterva/)).toBeInTheDocument();
