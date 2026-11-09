@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import sharp from "sharp";
 import { createPrismaClient } from "../../src/lib/prisma";
@@ -95,6 +95,39 @@ test("settings UI: superadmin saves a section, keeps data on conflict and valida
     expect(await processMediaClaim(db, storage, claim!)).toBe(true);
     await page.getByRole("button", { name: "Odśwież listę" }).click();
     await expect(page.getByRole("heading", { name: "Logo (1 z 1)" })).toBeVisible();
+
+    // Uncertain upload: the server takes the file but the answer is lost; retrying the same file never duplicates it.
+    const heroPath = test.info().outputPath("hero.png");
+    writeFileSync(heroPath, await sharp({ create: { width: 640, height: 400, channels: 3, background: "#446622" } }).png().toBuffer());
+    let dropped = false;
+    await page.route("**/public-media/hero/", async (route) => {
+      if (dropped) return route.continue();
+      dropped = true;
+      await route.fetch();
+      await route.abort("failed");
+    });
+    await page.getByLabel("Wybierz plik: Zdjęcia hero").setInputFiles(heroPath);
+    await expect(page.getByText("Wynik wysyłania jest nieznany")).toBeVisible();
+    await page.getByLabel("Wybierz plik: Zdjęcia hero").setInputFiles(heroPath);
+    await expect.poll(() => db.imageUpload.count({ where: { organizationId: org } })).toBe(2);
+    for (let claimed = await claimNextJob(db, new Date(), 90_000, false, "MEDIA_PROCESS"); claimed;
+      claimed = await claimNextJob(db, new Date(), 90_000, false, "MEDIA_PROCESS")) await processMediaClaim(db, storage, claimed);
+    await page.getByRole("button", { name: "Odśwież listę" }).click();
+    await expect(page.getByRole("heading", { name: "Zdjęcia hero (1 z 5)" })).toBeVisible();
+    expect(await db.publicMedia.count({ where: { organizationId: org, kind: "HERO" } })).toBe(1);
+
+    // Saving one photo keeps the other photo's draft; "Zapisz i wyjdź" saves every edited photo before leaving.
+    await page.getByLabel("Opis alternatywny (Logo 0)").fill("Logo robocze");
+    await page.getByLabel("Opis alternatywny (Zdjęcia hero 0)").fill("Hero robocze");
+    await page.getByRole("button", { name: "Zapisz opis i kolejność" }).nth(1).click();
+    await expect(page.getByText("Zapisano zdjęcie")).toBeVisible();
+    await expect(page.getByLabel("Opis alternatywny (Logo 0)")).toHaveValue("Logo robocze");
+    expect(await db.publicMedia.findFirstOrThrow({ where: { organizationId: org, kind: "HERO" } }).then((row) => row.alt)).toBe("Hero robocze");
+    await page.getByRole("link", { name: "Prezentacja i SEO" }).click();
+    await expect(page.getByRole("alertdialog")).toBeVisible();
+    await page.getByRole("button", { name: "Zapisz i wyjdź" }).click();
+    await expect(page).toHaveURL(/sekcja=prezentacja/);
+    expect(await db.publicMedia.findFirstOrThrow({ where: { organizationId: org, kind: "LOGO" } }).then((row) => row.alt)).toBe("Logo robocze");
 
     // Company admin: read-only values, no save control, logo change goes through chat.
     await context.clearCookies();

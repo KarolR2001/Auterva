@@ -2,7 +2,7 @@ import { CircleAlert, CircleCheck, Info } from "lucide-react";
 
 import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
-import { hasContactChannel, legalStatus, type SettingsSnapshot } from "./settings-model";
+import { hasContactChannel, isHttpsLink, legalStatus, type SettingsSnapshot } from "./settings-model";
 import styles from "./settings.module.css";
 
 const legalLabels = { TEXT: "Treść dodana", LINK: "Link zewnętrzny", MISSING: "Brak" } as const;
@@ -23,9 +23,13 @@ export function LegalStatus({ kind, text, url }: { kind: "privacy" | "terms"; te
       {status === "LINK" && (
         <p>
           Strona publiczna wskaże zewnętrzny dokument:{" "}
-          <a className={styles.link} href={String(url)} target="_blank" rel="noopener noreferrer">
-            {String(url)}
-          </a>
+          {isHttpsLink(String(url)) ? (
+            <a className={styles.link} href={String(url).trim()} target="_blank" rel="noopener noreferrer">
+              {String(url).trim()}
+            </a>
+          ) : (
+            <span>{String(url)} (adres musi zaczynać się od https://)</span>
+          )}
           . Strona prawna nie jest indeksowana bez własnej treści.
         </p>
       )}

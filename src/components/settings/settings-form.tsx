@@ -180,7 +180,11 @@ export function SettingsForm({ snapshot, section }: { snapshot: SettingsSnapshot
   }
 
   function keepMine() {
-    if (conflict?.currentVersion != null) setVersion(conflict.currentVersion);
+    if (conflict?.currentVersion == null) {
+      setNotice({ tone: "error", title: "Nie znamy aktualnej wersji", text: "Wybierz „Wczytaj aktualne dane”, a potem wprowadź zmiany ponownie." });
+      return;
+    }
+    setVersion(conflict.currentVersion);
     setConflict(null);
     setNotice({
       tone: "info",

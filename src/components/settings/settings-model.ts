@@ -137,6 +137,15 @@ export function displayValue(snapshot: SettingsSnapshot, field: FieldDef): strin
   return String(value);
 }
 
+export function isPlausiblePhone(text: string): boolean {
+  const digits = text.replace(/\D/g, "");
+  return /^\+?[0-9][0-9 ()-]{4,23}$/.test(text) && digits.length >= 6 && digits.length <= 15;
+}
+
+export function isHttpsLink(text: string): boolean {
+  return /^https:\/\/\S+$/i.test(text.trim());
+}
+
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** Light client checks for early feedback; the server remains the authority and repeats every rule. */
@@ -148,6 +157,7 @@ export function validate(section: SettingsSection, values: FormValues): Record<s
     const text = value.trim();
     if (field.required && text === "") errors[field.name] = "Wpisz nazwę firmy.";
     else if (field.max && text.length > field.max) errors[field.name] = `Najwyżej ${field.max} znaków.`;
+    else if (field.kind === "phone" && text !== "" && !isPlausiblePhone(text)) errors[field.name] = "Podaj poprawny numer telefonu (6–15 cyfr).";
     else if (field.kind === "email" && text !== "" && !emailPattern.test(text)) errors[field.name] = "Podaj poprawny adres e-mail.";
     else if (field.kind === "link" && text !== "" && !/^https:\/\/\S+$/i.test(text)) errors[field.name] = "Podaj adres zaczynający się od https://.";
     else if (field.kind === "number" && text !== "") {
@@ -215,7 +225,8 @@ export function changedGroups(section: SettingsSection, initial: FormValues, cur
 }
 
 export function legalStatus(text: unknown, url: unknown): "TEXT" | "LINK" | "MISSING" {
-  return typeof text === "string" && text !== "" ? "TEXT" : typeof url === "string" && url !== "" ? "LINK" : "MISSING";
+  const present = (value: unknown) => typeof value === "string" && value.trim() !== "";
+  return present(text) ? "TEXT" : present(url) ? "LINK" : "MISSING";
 }
 
 export function hasContactChannel(snapshot: SettingsSnapshot): boolean {

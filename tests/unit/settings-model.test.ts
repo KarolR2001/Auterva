@@ -90,3 +90,16 @@ describe("klucz zdarzenia", () => {
     }
   });
 });
+
+describe("walidacja pomocnicza", () => {
+  it("telefon po stronie klienta i link https; same spacje to brak treści", async () => {
+    const model = await import("../../src/components/settings/settings-model");
+    expect(model.isPlausiblePhone("+48 600 100 200")).toBe(true);
+    expect(model.isPlausiblePhone("12")).toBe(false);
+    expect(model.isHttpsLink("https://example.test/p")).toBe(true);
+    expect(model.isHttpsLink("javascript:alert(1)")).toBe(false);
+    expect(model.legalStatus("   ", "  ")).toBe("MISSING");
+    const kontakt = { phone: "12", whatsapp: "", email: "", contactChannel: "" };
+    expect(model.validate("kontakt", kontakt).phone).toBeDefined();
+  });
+});

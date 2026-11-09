@@ -4,6 +4,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { createGuardRegistry, UnsavedChangesGuardContext } from "../../src/components/panel/unsaved-changes-guard";
 import { MediaManager } from "../../src/components/settings/media-manager";
 import { SettingsForm } from "../../src/components/settings/settings-form";
 import type { SettingsSnapshot } from "../../src/components/settings/settings-model";
@@ -86,5 +87,92 @@ describe("wygląd publiczny", () => {
     expect(html).toContain("Wynajem aut");
     expect(html).toContain("/api/admin/preview/media/");
     expect(html).not.toMatch(/type="file"|Usuń|Dodaj:|<input/);
+  });
+});
+
+const second = "33333333-3333-4333-8333-333333333333";
+const two: SettingsSnapshot = {
+  ...base,
+  media: [...base.media, { id: second, kind: "BRAND", alt: "Biuro", position: 1, width: 800, height: 600, version: 2 }],
+};
+
+describe("zarządzanie zdjęciami: dane, guard i niepewny upload", () => {
+  it("zapis jednego zdjęcia nie gubi niezapisanych szkiców pozostałych", async () => {
+    const fetchMock = vi.fn()
+      .mockImplementationOnce(() => json(200, { id: "x", version: 5 }))
+      .mockImplementationOnce(() => json(200, { ...two, media: [{ ...two.media[0], alt: "Hala nowa", version: 5 }, two.media[1]] }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<MediaManager snapshot={two} />);
+    const [heroAlt, brandAlt] = screen.getAllByLabelText(/Opis alternatywny/);
+    await user.clear(brandAlt);
+    await user.type(brandAlt, "Biuro robocze");
+    await user.clear(heroAlt);
+    await user.type(heroAlt, "Hala nowa");
+    await user.click(screen.getAllByRole("button", { name: "Zapisz opis i kolejność" })[0]);
+    await screen.findByText("Zapisano zdjęcie");
+    expect(screen.getAllByLabelText(/Opis alternatywny/)[1]).toHaveValue("Biuro robocze");
+    expect(screen.getAllByRole("button", { name: "Zapisz opis i kolejność" })[1]).toBeEnabled();
+  });
+
+  it("guard ma zapis wszystkich zmienionych zdjęć, a porażka przerywa opuszczenie strony", async () => {
+    const fetchMock = vi.fn()
+      .mockImplementationOnce(() => json(200, { id: "x", version: 5 }))
+      .mockImplementationOnce(() => json(409, { code: "SETTINGS_VERSION_CONFLICT", currentVersion: 9 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const registry = createGuardRegistry();
+    const user = userEvent.setup();
+    render(
+      <UnsavedChangesGuardContext.Provider value={registry}>
+        <MediaManager snapshot={two} />
+      </UnsavedChangesGuardContext.Provider>,
+    );
+    expect(registry.hasSave()).toBe(false);
+    const [heroAlt, brandAlt] = screen.getAllByLabelText(/Opis alternatywny/);
+    await user.type(heroAlt, "!");
+    await user.type(brandAlt, "!");
+    expect(registry.state()).toBe("dirty");
+    expect(registry.hasSave()).toBe(true);
+    await expect(registry.save()).rejects.toThrow("MEDIA_SAVE_FAILED");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(await screen.findByText("Nie zapisano wszystkich zdjęć")).toBeInTheDocument();
+    expect(screen.getAllByLabelText(/Opis alternatywny/)[1]).toHaveValue("Biuro!");
+  });
+
+  it("błąd sieci przy uploadzie odświeża listę, mówi o nieznanym wyniku i ponawia z tym samym kluczem", async () => {
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new TypeError("offline"))
+      .mockImplementationOnce(() => json(200, base))
+      .mockImplementationOnce(() => json(200, { state: "READY" }))
+      .mockImplementationOnce(() => json(200, base));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<MediaManager snapshot={base} />);
+    const file = new File([new Uint8Array([1, 2, 3])], "logo.png", { type: "image/png" });
+    const input = screen.getByLabelText("Wybierz plik: Logo");
+    await user.upload(input, file);
+    expect(await screen.findByText("Wynik wysyłania jest nieznany")).toBeInTheDocument();
+    expect(fetchMock.mock.calls[1][0]).toBe(`/api/platform/companies/${org}/settings/`);
+    await user.upload(input, file);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+    const keys = [0, 2].map((index) => ((fetchMock.mock.calls[index] as unknown as [string, RequestInit])[1].headers as Record<string, string>)["Idempotency-Key"]);
+    expect(keys[0]).toMatch(/^[0-9a-f-]{36}$/);
+    expect(keys[1]).toBe(keys[0]);
+  });
+
+  it("5xx też kończy się odczytem listy i komunikatem o nieznanym wyniku, a nowy plik dostaje nowy klucz", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) =>
+      url.endsWith("/settings/") ? json(200, base) : json(503, { code: "MEDIA_BUSY" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<MediaManager snapshot={base} />);
+    const input = screen.getByLabelText("Wybierz plik: Logo");
+    await user.upload(input, new File([new Uint8Array([1])], "a.png", { type: "image/png" }));
+    expect(await screen.findByText("Wynik wysyłania jest nieznany")).toBeInTheDocument();
+    await user.upload(input, new File([new Uint8Array([2, 2])], "b.png", { type: "image/png" }));
+    await waitFor(() => expect(fetchMock.mock.calls.filter((call) => String(call[0]).includes("public-media"))).toHaveLength(2));
+    const posts = fetchMock.mock.calls.filter((call) => String(call[0]).includes("public-media"));
+    const key = (call: unknown[]) => ((call[1] as RequestInit).headers as Record<string, string>)["Idempotency-Key"];
+    expect(key(posts[0])).not.toBe(key(posts[1]));
   });
 });

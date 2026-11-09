@@ -46,24 +46,62 @@ export function MediaManager({ snapshot }: { snapshot: SettingsSnapshot }) {
   const api = `/api/platform/companies/${org}`;
   const previewBase = `${api}/preview`;
 
-  const dirtyIds = Object.keys(drafts).filter((id) => {
-    const item = items.find((entry) => entry.id === id);
-    const draft = drafts[id];
-    return item && (draft.alt !== (item.alt ?? "") || draft.position !== String(item.position ?? 0));
-  });
-  useUnsavedChanges({ dirty: dirtyIds.length > 0, saving: busy !== null, contextLabel: "ustawienia — wygląd publiczny" });
+  const pendingUpload = useRef<{ signature: string; key: string } | null>(null);
 
-  async function refresh(): Promise<boolean> {
+  const isDirty = (item: PublicMediaItem, draft: { alt: string; position: string } | undefined) =>
+    draft !== undefined && (draft.alt !== (item.alt ?? "") || draft.position !== String(item.position ?? 0));
+  const dirtyIds = items.filter((item) => isDirty(item, drafts[item.id])).map((item) => item.id);
+
+  type PatchResult = "ok" | "conflict" | "invalid" | "error";
+  async function patchItem(item: PublicMediaItem, draft: { alt: string; position: string }): Promise<PatchResult> {
+    try {
+      const response = await fetch(`${api}/public-media/${encodeURIComponent(item.id)}/`, {
+        method: "PATCH",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expectedVersion: item.version ?? 0, eventKey: newEventKey(), alt: draft.alt, position: Number(draft.position) }),
+      });
+      if (response.ok) return "ok";
+      if (response.status === 409) return "conflict";
+      return response.status === 400 ? "invalid" : "error";
+    } catch {
+      return "error";
+    }
+  }
+
+  // The guard of the panel shell calls this for "Zapisz i przejdź": every edited photo is saved, any failure aborts leaving.
+  const saveAll = async () => {
+    const edited = items.filter((item) => isDirty(item, drafts[item.id]));
+    for (const item of edited) {
+      const result = await patchItem(item, drafts[item.id]);
+      if (result !== "ok") {
+        setNotice({ tone: "error", title: "Nie zapisano wszystkich zdjęć", text: "Opis lub kolejność zdjęcia nie zostały zapisane. Dane pozostają w formularzu; popraw je i zapisz ponownie." });
+        throw new Error("MEDIA_SAVE_FAILED");
+      }
+    }
+    await refresh();
+  };
+  useUnsavedChanges({
+    dirty: dirtyIds.length > 0,
+    saving: busy !== null,
+    contextLabel: "ustawienia — wygląd publiczny",
+    save: dirtyIds.length > 0 ? saveAll : undefined,
+  });
+
+  // Keeps the drafts of photos the operation did not touch; only the saved or removed photo loses its draft.
+  async function refresh(settled?: string): Promise<boolean> {
     try {
       const response = await fetch(`${api}/settings/`, { credentials: "same-origin", cache: "no-store" });
       if (!response.ok) throw new Error("refresh");
       const latest = (await response.json()) as SettingsSnapshot;
       if (!Array.isArray(latest.media)) throw new Error("refresh");
       setItems(latest.media);
-      setDrafts({});
+      setDrafts((current) => Object.fromEntries(
+        Object.entries(current).filter(([id]) => id !== settled && latest.media.some((item) => item.id === id)),
+      ));
       return true;
     } catch {
-      setNotice({ tone: "error", title: "Nie udało się odświeżyć listy zdjęć", text: "Sprawdź połączenie i spróbuj ponownie." });
+      setNotice({ tone: "error", title: "Nie udało się odświeżyć listy zdjęć", text: "Sprawdź połączenie i spróbuj ponownie. Niezapisane opisy pozostają w formularzu." });
       return false;
     }
   }
@@ -72,24 +110,44 @@ export function MediaManager({ snapshot }: { snapshot: SettingsSnapshot }) {
     if (!file || busy) return;
     if (!accepted.includes(file.type)) return setNotice({ tone: "error", title: "Nieobsługiwany format", text: "Wybierz plik JPEG, PNG lub WebP." });
     if (file.size === 0 || file.size > maxBytes) return setNotice({ tone: "error", title: "Zły rozmiar pliku", text: uploadErrors.IMAGE_TOO_LARGE_OR_EMPTY });
+    // One key per file and attempt: a retry of an uncertain upload reuses it, so the server never stores a duplicate.
+    const signature = `${kind}:${file.name}:${file.size}:${file.lastModified}`;
+    const key = pendingUpload.current?.signature === signature ? pendingUpload.current.key : newEventKey();
+    pendingUpload.current = { signature, key };
     setBusy(`upload-${kind}`);
     setNotice(null);
+    const uncertain = async () => {
+      const refreshed = await refresh();
+      setNotice({
+        tone: "error",
+        title: "Wynik wysyłania jest nieznany",
+        text: refreshed
+          ? "Sprawdź listę: zdjęcie mogło zostać przyjęte. Ponowne wybranie tego samego pliku jest bezpieczne i nie utworzy duplikatu."
+          : "Nie udało się też odczytać listy. Odśwież ją przed ponowieniem; ponowne wybranie tego samego pliku nie utworzy duplikatu.",
+      });
+    };
     try {
       const response = await fetch(`${api}/public-media/${kind.toLowerCase()}/`, {
         method: "POST",
         credentials: "same-origin",
-        headers: { "Content-Type": file.type, "Idempotency-Key": newEventKey() },
+        headers: { "Content-Type": file.type, "Idempotency-Key": key },
         body: file,
       });
-      const body = (await response.json().catch(() => ({}))) as { code?: string; state?: string };
+      const body = (await response.json().catch(() => ({}))) as { code?: string };
       if (response.ok) {
+        pendingUpload.current = null;
         await refresh();
         setNotice(response.status === 202
           ? { tone: "info", title: "Zdjęcie jest przetwarzane", text: "Pojawi się na liście po zakończeniu. Użyj „Odśwież listę”." }
           : { tone: "success", title: "Dodano zdjęcie" });
-      } else setNotice({ tone: "error", title: "Nie udało się dodać zdjęcia", text: uploadErrors[body.code ?? ""] ?? "Spróbuj ponownie." });
+      } else if (response.status >= 500 || response.status === 408) {
+        await uncertain();
+      } else {
+        pendingUpload.current = null;
+        setNotice({ tone: "error", title: "Nie udało się dodać zdjęcia", text: uploadErrors[body.code ?? ""] ?? "Spróbuj ponownie." });
+      }
     } catch {
-      setNotice({ tone: "error", title: "Nie udało się dodać zdjęcia", text: "Sprawdź połączenie i spróbuj ponownie." });
+      await uncertain();
     } finally {
       setBusy(null);
       const input = inputs.current[kind];
@@ -102,24 +160,33 @@ export function MediaManager({ snapshot }: { snapshot: SettingsSnapshot }) {
     setBusy(item.id);
     setNotice(null);
     try {
-      const response = await fetch(`${api}/public-media/${encodeURIComponent(item.id)}/`, {
-        method: init.method,
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ expectedVersion: item.version ?? 0, eventKey: newEventKey(), ...init.body }),
-      });
-      const body = (await response.json().catch(() => ({}))) as { code?: string; fieldErrors?: Record<string, string> };
-      if (response.ok) {
-        await refresh();
+      let result: PatchResult;
+      if (init.method === "PATCH") {
+        result = await patchItem(item, { alt: String(init.body.alt ?? ""), position: String(init.body.position ?? 0) });
+      } else {
+        try {
+          const response = await fetch(`${api}/public-media/${encodeURIComponent(item.id)}/`, {
+            method: "DELETE",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ expectedVersion: item.version ?? 0, eventKey: newEventKey() }),
+          });
+          result = response.ok ? "ok" : response.status === 409 ? "conflict" : response.status === 400 ? "invalid" : "error";
+        } catch {
+          result = "error";
+        }
+      }
+      if (result === "ok") {
+        await refresh(item.id);
         setConfirmDelete(null);
         setNotice({ tone: "success", title: done });
-      } else if (response.status === 409) {
+      } else if (result === "conflict") {
         setNotice({ tone: "error", title: "Zdjęcie zostało zmienione w międzyczasie", text: "Odśwież listę. Twoje wartości nie zostały zapisane, a pola zachowano." });
-      } else if (response.status === 400 && body.fieldErrors) {
-        setNotice({ tone: "error", title: "Popraw dane zdjęcia", text: body.fieldErrors.alt ? "Opis alternatywny jest nieprawidłowy (bez znaczników, do 200 znaków)." : "Kolejność to liczba od 0 do 999." });
-      } else setNotice({ tone: "error", title: "Nie udało się zapisać zmiany", text: "Spróbuj ponownie." });
-    } catch {
-      setNotice({ tone: "error", title: "Nie udało się zapisać zmiany", text: "Sprawdź połączenie i spróbuj ponownie. Pola zachowano." });
+      } else if (result === "invalid") {
+        setNotice({ tone: "error", title: "Popraw dane zdjęcia", text: "Opis alternatywny nie może zawierać znaczników i ma do 200 znaków; kolejność to liczba od 0 do 999." });
+      } else {
+        setNotice({ tone: "error", title: "Nie udało się zapisać zmiany", text: "Sprawdź połączenie i spróbuj ponownie. Pola zachowano." });
+      }
     } finally {
       setBusy(null);
     }
