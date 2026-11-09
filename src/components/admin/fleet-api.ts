@@ -47,6 +47,29 @@ export function listFleet(context: PanelContext, query: FleetQuery, signal?: Abo
   return call<FleetPage>(`${context.apiBase}/vehicles/?${params}`, { signal });
 }
 
+/**
+ * The whole fleet in public order (pages of 100), for operations that must see every vehicle, such as reordering.
+ * Fails as a whole when any page fails, so a caller never works on a partial list.
+ */
+export async function listWholeFleet(context: PanelContext, signal?: AbortSignal): Promise<ApiResult<FleetItem[]>> {
+  const items: FleetItem[] = [];
+  for (let page = 1; ; page += 1) {
+    const result = await listFleet(context, { search: "", status: "", activeToday: "", availableToday: "", page, pageSize: 100 }, signal);
+    if (!result.ok) return result;
+    items.push(...result.data.items);
+    if (page * result.data.pageSize >= result.data.total || result.data.items.length === 0) return { ok: true, data: items };
+  }
+}
+
+/** A 5xx or lost connection can follow a commit at the gateway: the outcome is unknown, never a plain failure (as in #15). */
+export const isUncertain = (result: { status: number }) => result.status === 0 || result.status >= 500;
+
+/**
+ * Entry points that exist as pages. A link to a route that is not shipped yet would be a dead end, so the list and
+ * the dashboard show these actions only when the flag is on (#35 turns the form on, #38 the vehicle calendar).
+ */
+export const routes: { vehicleForm: boolean; vehicleCalendar: boolean } = { vehicleForm: false, vehicleCalendar: false };
+
 export function fleetCount(context: PanelContext, filters: Record<string, string>, signal?: AbortSignal) {
   const params = new URLSearchParams({ page: "1", pageSize: "1", ...filters });
   return call<FleetPage>(`${context.apiBase}/vehicles/?${params}`, { signal });

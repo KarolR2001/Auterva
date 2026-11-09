@@ -104,7 +104,7 @@ describe("serwerowe wejścia paneli", () => {
     const html = renderToStaticMarkup(await AdminPage());
     expect(html).toContain("Firma Alfa");
     expect(html).toContain('aria-label="Nawigacja panelu"');
-    expect(html).toContain("Panel jest w przygotowaniu.");
+    expect(html).toContain("Ładowanie panelu");
     expect(dependencies.findOrganization).toHaveBeenCalledWith({
       where: { id: "firma-alfa" },
       select: { name: true },

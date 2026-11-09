@@ -32,7 +32,9 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
 
     await page.goto(`${base}/admin/pojazdy/`);
     await expect(page.getByRole("heading", { name: "Flota jest pusta" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Dodaj pierwszy pojazd" })).toHaveAttribute("href", "/admin/pojazdy/nowy/");
+    // The vehicle form is not shipped yet (#35): no dead link, an honest hint instead.
+    await expect(page.getByRole("link", { name: "Dodaj pierwszy pojazd" })).toHaveCount(0);
+    await expect(page.getByText("Dodawanie pojazdów jest w przygotowaniu.")).toBeVisible();
     await page.goto(`${base}/admin/`);
     await expect(page.getByRole("heading", { name: "Zacznij od pierwszego pojazdu" })).toBeVisible();
 
@@ -50,27 +52,35 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
     await expect(stats.getByRole("listitem").filter({ hasText: "Opublikowane" })).toContainText("2");
     await expect(stats.getByRole("listitem").filter({ hasText: "Niedostępne dziś" })).toContainText("1");
     await expect(stats.getByRole("listitem").filter({ hasText: "Dostępne dziś" }).first()).toContainText("1");
-    await expect(page.getByRole("link", { name: "Alfa Trzecia" })).toHaveAttribute("href", `/admin/pojazdy/${c}/kalendarz/`);
+    await expect(stats.getByRole("listitem").filter({ hasText: "Blokady w 7 dni" })).toContainText("1");
+    await expect(stats.getByRole("listitem").filter({ hasText: "Aktywne pojazdy" })).toContainText("z 3 w ewidencji");
+    // The vehicle calendar is not shipped yet (#38): the block names the vehicle without a dead link.
+    await expect(page.getByText("Alfa Trzecia")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Alfa Trzecia" })).toHaveCount(0);
+    await expect(page.getByText("Niedostępny", { exact: true })).toBeVisible();
     await expect(page.getByText("Opłacono do")).toBeVisible();
 
     // List: rows in public order, statuses with text, availability today as text.
     await page.goto(`${base}/admin/pojazdy/`);
-    const rows = page.getByRole("list", { name: "Pojazdy" }).getByRole("listitem");
-    await expect(rows.filter({ has: page.getByRole("heading") })).toHaveCount(3);
-    await expect(page.getByRole("heading", { level: 2 })).toHaveText(["Alfa Pierwsza", "Beta Szkic", "Alfa Trzecia"]);
+    const table = page.getByRole("table", { name: "Pojazdy" });
+    await expect(table.getByRole("columnheader")).toHaveText(["Pojazd", "Kategoria", "Publikacja", "Dziś", "Ostatnia zmiana", "Akcje"]);
+    const rows = page.locator("tbody tr");
+    await expect(rows).toHaveCount(3);
+    await expect(page.getByRole("heading", { level: 3 })).toHaveText(["Alfa Pierwsza", "Beta Szkic", "Alfa Trzecia"]);
     await expect(rows.nth(2)).toContainText("Niedostępny dziś");
     await expect(rows.nth(1)).toContainText("Szkic");
+    await expect(rows.nth(1)).toContainText("— Niepubliczny");
 
     // Filters: search, no results and reset.
     await page.getByLabel("Szukaj").fill("alfa");
-    await expect(page.getByRole("heading", { level: 2 })).toHaveText(["Alfa Pierwsza", "Alfa Trzecia"]);
+    await expect(page.getByRole("heading", { level: 3 })).toHaveText(["Alfa Pierwsza", "Alfa Trzecia"]);
     await expect(page.getByRole("button", { name: /Przesuń/ })).toHaveCount(0);
     await page.getByLabel("Szukaj").fill("brak-takiego-pojazdu");
     await expect(page.getByRole("heading", { name: "Brak wyników" })).toBeVisible();
     await page.getByRole("button", { name: "Wyczyść filtry" }).click();
-    await expect(page.getByRole("heading", { level: 2 })).toHaveCount(3);
+    await expect(page.getByRole("heading", { level: 3 })).toHaveCount(3);
     await page.getByLabel("Dostępność dziś").selectOption("false");
-    await expect(page.getByRole("heading", { level: 2 })).toHaveText(["Alfa Trzecia"]);
+    await expect(page.getByRole("heading", { level: 3 })).toHaveText(["Alfa Trzecia"]);
     await page.getByLabel("Dostępność dziś").selectOption("");
 
     // Keyboard order: focus the button, press Enter; the order is the server one after a reload.
@@ -78,9 +88,11 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
     await down.focus();
     await page.keyboard.press("Enter");
     await expect(page.getByText("Zapisano kolejność")).toBeVisible();
-    await expect(page.getByRole("heading", { level: 2 })).toHaveText(["Beta Szkic", "Alfa Pierwsza", "Alfa Trzecia"]);
+    await expect(page.getByRole("heading", { level: 3 })).toHaveText(["Beta Szkic", "Alfa Pierwsza", "Alfa Trzecia"]);
+    // Focus stays on the control of the moved vehicle (not on BODY) after the refreshed list is shown.
+    await expect(page.getByRole("button", { name: "Przesuń „Alfa Pierwsza” w dół" })).toBeFocused();
     await page.reload();
-    await expect(page.getByRole("heading", { level: 2 })).toHaveText(["Beta Szkic", "Alfa Pierwsza", "Alfa Trzecia"]);
+    await expect(page.getByRole("heading", { level: 3 })).toHaveText(["Beta Szkic", "Alfa Pierwsza", "Alfa Trzecia"]);
     expect((await db.vehicle.findMany({ where: { organizationId: org }, orderBy: { sortOrder: "asc" }, select: { id: true } })).map((row) => row.id)).toEqual([b, a, c]);
 
     // Hide: the dialog names this vehicle, Cancel changes nothing, confirm shows the server result and keeps the row.
@@ -89,12 +101,14 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
     const dialog = page.getByRole("dialog");
     await expect(dialog).toContainText("Ukryć pojazd „Alfa Pierwsza”?");
     await dialog.getByRole("button", { name: "Anuluj" }).click();
+    await expect(page.getByRole("button", { name: "Więcej akcji dla „Alfa Pierwsza”" })).toBeFocused();
     expect((await db.vehicle.findUniqueOrThrow({ where: { id: a } })).status).toBe("PUBLISHED");
     await page.getByRole("button", { name: "Więcej akcji dla „Alfa Pierwsza”" }).click();
     await page.getByRole("button", { name: /^Ukryj/ }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Ukryj" }).click();
     await expect(page.getByText("Ukryto pojazd „Alfa Pierwsza”.")).toBeVisible();
     await expect(rows.nth(1)).toContainText("Ukryty");
+    await expect(page.getByRole("button", { name: "Więcej akcji dla „Alfa Pierwsza”" })).toBeFocused();
     expect((await db.vehicle.findUniqueOrThrow({ where: { id: a } })).status).toBe("UNPUBLISHED");
 
     // Archive: history stays, archived has no menu; a stale version is refused with the dialog kept.
@@ -112,6 +126,8 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
     }).toPass();
     await expect(page.getByText("Zarchiwizowano pojazd „Beta Szkic”.")).toBeVisible();
     await expect(page.getByRole("button", { name: "Więcej akcji dla „Beta Szkic”" })).toHaveCount(0);
+    // The archived row has no menu any more: focus moves to its row, never to BODY.
+    await expect(page.locator(`[data-focus="row:${b}"]`)).toBeFocused();
     expect(await db.vehicle.count({ where: { organizationId: org } })).toBe(3);
     expect((await db.vehicle.findUniqueOrThrow({ where: { id: b } })).status).toBe("ARCHIVED");
   } finally {
@@ -119,6 +135,70 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
     await session?.dispose();
     await db.auditLog.deleteMany({ where: { organizationId: org } });
     await db.availabilityBlock.deleteMany({ where: { organizationId: org } });
+    await db.vehicle.deleteMany({ where: { organizationId: org } });
+    await db.vehicleCategory.deleteMany({ where: { id: cat } });
+    await db.serviceAccess.deleteMany({ where: { organizationId: org } });
+    await db.hostMapping.deleteMany({ where: { organizationId: org } });
+    await db.user.deleteMany({ where: { id: user } });
+    await db.organization.deleteMany({ where: { id: org } });
+    await db.$disconnect();
+  }
+});
+
+test("fleet order over several pages and an unknown outcome of hiding", async ({ baseURL, browser }) => {
+  test.setTimeout(90_000);
+  if (!baseURL) throw new Error("Missing trusted ingress URL");
+  const port = Number(new URL(baseURL).port);
+  const db = createPrismaClient(process.env.DATABASE_URL ?? "");
+  const [org, user, cat] = Array.from({ length: 3 }, () => randomUUID());
+  const host = `admin-fleet-pages-${org}.example.test`;
+  const today = availabilityToday();
+  const ids = Array.from({ length: 22 }, (_, n) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`);
+  let session: Awaited<ReturnType<typeof verifiedFixtureSession>> | undefined;
+  const context = await browser.newContext();
+  try {
+    await db.organization.create({ data: { id: org, slug: `admin-fleet-pages-${org}`, name: "Firma Stron E2E", firstAdminRegisteredAt: new Date() } });
+    await db.user.create({ data: { id: user, name: "Fleet pages admin", role: "ADMIN_FIRMY", organizationId: org,
+      email: `admin-fleet-pages-${user}@example.test`, emailVerified: true, twoFactorEnabled: true } });
+    await db.hostMapping.create({ data: { hostname: host, organizationId: org, area: "COMPANY_ADMIN", status: "ACTIVE" } });
+    await db.serviceAccess.create({ data: { organizationId: org, paidThrough: sqlDate(today) } });
+    await db.vehicleCategory.create({ data: { id: cat, code: `afp-${cat.slice(0, 8)}`, name: "Osobowe" } });
+    session = await verifiedFixtureSession(db, user);
+    const [name, value] = session.cookie.split(/=(.*)/s);
+    await context.addCookies([{ name, value, domain: host, path: "/" }]);
+    // 22 vehicles, more than one page of 20, all with the default sortOrder 0 (ties are ordered by id).
+    await db.vehicle.createMany({ data: ids.map((id, n) => ({ id, organizationId: org, categoryId: cat, availableFrom: sqlDate(today), version: 0,
+      name: `V${String(n).padStart(2, "0")}`, slug: `v${n}`, status: "PUBLISHED", sortOrder: 0 })) });
+    const page = await context.newPage();
+    const base = `http://${host}:${port}`;
+    await page.goto(`${base}/admin/pojazdy/`);
+    await expect(page.locator("tbody tr")).toHaveCount(20);
+    const down = page.getByRole("button", { name: "Przesuń „V03” w dół" });
+    await down.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByText("Zapisano kolejność")).toBeVisible();
+    // Only V03 and V04 swapped; vehicles from page 2 did not jump into page 1 and every value is distinct.
+    const stored = await db.vehicle.findMany({ where: { organizationId: org }, orderBy: [{ sortOrder: "asc" }, { id: "asc" }], select: { id: true, name: true, sortOrder: true } });
+    expect(stored.map((row) => row.name)).toEqual(ids.map((_, n) => `V${String(n).padStart(2, "0")}`).map((label) => label === "V03" ? "V04" : label === "V04" ? "V03" : label));
+    expect(new Set(stored.map((row) => row.sortOrder)).size).toBe(22);
+    await expect(page.getByRole("button", { name: "Przesuń „V03” w dół" })).toBeFocused();
+    await page.getByRole("button", { name: "Następna" }).click();
+    await expect(page.locator("tbody tr")).toHaveCount(2);
+
+    // An unknown outcome (502 after the commit may have happened): said plainly, the list is read again.
+    await page.goto(`${base}/admin/pojazdy/`);
+    await page.route("**/api/admin/vehicles/*/unpublish/", (route) => route.fulfill({ status: 502, contentType: "application/json", body: "{}" }));
+    await page.getByRole("button", { name: "Więcej akcji dla „V00”" }).click();
+    await page.getByRole("button", { name: /^Ukryj/ }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Ukryj" }).click();
+    await expect(page.getByText("Nie wiadomo, czy zmiana została zapisana.")).toBeVisible();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Więcej akcji dla „V00”" })).toBeFocused();
+    expect((await db.vehicle.findUniqueOrThrow({ where: { id: ids[0] } })).status).toBe("PUBLISHED");
+  } finally {
+    await context.close();
+    await session?.dispose();
+    await db.auditLog.deleteMany({ where: { organizationId: org } });
     await db.vehicle.deleteMany({ where: { organizationId: org } });
     await db.vehicleCategory.deleteMany({ where: { id: cat } });
     await db.serviceAccess.deleteMany({ where: { organizationId: org } });
