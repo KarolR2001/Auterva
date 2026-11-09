@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs the jobs of .github/workflows/ci.yml locally while the workflow is disabled (D-29, docs/development/CI.md).
 # Usage: scripts/ci-local.sh <LOCAL_PORT_BASE> <results-file>   (run from the repository root of the candidate tree)
-# Resets and then stops this worktree's own fixture; E2E uses ports derived from the base (base+100..102) and a slot semaphore.
+# Resets and then stops this worktree's own fixture; E2E uses ports derived from the base (base+20..22) and a slot semaphore.
 set -uo pipefail
 # Job control gives every step its own process group, so a signal can stop the whole step (and its grandchildren).
 set -m
@@ -47,13 +47,13 @@ step() {
   else res "$name" "FAIL ($LOGDIR/$name.log)"; FAILED=1; fi
 }
 
-# E2E ports come from this worktree's LOCAL_PORT_BASE (base+100..102: production build, dev server, trusted ingress), so
+# E2E ports come from this worktree's LOCAL_PORT_BASE (base+20..22: production build, dev server, trusted ingress; the fixture itself uses base..+7, +10, +11, +101 and +104..+107), so
 # runs of different worktrees never collide on ports (#264). playwright.config.ts reads them from E2E_PORT, E2E_DEV_PORT and
 # E2E_TRUSTED_PORT. Other spots with 3305 (BETTER_AUTH_URL placeholders in the unit step, ci.yml, .env of the fixture) are
 # values, not listeners.
-E2E_PORTS=$((PORT + 100)); E2E_PORT_LIST="$E2E_PORTS $((PORT + 101)) $((PORT + 102))"
-[ "$((PORT + 102))" -le 65535 ] || refuse "LOCAL_PORT_BASE $PORT leaves no room for the E2E ports (base+100..102 must be <= 65535)"
-export E2E_PORT="$E2E_PORTS" E2E_DEV_PORT="$((PORT + 101))" E2E_TRUSTED_PORT="$((PORT + 102))"
+E2E_PORTS=$((PORT + 20)); E2E_PORT_LIST="$E2E_PORTS $((PORT + 21)) $((PORT + 22))"
+[ "$((PORT + 22))" -le 65535 ] || refuse "LOCAL_PORT_BASE $PORT leaves no room for the E2E ports (base+20..22 must be <= 65535)"
+export E2E_PORT="$E2E_PORTS" E2E_DEV_PORT="$((PORT + 21))" E2E_TRUSTED_PORT="$((PORT + 22))"
 
 # The machine is shared, so E2E runs queue on a semaphore of AUTERVA_E2E_SLOTS slots (default 2): directories e2e.slots/<n>
 # in the git common dir (shared by all worktrees), taken with the atomic `mkdir` (macOS has no flock). While

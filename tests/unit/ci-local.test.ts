@@ -151,7 +151,7 @@ test("two runs share the machine: with a free slot left E2E does not wait, and t
     takeSlot(t, 0, holder.pid!, "other run");
     const r = await t.runAsync("27400", t.out);
     expect(r.status).toBe(0);
-    expect(r.stderr).toMatch(/took E2E slot 1 of 2 \(ports 27500 27501 27502\)/);
+    expect(r.stderr).toMatch(/took E2E slot 1 of 2 \(ports 27420 27421 27422\)/);
     expect(r.stderr).not.toMatch(/waiting for an E2E slot/);
     expect(e2eLine(t.out)).toMatch(/PASS/);
     expect(existsSync(slotDir(t, 1))).toBe(false); // ours is released
@@ -264,7 +264,7 @@ test("E2E ports are derived from the worktree base and handed to Playwright", as
     { env: lockEnv("5") });
   const r = await t.runAsync("27400", t.out);
   expect(r.status).toBe(0);
-  expect(readFileSync(join(t.root, "ports"), "utf8").trim()).toBe("27500 27501 27502");
+  expect(readFileSync(join(t.root, "ports"), "utf8").trim()).toBe("27420 27421 27422");
   const high = await setup({}, "exit 0").runAsync("65500", join(tmpdir(), "ci-local-unused2.txt"));
   expect(high.status).toBe(2);
   expect(high.stderr).toMatch(/leaves no room for the E2E ports/);
@@ -293,7 +293,7 @@ test("a terminated run releases its slot and stops servers an E2E child left beh
   echo "$$" > "${"$"}{TMPDIR}/stubpid"; kill -TERM "$(ps -o ppid= -p "$PPID" | tr -d ' ')"; sleep 30
 fi
 exit 0`);
-  const port = 27500;
+  const port = 27420;
   const started = Date.now();
   const r = await t.runAsync("27400", t.out);
   expect(r.status).toBe(143);
@@ -312,7 +312,7 @@ test("E2E waits for foreign listeners on its own ports and fails clearly if they
   busyStub(stays);
   writeFileSync(join(stays.root, "ports-busy"), "");
   const failed = await stays.runAsync("27400", stays.out);
-  expect(failed.stderr).toMatch(/timed out after 3s waiting for E2E ports to free up \(busy: 27500 27501 27502\)/);
+  expect(failed.stderr).toMatch(/timed out after 3s waiting for E2E ports to free up \(busy: 27420 27421 27422\)/);
   expect(e2eLine(stays.out)).toMatch(/FAIL \(E2E slot or ports not available/);
   expect(existsSync(slotDir(stays, 0))).toBe(false); // the slot is released when the ports never freed up
 
