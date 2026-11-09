@@ -7,6 +7,14 @@ import { afterAll, beforeAll, expect, test } from "vitest";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { exportAuditRange, readAuditExport, sweepExpiredAuditExports } from "../../src/modules/audit/operator-export";
 
+/**
+ * Real child processes, a real HTTP/WebSocket server or a PostgreSQL migration run in this file; under parallel
+ * ci-local runs (load average far above the core count, #247) they take several times longer than the default 5 s.
+ * The inner waits stay bounded (readiness and state polls, 30 s), so this limit only has to cover them. No assertion
+ * is weakened.
+ */
+const TEST_TIMEOUT_MS = 90_000;
+
 const db = createPrismaClient(process.env.DATABASE_URL ?? "");
 const now = new Date("2026-10-26T12:00:00.000Z");
 const cutoff = new Date(now.getTime() - 365 * 86_400_000);
@@ -17,14 +25,14 @@ let directory: string;
 
 beforeAll(async () => {
   await mkdir(resolve(".local"), { recursive: true });
-});
+}, TEST_TIMEOUT_MS);
 
 afterAll(async () => {
   await db.auditOperatorExport.deleteMany({ where: { id: { in: exportIds } } });
   await db.auditLog.deleteMany({ where: { id: { in: auditIds } } });
   await db.$disconnect();
   if (directory) await rm(directory, { recursive: true, force: true });
-});
+}, TEST_TIMEOUT_MS);
 
 test("operator export is encrypted, bounded to live rows and removed at the earliest retention end", async () => {
   directory = await mkdtemp(resolve(".local/audit-export-test-"));
@@ -63,7 +71,7 @@ test("operator export is encrypted, bounded to live rows and removed at the earl
   await expect(readAuditExport(db, receipt.id, { now: receipt.expiresAt, key, directory }))
     .rejects.toThrow("AUDIT_EXPORT_EXPIRED");
   expect((await db.auditOperatorExport.findUniqueOrThrow({ where: { id: receipt.id } })).status).toBe("DELETED");
-});
+}, TEST_TIMEOUT_MS);
 
 test("failed and interrupted exports never report READY and are swept", async () => {
   const from = new Date(cutoff.getTime() + 60_000);
@@ -86,7 +94,7 @@ test("failed and interrupted exports never report READY and are swept", async ()
   expect(await sweepExpiredAuditExports(db, { now: new Date(now.getTime() + 5 * 60_000), directory })).toBe(1);
   expect((await db.auditOperatorExport.findUniqueOrThrow({ where: { id: orphan.id } })).status).toBe("DELETED");
   await expect(stat(resolve(directory, orphan.artifactName))).rejects.toMatchObject({ code: "ENOENT" });
-});
+}, TEST_TIMEOUT_MS);
 
 test("sweep cannot remove an export that becomes READY after candidate selection", async () => {
   const ownDirectory = await mkdtemp(resolve(".local/audit-export-race-"));
@@ -121,7 +129,7 @@ test("sweep cannot remove an export that becomes READY after candidate selection
     releaseWriter?.(); releaseSweep?.();
     await rm(ownDirectory, { recursive: true, force: true });
   }
-});
+}, TEST_TIMEOUT_MS);
 
 test("later sweep removes bytes written after a receipt was deleted", async () => {
   const ownDirectory = await mkdtemp(resolve(".local/audit-export-late-"));
@@ -140,11 +148,11 @@ test("later sweep removes bytes written after a receipt was deleted", async () =
   } finally {
     await rm(ownDirectory, { recursive: true, force: true });
   }
-});
+}, TEST_TIMEOUT_MS);
 
 function waitExportMessage(child: ChildProcess, event: string): Promise<{ id: string }> {
   return new Promise((resolveMessage, reject) => {
-    const timeout = setTimeout(() => { cleanup(); reject(new Error(`Exporter did not report ${event}`)); }, 5_000);
+    const timeout = setTimeout(() => { cleanup(); reject(new Error(`Exporter did not report ${event}`)); }, 30_000);
     const onMessage = (message: unknown) => {
       const value = message as { event?: string; id?: string };
       if (value.event === event && value.id) { cleanup(); resolveMessage({ id: value.id }); }
@@ -181,7 +189,7 @@ test("SIGKILL after a late write leaves no READY receipt and next sweep removes 
     child.kill("SIGKILL");
     await rm(ownDirectory, { recursive: true, force: true });
   }
-}, 15_000);
+}, TEST_TIMEOUT_MS);
 
 test("lost READY acknowledgement preserves the committed receipt and its encrypted file", async () => {
   const ownDirectory = await mkdtemp(resolve(".local/audit-export-ack-"));
@@ -205,7 +213,7 @@ test("lost READY acknowledgement preserves the committed receipt and its encrypt
     if (id && !exportIds.includes(id)) exportIds.push(id);
     await rm(ownDirectory, { recursive: true, force: true });
   }
-});
+}, TEST_TIMEOUT_MS);
 
 test("database unavailable while confirming a failed READY write leaves bytes for recovery", async () => {
   const ownDirectory = await mkdtemp(resolve(".local/audit-export-db-failure-"));
@@ -232,4 +240,4 @@ test("database unavailable while confirming a failed READY write leaves bytes fo
     if (id && !exportIds.includes(id)) exportIds.push(id);
     await rm(ownDirectory, { recursive: true, force: true });
   }
-});
+}, TEST_TIMEOUT_MS);

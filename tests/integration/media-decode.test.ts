@@ -4,6 +4,14 @@ import sharp from "sharp";
 import { decodeMedia } from "../../src/modules/media/decode";
 import { defaultRssKb, rssProbe } from "../../src/modules/media/rss";
 
+/**
+ * Real child processes, a real HTTP/WebSocket server or a PostgreSQL migration run in this file; under parallel
+ * ci-local runs (load average far above the core count, #247) they take several times longer than the default 5 s.
+ * The inner waits stay bounded (readiness and state polls, 30 s), so this limit only has to cover them. No assertion
+ * is weakened.
+ */
+const TEST_TIMEOUT_MS = 90_000;
+
 const realProbe = rssProbe.read;
 const realTmp = process.env.TMPDIR;
 afterEach(() => {
@@ -20,40 +28,40 @@ async function slowImage() {
 test("the real RSS probe measures the current process (procfs or ps)", async () => {
   expect(await defaultRssKb(process.pid)).toBeGreaterThan(10_000);
   expect(await defaultRssKb(2 ** 22 + 12_345)).toBeNull();
-});
+}, TEST_TIMEOUT_MS);
 
 test("no RSS measurement refuses to decode instead of running without the limit", async () => {
   const bytes = await sharp({ create: { width: 64, height: 64, channels: 3, background: "#123456" } }).png().toBuffer();
   rssProbe.read = async () => null;
   await expect(decodeMedia(bytes)).rejects.toThrow("MEDIA_DECODER_UNAVAILABLE");
-});
+}, TEST_TIMEOUT_MS);
 
 test("measurement that fails while the decoder runs kills it and is non-final", async () => {
   const bytes = await slowImage();
   let calls = 0;
   rssProbe.read = async () => (calls++ === 0 ? 1_000 : null);
   await expect(decodeMedia(bytes)).rejects.toThrow("MEDIA_DECODER_UNAVAILABLE");
-}, 60_000);
+}, TEST_TIMEOUT_MS);
 
 test("a decoder killed by a foreign signal (OOM-killer) is an environment error, not a verdict on the image", async () => {
   const bytes = await slowImage();
   let calls = 0;
   rssProbe.read = async (pid) => { if (calls++ > 0) process.kill(pid, "SIGKILL"); return 1_000; };
   await expect(decodeMedia(bytes)).rejects.toThrow("MEDIA_DECODER_UNAVAILABLE");
-}, 60_000);
+}, TEST_TIMEOUT_MS);
 
 test("an over-limit RSS is still the deterministic MEDIA_MEMORY_LIMIT", async () => {
   const bytes = await slowImage();
   let calls = 0;
   rssProbe.read = async () => (calls++ === 0 ? 1_000 : 3 * 1024 * 1024);
   await expect(decodeMedia(bytes)).rejects.toThrow("MEDIA_MEMORY_LIMIT");
-}, 60_000);
+}, TEST_TIMEOUT_MS);
 
 test("I/O failure of the temp directory (e.g. ENOSPC) is retryable", async () => {
   const bytes = await sharp({ create: { width: 64, height: 64, channels: 3, background: "#123456" } }).png().toBuffer();
   process.env.TMPDIR = "/nonexistent-auterva-tmp";
   await expect(decodeMedia(bytes)).rejects.toThrow("MEDIA_DECODER_UNAVAILABLE");
-});
+}, TEST_TIMEOUT_MS);
 
 test.each(["jpeg", "png", "webp"] as const)("isolated decoder accepts real %s pixels and creates bounded webp variants", async (format) => {
   const bytes = await sharp({ create: { width: 2400, height: 1600, channels: 3,
@@ -73,7 +81,7 @@ test("isolated decoder rejects SVG, corrupt bytes and an extra pixel dimension",
   const oversized = await sharp({ create: { width: 12_001, height: 1, channels: 3,
     background: "#000000" } }).png().toBuffer();
   await expect(decodeMedia(oversized)).rejects.toThrow("MEDIA_INVALID_IMAGE");
-});
+}, TEST_TIMEOUT_MS);
 
 // D-04 bound: 12 000 x 12 000 must decode (files under 10 MB; block pattern keeps them compressible).
 async function bound(format: "jpeg-baseline" | "jpeg-progressive" | "png16-interlaced" | "png-interlaced" | "png" | "webp") {
@@ -104,7 +112,7 @@ test("stored dimensions follow EXIF orientation, like the rotated variants", asy
   const result = await decodeMedia(bytes);
   expect(result).toMatchObject({ width: 400, height: 600 });
   expect(await sharp(result.large).metadata()).toMatchObject({ width: 400, height: 600 });
-});
+}, TEST_TIMEOUT_MS);
 
 test("decoder script exits 3 (retryable) on an operating-system error and 1 on an image verdict", async () => {
   const png = await sharp({ create: { width: 8, height: 8, channels: 3, background: "#123456" } }).png().toBuffer();
@@ -119,4 +127,4 @@ test("decoder script exits 3 (retryable) on an operating-system error and 1 on a
   expect(io.status).toBe(3);
   expect(io.stderr.toString()).toContain("MEDIA_ENVIRONMENT");
   expect(run("bad.bin", dir).status).toBe(1);
-});
+}, TEST_TIMEOUT_MS);
