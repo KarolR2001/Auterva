@@ -126,8 +126,11 @@ test("vehicle form: draft without data, publication gaps, publish, slug change, 
     // Leaving with unsaved edits is guarded by the shell.
     await page.getByLabel("Kolor").fill("niebieski");
     await page.getByRole("link", { name: "Wróć do listy pojazdów" }).click();
-    await expect(page.getByRole("dialog")).toBeVisible();
+    // The shell asks before leaving (its dialog is an alertdialog); Escape stays on the form with the entry kept.
+    await expect(page.getByRole("alertdialog", { name: "Niezapisane zmiany" })).toBeVisible();
     await page.keyboard.press("Escape");
+    await expect(page.getByRole("alertdialog")).toHaveCount(0);
+    await expect(page.getByLabel("Kolor")).toHaveValue("niebieski");
     await page.getByLabel("Kolor").fill("czarny");
 
     // Hide: confirmed in a dialog, the result is the server answer, data stays.
