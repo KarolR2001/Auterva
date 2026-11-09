@@ -268,7 +268,15 @@
   background: var(--surface-default);
 }
 
+.shellBreadcrumbs {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
 .shellBreadcrumbs ol {
+  min-width: 0;
+  overflow: hidden;
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -305,6 +313,7 @@
 }
 
 .shellProfileTrigger {
+  flex-shrink: 0;
   display: inline-flex;
   width: var(--touch-target-mobile);
   height: var(--touch-target-mobile);
@@ -451,7 +460,8 @@
     padding-bottom: calc(72px + env(safe-area-inset-bottom));
   }
 
-  .shellBreadcrumbRoot,
+  /* li.class (0,2,1) beats ".shellBreadcrumbs li { display: flex }" (0,1,1): the root label really disappears. */
+  .shellBreadcrumbs li.shellBreadcrumbRoot,
   .shellBreadcrumbs li + li::before {
     display: none;
   }
