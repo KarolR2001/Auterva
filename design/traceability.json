@@ -57,7 +57,7 @@
     },
     {
       "issue": 70,
-      "scope": "Discovery (bez kodu): kontrakt najbliższego wolnego terminu i zbiorczych/kopiowanych blokad z wariantami i raportem konfliktów; decyzje właściciela P1-P7 zapisane jako D-32, implementacja w osobnych zadaniach.",
+      "scope": "Kontrakt discovery najbliższego wolnego terminu i zbiorczych/kopiowanych blokad z wariantami i raportem konfliktów; decyzje właściciela P1-P7 zapisane jako D-32. Kontrakt jest źródłem implementacji w osobnych zadaniach (API zbiorczych blokad: #215); sam #70 nie zawiera kodu.",
       "relatedRequirementIds": ["C-F102", "C-F103", "C-F104", "C-N027", "FR-ADM-055", "D-15"],
       "referenceScreenIds": [],
       "codePaths": [
@@ -65,6 +65,26 @@
         "docs/contracts/availability-reads.md"
       ],
       "testPaths": []
+    },
+    {
+      "issue": 215,
+      "scope": "API zbiorczego tworzenia i kopiowania blokad (POST blocks/bulk i blocks/copy, admin i superadmin w kontekście firmy): domyślnie wszystko albo nic (onConflict ABORT) z dryRun, jawny SKIP, maks. 50 pojazdów, internalNote tylko z copyNote, bez shiftDays (P6), idempotencja z receiptem 24 h, blokady firmy i pojazdów w rosnącej kolejności id, audyt w tej samej transakcji.",
+      "relatedRequirementIds": ["C-F102", "C-F103", "C-F104", "C-N027", "FR-ADM-055", "D-15"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/availability/bulk-blocks.ts",
+        "src/modules/availability/bulk-blocks-http.ts",
+        "src/app/api/admin/blocks/bulk/route.ts",
+        "src/app/api/admin/blocks/copy/route.ts",
+        "src/app/api/platform/companies/[organizationId]/blocks/bulk/route.ts",
+        "src/app/api/platform/companies/[organizationId]/blocks/copy/route.ts",
+        "prisma/migrations/20261108100000_operation_receipt_expiry_issue_215/migration.sql",
+        "docs/contracts/availability-nearest-and-bulk-blocks.md"
+      ],
+      "testPaths": [
+        "tests/integration/availability-bulk-blocks.test.ts",
+        "tests/integration/security-regression.test.ts"
+      ]
     },
     {
       "issue": 72,

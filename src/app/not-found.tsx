@@ -1,32 +1,26 @@
-import { PublicPage } from "@/components/public/public-chrome";
-import { NotFoundBlock, SiteUnavailable, UnknownHost } from "@/components/public/state-page";
-import { prisma } from "@/lib/prisma";
-import { loadHome, requestHost } from "@/modules/public-offer/page-data";
-import { resolveHostMapping } from "@/modules/tenancy/host-registry";
 import { headers } from "next/headers";
 
 import { PanelFeedback } from "@/components/panel/panel-states";
 import { PanelShell } from "@/components/panel/panel-shell";
+import { PublicPage } from "@/components/public/public-chrome";
+import { NotFoundBlock, SiteUnavailable, UnknownHost } from "@/components/public/state-page";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { requireAuthorizedActor } from "@/modules/auth/authorization";
+import { loadHome, requestHost } from "@/modules/public-offer/page-data";
+import { resolveHostMapping } from "@/modules/tenancy/host-registry";
 import {
   requireRequestContext,
   resolveRequestArea,
 } from "@/modules/tenancy/request-context";
 
-// #57: Next's built-in 404 page ships an inline <style> without a nonce, which the document CSP blocks.
-// This neutral page uses no inline style and names no host, company or reason (TEST-MVP-10).
+// #57: Next's built-in 404 page ships an inline <style> without a nonce, which the document CSP blocks. This page
+// uses no inline style. It never names a company or a reason for a disabled site (TEST-MVP-10, C-N057): the
+// brand and contact appear only when the central gate lets the offer through (PUB-07); a public host that
+// the gate refuses gets the neutral PUB-09, an unmapped address PUB-10 and every other area the plain page.
 // #14 (ADM-20): only a session that the panel itself would serve (same host, role, company, MFA proof) sees the
 // panel 404 inside the shell, with a way back to the start. Everyone else keeps the neutral page, so the answer
 // reveals nothing about hosts, accounts or routes.
-function Neutral() {
-  return (
-    <main>
-      <h1>Nie znaleziono strony</h1>
-    </main>
-  );
-}
-
 async function panelNotFound() {
   const incoming = new Headers(await headers());
   const area = await resolveRequestArea(prisma, incoming.get("host"));
@@ -51,7 +45,7 @@ async function panelNotFound() {
         title={organization.name ?? "Panel firmy"}
         currentPath="/admin/404"
       >
-        <PanelFeedback kind="not-found" dashboardHref="/admin" />
+        <PanelFeedback kind="not-found" dashboardHref="/admin" headingLevel="h2" />
       </PanelShell>
     );
   }
@@ -69,19 +63,14 @@ async function panelNotFound() {
         title="Firmy"
         currentPath="/404"
       >
-        <PanelFeedback kind="not-found" dashboardHref="/" />
+        <PanelFeedback kind="not-found" dashboardHref="/" headingLevel="h2" />
       </PanelShell>
     );
   }
   return null;
 }
 
-// #57: Next's built-in 404 page ships an inline <style> without a nonce, which the document CSP blocks. This page
-// uses no inline style. It never names a company or a reason for a disabled site (TEST-MVP-10, C-N057): the
-// brand and contact appear only when the central gate lets the offer through (PUB-07); a public host that
-// the gate refuses gets the neutral PUB-09, an unmapped address PUB-10 and every other area the plain page.
 export default async function NotFound() {
-  // #14 (ADM-20): a session the panel would serve sees the panel 404 inside the shell.
   const panel = await panelNotFound().catch(() => null);
   if (panel) return panel;
   const host = await requestHost();
@@ -92,6 +81,6 @@ export default async function NotFound() {
   const mapping = host ? await resolveHostMapping(prisma, host) : null;
   // The public states belong to the public site only. A panel, the platform or the marketing host keeps the plain
   // neutral page: "no active company site" would mislead there.
-  if (mapping && mapping.area !== "COMPANY_PUBLIC") return <Neutral />;
+  if (mapping && mapping.area !== "COMPANY_PUBLIC") return <main><h1>Nie znaleziono strony</h1></main>;
   return <main>{mapping ? <SiteUnavailable /> : <UnknownHost />}</main>;
 }
