@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, ArrowDown, ArrowUp, CalendarDays, CircleCheck, CircleOff, EyeOff, FileText, MoreHorizontal, Pencil, Plus } from "lucide-react";
+import { Archive, ArrowDown, ArrowUp, CalendarDays, CircleCheck, CircleOff, Eye, EyeOff, FileText, MoreHorizontal, Pencil, Plus } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Alert } from "@/components/ui/alert";
@@ -283,6 +283,7 @@ function VehicleRow({ item, index, first, last, context, reorder, saving, onMove
       <td className={styles.actions} role="cell">
         {reorder && <>{arrow(-1, first)}{arrow(1, last)}</>}
         {routes.vehicleForm && <a className={styles.actionLink} href={`${base}/`}><Pencil aria-hidden="true" size={18} />Edytuj<span className={styles.visuallyHidden}> {name}</span></a>}
+        {context.previewBase && item.status !== "ARCHIVED" && <a className={styles.actionLink} href={`${context.previewBase}/pojazdy/${item.id}/`}><Eye aria-hidden="true" size={18} />Podgląd<span className={styles.visuallyHidden}> {name}</span></a>}
         {routes.vehicleCalendar && <a className={styles.actionLink} href={`${base}/kalendarz/`}><CalendarDays aria-hidden="true" size={18} />Kalendarz<span className={styles.visuallyHidden}> {name}</span></a>}
         {actions.length > 0 && (
           <div className={styles.menuWrap}
