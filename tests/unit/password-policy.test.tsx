@@ -37,4 +37,24 @@ describe("PasswordStrength", () => {
     );
     expect(screen.getAllByRole("listitem")).toHaveLength(4);
   });
+
+  it("aria-live obejmuje tylko poziom, a nie checklistę; zmiana poziomu zmienia tylko etykietę", () => {
+    const { container, rerender } = render(
+      <PasswordStrength id="s" {...evaluatePassword("abc")} />,
+    );
+    const live = container.querySelector("[aria-live]");
+    expect(live).toHaveTextContent(/^Siła hasła: Słabe$/);
+    expect(live?.querySelector("li")).toBeNull();
+    expect(container.querySelectorAll("[aria-live]")).toHaveLength(1);
+    rerender(<PasswordStrength id="s" {...evaluatePassword("Abcdefghij1!")} />);
+    expect(container.querySelector("[aria-live]")).toHaveTextContent(/^Siła hasła: Mocne$/);
+  });
+
+  it("poziom wynika z tekstu i długości paska, nie tylko z koloru", () => {
+    const { container } = render(
+      <PasswordStrength id="s" {...evaluatePassword("Abcdefghijk1")} />,
+    );
+    expect(container.querySelector("[data-level]")).toHaveAttribute("data-level", "medium");
+    expect(container.querySelector("[aria-hidden='true'] > div")).toHaveStyle({ width: "75%" });
+  });
 });
