@@ -9,6 +9,8 @@ const dependencies = vi.hoisted(() => ({
   requireScopedActor: vi.fn(),
   findOrganization: vi.fn(),
   getSession: vi.fn(),
+  loadHome: vi.fn(),
+  resolveHostMapping: vi.fn(),
 }));
 
 vi.mock("next/headers", () => ({ headers: dependencies.headers }));
@@ -29,6 +31,14 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/modules/tenancy/request-context", () => ({
   resolveRequestArea: dependencies.resolveRequestArea,
   requireRequestContext: dependencies.requireRequestContext,
+}));
+vi.mock("@/modules/public-offer/page-data", () => ({
+  loadHome: dependencies.loadHome,
+  requestHost: async () => "panel.example.test",
+  todayWarsaw: () => "2026-11-09",
+}));
+vi.mock("@/modules/tenancy/host-registry", () => ({
+  resolveHostMapping: dependencies.resolveHostMapping,
 }));
 vi.mock("@/modules/auth/authorization", () => ({
   requireAuthorizedActor: dependencies.requireAuthorizedActor,
@@ -215,8 +225,12 @@ describe("panelowe 404 (ADM-20)", () => {
     ]) {
       dependencies.resolveRequestArea.mockResolvedValue(area);
       dependencies.requireAuthorizedActor.mockResolvedValue(null);
+      dependencies.loadHome.mockResolvedValue(null);
+      // A mapped non-public host keeps the plain page; an unmapped host gets the public "unknown address" state.
+      dependencies.resolveHostMapping.mockResolvedValue(area ? { area: area.area } : null);
       const html = renderToStaticMarkup(await NotFound());
-      expect(html).toBe("<main><h1>Nie znaleziono strony</h1></main>");
+      expect(html).not.toContain("Nawigacja panelu");
+      if (area) expect(html).toBe("<main><h1>Nie znaleziono strony</h1></main>");
     }
     expect(dependencies.findOrganization).not.toHaveBeenCalled();
   });
