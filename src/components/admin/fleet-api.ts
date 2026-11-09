@@ -88,6 +88,10 @@ function post<T>(url: string, body: object) {
   return call<T>(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 }
 
+/** A stored photo as the detail read returns it: alt is the displayed text (default included), urls are protected previews. */
+export type VehicleImage = { id: string; status: string; isCover: boolean; alt: string; version: number; position: number;
+  width: number; height: number; urls: { large: string; thumb: string } };
+
 export type VehicleDetail = {
   id: string; status: VehicleStatus; version: number; updatedAt: string; slug: string | null; name: string | null;
   brand: string | null; model: string | null; variant: string | null; year: number | null; categoryId: string | null;
@@ -96,7 +100,7 @@ export type VehicleDetail = {
   fuel: string | null; color: string | null; luggage: string | null; price: string | null; priceUnit: string | null;
   featured: boolean; sortOrder: number; availableFrom: string | null; availableTo: string | null;
   features: { code: string; value: string | null }[];
-  images: { id: string; status: string; isCover: boolean; alt: string }[];
+  images: VehicleImage[];
 };
 export type VehicleFieldsPayload = Partial<Pick<VehicleDetail, "name" | "slug" | "brand" | "model" | "variant" | "year" | "categoryId"
   | "shortDescription" | "description" | "seats" | "doors" | "transmission" | "drive" | "fuel" | "color" | "luggage" | "price"
@@ -176,4 +180,35 @@ export function readErrorMessage(code: string): string {
   if (code === "FORBIDDEN") return errorMessage(code);
   if (code === "RATE_LIMITED") return errorMessage(code);
   return "Nie udało się pobrać danych. Spróbuj ponownie za chwilę.";
+}
+
+/** Photos of one vehicle (#32): the same use cases serve the company admin and the superadmin in a company context. */
+export const imagesUrl = (context: PanelContext, vehicleId: string) => `${context.apiBase}/vehicles/${vehicleId}/images/`;
+export type ImageResult = { id: string; version: number; alt: string | null; position: number; isCover: boolean };
+
+export function patchImage(context: PanelContext, vehicleId: string, imageId: string, expectedVersion: number,
+  change: { alt?: string | null; isCover?: true }) {
+  return call<ImageResult>(`${imagesUrl(context, vehicleId)}${imageId}/`, { method: "PATCH", headers: json,
+    body: JSON.stringify({ expectedVersion, ...change }) });
+}
+export function reorderImages(context: PanelContext, vehicleId: string, items: { id: string; expectedVersion: number }[]) {
+  return call<{ items: ImageResult[] }>(`${imagesUrl(context, vehicleId)}order/`, { method: "PUT", headers: json,
+    body: JSON.stringify({ items }) });
+}
+export function deleteImage(context: PanelContext, vehicleId: string, imageId: string, expectedVersion: number, replacementCoverId?: string) {
+  return call<{ id: string; deleted: true; coverImageId: string | null }>(`${imagesUrl(context, vehicleId)}${imageId}/`, { method: "DELETE",
+    headers: json, body: JSON.stringify({ expectedVersion, ...(replacementCoverId ? { replacementCoverId } : {}) }) });
+}
+
+const imageErrorText: Record<string, string> = {
+  MEDIA_VERSION_CONFLICT: "Zdjęcia zostały zmienione w międzyczasie. Odświeżono listę; sprawdź aktualny stan i powtórz zmianę.",
+  MEDIA_COVER_REQUIRED: "To jedyne zdjęcie opublikowanego pojazdu. Najpierw cofnij publikację (ukryj pojazd), potem je usuń.",
+  MEDIA_COVER_REPLACEMENT_REQUIRED: "Opublikowany pojazd musi mieć zdjęcie główne. Wybierz zdjęcie, które je zastąpi.",
+  MEDIA_REPLACEMENT_INVALID: "Wybrane zdjęcie nie może zastąpić głównego. Odświeżono listę.",
+  FLEET_ARCHIVED: "Pojazd jest zarchiwizowany i nie przyjmuje zmian zdjęć.",
+  NOT_FOUND: "To zdjęcie lub pojazd już nie istnieje. Odświeżono listę.",
+  INVALID_INPUT: "Opis alternatywny ma do 200 znaków i nie może zawierać znaczników ani znaków sterujących.",
+};
+export function imageErrorMessage(code: string): string {
+  return imageErrorText[code] ?? errorMessage(code);
 }

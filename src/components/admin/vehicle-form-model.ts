@@ -1,5 +1,5 @@
 import { validateVehiclePublication } from "../../modules/fleet/publication";
-import type { VehicleDetail, VehicleFieldsPayload } from "./fleet-api";
+import type { VehicleDetail, VehicleFieldsPayload, VehicleImage } from "./fleet-api";
 
 /** Form state: everything the user types stays a string until it is sent (a draft may be incomplete). */
 export type FormFeature = { key: string; code: string; value: string };
@@ -117,7 +117,7 @@ export function validateValues(values: FormValues): Record<string, string> {
 }
 
 /** D-02 requirements evaluated on the current form values, with the stored images of the vehicle. */
-export function publicationErrors(values: FormValues, images: VehicleDetail["images"], requiresSeats: boolean, hasCategory: boolean) {
+export function publicationErrors(values: FormValues, images: Pick<VehicleImage, "status" | "isCover">[], requiresSeats: boolean, hasCategory: boolean) {
   const seats = intOrNull(values.seats);
   return validateVehiclePublication({
     name: nullable(values.name), slug: nullable(values.slug.toLowerCase()), category: hasCategory ? { requiresSeats } : null,

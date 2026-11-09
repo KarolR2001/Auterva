@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 
+import { ACCEPT_ATTRIBUTE, checkImageFile, fileSignature, keyFor, uploadErrors } from "../media/upload-core";
 import { useUnsavedChanges } from "../panel/unsaved-changes-guard";
 import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
@@ -10,22 +11,7 @@ import { TextInput } from "../ui/text-input";
 import { mediaKinds, newEventKey, type PublicMediaItem, type SettingsSnapshot } from "./settings-model";
 import styles from "./settings.module.css";
 
-const maxBytes = 10 * 1024 * 1024;
-const accepted = ["image/jpeg", "image/png", "image/webp"];
-
 type Notice = { tone: "success" | "error" | "info"; title: string; text?: string } | null;
-
-const uploadErrors: Record<string, string> = {
-  IMAGE_TOO_LARGE_OR_EMPTY: "Plik jest pusty albo większy niż 10 MB.",
-  INVALID_IMAGE: "To nie jest poprawne zdjęcie JPEG, PNG lub WebP.",
-  IMAGE_TOO_COMPLEX: "Zdjęcie jest zbyt duże lub złożone do przetworzenia.",
-  MEDIA_IMAGE_LIMIT: "Osiągnięto limit zdjęć tego rodzaju. Usuń jedno, aby dodać kolejne.",
-  RATE_LIMITED: "Za dużo prób. Poczekaj chwilę.",
-  MEDIA_BUSY: "Przetwarzanie jest zajęte. Spróbuj za chwilę.",
-  MEDIA_DECODER_UNAVAILABLE: "Przetwarzanie zdjęć jest chwilowo niedostępne. Spróbuj później.",
-  FORBIDDEN: "Brak uprawnień do zmiany zdjęć.",
-  NOT_FOUND: "Nie znaleziono firmy albo zasobu.",
-};
 
 function thumb(base: string, id: string) {
   return `${base}/media/${id}/thumb/`;
@@ -108,12 +94,10 @@ export function MediaManager({ snapshot }: { snapshot: SettingsSnapshot }) {
 
   async function upload(kind: string, file: File | undefined) {
     if (!file || busy) return;
-    if (!accepted.includes(file.type)) return setNotice({ tone: "error", title: "Nieobsługiwany format", text: "Wybierz plik JPEG, PNG lub WebP." });
-    if (file.size === 0 || file.size > maxBytes) return setNotice({ tone: "error", title: "Zły rozmiar pliku", text: uploadErrors.IMAGE_TOO_LARGE_OR_EMPTY });
+    const invalid = checkImageFile(file);
+    if (invalid) return setNotice({ tone: "error", title: invalid.code === "TYPE" ? "Nieobsługiwany format" : "Zły rozmiar pliku", text: invalid.code === "TYPE" ? "Wybierz plik JPEG, PNG lub WebP." : invalid.message });
     // One key per file and attempt: a retry of an uncertain upload reuses it, so the server never stores a duplicate.
-    const signature = `${kind}:${file.name}:${file.size}:${file.lastModified}`;
-    const key = pendingUpload.current?.signature === signature ? pendingUpload.current.key : newEventKey();
-    pendingUpload.current = { signature, key };
+    const key = keyFor(pendingUpload, fileSignature(kind, file));
     setBusy(`upload-${kind}`);
     setNotice(null);
     const uncertain = async () => {
@@ -261,7 +245,7 @@ export function MediaManager({ snapshot }: { snapshot: SettingsSnapshot }) {
                 aria-label={`Wybierz plik: ${title}`}
                 className={styles.srOnly}
                 type="file"
-                accept="image/jpeg,image/png,image/webp"
+                accept={ACCEPT_ATTRIBUTE}
                 disabled={busy !== null}
                 onChange={(e) => void upload(kind, e.target.files?.[0])}
               />
