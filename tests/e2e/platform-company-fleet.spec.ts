@@ -140,8 +140,8 @@ test("company fleet by the superadmin: card -> fleet -> form -> photos -> calend
     await page.goto(`${origin}/firmy/${orgB}/pojazdy/`);
     await expect(page.getByText("Auto Beta").first()).toBeVisible();
     await expect(page.getByText(/Auto Alfa/)).toHaveCount(0);
-    await page.goto(`${origin}/firmy/${orgB}/pojazdy/${carA}/`);
-    await expect(page.getByText("Pojazd nie istnieje w tej firmie.")).toBeVisible();
+    // Since #289 a vehicle of another company is the neutral 404 from the server (never a 200 with a message).
+    expect((await page.goto(`${origin}/firmy/${orgB}/pojazdy/${carA}/`))?.status()).toBe(404);
     await expect(page.getByLabel("Nazwa pojazdu")).toHaveCount(0);
     const foreignPreview = await page.goto(`${origin}/firmy/${orgB}/podglad/pojazdy/${carA}/`);
     expect(foreignPreview?.status()).toBe(404);
