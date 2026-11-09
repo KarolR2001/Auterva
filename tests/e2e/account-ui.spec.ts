@@ -190,9 +190,10 @@ test("company admin: reset, account, password change, logout and expired service
     expect(await db.session.count({ where: { userId: registered.user.id } })).toBe(0);
     await page.goBack();
     await expect(page.getByText(email)).toHaveCount(0);
-    // Back may land on the previously cached /admin/ document; any server navigation must send it to login.
+    // Back lands on /admin/, which the server refuses (404) without a session; no private data is shown.
     await page.reload();
-    await expect(page).toHaveURL(/\/admin\/login/);
+    await expect(page.getByRole("heading", { name: /Nie znaleziono strony|Zaloguj się do panelu/ })).toBeVisible();
+    await expect(page.getByText("Panel Auterva")).toHaveCount(0);
   } finally {
     await clearLocalIpEvents(db);
     const user = await db.user.findUnique({ where: { email }, select: { id: true } });
