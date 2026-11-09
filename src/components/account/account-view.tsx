@@ -65,7 +65,7 @@ function paths(area: AuthArea) {
 }
 
 /** The server decides: wrong password and a revoked session both answer 401, so ask the session. */
-async function sessionAlive(): Promise<boolean | "unknown"> {
+export async function sessionAlive(): Promise<boolean | "unknown"> {
   try {
     const response = await fetch("/api/auth/get-session/", {
       credentials: "same-origin",
@@ -344,6 +344,14 @@ export function AccountView({
             Zmień hasło
           </Button>
         </form>
+      </section>
+
+      <section className={styles.card} aria-labelledby="account-sessions">
+        <h2 id="account-sessions">Sesje</h2>
+        <p>Zobacz, gdzie konto jest zalogowane, i zakończ wybraną sesję albo wszystkie pozostałe.</p>
+        <Link className={styles.linkButton} href={`${where.account}/sesje/`} prefetch={false}>
+          Aktywne sesje
+        </Link>
       </section>
 
       <section className={styles.card} aria-labelledby="account-mfa">

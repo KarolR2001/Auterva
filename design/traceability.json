@@ -1535,6 +1535,22 @@
       "testPaths": ["tests/unit/marketing-page.test.tsx", "tests/e2e/marketing.spec.ts"]
     },
     {
+      "issue": 73,
+      "scope": "ADM-16 aktywne sesje konta (/admin/konto/sesje, /konto/sesje): własne sesje z nieprzejrzystą referencją, bieżąca oznaczona, bez IP i user agenta; zakończenie jednej albo pozostałych po świeżym reauth MFA z celem end-sessions (jeden dowód, ponowienie 503 MFA_RETRY z tym samym dowodem); niepewny wynik 5xx potwierdza dopiero odczyt listy z serwera; sukces tylko po potwierdzeniu serwera.",
+      "relatedRequirementIds": ["C-F043", "FR-ADM-081"],
+      "referenceScreenIds": ["ADM-16", "PLT-10"],
+      "codePaths": [
+        "src/app/admin/konto/sesje/page.tsx",
+        "src/app/konto/sesje/page.tsx",
+        "src/components/account/sessions-page.tsx",
+        "src/components/account/sessions-view.tsx",
+        "src/components/account/sessions-model.ts",
+        "src/components/account/account-view.tsx",
+        "src/components/account/account.module.css"
+      ],
+      "testPaths": ["tests/unit/sessions-view.test.tsx", "tests/e2e/account-ui.spec.ts"]
+    },
+    {
       "issue": 52,
       "scope": "TEN-11 czat firmy z Autervą (/admin/czat): historia i starsze strony, wysyłka z trwałym potwierdzeniem i tym samym clientMessageId przy ponowieniu, statusy Wysłano/Przeczytano, pisanie, wznowienie połączenia od kursora, 4401 bez ponownego łączenia, read po ok. 500 ms widoczności, akcja Nowe wiadomości bez wymuszonego scrolla, szkic lokalny per (konto, rozmowa) usuwany przy wylogowaniu i wyjęty z guardu niezapisanych zmian, wskaźnik nowych wiadomości w nawigacji. Bez załączników i poczty. Widok superadmina (skrzynka, rozmowa w kontekście firmy) poza zakresem.",
       "relatedRequirementIds": ["C-F115", "C-F116", "C-F117", "C-F118", "C-F119", "C-F120", "C-F121", "C-F122", "C-F123", "C-F124", "C-F125", "C-F126", "C-F127", "C-F128", "C-F129", "C-F130", "C-F131", "C-F132", "C-F133", "C-N051", "C-N054", "DS-N09"],
