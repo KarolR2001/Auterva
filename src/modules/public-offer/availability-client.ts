@@ -1,7 +1,12 @@
 // Pure helpers of the interactive availability panel (#43): range validation and the "latest answer wins" guard.
 
 const DAY = 86_400_000;
-const isDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+/** A real calendar date; an impossible one such as 2026-13-45 is false and must never throw (it comes straight from the URL). */
+const isDate = (value: string) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const epoch = Date.parse(`${value}T00:00:00Z`);
+  return Number.isFinite(epoch) && new Date(epoch).toISOString().slice(0, 10) === value;
+};
 
 export type RangeProblem = "MISSING" | "INVALID" | "ORDER" | "PAST" | "TOO_LONG";
 export type RangeCheck = { ok: true; from: string; to: string; days: number } | { ok: false; problem: RangeProblem };

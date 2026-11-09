@@ -11,6 +11,9 @@ describe("validateRange (#43)", () => {
   it("rejects missing, malformed, reversed, past and too long ranges", () => {
     expect(validateRange("", "2026-11-01", today)).toEqual({ ok: false, problem: "MISSING" });
     expect(validateRange("2026-02-30", "2026-11-01", today)).toEqual({ ok: false, problem: "INVALID" });
+    // Impossible dates from the URL (month 13) must be a verdict, never an exception that breaks the page.
+    expect(validateRange("2026-13-45", "2026-11-01", today)).toEqual({ ok: false, problem: "INVALID" });
+    expect(validateRange("2026-11-01", "9999-99-99", today)).toEqual({ ok: false, problem: "INVALID" });
     expect(validateRange("2026-11-02", "2026-11-01", today)).toEqual({ ok: false, problem: "ORDER" });
     expect(validateRange("2026-10-28", "2026-11-01", today)).toEqual({ ok: false, problem: "PAST" });
     expect(validateRange("2026-10-29", "2027-10-29", today)).toEqual({ ok: false, problem: "TOO_LONG" });
