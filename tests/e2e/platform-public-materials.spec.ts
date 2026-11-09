@@ -6,7 +6,7 @@ import { createPrismaClient } from "../../src/lib/prisma";
 import { claimNextJob } from "../../src/modules/jobs/queue";
 import { createMediaStorage } from "../../src/modules/media/storage";
 import { processMediaClaim } from "../../src/modules/media/worker";
-import { ensureControlledSuperadminMfa, verifiedFixtureSession } from "../fixtures/verified-session";
+import { ensureControlledSuperadminMfa, resetPlatformApiBudget, verifiedFixtureSession } from "../fixtures/verified-session";
 
 // #37: the superadmin reaches the public materials of one company from its card, sees the stored state (not the chosen file),
 // keeps entries on a file error or a version conflict and is guarded when leaving; another company stays untouched.
@@ -39,6 +39,7 @@ test("public materials: card entry, file error keeps data, preview follows the s
       await db.user.create({ data: { id: superId, name: "Materials operator", role: "SUPERADMIN_AUTERVA",
         email: `materials-op-${superId}@example.test`, emailVerified: true, twoFactorEnabled: true } });
     }
+    await resetPlatformApiBudget(db, superId);
     session = await verifiedFixtureSession(db, superId);
     const [name, ...rest] = session.cookie.split("=");
     await context.addCookies([{ name, value: rest.join("="), url: origin }]);

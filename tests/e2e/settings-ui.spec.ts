@@ -6,7 +6,7 @@ import { createPrismaClient } from "../../src/lib/prisma";
 import { claimNextJob } from "../../src/modules/jobs/queue";
 import { createMediaStorage } from "../../src/modules/media/storage";
 import { processMediaClaim } from "../../src/modules/media/worker";
-import { ensureControlledSuperadminMfa, verifiedFixtureSession } from "../fixtures/verified-session";
+import { ensureControlledSuperadminMfa, resetPlatformApiBudget, verifiedFixtureSession } from "../fixtures/verified-session";
 
 // #31: superadmin edits company settings per section (ADM-11..14), company admin only reads them (D-01).
 test.use({ launchOptions: { args: ["--host-resolver-rules=MAP *.example.test 127.0.0.1"] } });
@@ -42,6 +42,7 @@ test("settings UI: superadmin saves a section, keeps data on conflict and valida
       await db.user.create({ data: { id: superId, name: "Settings UI operator", role: "SUPERADMIN_AUTERVA",
         email: `settings-ui-op-${superId}@example.test`, emailVerified: true, twoFactorEnabled: true } });
     }
+    await resetPlatformApiBudget(db, superId);
     sessions.push(await verifiedFixtureSession(db, superId), await verifiedFixtureSession(db, adminId));
 
     // Superadmin: contact section, invalid input keeps the form, valid input saves.

@@ -20,7 +20,7 @@ import {
 import { companyContext, errorMessage, isUncertain, readVehicle, type PanelContext, type VehicleDetail } from "./fleet-api";
 import {
   blockTypeOrder, changedFields, clampMonth, createFields, dayLabel, dayView, emptyValues, monthOf, monthSpan, rangeText,
-  saveErrorText, settleCreate, settleDelete, settleEdit, sameValues, sortBlocks, startsInPast, surroundingRange, typeLabel, validateValues,
+  saveErrorText, createCandidates, settleDelete, settleEdit, sameValues, sortBlocks, startsInPast, surroundingRange, typeLabel, validateValues, warsawDate,
   valuesOf, type BlockValues, type FieldKey, type Outcome,
 } from "./vehicle-calendar-model";
 import styles from "./vehicle-calendar.module.css";
@@ -36,7 +36,7 @@ type Load = { state: "loading" } | { state: "error"; code: string } | { state: "
 type Month = { status: "loading" } | { status: "error"; code: string } | { status: "ready"; read: CalendarRead };
 type Listing = { status: "loading" } | { status: "error"; code: string } | { status: "ready"; blocks: CalendarBlock[] };
 type Editor = { mode: "create" } | { mode: "edit"; block: CalendarBlock };
-type Pending = { action: "create" | "edit" | "delete"; editor: Editor; values: BlockValues };
+type Pending = { action: "create" | "edit" | "delete"; editor: Editor; values: BlockValues; knownIds?: string[] };
 type Notice = { tone: "success" | "info" | "warning" | "error"; title: string; text?: string };
 
 export type VehicleCalendarProps = {
@@ -48,7 +48,10 @@ export type VehicleCalendarProps = {
  * through the block API and every result comes from the server: after a save, a delete, a conflict or an unknown outcome
  * the screen reads the state again and never keeps an old "free" answer.
  */
-export function VehicleCalendar({ context = companyContext, vehicleId, today, title }: VehicleCalendarProps) {
+export function VehicleCalendar({ context = companyContext, vehicleId, today: initialToday, title }: VehicleCalendarProps) {
+  // The server's day goes stale in a card left open past midnight, so the day is re-read from the clock (Europe/Warsaw).
+  const [today, setToday] = useState(initialToday);
+  const shownToday = useRef(initialToday);
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [vehicle, setVehicle] = useState<VehicleDetail | null>(null);
   const [month, setMonth] = useState(monthOf(today));
@@ -66,6 +69,7 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today, ti
   const listTickets = useRef(createLatest());
   const historyTickets = useRef(createLatest());
   const heading = useRef<HTMLHeadingElement | null>(null);
+  const gridRef = useRef<HTMLTableElement | null>(null);
 
   // Dialog and form.
   const [open, setOpen] = useState(false);
@@ -82,6 +86,8 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today, ti
   const [versionConflict, setVersionConflict] = useState<{ current: CalendarBlock | null } | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [uncertain, setUncertain] = useState<Pending | null>(null);
+  const [candidates, setCandidates] = useState<{ blocks: CalendarBlock[]; values: BlockValues } | null>(null);
+  const locked = uncertain !== null || candidates !== null;
   const [parked, setParked] = useState<{ editor: Editor; values: BlockValues; baseline: BlockValues } | null>(null);
   const [discardAsk, setDiscardAsk] = useState(false);
   const restoreFocus = useRef(false);
@@ -133,10 +139,24 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today, ti
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- one initial read
   useEffect(() => { void start(); }, []);
+  useEffect(() => {
+    const tick = () => setToday((current) => { const now = warsawDate(); return now === current ? current : now; });
+    const timer = setInterval(tick, 30_000);
+    document.addEventListener("visibilitychange", tick);
+    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", tick); };
+  }, []);
+  // A new day moves the ranges of both lists (they start at today); the month grid only re-marks today.
+  useEffect(() => {
+    if (shownToday.current === today) return;
+    shownToday.current = today;
+    void loadListing("upcoming");
+    if (history) void loadListing("history");
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only a change of day
+  }, [today]);
 
   // --- editor ----------------------------------------------------------------------------------------------------
 
-  function resetFeedback() { setErrors({}); setPastAck(false); setOverlap(null); setVersionConflict(null); setFailure(null); setUncertain(null); setDiscardAsk(false); }
+  function resetFeedback() { setErrors({}); setPastAck(false); setOverlap(null); setVersionConflict(null); setFailure(null); setUncertain(null); setCandidates(null); setDiscardAsk(false); }
   function openCreate(range?: { from: string; to: string }) {
     const initial = { ...emptyValues(), ...(range ?? {}) };
     resetFeedback(); setParked(null); setEditor({ mode: "create" }); setBaseline(emptyValues()); setValues(initial);
@@ -218,13 +238,14 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today, ti
     if (busyRef.current || panel !== "form") return;
     // After a lost response Enter and every other route to submit read the state first; a blind retry could save twice.
     if (uncertain) { void checkUncertain(); return; }
+    if (candidates) return;
     if (archived) { setFailure(saveErrorText("BLOCK_VEHICLE_ARCHIVED")); return; }
     const checked = validateValues(values);
     const needsAck = startsInPast(values, today) && (editor.mode === "create" || values.from !== baseline.from || values.to !== baseline.to);
     const next: Partial<Record<FieldKey | "ack", string>> = { ...checked.errors };
     if (!Object.keys(next).length && needsAck && !pastAck) next.ack = "Potwierdź zapis okresu z przeszłości.";
     if (Object.keys(next).length) { setErrors(next); requestAnimationFrame(() => focusFirstError(next)); return; }
-    const pending: Pending = { action: editor.mode === "create" ? "create" : "edit", editor, values };
+    const pending: Pending = { action: editor.mode === "create" ? "create" : "edit", editor, values, knownIds: [...allBlocks.keys()] };
     if (editor.mode === "edit" && !Object.keys(changedFields(baseline, values)).length) { closeDialog(); return; }
     await run(pending);
   }
@@ -263,8 +284,14 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today, ti
       const result = await readCalendar(context, vehicleId, range.from, range.to);
       if (!result.ok || !Array.isArray(result.data.blocks)) { setFailure("Nadal nie możemy odczytać stanu z serwera. Twoje wpisy zostały zachowane. Spróbuj ponownie za chwilę."); return; }
       const blocks = result.data.blocks;
-      const outcome: Outcome = uncertain.action === "create" ? settleCreate(blocks, uncertain.values)
-        : uncertain.action === "delete" ? settleDelete(blocks, block!.id) : settleEdit(blocks, block!.id, block!.version, uncertain.values);
+      if (uncertain.action === "create") {
+        const found = createCandidates(blocks, uncertain.values, new Set(uncertain.knownIds ?? []));
+        setUncertain(null);
+        if (found.length) { setCandidates({ blocks: found, values: uncertain.values }); refreshAll(); }
+        else setFailure("Zmiana nie została zapisana. Twoje wpisy zostały zachowane, możesz zapisać ponownie.");
+        return;
+      }
+      const outcome: Outcome = uncertain.action === "delete" ? settleDelete(blocks, block!.id) : settleEdit(blocks, block!.id, block!.version, uncertain.values);
       if (outcome === "saved") {
         finish({ tone: "success", title: uncertain.action === "delete" ? "Blokada została usunięta." : "Zmiana została zapisana.", text: "Sprawdziliśmy stan na serwerze." });
       } else if (outcome === "changed-elsewhere") {
@@ -344,8 +371,15 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today, ti
   }
   useEffect(() => {
     if (wantFocus.current && focusDate) {
-      const node = buttons.current.get(focusDate);
-      if (node) { node.focus(); wantFocus.current = false; }
+      // Focus is only handed back while it is still in the grid (or lost with a replaced button); a user who already
+      // tabbed away must not be pulled back when the month finishes loading.
+      const active = document.activeElement;
+      const inGrid = !active || active === document.body || Boolean(gridRef.current?.contains(active));
+      // One shot: the request is spent after the render it was made for, so a later render (a month that finishes
+      // loading) can never pull focus back after the user moved on with Tab.
+      wantFocus.current = false;
+      if (!inGrid) return;
+      buttons.current.get(focusDate)?.focus();
     }
   });
 
@@ -439,7 +473,7 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today, ti
               <Button variant="tertiary" size="sm" onClick={() => setPick(null)}>Anuluj wybór</Button>
             </div>
           ) : null}
-          <table className={styles.table}>
+          <table className={styles.table} ref={gridRef} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null) && event.relatedTarget) wantFocus.current = false; }}>
             <caption className={styles.srOnly}>Kalendarz pojazdu {name}, {monthLabel(month)}. Strzałki zmieniają dzień, Page Up i Page Down miesiąc, Enter wybiera dzień. Wybór wolnego dnia zaczyna blokadę, wybór zajętego otwiera jej edycję.</caption>
             <thead><tr>{weekdays.map((day) => <th key={day} scope="col">{day}</th>)}</tr></thead>
             <tbody>
@@ -549,8 +583,20 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today, ti
                 </div>
               </Alert>
             )}
+            {candidates && (
+              <Alert tone="warning" title="Na serwerze jest wpis z tym zakresem.">
+                Nie możemy ustalić, czy to Twój zapis, czy ktoś dodał go w tym samym czasie. Potwierdź, który wpis jest Twój; nic nie zostanie zapisane drugi raz.
+                <ul className={styles.summaryList}>{candidates.blocks.map((entry) => (
+                  <li key={entry.id}>{typeLabel(entry.type)}, {rangeText(entry.from, entry.to)}{entry.reference ? `, nr ${entry.reference}` : ""}{" "}
+                    <button type="button" className={styles.linkButton} onClick={() => finish({ tone: "success", title: "Blokada została dodana.", text: "Potwierdziłeś wpis znaleziony na serwerze." })}>To mój wpis</button></li>
+                ))}</ul>
+                <div className={styles.inlineActions}>
+                  <Button variant="secondary" size="sm" onClick={() => { setCandidates(null); closeDialog(); refreshAll(); }}>Żaden nie jest mój, zamknij</Button>
+                </div>
+              </Alert>
+            )}
             {uncertain && <Alert tone="warning" title="Nie wiemy, czy zmiana została zapisana.">Połączenie przerwało się w trakcie. Twoje wpisy zostały zachowane. Pola są zablokowane do rozstrzygnięcia: użyj „Sprawdź stan” (także Enter), a nie zapiszemy blokady drugi raz.</Alert>}
-            {failure && !overlap && !versionConflict && !uncertain && <Alert tone="error" title={failure} />}
+            {failure && !overlap && !versionConflict && !uncertain && !candidates && <Alert tone="error" title={failure} />}
             {summary.length > 0 && !overlap && (
               <Alert tone="error" title={`Do poprawy: ${summary.length}`}>
                 <ul className={styles.summaryList}>{summary.map(([field, text]) => (
@@ -560,10 +606,10 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today, ti
             )}
             <div className={styles.dates}>
               <FormField id="bc-from" label="Od" required error={errors.from} hint="Format RRRR-MM-DD albo wybór z kalendarza.">
-                <TextInput type="date" value={values.from} disabled={archived || busy || uncertain !== null} onChange={(event) => set("from", event.target.value)} />
+                <TextInput type="date" value={values.from} disabled={archived || busy || locked} onChange={(event) => set("from", event.target.value)} />
               </FormField>
               <FormField id="bc-to" label="Do (włącznie)" required error={errors.to}>
-                <TextInput type="date" value={values.to} min={values.from || undefined} disabled={archived || busy || uncertain !== null} onChange={(event) => set("to", event.target.value)} />
+                <TextInput type="date" value={values.to} min={values.from || undefined} disabled={archived || busy || locked} onChange={(event) => set("to", event.target.value)} />
               </FormField>
             </div>
             {isOk(values) && <p className={styles.muted}>Zakres: {rangeText(values.from, values.to)}.</p>}
@@ -579,20 +625,20 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today, ti
               </Alert>
             )}
             <FormField id="bc-type" label="Typ" required error={errors.type}>
-              <Select value={values.type} disabled={archived || busy || uncertain !== null} onChange={(event) => set("type", event.target.value as BlockTypeCode)}>
+              <Select value={values.type} disabled={archived || busy || locked} onChange={(event) => set("type", event.target.value as BlockTypeCode)}>
                 {blockTypeOrder.map((type) => <option key={type} value={type}>{typeLabel(type)}</option>)}
               </Select>
             </FormField>
             <FormField id="bc-reference" label="Numer odniesienia" optionalLabel="(opcjonalnie)" error={errors.reference}
               hint="Prywatne: widoczne tylko w panelu, nigdy na stronie publicznej.">
-              <TextInput value={values.reference} maxLength={120} autoComplete="off" disabled={archived || busy || uncertain !== null} onChange={(event) => set("reference", event.target.value)} />
+              <TextInput value={values.reference} maxLength={120} autoComplete="off" disabled={archived || busy || locked} onChange={(event) => set("reference", event.target.value)} />
             </FormField>
             <FormField id="bc-internalNote" label="Notatka prywatna" optionalLabel="(opcjonalnie)" error={errors.internalNote}
               hint="Prywatna, do 2000 znaków. Nie wpisuj danych klientów, których nie potrzebujesz.">
-              <Textarea value={values.internalNote} maxLength={2000} rows={4} disabled={archived || busy || uncertain !== null} onChange={(event) => set("internalNote", event.target.value)} />
+              <Textarea value={values.internalNote} maxLength={2000} rows={4} disabled={archived || busy || locked} onChange={(event) => set("internalNote", event.target.value)} />
             </FormField>
             {editor.mode === "edit" && dialogBlock && (
-              <div><Button variant="destructive" size="sm" icon={<Trash2 aria-hidden="true" size={16} />} disabled={busy || uncertain !== null} onClick={() => { setPanel("delete"); setDirectDelete(false); }}>Usuń blokadę</Button></div>
+              <div><Button variant="destructive" size="sm" icon={<Trash2 aria-hidden="true" size={16} />} disabled={busy || locked} onClick={() => { setPanel("delete"); setDirectDelete(false); }}>Usuń blokadę</Button></div>
             )}
           </form>
         )}
