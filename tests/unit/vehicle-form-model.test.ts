@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { VehicleDetail } from "../../src/components/admin/fleet-api";
 import {
   changedPayload, emptyValues, isDirty, MAX_SORT_ORDER, mergeAfterConflict, normalizeServerField, publicationErrors, sectionOf,
-  statusOutcome, toPayload, toValues, validateValues, type FormValues,
+  statusOutcome, createCandidates, toPayload, toValues, validateValues, type FormValues,
 } from "../../src/components/admin/vehicle-form-model";
 
 const detail = (patch: Partial<VehicleDetail> = {}): VehicleDetail => ({ id: "v", status: "DRAFT", version: 2, updatedAt: "2026-11-01T10:00:00.000Z",
@@ -97,5 +97,22 @@ describe("#35 vehicle form model", () => {
     const base = toValues(detail({ slug: "bus-9" }));
     expect(changedPayload(base, { ...base, slug: "BUS-9" })).toEqual({});
     expect(changedPayload(base, { ...base, slug: "Bus-10" })).toEqual({ slug: "bus-10" });
+  });
+
+  it("offers only recent drafts after a lost creation, never a same-named older or archived vehicle", () => {
+    const sent = { name: "Bus 9", slug: "", at: Date.parse("2026-11-09T10:00:00.000Z") };
+    const item = (id: string, status: string, updatedAt: string, name = "Bus 9", slug: string | null = `bus-9-${id}`) => ({ id, status, name, slug, updatedAt });
+    const items = [
+      item("old", "DRAFT", "2026-11-01T10:00:00.000Z"),
+      item("archived", "ARCHIVED", "2026-11-09T10:00:05.000Z"),
+      item("published", "PUBLISHED", "2026-11-09T10:00:05.000Z"),
+      item("other", "DRAFT", "2026-11-09T10:00:05.000Z", "Inna nazwa"),
+      item("new", "DRAFT", "2026-11-09T10:00:05.000Z"),
+    ];
+    expect(createCandidates(items, sent).map((row) => row.id)).toEqual(["new"]);
+    // An empty name and no slug match nothing at all.
+    expect(createCandidates(items, { ...sent, name: "  " })).toEqual([]);
+    // A slug typed by the user identifies the vehicle, whatever its name is.
+    expect(createCandidates(items, { name: "", slug: "BUS-9-new", at: sent.at }).map((row) => row.id)).toEqual(["new"]);
   });
 });

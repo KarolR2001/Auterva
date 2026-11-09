@@ -185,3 +185,21 @@ export function statusOutcome(action: "publish" | "unpublish" | "archive", serve
   const wanted = { publish: "PUBLISHED", unpublish: "UNPUBLISHED", archive: "ARCHIVED" }[action];
   return serverStatus === wanted ? "applied" : "not-applied";
 }
+
+/**
+ * Drafts that may be the result of a creation whose answer was lost. Only a DRAFT created after the request was sent
+ * counts (a skew margin allows for clocks). A slug typed by the user identifies the vehicle (it is unique in the
+ * company); without one the name has to match, and an empty name matches nothing. The caller never opens a candidate
+ * by itself: the user chooses.
+ */
+export function createCandidates<T extends { status: string; name: string | null; slug: string | null; updatedAt: string }>(
+  items: readonly T[], sent: { name: string; slug: string; at: number }, skewMs = 120_000,
+): T[] {
+  const slug = sent.slug.trim().toLowerCase();
+  const name = sent.name.trim().toLowerCase();
+  if (!slug && !name) return [];
+  return items
+    .filter((item) => item.status === "DRAFT" && Date.parse(item.updatedAt) >= sent.at - skewMs)
+    .filter((item) => (slug ? (item.slug ?? "").toLowerCase() === slug : (item.name ?? "").trim().toLowerCase() === name))
+    .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+}

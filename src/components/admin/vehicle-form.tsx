@@ -9,12 +9,12 @@ import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
 import { Dialog } from "../ui/dialog";
 import {
-  createDraft, errorMessage, listCategories, listFleet, readVehicle, routes, setVehicleStatus, statusLabels, updateVehicle, companyContext,
+  createDraft, errorMessage, listCategories, listWholeFleet, readVehicle, routes, setVehicleStatus, statusLabels, updateVehicle, companyContext,
   type FieldErrorMap, type PanelContext, type VehicleCategory, type VehicleDetail, type VehicleMutation, type VehicleStatus,
 } from "./fleet-api";
 import {
   changedPayload, createPayload, emptyValues, isDirty, mergeAfterConflict, newFeatureKey, normalizeServerField, publicationErrors, sectionOf,
-  sections, serverFieldText, statusOutcome, toValues, validateValues, type FormValues, type SectionId,
+  createCandidates, sections, serverFieldText, statusOutcome, toValues, validateValues, type FormValues, type SectionId,
 } from "./vehicle-form-model";
 import styles from "./vehicle-form.module.css";
 
@@ -63,6 +63,8 @@ export function VehicleForm({ context = companyContext, vehicleId, title }: { co
   const [dialogError, setDialogError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [createdId, setCreatedId] = useState<string | null>(null);
+  const sentAt = useRef(0);
+  const [candidates, setCandidates] = useState<{ id: string; name: string | null; slug: string | null; updatedAt: string }[] | null>(null);
   const working = useRef(false);
   const router = useRouter();
 
@@ -147,6 +149,7 @@ export function VehicleForm({ context = companyContext, vehicleId, title }: { co
     if (Object.keys(found).length) { setErrors(found); setSummary(Object.keys(found)); reveal(found); return null; }
     setSummary(null);
     if (!vehicleId) {
+      sentAt.current = Date.now(); setCandidates(null);
       const result = await createDraft(context, createPayload(values));
       if (!result.ok) { fromFailure(result, "create"); return null; }
       setUncertain(null);
@@ -209,6 +212,8 @@ export function VehicleForm({ context = companyContext, vehicleId, title }: { co
       if (!result.ok) { setNotice({ tone: "error", title: errorMessage(result.code), text: "Stanu nie udało się odczytać. Twoje wpisy zostały zachowane." }); return; }
       setVehicle(result.data);
       setUncertain(null);
+      // Without unsaved edits the form shows what the server has; with edits, the entries stay untouched.
+      if (!isDirty(baseline, values)) { const fresh = toValues(result.data); setBaseline(fresh); setValues(fresh); }
       if (statusOutcome(action, result.data.status) === "applied") {
         setNotice({ tone: "success", title: "Zmiana była już zapisana.", text: `Status pojazdu na serwerze: ${statusLabels[result.data.status]}.` });
       } else {
@@ -217,16 +222,23 @@ export function VehicleForm({ context = companyContext, vehicleId, title }: { co
     });
   }
 
-  /** After a lost answer to the creation of a draft: look for the vehicle in the list before anything is sent again. */
+  /**
+   * After a lost answer to the creation of a draft: read the whole fleet and offer the drafts that may be the result.
+   * Nothing is opened automatically: a same-named older or archived vehicle must never pass for the new draft.
+   */
   async function checkCreated() {
     await run("create", async () => {
-      const wanted = values.name.trim() || values.slug.trim();
-      const result = await listFleet(context, { search: wanted, status: "", activeToday: "", availableToday: "", page: 1, pageSize: 20 });
+      const result = await listWholeFleet(context);
       if (!result.ok) { setNotice({ tone: "error", title: errorMessage(result.code), text: "Listy nie udało się odczytać. Twoje wpisy zostały zachowane." }); return; }
-      const found = result.data.items.find((item) => (item.name ?? "").trim().toLowerCase() === values.name.trim().toLowerCase());
+      const found = createCandidates(result.data, { name: values.name, slug: values.slug, at: sentAt.current });
       setUncertain(null);
-      if (found) { setCreatedId(found.id); setNotice({ tone: "success", title: "Szkic został już zapisany.", text: "Otwieramy go do edycji." }); }
-      else setNotice({ tone: "warning", title: "Nie znaleziono pojazdu o tej nazwie.", text: "Szkic nie został utworzony. Możesz zapisać ponownie." });
+      if (found.length) {
+        setCandidates(found);
+        setNotice(null);
+      } else {
+        setCandidates(null);
+        setNotice({ tone: "warning", title: "Nie znaleziono szkicu utworzonego przed chwilą.", text: "Szkic prawdopodobnie nie powstał. Możesz zapisać ponownie albo sprawdzić całą listę pojazdów." });
+      }
     });
   }
 
@@ -321,6 +333,18 @@ export function VehicleForm({ context = companyContext, vehicleId, title }: { co
                   {field.startsWith("feature-") ? "Wyposażenie" : nameOf(field)}</button>: {errors[field]}</li>
               ))}
             </ul>
+          </Alert>
+        )}
+        {candidates && candidates.length > 0 && (
+          <Alert tone="info" title="Znaleziono szkic, który mógł powstać przed chwilą." onDismiss={() => setCandidates(null)}>
+            Sprawdź, czy to Twój pojazd, i otwórz go, zamiast zapisywać drugi raz. Nic nie otwieramy automatycznie.
+            <ul className={styles.summaryList}>
+              {candidates.map((item) => (
+                <li key={item.id}><a href={`${context.hrefBase}/pojazdy/${item.id}/`}>{item.name ?? "Pojazd bez nazwy"}</a>
+                  {item.slug ? ` (adres: ${item.slug})` : ""}, utworzono {formatDate(item.updatedAt)}</li>
+              ))}
+            </ul>
+            <a href={`${context.hrefBase}/pojazdy/`}>Zobacz całą listę pojazdów</a>
           </Alert>
         )}
         {uncertain && (
