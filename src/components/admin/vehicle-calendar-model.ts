@@ -61,6 +61,8 @@ export function changedFields(baseline: BlockValues, values: BlockValues): Block
   return out;
 }
 
+/** Today's LocalDate in Europe/Warsaw (the panel works on that day, not on the browser's). */
+export const warsawDate = (now = new Date()) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Warsaw", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
 export const monthOf = (date: string) => date.slice(0, 7);
 export function monthSpan(month: string): { from: string; to: string } {
   const days = monthDays(month);
@@ -112,8 +114,13 @@ export const saveErrorText = (code: string) => errorTexts[code] ?? "Operacja nie
 
 /** What a read after a lost response says about the block: lets the screen settle "did it save?" without a blind retry. */
 export type Outcome = "saved" | "not-saved" | "changed-elsewhere";
-export function settleCreate(blocks: CalendarBlock[], values: BlockValues): Outcome {
-  return blocks.some((block) => block.from === values.from && block.to === values.to && block.type === values.type) ? "saved" : "not-saved";
+/**
+ * After a lost answer to a create, the server gives no id or idempotency key to compare, and an identical range saved at
+ * the same time in another card looks the same. So a block never counts as "ours" by itself: blocks that fill exactly the
+ * requested range and were not known when the request was sent are only candidates, and the user confirms one.
+ */
+export function createCandidates(blocks: CalendarBlock[], values: BlockValues, knownIds: ReadonlySet<string>): CalendarBlock[] {
+  return blocks.filter((block) => block.from === values.from && block.to === values.to && !knownIds.has(block.id));
 }
 export function settleEdit(blocks: CalendarBlock[], id: string, expectedVersion: number, values: BlockValues): Outcome {
   const block = blocks.find((entry) => entry.id === id);

@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CalendarBlock } from "../../src/components/admin/calendar-api";
 import { VehicleCalendar } from "../../src/components/admin/vehicle-calendar";
 import {
-  changedFields, countDays, createFields, dayLabel, dayView, emptyValues, settleCreate, settleDelete, settleEdit, startsInPast, surroundingRange, validateValues,
+  changedFields, countDays, createFields, dayLabel, dayView, emptyValues, createCandidates, warsawDate, settleDelete, settleEdit, startsInPast, surroundingRange, validateValues,
 } from "../../src/components/admin/vehicle-calendar-model";
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
@@ -57,8 +57,10 @@ describe("#39 model: daty, walidacja, stany dni", () => {
   });
   it("po utraconej odpowiedzi odczyt rozstrzyga, czy zapis się udał", () => {
     const values = { from: "2026-11-12", to: "2026-11-14", type: "MAINTENANCE" as const, reference: "", internalNote: "" };
-    expect(settleCreate([block({ reference: null })], values)).toBe("saved");
-    expect(settleCreate([], values)).toBe("not-saved");
+    expect(createCandidates([block({ reference: null })], values, new Set())).toHaveLength(1);
+    expect(createCandidates([block({ reference: null })], values, new Set(["b1"]))).toHaveLength(0); // known before the request: not ours
+    expect(createCandidates([], values, new Set())).toHaveLength(0);
+    expect(createCandidates([block({ to: "2026-11-15" })], values, new Set())).toHaveLength(0);
     expect(settleEdit([block()], "b1", 3, values)).toBe("not-saved");
     expect(settleEdit([block({ version: 4, reference: null, internalNote: null })], "b1", 3, values)).toBe("saved");
     expect(settleEdit([block({ version: 4, to: "2026-11-20" })], "b1", 3, values)).toBe("changed-elsewhere");
@@ -241,9 +243,49 @@ describe("#39 kalendarz pojazdu", () => {
     await user.click(within(dialog).getByRole("button", { name: "Dodaj blokadę" }));
     expect(await within(dialog).findByText("Nie wiemy, czy zmiana została zapisana.")).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Sprawdź stan" }));
+    // A block of the same range is only a candidate: the user confirms it, nothing is claimed automatically.
+    expect(await within(dialog).findByText("Na serwerze jest wpis z tym zakresem.")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/^Od/)).toBeDisabled();
+    await user.click(within(dialog).getByRole("button", { name: "To mój wpis" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(server.calls.filter((call) => call.method === "POST")).toHaveLength(1);
-    expect(screen.getByText("Zmiana została zapisana.")).toBeInTheDocument();
+    expect(screen.getByText("Blokada została dodana.")).toBeInTheDocument();
+  });
+
+  it("utracona odpowiedź, a zapisu nie było: brak kandydatów, wpisy zostają i można zapisać ponownie", async () => {
+    const user = userEvent.setup();
+    const server: Server = { blocks: [], calls: [] };
+    let lose = true;
+    server.fail = (call) => { if (call.method === "POST" && lose) { lose = false; throw new TypeError("network"); } return null; };
+    install(server); mount();
+    await user.click((await screen.findAllByRole("button", { name: "Dodaj okres niedostępności" }))[0]!);
+    const dialog = await screen.findByRole("dialog");
+    await user.type(within(dialog).getByLabelText(/^Od/), "2026-11-20");
+    await user.type(within(dialog).getByLabelText(/^Do/), "2026-11-21");
+    await user.click(within(dialog).getByRole("button", { name: "Dodaj blokadę" }));
+    await user.click(await within(dialog).findByRole("button", { name: "Sprawdź stan" }));
+    expect(await within(dialog).findByText(/Zmiana nie została zapisana/)).toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/^Od/)).toHaveValue("2026-11-20");
+    await user.click(within(dialog).getByRole("button", { name: "Dodaj blokadę" }));
+    await waitFor(() => expect(server.calls.filter((call) => call.method === "POST")).toHaveLength(2));
+  });
+
+  it("po północy w Warszawie karta odświeża dzień: oznaczenie dzisiaj i zakres listy", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-11-09T22:59:00Z")); // 23:59 in Warsaw
+      expect(warsawDate()).toBe("2026-11-09");
+      const server: Server = { blocks: [], calls: [] };
+      install(server); mount();
+      await screen.findByRole("button", { name: /9 listopada 2026, wolny, dzisiaj/ });
+      vi.setSystemTime(new Date("2026-11-09T23:01:00Z")); // 00:01 on the 10th in Warsaw
+      expect(warsawDate()).toBe("2026-11-10");
+      await vi.advanceTimersByTimeAsync(31_000);
+      await screen.findByRole("button", { name: /10 listopada 2026, wolny, dzisiaj/ });
+      expect(screen.getByRole("button", { name: /9 listopada 2026, wolny, minął/ })).toBeInTheDocument();
+      const lists = server.calls.filter((call) => /from=2026-11-10&to=2027-11-09/.test(call.url));
+      expect(lists.length).toBeGreaterThan(0);
+    } finally { vi.useRealTimers(); }
   });
 
   it("Enter po utraconej odpowiedzi czyta stan zamiast wysyłać drugi POST, a pola są zablokowane", async () => {
