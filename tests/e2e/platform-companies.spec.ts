@@ -70,16 +70,36 @@ test("superadmin: search, card, period save, version conflict and archive keep o
 
     // Archive from the card; the company stays on the list behind the archive filter.
     await page.setViewportSize({ width: 1440, height: 900 });
+    // Cancel leaves the company untouched; the dialog names the company and what is kept.
+    await page.getByRole("button", { name: "Archiwizuj firmę" }).click();
+    await expect(page.getByRole("dialog")).toContainText("Trwałe usunięcie firmy nie jest dostępne");
+    await page.getByRole("button", { name: "Anuluj" }).click();
+    expect((await db.organization.findUniqueOrThrow({ where: { id: org } })).archivedAt).toBeNull();
     await page.getByRole("button", { name: "Archiwizuj firmę" }).click();
     await page.getByRole("button", { name: "Archiwizuj", exact: true }).click();
     await expect(page.getByText("Firma została zarchiwizowana.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Przywróć firmę" })).toBeVisible();
+    expect((await db.organization.findUniqueOrThrow({ where: { id: org } })).archivedAt).not.toBeNull();
+    // Restore returns the account only: the page stays locked until a separate, confirmed unlock.
+    await page.getByRole("button", { name: "Przywróć firmę" }).click();
+    await page.getByRole("button", { name: "Przywróć", exact: true }).click();
+    await expect(page.getByText("Firma została przywrócona.")).toBeVisible();
+    await expect(page.getByText("Przywrócenie nie publikuje strony.")).toBeVisible();
+    expect((await db.organization.findUniqueOrThrow({ where: { id: org } })).publicUnlockRequired).toBe(true);
+    await page.getByRole("button", { name: "Odblokuj stronę publiczną" }).click();
+    await expect(page.getByRole("dialog")).toContainText("Odblokować stronę publiczną firmy");
+    await page.getByRole("button", { name: "Odblokuj stronę", exact: true }).click();
+    await expect(page.getByText("Strona publiczna została odblokowana.")).toBeVisible();
+    expect((await db.organization.findUniqueOrThrow({ where: { id: org } })).publicUnlockRequired).toBe(false);
+    await page.getByRole("button", { name: "Archiwizuj firmę" }).click();
+    await page.getByRole("button", { name: "Archiwizuj", exact: true }).click();
     await expect(page.getByRole("button", { name: "Przywróć firmę" })).toBeVisible();
     await page.screenshot({ path: test.info().outputPath("card-1440.png"), fullPage: true });
     await page.goto(`${origin}/firmy/`);
     await page.getByRole("searchbox").fill(marker);
     await expect(page.getByText("Brak firm dla wybranych kryteriów.")).toBeVisible();
     await page.getByRole("checkbox", { name: "Pokaż zarchiwizowane" }).check();
-    await expect(page.getByRole("article").filter({ hasText: marker }).getByText("Zarchiwizowana", { exact: true })).toBeVisible();
+    await expect(page.getByRole("article").filter({ hasText: marker }).getByText(/Zarchiwizowana \d{2}\.\d{2}\.\d{4}/)).toBeVisible();
 
     // Same host policy as `/` and `/firmy/{id}/` (#14/#15): without a session the list goes to the platform login, never private HTML.
     await page.context().clearCookies();

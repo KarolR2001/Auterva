@@ -403,45 +403,126 @@ function PeriodSection({ company, base, reload }: SectionProps) {
   );
 }
 
+type ArchiveKind = "archive" | "restore" | "unlock";
+
+const DIALOG_COPY: Record<ArchiveKind, { title: (name: string) => string; description: string; effects: string[]; action: string }> = {
+  archive: {
+    title: (name) => `Zarchiwizować firmę ${name}?`,
+    description: "Archiwizacja odbiera dostęp, ale niczego nie usuwa.",
+    effects: [
+      "Administrator zostanie wylogowany, a jego sesje i niedokończone logowania MFA unieważnione.",
+      "Administrator nie zaloguje się, dopóki nie przywrócisz firmy.",
+      "Strona publiczna i adresy firmy zostaną wyłączone.",
+      "Flota, zdjęcia, blokady, czat, ustawienia i okres usługi zostają zachowane; czat jest tylko do odczytu.",
+      "Jako superadmin nadal edytujesz dane firmy. Trwałe usunięcie firmy nie jest dostępne.",
+    ],
+    action: "Archiwizuj",
+  },
+  restore: {
+    title: (name) => `Przywrócić firmę ${name}?`,
+    description: "Przywrócenie oddaje wyłącznie logowanie administratora. Nie publikuje strony.",
+    effects: [
+      "Administrator zaloguje się od nowa z MFA; poprzednie sesje nie wracają.",
+      "Strona publiczna pozostaje wyłączona do osobnego odblokowania i ważnej opłaty. Sam trial nie wystarcza.",
+      "Okres usługi, trial i dane firmy nie zmieniają się.",
+    ],
+    action: "Przywróć",
+  },
+  unlock: {
+    title: (name) => `Odblokować stronę publiczną firmy ${name}?`,
+    description: "Odblokowanie jest osobnym krokiem po przywróceniu i wymaga ważnej opłaty.",
+    effects: [
+      "Strona stanie się widoczna publicznie, jeśli okres usługi, rejestracja i adres publiczny na to pozwalają.",
+      "Okres usługi i konto administratora nie zmieniają się.",
+    ],
+    action: "Odblokuj stronę",
+  },
+};
+
+const SUCCESS_TEXT: Record<ArchiveKind, string> = {
+  archive: "Firma została zarchiwizowana. Dane są zachowane, a dostęp administratora i strona publiczna zostały wyłączone.",
+  restore: "Firma została przywrócona. Poniżej widać rzeczywisty stan strony publicznej i dalsze kroki.",
+  unlock: "Strona publiczna została odblokowana. Poniżej widać rzeczywisty stan publikacji.",
+};
+
+/** True when the read state shows the operation has taken effect. */
+function applied(kind: ArchiveKind, company: CompanyCardData) {
+  if (kind === "archive") return !!company.archivedAt;
+  if (kind === "restore") return !company.archivedAt;
+  return !company.publication.unlockRequired;
+}
+
 function ArchiveSection({ company, base, reload }: SectionProps) {
-  const [dialog, setDialog] = useState<"archive" | "restore" | null>(null);
+  const [dialog, setDialog] = useState<ArchiveKind | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
+  const [uncertainKind, setUncertainKind] = useState<ArchiveKind | null>(null);
   // One key per operation kind: after an uncertain archive the next "restore" must not reuse the archive key.
-  const keys = useRef<Record<"archive" | "restore" | "unlock", string>>({
+  const keys = useRef<Record<ArchiveKind, string>>({
     archive: newIdempotencyKey(),
     restore: newIdempotencyKey(),
     unlock: newIdempotencyKey(),
   });
+  const sent = useRef<{ kind: ArchiveKind; version: number } | null>(null);
   const archived = !!company.archivedAt;
   const needsUnlock = !archived && company.publication.unlockRequired;
 
-  async function run(kind: "archive" | "restore" | "unlock") {
+  /** After a lost or 5xx answer: read the company and report applied / not applied / changed elsewhere. */
+  async function resolveUncertain(requestId?: string | null) {
+    const attempt = sent.current;
+    const fresh = attempt ? await reload() : null;
+    if (!attempt || !fresh) {
+      setUncertainKind(attempt?.kind ?? null);
+      setNotice({
+        tone: "warning",
+        text: "Nie wiemy, czy operacja została zapisana, a odczyt stanu się nie udał. Sprawdź stan jeszcze raz.",
+        requestId,
+      });
+      return;
+    }
+    setUncertainKind(null);
+    if (applied(attempt.kind, fresh) && fresh.organizationVersion > attempt.version) {
+      keys.current[attempt.kind] = newIdempotencyKey();
+      setNotice({ tone: "success", text: `Operacja została zapisana. ${SUCCESS_TEXT[attempt.kind]}` });
+    } else if (fresh.organizationVersion !== attempt.version) {
+      keys.current[attempt.kind] = newIdempotencyKey();
+      setNotice({
+        tone: "warning",
+        text: "Firma została zmieniona w innej sesji, a ta operacja nie została zapisana. Sprawdź aktualny stan i zdecyduj ponownie.",
+      });
+    } else {
+      setNotice({
+        tone: "warning",
+        text: "Nie znaleziono zapisu tej operacji w aktualnym stanie. Możesz ją ponowić; użyjemy tego samego klucza, więc nie wykona się dwa razy.",
+      });
+    }
+  }
+
+  async function run(kind: ArchiveKind) {
     if (busy) return;
     setBusy(true);
     setNotice(null);
+    setUncertainKind(null);
     const path = kind === "unlock" ? "public-unlock" : kind;
+    const version = company.organizationVersion;
     const result = await platformRequest(`${base}/${path}/`, {
       method: "POST",
-      body: { expectedOrganizationVersion: company.organizationVersion, eventKey: keys.current[kind] },
+      body: { expectedOrganizationVersion: version, eventKey: keys.current[kind] },
     });
     setBusy(false);
     setDialog(null);
     if (result.ok) {
       keys.current[kind] = newIdempotencyKey();
-      setNotice({
-        tone: "success",
-        text:
-          kind === "archive"
-            ? "Firma została zarchiwizowana."
-            : kind === "restore"
-              ? "Firma została przywrócona. Strona pozostaje wyłączona do odblokowania i ważnej opłaty."
-              : "Strona publiczna została odblokowana.",
-      });
+      setNotice({ tone: "success", text: SUCCESS_TEXT[kind] });
       await reload();
       return;
     }
-    if (!isUncertain(result)) keys.current[kind] = newIdempotencyKey();
+    if (isUncertain(result)) {
+      sent.current = { kind, version };
+      await resolveUncertain(result.requestId);
+      return;
+    }
+    keys.current[kind] = newIdempotencyKey();
     setNotice(
       failureNotice(result, {
         PERIOD_VERSION_CONFLICT: "Okres usługi został zmieniony w innej sesji. Odświeżyliśmy kartę; sprawdź stan i spróbuj ponownie.",
@@ -457,55 +538,93 @@ function ArchiveSection({ company, base, reload }: SectionProps) {
     await reload();
   }
 
+  const copy = dialog ? DIALOG_COPY[dialog] : null;
   return (
     <section aria-labelledby="archive-title" className={styles.panelCard}>
       <h2 id="archive-title" className={styles.sectionTitle}>
         Archiwum i publikacja
       </h2>
       <NoticeView notice={notice} />
-      {needsUnlock && (
-        <>
-          <p className={styles.opsHint}>
-            Firma została przywrócona. Strona publiczna jest wyłączona do jawnego odblokowania i wymaga ważnej opłaty.
-          </p>
-          <Button
-            variant="secondary"
-            onClick={() => void run("unlock")}
-            disabled={!company.period.paidValid || busy}
-          >
-            Odblokuj stronę publiczną
+      {uncertainKind && (
+        <div className={styles.actionsRow}>
+          <Button variant="secondary" onClick={() => void resolveUncertain()}>
+            Sprawdź stan
           </Button>
-          {!company.period.paidValid && <p className={styles.opsHint}>Najpierw wpisz ważną opłatę w okresie usługi.</p>}
-        </>
+        </div>
       )}
+
+      <h3 className={styles.subTitle}>Dostęp do firmy</h3>
       <p className={styles.opsHint}>
         {archived
-          ? "Archiwum zachowuje dane i blokuje logowanie administratora oraz stronę publiczną. Jako superadmin nadal edytujesz dane firmy."
-          : "Archiwizacja zachowa dane, wyłączy stronę publiczną i zablokuje logowanie administratora."}
+          ? "Firma jest zarchiwizowana: dane są zachowane, administrator nie może się zalogować, a strona publiczna jest wyłączona. Jako superadmin nadal edytujesz dane firmy."
+          : "Archiwizacja zachowa dane, zablokuje logowanie administratora i wyłączy stronę publiczną. Nie usuwa firmy."}
       </p>
-      <Button variant={archived ? "secondary" : "destructive"} icon={<Archive size={20} aria-hidden="true" />} onClick={() => setDialog(archived ? "restore" : "archive")}>
-        {archived ? "Przywróć firmę" : "Archiwizuj firmę"}
-      </Button>
+      <div className={styles.actionsRow}>
+        <Button
+          variant={archived ? "secondary" : "destructive"}
+          icon={<Archive size={20} aria-hidden="true" />}
+          disabled={busy}
+          onClick={() => setDialog(archived ? "restore" : "archive")}
+        >
+          {archived ? "Przywróć firmę" : "Archiwizuj firmę"}
+        </Button>
+      </div>
+
+      <h3 className={styles.subTitle}>Strona publiczna</h3>
+      <dl className={styles.statusList}>
+        <StatusRow
+          label="Stan publiczny"
+          ok={company.publication.visible}
+          value={company.publication.visible ? "Widoczna" : "Wyłączona"}
+          detail={visibilityReason(company)}
+        />
+      </dl>
+      {needsUnlock && (
+        <>
+          <p className={styles.opsHint}>Przywrócenie nie publikuje strony. Dalsze kroki:</p>
+          <ol className={styles.stepList}>
+            <li>Administrator loguje się od nowa z MFA (poprzednie sesje nie wracają).</li>
+            <li>
+              {company.period.paidValid
+                ? "Ważna opłata jest wpisana."
+                : "Wpisz ważną opłatę w okresie usługi. Sam trial nie wystarcza."}
+            </li>
+            <li>Odblokuj stronę publiczną przyciskiem poniżej.</li>
+          </ol>
+          <div className={styles.actionsRow}>
+            <Button variant="secondary" onClick={() => setDialog("unlock")} disabled={!company.period.paidValid || busy}>
+              Odblokuj stronę publiczną
+            </Button>
+          </div>
+          {!company.period.paidValid && (
+            <p className={styles.opsHint}>Odblokowanie jest wyłączone do wpisania ważnej opłaty.</p>
+          )}
+        </>
+      )}
+      {archived && <p className={styles.opsHint}>Odblokowanie strony jest osobnym krokiem po przywróceniu firmy.</p>}
+
       <Dialog
         open={dialog !== null}
         onOpenChange={(open) => !open && !busy && setDialog(null)}
         type={dialog === "archive" ? "destructive" : "confirm"}
-        title={dialog === "archive" ? `Zarchiwizować firmę ${company.name}?` : `Przywrócić firmę ${company.name}?`}
-        description={
-          dialog === "archive"
-            ? "Administrator zostanie wylogowany i nie zaloguje się, a strona publiczna zostanie wyłączona. Dane pozostają zachowane."
-            : "Administrator będzie mógł się zalogować od nowa. Strona publiczna pozostanie wyłączona do odblokowania i ważnej opłaty."
-        }
+        title={copy ? copy.title(company.name) : ""}
+        description={copy?.description}
         primaryAction={{
-          label: busy ? "Zapisywanie…" : dialog === "archive" ? "Archiwizuj" : "Przywróć",
-          onClick: () => void run(dialog === "archive" ? "archive" : "restore"),
+          label: busy ? "Zapisywanie…" : (copy?.action ?? ""),
+          onClick: () => dialog && void run(dialog),
         }}
         secondaryAction={{ label: "Anuluj", onClick: () => !busy && setDialog(null) }}
-      />
+      >
+        {copy && (
+          <ul className={styles.effectList}>
+            {copy.effects.map((effect) => (
+              <li key={effect}>{effect}</li>
+            ))}
+          </ul>
+        )}
+      </Dialog>
     </section>
   );
 }
-
-
 
 export { PeriodSection, ArchiveSection };

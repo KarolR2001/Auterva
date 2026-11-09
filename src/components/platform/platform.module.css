@@ -173,3 +173,6 @@
   .toolbar { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
   .toolbar .searchLabel { grid-column: 1 / -1; }
 }
+
+.subTitle { margin: var(--space-2) 0 0; font-size: var(--font-size-16); line-height: var(--line-height-24); color: var(--text-primary); }
+.stepList, .effectList { margin: 0; padding-left: var(--space-5); display: grid; gap: var(--space-1); color: var(--text-secondary); font-size: var(--font-size-14); line-height: var(--line-height-20); }

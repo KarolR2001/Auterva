@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "../ui/button";
 import { TextInput } from "../ui/text-input";
 import {
+  formatInstantDate,
   periodLabel,
   platformRequest,
   visibilityReason,
@@ -188,7 +189,7 @@ function CompanyRow({ company }: { company: PlatformCompany }) {
         </h3>
         {company.archivedAt && (
           <span className={styles.badgeArchived}>
-            <Archive size={16} aria-hidden="true" /> Zarchiwizowana
+            <Archive size={16} aria-hidden="true" /> Zarchiwizowana {formatInstantDate(company.archivedAt)}
           </span>
         )}
       </div>

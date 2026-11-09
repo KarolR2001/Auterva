@@ -267,3 +267,171 @@ describe("karta firmy i zmiana okresu", () => {
   });
 
 });
+
+describe("archiwizacja, restore i odblokowanie w karcie (#49)", () => {
+  const archivedAt = "2026-11-01T10:00:00.000Z";
+  type Op = { url: string; body: { expectedOrganizationVersion: number; eventKey: string } };
+
+  function setup(opts: { card: () => PlatformCompany; post?: (url: string) => Response }) {
+    const ops: Op[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.includes("/domains/")) return Response.json({ aliasHostname: "alfa.oferta.example", domain: null });
+      if (init?.method === "POST" && /\/(archive|restore|public-unlock)\/$/.test(url)) {
+        ops.push({ url, body: JSON.parse(String(init.body)) });
+        return opts.post ? opts.post(url) : Response.json({});
+      }
+      return Response.json(opts.card());
+    });
+    return ops;
+  }
+  async function open(initial: PlatformCompany) {
+    render(
+      <PanelShell area="platform" accessState="allowed" title="Firmy" currentPath="/firmy" onLogout={vi.fn()}>
+        <CompanyCard initial={initial} justSaved={false} />
+      </PanelShell>,
+    );
+    await screen.findByRole("heading", { name: "Archiwum i publikacja" });
+    return userEvent.setup();
+  }
+
+  it("potwierdzenie archiwizacji ma nazwę firmy i skutki; anulowanie nie wysyła żądania", async () => {
+    const ops = setup({ card: () => company() });
+    const user = await open(company());
+    await user.click(screen.getByRole("button", { name: "Archiwizuj firmę" }));
+    const dialog = await screen.findByRole("alertdialog").catch(() => screen.findByRole("dialog"));
+    expect(dialog).toHaveTextContent("Zarchiwizować firmę Alfa Campers?");
+    expect(dialog).toHaveTextContent(/niczego nie usuwa/);
+    expect(dialog).toHaveTextContent(/Trwałe usunięcie firmy nie jest dostępne/);
+    await user.click(screen.getByRole("button", { name: "Anuluj" }));
+    expect(ops).toHaveLength(0);
+    expect(screen.queryByText(/została zarchiwizowana/)).toBeNull();
+    expect(document.body.textContent).not.toMatch(/Usuń firmę|Usuń trwale/);
+  });
+
+  it("archiwizacja wysyła wersję i klucz, a sukces czeka na odczyt stanu", async () => {
+    let done = false;
+    const ops = setup({
+      card: () => (done ? company({ archivedAt, organizationVersion: 4 }) : company()),
+      post: () => {
+        done = true;
+        return Response.json({ archivedAt, version: 4 });
+      },
+    });
+    const user = await open(company());
+    await user.click(screen.getByRole("button", { name: "Archiwizuj firmę" }));
+    await user.click(screen.getByRole("button", { name: "Archiwizuj" }));
+    expect(await screen.findByText(/Firma została zarchiwizowana/)).toBeVisible();
+    expect(ops[0].url).toContain("/archive/");
+    expect(ops[0].body.expectedOrganizationVersion).toBe(3);
+    expect(ops[0].body.eventKey).toMatch(/^[0-9a-f-]{36}$/);
+    expect(await screen.findByRole("button", { name: "Przywróć firmę" })).toBeVisible();
+  });
+
+  it("restore bez ważnej opłaty pokazuje rzeczywisty stan i kroki; odblokowanie jest wyłączone", async () => {
+    let restored = false;
+    const after = company({
+      organizationVersion: 5,
+      period: { ...company().period, paidValid: false, publicVisible: false, headline: "EXPIRED" },
+      publication: { visible: false, domainReady: true, unlockRequired: true, requiresPaid: true },
+    });
+    const ops = setup({
+      card: () => (restored ? after : company({ archivedAt, organizationVersion: 4 })),
+      post: () => {
+        restored = true;
+        return Response.json({ archivedAt: null, version: 5 });
+      },
+    });
+    const user = await open(company({ archivedAt, organizationVersion: 4 }));
+    await user.click(screen.getByRole("button", { name: "Przywróć firmę" }));
+    expect(await screen.findByRole("dialog")).toHaveTextContent(/Nie publikuje strony/);
+    await user.click(screen.getByRole("button", { name: "Przywróć" }));
+    expect(await screen.findByText(/Firma została przywrócona/)).toBeVisible();
+    expect(ops[0].url).toContain("/restore/");
+    expect(await screen.findByText(/Przywrócenie nie publikuje strony/)).toBeVisible();
+    expect(screen.getAllByText("Wyłączona").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByRole("button", { name: "Odblokuj stronę publiczną" })).toBeDisabled();
+    expect(screen.getByText(/Wpisz ważną opłatę/)).toBeVisible();
+  });
+
+  it("odblokowanie wymaga potwierdzenia z nazwą firmy", async () => {
+    const locked = company({
+      publication: { visible: false, domainReady: true, unlockRequired: true, requiresPaid: true },
+    });
+    const ops = setup({ card: () => locked });
+    const user = await open(locked);
+    await user.click(screen.getByRole("button", { name: "Odblokuj stronę publiczną" }));
+    expect(await screen.findByRole("dialog")).toHaveTextContent("Odblokować stronę publiczną firmy Alfa Campers?");
+    expect(ops).toHaveLength(0);
+    await user.click(screen.getByRole("button", { name: "Anuluj" }));
+    expect(ops).toHaveLength(0);
+    await user.click(screen.getByRole("button", { name: "Odblokuj stronę publiczną" }));
+    await user.click(screen.getByRole("button", { name: "Odblokuj stronę" }));
+    await waitFor(() => expect(ops).toHaveLength(1));
+    expect(ops[0].url).toContain("/public-unlock/");
+  });
+
+  it("5xx: odczyt potwierdza zapis i komunikat mówi, że zapisano", async () => {
+    let done = false;
+    setup({
+      card: () => (done ? company({ archivedAt, organizationVersion: 4 }) : company()),
+      post: () => {
+        done = true;
+        return Response.json({}, { status: 502 });
+      },
+    });
+    const user = await open(company());
+    await user.click(screen.getByRole("button", { name: "Archiwizuj firmę" }));
+    await user.click(screen.getByRole("button", { name: "Archiwizuj" }));
+    expect(await screen.findByText(/Operacja została zapisana/)).toBeVisible();
+    expect(screen.queryByText(/Nie wiemy, czy operacja/)).toBeNull();
+  });
+
+  it("5xx bez zmiany wersji: nie zapisano, ponowienie używa tego samego klucza", async () => {
+    const ops = setup({ card: () => company(), post: () => Response.json({}, { status: 500 }) });
+    const user = await open(company());
+    await user.click(screen.getByRole("button", { name: "Archiwizuj firmę" }));
+    await user.click(screen.getByRole("button", { name: "Archiwizuj" }));
+    expect(await screen.findByText(/Nie znaleziono zapisu tej operacji/)).toBeVisible();
+    expect(screen.queryByText(/Firma została zarchiwizowana/)).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Archiwizuj firmę" }));
+    await user.click(screen.getByRole("button", { name: "Archiwizuj" }));
+    await waitFor(() => expect(ops).toHaveLength(2));
+    expect(ops[1].body.eventKey).toBe(ops[0].body.eventKey);
+  });
+
+  it("5xx i nieudany odczyt: ostrzeżenie z przyciskiem sprawdzenia stanu, bez sukcesu", async () => {
+    let failing = false;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.includes("/domains/")) return Response.json({ aliasHostname: "alfa.oferta.example", domain: null });
+      if (init?.method === "POST") {
+        failing = true;
+        return Response.json({}, { status: 500 });
+      }
+      return failing ? Response.json({}, { status: 500 }) : Response.json(company());
+    });
+    const user = await open(company());
+    await user.click(screen.getByRole("button", { name: "Archiwizuj firmę" }));
+    await user.click(screen.getByRole("button", { name: "Archiwizuj" }));
+    expect(await screen.findByText(/odczyt stanu się nie udał/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Sprawdź stan" })).toBeVisible();
+    expect(screen.queryByText(/została zarchiwizowana/)).toBeNull();
+  });
+
+  it("konflikt wersji: bez sukcesu, nowy klucz i odświeżona karta", async () => {
+    const ops = setup({
+      card: () => company({ organizationVersion: 4 }),
+      post: () => Response.json({ code: "COMPANY_VERSION_CONFLICT" }, { status: 409 }),
+    });
+    const user = await open(company());
+    await user.click(screen.getByRole("button", { name: "Archiwizuj firmę" }));
+    await user.click(screen.getByRole("button", { name: "Archiwizuj" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/zmieniona w innej sesji/);
+    await user.click(screen.getByRole("button", { name: "Archiwizuj firmę" }));
+    await user.click(screen.getByRole("button", { name: "Archiwizuj" }));
+    await waitFor(() => expect(ops).toHaveLength(2));
+    expect(ops[1].body.expectedOrganizationVersion).toBe(4);
+    expect(ops[1].body.eventKey).not.toBe(ops[0].body.eventKey);
+  });
+});
