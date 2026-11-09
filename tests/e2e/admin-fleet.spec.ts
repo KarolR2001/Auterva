@@ -173,6 +173,12 @@ test("fleet order over several pages and an unknown outcome of hiding", async ({
     const base = `http://${host}:${port}`;
     await page.goto(`${base}/admin/pojazdy/`);
     await expect(page.locator("tbody tr")).toHaveCount(20);
+    // No horizontal page scroll next to the 240 px sidebar at 320 px, 768 px and 1024 px.
+    for (const width of [320, 768, 1024]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), { message: `viewport ${width}` }).toBe(true);
+    }
+    await page.setViewportSize({ width: 1280, height: 900 });
     const down = page.getByRole("button", { name: "Przesuń „V03” w dół" });
     await down.focus();
     await page.keyboard.press("Enter");
@@ -184,6 +190,23 @@ test("fleet order over several pages and an unknown outcome of hiding", async ({
     await expect(page.getByRole("button", { name: "Przesuń „V03” w dół" })).toBeFocused();
     await page.getByRole("button", { name: "Następna" }).click();
     await expect(page.locator("tbody tr")).toHaveCount(2);
+
+    // Across the page boundary: the last vehicle of page 1 moves down onto page 2 and back up again; focus follows it.
+    const order = async () => (await db.vehicle.findMany({ where: { organizationId: org }, orderBy: [{ sortOrder: "asc" }, { id: "asc" }], select: { name: true } })).map((row) => row.name);
+    await page.getByRole("button", { name: "Poprzednia" }).click();
+    await expect(page.locator("tbody tr")).toHaveCount(20);
+    await page.getByRole("button", { name: "Przesuń „V19” w dół" }).click();
+    await expect(page.getByText("Strona 2 z 2")).toBeVisible();
+    await expect(page.getByText("(strona 2)")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Przesuń „V19” w górę" })).toBeFocused();
+    expect((await order()).slice(18, 22)).toEqual(["V18", "V20", "V19", "V21"]);
+    await page.getByRole("button", { name: "Przesuń „V19” w górę" }).click();
+    await expect(page.getByText("Strona 1 z 2")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Przesuń „V19” w górę" })).toBeFocused();
+    expect((await order()).slice(18, 22)).toEqual(["V18", "V19", "V20", "V21"]);
+    // The ends of the whole fleet stay closed, not the ends of a page.
+    await expect(page.getByRole("button", { name: "Przesuń „V00” w górę" })).toHaveAttribute("aria-disabled", "true");
+    await expect(page.getByRole("button", { name: "Przesuń „V19” w dół" })).not.toHaveAttribute("aria-disabled", "true");
 
     // An unknown outcome (502 after the commit may have happened): said plainly, the list is read again.
     await page.goto(`${base}/admin/pojazdy/`);

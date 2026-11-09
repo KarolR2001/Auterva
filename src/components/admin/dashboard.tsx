@@ -4,7 +4,7 @@ import { CalendarPlus, CircleCheck, CircleOff, Plus, Wifi, WifiOff } from "lucid
 import { useEffect, useState } from "react";
 
 import { Alert } from "@/components/ui/alert";
-import { companyContext, fleetCalendar, fleetCount, readServiceStatus, errorMessage, routes,
+import { companyContext, fleetCalendar, fleetCount, readServiceStatus, readErrorMessage, routes,
   type FleetBlock, type PanelContext, type ServiceStatus } from "./fleet-api";
 import styles from "./admin.module.css";
 
@@ -92,7 +92,7 @@ export function Dashboard({ context = companyContext, title }: { context?: Panel
       {service?.expiredNotice && <Alert tone="warning" title={service.expiredNotice} />}
       {view.state === "loading" && <div className={styles.skeleton} role="status" aria-label="Ładowanie panelu"><span /><span /><span /></div>}
       {view.state === "error" && <Alert tone="error" title="Nie udało się wczytać panelu"
-        action={{ label: "Spróbuj ponownie", onClick: () => { setView({ state: "loading" }); setReload((value) => value + 1); } }}>{errorMessage(view.code)}</Alert>}
+        action={{ label: "Spróbuj ponownie", onClick: () => { setView({ state: "loading" }); setReload((value) => value + 1); } }}>{readErrorMessage(view.code)}</Alert>}
       {view.state === "ready" && view.data.stats.total === 0 && (
         <div className={styles.empty}><h2 className={styles.h2}>Zacznij od pierwszego pojazdu</h2>
           {routes.vehicleForm

@@ -7,7 +7,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { TextInput } from "@/components/ui/text-input";
-import { changeStatus, companyContext, errorMessage, isUncertain, listFleet, listWholeFleet, reorderFleet, routes, rowActions,
+import { changeStatus, companyContext, errorMessage, readErrorMessage, isUncertain, listFleet, listWholeFleet, reorderFleet, routes, rowActions,
   statusLabels, type FleetItem, type FleetPage, type FleetQuery, type PanelContext, type VehicleStatus } from "./fleet-api";
 import styles from "./admin.module.css";
 
@@ -143,10 +143,14 @@ export function VehicleList({ context = companyContext, title }: { context?: Pan
     busy.current = false; setSaving(false);
     const name = subject.name ?? "Pojazd";
     const position = plan.items.findIndex((item) => item.id === subject.id) + 1;
+    const newPage = Math.floor((position - 1) / page.pageSize) + 1;
     focusAfter.current = [`${direction === -1 ? "up" : "down"}:${subject.id}`, `row:${subject.id}`];
     if (result.ok) {
-      setNotice({ tone: "success", text: `Zapisano kolejność: „${name}” jest teraz na pozycji ${position}.` });
-      setAnnounce(`„${name}” na pozycji ${position} z ${plan.items.length}`);
+      const moved = newPage !== page.page;
+      setNotice({ tone: "success", text: `Zapisano kolejność: „${name}” jest teraz na pozycji ${position}${moved ? ` (strona ${newPage})` : ""}.` });
+      setAnnounce(`„${name}” na pozycji ${position} z ${plan.items.length}${moved ? `, strona ${newPage}` : ""}`);
+      // The vehicle crossed a page boundary: follow it so focus stays on its control.
+      if (moved) setQuery((current) => ({ ...current, page: newPage }));
     } else if (isUncertain(result)) setNotice({ tone: "warning", text: UNCERTAIN_TEXT });
     else setNotice({ tone: "error", text: errorMessage(result.code) });
     refresh();
@@ -183,7 +187,7 @@ export function VehicleList({ context = companyContext, title }: { context?: Pan
       <p className={styles.visuallyHidden} role="status" aria-live="polite">{announce}</p>
       {view.state === "loading" && <div className={styles.skeleton} role="status" aria-label="Ładowanie listy pojazdów"><span /><span /><span /></div>}
       {view.state === "error" && <Alert tone="error" title="Nie udało się wczytać listy pojazdów"
-        action={{ label: "Spróbuj ponownie", onClick: () => { setView({ state: "loading" }); refresh(); } }}>{errorMessage(view.code)}</Alert>}
+        action={{ label: "Spróbuj ponownie", onClick: () => { setView({ state: "loading" }); refresh(); } }}>{readErrorMessage(view.code)}</Alert>}
       {page && page.total === 0 && !filtersActive(query) && (
         <div className={styles.empty}><h3 className={styles.h2}>Flota jest pusta</h3>
           {routes.vehicleForm
@@ -210,7 +214,8 @@ export function VehicleList({ context = companyContext, title }: { context?: Pan
             </thead>
             <tbody role="rowgroup">
               {page.items.map((item, index) => (
-                <VehicleRow key={item.id} item={item} index={index} last={index === page.items.length - 1} context={context}
+                <VehicleRow key={item.id} item={item} index={index} first={(page.page - 1) * page.pageSize + index === 0}
+                  last={(page.page - 1) * page.pageSize + index === page.total - 1} context={context}
                   reorder={canReorder} saving={saving} onMove={move} onAction={onAction} />
               ))}
             </tbody>
@@ -234,8 +239,8 @@ export function VehicleList({ context = companyContext, title }: { context?: Pan
   );
 }
 
-function VehicleRow({ item, index, last, context, reorder, saving, onMove, onAction }: {
-  item: FleetItem; index: number; last: boolean; context: PanelContext; reorder: boolean; saving: boolean;
+function VehicleRow({ item, index, first, last, context, reorder, saving, onMove, onAction }: {
+  item: FleetItem; index: number; first: boolean; last: boolean; context: PanelContext; reorder: boolean; saving: boolean;
   onMove: (index: number, direction: -1 | 1) => void; onAction: (item: FleetItem, action: "unpublish" | "archive") => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -276,7 +281,7 @@ function VehicleRow({ item, index, last, context, reorder, saving, onMove, onAct
       </td>
       <td role="cell" data-label="Ostatnia zmiana">{updated(item.updatedAt)}</td>
       <td className={styles.actions} role="cell">
-        {reorder && <>{arrow(-1, index === 0)}{arrow(1, last)}</>}
+        {reorder && <>{arrow(-1, first)}{arrow(1, last)}</>}
         {routes.vehicleForm && <a className={styles.actionLink} href={`${base}/`}><Pencil aria-hidden="true" size={18} />Edytuj<span className={styles.visuallyHidden}> {name}</span></a>}
         {routes.vehicleCalendar && <a className={styles.actionLink} href={`${base}/kalendarz/`}><CalendarDays aria-hidden="true" size={18} />Kalendarz<span className={styles.visuallyHidden}> {name}</span></a>}
         {actions.length > 0 && (
