@@ -53,6 +53,19 @@
       "testPaths": ["tests/unit/auth-flow.test.tsx", "tests/unit/auth-page.test.tsx", "tests/unit/auth-destination.test.ts", "tests/unit/mfa-qr.test.tsx", "tests/e2e/auth-ui.spec.ts"]
     },
     {
+      "issue": 253,
+      "scope": "Fokus po żądaniu i po sukcesie w formularzach resetu i konta, błąd aktualnego hasła jako błąd pola z aria-invalid, niepewny wynik zmiany hasła rozstrzygany odczytem get-session, usunięte martwe gałęzie 5xx, brak poziomego overflow przy 320, 390, 768, 1024 i 1920 px. Miernik siły hasła pozostaje w #252.",
+      "relatedRequirementIds": ["C-F041", "C-F042", "FR-ADM-006", "FR-ADM-007"],
+      "referenceScreenIds": ["ADM-02", "ADM-03", "PLT-10"],
+      "codePaths": [
+        "src/components/auth/use-refocus.ts",
+        "src/components/auth/auth-flow.tsx",
+        "src/components/auth/reset-flow.tsx",
+        "src/components/account/account-view.tsx"
+      ],
+      "testPaths": ["tests/unit/reset-flow.test.tsx", "tests/unit/account-view.test.tsx", "tests/e2e/account-ui.spec.ts"]
+    },
+    {
       "issue": 19,
       "scope": "Reset hasła (prośba z neutralnym wynikiem, ustawienie nowego hasła z jednorazowym linkiem), konto obu ról (nazwa, e-mail i rola tylko do odczytu), zmiana hasła z cofnięciem sesji, wydanie nowych kodów przez świeżą weryfikację MFA, wylogowanie z potwierdzeniem serwera; PasswordStrength (DS-AUT-004) zgodny z polityką serwera 12–256 znaków.",
       "relatedRequirementIds": ["C-F041", "C-F042", "C-F044", "FR-ADM-006", "FR-ADM-007", "FR-ADM-080", "FR-ADM-082"],
