@@ -1,13 +1,14 @@
-import { CalendarSearch, Check, CircleSlash } from "lucide-react";
+import { Check } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 
-import { AvailabilityCalendar } from "@/components/public/availability-calendar";
-import { LinkButton, PublicPage } from "@/components/public/public-chrome";
+import { ContactCta } from "@/components/public/contact-cta";
+import { AvailabilityPanel } from "@/components/public/availability-panel";
+import { PublicPage } from "@/components/public/public-chrome";
 import { VehicleGallery } from "@/components/public/vehicle-gallery";
 import styles from "@/components/public/public.module.css";
-import { loadAvailability, loadCalendar, loadHome, loadVehicle, readRange, requestHost, todayWarsaw } from "@/modules/public-offer/page-data";
-import { calendarRange, catalogHref, catalogPath, contactHref, formatPrice, formatRangeShort, parseMonth, pluralDays, shiftMonth } from "@/modules/public-offer/presentation";
+import { loadAvailability, loadCalendar, loadCatalog, loadHome, loadVehicle, readRange, requestHost, todayWarsaw } from "@/modules/public-offer/page-data";
+import { calendarRange, catalogHref, formatPrice, parseMonth, shiftMonth } from "@/modules/public-offer/presentation";
 import { serializeJsonLd, toNextMetadata } from "@/modules/public-offer/seo";
 
 export const dynamic = "force-dynamic";
@@ -52,13 +53,17 @@ export default async function VehiclePage({ params, searchParams }: Props) {
   const span = calendarRange(month, today);
   const calendar = span ? await loadCalendar(host, slug, { ...span, days: 1 + (Date.parse(span.to) - Date.parse(span.from)) / 86_400_000 }) : { days: [] };
   if (!calendar) notFound();
-  const days = new Map(calendar.days.map((day) => [day.date, day.available]));
+  // Other published vehicles for "alternatives in the same dates"; their availability is asked on demand (batch, max 50).
+  // The candidates are the catalog maximum (50); a larger fleet or a failed read is not "the whole fleet" (FR-PUB-026).
+  const catalog = await loadCatalog(host, "limit=50");
+  const candidates = catalog?.ok ? catalog.items.filter((item) => item.slug !== slug) : [];
+  const others = candidates.map((item) => ({ slug: item.slug, name: item.name ?? "Pojazd" }));
+  const othersComplete = Boolean(catalog?.ok && catalog.total <= catalog.items.length && catalog.nextCursor === null);
 
   const specs = [vehicle.seats ? `${vehicle.seats} miejsc` : null, vehicle.doors ? `${vehicle.doors} drzwi` : null, vehicle.transmission,
     vehicle.fuel, vehicle.drive, vehicle.category?.name, vehicle.year ? String(vehicle.year) : null, vehicle.color, vehicle.luggage ? `Bagaż: ${vehicle.luggage}` : null]
     .filter((value): value is string => Boolean(value));
   const brand = { name: home.company.name, logo: home.company.logo };
-  const toContact = contactHref(slug, range);
   const backHref = catalogHref({ from: range.from, to: range.to });
   const hasPrice = vehicle.price !== null;
   const features = vehicle.features.filter((feature) => feature.code.trim());
@@ -75,46 +80,9 @@ export default async function VehiclePage({ params, searchParams }: Props) {
             <p className={styles.detailPrice}>{hasPrice ? formatPrice(vehicle.price) : "Cena na zapytanie"}</p>
             {specs.length ? <ul className={styles.specs} aria-label="Najważniejsze parametry">{specs.map((spec) => <li key={spec} className={styles.chip}>{spec}</li>)}</ul> : null}
 
-            <section className={styles.result} aria-labelledby="check-title">
-              <h2 id="check-title" className={styles.panelTitle}>Sprawdź termin</h2>
-              <form action={`${catalogPath}${slug}/`} method="get" id="sprawdz-termin">
-                <div className={styles.checkerRow}>
-                  <div className={styles.field}>
-                    <label className={styles.label} htmlFor="detail-from">Od</label>
-                    <input id="detail-from" name="from" type="date" min={today} defaultValue={range.from ?? ""} required className={styles.dateInput} />
-                  </div>
-                  <div className={styles.field}>
-                    <label className={styles.label} htmlFor="detail-to">Do</label>
-                    <input id="detail-to" name="to" type="date" min={today} defaultValue={range.to ?? ""} required className={styles.dateInput} />
-                  </div>
-                  <button type="submit" className={`${styles.linkButton} ${styles.linkButtonPrimary}`}><CalendarSearch aria-hidden="true" size={18} />Sprawdź</button>
-                </div>
-              </form>
-              {picked.kind === "INVALID" ? (
-                <div role="alert" className={styles.notice}>{picked.reason === "PAST_DATE" ? "Termin nie może zaczynać się w przeszłości. Wybierz datę od dzisiaj."
-                  : "Podaj obie daty. Termin to od 1 do 365 dni, a obie daty wliczają się do niego."}</div>
-              ) : null}
-              {picked.kind === "OK" && availability ? (
-                <div role="status" aria-live="polite">
-                  <span className={`${styles.badge} ${availability.available ? styles.badgeAvailable : styles.badgeUnavailable}`}>
-                    {availability.available ? <Check aria-hidden="true" size={14} /> : <CircleSlash aria-hidden="true" size={14} />}
-                    {availability.available ? "Dostępny" : "Niedostępny"}
-                  </span>
-                  <p className={styles.resultTitle}>{availability.available ? "Pojazd jest dostępny" : "Pojazd jest niedostępny w tym terminie"}</p>
-                  <p className={styles.small}>{vehicle.name} · {formatRangeShort(picked.range.from, picked.range.to)} ({pluralDays(picked.range.days)})</p>
-                  <p className={styles.small}>{availability.available ? "Potwierdź dostępność i szczegóły wynajmu w wypożyczalni."
-                    : "Zmień termin albo skontaktuj się z firmą, aby poznać alternatywę."}</p>
-                  <p className={styles.small}>Informacja o dostępności nie jest rezerwacją terminu.</p>
-                  <div className={styles.stateActions}>
-                    <LinkButton href={toContact}>{availability.available ? "Skontaktuj się" : "Skontaktuj się po alternatywę"}</LinkButton>
-                    {!availability.available ? <LinkButton href="#sprawdz-termin" variant="secondary">Zmień termin</LinkButton> : null}
-                    {!availability.available ? <LinkButton href={catalogHref({ from: picked.range.from, to: picked.range.to })} variant="secondary">Zobacz pojazdy dostępne w tym terminie</LinkButton> : null}
-                  </div>
-                </div>
-              ) : <p className={styles.small}>Wybierz zakres dat. Dostępność jest informacyjna i nie stanowi rezerwacji terminu.</p>}
-            </section>
-
-            <AvailabilityCalendar slug={slug} month={month} today={today} days={days} range={range} minMonth={minMonth} maxMonth={maxMonth} />
+            <AvailabilityPanel slug={slug} vehicleName={vehicle.name ?? "Pojazd"} today={today} minMonth={minMonth} maxMonth={maxMonth}
+              others={others} othersComplete={othersComplete} initial={{ from: range.from ?? (picked.kind === "INVALID" ? first(raw.from) ?? null : null), to: range.to ?? (picked.kind === "INVALID" ? first(raw.to) ?? null : null), invalid: picked.kind === "INVALID" ? picked.reason : null,
+                available: availability?.available ?? null, month, days: Object.fromEntries(calendar.days.map((day) => [day.date, day.available])) }} />
           </div>
         </div>
 
@@ -131,7 +99,7 @@ export default async function VehiclePage({ params, searchParams }: Props) {
         <p className={styles.prose}>Zapytaj o wymagane dokumenty, minimalny wiek kierowcy i warunki odbioru pojazdu.</p>
         {result.availabilityNotice?.trim() ? <p className={styles.prose}>{result.availabilityNotice}</p> : null}
         <p className={styles.small}>Dostępność jest informacyjna i nie stanowi rezerwacji terminu.</p>
-        <div className={styles.stickyAction}><LinkButton href={toContact} fill>Skontaktuj się</LinkButton></div>
+        <div className={styles.stickyAction}><ContactCta slug={slug} initial={availability && range.from && range.to ? { from: range.from, to: range.to } : null} /></div>
       </div>
       {result.seo.jsonLd.map((entry, index) => <script key={index} type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(entry) }} />)}
     </PublicPage>
