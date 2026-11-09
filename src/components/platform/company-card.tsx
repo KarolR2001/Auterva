@@ -8,6 +8,8 @@ import { useUnsavedChanges } from "../panel/unsaved-changes-guard";
 import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
 import { CompanyDomain } from "./company-domain";
+import { ArchiveSection, CompanyStatus, PeriodSection } from "./company-ops";
+import type { CompanyCardData } from "./platform-api";
 import {
   canIssueInvitation, canRevokeInvitation, classifyInvitationError, invitationView,
   type InvitationDto, type InvitationView,
@@ -15,15 +17,7 @@ import {
 import { newIdempotencyKey } from "@/modules/organizations/new-company-form";
 import styles from "./platform.module.css";
 
-export type CompanyCardDto = {
-  organizationId: string; slug: string; name: string; archivedAt: string | null;
-  registration: { status: "PENDING" | "REGISTERED" };
-  account: { email: string } | null;
-  period: { paidThrough: string | null; trialGranted: boolean };
-  publication: { visible: boolean; domainReady: boolean };
-  hosts: { hostname: string; area: string; kind: string; status: string }[];
-  invitation: InvitationDto | null;
-};
+export type CompanyCardDto = CompanyCardData & { invitation: InvitationDto | null };
 
 const viewText: Record<InvitationView["kind"], { label: string; text: string; Icon: typeof Clock }> = {
   none: { label: "Zaproszenie nie zostało wydane", text: "Firma jest zapisana. Konto administratora powstaje dopiero po przyjęciu zaproszenia.", Icon: Clock },
@@ -157,6 +151,7 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
     requestAnimationFrame(() => status.current?.focus());
   }
 
+  const opsBase = `/api/platform/companies/${encodeURIComponent(company.organizationId)}`;
   const invitation = company.invitation;
   const issuable = canIssueInvitation(view, registered, archived);
   const revocable = canRevokeInvitation(view, registered);
@@ -167,6 +162,9 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
         {busy === "issue" && <Alert tone="info" title="Wydawanie zaproszenia… Poczekaj na potwierdzenie." />}
         {busy !== "issue" && notice && <Alert tone={notice.tone} title={notice.title}>{notice.text}</Alert>}
       </div>
+
+      <CompanyStatus company={company} />
+      <PeriodSection company={company} base={opsBase} reload={() => refresh(true)} />
 
       <section className={styles.section} aria-labelledby="company-data">
         <h2 id="company-data">Dane firmy</h2>
@@ -214,6 +212,7 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
         {view.kind === "uncertain" && <p className={styles.hint}>Nowe zaproszenie jest zablokowane, dopóki nie cofniesz niepewnego.</p>}
       </section>
       {!archived && <CompanyDomain organizationId={company.organizationId} archived={archived} />}
+      <ArchiveSection company={company} base={opsBase} reload={() => refresh(true)} />
       <Link className={styles.cancel} href="/firmy/" prefetch={false}>Wróć do firm</Link>
     </div>
   );

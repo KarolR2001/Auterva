@@ -13,9 +13,14 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 const base: CompanyCardDto = {
   organizationId: "11111111-1111-4111-8111-111111111111", slug: "alfa", name: "Alfa",
-  archivedAt: null, registration: { status: "PENDING" }, account: { email: "a@b.pl" },
-  period: { paidThrough: null, trialGranted: true }, publication: { visible: false, domainReady: true },
-  hosts: [], invitation: null,
+  organizationVersion: 1, archivedAt: null,
+  registration: { status: "PENDING", firstAdminRegisteredAt: null },
+  account: { id: "u1", name: null, email: "a@b.pl", emailVerified: false, mfaEnabled: false, disabledAt: null },
+  period: { paidThrough: null, trialGranted: true, trialStartedAt: null, trialEndsAt: null, paidEndsAt: null,
+    effectiveEndsAt: null, effectiveSource: "NONE", paidValid: false, trialValid: false, headline: "EXPIRED",
+    publicVisible: false, periodVersion: 1 },
+  publication: { visible: false, domainReady: true, unlockRequired: false, requiresPaid: false },
+  hosts: [], invitation: null, conversationId: null,
 };
 const shell = (child: React.ReactNode) => render(
   <PanelShell area="platform" accessState="allowed" title="Firmy" currentPath="/firmy" onLogout={vi.fn()}>{child}</PanelShell>);
