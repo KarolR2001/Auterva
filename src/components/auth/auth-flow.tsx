@@ -15,7 +15,7 @@ import { safeReturnTo, type AuthArea } from "./auth-destination";
 import { MfaQr } from "./mfa-qr";
 import styles from "./auth.module.css";
 
-type AuthProps = {
+export type AuthProps = {
   area: AuthArea;
   companyName?: string;
   returnTo?: string;
@@ -33,7 +33,7 @@ type LoginValues = z.infer<typeof loginSchema>;
 type PasswordValues = z.infer<typeof passwordSchema>;
 type CodeValues = z.infer<typeof codeSchema>;
 
-async function postAuth(
+export async function postAuth(
   path: string,
   body: Record<string, unknown>,
 ): Promise<ApiResult> {
@@ -61,9 +61,18 @@ async function postAuth(
   }
 }
 
-type RequestKind = "login" | "password" | "mfa" | "recovery" | "rotate";
+export type RequestKind =
+  | "login"
+  | "password"
+  | "mfa"
+  | "recovery"
+  | "rotate"
+  | "resetRequest"
+  | "resetPassword"
+  | "changePassword"
+  | "profile";
 
-function errorMessage(result: ApiResult, kind: RequestKind): string {
+export function errorMessage(result: ApiResult, kind: RequestKind): string {
   const { response, data } = result;
   if (response.status === 429)
     return "Limit prób. Odczekaj czas podany przez usługę przed kolejną próbą.";
@@ -73,7 +82,18 @@ function errorMessage(result: ApiResult, kind: RequestKind): string {
     return "Usługa chwilowo niedostępna. Spróbuj ponownie.";
   if (response.status >= 500)
     return "Usługa chwilowo niedostępna. Spróbuj ponownie.";
+  if (response.status === 400 || response.status === 413) {
+    if (kind === "resetRequest") return "Podaj poprawny adres e-mail.";
+    if (kind === "resetPassword" || kind === "changePassword")
+      return "Hasło musi mieć od 12 do 256 znaków.";
+    if (kind === "profile")
+      return "Nazwa musi mieć od 1 do 100 znaków i nie może zawierać znaków sterujących.";
+  }
   // Archived companies and blocked accounts receive the same neutral 401 as bad credentials.
+  if (kind === "changePassword")
+    return "Nie udało się zmienić hasła. Sprawdź aktualne hasło i spróbuj ponownie.";
+  if (kind === "profile")
+    return "Nie udało się zapisać nazwy. Odśwież stronę i spróbuj ponownie.";
   if (kind === "login")
     return "Nie udało się zalogować. Sprawdź dane i spróbuj ponownie.";
   if (kind === "password")
@@ -85,7 +105,7 @@ function errorMessage(result: ApiResult, kind: RequestKind): string {
   return "Kod jest nieprawidłowy lub wygasł. Wpisz aktualny kod z aplikacji.";
 }
 
-function useAuthRequest() {
+export function useAuthRequest() {
   const pending = useRef(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -164,7 +184,7 @@ function useAuthRequest() {
   };
 }
 
-function AuthFrame({
+export function AuthFrame({
   area,
   title,
   context,
@@ -175,7 +195,7 @@ function AuthFrame({
 }: AuthProps & {
   title: string;
   context?: string;
-  view: "login" | "mfa";
+  view: "login" | "mfa" | "reset";
   step?: string;
   footer?: string;
   children: React.ReactNode;
@@ -196,7 +216,7 @@ function AuthFrame({
   );
 }
 
-function ErrorNotice({
+export function ErrorNotice({
   message,
   cooldown,
 }: {
@@ -224,7 +244,8 @@ export function LoginForm({
   returnTo,
   recoverCodes,
   sessionExpired,
-}: AuthProps & { sessionExpired?: boolean }) {
+  passwordChanged,
+}: AuthProps & { sessionExpired?: boolean; passwordChanged?: boolean }) {
   const [visibility, setVisibility] = useState<"hidden" | "shown">("hidden");
   const request = useAuthRequest();
   const form = useForm<LoginValues>({
@@ -245,8 +266,14 @@ export function LoginForm({
       <p className={styles.intro}>{area === "company"
         ? "Zarządzaj flotą i dostępnością. Po haśle potwierdzisz logowanie kodem MFA."
         : "Dostęp dla operatorów Autervy • po haśle wymagany drugi składnik MFA."}</p>
-      {(sessionExpired || recoverCodes) && (
+      {(sessionExpired || recoverCodes || passwordChanged) && (
         <div className={styles.notices}>
+          {passwordChanged && (
+            <Alert tone="success" title="Hasło zostało zmienione.">
+              Wszystkie sesje zostały zakończone. Zaloguj się nowym hasłem i
+              potwierdź logowanie kodem MFA.
+            </Alert>
+          )}
           {sessionExpired && (
             <Alert tone="info" title="Twoja sesja wygasła. Zaloguj się ponownie." />
           )}
@@ -314,6 +341,11 @@ export function LoginForm({
         >
           {request.cooldown > 0 ? "Ponów po limicie" : "Zaloguj się"}
         </Button>
+        <p className={styles.linkRow}>
+          <Link href={area === "company" ? "/admin/reset-hasla" : "/reset-hasla"}>
+            Nie pamiętasz hasła?
+          </Link>
+        </p>
       </form>
     </AuthFrame>
   );

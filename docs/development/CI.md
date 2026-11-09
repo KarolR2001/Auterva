@@ -15,6 +15,8 @@ Uruchamia się dla `pull_request`, `push` na `main` i ręcznie (`workflow_dispat
 | `Dependency audit` | `pnpm audit --prod --audit-level high` (blokuje) | `pnpm audit --prod --audit-level high` |
 | `Container images build (web)`, `(ws)`, `(worker)`, `(media-worker)` | `docker build --target …` z `Dockerfile`, bez push | `docker build --target web .` |
 
+Nowy plik `tests/e2e/*.spec.ts` nie wymaga edycji `playwright.config.ts`: projekt `trusted-ingress` uruchamia wszystko poza `auth-production` i `auth-host` (`testIgnore`), więc PR-y dodające e2e nie konfliktują w jednej linii konfiguracji (#267). Spec wymagający własnego serwera (jak te dwa) dostaje osobny projekt i wpis w `testIgnore`.
+
 Przy porażce `Integration` i `Build and E2E` zapisują artefakty na 7 dni: raport Playwright, `test-results`, logi fixture PostgreSQL/S3/Mailpit.
 
 ### Jak CI odtwarza środowisko lokalne
