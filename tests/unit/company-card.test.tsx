@@ -34,6 +34,12 @@ describe("karta firmy i zaproszenie (#25)", () => {
     expect(screen.queryByText("Opublikowana")).toBeNull();
   });
 
+  it("karta prowadzi do materiałów publicznych i ustawień tej firmy (#37)", () => {
+    shell(<CompanyCard initial={base} justSaved={false} />);
+    expect(screen.getByRole("link", { name: "Edytuj logo i materiały publiczne" }).getAttribute("href")).toMatch(new RegExp(`^/firmy/${base.organizationId}/ustawienia/?\\?sekcja=wyglad$`));
+    expect(screen.getByRole("link", { name: "Ustawienia firmy" }).getAttribute("href")).toMatch(new RegExp(`^/firmy/${base.organizationId}/ustawienia/?$`));
+  });
+
   it("UNCERTAIN: brak wydania nowego zaproszenia, jest tylko cofnięcie", () => {
     const invitation = { id: "i", recipientEmail: "a@b.pl", issuedHost: "h", issuedAt: "2026-11-08T10:00:00Z",
       expiresAt: "2099-01-01T00:00:00Z", usedAt: null, revokedAt: null, deliveryStatus: "UNCERTAIN" };
