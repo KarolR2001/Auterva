@@ -285,10 +285,10 @@ test("prisma generate runs explicitly before lint in the clean worktree and once
   expect(qGen).toBeGreaterThan(idx(/quality install /));
 }, 60000);
 
-test("a terminated run releases its slot and stops servers an E2E child left behind", async () => {
+test("a terminated run releases its slot and stops servers an E2E child left behind, even one that ignores SIGTERM", async () => {
   // In the E2E step the stub starts a detached listener on E2E_PORT (an orphan no process group would catch), then terminates the main script.
   const t = setup({}, `if [ "$1" = exec ] && [ "$2" = tsx ] && [ -d .git/e2e.slots ]; then
-  "${process.execPath}" -e 'require("node:child_process").spawn(process.execPath, ["-e", "require(\\"node:net\\").createServer().listen(Number(process.env.E2E_PORT), \\"127.0.0.1\\"); setInterval(()=>{}, 1000)"], { detached: true, stdio: "ignore" }).unref()'
+  "${process.execPath}" -e 'require("node:child_process").spawn(process.execPath, ["-e", "process.on(\\"SIGTERM\\", () => {}); require(\\"node:net\\").createServer().listen(Number(process.env.E2E_PORT), \\"127.0.0.1\\"); setInterval(()=>{}, 1000)"], { detached: true, stdio: "ignore" }).unref()'
   for i in 1 2 3 4 5 6 7 8 9 10; do lsof -iTCP:"$E2E_PORT" -sTCP:LISTEN -n >/dev/null 2>&1 && break; sleep 0.5; done
   echo "$$" > "${"$"}{TMPDIR}/stubpid"; kill -TERM "$(ps -o ppid= -p "$PPID" | tr -d ' ')"; sleep 30
 fi

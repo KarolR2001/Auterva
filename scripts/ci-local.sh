@@ -140,17 +140,28 @@ release_e2e_slot() {
 # The E2E ports are derived from this worktree's base and were free when the step started, so whatever listens on them
 # now belongs to this run (Playwright's servers or their orphans): stop it, children first.
 stop_e2e_servers() {
-  local p pid child
+  local p pid g groups="" pids="" self_group i alive
+  self_group="$(ps -o pgid= -p $$ 2>/dev/null | tr -d ' ')"
+  # Playwright starts each web server detached (own process group, with children), so collect the groups of the
+  # listeners now, before anything closes its socket.
   for p in $E2E_PORT_LIST; do
     for pid in $(lsof -tiTCP:"$p" -sTCP:LISTEN -n 2>/dev/null | sort -u); do
-      for child in $(pgrep -P "$pid" 2>/dev/null); do kill -TERM "$child" 2>/dev/null; done
-      kill -TERM "$pid" 2>/dev/null
+      pids="$pids $pid"
+      g="$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d ' ')"
+      [ -n "$g" ] && [ "$g" != "$self_group" ] && [ "$g" -gt 1 ] && groups="$groups $g"
     done
   done
-  sleep 1
-  for p in $E2E_PORT_LIST; do
-    for pid in $(lsof -tiTCP:"$p" -sTCP:LISTEN -n 2>/dev/null | sort -u); do kill -KILL "$pid" 2>/dev/null; done
+  [ -n "$pids" ] || return 0
+  for g in $(printf '%s\n' $groups | sort -u); do kill -TERM -- "-$g" 2>/dev/null; done
+  for pid in $pids; do kill -TERM "$pid" 2>/dev/null; done
+  # A server that already closed its socket can still be shutting down: wait for the listed processes, then kill them.
+  for ((i = 0; i < 10; i++)); do
+    alive=""; for pid in $pids; do kill -0 "$pid" 2>/dev/null && alive=1; done
+    [ -z "$alive" ] && return 0
+    sleep 0.5
   done
+  for g in $(printf '%s\n' $groups | sort -u); do kill -KILL -- "-$g" 2>/dev/null; done
+  for pid in $pids; do kill -KILL "$pid" 2>/dev/null; done
 }
 
 QTMP=""; FIXTURE_STARTED=0
