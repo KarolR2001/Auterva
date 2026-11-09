@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, configure, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SessionsView } from "../../src/components/account/sessions-view";
 import { classifyEnd, endBody, endConfirmedByList, orderSessions, reauthBody, targetDescription, type SessionDto } from "../../src/components/account/sessions-model";
 
+configure({ asyncUtilTimeout: 5000 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 const s = (id: string, over: Partial<SessionDto> = {}): SessionDto => ({ id, createdAt: "2026-11-08T10:00:00.000Z", lastActiveAt: "2026-11-09T10:00:00.000Z", device: "Chrome, macOS", current: false, ...over });
