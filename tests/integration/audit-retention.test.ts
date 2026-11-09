@@ -6,6 +6,14 @@ import { createPrismaClient } from "../../src/lib/prisma";
 import { claimNextJob } from "../../src/modules/jobs/queue";
 import { auditRetentionCutoff, processAuditRetentionJob, scheduleAuditRetention } from "../../src/modules/audit/retention";
 
+/**
+ * Real child processes, a real HTTP/WebSocket server or a PostgreSQL migration run in this file; under parallel
+ * ci-local runs (load average far above the core count, #247) they take several times longer than the default 5 s.
+ * The inner waits stay bounded (readiness and state polls, 30 s), so this limit only has to cover them. No assertion
+ * is weakened.
+ */
+const TEST_TIMEOUT_MS = 90_000;
+
 // The purge deletes every AuditLog row older than the cutoff and the worker claims any due AUDIT_RETENTION job, so this
 // file runs on its own migrated database (as the audit worker in ops-monitoring.test.ts): nothing here can purge, claim
 // or count rows of the shared fixture (#180).
@@ -30,7 +38,7 @@ afterAll(async () => {
   const admin = new Client({ connectionString: maintenanceUrl });
   await admin.connect();
   try { await admin.query(`DROP DATABASE IF EXISTS "${isolatedName}" WITH (FORCE)`); } finally { await admin.end(); }
-});
+}, TEST_TIMEOUT_MS);
 
 async function auditAt(at: Date) {
   const id = randomUUID();
@@ -59,7 +67,7 @@ test("audit purge keeps exact cutoff and younger rows, with an atomic bounded ma
   expect(manifests[0]).toMatchObject({ count: 1, oldestAt: older.createdAt, newestAt: older.createdAt });
   expect(manifests[0].digest).toMatch(/^[a-f0-9]{64}$/);
   expect((await db.job.findUniqueOrThrow({ where: { id: job.id } })).status).toBe("SENT");
-});
+}, TEST_TIMEOUT_MS);
 
 test("two workers, expired lease and batch restart do not duplicate purge proof or touch mail", async () => {
   const runAt = new Date("2026-10-25T12:00:00.000Z");
@@ -98,7 +106,7 @@ test("two workers, expired lease and batch restart do not duplicate purge proof 
     .toMatchObject({ _sum: { count: 3 } });
   expect(await db.auditLog.count({ where: { id: { in: old.map((row) => row.id) } } })).toBe(0);
   expect((await db.job.findUniqueOrThrow({ where: { id: mail.id } })).status).toBe("RUNNING");
-});
+}, TEST_TIMEOUT_MS);
 
 test("lease lost after selecting rows rolls back both deletion and manifest", async () => {
   const runAt = new Date("2026-10-24T12:00:00.000Z");
@@ -115,7 +123,7 @@ test("lease lost after selecting rows rolls back both deletion and manifest", as
   expect(await processAuditRetentionJob(db, recovered!, expiredAt, 1, () => expiredAt))
     .toMatchObject({ deleted: 1, remaining: false });
   expect(await db.auditRetentionManifest.count({ where: { jobId: job.id } })).toBe(1);
-});
+}, TEST_TIMEOUT_MS);
 
 test("exhausted audit claim stays FAILED with its cutoff until an operator retries", async () => {
   const runAt = new Date("2026-10-23T12:00:00.000Z");
@@ -136,7 +144,7 @@ test("exhausted audit claim stays FAILED with its cutoff until an operator retri
   expect(await processAuditRetentionJob(db, resumed!, expiredAt, 1, () => expiredAt))
     .toMatchObject({ deleted: 1, remaining: false });
   expect(await db.auditRetentionManifest.count({ where: { jobId: job.id } })).toBe(1);
-});
+}, TEST_TIMEOUT_MS);
 
 test("purge keeps the newest restore audit while an account it listed is still locked, and releases it afterwards", async () => {
   const org = randomUUID();
@@ -175,7 +183,7 @@ test("purge keeps the newest restore audit while an account it listed is still l
     await db.user.deleteMany({ where: { id: userId } });
     await db.organization.deleteMany({ where: { id: org } });
   }
-});
+}, TEST_TIMEOUT_MS);
 
 test("collector: a held restore entry older than the cutoff does not raise the purge delay and is counted separately", async () => {
   const { MetricsRegistry } = await import("../../src/modules/observability/metrics");
@@ -216,4 +224,4 @@ test("collector: a held restore entry older than the cutoff does not raise the p
     await db.user.deleteMany({ where: { id: userId } });
     await db.organization.deleteMany({ where: { id: org } });
   }
-});
+}, TEST_TIMEOUT_MS);
