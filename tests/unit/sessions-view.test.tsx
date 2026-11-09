@@ -120,6 +120,7 @@ describe("ekran sesji konta (#73)", () => {
     render(<SessionsView area="company" />);
     const opener = await screen.findByRole("button", { name: /Zakończ sesję: Chrome/ });
     await user.click(opener);
+    await waitFor(() => expect(screen.getByLabelText(/^Kod z aplikacji/)).toHaveFocus());
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("heading", { name: /Zakończyć sesję/ })).toBeNull();
     await waitFor(() => expect(opener).toHaveFocus());
