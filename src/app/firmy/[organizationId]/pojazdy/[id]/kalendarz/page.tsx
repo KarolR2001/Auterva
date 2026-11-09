@@ -10,7 +10,7 @@ export default async function CompanyVehicleCalendarPage({ params }: { params: P
   const { organizationId, id } = await params;
   if (!uuid.test(id)) notFound();
   return PlatformCompanyPage({
-    organizationId, currentPath: "/firmy", title: "Kalendarz pojazdu",
+    organizationId, currentPath: "/firmy", title: "Kalendarz pojazdu", requireVehicleId: id,
     children: ({ name }) => <PlatformVehicleCalendar key={`${organizationId}:${id}`} organizationId={organizationId} vehicleId={id} today={availabilityToday()} title={`Kalendarz pojazdu · ${name}`} />,
   });
 }

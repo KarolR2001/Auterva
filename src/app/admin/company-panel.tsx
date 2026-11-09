@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { denyPanel } from "@/components/panel/deny-panel";
+import { requireVehicleInCompany } from "@/components/panel/require-vehicle";
 import { ServiceStatusProvider } from "@/components/panel/service-status";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -28,7 +29,7 @@ export async function CompanyPanelPage({ currentPath, title, requireVehicleId, c
   if (area?.area !== "COMPANY_ADMIN" || !area.organizationId) notFound();
   const actor = await requireRequestContext(prisma, auth, incoming, area.organizationId);
   if (!actor) return denyPanel(prisma, auth, incoming, { area: "COMPANY_ADMIN", organizationId: area.organizationId });
-  if (requireVehicleId && !(await prisma.vehicle.findFirst({ where: { id: requireVehicleId, organizationId: actor.organizationId }, select: { id: true } }))) notFound();
+  if (requireVehicleId) await requireVehicleInCompany(actor.organizationId, requireVehicleId);
   const [organization, status, publicHost] = await Promise.all([
     prisma.organization.findUnique({ where: { id: actor.organizationId }, select: { name: true } }),
     getServiceStatus(prisma, actor.organizationId, new Date()),
