@@ -159,20 +159,62 @@
   gap: var(--space-8);
   overflow-y: auto;
   padding: var(--space-6) var(--space-4);
-  border-right: var(--border-width-hairline) solid var(--border-subtle);
-  background: var(--surface-default);
+  background: var(--surface-inverse);
+  color: var(--text-inverse);
+}
+
+.shellBrandBlock {
+  display: grid;
+  gap: var(--space-1);
+  padding: 0 var(--space-1);
 }
 
 .shellBrand {
-  color: var(--text-primary);
+  color: var(--text-inverse);
   font-size: var(--font-size-22);
   font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.02em;
   text-decoration: none;
+  text-transform: uppercase;
+}
+
+.shellAreaLabel {
+  color: var(--color-neutral-300);
+  font-size: var(--font-size-12);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-20);
+  text-transform: uppercase;
+}
+
+.shellNavPinned {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: auto;
 }
 
 .shellNavItems {
   display: grid;
   gap: var(--space-2);
+}
+
+.shellDesktopNav .shellNavLink {
+  color: var(--color-neutral-300);
+}
+
+.shellDesktopNav .shellNavLink:hover {
+  color: var(--text-inverse);
+}
+
+.shellDesktopNav .shellNavLink[data-current],
+.shellDesktopNav .shellNavLink[aria-current="page"] {
+  border-color: transparent;
+  background: var(--color-neutral-700);
+  color: var(--text-inverse);
+}
+
+.shellDesktopNav .shellUnread {
+  background: var(--text-inverse);
+  color: var(--surface-inverse);
 }
 
 .shellNavLink,
@@ -226,23 +268,53 @@
   background: var(--surface-default);
 }
 
-.shellTopbar h1 {
+.shellBreadcrumbs ol {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   margin: 0;
-  font-size: var(--font-size-24);
-  line-height: var(--line-height-32);
+  padding: 0;
+  list-style: none;
+}
+
+.shellBreadcrumbs li + li::before {
+  content: "/";
+  margin-right: var(--space-2);
+  color: var(--text-secondary);
+}
+
+.shellBreadcrumbs li {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.shellBreadcrumbRoot {
+  color: var(--text-secondary);
+  font-size: var(--font-size-16);
+}
+
+.shellBreadcrumbs h1 {
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--font-size-16);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-24);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .shellProfileTrigger {
   display: inline-flex;
-  min-height: var(--button-height-md);
+  width: var(--touch-target-mobile);
+  height: var(--touch-target-mobile);
   align-items: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-4);
-  border: var(--border-width-hairline) solid var(--border-default);
-  border-radius: var(--radius-md);
-  background: var(--surface-default);
-  color: var(--text-primary);
-  font: inherit;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--surface-inverse);
+  color: var(--text-inverse);
   cursor: pointer;
 }
 
@@ -348,6 +420,12 @@
   border-color: var(--border-default);
 }
 
+.shellDesktopNav .shellNavLink:focus-visible,
+.shellDesktopNav .shellBrand:focus-visible {
+  outline: var(--border-width-active) solid var(--text-inverse);
+  outline-offset: var(--focus-offset);
+}
+
 .shellNavLink:focus-visible,
 .shellMoreTrigger:focus-visible,
 .shellBrand:focus-visible,
@@ -365,13 +443,17 @@
     display: block;
   }
 
-  .shellDesktopNav,
-  .shellProfileTrigger {
+  .shellDesktopNav {
     display: none;
   }
 
   .shellBody {
     padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+
+  .shellBreadcrumbRoot,
+  .shellBreadcrumbs li + li::before {
+    display: none;
   }
 
   .shellTopbar {
@@ -419,7 +501,17 @@
   }
 
   .shellMobileNav .shellNavLink[data-current] {
-    border-top-color: var(--border-strong);
+    border-color: transparent;
+    background: transparent;
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .shellMobileNav .shellNavLink[data-current] svg {
+    box-sizing: content-box;
+    padding: var(--space-1);
+    border-radius: var(--radius-md);
+    background: var(--surface-inverse);
+    color: var(--text-inverse);
   }
 
   .shellUnread {
