@@ -19,6 +19,7 @@ import {
 } from "./auth-flow";
 import { evaluatePassword } from "./password-policy";
 import { PasswordStrength } from "./password-strength";
+import { useRefocus } from "./use-refocus";
 import styles from "./auth.module.css";
 
 const NEUTRAL =
@@ -54,6 +55,11 @@ export function ResetRequestForm({ area }: AuthProps) {
     defaultValues: { email: "" },
   });
   const where = paths(area);
+  // After a failed attempt focus returns to the field; after success it moves to the title like the set-password form.
+  useRefocus(request.settled, () => (sent ? null : "reset-email"));
+  useEffect(() => {
+    if (sent) document.getElementById("auth-title")?.focus();
+  }, [sent]);
   return (
     <AuthFrame
       area={area}
@@ -96,12 +102,6 @@ export function ResetRequestForm({ area }: AuthProps) {
                 request.setError(
                   "Nie udało się połączyć. Nie wiemy, czy żądanie dotarło. Spróbuj ponownie.",
                 ),
-              (response) => {
-                if (response.status >= 500)
-                  request.setError(
-                    "Nie wiemy, czy żądanie dotarło. Spróbuj ponownie.",
-                  );
-              },
             );
           })}
         >
@@ -176,6 +176,7 @@ export function SetNewPasswordForm({
   const password = useWatch({ control: form.control, name: "password" });
   const strength = evaluatePassword(password ?? "");
   const where = paths(area);
+  useRefocus(request.settled, () => (state === "form" ? "reset-password" : null));
   const previous = useRef(state);
   useEffect(() => {
     if (previous.current !== state) {
@@ -241,13 +242,10 @@ export function SetNewPasswordForm({
                   "Nie udało się połączyć. Nie wiemy, czy hasło zostało zmienione. Spróbuj ponownie albo zaloguj się nowym hasłem.",
                 ),
               (response) => {
+                // 5xx never gets here: it is an uncertain result handled by the callback above.
                 if (response.status === 401) {
                   form.reset();
                   setState("expired");
-                } else if (response.status >= 500) {
-                  request.setError(
-                    "Nie wiemy, czy hasło zostało zmienione. Spróbuj ponownie albo zaloguj się nowym hasłem.",
-                  );
                 }
               },
             ),

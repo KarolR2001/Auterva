@@ -111,6 +111,8 @@ export function useAuthRequest() {
   const [error, setError] = useState("");
   const [retryUntil, setRetryUntil] = useState(0);
   const [cooldown, setCooldown] = useState(0);
+  // Counts finished requests, so a caller can react to the end of one even when its loading state was batched away.
+  const [settled, setSettled] = useState(0);
   useEffect(() => {
     if (!retryUntil || retryUntil <= Date.now()) return;
     const timer = setInterval(() => {
@@ -172,11 +174,13 @@ export function useAuthRequest() {
     } finally {
       pending.current = false;
       setLoading(false);
+      setSettled((count) => count + 1);
     }
   }
   return {
     run,
     loading,
+    settled,
     error,
     cooldown,
     setError,

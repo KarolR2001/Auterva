@@ -23,8 +23,20 @@ function urlAt(origin: string, path: string, query = "") {
   return new RegExp(`^${esc(origin)}${esc(path)}/?${esc(query)}$`);
 }
 
+/** The page must not scroll sideways at any supported width; the original viewport is restored. */
 async function noHorizontalOverflow(page: Page) {
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  const original = page.viewportSize();
+  try {
+    for (const width of [320, 390, 768, 1024, 1920]) {
+      await page.setViewportSize({ width, height: original?.height ?? 900 });
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+        `horizontal overflow at ${width}px`,
+      ).toBe(true);
+    }
+  } finally {
+    if (original) await page.setViewportSize(original);
+  }
 }
 
 /** Optional reference renders for the Penpot comparison (ACCOUNT_UI_SCREENSHOTS=<dir>) at 390 and 1440 px. */
