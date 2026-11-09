@@ -1335,6 +1335,25 @@
       ]
     },
     {
+      "issue": 37,
+      "scope": "Edycja logo i materiałów publicznych przez superadmina w kontekście firmy (FLOW-MVP-09, PLT-03): wejście z karty firmy (sekcja „Treści i materiały publiczne” z linkami do ustawień i sekcji wyglądu), podgląd wyglądu podąża za listą zapisaną na serwerze (nie za wybranym plikiem), oznaczenie zapisane/niezapisane per materiał (tekst i ikona), błędy plików z nazwą pliku i zachowaniem pozostałych materiałów oraz wpisanej treści, konflikt wersji i strażnik opuszczenia z #31. Samo wgranie, przetwarzanie, alt, kolejność i usuwanie to MediaManager z #31 na wspólnym rdzeniu uploadu z #36; powrót do karty zapewnia link kontekstu firmy w powłoce. Admin firmy nie otrzymuje akcji (widok tylko do odczytu z #31). Porównanie z Penpotem FLOW-MVP-09 odroczone (#263).",
+      "relatedRequirementIds": ["C-F023", "C-F081", "C-F082", "C-N048", "DS-N22"],
+      "referenceScreenIds": ["PLT-03", "FLOW-MVP-09"],
+      "codePaths": [
+        "src/components/platform/company-card.tsx",
+        "src/components/settings/media-manager.tsx",
+        "src/components/settings/settings-form.tsx",
+        "src/components/media/upload-core.ts",
+        "src/app/firmy/[organizationId]/ustawienia/page.tsx"
+      ],
+      "stylePath": "src/components/settings/settings.module.css",
+      "testPaths": [
+        "tests/unit/settings-media.test.tsx",
+        "tests/unit/company-card.test.tsx",
+        "tests/e2e/platform-public-materials.spec.ts"
+      ]
+    },
+    {
       "issue": 34,
       "scope": "Panel firmy ADM-04 i ADM-05 na prawdziwym API floty (hosty firmy, kontekst superadmina przez PanelContext): lista z wyszukiwaniem, filtrem publikacji, aktywnosci i dostepnosci dzis, paginacja, kolejnosc przyciskami z klawiatury (zapis /vehicles/reorder), menu Wiecej z Ukryj i Archiwizuj po potwierdzeniu z wersja wiersza, stany loading, pusta flota, brak wynikow i blad. Dashboard: opublikowane, aktywne, dostepne i niedostepne dzis (data Warszawy), najblizsze blokady z linkiem do kalendarza pojazdu, status strony i okresu. Poza zakresem: nawigacja paneli i wspolne stany dostepu (#14), formularz #35, kalendarz #38, filtr kategorii (brak listy kategorii w API), ostrzezenia jakosci danych i status czatu.",
       "relatedRequirementIds": ["C-F095", "C-F097", "FR-ADM-010", "FR-ADM-020", "FR-ADM-021", "FR-ADM-022"],

@@ -181,6 +181,15 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
         </dl>
       </section>
 
+      <section className={styles.section} aria-labelledby="company-public">
+        <h2 id="company-public">Treści i materiały publiczne</h2>
+        <p className={styles.hint}>Logo, zdjęcie hero, zdjęcia marki, teksty strony, kontakt, SEO i treści prawne ustawia tylko superadmin. Zapis dotyczy wyłącznie tej firmy; administrator firmy widzi je w trybie odczytu.</p>
+        <div className={styles.actions}>
+          <Link className={styles.cancel} href={`/firmy/${encodeURIComponent(company.organizationId)}/ustawienia/?sekcja=wyglad`} prefetch={false}>Edytuj logo i materiały publiczne</Link>
+          <Link className={styles.cancel} href={`/firmy/${encodeURIComponent(company.organizationId)}/ustawienia/`} prefetch={false}>Ustawienia firmy</Link>
+        </div>
+      </section>
+
       <section className={styles.section} aria-labelledby="company-invitation">
         <h2 id="company-invitation">Zaproszenie administratora</h2>
         <p className={styles.status}><info.Icon aria-hidden="true" size={16} />{info.label}</p>

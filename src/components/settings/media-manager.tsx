@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { CircleAlert, CircleCheck } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 import { ACCEPT_ATTRIBUTE, checkImageFile, fileSignature, keyFor, uploadErrors } from "../media/upload-core";
 import { useUnsavedChanges } from "../panel/unsaved-changes-guard";
@@ -21,7 +22,7 @@ function thumb(base: string, id: string) {
  * Logo, hero and brand images of one company (superadmin only, D-01/D-22). Uploads go through the media
  * pipeline; a stored image may still be processing, so the list is refreshed from the protected read.
  */
-export function MediaManager({ snapshot }: { snapshot: SettingsSnapshot }) {
+export function MediaManager({ snapshot, onItemsChange }: { snapshot: SettingsSnapshot; onItemsChange?: (items: PublicMediaItem[]) => void }) {
   const [items, setItems] = useState<PublicMediaItem[]>(snapshot.media);
   const [drafts, setDrafts] = useState<Record<string, { alt: string; position: string }>>({});
   const [busy, setBusy] = useState<string | null>(null);
@@ -31,6 +32,9 @@ export function MediaManager({ snapshot }: { snapshot: SettingsSnapshot }) {
   const org = encodeURIComponent(snapshot.organizationId);
   const api = `/api/platform/companies/${org}`;
   const previewBase = `${api}/preview`;
+
+  // The preview of the page shows the stored list, never a chosen file: every refreshed list is handed to the owner.
+  useEffect(() => { onItemsChange?.(items); }, [items, onItemsChange]);
 
   const pendingUpload = useRef<{ signature: string; key: string } | null>(null);
 
@@ -95,7 +99,7 @@ export function MediaManager({ snapshot }: { snapshot: SettingsSnapshot }) {
   async function upload(kind: string, file: File | undefined) {
     if (!file || busy) return;
     const invalid = checkImageFile(file);
-    if (invalid) return setNotice({ tone: "error", title: invalid.code === "TYPE" ? "Nieobsługiwany format" : "Zły rozmiar pliku", text: invalid.code === "TYPE" ? "Wybierz plik JPEG, PNG lub WebP." : invalid.message });
+    if (invalid) return setNotice({ tone: "error", title: invalid.code === "TYPE" ? "Nieobsługiwany format" : "Zły rozmiar pliku", text: `${file.name}: ${invalid.code === "TYPE" ? "wybierz plik JPEG, PNG lub WebP." : invalid.message}` });
     // One key per file and attempt: a retry of an uncertain upload reuses it, so the server never stores a duplicate.
     const key = keyFor(pendingUpload, fileSignature(kind, file));
     setBusy(`upload-${kind}`);
@@ -128,7 +132,7 @@ export function MediaManager({ snapshot }: { snapshot: SettingsSnapshot }) {
         await uncertain();
       } else {
         pendingUpload.current = null;
-        setNotice({ tone: "error", title: "Nie udało się dodać zdjęcia", text: uploadErrors[body.code ?? ""] ?? "Spróbuj ponownie." });
+        setNotice({ tone: "error", title: "Nie udało się dodać zdjęcia", text: `${file.name}: ${uploadErrors[body.code ?? ""] ?? "Spróbuj ponownie."} Pozostałe materiały i wpisane treści zostały zachowane.` });
       }
     } catch {
       await uncertain();
@@ -201,6 +205,9 @@ export function MediaManager({ snapshot }: { snapshot: SettingsSnapshot }) {
                     {/* eslint-disable-next-line @next/next/no-img-element -- protected preview variant, not a public asset */}
                     <img src={thumb(previewBase, item.id)} alt={item.alt ?? ""} width={120} height={80} className={styles.thumb} loading="lazy" />
                     <div className={styles.mediaFields}>
+                      <p className={styles.status} data-testid={`media-state-${item.id}`}>
+                        {dirtyIds.includes(item.id) ? <><CircleAlert aria-hidden="true" size={16} /> Niezapisane zmiany opisu lub kolejności</> : <><CircleCheck aria-hidden="true" size={16} /> Zapisane</>}
+                      </p>
                       <FormField id={`alt-${item.id}`} label={`Opis alternatywny (${label})`} optionalLabel="(opcjonalne)">
                         <TextInput value={draft.alt} maxLength={200} onChange={(e) => setDrafts((d) => ({ ...d, [item.id]: { ...draft, alt: e.target.value } }))} />
                       </FormField>

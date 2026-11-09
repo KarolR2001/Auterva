@@ -201,8 +201,9 @@ export function SettingsForm({ snapshot, section }: { snapshot: SettingsSnapshot
   const errorEntries = Object.entries(errors);
   const labelOf = (name: string) => fields.find((field) => field.name === name)?.label ?? name;
   const host = activePublicHost(snapshot);
+  const [media, setMedia] = useState(snapshot.media);
   const mediaSrc = (kind: string) => {
-    const item = snapshot.media.find((entry) => entry.kind === kind);
+    const item = media.find((entry) => entry.kind === kind);
     return item ? `/api/platform/companies/${encodeURIComponent(snapshot.organizationId)}/preview/media/${item.id}/thumb/` : null;
   };
 
@@ -308,7 +309,7 @@ export function SettingsForm({ snapshot, section }: { snapshot: SettingsSnapshot
             logoSrc={mediaSrc("LOGO")}
             heroSrc={mediaSrc("HERO")}
           />
-          <MediaManager snapshot={snapshot} />
+          <MediaManager snapshot={snapshot} onItemsChange={setMedia} />
         </>
       )}
       {section === "prezentacja" && (

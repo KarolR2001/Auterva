@@ -176,3 +176,42 @@ describe("zarządzanie zdjęciami: dane, guard i niepewny upload", () => {
     expect(key(posts[0])).not.toBe(key(posts[1]));
   });
 });
+
+describe("materiały publiczne: stan zapisany, błędy plików i podgląd (#37)", () => {
+  it("błąd pliku wskazuje nazwę, nie rusza listy ani szkiców innych zdjęć", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => json(422, { code: "INVALID_IMAGE" })));
+    const user = userEvent.setup({ applyAccept: false });
+    render(<MediaManager snapshot={two} />);
+    const [heroAlt] = screen.getAllByLabelText(/Opis alternatywny/);
+    await user.type(heroAlt, " x");
+    await user.upload(screen.getByLabelText("Wybierz plik: Logo"), new File(["x"], "logo.png", { type: "image/png" }));
+    expect(await screen.findByText(/logo\.png: To nie jest poprawne zdjęcie JPEG, PNG lub WebP\. Pozostałe materiały/)).toBeInTheDocument();
+    expect(screen.getAllByLabelText(/Opis alternatywny/)[0]).toHaveValue("Hala x");
+    expect(screen.getByRole("heading", { name: "Zdjęcia hero (1 z 5)" })).toBeInTheDocument();
+    await user.upload(screen.getByLabelText("Wybierz plik: Logo"), new File(["x"], "dok.pdf", { type: "application/pdf" }));
+    expect(await screen.findByText(/dok\.pdf: wybierz plik JPEG, PNG lub WebP\./)).toBeInTheDocument();
+  });
+
+  it("oznacza zapisane i niezapisane zdjęcia tekstem i ikoną", async () => {
+    const user = userEvent.setup();
+    render(<MediaManager snapshot={base} />);
+    const state = screen.getByTestId(`media-state-${base.media[0].id}`);
+    expect(state).toHaveTextContent("Zapisane");
+    await user.type(screen.getByLabelText(/Opis alternatywny/), "!");
+    expect(state).toHaveTextContent("Niezapisane zmiany opisu lub kolejności");
+  });
+
+  it("podgląd wyglądu podąża za listą z serwera, nie za wybranym plikiem", async () => {
+    const logo = { id: "44444444-4444-4444-8444-444444444444", kind: "LOGO", alt: null, position: 0, width: 100, height: 100, version: 1 };
+    const fetchMock = vi.fn()
+      .mockImplementationOnce(() => json(202, { imageId: logo.id, state: "PROCESSING" }))
+      .mockImplementation(() => json(200, { ...base, media: [...base.media, logo] }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup({ applyAccept: false });
+    const { container } = render(<SettingsForm snapshot={base} section="wyglad" />);
+    expect(screen.getByLabelText("Podgląd wyglądu publicznego")).toHaveTextContent("Brak logo");
+    await user.upload(screen.getByLabelText("Wybierz plik: Logo"), new File(["x"], "logo.png", { type: "image/png" }));
+    await waitFor(() => expect(container.querySelector(`[aria-label="Podgląd wyglądu publicznego"] img[src*="${logo.id}"]`)).not.toBeNull());
+    expect(screen.getByLabelText("Podgląd wyglądu publicznego")).not.toHaveTextContent("Brak logo");
+  });
+});
