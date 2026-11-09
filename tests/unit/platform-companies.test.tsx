@@ -211,7 +211,7 @@ describe("karta firmy i zmiana okresu", () => {
     const fetchMock = route({ patch: () => Response.json({ code: "INTERNAL_ERROR" }, { status: 500 }) });
     const user = await openAndEdit("2027-01-31");
     await user.click(screen.getByRole("button", { name: "Zapisz zmiany" }));
-    expect(await screen.findByText(/Zmiana nie została zapisana/)).toBeVisible();
+    expect(await screen.findByText(/Nie znaleziono zapisu tej zmiany/)).toBeVisible();
     expect(screen.queryByText(/Nie wiemy, czy zmiana/)).toBeNull();
     expect(screen.getByLabelText("Opłacono do dnia włącznie")).toHaveValue("2027-01-31");
     expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "PATCH")).toHaveLength(1);

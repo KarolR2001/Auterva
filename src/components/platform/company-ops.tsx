@@ -269,7 +269,7 @@ function PeriodSection({ company, base, reload }: SectionProps) {
     } else {
       setNotice({
         tone: "warning",
-        text: "Zmiana nie została zapisana. Twoja data pozostaje w polu; zapisz ją ponownie.",
+        text: "Nie znaleziono zapisu tej zmiany w aktualnym stanie. Twoja data pozostaje w polu; zapisz ją ponownie, jeśli nadal jej chcesz.",
       });
     }
   }
