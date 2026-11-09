@@ -65,7 +65,7 @@ test("superadmin dodaje firmę, widzi zapis osobno od zaproszenia i cofa zaprosz
     expect(await db.invitation.count({ where: { organizationId } })).toBe(1);
     await expect(page.getByRole("button", { name: "Cofnij zaproszenie" })).toBeVisible();
     await page.getByRole("button", { name: "Cofnij zaproszenie" }).click();
-    await expect(page.getByText("Zaproszenie cofnięte")).toBeVisible();
+    await expect(page.getByText("Zaproszenie cofnięte", { exact: true })).toBeVisible();
     expect((await db.invitation.findMany({ where: { organizationId } })).every((row) => row.revokedAt !== null)).toBe(true);
 
     // The same slug cannot be taken twice: the error points at the fields and keeps the entries.
