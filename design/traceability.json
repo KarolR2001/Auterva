@@ -1365,6 +1365,17 @@
       "testPaths": ["tests/unit/marketing-page.test.tsx", "tests/e2e/marketing.spec.ts"]
     },
     {
+      "issue": 234,
+      "scope": "Naruszenie CSP przez <style> wstrzykiwany przez blokadę przewijania Radix (menu panelu, OVR-13): nonce bieżącego dokumentu (odczyt z DOM, przyjęty raz, nie z propsa RSC) przekazany do runtime webpacka bez unsafe-inline; asercja e2e braku naruszeń przy otwartym menu na desktopie i mobile oraz po router.refresh().",
+      "relatedRequirementIds": ["C-F018", "DS-N07"],
+      "referenceScreenIds": ["OVR-13", "ADM-04"],
+      "codePaths": [
+        "src/app/layout.tsx",
+        "src/components/csp-nonce.tsx"
+      ],
+      "testPaths": ["tests/e2e/panel-shell.spec.ts"]
+    },
+    {
       "issue": 25,
       "scope": "PLT-04 formularz prerejestracji firmy (/firmy/nowa) i karta firmy z zaproszeniem administratora (/firmy/{id}): osobny wynik zapisu i wysyłki, resend, cofnięcie, UNCERTAIN wymaga cofnięcia przed nowym wydaniem, klucz idempotencji zachowany przy 5xx, ochrona niezapisanych zmian przez guard shellu (OVR-13). UI nie twierdzi o publikacji po zapisie. Lista firm (PLT-01/02) poza zakresem. Domena własna (opcjonalna, C-F086/087/089): po zapisie na karcie firmy przez API #23 (dodanie, weryfikacja, aktywacja, usunięcie), stany oczekiwania/gotowa/aktywna i niepewny wynik 5xx bez fałszywego sukcesu; nie jest publikacją. Poza zakresem: C-F020/021 (poza aplikacją), C-F023 i część C-R008/R011 (wygląd publiczny, telefon, publiczny e-mail, materiały) → #31; C-F037/C-F038 (ekran aktywacji) → #26.",
       "relatedRequirementIds": ["C-F022", "C-F024", "C-F025", "C-F026", "C-F027", "C-F028", "C-F034", "C-F035", "C-F036", "C-F086", "C-F087", "C-F089", "C-R008", "C-R009", "C-R010", "C-R011", "C-R012"],
