@@ -24,6 +24,7 @@ export type CompanyPeriod = {
 export type CompanyInvitation = {
   id: string;
   recipientEmail: string;
+  issuedHost: string | null;
   issuedAt: string;
   expiresAt: string;
   usedAt: string | null;
@@ -52,6 +53,9 @@ export type PlatformCompany = {
   invitation: CompanyInvitation | null;
   conversationId: string | null;
 };
+
+/** Company card data shared by the card and the period/status/archive sections (the invitation is typed by its own section). */
+export type CompanyCardData = Omit<PlatformCompany, "invitation">;
 
 export type CompanyList = {
   items: PlatformCompany[];
@@ -151,7 +155,7 @@ export function warsawToday(now = new Date()): string {
 }
 
 /** Main period label. Registration, archive, visibility and domain are shown separately. */
-export function periodLabel(company: PlatformCompany): string {
+export function periodLabel(company: CompanyCardData): string {
   const { period, registration } = company;
   if (period.paidValid && period.paidThrough)
     return `Opłacona do ${formatLocalDate(period.paidThrough)} włącznie`;
@@ -170,7 +174,7 @@ export function periodLabel(company: PlatformCompany): string {
 }
 
 /** Why the public page is (not) visible, in order of the decisive reason. */
-export function visibilityReason(company: PlatformCompany): string {
+export function visibilityReason(company: CompanyCardData): string {
   const { publication, registration, archivedAt, period } = company;
   if (publication.visible) return "Strona publiczna jest widoczna.";
   if (archivedAt) return "Firma jest zarchiwizowana.";
@@ -184,7 +188,7 @@ export function visibilityReason(company: PlatformCompany): string {
 
 /** Effect of saving a new paidThrough, computed from the card data for the confirmation preview. */
 export function shorteningEffect(
-  company: PlatformCompany,
+  company: CompanyCardData,
   next: string | null,
   today = warsawToday(),
 ): string | null {
@@ -198,14 +202,4 @@ export function shorteningEffect(
   return trialKeeps
     ? "Skrócenie kończy opłatę od razu. Strona pozostanie widoczna do końca trialu."
     : "Skrócenie kończy opłatę od razu. Publiczna strona firmy zostanie natychmiast wyłączona; panel firmy nadal działa.";
-}
-
-/** Idempotency key. `crypto.randomUUID` exists only in secure contexts; fall back so a plain-HTTP host cannot break the card. */
-export function newEventKey(): string {
-  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  bytes[6] = (bytes[6] & 0x0f) | 0x40;
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
-  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }

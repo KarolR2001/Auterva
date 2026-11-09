@@ -1,6 +1,7 @@
 "use client";
 
-import { Building2, CircleAlert, CircleCheck, CircleSlash, Archive } from "lucide-react";
+import { Archive, Building2, CircleAlert, CircleCheck, CircleSlash, Plus } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "../ui/button";
@@ -82,6 +83,12 @@ export function CompanyListView() {
         </div>
       </section>
       <p className={styles.hint}>Liczniki obejmują całą platformę, bez firm zarchiwizowanych.</p>
+
+      <div className={styles.actionsRow}>
+        <Link className={styles.linkButton} href="/firmy/nowa/" prefetch={false}>
+          <Plus size={20} aria-hidden="true" /> Dodaj firmę
+        </Link>
+      </div>
 
       <form className={styles.toolbar} role="search" onSubmit={(event) => event.preventDefault()}>
         <label className={styles.searchLabel} htmlFor="company-search">

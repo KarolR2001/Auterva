@@ -48,7 +48,10 @@ export default async function HomePage() {
           <CompanyListView />
         </PanelShell>
       );
-    return denyPanel(auth, incoming, "platform");
+    return denyPanel(prisma, auth, incoming, {
+      area: "PLATFORM",
+      organizationId: null,
+    });
   }
   if (area?.area === "COMPANY_PUBLIC" && incoming.get("host")) {
     // The central gate runs inside the read on every request; a disabled company is the same 404 as an unknown host.

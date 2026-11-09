@@ -86,6 +86,7 @@ test("ADM-01 mobile keeps the login landmarks aligned with the 390×844 board", 
   await db.hostMapping.create({ data: { hostname: host, area: "COMPANY_ADMIN", organizationId: company, status: "ACTIVE" } });
   try {
     await page.goto(`http://${host}:${new URL(baseURL).port}/admin/login/`);
+    await page.evaluate(() => document.fonts.ready);
     const landmarks = [
       ["brand", page.getByText("AUTERVA", { exact: true }), 28],
       ["context", page.getByText("Panel administratora", { exact: true }), 96],
@@ -93,7 +94,7 @@ test("ADM-01 mobile keeps the login landmarks aligned with the 390×844 board", 
       ["intro", page.getByText("Zarządzaj flotą i dostępnością. Po haśle potwierdzisz logowanie kodem MFA."), 228],
       ["email", page.locator('label[for="auth-email"]'), 316],
       ["password", page.locator('label[for="auth-password"]'), 464],
-      ["submit", page.getByRole("button", { name: "Zaloguj się" }), 633],
+      ["submit", page.getByRole("button", { name: "Zaloguj się" }), 616],
       ["security", page.getByText("MFA wymagane • brak publicznej rejestracji"), 748],
     ] as const;
     for (const [name, element, expectedTop] of landmarks) {
@@ -103,7 +104,7 @@ test("ADM-01 mobile keeps the login landmarks aligned with the 390×844 board", 
         expect(box!.x, `${name} left edge`).toBe(24);
         expect(box!.width, `${name} width`).toBe(342);
       }
-      expect(Math.abs(box!.y - expectedTop), `${name} top: ${box!.y}`).toBeLessThanOrEqual(8);
+      expect(Math.abs(box!.y - expectedTop), `${name} top: ${box!.y}`).toBeLessThanOrEqual(name === "submit" ? 2 : 8);
     }
     await snap(page, "company-login-default");
     for (const width of [320, 390, 430, 768, 1024, 1440, 1920]) {
@@ -157,7 +158,8 @@ test("company admin: login, enrollment with rendered QR, challenge, lost respons
     await page.getByLabel("Hasło", { exact: true }).fill(password);
     await page.getByRole("button", { name: "Zaloguj się" }).click();
     await expect(page.getByRole("heading", { name: "Włącz dodatkową ochronę" })).toBeVisible();
-    expect(await statusOf(page, "/admin/")).toBe(404);
+    // Own limited session: the panel route sends on to MFA (opaque manual redirect), never renders the panel.
+    expect(await statusOf(page, "/admin/")).toBe(0);
     await page.getByLabel("Potwierdź hasło").fill(password);
     await page.getByRole("button", { name: "Rozpocznij konfigurację" }).click();
     const totp = await decodeRenderedQr(page);
@@ -216,7 +218,8 @@ test("company admin: login, enrollment with rendered QR, challenge, lost respons
     await page.getByRole("button", { name: "Potwierdź kod" }).click();
     await expect(page.getByRole("heading", { name: "Potwierdź hasło" })).toBeFocused();
     await snap(page, "company-recovery-password");
-    expect(await statusOf(page, "/admin/")).toBe(404);
+    // Own limited session: the panel route sends on to MFA (opaque manual redirect), never renders the panel.
+    expect(await statusOf(page, "/admin/")).toBe(0);
     await page.getByLabel("Hasło", { exact: true }).fill(password);
     await page.getByRole("button", { name: "Potwierdź hasło" }).click();
     const renewed = await decodeRenderedQr(page);
@@ -294,7 +297,8 @@ test("superadmin: desktop login and TOTP challenge on the platform host", async 
     await noHorizontalOverflow(page);
     await snap(page, "platform-challenge");
     // Only a pending challenge, no session yet: the panel route sends to login (opaque redirect) instead of rendering.
-    expect(await statusOf(page, "/")).not.toBe(200);
+    // Playwright reports a manual redirect as an opaque response (status 0); a 200 page or a 500 would both fail.
+    expect(await statusOf(page, "/")).toBe(0);
     await page.getByRole("textbox", { name: "Kod MFA" }).fill(totp.generate());
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(`${origin}/`);

@@ -14,7 +14,15 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { SkipLink } from "../ui/skip-link";
 import { PanelAccess, type PanelAccessState } from "./panel-states";
-import { UnsavedChangesSuspensionContext } from "./unsaved-changes-dialog";
+import {
+  UnsavedChangesDialog,
+  UnsavedChangesSuspensionContext,
+} from "./unsaved-changes-dialog";
+import {
+  createGuardRegistry,
+  navigation,
+  UnsavedChangesGuardContext,
+} from "./unsaved-changes-guard";
 import styles from "./panel.module.css";
 
 const companyDesktop = [
@@ -204,6 +212,12 @@ function AvailablePanelShell({
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState(false);
   const [loggedOut, setLoggedOut] = useState(false);
+  const [registry] = useState(createGuardRegistry);
+  const [leaveTarget, setLeaveTarget] = useState<
+    { kind: "href"; href: string } | { kind: "logout" } | null
+  >(null);
+  const [busyNotice, setBusyNotice] = useState(false);
+  const leaving = useRef(false);
   const menuTrigger = useRef<HTMLElement | null>(null);
   const menuVisible =
     menuOpen && openedEpoch === connectionEpoch && !connectionError;
@@ -218,6 +232,81 @@ function AvailablePanelShell({
         ]
       : [{ label: "Konto", href: "/konto" }];
 
+  useEffect(() => {
+    function onClick(event: MouseEvent) {
+      if (
+        registry.state() === "free" ||
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      )
+        return;
+      const anchor =
+        event.target instanceof Element
+          ? event.target.closest("a[href]")
+          : null;
+      if (
+        !(anchor instanceof HTMLAnchorElement) ||
+        anchor.target === "_blank" ||
+        anchor.hasAttribute("download")
+      )
+        return;
+      const url = new URL(anchor.href, window.location.href);
+      if (url.origin === window.location.origin && url.hash) {
+        const here = new URL(window.location.href);
+        if (url.pathname === here.pathname && url.search === here.search)
+          return;
+      }
+      event.preventDefault();
+      setMenuOpen(false);
+      if (registry.state() === "busy") setBusyNotice(true);
+      else setLeaveTarget({ kind: "href", href: url.href });
+    }
+    function onBeforeUnload(event: BeforeUnloadEvent) {
+      if (leaving.current || registry.state() === "free") return;
+      event.preventDefault();
+      event.returnValue = "";
+    }
+    document.addEventListener("click", onClick, true);
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => {
+      document.removeEventListener("click", onClick, true);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+    };
+  }, [registry]);
+
+  useEffect(() => {
+    if (!busyNotice) return;
+    const timer = window.setTimeout(() => setBusyNotice(false), 6000);
+    return () => window.clearTimeout(timer);
+  }, [busyNotice]);
+
+  function requestLogout() {
+    const guard = registry.state();
+    if (guard === "free") return void logout();
+    setMenuOpen(false);
+    if (guard === "busy") setBusyNotice(true);
+    else setLeaveTarget({ kind: "logout" });
+  }
+
+  function stayOnPage() {
+    setLeaveTarget(null);
+    menuTrigger.current?.focus();
+  }
+
+  async function leave(target: NonNullable<typeof leaveTarget>) {
+    if (target.kind === "logout") {
+      await logoutOrThrow();
+      setLeaveTarget(null);
+      return;
+    }
+    leaving.current = true;
+    navigation.assign(target.href);
+  }
+
   function openMenu(mode: "mobile" | "desktop", trigger: HTMLElement) {
     menuTrigger.current = trigger;
     setMenuMode(mode);
@@ -226,13 +315,18 @@ function AvailablePanelShell({
     setMenuOpen(true);
   }
 
+  async function logoutOrThrow() {
+    await (onLogout ?? signOutOnCurrentHost)();
+    leaving.current = true;
+    setLoggedOut(true);
+  }
+
   async function logout() {
     if (loggingOut) return;
     setLoggingOut(true);
     setLogoutError(false);
     try {
-      await (onLogout ?? signOutOnCurrentHost)();
-      setLoggedOut(true);
+      await logoutOrThrow();
     } catch {
       setLogoutError(true);
     } finally {
@@ -273,13 +367,14 @@ function AvailablePanelShell({
 
   if (loggedOut) {
     return (
-      <PanelAccess area={area} state="session-expired">
+      <PanelAccess area={area} state="signed-out">
         {null}
       </PanelAccess>
     );
   }
 
   return (
+    <UnsavedChangesGuardContext.Provider value={registry}>
     <DialogPrimitive.Root
       open={menuVisible}
       onOpenChange={(open) => {
@@ -325,6 +420,12 @@ function AvailablePanelShell({
             </div>
           )}
           <main id="main-content" className={styles.shellMain} tabIndex={-1}>
+            {busyNotice && (
+              <p role="alert" className={styles.shellBusyNotice}>
+                Trwa zapisywanie zmian. Poczekaj na zakończenie, zanim opuścisz
+                tę stronę.
+              </p>
+            )}
             {children}
           </main>
         </div>
@@ -382,7 +483,7 @@ function AvailablePanelShell({
             <button
               type="button"
               disabled={loggingOut}
-              onClick={() => void logout()}
+              onClick={requestLogout}
             >
               Wyloguj
             </button>
@@ -399,5 +500,20 @@ function AvailablePanelShell({
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
+    <UnsavedChangesDialog
+      open={leaveTarget !== null}
+      contextLabel={registry.label()}
+      onStay={stayOnPage}
+      onDiscard={() => leave(leaveTarget!)}
+      onSaveAndLeave={
+        registry.hasSave()
+          ? async () => {
+              await registry.save();
+              await leave(leaveTarget!);
+            }
+          : undefined
+      }
+    />
+    </UnsavedChangesGuardContext.Provider>
   );
 }

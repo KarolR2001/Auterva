@@ -12,6 +12,10 @@ import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PanelShell } from "../../src/components/panel/panel-shell";
+import {
+  navigation,
+  useUnsavedChanges,
+} from "../../src/components/panel/unsaved-changes-guard";
 import { UnsavedChangesDialog } from "../../src/components/panel/unsaved-changes-dialog";
 
 afterEach(cleanup);
@@ -520,5 +524,167 @@ describe("nawigacja panelu", () => {
     } finally {
       request.mockRestore();
     }
+  });
+});
+
+describe("ochrona niezapisanych zmian w shellu (OVR-13)", () => {
+  function Form({
+    saving = false,
+    chatDraft = false,
+    save,
+  }: {
+    saving?: boolean;
+    chatDraft?: boolean;
+    save?: () => void;
+  }) {
+    const [value, setValue] = useState("Firma");
+    useUnsavedChanges({
+      dirty: value !== "Firma",
+      saving,
+      chatDraft,
+      save,
+      contextLabel: "formularz firmy",
+    });
+    return (
+      <label>
+        Nazwa
+        <input value={value} onChange={(e) => setValue(e.target.value)} />
+      </label>
+    );
+  }
+  const shell = (child: React.ReactNode, onLogout = vi.fn()) =>
+    render(
+      <PanelShell
+        area="company"
+        accessState="allowed"
+        title="Panel"
+        currentPath="/admin"
+        onLogout={onLogout}
+      >
+        {child}
+      </PanelShell>,
+    );
+  const alert = () =>
+    screen.queryByRole("alertdialog", { name: "Niezapisane zmiany" });
+
+  it("czysty formularz nie blokuje linków ani zamknięcia karty", () => {
+    shell(<Form />);
+    const link = screen.getAllByRole("link", { name: "Pojazdy" })[0];
+    let prevented = true;
+    const spy = (e: Event) => {
+      prevented = e.defaultPrevented;
+      e.preventDefault();
+    };
+    document.addEventListener("click", spy);
+    link.click();
+    document.removeEventListener("click", spy);
+    expect(prevented).toBe(false);
+    expect(alert()).toBeNull();
+    const unload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(false);
+  });
+
+  it("brudny formularz: link shellu pokazuje dialog, Pozostań zachowuje wartość i fokus", async () => {
+    const user = userEvent.setup();
+    const assign = vi.spyOn(navigation, "assign").mockImplementation(() => {});
+    shell(<Form />);
+    const input = screen.getByRole("textbox", { name: "Nazwa" });
+    await user.type(input, " Alfa");
+    const link = screen.getAllByRole("link", { name: "Pojazdy" })[0];
+    link.focus();
+    await user.click(link);
+    expect(alert()).toBeVisible();
+    expect(assign).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Zostań" }));
+    await waitFor(() => expect(alert()).toBeNull());
+    expect(input).toHaveValue("Firma Alfa");
+    expect(link).toHaveFocus();
+    await user.click(link);
+    await user.click(screen.getByRole("button", { name: "Odrzuć zmiany" }));
+    await waitFor(() => expect(assign).toHaveBeenCalledOnce());
+    expect(assign.mock.calls[0][0]).toMatch(/\/admin\/pojazdy$/);
+    assign.mockRestore();
+  });
+
+  it("beforeunload jest anulowany tylko przy niezapisanych zmianach", async () => {
+    const user = userEvent.setup();
+    shell(<Form />);
+    await user.type(screen.getByRole("textbox", { name: "Nazwa" }), "x");
+    const unload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(true);
+  });
+
+  it("Wyloguj przy brudnym formularzu pyta i wylogowuje dopiero po Odrzuć", async () => {
+    const user = userEvent.setup();
+    const logout = vi.fn().mockResolvedValue(undefined);
+    shell(<Form />, logout);
+    await user.type(screen.getByRole("textbox", { name: "Nazwa" }), "x");
+    await user.click(screen.getByRole("button", { name: "Menu użytkownika" }));
+    await user.click(screen.getByRole("button", { name: "Wyloguj" }));
+    expect(alert()).toBeVisible();
+    expect(logout).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Zostań" }));
+    await waitFor(() => expect(alert()).toBeNull());
+    expect(logout).not.toHaveBeenCalled();
+    expect(screen.getByRole("textbox", { name: "Nazwa" })).toHaveValue(
+      "Firmax",
+    );
+    await user.click(screen.getByRole("button", { name: "Menu użytkownika" }));
+    await user.click(screen.getByRole("button", { name: "Wyloguj" }));
+    await user.click(screen.getByRole("button", { name: "Odrzuć zmiany" }));
+    await waitFor(() => expect(logout).toHaveBeenCalledOnce());
+    expect(screen.getByText("Wylogowano")).toBeInTheDocument();
+    expect(screen.queryByText("Sesja wygasła")).toBeNull();
+  });
+
+  it("Zapisz i wyjdź woła zapis zarejestrowany przez formularz", async () => {
+    const user = userEvent.setup();
+    const assign = vi.spyOn(navigation, "assign").mockImplementation(() => {});
+    const save = vi.fn().mockResolvedValue(undefined);
+    shell(<Form save={save} />);
+    await user.type(screen.getByRole("textbox", { name: "Nazwa" }), "x");
+    await user.click(screen.getAllByRole("link", { name: "Czat z Autervą" })[0]);
+    await user.click(screen.getByRole("button", { name: "Zapisz i wyjdź" }));
+    await waitFor(() => expect(assign).toHaveBeenCalledOnce());
+    expect(save).toHaveBeenCalledOnce();
+    assign.mockRestore();
+  });
+
+  it("podczas zapisu nie ma wyjścia i nie ma dialogu", async () => {
+    const user = userEvent.setup();
+    const assign = vi.spyOn(navigation, "assign").mockImplementation(() => {});
+    const logout = vi.fn();
+    shell(<Form saving />, logout);
+    await user.click(screen.getAllByRole("link", { name: "Pojazdy" })[0]);
+    expect(alert()).toBeNull();
+    expect(screen.getByRole("alert")).toHaveTextContent("Trwa zapisywanie");
+    expect(assign).not.toHaveBeenCalled();
+    const unload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(true);
+    await user.click(screen.getByRole("button", { name: "Menu użytkownika" }));
+    await user.click(screen.getByRole("button", { name: "Wyloguj" }));
+    expect(logout).not.toHaveBeenCalled();
+    assign.mockRestore();
+  });
+
+  it("szkic czatu nie blokuje wyjścia", async () => {
+    const user = userEvent.setup();
+    shell(<Form chatDraft />);
+    await user.type(screen.getByRole("textbox", { name: "Nazwa" }), "x");
+    let prevented = true;
+    const spy = (e: Event) => {
+      prevented = e.defaultPrevented;
+      e.preventDefault();
+    };
+    document.addEventListener("click", spy);
+    screen.getAllByRole("link", { name: "Pojazdy" })[0].click();
+    document.removeEventListener("click", spy);
+    expect(prevented).toBe(false);
+    const unload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(false);
   });
 });
