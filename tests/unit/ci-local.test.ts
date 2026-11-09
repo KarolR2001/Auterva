@@ -12,6 +12,26 @@ import { afterAll, expect, test, vi } from "vitest";
 vi.setConfig({ testTimeout: 60_000 });
 const TEST_TIMEOUT_MS = 60_000;
 
+// ci-local derives every port from its LOCAL_PORT_BASE and refuses to start when a process outside the worktree listens
+// on one (precheck_ports). A fixed base would make these tests depend on what other agents listen on (#277), so each
+// test picks a frame whose ports are all free right now: base..+14 (fixture, E2E) and +101..+107 (SeaweedFS gRPC).
+const frameOffsets = [...Array.from({ length: 15 }, (_, i) => i), ...Array.from({ length: 7 }, (_, i) => 101 + i)];
+function listeningPorts(): Set<number> {
+  const out = spawnSync("lsof", ["-iTCP", "-sTCP:LISTEN", "-n", "-P", "-Fn"], { encoding: "utf8" }).stdout ?? "";
+  return new Set([...out.matchAll(/^n.*:(\d+)$/gm)].map((m) => Number(m[1])));
+}
+const takenFrames = new Set<number>();
+function freeBase(): number {
+  const used = listeningPorts();
+  for (let attempt = 0; attempt < 500; attempt++) {
+    const base = 20000 + Math.floor(Math.random() * 350) * 120;
+    if (takenFrames.has(base) || frameOffsets.some((o) => used.has(base + o))) continue;
+    takenFrames.add(base);
+    return base;
+  }
+  throw new Error("no free port frame found for the ci-local tests");
+}
+
 // Runs scripts/ci-local.sh in a throwaway repository with stub tools in PATH. No gate is executed:
 // the stub pnpm either fails the install step or ends the run, so the script never reaches real jobs.
 const script = resolve(__dirname, "../../scripts/ci-local.sh");
@@ -49,17 +69,20 @@ function setup(v: Versions = {}, pnpmBody = "exit 1", extra: Extra = {}) {
   if (v.docker !== false) stub(bin, "docker", v.buildx === false ? 'test "$1" != buildx' : "exit 0");
   stub(bin, "pnpm", pnpmBody);
   const env: NodeJS.ProcessEnv = { PATH: `${bin}:/usr/bin:/bin:/usr/sbin`, HOME: root, TMPDIR: root, NODE_ENV: "test" as const, ...extra.env };
-  const run = (...args: string[]) => spawnSync("/bin/bash", [script, ...args], { cwd: repo, encoding: "utf8", env });
+  const base = freeBase();
+  // "27400" in a call stands for this setup's own free frame.
+  const mapped = (args: string[]) => args.map((a) => (a === "27400" ? String(base) : a));
+  const run = (...args: string[]) => spawnSync("/bin/bash", [script, ...mapped(args)], { cwd: repo, encoding: "utf8", env });
   // Async variant: stdin stays an open, silent pipe (like a terminal that never sends EOF).
   const runAsync = (...args: string[]) => new Promise<{ status: number | null; stdout: string; stderr: string }>((done) => {
-    const child: ChildProcessWithoutNullStreams = spawn("/bin/bash", [script, ...args], { cwd: repo, env });
+    const child: ChildProcessWithoutNullStreams = spawn("/bin/bash", [script, ...mapped(args)], { cwd: repo, env });
     let stdout = "", stderr = "";
     child.stdout.on("data", (d) => { stdout += d; });
     child.stderr.on("data", (d) => { stderr += d; });
     child.on("close", (status) => done({ status, stdout, stderr }));
   });
   const slots = join(repo, ".git", "e2e.slots");
-  return { root, repo, bin, run, runAsync, slots, out: join(root, "out.txt") };
+  return { root, repo, bin, base, run, runAsync, slots, out: join(root, "out.txt") };
 }
 
 test("refuses to start on a dirty tree (tracked, staged or untracked) but ignores ignored files", () => {
@@ -159,7 +182,7 @@ test("two runs share the machine: with a free slot left E2E does not wait, and t
     takeSlot(t, 0, holder.pid!, "other run");
     const r = await t.runAsync("27400", t.out);
     expect(r.status).toBe(0);
-    expect(r.stderr).toMatch(/took E2E slot 1 of 2 \(ports 27412 27413 27414\)/);
+    expect(r.stderr).toMatch(new RegExp(`took E2E slot 1 of 2 \\(ports ${t.base + 12} ${t.base + 13} ${t.base + 14}\\)`));
     expect(r.stderr).not.toMatch(/waiting for an E2E slot/);
     expect(e2eLine(t.out)).toMatch(/PASS/);
     expect(existsSync(slotDir(t, 1))).toBe(false); // ours is released
@@ -272,7 +295,7 @@ test("E2E ports are derived from the worktree base and handed to Playwright", as
     { env: lockEnv("5") });
   const r = await t.runAsync("27400", t.out);
   expect(r.status).toBe(0);
-  expect(readFileSync(join(t.root, "ports"), "utf8").trim()).toBe("27412 27413 27414");
+  expect(readFileSync(join(t.root, "ports"), "utf8").trim()).toBe(`${t.base + 12} ${t.base + 13} ${t.base + 14}`);
   const high = await setup({}, "exit 0").runAsync("65530", join(tmpdir(), "ci-local-unused2.txt"));
   expect(high.status).toBe(2);
   expect(high.stderr).toMatch(/leaves no room for the E2E ports/);
@@ -301,7 +324,7 @@ test("a terminated run releases its slot and stops servers an E2E child left beh
   echo "$$" > "${"$"}{TMPDIR}/stubpid"; kill -TERM "$(ps -o ppid= -p "$PPID" | tr -d ' ')"; sleep 30
 fi
 exit 0`);
-  const port = 27412;
+  const port = t.base + 12;
   const started = Date.now();
   const r = await t.runAsync("27400", t.out);
   expect(r.status).toBe(143);
@@ -315,13 +338,13 @@ exit 0`);
 
 test("a fixture or E2E port held by a process of another worktree is refused up front with port and PID, and that process is left alone", async () => {
   const t = setup({}, "exit 0", { env: lockEnv("3") });
-  const foreign = spawn(process.execPath, ["-e", 'require("node:net").createServer().listen(27413, "127.0.0.1"); setInterval(() => {}, 1000)'],
+  const foreign = spawn(process.execPath, ["-e", `require("node:net").createServer().listen(${t.base + 13}, "127.0.0.1"); setInterval(() => {}, 1000)`],
     { cwd: tmpdir(), stdio: "ignore" });
   try {
-    for (let i = 0; i < 50 && spawnSync("lsof", ["-iTCP:27413", "-sTCP:LISTEN", "-n", "-t"]).status !== 0; i++) await new Promise((r) => setTimeout(r, 100));
+    for (let i = 0; i < 50 && spawnSync("lsof", [`-iTCP:${t.base + 13}`, "-sTCP:LISTEN", "-n", "-t"]).status !== 0; i++) await new Promise((r) => setTimeout(r, 100));
     const r = await t.runAsync("27400", t.out);
     expect(r.status).toBe(2);
-    expect(r.stderr).toMatch(new RegExp(`port 27413 \\(LOCAL_PORT_BASE 27400 \\+ 13\\) is held by process ${foreign.pid} .*not by this worktree`));
+    expect(r.stderr).toMatch(new RegExp(`port ${t.base + 13} \\(LOCAL_PORT_BASE ${t.base} \\+ 13\\) is held by process ${foreign.pid} .*not by this worktree`));
     expect(() => process.kill(foreign.pid!, 0)).not.toThrow(); // never killed by the run
     expect(readFileSync(t.out, "utf8")).not.toMatch(/Lint, typecheck/); // refused before any step
   } finally { foreign.kill("SIGKILL"); }
@@ -334,7 +357,7 @@ test("E2E waits for foreign listeners on its own ports and fails clearly if they
   busyStub(stays);
   writeFileSync(join(stays.root, "ports-busy"), "");
   const failed = await stays.runAsync("27400", stays.out);
-  expect(failed.stderr).toMatch(/timed out after 3s waiting for E2E ports to free up \(busy: 27412 27413 27414\)/);
+  expect(failed.stderr).toMatch(new RegExp(`timed out after 3s waiting for E2E ports to free up \\(busy: ${stays.base + 12} ${stays.base + 13} ${stays.base + 14}\\)`));
   expect(e2eLine(stays.out)).toMatch(/FAIL \(E2E slot or ports not available/);
   expect(existsSync(slotDir(stays, 0))).toBe(false); // the slot is released when the ports never freed up
 
