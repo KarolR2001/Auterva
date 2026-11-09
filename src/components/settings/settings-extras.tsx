@@ -83,7 +83,7 @@ export function PublicPreviewLinks({ snapshot, sections }: { snapshot: SettingsS
         <Info size={16} aria-hidden="true" /> Podgląd publiczny
       </h3>
       {host ? (
-        <ul>
+        <ul className={styles.previewLinks}>
           {sections.map((key) => (
             <li key={key}>
               <a className={styles.link} href={`https://${host}${paths[key][1]}`} target="_blank" rel="noopener noreferrer">

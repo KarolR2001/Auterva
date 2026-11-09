@@ -103,3 +103,12 @@ describe("walidacja pomocnicza", () => {
     expect(model.validate("kontakt", kontakt).phone).toBeDefined();
   });
 });
+
+describe("link https jak na serwerze", () => {
+  it("odrzuca dane logowania, localhost, host z kropką na końcu i znaki spacji", async () => {
+    const { isHttpsLink } = await import("../../src/components/settings/settings-model");
+    for (const bad of ["https://u:p@example.test/", "https://localhost/", "https://example.test./", "http://example.test/", "https://exa mple.test/", "https://example.test/\\x"])
+      expect(isHttpsLink(bad), bad).toBe(false);
+    expect(isHttpsLink("https://example.test/regulamin.pdf?x=1")).toBe(true);
+  });
+});

@@ -131,6 +131,21 @@ test("settings UI: superadmin saves a section, keeps data on conflict and valida
     await expect(page).toHaveURL(/sekcja=prezentacja/);
     expect(await db.publicMedia.findFirstOrThrow({ where: { organizationId: org, kind: "LOGO" } }).then((row) => row.alt)).toBe("Logo robocze");
 
+    // A very long document link must wrap instead of widening the page (superadmin and admin views).
+    const noOverflow = async (url: string, label: string) => {
+      for (const length of [110, 220]) {
+        await db.siteSettings.update({ where: { organizationId: org }, data: { termsUrl: `https://example.test/${"a".repeat(length - 21)}` } });
+        for (const width of [320, 1440]) {
+          await page.setViewportSize({ width, height: 900 });
+          await page.goto(url);
+          await expect(page.getByRole("heading", { name: "Regulamin", exact: true })).toBeVisible();
+          const overflow = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, view: window.innerWidth }));
+          expect(overflow.scroll, `${label} ${length} znaków przy ${width}px`).toBeLessThanOrEqual(overflow.view);
+        }
+      }
+    };
+    await noOverflow(`${origin(platformHost)}/firmy/${org}/ustawienia/?sekcja=prawne`, "superadmin");
+
     // Company admin: read-only values, no save control, logo change goes through chat.
     await context.clearCookies();
     await context.addCookies([asCookie(sessions[1].cookie, adminHost)]);
@@ -140,6 +155,8 @@ test("settings UI: superadmin saves a section, keeps data on conflict and valida
     await expect(page.getByRole("textbox")).toHaveCount(0);
     await page.goto(`${origin(adminHost)}/admin/ustawienia/`);
     await expect(page.getByRole("link", { name: "Poproś o zmianę logo na czacie" })).toHaveAttribute("href", "/admin/czat");
+    await noOverflow(`${origin(adminHost)}/admin/ustawienia/?sekcja=prawne`, "admin");
+    await page.setViewportSize({ width: 1280, height: 720 });
     await page.goto(`${origin(adminHost)}/admin/ustawienia/?sekcja=wyglad`);
     await expect(page.getByText("Wynajem busów").first()).toBeVisible();
     await expect(page.locator('input[type="file"]')).toHaveCount(0);

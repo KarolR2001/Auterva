@@ -142,8 +142,17 @@ export function isPlausiblePhone(text: string): boolean {
   return /^\+?[0-9][0-9 ()-]{4,23}$/.test(text) && digits.length >= 6 && digits.length <= 15;
 }
 
+/** Same rules as the server's parseSafeLink: https only, no credentials, a dotted host without a trailing dot. */
 export function isHttpsLink(text: string): boolean {
-  return /^https:\/\/\S+$/i.test(text.trim());
+  const trimmed = text.trim();
+  if (trimmed.length > 2048 || /[\u0000- \u007F\\]/.test(trimmed)) return false;
+  let url: URL;
+  try {
+    url = new URL(trimmed);
+  } catch {
+    return false;
+  }
+  return url.protocol === "https:" && !url.username && !url.password && url.hostname.includes(".") && !url.hostname.endsWith(".");
 }
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -159,7 +168,7 @@ export function validate(section: SettingsSection, values: FormValues): Record<s
     else if (field.max && text.length > field.max) errors[field.name] = `Najwyżej ${field.max} znaków.`;
     else if (field.kind === "phone" && text !== "" && !isPlausiblePhone(text)) errors[field.name] = "Podaj poprawny numer telefonu (6–15 cyfr).";
     else if (field.kind === "email" && text !== "" && !emailPattern.test(text)) errors[field.name] = "Podaj poprawny adres e-mail.";
-    else if (field.kind === "link" && text !== "" && !/^https:\/\/\S+$/i.test(text)) errors[field.name] = "Podaj adres zaczynający się od https://.";
+    else if (field.kind === "link" && text !== "" && !isHttpsLink(text)) errors[field.name] = "Podaj bezpieczny adres https:// z domeną, bez nazwy użytkownika i hasła.";
     else if (field.kind === "number" && text !== "") {
       const number = Number(text.replace(",", "."));
       if (!Number.isFinite(number)) errors[field.name] = "Podaj liczbę.";

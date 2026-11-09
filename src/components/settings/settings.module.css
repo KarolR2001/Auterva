@@ -67,6 +67,8 @@
   padding-left: var(--space-5);
 }
 .link {
+  overflow-wrap: anywhere;
+  word-break: break-word;
   color: var(--text-link);
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -135,6 +137,8 @@
   color: var(--status-warning-text);
 }
 .panel {
+  min-width: 0;
+  overflow-wrap: anywhere;
   display: grid;
   gap: var(--space-3);
   padding: var(--space-4);
@@ -234,4 +238,22 @@
   max-height: 200px;
   border-radius: var(--radius-md);
   object-fit: cover;
+}
+.previewLinks {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.previewLinks .link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch-target-mobile);
+}
+.layout,
+.form,
+.readonly,
+.fieldset {
+  min-width: 0;
 }
