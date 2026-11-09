@@ -188,6 +188,25 @@ test("batch ordering is atomic on version conflict and keeps public order", asyn
       after: { sortOrder: 10 } });
 });
 
+test("sortOrder has one range 0..2147483647 inclusive in PATCH and reorder (#230)", async () => {
+  const car = await createVehicle(db, { ...actor(), fields: { name: "Zakres sortOrder" } });
+  vehicles.push(car.id);
+  const max = 2_147_483_647;
+  const edited = await editVehicle(db, { ...actor(), vehicleId: car.id, expectedVersion: 0, fields: { sortOrder: max } });
+  expect(edited.sortOrder).toBe(max);
+  const zero = await reorderVehicles(db, { ...actor(), items: [{ id: car.id, expectedVersion: edited.version, sortOrder: 0 }] });
+  expect(zero[0].sortOrder).toBe(0);
+  const top = await reorderVehicles(db, { ...actor(), items: [{ id: car.id, expectedVersion: zero[0].version, sortOrder: max }] });
+  expect(top[0].sortOrder).toBe(max);
+  for (const sortOrder of [max + 1, -1, 1.5, Number.NaN]) {
+    await expect(reorderVehicles(db, { ...actor(), items: [{ id: car.id, expectedVersion: top[0].version, sortOrder }] }))
+      .rejects.toThrow("FLEET_INVALID_INPUT");
+    await expect(editVehicle(db, { ...actor(), vehicleId: car.id, expectedVersion: top[0].version, fields: { sortOrder } }))
+      .rejects.toThrow("FLEET_INVALID_INPUT");
+  }
+  expect((await db.vehicle.findUniqueOrThrow({ where: { id: car.id } })).sortOrder).toBe(max);
+});
+
 test("one of two parallel actor writes wins; slug uniqueness is scoped to company", async () => {
   const slug = `shared-${randomUUID()}`;
   await expect(createVehicle(db, { ...actor(0), fields: { name: "Zły slug", slug: "bad /path" } }))
