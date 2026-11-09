@@ -66,7 +66,7 @@ test("vehicle form: draft without data, publication gaps, publish, slug change, 
     await openSection("Dostępność bazowa");
     await page.getByLabel("Aktywny od").fill(today);
     await openSection("Cena");
-    await page.getByLabel("Cena", { exact: true }).fill("350,50");
+    await page.getByLabel("Cena (opcjonalnie)", { exact: true }).fill("350,50");
     await page.getByRole("button", { name: "Zapisz szkic" }).click();
     await expect(page.getByText("Zapisano zmiany.")).toBeVisible();
     expect((await db.vehicle.findUniqueOrThrow({ where: { id } })).price?.toString()).toBe("350.5");
