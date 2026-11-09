@@ -34,6 +34,10 @@ test("superadmin: search, card, period save, version conflict and archive keep o
     await page.context().addCookies([{ name: "better-auth.session_token",
       value: session.cookie.slice(session.cookie.indexOf("=") + 1), url: origin }]);
 
+    page.on("pageerror", (error) => console.log(`[pageerror] ${error.message}`));
+    page.on("response", (response) => {
+      if (response.status() >= 500) console.log(`[5xx] ${response.status()} ${response.url()}`);
+    });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`${origin}/firmy/`);
     await page.getByRole("searchbox").fill(marker);
