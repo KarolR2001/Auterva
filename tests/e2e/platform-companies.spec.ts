@@ -80,6 +80,12 @@ test("superadmin: search, card, period save, version conflict and archive keep o
     await expect(page.getByText("Brak firm dla wybranych kryteriów.")).toBeVisible();
     await page.getByRole("checkbox", { name: "Pokaż zarchiwizowane" }).check();
     await expect(page.getByRole("article").filter({ hasText: marker }).getByText("Zarchiwizowana", { exact: true })).toBeVisible();
+
+    // Same host policy as `/` and `/firmy/{id}/` (#14/#15): without a session the list goes to the platform login, never private HTML.
+    await page.context().clearCookies();
+    await page.goto(`${origin}/firmy/`);
+    await expect(page).toHaveURL(new RegExp(`^${origin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/login/?$`));
+    await expect(page.getByRole("heading", { name: "Zaloguj się" })).toBeVisible();
   } finally {
     await db.auditLog.deleteMany({ where: { organizationId: org } });
     await db.reminderIntent.deleteMany({ where: { organizationId: org } });

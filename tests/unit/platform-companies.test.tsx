@@ -207,13 +207,63 @@ describe("karta firmy i zmiana okresu", () => {
     await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PATCH")).toBe(true));
   });
 
-  it("5xx to stan niepewny, dane zostają, a ponowienie nie jest automatyczne", async () => {
+  it("5xx: najpierw odczyt stanu; niezmieniona wersja oznacza, że nie zapisano, a data zostaje w polu", async () => {
     const fetchMock = route({ patch: () => Response.json({ code: "INTERNAL_ERROR" }, { status: 500 }) });
     const user = await openAndEdit("2027-01-31");
     await user.click(screen.getByRole("button", { name: "Zapisz zmiany" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Nie wiemy, czy zmiana została zapisana");
-    expect(screen.getByRole("button", { name: "Sprawdź stan" })).toBeVisible();
+    expect(await screen.findByText(/Zmiana nie została zapisana/)).toBeVisible();
+    expect(screen.queryByText(/Nie wiemy, czy zmiana/)).toBeNull();
     expect(screen.getByLabelText("Opłacono do dnia włącznie")).toHaveValue("2027-01-31");
     expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "PATCH")).toHaveLength(1);
   });
+
+  it("5xx: odczyt pokazuje nową wartość i wyższą wersję, więc komunikat mówi, że zapisano", async () => {
+    let saved = false;
+    route({
+      patch: () => {
+        saved = true;
+        return Response.json({ code: "INTERNAL_ERROR" }, { status: 502 });
+      },
+      card: () =>
+        saved ? company({ period: { ...company().period, paidThrough: "2027-01-31", periodVersion: 5 } }) : company(),
+    });
+    const user = await openAndEdit("2027-01-31");
+    await user.click(screen.getByRole("button", { name: "Zapisz zmiany" }));
+    expect(await screen.findByText(/Zmiana została zapisana/)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Sprawdź stan" })).toBeNull();
+  });
+
+  it("5xx: inna wersja z inną wartością to konflikt, a data zostaje w polu", async () => {
+    let touched = false;
+    route({
+      patch: () => {
+        touched = true;
+        return Response.json({}, { status: 503 });
+      },
+      card: () =>
+        touched ? company({ period: { ...company().period, paidThrough: "2027-06-30", periodVersion: 6 } }) : company(),
+    });
+    const user = await openAndEdit("2027-01-31");
+    await user.click(screen.getByRole("button", { name: "Zapisz zmiany" }));
+    expect(await screen.findByText(/zmieniony w innej sesji/)).toBeVisible();
+    expect(screen.getByLabelText("Opłacono do dnia włącznie")).toHaveValue("2027-01-31");
+  });
+
+  it("5xx i nieudany odczyt: komunikat niepewny z ponowieniem sprawdzenia", async () => {
+    let failing = false;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.includes("/domains/")) return Response.json({ aliasHostname: "alfa.oferta.example", domain: null });
+      if (init?.method === "PATCH") {
+        failing = true;
+        return Response.json({}, { status: 500 });
+      }
+      return failing ? Response.json({}, { status: 500 }) : Response.json(company());
+    });
+    const user = await openAndEdit("2027-01-31");
+    await user.click(screen.getByRole("button", { name: "Zapisz zmiany" }));
+    expect(await screen.findByText(/odczyt stanu się nie udał/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Sprawdź stan" })).toBeVisible();
+  });
+
 });
