@@ -318,11 +318,11 @@ export function VehiclePhotos({ context, vehicleId, published, readOnly, images,
               {item.error && <p className={styles.error}>{item.error}</p>}
               <div className={styles.rowActions}>
                 {(item.state === "failed" || item.state === "uncertain") && item.retryable && (
-                  <Button size="sm" variant="secondary" onClick={() => retry(item)}>Spróbuj ponownie<span className={styles.srOnly}>: {item.file.name}</span></Button>
+                  <Button size="sm" variant="secondary" onClick={() => retry(item)} aria-label={`Spróbuj ponownie: ${item.file.name}`}>Spróbuj ponownie</Button>
                 )}
-                {item.state === "slow" && <Button size="sm" variant="secondary" onClick={() => void checkAgain()}>Sprawdź ponownie<span className={styles.srOnly}>: {item.file.name}</span></Button>}
+                {item.state === "slow" && <Button size="sm" variant="secondary" onClick={() => void checkAgain()} aria-label={`Sprawdź ponownie: ${item.file.name}`}>Sprawdź ponownie</Button>}
                 {(item.state === "failed" || item.state === "uncertain" || item.state === "slow" || item.state === "queued") && (
-                  <Button size="sm" variant="tertiary" onClick={() => setQueue((items) => items.filter((entry) => entry.id !== item.id))}>Usuń z kolejki<span className={styles.srOnly}>: {item.file.name}</span></Button>
+                  <Button size="sm" variant="tertiary" onClick={() => setQueue((items) => items.filter((entry) => entry.id !== item.id))} aria-label={`Usuń z kolejki: ${item.file.name}`}>Usuń z kolejki</Button>
                 )}
               </div>
             </li>
@@ -354,15 +354,15 @@ export function VehiclePhotos({ context, vehicleId, published, readOnly, images,
                   {!readOnly && (
                     <div className={styles.rowActions}>
                       {dirty && <Button size="sm" variant="secondary" disabled={busy !== null} loading={busy === "zapis opisu"} loadingLabel="Zapisywanie"
-                        onClick={() => void saveAlt(image)}>Zapisz opis<span className={styles.srOnly}>, {label}</span></Button>}
+                        onClick={() => void saveAlt(image)} aria-label={`Zapisz opis, ${label}`}>Zapisz opis</Button>}
                       {!image.isCover && <Button id={`vp-cover-${image.id}`} size="sm" variant="secondary" disabled={busy !== null} icon={<Star aria-hidden="true" size={16} />}
-                        onClick={() => void setCover(image)}>Ustaw jako główne<span className={styles.srOnly}>, {label}</span></Button>}
+                        onClick={() => void setCover(image)} aria-label={`Ustaw jako główne, ${label}`}>Ustaw jako główne</Button>}
                       <Button id={`vp-up-${image.id}`} size="sm" variant="tertiary" disabled={busy !== null || index === 0} icon={<ArrowUp aria-hidden="true" size={16} />}
-                        onClick={() => void move(image, -1)}>Przesuń wyżej<span className={styles.srOnly}>, {label}</span></Button>
+                        onClick={() => void move(image, -1)} aria-label={`Przesuń wyżej, ${label}`}>Przesuń wyżej</Button>
                       <Button id={`vp-down-${image.id}`} size="sm" variant="tertiary" disabled={busy !== null || index === ready.length - 1} icon={<ArrowDown aria-hidden="true" size={16} />}
-                        onClick={() => void move(image, 1)}>Przesuń niżej<span className={styles.srOnly}>, {label}</span></Button>
+                        onClick={() => void move(image, 1)} aria-label={`Przesuń niżej, ${label}`}>Przesuń niżej</Button>
                       <Button size="sm" variant="tertiary" disabled={busy !== null} icon={<Trash2 aria-hidden="true" size={16} />}
-                        onClick={() => askRemove(image)}>Usuń<span className={styles.srOnly}>, {label}</span></Button>
+                        onClick={() => askRemove(image)} aria-label={`Usuń, ${label}`}>Usuń</Button>
                     </div>
                   )}
                 </div>
