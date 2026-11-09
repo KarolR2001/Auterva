@@ -253,6 +253,16 @@
       ]
     },
     {
+      "issue": 241,
+      "scope": "Deterministyczny test procesów workera przypomnień pod obciążeniem: jawny limit testu z procesami i ograniczone czekanie na gotowość workera, bez osłabiania asercji.",
+      "relatedRequirementIds": ["C-F067", "C-N004", "C-F058", "C-F062", "D-07", "D-14"],
+      "referenceScreenIds": [],
+      "codePaths": [],
+      "testPaths": [
+        "tests/integration/service-reminders-process.test.ts"
+      ]
+    },
+    {
       "issue": 32,
       "scope": "Zdjecia pojazdu: cover, kolejnosc, alt i usuwanie z wersja, blokada Vehicle i audytem; dokladnie jeden cover; kontrolowany odczyt wariantow (publiczny przez resolvePublicVisibility i PUBLISHED, prywatny preview po sesji), no-store i blokada optymalizatora next/image. UI w osobnym issue.",
       "relatedRequirementIds": ["C-F098", "C-F061", "C-N006", "C-N033", "C-N035", "FR-ADM-043", "FR-ADM-044", "FR-ADM-045", "FR-ADM-046"],
