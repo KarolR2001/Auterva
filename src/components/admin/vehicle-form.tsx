@@ -16,6 +16,7 @@ import {
   changedPayload, createPayload, emptyValues, isDirty, mergeAfterConflict, newFeatureKey, normalizeServerField, publicationErrors, sectionOf,
   createCandidates, sections, serverFieldText, statusOutcome, toValues, validateValues, type FormValues, type SectionId,
 } from "./vehicle-form-model";
+import { VehiclePhotos } from "./vehicle-photos";
 import styles from "./vehicle-form.module.css";
 
 type Load = { state: "loading" } | { state: "error"; code: string } | { state: "ready" };
@@ -95,6 +96,11 @@ export function VehicleForm({ context = companyContext, vehicleId, title }: { co
     setValues((current) => ({ ...current, [name]: value }));
     setErrors((current) => { if (!current[name] ) return current; const { [name]: _drop, ...rest } = current; void _drop; return rest; });
   };
+
+  const onImages = useCallback((images: VehicleDetail["images"]) => {
+    setVehicle((current) => (current ? { ...current, images } : current));
+    setErrors((current) => { if (!current.images) return current; const { images: _drop, ...rest } = current; void _drop; return rest; });
+  }, []);
 
   const missing = useMemo(() => publicationErrors(values, vehicle?.images ?? [], hasSeatsRule, Boolean(category)), [values, vehicle, hasSeatsRule, category]);
 
@@ -305,7 +311,6 @@ export function VehicleForm({ context = companyContext, vehicleId, title }: { co
   const disabled = busy || archived;
   const StatusIcon = statusIcon[status];
   const primaryLabel = !vehicleId ? "Zapisz szkic" : status === "DRAFT" ? "Zapisz szkic" : "Zapisz zmiany";
-  const imagesReady = (vehicle?.images ?? []).filter((image) => image.status === "READY");
   const text = (name: keyof FormValues, label: string, options: { optional?: boolean; hint?: string; type?: string; inputMode?: "numeric" | "decimal"; maxLength?: number } = {}) => (
     <Field id={`vf-${name}`} label={label} optional={options.optional} hint={options.hint} error={errors[name]}>
       <input type={options.type ?? "text"} inputMode={options.inputMode} value={values[name] as string} disabled={disabled}
@@ -460,13 +465,11 @@ export function VehicleForm({ context = companyContext, vehicleId, title }: { co
                     </div>
                   )}
                   {section.id === "photos" && <>
-                    <p className={styles.hint} id="vf-images">Zdjęcia dodajesz i porządkujesz osobno po zapisaniu szkicu. Do publikacji potrzebne jest co najmniej jedno gotowe zdjęcie oznaczone jako główne.</p>
-                    {errors.images && <p className={styles.error}><CircleAlert aria-hidden="true" size={16} />{errors.images}</p>}
-                    {vehicleId && (imagesReady.length
-                      ? <ul className={styles.photoList} aria-label="Gotowe zdjęcia pojazdu">{imagesReady.map((image) => (
-                        <li key={image.id}><img src={`${context.apiBase}/vehicles/${vehicleId}/images/${image.id}/thumb/`} alt={image.alt} width={96} height={64} loading="lazy" />
-                          {image.isCover && <span className={styles.photoCover}>Główne</span>}</li>))}</ul>
-                      : <p className={styles.hint}>Brak gotowych zdjęć.</p>)}
+                    {errors.images && <p className={styles.error} id="vf-images"><CircleAlert aria-hidden="true" size={16} />{errors.images}</p>}
+                    {vehicleId && vehicle
+                      ? <VehiclePhotos context={context} vehicleId={vehicleId} published={status === "PUBLISHED"} readOnly={archived}
+                        images={vehicle.images} onImages={onImages} />
+                      : <p className={styles.hint} id="vf-images">Zdjęcia dodasz po zapisaniu szkicu. Do publikacji potrzebne jest co najmniej jedno gotowe zdjęcie oznaczone jako główne.</p>}
                   </>}
                   {section.id === "availability" && <>
                     <div className={styles.grid2}>
