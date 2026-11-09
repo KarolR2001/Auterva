@@ -608,6 +608,33 @@
       "fixturePath": "tests/fixtures/panel-check.tsx"
     },
     {
+      "issue": 31,
+      "scope": "Ustawienia firmy w sekcjach (dane, kontakt, prezentacja i SEO, treści prawne TEXT/LINK/MISSING) według D-01: superadmin zapisuje w kontekście wybranej firmy z wersją, kluczem zdarzenia i obsługą konfliktu; admin firmy tylko czyta, logo do odczytu z przejściem do czatu. Bez motywu, opłaty i hosta. Sekcja „Wygląd publiczny” (tekst hero, logo, hero i zdjęcia marki: upload, opis, kolejność, usunięcie, podgląd) oraz publiczny telefon i e-mail z PLT-04/FLOW-MVP-02 (PRD §15.5) realizowane tu przez API ustawień i mediów, nie w formularzu #25; domena własna zostaje w #25; C-F037/C-F038 dotyczą aktywacji i nie są w tym zakresie. Porównanie z Penpotem ADM-11–14 niewykonane (wtyczka zawieszona).",
+      "relatedRequirementIds": ["C-F023", "C-F083", "C-F084", "C-F085", "C-F112", "FR-ADM-060", "FR-ADM-061", "FR-ADM-062", "FR-ADM-063", "FR-PUB-041", "FR-PUB-042", "D-01"],
+      "referenceScreenIds": ["ADM-11", "ADM-12", "ADM-13", "ADM-14", "PLT-04"],
+      "codePaths": [
+        "src/app/admin/ustawienia/page.tsx",
+        "src/app/firmy/[organizationId]/ustawienia/page.tsx",
+        "src/components/settings/settings-model.ts",
+        "src/components/settings/settings-form.tsx",
+        "src/components/settings/settings-readonly.tsx",
+        "src/components/settings/settings-extras.tsx",
+        "src/components/settings/settings-nav.tsx",
+        "src/components/settings/media-manager.tsx",
+        "src/components/ui/textarea.tsx",
+        "src/components/ui/select.tsx",
+        "src/components/ui/form-field.tsx"
+      ],
+      "stylePath": "src/components/settings/settings.module.css",
+      "testPaths": [
+        "tests/unit/settings-model.test.ts",
+        "tests/unit/settings-form.test.tsx",
+        "tests/unit/settings-routes.test.tsx",
+        "tests/unit/settings-media.test.tsx",
+        "tests/e2e/settings-ui.spec.ts"
+      ]
+    },
+    {
       "issue": 13,
       "scope": "Aktywny host wybiera obszar; serwer sprawdza aktora i firmę, lokalny ingress dostarcza adres klienta, a wspólny limiter chroni uwierzytelnione API. Brzeg dostawcy pozostaje do odbioru przed stagingiem.",
       "relatedRequirementIds": ["C-N002", "C-N003", "C-N005", "C-N007", "C-N008", "C-N009", "C-N012", "C-N013", "C-N024"],
