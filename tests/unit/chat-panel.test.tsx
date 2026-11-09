@@ -7,6 +7,7 @@ import { fireEvent } from "@testing-library/react";
 
 import { ChatPanel } from "../../src/components/chat/chat-panel";
 import { loadDraft, loadPending } from "../../src/components/chat/draft-store";
+import { navigation } from "../../src/components/panel/unsaved-changes-guard";
 import { PanelShell } from "../../src/components/panel/panel-shell";
 
 class FakeSocket {
@@ -37,7 +38,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.use
 
 const renderChat = () => render(
   <PanelShell area="company" accessState="allowed" title="Czat z Autervą" currentPath="/admin/czat" onLogout={vi.fn()}>
-    <ChatPanel accountId="konto-a" organizationId="org-1" conversationId="conv-1" apiBase="/api/admin/chat" peerLabel="Auterva" loginHref="/admin/login" />
+    <ChatPanel accountId="konto-a" organizationId="org-1" conversationId="conv-1" apiBase="/api/admin/chat" peerLabel="Auterva" companyName="Alfa Rent" peerWith="Autervą" loginHref="/admin/login" />
   </PanelShell>);
 
 describe("czat firmy (#52)", () => {
@@ -89,6 +90,62 @@ describe("czat firmy (#52)", () => {
     await waitFor(() => expect(screen.getByText("Nie wysłano")).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: "Edytuj tekst" }));
     expect(screen.getByRole("textbox", { name: /Napisz wiadomość/ })).toHaveValue("x");
+  });
+
+  it("teksty zgodne z TEN-11: podtytuł, Online, podpis firmą, podpowiedź szkicu; statusy tylko Wysłano/Przeczytano", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json(history([m("1", true, "moja"), m("2", false, "pytanie")])));
+    renderChat();
+    await waitFor(() => expect(screen.getByText("pytanie")).toBeInTheDocument());
+    expect(screen.getByText("Alfa Rent · kontakt z Autervą")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Czat z Autervą" })).toBeInTheDocument();
+    expect(screen.getByText("Alfa Rent", { selector: "p" })).toBeInTheDocument(); // own message signed with the company
+    expect(screen.queryByText("Ty", { exact: true })).toBeNull();
+    expect(screen.getByText(/Szkic Alfa Rent · odbiorca: Auterva/)).toBeInTheDocument();
+    expect(screen.queryByText("Online")).toBeNull(); // not before the live channel is up
+    await waitFor(() => expect(FakeSocket.instances).toHaveLength(1));
+    act(() => FakeSocket.instances[0].emit({ type: "ready", protocol: 1, conversationId: "conv-1", cursor: "cur-1", backlog: "none", state }));
+    expect(screen.getByText("Online")).toBeInTheDocument();
+    expect(screen.getByText(/Wysłano/)).toBeInTheDocument();
+    expect(screen.queryByText(/Dostarczono/)).toBeNull();
+  });
+
+  it("guard niewysłanej wiadomości: bez „Odrzuć zmiany”, wyjście bez wysyłania, wpis zostaje w storage", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) =>
+      init?.method === "POST" ? new Response(null, { status: 502 }) : Response.json(history([])));
+    const assign = vi.spyOn(navigation, "assign").mockImplementation(() => {});
+    renderChat();
+    await waitFor(() => expect(screen.getByText(/Brak wiadomości/)).toBeInTheDocument());
+    await user.type(screen.getByRole("textbox", { name: /Napisz wiadomość/ }), "do wysłania");
+    await user.click(screen.getByRole("button", { name: "Wyślij" }));
+    await waitFor(() => expect(screen.getByText("Niepewny wynik wysyłki")).toBeInTheDocument());
+    await user.click(screen.getAllByRole("link", { name: "Dashboard" })[0]);
+    const dialog = screen.getByRole("alertdialog", { name: "Niezapisane zmiany" });
+    expect(dialog).toHaveTextContent("Zostaje na tym urządzeniu");
+    expect(screen.queryByRole("button", { name: "Odrzuć zmiany" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Wyjdź bez wysyłania" }));
+    await waitFor(() => expect(assign).toHaveBeenCalledOnce());
+    expect(window.localStorage.length).toBeGreaterThan(0); // the unsent message is still stored
+  });
+
+  it("guard przy wylogowaniu: standardowe OVR-13, ostrzega o usunięciu i wpis faktycznie znika po potwierdzeniu", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) =>
+      init?.method === "POST" ? new Response(null, { status: 502 }) : Response.json(history([])));
+    renderChat();
+    await waitFor(() => expect(screen.getByText(/Brak wiadomości/)).toBeInTheDocument());
+    await user.type(screen.getByRole("textbox", { name: /Napisz wiadomość/ }), "do wysłania");
+    await user.click(screen.getByRole("button", { name: "Wyślij" }));
+    await waitFor(() => expect(screen.getByText("Niepewny wynik wysyłki")).toBeInTheDocument());
+    expect(window.localStorage.length).toBeGreaterThan(0);
+    await user.click(screen.getByRole("button", { name: "Menu użytkownika" }));
+    await user.click(screen.getByRole("button", { name: "Wyloguj" }));
+    const dialog = screen.getByRole("alertdialog", { name: "Niezapisane zmiany" });
+    expect(dialog).toHaveTextContent("zostanie usunięty z tego urządzenia");
+    expect(dialog).not.toHaveTextContent("Zostaje na tym urządzeniu");
+    expect(screen.queryByRole("button", { name: "Wyjdź bez wysyłania" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Odrzuć zmiany" }));
+    await waitFor(() => expect(window.localStorage.length).toBe(0)); // the stored unsent message is really gone
   });
 
   it("wiadomość drugiej strony z WebSocket, statusy odczytu i pisania; ready/połączenie nie czyta", async () => {
