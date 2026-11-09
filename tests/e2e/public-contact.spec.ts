@@ -84,7 +84,7 @@ test("contact with vehicle and dates, copy, missing channel, documents per compa
 
     // 2. Copy works without a handler for the channel; the page shows no booking promise and records nothing.
     await page.getByRole("button", { name: "Kopiuj: Telefon +48 600 000 111" }).click();
-    await expect(page.getByText("Skopiowano")).toBeVisible();
+    await expect(page.getByText("Skopiowano", { exact: true })).toBeVisible();
     await expect(page.getByText(/Sprawdzenie nie jest rezerwacją/)).toBeVisible();
     expect(await rawGet(port, host.a, "/kontakt/")).toMatchObject({ status: 200 });
     expect({ vehicles: await db.vehicle.count(), blocks: await db.availabilityBlock.count() }).toEqual(before);
