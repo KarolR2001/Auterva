@@ -18,10 +18,13 @@ export type ServiceStatus = { period: { headline: string; paidThrough: string | 
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; status: number; code: string; retryAfter?: number };
 
 /** Where the panel talks to: the company host (`/api/admin`) or one explicit company of the superadmin. */
-export type PanelContext = { apiBase: string; hrefBase: string };
+export type PanelContext = { apiBase: string; hrefBase: string;
+  /** Base of the protected preview pages (superadmin only); without it no preview link is shown. */
+  previewBase?: string };
 export const companyContext: PanelContext = { apiBase: "/api/admin", hrefBase: "/admin" };
 export function platformContext(organizationId: string): PanelContext {
-  return { apiBase: `/api/platform/companies/${organizationId}`, hrefBase: `/platform/firmy/${organizationId}` };
+  return { apiBase: `/api/platform/companies/${organizationId}`, hrefBase: `/firmy/${organizationId}`,
+    previewBase: `/firmy/${organizationId}/podglad` };
 }
 
 async function call<T>(url: string, init?: RequestInit & { signal?: AbortSignal }): Promise<ApiResult<T>> {

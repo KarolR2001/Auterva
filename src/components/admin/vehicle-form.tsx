@@ -500,6 +500,7 @@ export function VehicleForm({ context = companyContext, vehicleId, title }: { co
             <h3 className={styles.cardTitle}>Status</h3>
             <p className={styles.badge}><StatusIcon aria-hidden="true" size={16} />{vehicleId ? statusLabels[status] : "Nowy szkic"}</p>
             {vehicle && <p className={styles.hint}>Ostatnia zmiana: {formatDate(vehicle.updatedAt)}</p>}
+            {vehicleId && !archived && context.previewBase && <a href={`${context.previewBase}/pojazdy/${vehicleId}/`}>Podgląd pojazdu (tylko dla uprawnionych)</a>}
             {vehicleId && !archived && routes.vehicleCalendar && <a href={`${context.hrefBase}/pojazdy/${vehicleId}/kalendarz/`}>Kalendarz pojazdu</a>}
             {status === "PUBLISHED" && <Button variant="secondary" disabled={busy} icon={<EyeOff aria-hidden="true" size={18} />} onClick={() => { setDialogError(null); setDialog("unpublish"); }}>Ukryj</Button>}
             {vehicleId && !archived && <Button variant="tertiary" disabled={busy} icon={<Archive aria-hidden="true" size={18} />} onClick={() => { setDialogError(null); setDialog("archive"); }}>Archiwizuj</Button>}

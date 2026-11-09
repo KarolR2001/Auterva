@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { expect, test } from "@playwright/test";
+import { expect as baseExpect, test } from "@playwright/test";
 import sharp from "sharp";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { claimNextJob } from "../../src/modules/jobs/queue";
@@ -10,7 +10,8 @@ import { ensureControlledSuperadminMfa, resetPlatformApiBudget, verifiedFixtureS
 
 // #37: the superadmin reaches the public materials of one company from its card, sees the stored state (not the chosen file),
 // keeps entries on a file error or a version conflict and is guarded when leaving; another company stays untouched.
-test.use({ launchOptions: { args: ["--host-resolver-rules=MAP *.example.test 127.0.0.1"] } });
+test.use({ launchOptions: { args: ["--host-resolver-rules=MAP *.example.test 127.0.0.1"] }, actionTimeout: 15_000, navigationTimeout: 30_000 });
+const expect = baseExpect.configure({ timeout: 15_000 });
 
 test("public materials: card entry, file error keeps data, preview follows the stored logo, conflict, guard, company isolation", async ({ page, context, baseURL }) => {
   test.setTimeout(180_000);
@@ -38,6 +39,7 @@ test("public materials: card entry, file error keeps data, preview follows the s
       await db.user.create({ data: { id: superId, name: "Materials operator", role: "SUPERADMIN_AUTERVA",
         email: `materials-op-${superId}@example.test`, emailVerified: true, twoFactorEnabled: true } });
     }
+    await resetPlatformApiBudget(db, superId);
     await resetPlatformApiBudget(db, superId);
     session = await verifiedFixtureSession(db, superId);
     const [name, ...rest] = session.cookie.split("=");

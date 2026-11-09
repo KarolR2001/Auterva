@@ -1393,6 +1393,34 @@
       ]
     },
     {
+      "issue": 47,
+      "scope": "Pełne zarządzanie firmą przez superadmina pod kartą firmy i chroniony podgląd (ADM-08, FLOW-MVP-11, PLT-03): trasy /firmy/{id}/pojazdy (lista #34), pojazdy/nowy i pojazdy/{id} (formularz #35 ze zdjęciami #36), pojazdy/{id}/kalendarz (#39) na wspólnych komponentach przez PanelContext platformy i zagnieżdżone API firmy; wejścia „Zarządzaj flotą” i „Podgląd strony (chroniony)” z karty firmy, linki „Podgląd” w liście i formularzu tylko w kontekście platformy; /firmy/{id}/podglad (strona główna oferty) i podglad/pojazdy/{id} renderowane po stronie serwera z modułu preview #46 po bramce platformy (host, rola, MFA, firma z URL), z baner „to nie jest publiczny adres”, informacją o wyłączonej stronie publicznej (okres/archiwum), noindex (meta i X-Robots-Tag), bez linków na adres publiczny i bez SEO, opis jako tekst. Superadmin działa jako własny aktor (audyt), w archiwum D-23 nadal zarządza flotą (komunikat o archiwizacji), firma B nie dostaje danych A, anonim bez danych. Poprawka platformContext (trasy /firmy/{id}). Bez zmian backendu; podgląd po stronie admina firmy (ADM-08 w panelu firmy) poza zakresem. Porównanie z Penpotem odroczone (#263).",
+      "relatedRequirementIds": ["C-F016", "C-F017", "C-F018", "C-F058", "C-F099", "C-F104", "DS-N22"],
+      "referenceScreenIds": ["ADM-08", "PLT-03", "FLOW-MVP-11"],
+      "codePaths": [
+        "src/app/firmy/[organizationId]/company-page.tsx",
+        "src/app/firmy/[organizationId]/pojazdy/page.tsx",
+        "src/app/firmy/[organizationId]/pojazdy/nowy/page.tsx",
+        "src/app/firmy/[organizationId]/pojazdy/[id]/page.tsx",
+        "src/app/firmy/[organizationId]/pojazdy/[id]/kalendarz/page.tsx",
+        "src/app/firmy/[organizationId]/podglad/page.tsx",
+        "src/app/firmy/[organizationId]/podglad/pojazdy/[id]/page.tsx",
+        "src/components/platform/company-fleet.tsx",
+        "src/components/platform/company-preview.tsx",
+        "src/components/platform/company-preview.module.css",
+        "src/components/platform/company-card.tsx",
+        "src/components/admin/fleet-api.ts",
+        "src/components/admin/vehicle-list.tsx",
+        "src/components/admin/vehicle-form.tsx",
+        "docs/contracts/preview.md"
+      ],
+      "stylePath": "src/components/platform/company-preview.module.css",
+      "testPaths": [
+        "tests/unit/platform-fleet.test.tsx",
+        "tests/e2e/platform-company-fleet.spec.ts"
+      ]
+    },
+    {
       "issue": 34,
       "scope": "Panel firmy ADM-04 i ADM-05 na prawdziwym API floty (hosty firmy, kontekst superadmina przez PanelContext): lista z wyszukiwaniem, filtrem publikacji, aktywnosci i dostepnosci dzis, paginacja, kolejnosc przyciskami z klawiatury (zapis /vehicles/reorder), menu Wiecej z Ukryj i Archiwizuj po potwierdzeniu z wersja wiersza, stany loading, pusta flota, brak wynikow i blad. Dashboard: opublikowane, aktywne, dostepne i niedostepne dzis (data Warszawy), najblizsze blokady z linkiem do kalendarza pojazdu, status strony i okresu. Poza zakresem: nawigacja paneli i wspolne stany dostepu (#14), formularz #35, kalendarz #38, filtr kategorii (brak listy kategorii w API), ostrzezenia jakosci danych i status czatu.",
       "relatedRequirementIds": ["C-F095", "C-F097", "FR-ADM-010", "FR-ADM-020", "FR-ADM-021", "FR-ADM-022"],
