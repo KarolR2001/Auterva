@@ -13,6 +13,12 @@ const organizationId = randomUUID();
 const userId = randomUUID();
 const email = `reminder-process-${organizationId}@example.test`;
 const children = new Set<ChildProcess>();
+/**
+ * Three real tsx worker processes start in sequence (cold start about 1-2 s each, several times that on a loaded host with
+ * parallel integration runs, #241). The default 5 s is shorter than the process lifecycle itself; the inner waits stay
+ * bounded (15 s delivery, 30 s readiness), so this limit only has to cover them. No assertion is weakened.
+ */
+const TEST_TIMEOUT_MS = 90_000;
 
 afterAll(async () => {
   for (const child of children) child.kill("SIGKILL");
@@ -78,9 +84,11 @@ test("two real worker processes and a restart deliver a due reminder exactly onc
   expect(jobs[0]).toMatchObject({ status: "SENT", attempts: 1, providerId: `sink:${jobs[0].id}` });
   // Restart: the delivered key is final; a new worker and a direct sweep add nothing.
   const third = startWorker();
+  // Readiness is the worker's own signal; the bound only keeps a hung start from stalling the suite.
   await new Promise<void>((resolve, reject) => {
-    third.stdout?.on("data", (chunk: Buffer) => { if (chunk.toString().includes("Worker ready")) resolve(); });
-    third.once("close", () => reject(new Error("Restarted worker exited early")));
+    const timer = setTimeout(() => reject(new Error("Restarted worker did not report readiness")), 30_000);
+    third.stdout?.on("data", (chunk: Buffer) => { if (chunk.toString().includes("Worker ready")) { clearTimeout(timer); resolve(); } });
+    third.once("close", () => { clearTimeout(timer); reject(new Error("Restarted worker exited early")); });
   });
   await processDueReminders(db, new Date(), key, [organizationId]);
   third.kill("SIGTERM");
@@ -88,4 +96,4 @@ test("two real worker processes and a restart deliver a due reminder exactly onc
   expect(await db.job.count({ where: { organizationId } })).toBe(1);
   expect(await db.reminderIntent.count({ where: { organizationId, status: "DELIVERED" } })).toBe(2);
   expect(await db.reminderIntent.count({ where: { organizationId, offsetDays: { in: [1, 0] }, status: "PENDING" } })).toBe(4);
-});
+}, TEST_TIMEOUT_MS);

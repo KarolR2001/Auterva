@@ -11,6 +11,14 @@ import { sendMessage, type ChatScope } from "../../src/modules/chat/service";
 import { ensureControlledSuperadminMfa, verifiedFixtureSession } from "../fixtures/verified-session";
 import { refusedStatus, TestSocket, type Frame } from "../fixtures/realtime-client";
 
+/**
+ * Real child processes, a real HTTP/WebSocket server or a PostgreSQL migration run in this file; under parallel
+ * ci-local runs (load average far above the core count, #247) they take several times longer than the default 5 s.
+ * The inner waits stay bounded (readiness and state polls, 30 s), so this limit only has to cover them. No assertion
+ * is weakened.
+ */
+const TEST_TIMEOUT_MS = 90_000;
+
 const databaseUrl = process.env.DATABASE_URL ?? "";
 const db = createPrismaClient(databaseUrl);
 const authority = createRealtimeAuthority(db, auth);
@@ -109,7 +117,7 @@ beforeAll(async () => {
   platformSessionId = await sessionIdOf(session.cookie);
   await db.hostMapping.create({ data: { hostname: platformHost, area: "PLATFORM", status: "ACTIVE" } });
   main = await startServer();
-});
+}, TEST_TIMEOUT_MS);
 
 afterAll(async () => {
   for (const server of servers) await server.close().catch(() => undefined);
@@ -125,7 +133,7 @@ afterAll(async () => {
     ...(ownedPlatformId ? [ownedPlatformId] : [])] } } });
   await db.organization.deleteMany({ where: { id: organizationId } });
   await db.$disconnect();
-});
+}, TEST_TIMEOUT_MS);
 
 test("handshake refuses a foreign Origin, an unlisted Host, the wrong area, another company and missing credentials", async () => {
   const [a, b] = [await makeCompany("hs-a"), await makeCompany("hs-b")];
@@ -153,7 +161,7 @@ test("handshake refuses a foreign Origin, an unlisted Host, the wrong area, anot
   expect(await refusedStatus(port, a.organizationId, { ...ok, query: `organizationId=${a.organizationId}&extra=1` })).toBe(400);
   expect(await refusedStatus(port, a.organizationId, { ...ok, after: "garbage" })).toBe(400);
   expect(await refusedStatus(port, a.organizationId, { ...ok, path: "/other" })).toBe(404);
-});
+}, TEST_TIMEOUT_MS);
 
 test("events never cross companies; the superadmin acts as themselves in the chosen company", async () => {
   const [a, b] = [await makeCompany("iso-a"), await makeCompany("iso-b")];
@@ -181,7 +189,7 @@ test("events never cross companies; the superadmin acts as themselves in the cho
   expect((await adminB.takeType("error")).code).toBe("NOT_FOUND");
   expect(await db.conversationReadCursor.count({ where: { organizationId: { in: [a.organizationId, b.organizationId] } } })).toBe(0);
   for (const socket of [adminA, adminB, operatorA, operatorB]) socket.ws.close();
-});
+}, TEST_TIMEOUT_MS);
 
 test("a connection alone never marks anything read; an explicit read does, never backwards", async () => {
   const company = await makeCompany("read");
@@ -217,7 +225,7 @@ test("a connection alone never marks anything read; an explicit read does, never
   const adminAgain = await adminSocket(company);
   expect((await adminAgain.takeType("ready")).state).toMatchObject({ peerMessageId: messages[2].id, unread: 0 });
   for (const socket of [hidden, adminDevice, operatorDevice2, again, adminAgain]) socket.ws.close();
-});
+}, TEST_TIMEOUT_MS);
 
 test("typing is relayed, limited to one per second per actor, expires after 3 s and ends with a message", async () => {
   const company = await makeCompany("typing");
@@ -250,7 +258,7 @@ test("typing is relayed, limited to one per second per actor, expires after 3 s 
   expect((await operator.takeType("message")).message.body).toBe("Napisane");
   admin.ws.close();
   operator.ws.close();
-});
+}, TEST_TIMEOUT_MS);
 
 test("reconnect with a cursor fills the gap without losses or duplicates; too far behind means refetch", async () => {
   const company = await makeCompany("resume");
@@ -287,7 +295,7 @@ test("reconnect with a cursor fills the gap without losses or duplicates; too fa
   await say(company.admin, "m5");
   expect((await far.takeType("message")).message.body).toBe("m5");
   for (const socket of [admin, resumed, far]) socket.ws.close();
-});
+}, TEST_TIMEOUT_MS);
 
 test("a lost LISTEN loses nothing: rebuilt connection and the periodic reconcile deliver from the database", async () => {
   const logs: Logs = [];
@@ -313,7 +321,7 @@ test("a lost LISTEN loses nothing: rebuilt connection and the periodic reconcile
     senderId: company.adminId, clientMessageId: randomUUID(), body: "bez sygnału" } });
   expect((await operator.takeType("message", 5_000)).message.body).toBe("bez sygnału");
   operator.ws.close();
-});
+}, TEST_TIMEOUT_MS);
 
 test("sent.cursor is a safe resume point: an earlier message is delivered before sent, with a lost LISTEN or without any signal", async () => {
   const server = await startServer({ listenRetryMs: 2_000, pollMs: 60_000, reconcileMs: 60_000 });
@@ -348,7 +356,7 @@ test("sent.cursor is a safe resume point: an earlier message is delivered before
     resumed.ws.close();
     await sleep(2_300);
   }
-}, 30_000);
+}, TEST_TIMEOUT_MS);
 
 test("several instances: message, read and typing cross between servers; no duplicates", async () => {
   const company = await makeCompany("multi");
@@ -371,7 +379,7 @@ test("several instances: message, read and typing cross between servers; no dupl
   operatorOnTwo.send({ type: "typing" });
   expect(await adminOnOne.takeType("typing")).toMatchObject({ active: true, senderRole: "SUPERADMIN_AUTERVA" });
   for (const socket of [adminOnOne, operatorOnTwo, adminOnTwo]) socket.ws.close();
-});
+}, TEST_TIMEOUT_MS);
 
 test("archive, logout, disabled account and revocation close the connection; later frames are refused", async () => {
   const company = await makeCompany("revoke");
@@ -406,7 +414,7 @@ test("archive, logout, disabled account and revocation close the connection; lat
   await target.takeType("ready");
   await db.user.update({ where: { id: disabled.adminId }, data: { disabledAt: new Date() } });
   expect(await target.waitClose(4_000)).toBe(4401);
-});
+}, TEST_TIMEOUT_MS);
 
 test("send, read and typing are refused right after revocation, before any sweep", async () => {
   const slowSweep = await startServer({ revalidateMs: 60_000 });
@@ -423,7 +431,7 @@ test("send, read and typing are refused right after revocation, before any sweep
   }
   expect(await db.chatMessage.count({ where: { organizationId: company.organizationId, body: "po wylogowaniu" } })).toBe(0);
   expect(await db.conversationReadCursor.count({ where: { organizationId: company.organizationId } })).toBe(0);
-});
+}, TEST_TIMEOUT_MS);
 
 test("the end of the service period does not disconnect or block chat", async () => {
   const company = await makeCompany("expired", { expiredPeriod: true });
@@ -441,7 +449,7 @@ test("the end of the service period does not disconnect or block chat", async ()
   expect((await operator.takeType("message")).message.body).toBe("nadal działa");
   admin.ws.close();
   operator.ws.close();
-});
+}, TEST_TIMEOUT_MS);
 
 test("a slow client is disconnected on buffer overflow while others are unaffected", async () => {
   const logs: Logs = [];
@@ -468,7 +476,7 @@ test("a slow client is disconnected on buffer overflow while others are unaffect
   expect(healthy.closeCode).toBeNull();
   slow.ws.terminate();
   healthy.ws.close();
-});
+}, TEST_TIMEOUT_MS);
 
 test("WebSocket send: idempotent retry, validation, limits and connection caps", async () => {
   const company = await makeCompany("send");
@@ -517,7 +525,7 @@ test("WebSocket send: idempotent retry, validation, limits and connection caps",
   for (let index = 0; index < 6; index += 1) one.send({ type: "typing" });
   expect(await one.waitClose(3_000)).toBe(4429);
   two.ws.close();
-});
+}, TEST_TIMEOUT_MS);
 
 test("delivery latency: p95 from commit start to receipt stays within 2 s", async () => {
   const company = await makeCompany("latency");
@@ -539,4 +547,4 @@ test("delivery latency: p95 from commit start to receipt stays within 2 s", asyn
   expect(sorted).toHaveLength(300);
   expect(pick(0.95)).toBeLessThanOrEqual(2_000);
   for (const socket of [device1, device2, operator]) socket.ws.close();
-}, 60_000);
+}, TEST_TIMEOUT_MS);

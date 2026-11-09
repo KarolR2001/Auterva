@@ -6,6 +6,8 @@ import { auth } from "@/lib/auth";
 import { marketingContact } from "@/modules/marketing/content";
 import { marketingMetadata } from "@/modules/marketing/metadata";
 import { prisma } from "@/lib/prisma";
+import { denyPanel } from "@/components/panel/deny-panel";
+import { PanelShell } from "@/components/panel/panel-shell";
 import { PublicHome } from "@/components/public/public-home";
 import { requireAuthorizedActor } from "@/modules/auth/authorization";
 import { loadHome, requestHost, todayWarsaw } from "@/modules/public-offer/page-data";
@@ -26,10 +28,29 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function HomePage() {
   const incoming = new Headers(await headers());
   const area = await resolveRequestArea(prisma, incoming.get("host"));
-  if (area?.area === "MARKETING") return <MarketingPage contact={marketingContact} />;
-  if (area?.area === "PLATFORM" && area.organizationId === null
-    && await requireAuthorizedActor(prisma, auth, incoming, { area: "PLATFORM", organizationId: null })) {
-    return <main><h1>Platforma Auterva</h1><p>Panel jest w przygotowaniu.</p></main>;
+  if (area?.area === "MARKETING")
+    return <MarketingPage contact={marketingContact} />;
+  if (area?.area === "PLATFORM" && area.organizationId === null) {
+    const actor = await requireAuthorizedActor(prisma, auth, incoming, {
+      area: "PLATFORM",
+      organizationId: null,
+    });
+    if (actor)
+      return (
+        <PanelShell
+          area="platform"
+          accessState="allowed"
+          expectedSessionId={actor.sessionId}
+          title="Firmy"
+          currentPath="/"
+        >
+          <p>Panel jest w przygotowaniu.</p>
+        </PanelShell>
+      );
+    return denyPanel(prisma, auth, incoming, {
+      area: "PLATFORM",
+      organizationId: null,
+    });
   }
   if (area?.area === "COMPANY_PUBLIC" && incoming.get("host")) {
     // The central gate runs inside the read on every request; a disabled company is the same 404 as an unknown host.

@@ -3,6 +3,20 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 227,
+      "scope": "Ograniczenie bazy sortOrder >= 0 dla pojazdów (z CR #67): migracja zatrzymuje się jawnym błędem przy istniejących wierszach ujemnych, naruszenie zapisu poza API mapuje się na FLEET_INVALID_INPUT bez treści wiersza; API bez zmian.",
+      "relatedRequirementIds": ["FR-PUB-002", "D-22"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "prisma/migrations/20261108110000_vehicle_sort_order_check_issue_227/migration.sql",
+        "src/modules/fleet/mutations.ts",
+        "docs/contracts/fleet-crud-publication.md"
+      ],
+      "testPaths": [
+        "tests/integration/vehicle-sort-order-migration.test.ts"
+      ]
+    },
+    {
       "issue": 15,
       "scope": "Logowanie obu ról, obowiązkowe MFA (enrollment, challenge, kod odzyskania z ponownym enrollmentem, ręczna procedura), niepewny wynik z odczytem sesji, ponowne wydanie kodów, neutralne odmowy (także archiwum/blokada konta), limit z pełnym Retry-After i wygaśnięcie challenge/sesji na hostach właściwego obszaru.",
       "relatedRequirementIds": ["C-F010", "C-F011", "C-F013", "C-F014", "C-F040", "C-F044", "FR-ADM-001", "FR-ADM-002", "FR-ADM-003", "FR-ADM-004", "FR-ADM-005", "FR-ADM-007"],
@@ -270,6 +284,16 @@
         "tests/integration/service-reminders-process.test.ts",
         "tests/integration/service-reminders-migration.test.ts",
         "tests/e2e/service-reminders.spec.ts"
+      ]
+    },
+    {
+      "issue": 241,
+      "scope": "Deterministyczny test procesów workera przypomnień pod obciążeniem: jawny limit testu z procesami i ograniczone czekanie na gotowość workera, bez osłabiania asercji.",
+      "relatedRequirementIds": ["C-F067", "C-N004", "C-F058", "C-F062", "D-07", "D-14"],
+      "referenceScreenIds": [],
+      "codePaths": [],
+      "testPaths": [
+        "tests/integration/service-reminders-process.test.ts"
       ]
     },
     {
@@ -629,6 +653,40 @@
       ]
     },
     {
+      "issue": 14,
+      "scope": "Shell firmy i platformy po serwerowej kontroli kontekstu #13, stany dostępu/błędów oraz ochrona niezapisanych zmian; treści modułów powstają w późniejszych issue.",
+      "relatedRequirementIds": ["C-F018", "C-F147", "C-F148", "C-F149", "C-F150", "DS-N07", "DS-N08", "DS-N14"],
+      "referenceScreenIds": ["ADM-01", "ADM-04", "ADM-19", "ADM-20", "ADM-21", "PLT-01-02", "PLT-04", "OVR-13", "OVR-17"],
+      "codePaths": [
+        "src/app/page.tsx",
+        "src/app/admin/page.tsx",
+        "src/components/panel/panel-states.tsx",
+        "src/components/panel/panel-shell.tsx",
+        "src/components/panel/deny-panel.ts",
+        "src/components/panel/unsaved-changes-dialog.tsx",
+        "src/components/panel/unsaved-changes-guard.tsx",
+        "src/app/not-found.tsx"
+      ],
+      "unmappedStates": [
+        "ADM-04 D: wyszukiwarka „Szukaj pojazdu lub blokady” w topbarze nie jest renderowana w shellu (martwa kontrolka bez trasy wyszukiwania); powstaje z listą floty i dashboardem w #34.",
+        "ADM-04 D/M: chip „Online” (SPEC 7.11: status online/PWA) nie jest renderowany; wskaźnik połączenia i instalacji należy do PWA #56.",
+        "ADM-04 stany service-expired i archived: komponent PanelAccess je obsługuje, ale trasa nie ma danych okresu usługi w shellu; baner „Usługa wygasła” i status usługi należą do #55. Archiwizacja blokuje sesję (neutralne 404 / Sesja wygasła), zgodnie z PRD 3.1.",
+        "ADM-04 awatar z inicjałami: shell nie ma imienia użytkownika, więc awatar pokazuje ikonę konta i nazwę dostępną „Menu użytkownika”."
+      ],
+      "stylePath": "src/components/panel/panel.module.css",
+      "testPaths": [
+        "tests/unit/panel-routes.test.tsx",
+        "tests/integration/panel-routes.test.tsx",
+        "tests/unit/panel-states.test.tsx",
+        "tests/unit/panel-shell.test.tsx",
+        "tests/unit/unsaved-changes-dialog.test.tsx",
+        "tests/e2e/auth-host.spec.ts",
+        "tests/e2e/auth-trusted.spec.ts",
+        "tests/e2e/security-headers.spec.ts"
+      ],
+      "fixturePath": "tests/fixtures/panel-check.tsx"
+    },
+    {
       "issue": 13,
       "scope": "Aktywny host wybiera obszar; serwer sprawdza aktora i firmę, lokalny ingress dostarcza adres klienta, a wspólny limiter chroni uwierzytelnione API. Brzeg dostawcy pozostaje do odbioru przed stagingiem.",
       "relatedRequirementIds": ["C-N002", "C-N003", "C-N005", "C-N007", "C-N008", "C-N009", "C-N012", "C-N013", "C-N024"],
@@ -773,6 +831,34 @@
         "src/app/api/platform/companies/[organizationId]/launch-diagnostics/route.ts"
       ],
       "testPaths": ["tests/integration/launch-diagnostics.test.ts"]
+    },
+    {
+      "issue": 247,
+      "scope": "Deterministyczne testy integracyjne z procesami potomnymi, serwerem HTTP/WebSocket i migracją pod obciążeniem: jawny, uzasadniony limit testów i hooków oraz ograniczone (30 s) oczekiwania wewnętrzne na gotowość, bez osłabiania asercji.",
+      "relatedRequirementIds": ["C-F067", "C-N004", "C-N019"],
+      "referenceScreenIds": [],
+      "codePaths": [],
+      "testPaths": [
+        "tests/integration/jobs-process.test.ts",
+        "tests/integration/audit-retention-process.test.ts",
+        "tests/integration/audit-export.test.ts",
+        "tests/integration/audit-retention.test.ts",
+        "tests/integration/media-decode.test.ts",
+        "tests/integration/auth-http.test.ts",
+        "tests/integration/chat-realtime.test.ts",
+        "tests/integration/backup-restore.test.ts"
+      ]
+    },
+    {
+      "issue": 242,
+      "scope": "Mutacje domeny własnej a stan archiwum (D-23): superadmin nie zmienia domeny zarchiwizowanej firmy; stabilna odmowa 409 DOMAIN_COMPANY_ARCHIVED w transakcji z aktorem, rolą, firmą i stanem.",
+      "relatedRequirementIds": ["D-23", "C-F086", "C-F089"],
+      "codePaths": [
+        "docs/contracts/custom-domain-lifecycle.md",
+        "src/modules/domains/lifecycle.ts",
+        "src/modules/domains/http.ts"
+      ],
+      "testPaths": ["tests/integration/custom-domain-lifecycle.test.ts"]
     },
     {
       "issue": 23,
@@ -1043,13 +1129,41 @@
       "codePaths": [
         "src/app/pojazdy/[slug]/page.tsx",
         "src/components/public/vehicle-gallery.tsx",
-        "src/components/public/availability-calendar.tsx",
+        "src/components/public/availability-panel.tsx",
         "src/components/public/public.module.css",
         "src/modules/public-offer/page-data.ts",
         "src/modules/public-offer/presentation.ts"
       ],
       "testPaths": [
         "tests/unit/public-presentation.test.ts",
+        "tests/e2e/public-vehicle.spec.ts"
+      ]
+    },
+    {
+      "issue": 251,
+      "scope": "Korekty #43 z QA: odwrócony lub nierozpoznany zakres z URL pokazuje właściwy komunikat (kolejność, data, długość) zamiast braku dat; dni minione (szary tekst bez przekreślenia) odróżnione od niedostępnych (przekreślenie, ikona krzyżyka, obramowanie) z legendą (PUB-03, DS-AVL-004/005).",
+      "relatedRequirementIds": ["FR-PUB-023", "FR-PUB-024", "FR-PUB-025", "FR-PUB-026", "DS-N11", "DS-N16"],
+      "referenceScreenIds": ["PUB-03"],
+      "codePaths": ["src/components/public/availability-panel.tsx", "src/components/public/public.module.css"],
+      "stylePath": "src/components/public/public.module.css",
+      "testPaths": ["tests/e2e/public-availability.spec.ts"]
+    },
+    {
+      "issue": 43,
+      "scope": "Interaktywna dostepnosc na publicznej stronie pojazdu (PUB-03): kalendarz miesieczny z nawigacja do roku naprzod i wyborem zakresu klikiem, alternatywne pola dat, wynik dostepny/niedostepny bez przyczyny (check/calendar/batch API #33), walidacja zakresu (od dzisiaj Europe/Warsaw, konce wlacznie, 1-365 dni), loading i blad czyszcza poprzedni pozytywny wynik, spozniona odpowiedz nie nadpisuje nowszej (bilet najnowszego zadania), zmiana pol wycofuje wynik, inne auta dostepne w tych samych datach, kontakt dostaje dokladny pojazd i termin, dzialanie bez skryptu jako formularz GET, alternatywy z do 50 kandydatow bez falszywego zadne przy wiekszej flocie, kalendarz DS-N16 z roving tabindex, strzalkami i pelna nazwa daty. Penpot PUB-03 (390/1440): blocked, wtyczka zawieszona.",
+      "relatedRequirementIds": ["C-F094", "C-F102", "C-F105", "FR-PUB-023", "FR-PUB-024", "FR-PUB-025", "FR-PUB-026", "DS-N11", "DS-N16"],
+      "referenceScreenIds": ["PUB-02", "PUB-03"],
+      "codePaths": [
+        "src/app/pojazdy/[slug]/page.tsx",
+        "src/components/public/availability-panel.tsx",
+        "src/components/public/contact-cta.tsx",
+        "src/components/public/public.module.css",
+        "src/modules/public-offer/availability-client.ts",
+        "src/modules/public-offer/presentation.ts"
+      ],
+      "testPaths": [
+        "tests/unit/availability-client.test.ts",
+        "tests/e2e/public-availability.spec.ts",
         "tests/e2e/public-vehicle.spec.ts"
       ]
     },
@@ -1218,6 +1332,24 @@
       ]
     },
     {
+      "issue": 44,
+      "scope": "PUB-04 kontakt (kanały tel/WhatsApp/e-mail z kontekstem pojazdu i terminu, kopiowanie, godziny, adres, link do mapy, jawny stan braku kanału) oraz PUB-05/06 dokumenty firmy (tekst, link lub jawny stan braku). Strona niczego nie zapisuje; bramka całej strony przy każdym odczycie. Penpot PUB-04 M+D odczytany 08.11 (struktura i teksty): układ zgodny; treści DEMO makiety nie są kopiowane, aplikacja pokazuje dane firmy. PUB-05/06 odczytane przez CR 08.11 (struktura tekstów). Różnica wobec makiety: makieta ma eyebrow, lead, \"Ostatnia aktualizacja\", spis treści, numerowane nagłówki sekcji i link powrotny do pojazdu; aplikacja pokazuje plain text pre-wrap z h1 i linkiem kontaktowym (dane to plain text, brak pola daty aktualizacji w DTO) — pełna struktura wymaga decyzji produktowej, zapisana w osobnym issue rozbieżności. Regulamin jest opcjonalny (SPEC 9.6): bez treści i linku to 404 PUB-07, bez linku na kontakcie.",
+      "relatedRequirementIds": ["C-F006", "C-F106", "C-F107", "C-F112", "FR-PUB-030", "FR-PUB-031", "FR-PUB-032", "FR-PUB-033", "FR-PUB-034", "FR-PUB-035", "FR-PUB-036", "FR-PUB-037", "FR-PUB-038", "FR-PUB-039", "FR-PUB-040", "FR-PUB-041", "FR-PUB-042"],
+      "referenceScreenIds": ["PUB-04", "PUB-05", "PUB-06"],
+      "codePaths": [
+        "src/app/kontakt/page.tsx",
+        "src/app/polityka-prywatnosci/page.tsx",
+        "src/app/regulamin/page.tsx",
+        "src/components/public/contact-page.tsx",
+        "src/components/public/legal-page.tsx",
+        "src/components/public/copy-button.tsx",
+        "src/components/public/contact.module.css",
+        "src/modules/public-offer/contact-data.ts",
+        "src/modules/public-offer/contact-presentation.ts"
+      ],
+      "testPaths": ["tests/unit/contact-legal.test.tsx", "tests/e2e/public-contact.spec.ts"]
+    },
+    {
       "issue": 45,
       "scope": "MKT-01 marketingowy onepage Autervy na hoście MARKETING (SSR, metadane i canonical, kontakt nieaktywny do czasu prawdziwych danych); materiały AUT-01–05 jako DEMO (D-17).",
       "relatedRequirementIds": ["C-F001", "C-F019", "C-F020", "C-F021", "C-F138", "C-F139", "C-F140", "C-F141", "C-F142", "C-R018", "DS-N22", "DS-N23"],
@@ -1231,6 +1363,24 @@
         "src/modules/marketing/metadata.ts"
       ],
       "testPaths": ["tests/unit/marketing-page.test.tsx", "tests/e2e/marketing.spec.ts"]
+    },
+    {
+      "issue": 25,
+      "scope": "PLT-04 formularz prerejestracji firmy (/firmy/nowa) i karta firmy z zaproszeniem administratora (/firmy/{id}): osobny wynik zapisu i wysyłki, resend, cofnięcie, UNCERTAIN wymaga cofnięcia przed nowym wydaniem, klucz idempotencji zachowany przy 5xx, ochrona niezapisanych zmian przez guard shellu (OVR-13). UI nie twierdzi o publikacji po zapisie. Lista firm (PLT-01/02) poza zakresem. Domena własna (opcjonalna, C-F086/087/089): po zapisie na karcie firmy przez API #23 (dodanie, weryfikacja, aktywacja, usunięcie), stany oczekiwania/gotowa/aktywna i niepewny wynik 5xx bez fałszywego sukcesu; nie jest publikacją. Poza zakresem: C-F020/021 (poza aplikacją), C-F023 i część C-R008/R011 (wygląd publiczny, telefon, publiczny e-mail, materiały) → #31; C-F037/C-F038 (ekran aktywacji) → #26.",
+      "relatedRequirementIds": ["C-F022", "C-F024", "C-F025", "C-F026", "C-F027", "C-F028", "C-F034", "C-F035", "C-F036", "C-F086", "C-F087", "C-F089", "C-R008", "C-R009", "C-R010", "C-R011", "C-R012"],
+      "referenceScreenIds": ["PLT-04", "OVR-13"],
+      "codePaths": [
+        "src/app/firmy/nowa/page.tsx",
+        "src/app/firmy/[organizationId]/page.tsx",
+        "src/components/platform/new-company-form.tsx",
+        "src/components/platform/company-card.tsx",
+        "src/components/platform/company-domain.tsx",
+        "src/components/platform/platform-gate.ts",
+        "src/components/platform/platform.module.css",
+        "src/modules/organizations/new-company-form.ts",
+        "src/modules/invitations/view-state.ts"
+      ],
+      "testPaths": ["tests/unit/new-company-form.test.ts", "tests/unit/company-card.test.tsx", "tests/unit/company-domain.test.tsx", "tests/e2e/platform-company-form.spec.ts"]
     }
   ],
   "sources": [
