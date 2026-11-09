@@ -8,6 +8,8 @@ const dependencies = vi.hoisted(() => ({
   requireAuthorizedActor: vi.fn(),
   requireScopedActor: vi.fn(),
   findOrganization: vi.fn(),
+  findHost: vi.fn(),
+  getServiceStatus: vi.fn(),
   getSession: vi.fn(),
   resolveHostMapping: vi.fn(),
 }));
@@ -25,8 +27,12 @@ vi.mock("@/lib/auth", () => ({
   auth: { api: { getSession: dependencies.getSession } },
 }));
 vi.mock("@/lib/prisma", () => ({
-  prisma: { organization: { findUnique: dependencies.findOrganization } },
+  prisma: {
+    organization: { findUnique: dependencies.findOrganization },
+    hostMapping: { findFirst: dependencies.findHost },
+  },
 }));
+vi.mock("@/modules/reminders/read", () => ({ getServiceStatus: dependencies.getServiceStatus }));
 vi.mock("@/modules/tenancy/request-context", () => ({
   resolveRequestArea: dependencies.resolveRequestArea,
   requireRequestContext: dependencies.requireRequestContext,
@@ -100,6 +106,13 @@ describe("serwerowe wejścia paneli", () => {
       sessionId: "sesja-alfa",
     });
     dependencies.findOrganization.mockResolvedValue({ name: "Firma Alfa" });
+    dependencies.findHost.mockResolvedValue(null);
+    dependencies.getServiceStatus.mockResolvedValue({
+      organizationId: "firma-alfa", periodVersion: 1, serverTime: "2026-11-09T09:00:00.000Z",
+      period: { headline: "PAID", paidThrough: "2026-12-31", paidValid: true, trialEndsAt: null, trialValid: false,
+        effectiveEndsAt: null, effectiveSource: "PAID" },
+      site: { state: "VISIBLE", publicVisible: true }, expiredNotice: null, reminders: [],
+    });
 
     const html = renderToStaticMarkup(await AdminPage());
     expect(html).toContain("Firma Alfa");

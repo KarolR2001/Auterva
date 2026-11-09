@@ -582,6 +582,26 @@
       ]
     },
     {
+      "issue": 55,
+      "scope": "Status okresu usługi, data, widoczność i adres strony publicznej oraz nieblokujące przypomnienia 7/1/0 w panelu firmy (TEN-04, ADM-04); po wygaśnięciu panel działa dalej, komunikat D-11 i link do czatu; firma niczego nie edytuje. Dane z prywatnego API #54, odświeżane po zmianie okresu.",
+      "relatedRequirementIds": ["C-F058", "C-F059", "C-F060", "C-F061", "C-F062", "C-F063", "C-F064", "C-F065", "C-F066", "C-F067", "C-F084", "C-F125", "C-N054"],
+      "referenceScreenIds": ["TEN-04", "ADM-04"],
+      "codePaths": [
+        "src/app/admin/company-panel.tsx",
+        "src/app/admin/page.tsx",
+        "src/app/admin/usluga/page.tsx",
+        "src/components/panel/service-status.tsx",
+        "src/components/panel/panel-states.tsx",
+        "src/components/panel/panel-shell.tsx"
+      ],
+      "stylePath": "src/components/panel/panel.module.css",
+      "testPaths": [
+        "tests/unit/service-status.test.tsx",
+        "tests/unit/panel-states.test.tsx",
+        "tests/e2e/service-status-panel.spec.ts"
+      ]
+    },
+    {
       "issue": 14,
       "scope": "Shell firmy i platformy po serwerowej kontroli kontekstu #13, stany dostępu/błędów oraz ochrona niezapisanych zmian; treści modułów powstają w późniejszych issue.",
       "relatedRequirementIds": ["C-F018", "C-F147", "C-F148", "C-F149", "C-F150", "DS-N07", "DS-N08", "DS-N14"],

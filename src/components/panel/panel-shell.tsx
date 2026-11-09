@@ -61,6 +61,7 @@ async function signOutOnCurrentHost() {
 type PanelShellProps = {
   area: "company" | "platform";
   accessState: PanelAccessState;
+  expiredNotice?: string | null;
   expectedSessionId?: string;
   title: string;
   currentPath: string;
@@ -74,6 +75,7 @@ type PanelShellProps = {
 
 export function PanelShell({
   accessState,
+  expiredNotice,
   expectedSessionId,
   ...props
 }: PanelShellProps) {
@@ -177,6 +179,7 @@ export function PanelShell({
       <UnsavedChangesSuspensionContext.Provider value={connectionError}>
         <PanelAccess
           area={props.area}
+          expiredNotice={expiredNotice}
           state={panelAvailable ? (revokedAccess ?? accessState) : accessState}
         >
           <AvailablePanelShell
