@@ -55,6 +55,50 @@ describe("karta firmy i zaproszenie (#25)", () => {
     await waitFor(() => expect(keys).toHaveLength(2));
     expect(keys[1]).toBe(keys[0]);
   });
+
+  it("błąd cofnięcia ma własny komunikat, nie o wydawaniu", async () => {
+    const user = userEvent.setup();
+    const invitation = { id: "i", recipientEmail: "a@b.pl", issuedHost: "h", issuedAt: "2026-11-08T10:00:00Z",
+      expiresAt: "2099-01-01T00:00:00Z", usedAt: null, revokedAt: null, deliveryStatus: "UNCERTAIN" };
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) =>
+      init?.method === "DELETE" ? new Response(null, { status: 500 }) : Response.json({ ...base, invitation }));
+    shell(<CompanyCard initial={{ ...base, invitation }} justSaved={false} />);
+    await user.click(screen.getByRole("button", { name: "Cofnij zaproszenie" }));
+    await screen.findByText("Nie wiemy, czy zaproszenie zostało cofnięte.");
+    expect(screen.queryByText(/zostało wydane/)).toBeNull();
+  });
+
+  it("ponowienie po niepewnej próbie nie udaje nowego wydania; po potwierdzeniu wydania klucz jest zużyty", async () => {
+    const user = userEvent.setup();
+    const keys: string[] = [];
+    const issued = { id: "new", recipientEmail: "a@b.pl", issuedHost: "h", issuedAt: "2026-11-08T10:00:00Z",
+      expiresAt: "2099-01-01T00:00:00Z", usedAt: null, revokedAt: null, deliveryStatus: "SENT" };
+    let confirmed = false;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+      if (init?.method === "POST") {
+        keys.push(JSON.parse(String(init.body)).idempotencyKey);
+        return keys.length === 1 ? new Response(null, { status: 500 }) : Response.json({ id: "new" }, { status: 201 });
+      }
+      return Response.json(confirmed ? { ...base, invitation: issued } : base);
+    });
+    shell(<CompanyCard initial={base} justSaved={false} />);
+    await user.click(screen.getByRole("button", { name: "Wyślij zaproszenie" }));
+    await screen.findByText("Nie wiemy, czy zaproszenie zostało wydane.");
+    await user.click(screen.getByRole("button", { name: "Wyślij zaproszenie" }));
+    await screen.findByText(/Odtworzono wynik poprzedniej próby/);
+    expect(screen.queryByText("Zaproszenie wydane i zapisane w kolejce.")).toBeNull();
+    expect(keys[1]).toBe(keys[0]);
+    cleanup();
+    // Refresh after the unknown outcome shows the invitation: the key is spent, a resend is a new issue.
+    keys.length = 0;
+    confirmed = true;
+    shell(<CompanyCard initial={base} justSaved={false} />);
+    await user.click(screen.getByRole("button", { name: "Wyślij zaproszenie" }));
+    await screen.findByText(/potwierdzono po odświeżeniu/);
+    await user.click(await screen.findByRole("button", { name: "Wyślij ponownie" }));
+    await waitFor(() => expect(keys).toHaveLength(2));
+    expect(keys[1]).not.toBe(keys[0]);
+  });
 });
 
 describe("formularz nowej firmy w shellu (#25)", () => {

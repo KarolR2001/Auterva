@@ -1242,20 +1242,21 @@
     },
     {
       "issue": 25,
-      "scope": "PLT-04 formularz prerejestracji firmy (/firmy/nowa) i karta firmy z zaproszeniem administratora (/firmy/{id}): osobny wynik zapisu i wysyłki, resend, cofnięcie, UNCERTAIN wymaga cofnięcia przed nowym wydaniem, klucz idempotencji zachowany przy 5xx, ochrona niezapisanych zmian przez guard shellu (OVR-13). UI nie twierdzi o publikacji po zapisie. Lista firm (PLT-01/02) poza zakresem.",
-      "relatedRequirementIds": ["C-F020", "C-F021", "C-F022", "C-F023", "C-F024", "C-F025", "C-F026", "C-F027", "C-F028", "C-F034", "C-F035", "C-F036", "C-F037", "C-F038", "C-R008", "C-R009", "C-R010", "C-R011", "C-R012"],
+      "scope": "PLT-04 formularz prerejestracji firmy (/firmy/nowa) i karta firmy z zaproszeniem administratora (/firmy/{id}): osobny wynik zapisu i wysyłki, resend, cofnięcie, UNCERTAIN wymaga cofnięcia przed nowym wydaniem, klucz idempotencji zachowany przy 5xx, ochrona niezapisanych zmian przez guard shellu (OVR-13). UI nie twierdzi o publikacji po zapisie. Lista firm (PLT-01/02) poza zakresem. Domena własna (opcjonalna, C-F086/087/089): po zapisie na karcie firmy przez API #23 (dodanie, weryfikacja, aktywacja, usunięcie), stany oczekiwania/gotowa/aktywna i niepewny wynik 5xx bez fałszywego sukcesu; nie jest publikacją. Poza zakresem: C-F020/021 (poza aplikacją), C-F023 i część C-R008/R011 (wygląd publiczny, telefon, publiczny e-mail, materiały) → #31; C-F037/C-F038 (ekran aktywacji) → #26.",
+      "relatedRequirementIds": ["C-F022", "C-F024", "C-F025", "C-F026", "C-F027", "C-F028", "C-F034", "C-F035", "C-F036", "C-F086", "C-F087", "C-F089", "C-R008", "C-R009", "C-R010", "C-R011", "C-R012"],
       "referenceScreenIds": ["PLT-04", "OVR-13"],
       "codePaths": [
         "src/app/firmy/nowa/page.tsx",
         "src/app/firmy/[organizationId]/page.tsx",
         "src/components/platform/new-company-form.tsx",
         "src/components/platform/company-card.tsx",
+        "src/components/platform/company-domain.tsx",
         "src/components/platform/platform-gate.ts",
         "src/components/platform/platform.module.css",
         "src/modules/organizations/new-company-form.ts",
         "src/modules/invitations/view-state.ts"
       ],
-      "testPaths": ["tests/unit/new-company-form.test.ts", "tests/unit/company-card.test.tsx", "tests/e2e/platform-company-form.spec.ts"]
+      "testPaths": ["tests/unit/new-company-form.test.ts", "tests/unit/company-card.test.tsx", "tests/unit/company-domain.test.tsx", "tests/e2e/platform-company-form.spec.ts"]
     }
   ],
   "sources": [

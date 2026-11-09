@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useUnsavedChanges } from "../panel/unsaved-changes-guard";
 import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
+import { CompanyDomain } from "./company-domain";
 import {
   canIssueInvitation, canRevokeInvitation, classifyInvitationError, invitationView,
   type InvitationDto, type InvitationView,
@@ -43,21 +44,28 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
   const [notice, setNotice] = useState<Notice>(justSaved
     ? { tone: "success", title: "Zapisano firmę. Możesz teraz wysłać zaproszenie administratorowi.", text: "Strona nie jest opublikowana. Wysyłka zaproszenia jest osobnym krokiem." } : null);
   const issueKey = useRef<string | null>(null);
+  const uncertainAttempt = useRef(false);
+  const invitationBefore = useRef<string | null>(null);
   const status = useRef<HTMLDivElement>(null);
   // A running mutation keeps the shell from leaving the page before its answer is known.
   useUnsavedChanges({ dirty: false, saving: busy === "issue" || busy === "revoke" });
 
-  const refresh = useCallback(async (quiet = false) => {
+  const refresh = useCallback(async (quiet = false): Promise<CompanyCardDto | null> => {
     if (!quiet) setBusy("refresh");
     try {
       const response = await fetch(`/api/platform/companies/${company.organizationId}/`, { credentials: "same-origin", cache: "no-store" });
-      if (response.ok) setCompany((await response.json()) as CompanyCardDto);
-      else if (!quiet) setNotice({ tone: "error", title: "Nie udało się odświeżyć statusu.", text: "Pokazany stan może być nieaktualny." });
+      if (response.ok) {
+        const fresh = (await response.json()) as CompanyCardDto;
+        setCompany(fresh);
+        return fresh;
+      }
+      if (!quiet) setNotice({ tone: "error", title: "Nie udało się odświeżyć statusu.", text: "Pokazany stan może być nieaktualny." });
     } catch {
       if (!quiet) setNotice({ tone: "error", title: "Nie udało się odświeżyć statusu.", text: "Pokazany stan może być nieaktualny." });
     } finally {
       if (!quiet) setBusy(null);
     }
+    return null;
   }, [company.organizationId]);
 
   useEffect(() => {
@@ -71,15 +79,33 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
   const archived = company.archivedAt !== null;
   const info = viewText[view.kind];
 
-  async function fail(response: Response | null) {
+  async function fail(response: Response | null, operation: "issue" | "revoke" = "issue") {
     // 5xx or network: the outcome is unknown, so the key stays and a retry cannot issue a second link.
     if (!response || response.status >= 500 && response.status !== 503) {
+      if (operation === "revoke") {
+        setNotice({ tone: "error", title: "Nie wiemy, czy zaproszenie zostało cofnięte.",
+          text: "Odświeżyliśmy status. Jeśli zaproszenie nadal jest aktywne, cofnij je ponownie." });
+        void refresh(true);
+        return;
+      }
       setNotice({ tone: "error", title: "Nie wiemy, czy zaproszenie zostało wydane.",
         text: "Dane firmy są zachowane. Odśwież status albo ponów — ponowienie użyje tego samego klucza i nie wyda drugiego linku." });
-      void refresh(true);
+      if (operation === "issue") {
+        uncertainAttempt.current = true;
+        const fresh = await refresh(true);
+        // The refresh shows a new invitation: the attempt did happen, so the key is spent.
+        // A later "Wyślij ponownie" is then a deliberate new issue, not a replay of this one.
+        if (fresh?.invitation && fresh.invitation.id !== invitationBefore.current) {
+          issueKey.current = null;
+          uncertainAttempt.current = false;
+          setNotice({ tone: "info", title: "Zaproszenie zostało wydane — potwierdzono po odświeżeniu.",
+            text: "To nie jest potwierdzenie dostarczenia. Status wysyłki widać poniżej." });
+        }
+      } else void refresh(true);
       return;
     }
     issueKey.current = null;
+    uncertainAttempt.current = false;
     const code = ((await response.json().catch(() => null)) as { code?: string } | null)?.code ?? null;
     const failure = classifyInvitationError(response.status, code, response.headers.get("Retry-After"));
     setNotice({ tone: "error", title: "Nie wykonano operacji.", text: failure.message });
@@ -91,6 +117,8 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
     setBusy("issue");
     setNotice(null);
     issueKey.current ??= newIdempotencyKey();
+    const retryOfUncertain = uncertainAttempt.current;
+    invitationBefore.current = company.invitation?.id ?? null;
     let response: Response | null = null;
     try {
       response = await fetch(`/api/platform/companies/${company.organizationId}/invitations/`, {
@@ -100,7 +128,11 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
     } catch { response = null; }
     if (response?.status === 201) {
       issueKey.current = null;
-      setNotice({ tone: "info", title: "Zaproszenie wydane i zapisane w kolejce.", text: "To nie jest potwierdzenie dostarczenia. Status wysyłki widać poniżej." });
+      uncertainAttempt.current = false;
+      // The same key after an unknown outcome replays the stored result: say so, never "issued".
+      setNotice(retryOfUncertain
+        ? { tone: "info", title: "Odtworzono wynik poprzedniej próby. Nie wydano drugiego linku.", text: "Jeśli administrator nie dostał wiadomości, cofnij to zaproszenie i wydaj nowe." }
+        : { tone: "info", title: "Zaproszenie wydane i zapisane w kolejce.", text: "To nie jest potwierdzenie dostarczenia. Status wysyłki widać poniżej." });
       await refresh(true);
     } else await fail(response);
     setBusy(null);
@@ -120,7 +152,7 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
     if (response?.ok) {
       setNotice({ tone: "success", title: "Zaproszenie cofnięte.", text: "Stary link przestał działać." });
       await refresh(true);
-    } else await fail(response);
+    } else await fail(response, "revoke");
     setBusy(null);
     requestAnimationFrame(() => status.current?.focus());
   }
@@ -181,6 +213,7 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
         </div>
         {view.kind === "uncertain" && <p className={styles.hint}>Nowe zaproszenie jest zablokowane, dopóki nie cofniesz niepewnego.</p>}
       </section>
+      {!archived && <CompanyDomain organizationId={company.organizationId} archived={archived} />}
       <Link className={styles.cancel} href="/firmy/" prefetch={false}>Wróć do firm</Link>
     </div>
   );

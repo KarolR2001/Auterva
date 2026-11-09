@@ -25,11 +25,6 @@ test("superadmin dodaje firmę, widzi zapis osobno od zaproszenia i cofa zaprosz
     const [cookieName, ...cookieValue] = session.cookie.split("=");
     await context.addCookies([{ name: cookieName, value: cookieValue.join("="), url: origin }]);
 
-    const seen: string[] = [];
-    page.on("dialog", (dialog) => { seen.push(`dialog:${dialog.type()}`); void dialog.dismiss(); });
-    page.on("console", (message) => { if (message.type() === "error") seen.push(`console:${message.text().slice(0, 200)}`); });
-    page.on("pageerror", (error) => seen.push(`pageerror:${error.message.slice(0, 200)}`));
-    page.on("response", (response) => { if (response.request().method() !== "GET") seen.push(`${response.request().method()} ${response.status()} ${new URL(response.url()).pathname}`); });
     await page.goto(`${origin}/firmy/nowa/`);
     await expect(page.getByRole("heading", { name: "Dodaj firmę" }).first()).toBeVisible();
     // Empty submit: precise errors, focus on the first field, nothing saved.
@@ -51,9 +46,7 @@ test("superadmin dodaje firmę, widzi zapis osobno od zaproszenia i cofa zaprosz
     await expect(page.getByLabel(/Nazwa firmy/)).toHaveValue("Plt04 Wypożyczalnia Łódź");
 
     await page.getByRole("button", { name: "Zapisz firmę" }).click();
-    await expect(page).toHaveURL(new RegExp(`/firmy/[0-9a-f-]{36}/\\?zapisano=1`)).catch((error: Error) => {
-      throw new Error(`${error.message}\nSEEN: ${JSON.stringify(seen)}`);
-    });
+    await expect(page).toHaveURL(new RegExp(`/firmy/[0-9a-f-]{36}/\\?zapisano=1`));
     organizationId = new URL(page.url()).pathname.split("/")[2];
     await expect(page.getByText(/Zapisano firmę\./)).toBeVisible();
     await expect(page.getByText(/Strona nie jest opublikowana/)).toBeVisible();
@@ -68,6 +61,23 @@ test("superadmin dodaje firmę, widzi zapis osobno od zaproszenia i cofa zaprosz
     await expect(page.getByText("Zaproszenie cofnięte", { exact: true })).toBeVisible();
     expect((await db.invitation.findMany({ where: { organizationId } })).every((row) => row.revokedAt !== null)).toBe(true);
 
+    // Own domain (#23 API): added after the save, waits for proof, never claims publication.
+    const customHost = `kamper-${marker.slice(0, 8)}.example.org`;
+    await expect(page.getByRole("heading", { name: "Domena własna" })).toBeVisible();
+    await page.getByLabel(/Nazwa domeny/).fill("https://zly host");
+    await page.getByRole("button", { name: "Dodaj domenę" }).click();
+    await expect(page.getByText("Niepoprawna nazwa domeny.").first()).toBeVisible();
+    await page.getByLabel(/Nazwa domeny/).fill(customHost);
+    await page.getByRole("button", { name: "Dodaj domenę" }).click();
+    await expect(page.getByText(`${customHost} — Oczekuje na potwierdzenie własności`)).toBeVisible();
+    await expect(page.getByText(/nie jest jeszcze adresem strony/).first()).toBeVisible();
+    await expect(page.getByText(/_auterva-challenge\./)).toBeVisible();
+    expect(await db.customDomain.count({ where: { organizationId } })).toBe(1);
+    expect((await db.hostMapping.findFirstOrThrow({ where: { hostname: customHost } })).status).toBe("PENDING");
+    await page.getByRole("button", { name: "Usuń domenę" }).click();
+    await expect(page.getByLabel(/Nazwa domeny/)).toBeVisible();
+    expect(await db.customDomain.count({ where: { organizationId } })).toBe(0);
+
     // The same slug cannot be taken twice: the error points at the fields and keeps the entries.
     await page.goto(`${origin}/firmy/nowa/`);
     await page.getByLabel(/Nazwa firmy/).fill("Drugi");
@@ -79,6 +89,7 @@ test("superadmin dodaje firmę, widzi zapis osobno od zaproszenia i cofa zaprosz
     await expect(page.getByLabel(/Nazwa firmy/)).toHaveValue("Drugi");
   } finally {
     if (organizationId) {
+      await db.customDomain.deleteMany({ where: { organizationId } });
       await db.job.deleteMany({ where: { organizationId } });
       await db.invitation.deleteMany({ where: { organizationId } });
       await db.auditLog.deleteMany({ where: { organizationId } });
