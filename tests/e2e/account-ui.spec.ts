@@ -153,6 +153,9 @@ test("company admin: reset, account, password change, logout and expired service
     // Offline: no pretend success for the password change; fields stay.
     await page.getByLabel("Aktualne hasło").fill(resetPassword);
     await page.getByLabel("Nowe hasło", { exact: true }).fill(finalPassword);
+    // DS-AUT-004 in the account form: the level is text, the checklist is textual too.
+    await expect(page.getByText(/^Siła hasła: (Średnie|Mocne)$/)).toBeVisible();
+    await expect(page.getByText(/Co najmniej 12 znaków/)).toContainText("spełnione");
     await page.getByLabel("Potwierdź nowe hasło").fill(finalPassword);
     await page.context().setOffline(true);
     await page.getByRole("button", { name: "Zmień hasło" }).click();
