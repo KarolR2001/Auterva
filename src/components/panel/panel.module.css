@@ -1,0 +1,569 @@
+.accessPage {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: var(--surface-canvas);
+}
+
+.accessCard,
+.feedback {
+  width: min(100%, 640px);
+  padding: var(--space-8);
+  border: var(--border-width-hairline) solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-default);
+}
+
+.accessCard h1,
+.feedback h1,
+.feedback h2 {
+  margin: var(--space-3) 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-32);
+  line-height: var(--line-height-40);
+}
+
+.accessCard p,
+.feedback p {
+  margin: 0 0 var(--space-5);
+  color: var(--text-secondary);
+  line-height: var(--line-height-24);
+}
+
+.eyebrow {
+  color: var(--text-secondary);
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.linkButton {
+  display: inline-flex;
+  min-height: var(--button-height-md);
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--button-padding-x-md);
+  border-radius: var(--radius-md);
+  background: var(--action-primary-default);
+  color: var(--action-primary-content);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+
+.linkButton:hover {
+  background: var(--action-primary-hover);
+}
+
+.linkButton:focus-visible,
+.textLink:focus-visible {
+  outline: var(--border-width-active) solid var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+.feedbackActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.textLink {
+  display: inline-flex;
+  min-height: var(--touch-target-mobile);
+  align-items: center;
+  color: var(--text-link);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.requestId {
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-14);
+}
+
+.unsavedOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  background: var(--surface-scrim);
+}
+
+.unsavedDialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: calc(var(--z-modal) + 1);
+  box-sizing: border-box;
+  width: min(var(--dialog-width-md), calc(100vw - var(--space-8)));
+  max-height: calc(100dvh - var(--space-8));
+  overflow-y: auto;
+  padding: var(--space-8);
+  border: var(--border-width-hairline) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--surface-default);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-lg);
+  transform: translate(-50%, -50%);
+}
+
+.unsavedDialog:focus {
+  outline: none;
+}
+
+.unsavedTitle {
+  margin: 0;
+  font-size: var(--font-size-24);
+  line-height: var(--line-height-32);
+  font-weight: var(--font-weight-semibold);
+}
+
+.unsavedDescription {
+  margin: var(--space-3) 0 0;
+  color: var(--text-secondary);
+  line-height: var(--line-height-24);
+}
+
+.unsavedError {
+  margin: var(--space-4) 0 0;
+  color: var(--text-error);
+  line-height: var(--line-height-24);
+}
+
+.unsavedActions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-8);
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  min-height: 100svh;
+  background: var(--surface-canvas);
+}
+
+.shell[hidden] {
+  display: none;
+}
+
+.shellDesktopNav {
+  position: sticky;
+  top: 0;
+  display: flex;
+  height: 100svh;
+  flex-direction: column;
+  gap: var(--space-8);
+  overflow-y: auto;
+  padding: var(--space-6) var(--space-4);
+  background: var(--surface-inverse);
+  color: var(--text-inverse);
+}
+
+.shellBrandBlock {
+  display: grid;
+  gap: var(--space-1);
+  padding: 0 var(--space-1);
+}
+
+.shellBrand {
+  color: var(--text-inverse);
+  font-size: var(--font-size-22);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.shellAreaLabel {
+  color: var(--color-neutral-300);
+  font-size: var(--font-size-12);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-20);
+  text-transform: uppercase;
+}
+
+.shellNavPinned {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: auto;
+}
+
+.shellNavItems {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.shellDesktopNav .shellNavLink {
+  color: var(--color-neutral-300);
+}
+
+.shellDesktopNav .shellNavLink:hover {
+  color: var(--text-inverse);
+}
+
+.shellDesktopNav .shellNavLink[data-current],
+.shellDesktopNav .shellNavLink[aria-current="page"] {
+  border-color: transparent;
+  background: var(--color-neutral-700);
+  color: var(--text-inverse);
+}
+
+.shellDesktopNav .shellUnread {
+  background: var(--text-inverse);
+  color: var(--surface-inverse);
+}
+
+.shellNavLink,
+.shellMoreTrigger {
+  position: relative;
+  display: flex;
+  min-height: var(--touch-target-mobile);
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width-hairline) solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.shellNavLink[data-current],
+.shellNavLink[aria-current="page"] {
+  border-color: var(--border-strong);
+  background: var(--surface-selected);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.shellUnread {
+  margin-left: auto;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-full);
+  background: var(--surface-inverse);
+  color: var(--text-inverse);
+  font-size: var(--font-size-12);
+  line-height: var(--line-height-20);
+}
+
+.shellBody {
+  min-width: 0;
+}
+
+.shellTopbar {
+  display: flex;
+  min-height: 72px;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-8);
+  border-bottom: var(--border-width-hairline) solid var(--border-subtle);
+  background: var(--surface-default);
+}
+
+.shellBreadcrumbs {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.shellBreadcrumbs ol {
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shellBreadcrumbs li + li::before {
+  content: "/";
+  margin-right: var(--space-2);
+  color: var(--text-secondary);
+}
+
+.shellBreadcrumbs li {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.shellBreadcrumbRoot {
+  color: var(--text-secondary);
+  font-size: var(--font-size-16);
+}
+
+.shellBreadcrumbs h1 {
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--font-size-16);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-24);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shellProfileTrigger {
+  flex-shrink: 0;
+  display: inline-flex;
+  width: var(--touch-target-mobile);
+  height: var(--touch-target-mobile);
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--surface-inverse);
+  color: var(--text-inverse);
+  cursor: pointer;
+}
+
+.shellContext {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-8);
+  border-bottom: var(--border-width-hairline) solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.shellContext a {
+  color: var(--text-link);
+  text-underline-offset: 3px;
+}
+
+.shellMain {
+  min-width: 0;
+  padding: var(--space-8);
+}
+
+.shellBusyNotice {
+  margin: 0 0 var(--space-4);
+  color: var(--text-error);
+  line-height: var(--line-height-24);
+}
+
+.shellMobileNav {
+  display: none;
+}
+
+.shellMenuOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  background: var(--surface-scrim);
+}
+
+.shellMenu {
+  position: fixed;
+  top: 72px;
+  right: var(--space-6);
+  z-index: calc(var(--z-modal) + 1);
+  box-sizing: border-box;
+  width: min(320px, calc(100vw - var(--space-8)));
+  max-height: calc(100dvh - 88px);
+  overflow-y: auto;
+  padding: var(--space-4);
+  border: var(--border-width-hairline) solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-default);
+  box-shadow: var(--shadow-md);
+}
+
+.shellMenu:focus {
+  outline: none;
+}
+
+.shellMenuTitle {
+  margin: 0 0 var(--space-4);
+  font-size: var(--font-size-20);
+  line-height: var(--line-height-28);
+}
+
+.shellMenuItems {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.shellMenuItems a,
+.shellMenuItems button,
+.shellMenuClose {
+  display: flex;
+  min-height: var(--button-height-md);
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width-hairline) solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.shellMenuItems a[aria-current="page"] {
+  border-color: var(--border-strong);
+  background: var(--surface-selected);
+  font-weight: var(--font-weight-semibold);
+}
+
+.shellMenuItems a:hover,
+.shellMenuItems button:hover,
+.shellMenuClose:hover {
+  background: var(--surface-subtle);
+}
+
+.shellMenuClose {
+  margin-top: var(--space-3);
+  border-color: var(--border-default);
+}
+
+.shellDesktopNav .shellNavLink:focus-visible,
+.shellDesktopNav .shellBrand:focus-visible {
+  outline: var(--border-width-active) solid var(--text-inverse);
+  outline-offset: var(--focus-offset);
+}
+
+.shellNavLink:focus-visible,
+.shellMoreTrigger:focus-visible,
+.shellBrand:focus-visible,
+.shellProfileTrigger:focus-visible,
+.shellContext a:focus-visible,
+.shellMenuItems a:focus-visible,
+.shellMenuItems button:focus-visible,
+.shellMenuClose:focus-visible {
+  outline: var(--border-width-active) solid var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+@media (max-width: 767px) {
+  .shell {
+    display: block;
+  }
+
+  .shellDesktopNav {
+    display: none;
+  }
+
+  .shellBody {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+
+  /* li.class (0,2,1) beats ".shellBreadcrumbs li { display: flex }" (0,1,1): the root label really disappears. */
+  .shellBreadcrumbs li.shellBreadcrumbRoot,
+  .shellBreadcrumbs li + li::before {
+    display: none;
+  }
+
+  .shellTopbar {
+    min-height: 64px;
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .shellContext {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .shellMain {
+    padding: var(--space-4);
+  }
+
+  .shellMobileNav {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 100;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    min-height: 64px;
+    padding-bottom: env(safe-area-inset-bottom);
+    border-top: var(--border-width-hairline) solid var(--border-subtle);
+    background: var(--surface-default);
+  }
+
+  .shell[data-area="platform"] .shellMobileNav {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .shellMobileNav .shellNavLink,
+  .shellMoreTrigger {
+    min-width: 0;
+    min-height: 64px;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--space-1);
+    padding: var(--space-1);
+    border-radius: 0;
+    font-size: var(--font-size-12);
+    text-align: center;
+  }
+
+  .shellMobileNav .shellNavLink[data-current] {
+    border-color: transparent;
+    background: transparent;
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .shellMobileNav .shellNavLink[data-current] svg {
+    box-sizing: content-box;
+    padding: var(--space-1);
+    border-radius: var(--radius-md);
+    background: var(--surface-inverse);
+    color: var(--text-inverse);
+  }
+
+  .shellUnread {
+    position: absolute;
+    top: var(--space-1);
+    right: var(--space-2);
+    width: 8px;
+    height: 8px;
+    padding: 0;
+    overflow: hidden;
+    font-size: 0;
+  }
+
+  .shellMenu {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    max-height: 100dvh;
+    padding: var(--space-6);
+    padding-bottom: max(var(--space-6), env(safe-area-inset-bottom));
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+}
+
+@media (max-width: 479px) {
+  .accessCard,
+  .feedback {
+    padding: var(--space-5);
+  }
+
+  .unsavedDialog {
+    width: calc(100vw - var(--space-12));
+    padding: var(--space-6);
+  }
+
+  .unsavedActions {
+    flex-direction: column;
+  }
+
+  .unsavedActions > * {
+    width: 100%;
+  }
+}

@@ -191,7 +191,7 @@
 .day { height: 44px; text-align: center; vertical-align: middle; font-size: var(--font-size-14); font-weight: var(--font-weight-semibold); border-radius: var(--radius-sm); }
 .dayAvailable { background: var(--status-success-surface); }
 .dayUnavailable { background: var(--status-unavailable-surface); border: var(--border-width-hairline) dashed var(--status-unavailable-border); text-decoration: line-through; }
-.dayPast { color: var(--text-secondary); text-decoration: line-through; }
+.dayPast { color: var(--text-secondary); text-decoration: none; background: transparent; }
 .dayToday { outline: var(--border-width-active) solid var(--border-strong); outline-offset: -2px; }
 .daySelected { background: var(--surface-strong); color: var(--text-inverse); }
 /* Unavailable day inside the chosen range: dashed inverse frame (3:1+ on the dark fill) and strike-through keep it distinct from an available one. */
@@ -218,3 +218,11 @@
 .lightboxBar { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); margin-bottom: var(--space-3); }
 
 .filterDetails { display: block; }
+
+/* #43: interactive calendar days and alternative vehicles */
+.dayButton { all: unset; box-sizing: border-box; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; min-height: 44px; cursor: pointer; border-radius: var(--radius-sm); position: relative; }
+.dayIcon { position: absolute; top: 3px; right: 3px; }
+.dayButton:focus-visible { outline: var(--border-width-active) solid var(--focus-ring); outline-offset: var(--focus-offset); }
+.alternatives { margin-top: var(--space-4); }
+.altList { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+button.link { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
