@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs the jobs of .github/workflows/ci.yml locally while the workflow is disabled (D-29, docs/development/CI.md).
 # Usage: scripts/ci-local.sh <LOCAL_PORT_BASE> <results-file>   (run from the repository root of the candidate tree)
-# Resets and then stops this worktree's own fixture; E2E uses ports derived from the base (base+20..22) and a slot semaphore.
+# Resets and then stops this worktree's own fixture; E2E uses ports derived from the base (base+12..14) and a slot semaphore.
 set -uo pipefail
 # Job control gives every step its own process group, so a signal can stop the whole step (and its grandchildren).
 set -m
@@ -47,13 +47,14 @@ step() {
   else res "$name" "FAIL ($LOGDIR/$name.log)"; FAILED=1; fi
 }
 
-# E2E ports come from this worktree's LOCAL_PORT_BASE (base+20..22: production build, dev server, trusted ingress; the fixture itself uses base..+7, +10, +11, +101 and +104..+107), so
+# E2E ports come from this worktree's LOCAL_PORT_BASE (base+12..14: production build, dev server, trusted ingress). Inside one base frame the fixture uses base..+7, +10/+11 (dev HTTP/WS)
+# and +101, +104..+107 (SeaweedFS gRPC), so +12..14 is free in every role frame (executor base, reviewer base+20, QA base+40)., so
 # runs of different worktrees never collide on ports (#264). playwright.config.ts reads them from E2E_PORT, E2E_DEV_PORT and
 # E2E_TRUSTED_PORT. Other spots with 3305 (BETTER_AUTH_URL placeholders in the unit step, ci.yml, .env of the fixture) are
 # values, not listeners.
-E2E_PORTS=$((PORT + 20)); E2E_PORT_LIST="$E2E_PORTS $((PORT + 21)) $((PORT + 22))"
-[ "$((PORT + 22))" -le 65535 ] || refuse "LOCAL_PORT_BASE $PORT leaves no room for the E2E ports (base+20..22 must be <= 65535)"
-export E2E_PORT="$E2E_PORTS" E2E_DEV_PORT="$((PORT + 21))" E2E_TRUSTED_PORT="$((PORT + 22))"
+E2E_PORTS=$((PORT + 12)); E2E_PORT_LIST="$E2E_PORTS $((PORT + 13)) $((PORT + 14))"
+[ "$((PORT + 14))" -le 65535 ] || refuse "LOCAL_PORT_BASE $PORT leaves no room for the E2E ports (base+12..14 must be <= 65535)"
+export E2E_PORT="$E2E_PORTS" E2E_DEV_PORT="$((PORT + 13))" E2E_TRUSTED_PORT="$((PORT + 14))"
 
 # The machine is shared, so E2E runs queue on a semaphore of AUTERVA_E2E_SLOTS slots (default 2): directories e2e.slots/<n>
 # in the git common dir (shared by all worktrees), taken with the atomic `mkdir` (macOS has no flock). While
@@ -137,8 +138,28 @@ release_e2e_slot() {
   if [ -n "$E2E_SLOT" ] && [ "$(slot_pid "$E2E_SLOT")" = "$$" ]; then rm -rf "$E2E_SLOT"; fi
   E2E_SLOT=""
 }
-# The E2E ports are derived from this worktree's base and were free when the step started, so whatever listens on them
-# now belongs to this run (Playwright's servers or their orphans): stop it, children first.
+# True when the process runs inside this worktree (its cwd is below $PWD): its own fixture, Playwright servers and their orphans.
+WORKTREE_REAL="$(pwd -P)"   # lsof reports real paths (e.g. /private/var on macOS)
+owned_here() {
+  local cwd; cwd="$(lsof -a -p "$1" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)"
+  case "$cwd" in "$WORKTREE_REAL"|"$WORKTREE_REAL"/*|"$PWD"|"$PWD"/*) return 0;; esac
+  return 1
+}
+# Early check, before any step: a port of the fixture or of E2E that a process of ANOTHER worktree (or an unrelated service)
+# holds would otherwise surface as an obscure failure much later. Listeners of this worktree itself are fine.
+precheck_ports() {
+  local p pid cwd off offs="0 1 2 3 4 5 6 7 101 104 105 106 107 12 13 14"
+  for off in $offs; do
+    p=$((PORT + off))
+    for pid in $(lsof -tiTCP:"$p" -sTCP:LISTEN -n 2>/dev/null | sort -u); do
+      owned_here "$pid" && continue
+      cwd="$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)"
+      refuse "port $p (LOCAL_PORT_BASE $PORT + $off) is held by process $pid ($(ps -o comm= -p "$pid" 2>/dev/null | head -1), cwd ${cwd:-unknown}), not by this worktree; stop it or use another LOCAL_PORT_BASE (agent frames are base, base+20, base+40; keep frames >= 30 apart)"
+    done
+  done
+}
+# The E2E ports were free when the step started, so listeners on them that run in this worktree are Playwright's servers or
+# their orphans: stop those only (never a process of another worktree), by process group, then wait and kill.
 stop_e2e_servers() {
   local p pid g groups="" pids="" self_group i alive
   self_group="$(ps -o pgid= -p $$ 2>/dev/null | tr -d ' ')"
@@ -146,6 +167,7 @@ stop_e2e_servers() {
   # listeners now, before anything closes its socket.
   for p in $E2E_PORT_LIST; do
     for pid in $(lsof -tiTCP:"$p" -sTCP:LISTEN -n 2>/dev/null | sort -u); do
+      owned_here "$pid" || continue
       pids="$pids $pid"
       g="$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d ' ')"
       [ -n "$g" ] && [ "$g" != "$self_group" ] && [ "$g" -gt 1 ] && groups="$groups $g"
@@ -192,6 +214,7 @@ trap 'on_signal 143' TERM
 printf 'head\t%s\n' "$(git rev-parse HEAD)" >> "$OUT"
 printf 'tools\tnode %s; gitleaks %s; pg_dump %s; docker %s\n' "$(node --version)" "$(gitleaks version 2>/dev/null)" \
   "$(pg_dump --version 2>/dev/null | awk '{print $3}')" "$(docker version --format '{{.Server.Version}} {{.Server.Os}}/{{.Server.Arch}}' 2>/dev/null)" >> "$OUT"
+precheck_ports
 pnpm install --frozen-lockfile >"$LOGDIR/install.log" 2>&1 || { res install FAIL; exit 1; }
 # pnpm skips postinstall (which runs prisma generate) when the lockfile is unchanged, so a new schema would leave a stale client.
 GEN_URL=postgresql://ci@127.0.0.1:5432/generate_only
