@@ -36,7 +36,10 @@ test("superadmin: search, card, period save, version conflict and archive keep o
 
     page.on("pageerror", (error) => console.log(`[pageerror] ${error.message}`));
     page.on("response", (response) => {
-      if (response.status() >= 500) console.log(`[5xx] ${response.status()} ${response.url()}`);
+      if (response.status() >= 400) console.log(`[http ${response.status()}] ${response.url()}`);
+    });
+    page.on("console", (message) => {
+      if (message.type() === "error") console.log(`[console] ${message.text().slice(0, 300)}`);
     });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`${origin}/firmy/`);
