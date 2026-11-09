@@ -73,6 +73,27 @@
       "testPaths": ["tests/unit/auth-flow.test.tsx", "tests/unit/auth-page.test.tsx", "tests/unit/auth-destination.test.ts", "tests/unit/mfa-qr.test.tsx", "tests/e2e/auth-ui.spec.ts"]
     },
     {
+      "issue": 252,
+      "scope": "Wskaźnik siły hasła DS-AUT-004 (SPEC 6.10, handoff components.md): wspólny PasswordStrength z etykietą, paskiem i checklistą tekstową, aria-live tylko dla poziomu; w resecie i zmianie hasła z #19, aktywacja z #26 po merge PR #228. Polityka serwera 12–256 znaków; długość jest jedynym kryterium „wymagane”, litery, cyfra i znak specjalny są oznaczone „zalecane” (nie blokują wysłania).",
+      "relatedRequirementIds": ["FR-ADM-006", "FR-ADM-007", "FR-ADM-080", "FR-ADM-082"],
+      "referenceScreenIds": ["ADM-03", "PLT-10"],
+      "scenarioStates": {
+        "passwordStrength": "PasswordStrength weak/medium/strong (DS-AUT-004)"
+      },
+      "unmappedStates": ["Porównanie z planszami DS-AUT-004 i ACC-04 w Penpocie: blocked (wtyczka Penpota nie odpowiada po dwóch próbach 08.11).", "Aktywacja z #26: PasswordStrength podłączony w activation-flow."],
+      "components": [
+        { "itemId": "DS-AUT-004", "codePath": "src/components/auth/password-strength.tsx" }
+      ],
+      "codePaths": [
+        "src/components/auth/password-strength.tsx",
+        "src/components/auth/password-policy.ts",
+        "src/components/auth/reset-flow.tsx",
+        "src/components/auth/activation-flow.tsx",
+        "src/components/account/account-view.tsx"
+      ],
+      "testPaths": ["tests/unit/password-policy.test.tsx", "tests/unit/activation-flow.test.tsx", "tests/e2e/account-ui.spec.ts", "tests/e2e/company-activation-ui.spec.ts"]
+    },
+    {
       "issue": 19,
       "scope": "Reset hasła (prośba z neutralnym wynikiem, ustawienie nowego hasła z jednorazowym linkiem), konto obu ról (nazwa, e-mail i rola tylko do odczytu), zmiana hasła z cofnięciem sesji, wydanie nowych kodów przez świeżą weryfikację MFA, wylogowanie z potwierdzeniem serwera; PasswordStrength (DS-AUT-004) zgodny z polityką serwera 12–256 znaków.",
       "relatedRequirementIds": ["C-F041", "C-F042", "C-F044", "FR-ADM-006", "FR-ADM-007", "FR-ADM-080", "FR-ADM-082"],

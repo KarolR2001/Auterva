@@ -16,11 +16,12 @@ const widths: Record<PasswordStrengthLevel, number> = {
   medium: 75,
   strong: 100,
 };
-const items: Array<[keyof PasswordCriteria, string]> = [
-  ["minLength", "Co najmniej 12 znaków"],
-  ["letterCase", "Małe i wielkie litery"],
-  ["number", "Cyfra"],
-  ["specialCharacter", "Znak specjalny"],
+// Only the length is a server rule (12-256 characters, account-operations contract); the rest is advice.
+const items: Array<[keyof PasswordCriteria, string, "wymagane" | "zalecane"]> = [
+  ["minLength", "Co najmniej 12 znaków", "wymagane"],
+  ["letterCase", "Małe i wielkie litery", "zalecane"],
+  ["number", "Cyfra", "zalecane"],
+  ["specialCharacter", "Znak specjalny", "zalecane"],
 ];
 
 // DS-AUT-004: label, bar and checklist all carry the result; colour is never the only signal.
@@ -43,7 +44,7 @@ export function PasswordStrength({
         <div className={styles.strengthBar} style={{ width: `${widths[level]}%` }} />
       </div>
       <ul className={styles.strengthList}>
-        {items.map(([key, text]) => (
+        {items.map(([key, text, kind]) => (
           <li key={key} data-met={criteria[key]}>
             {criteria[key] ? (
               <Check aria-hidden="true" size={16} />
@@ -51,7 +52,7 @@ export function PasswordStrength({
               <Circle aria-hidden="true" size={16} />
             )}
             <span>
-              {text}
+              {text} <span className={styles.strengthKind}>({kind})</span>
               <span className={styles.visuallyHidden}>
                 {criteria[key] ? ": spełnione" : ": oczekuje"}
               </span>
