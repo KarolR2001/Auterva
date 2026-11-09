@@ -68,7 +68,7 @@ export const isUncertain = (result: { status: number }) => result.status === 0 |
  * Entry points that exist as pages. A link to a route that is not shipped yet would be a dead end, so the list and
  * the dashboard show these actions only when the flag is on (#35 turns the form on, #38 the vehicle calendar).
  */
-export const routes: { vehicleForm: boolean; vehicleCalendar: boolean } = { vehicleForm: false, vehicleCalendar: false };
+export const routes: { vehicleForm: boolean; vehicleCalendar: boolean } = { vehicleForm: true, vehicleCalendar: false };
 
 export function fleetCount(context: PanelContext, filters: Record<string, string>, signal?: AbortSignal) {
   const params = new URLSearchParams({ page: "1", pageSize: "1", ...filters });

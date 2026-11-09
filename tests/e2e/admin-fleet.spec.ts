@@ -32,9 +32,8 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
 
     await page.goto(`${base}/admin/pojazdy/`);
     await expect(page.getByRole("heading", { name: "Flota jest pusta" })).toBeVisible();
-    // The vehicle form is not shipped yet (#35): no dead link, an honest hint instead.
-    await expect(page.getByRole("link", { name: "Dodaj pierwszy pojazd" })).toHaveCount(0);
-    await expect(page.getByText("Dodawanie pojazdów jest w przygotowaniu.")).toBeVisible();
+    // The vehicle form exists since #35; the calendar (#38) does not, so no calendar link yet.
+    await expect(page.getByRole("link", { name: "Dodaj pierwszy pojazd" })).toHaveAttribute("href", "/admin/pojazdy/nowy/");
     await page.goto(`${base}/admin/`);
     await expect(page.getByRole("heading", { name: "Zacznij od pierwszego pojazdu" })).toBeVisible();
 
