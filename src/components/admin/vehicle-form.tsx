@@ -468,7 +468,7 @@ export function VehicleForm({ context = companyContext, vehicleId, title }: { co
                     {errors.images && <p className={styles.error} id="vf-images"><CircleAlert aria-hidden="true" size={16} />{errors.images}</p>}
                     {vehicleId && vehicle
                       ? <VehiclePhotos context={context} vehicleId={vehicleId} published={status === "PUBLISHED"} readOnly={archived}
-                        images={vehicle.images} onImages={onImages} />
+                        images={vehicle.images} vehicleName={vehicle.name} onImages={onImages} />
                       : <p className={styles.hint} id="vf-images">Zdjęcia dodasz po zapisaniu szkicu. Do publikacji potrzebne jest co najmniej jedno gotowe zdjęcie oznaczone jako główne.</p>}
                   </>}
                   {section.id === "availability" && <>

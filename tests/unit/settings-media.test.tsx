@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createGuardRegistry, UnsavedChangesGuardContext } from "../../src/components/panel/unsaved-changes-guard";
-import { MediaManager } from "../../src/components/settings/media-manager";
+import { materialLabel, MediaManager } from "../../src/components/settings/media-manager";
 import { SettingsForm } from "../../src/components/settings/settings-form";
 import type { SettingsSnapshot } from "../../src/components/settings/settings-model";
 import { SettingsReadonly } from "../../src/components/settings/settings-readonly";
@@ -63,12 +63,20 @@ describe("wygląd publiczny", () => {
     expect(JSON.parse(String(init.body))).toMatchObject({ expectedVersion: 4, alt: "Nowy opis", position: 0 });
   });
 
+  it("etykieta materiału nie zależy od pozycji: opis, a bez opisu liczba porządkowa tylko przy wielu", () => {
+    expect(materialLabel("Zdjęcia hero", "Hala", 0, 3)).toBe("Zdjęcia hero: Hala");
+    expect(materialLabel("Zdjęcia hero", "Hala", 2, 3)).toBe("Zdjęcia hero: Hala"); // moving it changes nothing
+    expect(materialLabel("Logo", null, 0, 1)).toBe("Logo bez opisu");
+    expect(materialLabel("Zdjęcia hero", "  ", 1, 2)).toBe("Zdjęcia hero bez opisu (2)");
+    expect(materialLabel("Zdjęcia hero", "x".repeat(60), 0, 1)).toBe(`Zdjęcia hero: ${"x".repeat(40)}…`);
+  });
+
   it("usunięcie wymaga potwierdzenia", async () => {
     const fetchMock = vi.fn().mockImplementation(() => json(200, { deleted: true }));
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
     render(<MediaManager snapshot={base} />);
-    await user.click(screen.getByRole("button", { name: /Usuń \(Zdjęcia hero 0\)/ }));
+    await user.click(screen.getByRole("button", { name: /Usuń \(Zdjęcia hero: Hala\)/ }));
     expect(fetchMock).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "Potwierdź usunięcie" }));
     await waitFor(() => expect(fetchMock.mock.calls[0]).toBeDefined());

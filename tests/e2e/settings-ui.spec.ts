@@ -120,11 +120,11 @@ test("settings UI: superadmin saves a section, keeps data on conflict and valida
     expect(await db.publicMedia.count({ where: { organizationId: org, kind: "HERO" } })).toBe(1);
 
     // Saving one photo keeps the other photo's draft; "Zapisz i wyjdź" saves every edited photo before leaving.
-    await page.getByLabel("Opis alternatywny (Logo 0)").fill("Logo robocze");
-    await page.getByLabel("Opis alternatywny (Zdjęcia hero 0)").fill("Hero robocze");
+    await page.getByLabel("Opis alternatywny (Logo bez opisu)").fill("Logo robocze");
+    await page.getByLabel("Opis alternatywny (Zdjęcia hero bez opisu)").fill("Hero robocze");
     await page.getByRole("button", { name: "Zapisz opis i kolejność" }).nth(1).click();
     await expect(page.getByText("Zapisano zdjęcie")).toBeVisible();
-    await expect(page.getByLabel("Opis alternatywny (Logo 0)")).toHaveValue("Logo robocze");
+    await expect(page.getByLabel("Opis alternatywny (Logo bez opisu)")).toHaveValue("Logo robocze");
     expect(await db.publicMedia.findFirstOrThrow({ where: { organizationId: org, kind: "HERO" } }).then((row) => row.alt)).toBe("Hero robocze");
     await page.getByRole("link", { name: "Prezentacja i SEO" }).click();
     await expect(page.getByRole("alertdialog")).toBeVisible();

@@ -11,6 +11,7 @@ export default async function AdminVehicleCalendarPage({ params }: { params: Pro
   if (!uuid.test(id)) notFound();
   return CompanyPanelPage({
     currentPath: `/admin/pojazdy/${id}`,
+    requireVehicleId: id,
     title: "Kalendarz pojazdu",
     children: ({ companyName }) => <VehicleCalendar vehicleId={id} today={availabilityToday()} title={`Kalendarz pojazdu · ${companyName}`} />,
   });

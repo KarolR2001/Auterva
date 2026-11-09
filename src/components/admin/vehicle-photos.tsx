@@ -13,6 +13,7 @@ import {
   deleteImage, imageErrorMessage, imagesUrl, patchImage, readVehicle, reorderImages,
   type ApiResult, type PanelContext, type VehicleImage,
 } from "./fleet-api";
+import { defaultImageAlt } from "@/modules/media/default-alt";
 import styles from "./vehicle-photos.module.css";
 
 export const MAX_VEHICLE_IMAGES = 30;
@@ -29,7 +30,10 @@ type QueueItem = {
 
 const fatalCodes = new Set(["IMAGE_TOO_LARGE_OR_EMPTY", "INVALID_IMAGE", "IMAGE_TOO_COMPLEX", "MEDIA_IMAGE_LIMIT", "FORBIDDEN", "UNAUTHORIZED", "NOT_FOUND"]);
 const photoErrors: Record<string, string> = { ...uploadErrors, MEDIA_IMAGE_LIMIT: "Osiągnięto limit 30 zdjęć pojazdu. Usuń jedno, aby dodać kolejne." };
-const sizeText = (bytes: number) => `${(bytes / (1024 * 1024)).toFixed(bytes < 1024 * 1024 ? 2 : 1).replace(".", ",")} MB`;
+/** Small files read in KB: "0,00 MB" told nothing. */
+export const sizeText = (bytes: number) => bytes < 1024 * 1024 ? `${bytes === 0 ? 0 : Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1).replace(".", ",")} MB`;
+/** What the alt field holds: the displayed default is no editor text, so it shows as a placeholder and the field stays empty. */
+export const altBase = (alt: string, vehicleName: string | null | undefined, index: number) => (alt === defaultImageAlt(vehicleName, index) ? "" : alt);
 type Notice = { tone: "success" | "error" | "warning" | "info"; title: string; text?: string } | null;
 
 type Props = {
@@ -40,6 +44,8 @@ type Props = {
   /** Archived vehicles accept no photo change (the server answers FLEET_ARCHIVED). */
   readOnly: boolean;
   images: VehicleImage[];
+  /** Saved vehicle name: with the ordinal it is the default alt shown as the placeholder. */
+  vehicleName?: string | null;
   onImages: (images: VehicleImage[]) => void;
 };
 
@@ -48,7 +54,7 @@ type Props = {
  * buttons (no drag-only), alt text and confirmed deletion. Every shown state comes from the server; the same component
  * serves the company admin and the superadmin through `context`.
  */
-export function VehiclePhotos({ context, vehicleId, published, readOnly, images, onImages }: Props) {
+export function VehiclePhotos({ context, vehicleId, published, readOnly, images, vehicleName, onImages }: Props) {
   const ready = useMemo(() => images.filter((image) => image.status === "READY"), [images]);
   const [queue, setQueueState] = useState<QueueItem[]>([]);
   const queueRef = useRef<QueueItem[]>([]);
@@ -77,7 +83,7 @@ export function VehiclePhotos({ context, vehicleId, published, readOnly, images,
 
   const activeUploads = queue.filter((item) => item.state !== "failed").length;
   const slotsLeft = Math.max(0, MAX_VEHICLE_IMAGES - ready.length - queue.filter((item) => item.state !== "failed").length);
-  const dirtyIds = ready.filter((image) => alts[image.id] !== undefined && alts[image.id] !== image.alt).map((image) => image.id);
+  const dirtyIds = ready.filter((image, index) => alts[image.id] !== undefined && alts[image.id] !== altBase(image.alt, vehicleName, index)).map((image) => image.id);
 
   /** The truth is the server's list; drafts of untouched photos survive, a saved or removed one loses its draft. */
   const refresh = useCallback(async (settled?: string): Promise<boolean> => {
@@ -88,11 +94,12 @@ export function VehiclePhotos({ context, vehicleId, published, readOnly, images,
     onImages(latest);
     imagesRef.current = latest.filter((image) => image.status === "READY");
     setAlts((current) => Object.fromEntries(Object.entries(current)
-      .filter(([id, text]) => id !== settled && latest.some((image) => image.id === id && image.alt !== text))));
+      .filter(([id, text]) => id !== settled && latest.filter((image) => image.status === "READY")
+        .some((image, index) => image.id === id && altBase(image.alt, vehicleName, index) !== text))));
     // A processed photo leaves the queue as soon as the list contains it.
     setQueue((items) => items.filter((item) => !(item.imageId && latest.some((image) => image.id === item.imageId))));
     return true;
-  }, [context, vehicleId, onImages, setQueue]);
+  }, [context, vehicleId, vehicleName, onImages, setQueue]);
 
   /** Polls while a photo is being processed: it appears in the list only after the media worker stored it. */
   const waiting = queue.some((item) => item.state === "processing");
@@ -192,7 +199,7 @@ export function VehiclePhotos({ context, vehicleId, published, readOnly, images,
   }
 
   async function saveAlt(image: VehicleImage): Promise<boolean> {
-    const draft = alts[image.id] ?? image.alt;
+    const draft = alts[image.id] ?? altBase(image.alt, vehicleName, ready.indexOf(image));
     const result = await mutate("zapis opisu", () => patchImage(context, vehicleId, image.id, image.version, { alt: draft.trim() === "" ? null : draft }),
       "Zapisano opis zdjęcia.", image.id);
     return result.ok;
@@ -334,8 +341,9 @@ export function VehiclePhotos({ context, vehicleId, published, readOnly, images,
         <ol className={styles.list} aria-label="Gotowe zdjęcia pojazdu">
           {ready.map((image, index) => {
             const label = `zdjęcie ${index + 1}`;
-            const draft = alts[image.id] ?? image.alt;
-            const dirty = draft !== image.alt;
+            const base = altBase(image.alt, vehicleName, index);
+            const draft = alts[image.id] ?? base;
+            const dirty = draft !== base;
             return (
               <li key={image.id} className={styles.item}>
                 {/* eslint-disable-next-line @next/next/no-img-element -- protected preview variant, never the optimizer */}
@@ -347,9 +355,9 @@ export function VehiclePhotos({ context, vehicleId, published, readOnly, images,
                   </p>
                   <div className={styles.field}>
                     <label className={styles.label} htmlFor={`vp-alt-${image.id}`}>Opis alternatywny ({label}) <span className={styles.optional}>(opcjonalnie)</span></label>
-                    <input id={`vp-alt-${image.id}`} className={styles.control} type="text" maxLength={200} value={draft} disabled={readOnly}
+                    <input id={`vp-alt-${image.id}`} className={styles.control} type="text" maxLength={200} value={draft} disabled={readOnly} placeholder={defaultImageAlt(vehicleName, index)}
                       aria-describedby={`vp-alt-hint-${image.id}`} onChange={(event) => setAlts((current) => ({ ...current, [image.id]: event.target.value }))} />
-                    <p className={styles.hint} id={`vp-alt-hint-${image.id}`}>Do 200 znaków, bez znaczników. Puste pole przywraca opis domyślny z nazwy pojazdu.</p>
+                    <p className={styles.hint} id={`vp-alt-hint-${image.id}`}>Do 200 znaków, bez znaczników. Puste pole oznacza opis domyślny z nazwy pojazdu (widoczny jako podpowiedź).</p>
                   </div>
                   {!readOnly && (
                     <div className={styles.rowActions}>
