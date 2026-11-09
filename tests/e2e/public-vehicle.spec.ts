@@ -91,7 +91,7 @@ test("vehicle detail: gallery by mouse and keyboard, availability result, calend
     await page.getByLabel("Do", { exact: true }).fill(day(2));
     await page.getByRole("button", { name: "Sprawdź" }).click();
     await expect(page.getByText("Pojazd jest dostępny")).toBeVisible();
-    await expect(page.getByRole("status").getByRole("link", { name: "Skontaktuj się", exact: true }))
+    await expect(page.getByRole("link", { name: "Skontaktuj się", exact: true }).last())
       .toHaveAttribute("href", `/kontakt/?vehicle=${slug}&from=${day(1)}&to=${day(2)}`);
     await page.getByLabel("Od", { exact: true }).fill(day(4));
     await page.getByLabel("Do", { exact: true }).fill(day(6));
@@ -108,10 +108,10 @@ test("vehicle detail: gallery by mouse and keyboard, availability result, calend
       }
     }
     // The blocked days are named as unavailable in text (not only by shape).
-    await expect(page.locator("td", { hasText: "niedostępny" }).first()).toBeVisible();
+    await expect(page.locator("td:has(button[aria-label*='niedostępny'])").first()).toBeVisible();
     // Inside the chosen range an unavailable day keeps its own marker (dashed inverse outline) that an available one lacks.
-    const blocked = page.locator("td", { hasText: "niedostępny, wybrany zakres" }).first();
-    const free = page.locator("td", { hasText: /dostępny, wybrany zakres/ }).filter({ hasNotText: "niedostępny" }).first();
+    const blocked = page.locator("td:has(button[aria-label*='niedostępny, wybrany zakres'])").first();
+    const free = page.locator("td:has(button[aria-label*=', dostępny, wybrany zakres'])").first();
     await expect(blocked).toHaveCSS("outline-style", "dashed");
     await expect(blocked).toHaveCSS("text-decoration-line", "line-through");
     await expect(free).toHaveCSS("outline-style", "none");

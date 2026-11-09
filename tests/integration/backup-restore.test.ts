@@ -15,6 +15,14 @@ import { restoreFull } from "../../src/modules/backup/restore";
 import { inboxSummaries } from "../../src/modules/chat/platform-inbox";
 import { createMediaStorage, type MediaStorage } from "../../src/modules/media/storage";
 
+/**
+ * Real child processes, a real HTTP/WebSocket server or a PostgreSQL migration run in this file; under parallel
+ * ci-local runs (load average far above the core count, #247) they take several times longer than the default 5 s.
+ * The inner waits stay bounded (readiness and state polls, 30 s), so this limit only has to cover them. No assertion
+ * is weakened.
+ */
+const TEST_TIMEOUT_MS = 90_000;
+
 // The suite never touches shared fixture data: it owns a source database and a source bucket, and every
 // restore targets another database/bucket it creates and drops itself.
 const tag = randomBytes(3).toString("hex");
@@ -147,7 +155,7 @@ beforeAll(async () => {
   // A platform-level reset request (no company) must survive a company restore and block nothing.
   await live.query(`INSERT INTO "PasswordResetRequest" (id, "requestKeyHash", "inputHash", "userId", hostname, area, "organizationId", "expiresAt")
     VALUES ($1, $2, $3, 'platform-user', 'p.example.test', 'PLATFORM', NULL, now() + interval '1 hour')`, [randomUUID(), randomBytes(32).toString("hex"), randomBytes(32).toString("hex")]);
-});
+}, TEST_TIMEOUT_MS);
 
 afterAll(async () => {
   await live?.end();
@@ -161,11 +169,11 @@ afterAll(async () => {
     await target.client.send(new DeleteBucketCommand({ Bucket: bucket })).catch(() => undefined);
   }
   for (const path of out) await rm(path, { recursive: true, force: true });
-});
+}, TEST_TIMEOUT_MS);
 
 test("every table is classified for company restore", async () => {
   await assertCompanyTablesClassified(live);
-});
+}, TEST_TIMEOUT_MS);
 
 test("full restore into a new database and bucket passes integrity, revokes credentials and quarantines mail", async () => {
   const sourceClient = createPrismaClient(databaseUrl);
@@ -242,7 +250,7 @@ test("full restore into a new database and bucket passes integrity, revokes cred
   expect(mailAfter?.total ?? 0).toBe(mailBefore?.total ?? 0);
   // The source is untouched by a restore into another database.
   expect((await live.query(`SELECT count(*)::int AS n FROM "session" WHERE "userId" = $1`, [ids.adminA])).rows[0].n).toBe(1);
-});
+}, TEST_TIMEOUT_MS);
 
 test("full restore refuses a backup with media when no target bucket is configured", async () => {
   const { dir } = await createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" });
@@ -255,7 +263,7 @@ test("full restore refuses a backup with media when no target bucket is configur
   } finally {
     await control.end();
   }
-});
+}, TEST_TIMEOUT_MS);
 
 test("the guard refuses in-place, production, existing and foreign-cluster targets; a bad sum or key is refused", async () => {
   const { dir } = await createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" });
@@ -302,7 +310,7 @@ test("the guard refuses in-place, production, existing and foreign-cluster targe
   manifest.complete = true; manifest.commit = "someone-else";
   writeFileSync(join(edited, "manifest.json"), JSON.stringify(manifest));
   await expect(restoreFull({ ...base, backupDir: edited, targetUrl: targetUrl() })).rejects.toMatchObject({ code: "BACKUP_AUTH_FAILED" });
-});
+}, TEST_TIMEOUT_MS);
 
 test("a missing required media object invalidates the backup set and alarms instead of producing a restore point", async () => {
   const orphanOrg = randomUUID();
@@ -323,7 +331,7 @@ test("a missing required media object invalidates the backup set and alarms inst
     await live.query(`DELETE FROM "Vehicle" WHERE "organizationId" = $1`, [orphanOrg]);
     await live.query(`DELETE FROM "Organization" WHERE id = $1`, [orphanOrg]);
   }
-});
+}, TEST_TIMEOUT_MS);
 
 test("restoring company A returns A to the backup state while B keeps its newer state and audit is never overwritten", async () => {
   // In the backup the second user is the ACTIVE administrator (the first one is disabled), so the restore itself,
@@ -427,7 +435,7 @@ test("restoring company A returns A to the backup state while B keeps its newer 
   expect((await control.query(`SELECT 1 FROM pg_database WHERE datname LIKE 'auterva_restore_%'`)).rowCount).toBe(scratchBefore);
   await control.end();
   await put(keyB, bytesB); // the lost object was this suite's own; later tests need a complete source
-});
+}, TEST_TIMEOUT_MS);
 
 test("a slug or host taken by another company aborts the company restore and rolls everything back", async () => {
   const { dir } = await createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" });
@@ -449,7 +457,7 @@ test("a slug or host taken by another company aborts the company restore and rol
   await live.query(`UPDATE "Organization" SET slug = $2 WHERE id = $1`, [A, `bk-a-${tag}`]);
   await expect(restoreCompany({ backupDir: dir, key, organizationId: randomUUID(), targetUrl: databaseUrl, repoDir, operatorId: operator, storage }))
     .rejects.toMatchObject({ code: "RESTORE_COMPANY_NOT_IN_BACKUP" });
-});
+}, TEST_TIMEOUT_MS);
 
 test("B1: a company write that commits while the restore waits for the company lock is not lost or left behind", async () => {
   const { dir } = await createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" });
@@ -486,7 +494,7 @@ test("B1: a company write that commits while the restore waits for the company l
   expect(late).toHaveLength(1);
   expect(late[0].status).toBe("SKIPPED");
   expect(JSON.stringify(late[0].payload)).not.toContain("late-invite");
-});
+}, TEST_TIMEOUT_MS);
 
 test("#175: a restore that lowers the superadmin cursor yields a newer inbox state by (version, lastSeq, readSeq) and announces it on commit", async () => {
   const { dir } = await createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" });
@@ -523,7 +531,7 @@ test("#175: a restore that lowers the superadmin cursor yields a newer inbox sta
     await live.query(`DELETE FROM "ConversationReadCursor" WHERE "userId" = $1`, [superadmin]);
     await live.query(`DELETE FROM "user" WHERE id = $1`, [superadmin]);
   }
-});
+}, TEST_TIMEOUT_MS);
 
 test("B4/B5: a failure after the database was created drops it; a backup with media needs a bucket; --skip-media is never ok", async () => {
   const { dir } = await createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" });
@@ -547,7 +555,7 @@ test("B4/B5: a failure after the database was created drops it; a backup with me
   const skipped = await restoreFull({ backupDir: dir, key, targetUrl: noBucket, repoDir, operatorId: operator, mediaTarget: null, skipMedia: true });
   expect(skipped).toMatchObject({ ok: false, mediaSkipped: true });
   await control.end();
-});
+}, TEST_TIMEOUT_MS);
 
 test("N3: a live schema that differs from the backup's migrations refuses the company restore", async () => {
   const { dir } = await createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" });
@@ -559,7 +567,7 @@ test("N3: a live schema that differs from the backup's migrations refuses the co
   } finally {
     await live.query(`DELETE FROM _prisma_migrations WHERE migration_name = '99999999999999_fake_newer'`);
   }
-});
+}, TEST_TIMEOUT_MS);
 
 test("N7/N8/N9: unreadable old sets are pruned, child tools get no secrets, a forged MAC is refused", async () => {
   const dirPrune = await mkdtemp(resolve(".local/backup-prune-"));
@@ -576,7 +584,7 @@ test("N7/N8/N9: unreadable old sets are pruned, child tools get no secrets, a fo
     const env = pgEnv("postgresql://u:p@127.0.0.1:1/db").env;
     expect(Object.keys(env).sort()).toEqual(["LANG", "PATH", "PGDATABASE", "PGHOST", "PGPASSWORD", "PGPORT", "PGUSER"]);
   } finally { delete process.env.BACKUP_ENCRYPTION_KEY; }
-});
+}, TEST_TIMEOUT_MS);
 
 test("B6: a user recreated by a restore cannot reset the password or sign in; the audited operator procedure restores access", async () => {
   const { createPrismaClient } = await import("../../src/lib/prisma");
@@ -614,7 +622,7 @@ test("B6: a user recreated by a restore cannot reset the password or sign in; th
   } finally {
     await db.$disconnect();
   }
-});
+}, TEST_TIMEOUT_MS);
 
 test("N14: a credential change committed while the restore waits on the live credential rows is not overwritten", async () => {
   const { dir } = await createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" });
@@ -635,7 +643,7 @@ test("N14: a credential change committed while the restore waits on the live cre
   await writer.end();
   expect((await restoring).ok).toBe(true);
   expect((await live.query(`SELECT password FROM "account" WHERE "userId" = $1`, [ids.adminA])).rows).toEqual([{ password: "raced-hash" }]);
-});
+}, TEST_TIMEOUT_MS);
 
 async function insertUser(id: string, email: string, disabled: boolean) {
   await live.query(`INSERT INTO "user" (id, name, email, "emailVerified", "twoFactorEnabled", role, "organizationId", "disabledAt", "createdAt", "updatedAt")
@@ -676,7 +684,7 @@ test("N1/U1: live disabledAt wins for existing users in both directions; a recre
     await db.$disconnect();
   }
   await live.query(`DELETE FROM "user" WHERE id = ANY($1::text[])`, [[u1, u2, u3]]);
-});
+}, TEST_TIMEOUT_MS);
 
 test("N-b: an account locked by one restore stays unlockable after a later backup and restore; a manually re-disabled account does not return to the list", async () => {
   const { createPrismaClient } = await import("../../src/lib/prisma");
@@ -710,7 +718,7 @@ test("N-b: an account locked by one restore stays unlockable after a later backu
     await db.$disconnect();
   }
   await live.query(`DELETE FROM "user" WHERE id = $1`, [x]);
-});
+}, TEST_TIMEOUT_MS);
 
 test("N2: a deadlock or lock timeout during the restore is RESTORE_CONFLICT and leaves the company unchanged", async () => {
   const { dir } = await createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" });
@@ -757,7 +765,7 @@ test("N2: a deadlock or lock timeout during the restore is RESTORE_CONFLICT and 
     await control.query(`ALTER DATABASE ${quote(sourceDatabase)} RESET lock_timeout`);
     await control.end();
   }
-});
+}, TEST_TIMEOUT_MS);
 
 test("N5/O1: an upper-case company id is accepted; only the company's sessions and the superadmin's sessions are revoked", async () => {
   const { dir } = await createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" });
@@ -779,7 +787,7 @@ test("N5/O1: an upper-case company id is accepted; only the company's sessions a
   } finally {
     await live.query(`DELETE FROM "user" WHERE id = $1`, [superadmin]);
   }
-});
+}, TEST_TIMEOUT_MS);
 
 test("N4: when the tool exits early the stderr cause survives the broken pipe", async () => {
   const { runToolWithInput } = await import("../../src/modules/backup/core");
@@ -790,7 +798,7 @@ test("N4: when the tool exits early the stderr cause survives the broken pipe", 
   })());
   await expect(runToolWithInput("sh", ["-c", "exec 0<&-; echo boom-cause >&2; sleep 1; exit 3"], { PATH: process.env.PATH } as unknown as NodeJS.ProcessEnv, slow))
     .rejects.toMatchObject({ code: "BACKUP_TOOL_FAILED", message: expect.stringContaining("boom-cause") });
-});
+}, TEST_TIMEOUT_MS);
 
 test("N16/N17: a read error on the dump stops the tool instead of hanging it; TLS settings reach the tools", async () => {
   const { runToolWithInput, pgEnv } = await import("../../src/modules/backup/core");
@@ -802,7 +810,7 @@ test("N16/N17: a read error on the dump stops the tool instead of hanging it; TL
   expect(viaUrl.BACKUP_ENCRYPTION_KEY).toBeUndefined();
   const viaEnv = pgEnv("postgresql://u:p@db.example.invalid:5432/app", { PATH: "/bin", PGSSLMODE: "require", PGSSLROOTCERT: "/c.pem" } as unknown as NodeJS.ProcessEnv).env;
   expect(viaEnv).toMatchObject({ PGSSLMODE: "require", PGSSLROOTCERT: "/c.pem" });
-});
+}, TEST_TIMEOUT_MS);
 
 test("retention keeps 30 days and the newest complete set; the age check alarms on a stale backup", async () => {
   const retentionDir = await mkdtemp(resolve(".local/backup-retention-"));
@@ -818,4 +826,4 @@ test("retention keeps 30 days and the newest complete set; the age check alarms 
   expect(await backupAge(retentionDir, key, new Date(now.getTime() + 30 * 3_600_000))).toMatchObject({ stale: true });
   expect(await backupAge(await mkdtemp(resolve(".local/backup-empty-")), key, now)).toBeNull();
   expect(recent.manifest.id).not.toBe(fresh.manifest.id);
-});
+}, TEST_TIMEOUT_MS);
