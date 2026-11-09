@@ -655,6 +655,17 @@ describe("stany odzyskiwania i dostępności MFA (#132)", () => {
   });
 });
 
+describe("logowanie: reset i zmiana hasła", () => {
+  it("link resetu prowadzi na właściwy host, a po zmianie hasła jest komunikat", () => {
+    render(<LoginForm area="company" passwordChanged />);
+    expect(screen.getByRole("link", { name: "Nie pamiętasz hasła?" })).toHaveAttribute("href", "/admin/reset-hasla");
+    expect(screen.getByText("Hasło zostało zmienione.")).toBeVisible();
+    cleanup();
+    render(<LoginForm area="platform" />);
+    expect(screen.getByRole("link", { name: "Nie pamiętasz hasła?" })).toHaveAttribute("href", "/reset-hasla");
+  });
+});
+
 describe("5xx na mutacji MFA (D-05, #132)", () => {
   const enroll = () =>
     Response.json({ totpURI: "otpauth://totp/Auterva?secret=ABCDEF123456" });
