@@ -80,7 +80,7 @@
       "scenarioStates": {
         "passwordStrength": "PasswordStrength weak/medium/strong (DS-AUT-004)"
       },
-      "unmappedStates": ["Porównanie z planszami DS-AUT-004 i ACC-04 w Penpocie: blocked (wtyczka Penpota nie odpowiada po dwóch próbach 08.11).", "Aktywacja z #26: do podłączenia po merge PR #228."],
+      "unmappedStates": ["Porównanie z planszami DS-AUT-004 i ACC-04 w Penpocie: blocked (wtyczka Penpota nie odpowiada po dwóch próbach 08.11).", "Aktywacja z #26: PasswordStrength podłączony w activation-flow."],
       "components": [
         { "itemId": "DS-AUT-004", "codePath": "src/components/auth/password-strength.tsx" }
       ],
@@ -88,9 +88,10 @@
         "src/components/auth/password-strength.tsx",
         "src/components/auth/password-policy.ts",
         "src/components/auth/reset-flow.tsx",
+        "src/components/auth/activation-flow.tsx",
         "src/components/account/account-view.tsx"
       ],
-      "testPaths": ["tests/unit/password-policy.test.tsx", "tests/e2e/account-ui.spec.ts"]
+      "testPaths": ["tests/unit/password-policy.test.tsx", "tests/unit/activation-flow.test.tsx", "tests/e2e/account-ui.spec.ts", "tests/e2e/company-activation-ui.spec.ts"]
     },
     {
       "issue": 19,
