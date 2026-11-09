@@ -7,7 +7,7 @@ import { availabilityToday, sqlDate } from "../../src/modules/availability/dates
 import { claimNextJob } from "../../src/modules/jobs/queue";
 import { createMediaStorage, removeObject } from "../../src/modules/media/storage";
 import { processMediaClaim } from "../../src/modules/media/worker";
-import { ensureControlledSuperadminMfa, verifiedFixtureSession } from "../fixtures/verified-session";
+import { ensureControlledSuperadminMfa, resetPlatformApiBudget, verifiedFixtureSession } from "../fixtures/verified-session";
 
 // #47: the superadmin manages one company's fleet, photos, calendar and protected preview from its card (mobile width),
 // every write is theirs and the chosen company's; another company, the archive (D-23), an expired period and an anonymous visitor.
@@ -50,6 +50,7 @@ test("company fleet by the superadmin: card -> fleet -> form -> photos -> calend
       ownedSuperadmin = superId;
       await db.user.create({ data: { id: superId, name: "Fleet operator", role: "SUPERADMIN_AUTERVA", email: `fleet-op-${superId}@example.test`, emailVerified: true, twoFactorEnabled: true } });
     }
+    await resetPlatformApiBudget(db, superId);
     session = await verifiedFixtureSession(db, superId);
     const [name, ...rest] = session.cookie.split("=");
     await context.addCookies([{ name, value: rest.join("="), url: origin }]);
@@ -165,12 +166,14 @@ test("company fleet by the superadmin: card -> fleet -> form -> photos -> calend
     await page.goto(`${origin}/firmy/${orgA}/podglad/pojazdy/${carA}/`);
     await expect(page.getByRole("heading", { name: "Auto Alfa w archiwum" })).toBeVisible();
 
-    // The narrowest width for the list and the form (the reads of the shared superadmin are budgeted per minute, so no wider sweep here).
-    await page.setViewportSize({ width: 320, height: 900 });
-    for (const path of ["pojazdy/", `pojazdy/${carA}/`]) {
-      await page.goto(`${origin}/firmy/${orgA}/${path}`);
-      await expect(page.locator("main")).toBeVisible();
-      await noOverflow(`${path} at 320px`);
+    // Wide layout too: the budget of the shared superadmin was reset at the start of the spec.
+    for (const width of [320, 768, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      for (const path of ["pojazdy/", `pojazdy/${carA}/`, `pojazdy/${carA}/kalendarz/`, "podglad/"]) {
+        await page.goto(`${origin}/firmy/${orgA}/${path}`);
+        await expect(page.locator("main")).toBeVisible();
+        await noOverflow(`${path} at ${width}px`);
+      }
     }
   } finally {
     await context.close();

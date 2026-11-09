@@ -40,6 +40,7 @@ test("public materials: card entry, file error keeps data, preview follows the s
         email: `materials-op-${superId}@example.test`, emailVerified: true, twoFactorEnabled: true } });
     }
     await resetPlatformApiBudget(db, superId);
+    await resetPlatformApiBudget(db, superId);
     session = await verifiedFixtureSession(db, superId);
     const [name, ...rest] = session.cookie.split("=");
     await context.addCookies([{ name, value: rest.join("="), url: origin }]);
