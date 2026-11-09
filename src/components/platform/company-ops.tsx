@@ -76,8 +76,13 @@ function StatusRow({ label, ok, value, detail }: { label: string; ok: boolean; v
     <div className={styles.statusRow}>
       <dt>{label}</dt>
       <dd className={ok ? styles.ok : styles.off}>
-        <Icon size={16} aria-hidden="true" /> {value}
-        {detail && <span className={styles.detail}>{detail}</span>}
+        <span className={styles.statusLine}>
+          <Icon size={16} aria-hidden="true" />
+          <span>
+            {value}
+            {detail && <span className={styles.detail}>{detail}</span>}
+          </span>
+        </span>
       </dd>
     </div>
   );
@@ -160,6 +165,7 @@ function PeriodSection({ company, base, reload }: SectionProps) {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [fieldError, setFieldError] = useState("");
   const eventKey = useRef<string>(newIdempotencyKey());
+  const attempt = useRef<{ version: number; next: string | null } | null>(null);
   const dirty = draft !== server;
   const next = draft === "" ? null : draft;
   const effect = dirty ? shorteningEffect(company, next) : null;
@@ -218,7 +224,13 @@ function PeriodSection({ company, base, reload }: SectionProps) {
       return;
     }
     if (result.code === "INVALID_PAID_THROUGH") setFieldError("Ta data jest niedozwolona.");
-    setUncertain(isUncertain(result));
+    if (isUncertain(result)) {
+      // The write may have been committed: read the state first, then say what is true.
+      attempt.current = { version: company.period.periodVersion ?? 0, next };
+      await resolveUncertain(result.requestId);
+      return;
+    }
+    setUncertain(false);
     setNotice(
       failureNotice(result, {
         INVALID_PAID_THROUGH: "Data opłaty jest niepoprawna lub poza dozwolonym zakresem.",
@@ -228,17 +240,42 @@ function PeriodSection({ company, base, reload }: SectionProps) {
     );
   }
 
-  async function checkState() {
-    const fresh = await reload();
-    setUncertain(false);
-    if (fresh && (fresh.period.paidThrough ?? "") === draft && draft !== "") {
-      setTouched(false);
-      setNotice({ tone: "success", text: "Zmiana została zapisana. Pokazujemy aktualny stan." });
-    } else if (fresh)
+  /** After a lost or 5xx answer: read the current period and report saved / not saved / changed elsewhere. */
+  async function resolveUncertain(requestId?: string | null) {
+    const sent = attempt.current;
+    const fresh = sent ? await reload() : null;
+    if (!sent || !fresh) {
+      setUncertain(true);
       setNotice({
         tone: "warning",
-        text: "Zmiana nie została zapisana. Twoja data pozostaje w polu; zapisz ją ponownie.",
+        text: "Nie wiemy, czy zmiana została zapisana, a odczyt stanu się nie udał. Spróbuj sprawdzić stan jeszcze raz.",
+        requestId,
       });
+      return;
+    }
+    setUncertain(false);
+    const version = fresh.period.periodVersion ?? 0;
+    if ((fresh.period.paidThrough ?? null) === sent.next && version > sent.version) {
+      setTouched(false);
+      setConflict(false);
+      eventKey.current = newIdempotencyKey();
+      setNotice({ tone: "success", text: "Zmiana została zapisana. Pokazujemy aktualny stan." });
+    } else if (version !== sent.version) {
+      setConflict(true);
+      setNotice({
+        tone: "warning",
+        text: `Okres został zmieniony w innej sesji. Aktualnie zapisano: ${fresh.period.paidThrough ? `do ${formatLocalDate(fresh.period.paidThrough)} włącznie` : "brak opłaty"}. Twoja data pozostaje w polu.`,
+      });
+    } else {
+      setNotice({
+        tone: "warning",
+        text: "Nie znaleziono zapisu tej zmiany w aktualnym stanie. Twoja data pozostaje w polu; zapisz ją ponownie, jeśli nadal jej chcesz.",
+      });
+    }
+  }
+
+  async function checkState() {
+    await resolveUncertain();
   }
 
   return (

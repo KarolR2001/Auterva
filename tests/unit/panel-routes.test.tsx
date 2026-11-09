@@ -45,6 +45,7 @@ vi.mock("@/modules/auth/authorization", () => ({
 
 import AdminPage from "../../src/app/admin/page";
 import HomePage from "../../src/app/page";
+import CompaniesPage from "../../src/app/firmy/page";
 import NotFound from "../../src/app/not-found";
 
 beforeEach(() => {
@@ -235,5 +236,21 @@ describe("panelowe 404 (ADM-20)", () => {
       expect(html).toBe("<main><h1>Nie znaleziono strony</h1></main>");
     }
     expect(dependencies.findOrganization).not.toHaveBeenCalled();
+  });
+
+  it("/firmy ma tę samą politykę co `/`: anonim idzie do /login, admin firmy dostaje 404, host spoza platformy 404", async () => {
+    dependencies.resolveRequestArea.mockResolvedValue({ area: "PLATFORM", organizationId: null });
+    dependencies.requireAuthorizedActor.mockResolvedValue(null);
+    dependencies.getSession.mockResolvedValue(null);
+    await expect(CompaniesPage()).rejects.toThrow("REDIRECT:/login");
+    await expect(HomePage()).rejects.toThrow("REDIRECT:/login");
+
+    dependencies.getSession.mockResolvedValue({ user: { id: "admin-firmy" } });
+    dependencies.requireScopedActor.mockResolvedValue(null);
+    await expect(CompaniesPage()).rejects.toThrow("NOT_FOUND");
+    await expect(HomePage()).rejects.toThrow("NOT_FOUND");
+
+    dependencies.resolveRequestArea.mockResolvedValue({ area: "COMPANY_ADMIN", organizationId: "firma-alfa" });
+    await expect(CompaniesPage()).rejects.toThrow("NOT_FOUND");
   });
 });
