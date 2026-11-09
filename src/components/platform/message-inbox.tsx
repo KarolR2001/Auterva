@@ -62,6 +62,8 @@ export function MessageInbox({ accountId, initialSelected }: Props) {
   const title = useRef<HTMLHeadingElement>(null);
   const rowButtons = useRef(new Map<string, HTMLButtonElement>());
   const focusTarget = useRef<"title" | string | null>(null);
+  // Companies the server reported as archived (409 from a late send, frames): remembered per company, never per selection.
+  const archivedHints = useRef(new Set<string>());
 
   const commitRows = useCallback((next: InboxRow[]) => { rowsRef.current = next; setRows(next); }, []);
   useEffect(() => { selectedRef.current = selected; }, [selected]);
@@ -146,6 +148,8 @@ export function MessageInbox({ accountId, initialSelected }: Props) {
         else {
           const result = applyFrame(rowsRef.current, frame.frame, includeRef.current);
           commitRows(result.rows);
+          if (frame.frame.archived) archivedHints.current.add(frame.frame.organizationId);
+          else archivedHints.current.delete(frame.frame.organizationId);
           const open = selectedRef.current;
           if (open && open.organizationId === frame.frame.organizationId && open.archived !== frame.frame.archived) {
             setSelected({ ...open, archived: frame.frame.archived });
@@ -186,13 +190,15 @@ export function MessageInbox({ accountId, initialSelected }: Props) {
         return row ? asSelection(row) : null;
       })() : null;
       focusTarget.current = next ? "title" : selectedRef.current?.organizationId ?? null;
-      setSelected(next ?? null);
+      if (id && !next) window.history.replaceState(null, "", inboxUrl(null)); // unknown company: never keep a dangling address
+      setSelected(next ? { ...next, archived: next.archived || archivedHints.current.has(next.organizationId) } : null);
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
-  function open(next: InboxSelection) {
+  function open(raw: InboxSelection) {
+    const next = { ...raw, archived: raw.archived || archivedHints.current.has(raw.organizationId) };
     if (selected?.organizationId === next.organizationId) { focusTarget.current = "title"; title.current?.focus(); return; }
     known.current.set(next.organizationId, next);
     focusTarget.current = "title";
@@ -216,8 +222,12 @@ export function MessageInbox({ accountId, initialSelected }: Props) {
 
   const selectedRow = selected ? rows.find((row) => row.organizationId === selected.organizationId) ?? null : null;
   const archived = selected ? selected.archived || (selectedRow?.archived ?? false) : false;
-  const markArchived = useCallback(() => {
-    setSelected((current) => (current && !current.archived ? { ...current, archived: true } : current));
+  // Bound to the company that reported it: a late answer of conversation A must never switch the open conversation B.
+  const markArchived = useCallback((organizationId: string) => {
+    archivedHints.current.add(organizationId);
+    const meta = known.current.get(organizationId);
+    if (meta) known.current.set(organizationId, { ...meta, archived: true });
+    setSelected((current) => (current && current.organizationId === organizationId && !current.archived ? { ...current, archived: true } : current));
     void refreshRef.current();
   }, []);
 
@@ -314,7 +324,7 @@ export function MessageInbox({ accountId, initialSelected }: Props) {
                 loginHref="/login?returnTo=%2Fwiadomosci%2F"
                 embedded
                 readOnly={archived}
-                onArchived={markArchived}
+                onArchived={() => markArchived(selected.organizationId)}
                 reportsUnread={false}
               />
             </div>

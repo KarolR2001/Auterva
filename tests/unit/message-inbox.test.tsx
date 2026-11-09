@@ -191,6 +191,37 @@ describe("skrzynka superadmina (#53)", () => {
     expect(screen.getByRole("button", { name: "Odrzuć niewysłaną wiadomość" })).toBeInTheDocument();
   });
 
+  it("spóźnione 409 dla A po przejściu do B nie przełącza B w odczyt; A po powrocie pokazuje odmowę archiwum", async () => {
+    mockApi([row(A, "Alfa Rent"), row(B, "Beta Cars")]);
+    archivedOrgs.add(A);
+    let release!: () => void;
+    sendGate = new Promise<void>((resolve) => { release = resolve; });
+    const user = userEvent.setup();
+    renderInbox();
+    await openRow(user, "Alfa Rent");
+    await user.type(composer("Alfa Rent"), "do Alfy");
+    await user.click(screen.getByRole("button", { name: "Wyślij" }));
+    await waitFor(() => expect(posts).toHaveLength(1));
+    await openRow(user, "Beta Cars");
+    act(() => release());
+    await waitFor(() => expect(loadPending("super-1", "conv-1")?.status).toBe("failed"));
+    expect(composer("Beta Cars")).toBeInTheDocument();
+    expect(screen.queryByText(/jest zarchiwizowana/)).toBeNull();
+    await openRow(user, "Alfa Rent");
+    expect(await screen.findByText("Ta firma jest zarchiwizowana — nie można pisać.")).toBeInTheDocument();
+  });
+
+  it("nieznane ?firma= po Wstecz czyści adres", async () => {
+    mockApi([row(A, "Alfa Rent")]);
+    const user = userEvent.setup();
+    renderInbox();
+    await openRow(user, "Alfa Rent");
+    window.history.pushState(null, "", `/wiadomosci/?firma=${Z}`);
+    act(() => { window.dispatchEvent(new PopStateEvent("popstate")); });
+    await waitFor(() => expect(window.location.search).toBe(""));
+    await waitFor(() => expect(screen.queryByRole("textbox")).toBeNull());
+  });
+
   it("ramka conversation aktualizuje licznik, a starsza ramka (niższy klucz) go nie cofa", async () => {
     mockApi([row(A, "Alfa Rent", { unread: 1, lastSeq: 2, readSeq: 0 })]);
     renderInbox();

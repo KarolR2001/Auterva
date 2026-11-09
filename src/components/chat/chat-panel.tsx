@@ -77,6 +77,8 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
   const readOnlyRef = useRef(readOnly);
   const onArchivedRef = useRef(onArchived);
   useEffect(() => { readOnlyRef.current = readOnly; onArchivedRef.current = onArchived; });
+  // A request that outlives this panel (conversation switched) must not call back into the host.
+  useEffect(() => () => { onArchivedRef.current = undefined; }, []);
 
   const list = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
