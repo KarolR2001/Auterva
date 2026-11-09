@@ -164,6 +164,17 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
       </div>
 
       <CompanyStatus company={company} />
+      <section className={styles.panelCard} aria-labelledby="company-messages">
+        <h2 id="company-messages" className={styles.sectionTitle}>Wiadomości</h2>
+        <p className={styles.opsHint}>
+          {archived ? "Firma jest zarchiwizowana: historia rozmowy jest dostępna tylko do odczytu." : `Rozmowa z firmą ${company.name}: tylko ta firma jest odbiorcą.`}
+        </p>
+        {(company.conversationId || !archived) && (
+          <Link className={styles.openLink} href={`/wiadomosci/?firma=${encodeURIComponent(company.organizationId)}`} prefetch={false}>
+            {company.conversationId ? "Otwórz wiadomości" : "Napisz do firmy"}
+          </Link>
+        )}
+      </section>
       <PeriodSection company={company} base={opsBase} reload={() => refresh(true)} />
 
       <section className={styles.section} aria-labelledby="company-data">
