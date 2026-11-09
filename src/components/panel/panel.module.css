@@ -16,7 +16,8 @@
 }
 
 .accessCard h1,
-.feedback h1 {
+.feedback h1,
+.feedback h2 {
   margin: var(--space-3) 0;
   color: var(--text-primary);
   font-size: var(--font-size-32);

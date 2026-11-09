@@ -100,6 +100,8 @@ type PanelFeedbackProps = {
   onRetry?: () => void;
   chatHref?: string;
   canOpenChat?: boolean;
+  /** Use "h2" inside PanelShell, whose topbar already owns the h1. */
+  headingLevel?: "h1" | "h2";
 };
 
 export function PanelFeedback({
@@ -110,17 +112,18 @@ export function PanelFeedback({
   onRetry,
   chatHref,
   canOpenChat = false,
+  headingLevel: Heading = "h1",
 }: PanelFeedbackProps) {
   return (
     <section className={styles.feedback} aria-labelledby="panel-feedback-title">
       <span className={styles.eyebrow}>
         {kind === "not-found" ? "404" : "Błąd"}
       </span>
-      <h1 id="panel-feedback-title">
+      <Heading id="panel-feedback-title">
         {kind === "not-found"
           ? "Nie znaleziono strony"
           : "Nie udało się otworzyć strony"}
-      </h1>
+      </Heading>
       <p>
         {kind === "not-found"
           ? "Adres mógł się zmienić albo strona nie istnieje."
