@@ -25,6 +25,21 @@ type Props = {
   /** Instrumental form for the subtitle ("kontakt z Autervą"); defaults to peerLabel. */
   peerWith?: string;
   loginHref: string;
+  /** Sender label of own messages; defaults to the company name (company panel). The superadmin inbox signs "Auterva". */
+  ownLabel?: string;
+  /** Who owns the draft in the composer hint ("Szkic Auterva · odbiorca: …"); defaults to the company name. */
+  draftOwner?: string;
+  /** Replaces the default subtitle (the superadmin inbox states the recipient there). */
+  subtitle?: string;
+  emptyText?: string;
+  /** Fills the pane of a split view instead of the page height. */
+  embedded?: boolean;
+  /** Archived company (D-23): history only, no composer, no typing and no read signals. */
+  readOnly?: boolean;
+  /** The server answered that the company is archived (409 / WebSocket error): the host view switches to read-only. */
+  onArchived?: () => void;
+  /** The inbox reports the sum of all conversations itself, so one open conversation must not overwrite it. */
+  reportsUnread?: boolean;
 };
 
 type History = {
@@ -41,7 +56,8 @@ function wsUrl(organizationId: string, after: string | null) {
   return `${scheme}://${window.location.host}/ws?organizationId=${encodeURIComponent(organizationId)}${after ? `&after=${encodeURIComponent(after)}` : ""}`;
 }
 
-export function ChatPanel({ accountId, organizationId, conversationId: initialConversation, apiBase, peerLabel, companyName, peerWith, loginHref }: Props) {
+export function ChatPanel({ accountId, organizationId, conversationId: initialConversation, apiBase, peerLabel, companyName, peerWith, loginHref,
+  ownLabel, draftOwner, subtitle, emptyText, embedded = false, readOnly = false, onArchived, reportsUnread = true }: Props) {
   const [phase, setPhase] = useState<"loading" | "error" | "ready">("loading");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [conversationId, setConversationId] = useState(initialConversation);
@@ -56,7 +72,11 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
   const conversationKey = conversationId ?? `org:${organizationId}`;
   const [draft, setDraft] = useState("");
   const [draftKeyLoaded, setDraftKeyLoaded] = useState<string | null>(null);
-  const reportUnread = useReportChatUnread();
+  const shellReportUnread = useReportChatUnread();
+  const reportUnread = useCallback((count: number) => { if (reportsUnread) shellReportUnread(count); }, [reportsUnread, shellReportUnread]);
+  const readOnlyRef = useRef(readOnly);
+  const onArchivedRef = useRef(onArchived);
+  useEffect(() => { readOnlyRef.current = readOnly; onArchivedRef.current = onArchived; });
 
   const list = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
@@ -215,6 +235,7 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
         if (frame.active) typingTimer.current = window.setTimeout(() => setPeerTyping(false), TYPING_EXPIRY_MS);
         break;
       case "error":
+        if (frame.code === "CHAT_ORGANIZATION_ARCHIVED") onArchivedRef.current?.();
         break;
     }
   }, [catchUp, reportUnread, settle]);
@@ -297,7 +318,7 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
     const visible = { intersecting: false };
     const arm = () => {
       if (timer) { window.clearTimeout(timer); timer = null; }
-      if (!visible.intersecting || document.visibilityState !== "visible" || lastReadSent.current === lastPeerId) return;
+      if (readOnlyRef.current || !visible.intersecting || document.visibilityState !== "visible" || lastReadSent.current === lastPeerId) return;
       timer = window.setTimeout(() => {
         const ws = socket.current;
         if (ws?.readyState === WebSocket.OPEN && lastReadSent.current !== lastPeerId) {
@@ -325,7 +346,7 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
     setDraft(value);
     const now = Date.now();
     const ws = socket.current;
-    if (value && ws?.readyState === WebSocket.OPEN && now - typingSent.current >= TYPING_THROTTLE_MS) {
+    if (value && !readOnlyRef.current && ws?.readyState === WebSocket.OPEN && now - typingSent.current >= TYPING_THROTTLE_MS) {
       typingSent.current = now;
       ws.send(JSON.stringify({ type: "typing" }));
     }
@@ -362,12 +383,14 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
     }
     const code = response ? ((await response.json().catch(() => null)) as { code?: string } | null)?.code ?? null : null;
     const failure = classifySend(response ? response.status : null, code, response?.headers.get("Retry-After") ?? null);
+    if (code === "CHAT_ORGANIZATION_ARCHIVED") onArchivedRef.current?.();
     savePending(accountId, keyRef.current, { clientMessageId, body: text, status: failure.kind, message: failure.message });
     setPending({ clientMessageId, body: text, status: failure.kind, failure });
     setAnnouncement(failure.message);
   }, [accountId, apiBase, conversationId, setPending]);
 
   function submit() {
+    if (readOnly) return;
     const text = draft.replace(/\r\n?/g, "\n");
     if (pending || !text.trim() || [...text].length > MAX_CODE_POINTS) return;
     setDraft("");
@@ -385,6 +408,8 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
     composer.current?.focus();
   }
 
+  function discardPending() { settle(keyRef.current); }
+
   const ownRead = useMemo(() => readOwnIds(messages, readThrough), [messages, readThrough]);
   const overLimit = [...draft].length > MAX_CODE_POINTS;
   const nearLimit = [...draft].length > MAX_CODE_POINTS - 200;
@@ -400,9 +425,9 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
     return headers;
   }, [messages]);
   return (
-    <section className={styles.chat} aria-labelledby="chat-title">
+    <section className={styles.chat} data-embedded={embedded || undefined} aria-labelledby="chat-title">
       <h2 id="chat-title" className={styles.srOnly}>Czat z {peerWith ?? peerLabel}</h2>
-      <p className={styles.subtitle}>{companyName} · kontakt z {peerWith ?? peerLabel}</p>
+      <p className={styles.subtitle}>{subtitle ?? `${companyName} · kontakt z ${peerWith ?? peerLabel}`}</p>
       <div className={styles.status} role="status">
         {connection === "online" && <span><span className={styles.onlineDot} aria-hidden="true" />Online</span>}
         {connection === "connecting" && <span>Łączenie…</span>}
@@ -423,7 +448,7 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
           </Button>
         )}
         {phase === "ready" && messages.length === 0 && !pending && (
-          <p className={styles.note}>Brak wiadomości. Napisz do {peerLabel}, np. o rozliczeniu, domenie albo zmianie danych firmy.</p>
+          <p className={styles.note}>{emptyText ?? `Brak wiadomości. Napisz do ${peerLabel}, np. o rozliczeniu, domenie albo zmianie danych firmy.`}</p>
         )}
         {messages.map((message) => {
           const header = dayHeaders.get(message.id) ?? null;
@@ -431,7 +456,7 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
             <div key={message.id}>
               {header && <p className={styles.day}>{header}</p>}
               <article className={styles.message} data-own={message.own || undefined} data-message-id={message.id}>
-                <p className={styles.sender}>{message.own ? companyName : peerLabel}</p>
+                <p className={styles.sender}>{message.own ? (ownLabel ?? companyName) : peerLabel}</p>
                 <p className={styles.body}>{message.body}</p>
                 <p className={styles.meta}>
                   <time dateTime={message.createdAt}>{time.format(new Date(message.createdAt))}</time>
@@ -443,13 +468,18 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
         })}
         {pending && (
           <article className={styles.message} data-own data-pending={pending.status}>
-            <p className={styles.sender}>{companyName}</p>
+            <p className={styles.sender}>{ownLabel ?? companyName}</p>
             <p className={styles.body}>{pending.body}</p>
             <p className={styles.meta}>
               {pending.status === "sending" ? "Wysyłanie…" : pending.status === "uncertain" ? "Niepewny wynik wysyłki" : "Nie wysłano"}
             </p>
             {pending.failure && <p role="alert" className={styles.failure}>{pending.failure.message}</p>}
-            {pending.status !== "sending" && (
+            {pending.status !== "sending" && readOnly && (
+              <div className={styles.actions}>
+                <Button size="sm" variant="secondary" onClick={discardPending}>Odrzuć niewysłaną wiadomość</Button>
+              </div>
+            )}
+            {pending.status !== "sending" && !readOnly && (
               <div className={styles.actions}>
                 <Button size="sm" onClick={retry} disabled={retryBlocked}>{retryBlocked ? "Poczekaj chwilę" : "Ponów wysyłkę"}</Button>
                 {pending.status === "failed" && <Button size="sm" variant="secondary" onClick={editAgain}>Edytuj tekst</Button>}
@@ -466,6 +496,11 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
         </button>
       )}
 
+      {readOnly ? (
+        <Alert tone="info" title={`Firma ${companyName} jest zarchiwizowana.`}>
+          Historia rozmowy jest dostępna, ale nie można pisać nowych wiadomości, dopóki firma nie zostanie przywrócona.
+        </Alert>
+      ) : (
       <form className={styles.composer} onSubmit={(event) => { event.preventDefault(); submit(); }}>
         <label htmlFor="chat-composer" className={styles.srOnly}>Napisz wiadomość do {peerLabel}</label>
         <textarea
@@ -477,13 +512,14 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
         <p id="chat-composer-hint" className={styles.hint}>
           {overLimit ? "Wiadomość może mieć najwyżej 4 000 znaków."
             : nearLimit ? `Zostało ${MAX_CODE_POINTS - [...draft].length} znaków.`
-            : `Szkic ${companyName} · odbiorca: ${peerLabel}, zapisany na tym urządzeniu • Ctrl/⌘ + Enter wysyła • bez załączników`}
+            : `Szkic ${draftOwner ?? companyName} · odbiorca: ${peerLabel}, zapisany na tym urządzeniu • Ctrl/⌘ + Enter wysyła • bez załączników`}
         </p>
         <Button type="submit" icon={<Send size={16} aria-hidden="true" />}
           disabled={!draft.trim() || overLimit || pending !== null}>
           Wyślij
         </Button>
       </form>
+      )}
       <div className={styles.srOnly} role="status" aria-live="polite">{announcement}</div>
     </section>
   );

@@ -1551,6 +1551,27 @@
       "testPaths": ["tests/unit/sessions-view.test.tsx", "tests/e2e/account-ui.spec.ts"]
     },
     {
+      "issue": 53,
+      "scope": "PLT-09 skrzynka superadmina (/wiadomosci): lista rozmów (firma, ostatnia wiadomość, czas, nowe tekstem, filtr archiwum; bez wyszukiwania, bo kontrakt go nie przewiduje), jeden kanał platformy /ws/platform z regułą klucza (version, lastSeq, readSeq) i odświeżaniem co 30 s, wspólny widok rozmowy z #52 (ChatPanel) z jednoznacznym odbiorcą, osobne szkice i niewysłane wiadomości per (konto, rozmowa), przełączanie bez dialogu i bez utraty szkicu (remount per firma, wynik starego żądania zostaje przy swojej rozmowie), archiwum tylko do odczytu (409 CHAT_ORGANIZATION_ARCHIVED), split-view od 1024 px, osobne widoki i Wstecz poniżej, wejście z karty firmy (?firma=). Bez załączników i poczty. Porównanie z Penpotem DEFERRED (#263).",
+      "relatedRequirementIds": ["C-F121", "C-F122", "C-F123", "C-F124", "C-F134", "C-F135", "C-F136", "C-F137", "DS-N09"],
+      "referenceScreenIds": ["PLT-09"],
+      "scenarioStates": {
+        "mobile": "PLT-09 / Messages / Mobile / state=conversation",
+        "desktop": "PLT-09 / Messages / Desktop / state=split-view"
+      },
+      "codePaths": [
+        "src/app/wiadomosci/page.tsx",
+        "src/components/platform/message-inbox.tsx",
+        "src/components/platform/inbox-state.ts",
+        "src/components/platform/inbox.module.css",
+        "src/components/platform/company-card.tsx",
+        "src/components/chat/chat-panel.tsx",
+        "src/components/chat/chat.module.css",
+        "src/components/panel/panel-shell.tsx"
+      ],
+      "testPaths": ["tests/unit/inbox-state.test.ts", "tests/unit/message-inbox.test.tsx", "tests/unit/chat-panel.test.tsx", "tests/e2e/messages-inbox.spec.ts"]
+    },
+    {
       "issue": 52,
       "scope": "TEN-11 czat firmy z Autervą (/admin/czat): historia i starsze strony, wysyłka z trwałym potwierdzeniem i tym samym clientMessageId przy ponowieniu, statusy Wysłano/Przeczytano, pisanie, wznowienie połączenia od kursora, 4401 bez ponownego łączenia, read po ok. 500 ms widoczności, akcja Nowe wiadomości bez wymuszonego scrolla, szkic lokalny per (konto, rozmowa) usuwany przy wylogowaniu i wyjęty z guardu niezapisanych zmian, wskaźnik nowych wiadomości w nawigacji. Bez załączników i poczty. Widok superadmina (skrzynka, rozmowa w kontekście firmy) poza zakresem.",
       "relatedRequirementIds": ["C-F115", "C-F116", "C-F117", "C-F118", "C-F119", "C-F120", "C-F121", "C-F122", "C-F123", "C-F124", "C-F125", "C-F126", "C-F127", "C-F128", "C-F129", "C-F130", "C-F131", "C-F132", "C-F133", "C-N051", "C-N054", "DS-N09"],

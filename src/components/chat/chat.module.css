@@ -172,3 +172,10 @@
   border-radius: var(--radius-full);
   background: var(--text-primary);
 }
+
+/* Superadmin inbox (#53): the conversation fills its pane of the split view. */
+.chat[data-embedded] {
+  height: 100%;
+  min-height: 0;
+  max-width: none;
+}

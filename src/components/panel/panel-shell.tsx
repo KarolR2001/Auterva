@@ -369,7 +369,7 @@ function AvailablePanelShell({
       | (typeof platformNavigation)[number],
   ) {
     const Icon = item.icon;
-    const chat = item.href === "/admin/czat" && unreadChat;
+    const chat = (item.href === "/admin/czat" || item.href === "/wiadomosci") && unreadChat;
     const current =
       isCurrent(currentPath, item.href) ||
       (area === "platform" && currentPath === "/" && item.href === "/firmy");
