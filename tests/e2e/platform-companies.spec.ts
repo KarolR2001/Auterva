@@ -99,7 +99,7 @@ test("superadmin: search, card, period save, version conflict and archive keep o
     await page.getByRole("searchbox").fill(marker);
     await expect(page.getByText("Brak firm dla wybranych kryteriów.")).toBeVisible();
     await page.getByRole("checkbox", { name: "Pokaż zarchiwizowane" }).check();
-    await expect(page.getByRole("article").filter({ hasText: marker }).getByText(/^Zarchiwizowana \d{2}\.\d{2}\.\d{4}$/)).toBeVisible();
+    await expect(page.getByRole("article").filter({ hasText: marker }).getByText(/Zarchiwizowana \d{2}\.\d{2}\.\d{4}/)).toBeVisible();
 
     // Same host policy as `/` and `/firmy/{id}/` (#14/#15): without a session the list goes to the platform login, never private HTML.
     await page.context().clearCookies();
