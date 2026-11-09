@@ -12,6 +12,7 @@ Te same use case obsługują admina firmy na aktywnym hoście `COMPANY_ADMIN` or
 | `/api/admin/vehicles/{id}` | `/api/platform/companies/{organizationId}/vehicles/{id}` | GET szczegóły, PATCH pola |
 | `/api/admin/vehicles/{id}/{publish\|unpublish\|archive}` | `/api/platform/companies/{organizationId}/vehicles/{id}/{publish\|unpublish\|archive}` | POST status |
 | `/api/admin/vehicles/reorder` | `/api/platform/companies/{organizationId}/vehicles/reorder` | POST kolejność |
+| `/api/admin/vehicle-categories` | `/api/platform/companies/{organizationId}/vehicle-categories` | GET lista kategorii (`id`, `name`, `requiresSeats`) do selektora formularza (#35); kategorie są globalne, odczyt wymaga tej samej autoryzacji |
 
 Każde wejście sprawdza host, pełną sesję MFA, rolę i firmę. Zapisy wymagają zgodnego Origin; odpowiedzi mają `Cache-Control: no-store` i serwerowy `X-Request-Id`. Nie ma zapisu na hoście publicznym. Po zwykłym wygaśnięciu okresu panel i zapis pozostają dostępne, lecz centralna bramka nadal odmawia publicznego odczytu. Archiwizacja firmy blokuje sesję i zapis administratora; superadmin w jej kontekście nadal zapisuje flotę i zdjęcia (D-23, #151: tworzenie, edycja, status, kolejność; publikacja zmienia status, ale strona publiczna pozostaje wyłączona), a audyt niesie `context: "ARCHIVED_COMPANY"` ([archiwizacja](company-archive-restore.md)). ID obcej firmy lub pojazdu zwraca kontrolowaną odmowę bez ujawniania rekordu.
 

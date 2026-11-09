@@ -65,6 +65,55 @@ function post<T>(url: string, body: object) {
   return call<T>(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 }
 
+export type VehicleDetail = {
+  id: string; status: VehicleStatus; version: number; updatedAt: string; slug: string | null; name: string | null;
+  brand: string | null; model: string | null; variant: string | null; year: number | null; categoryId: string | null;
+  category: { id: string; name: string; requiresSeats: boolean } | null; shortDescription: string | null;
+  description: string | null; seats: number | null; doors: number | null; transmission: string | null; drive: string | null;
+  fuel: string | null; color: string | null; luggage: string | null; price: string | null; priceUnit: string | null;
+  featured: boolean; sortOrder: number; availableFrom: string | null; availableTo: string | null;
+  features: { code: string; value: string | null }[];
+  images: { id: string; status: string; isCover: boolean; alt: string }[];
+};
+export type VehicleFieldsPayload = Partial<Pick<VehicleDetail, "name" | "slug" | "brand" | "model" | "variant" | "year" | "categoryId"
+  | "shortDescription" | "description" | "seats" | "doors" | "transmission" | "drive" | "fuel" | "color" | "luggage" | "price"
+  | "priceUnit" | "featured" | "sortOrder" | "availableFrom" | "availableTo" | "features">>;
+export type VehicleMutation = { id: string; status: VehicleStatus; version: number; slug: string | null; sortOrder: number;
+  price: string | null; updatedAt: string };
+export type VehicleCategory = { id: string; name: string; requiresSeats: boolean };
+/** Error result with the field errors the server returned (400 INVALID_INPUT, 409 PUBLISHING_REQUIREMENTS_NOT_MET). */
+export type FieldErrorMap = Record<string, string>;
+
+async function callWithFields<T>(url: string, init: RequestInit): Promise<ApiResult<T> & { fieldErrors?: FieldErrorMap }> {
+  try {
+    const response = await fetch(url, { ...init, cache: "no-store", credentials: "same-origin" });
+    const body = await response.json().catch(() => ({})) as Record<string, unknown>;
+    if (response.ok) return { ok: true, data: body as T };
+    const fieldErrors = body.fieldErrors && typeof body.fieldErrors === "object" ? body.fieldErrors as FieldErrorMap : undefined;
+    return { ok: false, status: response.status, code: typeof body.code === "string" ? body.code : "UNKNOWN",
+      ...(fieldErrors ? { fieldErrors } : {}) };
+  } catch { return { ok: false, status: 0, code: "NETWORK" }; }
+}
+
+export function readVehicle(context: PanelContext, id: string, signal?: AbortSignal) {
+  return call<VehicleDetail>(`${context.apiBase}/vehicles/${id}/`, { signal });
+}
+export function listCategories(context: PanelContext, signal?: AbortSignal) {
+  return call<{ items: VehicleCategory[] }>(`${context.apiBase}/vehicle-categories/`, { signal });
+}
+const json = { "Content-Type": "application/json" };
+export function createDraft(context: PanelContext, fields: VehicleFieldsPayload) {
+  return callWithFields<VehicleMutation>(`${context.apiBase}/vehicles/`, { method: "POST", headers: json, body: JSON.stringify({ fields }) });
+}
+export function updateVehicle(context: PanelContext, id: string, expectedVersion: number, fields: VehicleFieldsPayload, confirmSlugChange?: boolean) {
+  return callWithFields<VehicleMutation>(`${context.apiBase}/vehicles/${id}/`, { method: "PATCH", headers: json,
+    body: JSON.stringify({ expectedVersion, fields, ...(confirmSlugChange ? { confirmSlugChange: true } : {}) }) });
+}
+export function setVehicleStatus(context: PanelContext, id: string, action: "publish" | "unpublish" | "archive", expectedVersion: number) {
+  return callWithFields<VehicleMutation>(`${context.apiBase}/vehicles/${id}/${action}/`, { method: "POST", headers: json,
+    body: JSON.stringify({ expectedVersion }) });
+}
+
 export function changeStatus(context: PanelContext, id: string, action: "unpublish" | "archive", expectedVersion: number) {
   return post<FleetItem>(`${context.apiBase}/vehicles/${id}/${action}/`, { expectedVersion });
 }
@@ -88,6 +137,11 @@ const errorText: Record<string, string> = {
   FORBIDDEN: "Brak uprawnień lub sesja wygasła. Zaloguj się ponownie.",
   RATE_LIMITED: "Zbyt wiele żądań. Spróbuj ponownie za chwilę.",
   NETWORK: "Brak połączenia z serwerem. Zmiana nie została zapisana.",
+  FLEET_SLUG_CONFLICT: "Ten adres (slug) jest już zajęty w Twojej firmie. Wybierz inny.",
+  FLEET_INVALID_CATEGORY: "Wybrana kategoria nie istnieje. Wybierz kategorię z listy.",
+  FLEET_INVALID_ACTIVITY: "Koniec aktywności nie może być przed początkiem.",
+  FLEET_BLOCK_OUTSIDE_ACTIVITY: "Istnieje blokada terminu poza nowym okresem aktywności. Zmień blokadę albo zakres.",
+  INVALID_INPUT: "Serwer odrzucił dane. Sprawdź zaznaczone pola.",
 };
 export function errorMessage(code: string): string {
   return errorText[code] ?? "Operacja nie powiodła się. Zmiana nie została zapisana.";
