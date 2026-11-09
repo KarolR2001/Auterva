@@ -1,9 +1,9 @@
 "use client";
 
-import { CalendarSearch, Check, CircleSlash, LoaderCircle, TriangleAlert } from "lucide-react";
+import { CalendarSearch, Check, CircleSlash, LoaderCircle, TriangleAlert, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { createLatest, problemMessages, validateRange } from "@/modules/public-offer/availability-client";
+import { createLatest, problemMessages, validateRange, type RangeProblem } from "@/modules/public-offer/availability-client";
 import { addDays, calendarRange, catalogHref, catalogPath, contactHref, formatRangeShort, longDate, monthDays, monthLabel, pluralDays, shiftMonth, type DayState } from "@/modules/public-offer/presentation";
 
 import { rangeEvent } from "./contact-cta";
@@ -48,12 +48,19 @@ async function request<T>(url: string, init?: RequestInit): Promise<{ status: nu
  * form without script (the server renders the same result), and it never writes anything: contact only receives the
  * checked vehicle and dates.
  */
+/** Maps the server's verdict on a range from the URL to the matching message (reversed, unreadable, too long...). */
+function invalidProblem(initial: { from: string | null; to: string | null; invalid: "PAST_DATE" | "INVALID" | null }, today: string): RangeProblem {
+  if (initial.invalid === "PAST_DATE") return "PAST";
+  const checked = validateRange(initial.from ?? "", initial.to ?? "", today);
+  return checked.ok ? "INVALID" : checked.problem;
+}
+
 export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth, initial, others, othersComplete }: Props) {
   const initialRange = initial.from && initial.to ? validateRange(initial.from, initial.to, today) : null;
   const [from, setFrom] = useState(initial.from ?? "");
   const [to, setTo] = useState(initial.to ?? "");
   const [check, setCheck] = useState<Check>(() =>
-    initial.invalid ? { status: "invalid", message: problemMessages[initial.invalid === "PAST_DATE" ? "PAST" : "MISSING"] }
+    initial.invalid ? { status: "invalid", message: problemMessages[invalidProblem(initial, today)] }
       : initialRange?.ok && initial.available !== null ? { status: "done", range: initialRange, available: initial.available } : { status: "idle" });
   const [alternatives, setAlternatives] = useState<Alternatives>(() =>
     initialRange?.ok && initial.available === false ? (others.length === 0 ? { status: "ready", items: [] } : { status: "loading" }) : { status: "idle" });
@@ -325,7 +332,7 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
                         <button type="button" className={styles.dayButton} aria-pressed={selected} tabIndex={cell.date === tabStop ? 0 : -1}
                           ref={(node) => { if (node) buttons.current.set(cell.date, node); else buttons.current.delete(cell.date); }}
                           aria-label={`${longDate(cell.date)}, ${state === "unknown" ? "stan nieznany" : dayText[state]}${cell.date === today ? ", dzisiaj" : ""}${selected ? ", wybrany zakres" : ""}`}
-                          onFocus={() => setFocusDate(cell.date)} onKeyDown={(event) => onDayKey(event, cell.date)} onClick={() => pick(cell.date)}>{cell.day}</button>
+                          onFocus={() => setFocusDate(cell.date)} onKeyDown={(event) => onDayKey(event, cell.date)} onClick={() => pick(cell.date)}>{cell.day}{state === "unavailable" ? <X aria-hidden="true" size={12} className={styles.dayIcon} /> : null}</button>
                       )}
                       {state === "past" ? <span className={styles.srOnly}> minął</span> : null}
                     </td>
@@ -337,7 +344,8 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
         </table>
         <ul className={styles.legend} aria-label="Legenda kalendarza">
           <li><span className={`${styles.legendMark} ${styles.dayAvailable}`} aria-hidden="true" />Dostępny</li>
-          <li><span className={`${styles.legendMark} ${styles.dayUnavailable}`} aria-hidden="true" />Niedostępny (przekreślony)</li>
+          <li><span className={`${styles.legendMark} ${styles.dayUnavailable}`} aria-hidden="true" />Niedostępny (przekreślony, z krzyżykiem)</li>
+          <li><span className={`${styles.legendMark} ${styles.dayPast}`} aria-hidden="true" />Minął (szary, bez wyboru)</li>
           <li><span className={`${styles.legendMark} ${styles.dayToday}`} aria-hidden="true" />Dzisiaj</li>
           <li><span className={`${styles.legendMark} ${styles.daySelected}`} aria-hidden="true" />Wybrany zakres</li>
         </ul>

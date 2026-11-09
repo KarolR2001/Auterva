@@ -3,7 +3,7 @@ import { routeAllowedForArea } from "../../src/modules/tenancy/host-route-policy
 
 test.each([
   ["MARKETING", "/", true], ["MARKETING", "/robots.txt", true], ["MARKETING", "/sitemap.xml", true], ["COMPANY_ADMIN", "/sitemap.xml", false], ["MARKETING", "/admin/", false], ["MARKETING", "/api/auth/get-session", false],
-  ["PLATFORM", "/", true], ["PLATFORM", "/firmy/123", true], ["PLATFORM", "/api/platform/organizations", true],
+  ["PLATFORM", "/", true], ["PLATFORM", "/reset-hasla/abc", true], ["COMPANY_ADMIN", "/reset-hasla", false], ["COMPANY_ADMIN", "/admin/reset-hasla/abc", true], ["PLATFORM", "/firmy/123", true], ["PLATFORM", "/api/platform/organizations", true],
   ["PLATFORM", "/api/auth/sign-in/email", true], ["PLATFORM", "/admin/", false],
   ["COMPANY_ADMIN", "/admin/", true], ["COMPANY_ADMIN", "/admin/pojazdy", true],
   ["COMPANY_ADMIN", "/api/auth/get-session", true], ["COMPANY_ADMIN", "/api/admin/vehicles", true],
