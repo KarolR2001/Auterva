@@ -823,6 +823,17 @@
       "testPaths": ["tests/integration/launch-diagnostics.test.ts"]
     },
     {
+      "issue": 242,
+      "scope": "Mutacje domeny własnej a stan archiwum (D-23): superadmin nie zmienia domeny zarchiwizowanej firmy; stabilna odmowa 409 DOMAIN_COMPANY_ARCHIVED w transakcji z aktorem, rolą, firmą i stanem.",
+      "relatedRequirementIds": ["D-23", "C-F086", "C-F089"],
+      "codePaths": [
+        "docs/contracts/custom-domain-lifecycle.md",
+        "src/modules/domains/lifecycle.ts",
+        "src/modules/domains/http.ts"
+      ],
+      "testPaths": ["tests/integration/custom-domain-lifecycle.test.ts"]
+    },
+    {
       "issue": 23,
       "scope": "Cykl domeny własnej (własność TXT, CNAME, adresy publiczne, TLS i routing), osobny host panelu i neutralny nieznany host, przekierowanie aliasu po bramce widoczności; provisioning DNS/TLS i cykliczna kontrola w #10/#58.",
       "relatedRequirementIds": ["C-F004", "C-F086", "C-F087", "C-F088", "C-F089", "C-N008", "C-N024", "C-N058"],

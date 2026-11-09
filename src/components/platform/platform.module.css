@@ -119,8 +119,8 @@
 
 /* #27: lista firm, okres, archiwum */
 .page { display: grid; gap: var(--space-5); max-width: var(--content-admin-max); }
-.lead { margin: 0; color: var(--text-secondary); line-height: var(--line-height-24); }
-.hint { margin: 0; color: var(--text-secondary); font-size: var(--font-size-14); line-height: var(--line-height-20); }
+.opsLead { margin: 0; color: var(--text-secondary); line-height: var(--line-height-24); }
+.opsHint { margin: 0; color: var(--text-secondary); font-size: var(--font-size-14); line-height: var(--line-height-20); }
 .mono { font-size: var(--font-size-14); overflow-wrap: anywhere; }
 .kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
 .kpi { display: grid; gap: var(--space-1); padding: var(--space-4); border: var(--border-width-hairline) solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-default); }
@@ -138,9 +138,9 @@
 .companyHead h3 { display: inline-flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--font-size-18); line-height: var(--line-height-26); }
 .hostLine { margin: 0; color: var(--text-secondary); font-size: var(--font-size-14); overflow-wrap: anywhere; }
 .period { margin: 0; font-weight: var(--font-weight-semibold); }
-.facts { display: flex; flex-wrap: wrap; gap: var(--space-6); margin: 0; }
-.facts dt { color: var(--text-secondary); font-size: var(--font-size-14); }
-.facts dd { margin: 0; display: inline-flex; align-items: center; gap: var(--space-1); }
+.opsFacts { display: flex; flex-wrap: wrap; gap: var(--space-6); margin: 0; }
+.opsFacts dt { color: var(--text-secondary); font-size: var(--font-size-14); }
+.opsFacts dd { margin: 0; display: inline-flex; align-items: center; gap: var(--space-1); }
 .ok { color: var(--status-success-text); }
 .off { color: var(--status-unavailable-text); }
 .detail { display: block; color: var(--text-secondary); font-size: var(--font-size-14); }
@@ -156,7 +156,7 @@
 .statusRow { display: grid; gap: var(--space-1); }
 .statusRow dt { color: var(--text-secondary); font-size: var(--font-size-14); }
 .statusRow dd { margin: 0; }
-.form { display: grid; gap: var(--space-4); }
+.opsForm { display: grid; gap: var(--space-4); }
 .unsaved { display: inline-flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--font-size-14); }
 .notice { display: flex; gap: var(--space-3); padding: var(--space-4); border: var(--border-width-hairline) solid var(--status-error-border); border-radius: var(--radius-md); background: var(--status-error-surface); color: var(--text-primary); }
 .notice p { margin: 0 0 var(--space-2); }

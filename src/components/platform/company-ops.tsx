@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, CircleAlert, CircleCheck, CircleSlash, Clock, MessageCircle, Settings } from "lucide-react";
+import { Archive, CircleAlert, CircleCheck, CircleSlash, Clock } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { useUnsavedChanges } from "../panel/unsaved-changes-guard";
@@ -85,7 +85,6 @@ function StatusRow({ label, ok, value, detail }: { label: string; ok: boolean; v
 
 /** Context, independent status rows and the superadmin entries into the company. */
 export function CompanyStatus({ company }: { company: CompanyCardData }) {
-  const id = encodeURIComponent(company.organizationId);
   const archived = !!company.archivedAt;
   const panel = company.hosts.find((host) => host.area === "COMPANY_ADMIN");
   const alias = company.hosts.find((host) => host.area === "COMPANY_PUBLIC" && host.kind === "PROVIDER");
@@ -97,14 +96,6 @@ export function CompanyStatus({ company }: { company: CompanyCardData }) {
       <p className={styles.hostLine}>
         Panel: {panel?.hostname ?? "brak"} · Strona: {customActive?.hostname ?? alias?.hostname ?? "brak"}
       </p>
-      <div className={styles.actionsRow}>
-        <a className={styles.linkButton} href={`/firmy/${id}/pojazdy`}>
-          <Settings size={20} aria-hidden="true" /> Zarządzaj firmą
-        </a>
-        <a className={styles.linkButtonSecondary} href={`/wiadomosci?firma=${id}`}>
-          <MessageCircle size={20} aria-hidden="true" /> Wiadomości
-        </a>
-      </div>
       <p className={styles.opsHint}>
         Działasz jako superadmin w kontekście firmy {company.name}. Nie przejmujesz konta administratora.
       </p>
@@ -113,7 +104,7 @@ export function CompanyStatus({ company }: { company: CompanyCardData }) {
         <h2 id="status-title" className={styles.sectionTitle}>
           Status firmy
         </h2>
-        <p className={styles.hint}>Okres, widoczność, dostęp i archiwizacja pozostają niezależne.</p>
+        <p className={styles.opsHint}>Okres, widoczność, dostęp i archiwizacja pozostają niezależne.</p>
         <dl className={styles.statusList}>
           <StatusRow
             label="Okres usługi"
@@ -255,7 +246,7 @@ function PeriodSection({ company, base, reload }: SectionProps) {
       <h2 id="period-title" className={styles.sectionTitle}>
         Okres usługi
       </h2>
-      <p className={styles.hint}>
+      <p className={styles.opsHint}>
         Ustaw okres widoczności publicznej strony firmy. Wpis nie potwierdza płatności; billing jest poza aplikacją.
       </p>
       <dl className={styles.statusList}>
@@ -279,7 +270,7 @@ function PeriodSection({ company, base, reload }: SectionProps) {
         </div>
       </dl>
       <form
-        className={styles.form}
+        className={styles.opsForm}
         noValidate
         onSubmit={(event) => {
           event.preventDefault();
@@ -289,10 +280,19 @@ function PeriodSection({ company, base, reload }: SectionProps) {
         <FormField
           id="paid-through"
           label="Opłacono do dnia włącznie"
-          hint="Data końcowa jest wliczona. Strefa: Europe/Warsaw. Puste pole usuwa opłatę."
+          hint={
+            company.archivedAt
+              ? "Firma jest zarchiwizowana. Najpierw ją przywróć, potem zmień okres."
+              : "Data końcowa jest wliczona. Strefa: Europe/Warsaw. Puste pole usuwa opłatę."
+          }
           error={fieldError}
         >
-          <TextInput type="date" value={draft} onChange={(event) => edit(event.target.value)} />
+          <TextInput
+            type="date"
+            value={draft}
+            disabled={!!company.archivedAt}
+            onChange={(event) => edit(event.target.value)}
+          />
         </FormField>
         {dirty && !conflict && (
           <p className={styles.unsaved} role="status">
@@ -370,7 +370,12 @@ function ArchiveSection({ company, base, reload }: SectionProps) {
   const [dialog, setDialog] = useState<"archive" | "restore" | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
-  const keyRef = useRef<string>(newIdempotencyKey());
+  // One key per operation kind: after an uncertain archive the next "restore" must not reuse the archive key.
+  const keys = useRef<Record<"archive" | "restore" | "unlock", string>>({
+    archive: newIdempotencyKey(),
+    restore: newIdempotencyKey(),
+    unlock: newIdempotencyKey(),
+  });
   const archived = !!company.archivedAt;
   const needsUnlock = !archived && company.publication.unlockRequired;
 
@@ -381,12 +386,12 @@ function ArchiveSection({ company, base, reload }: SectionProps) {
     const path = kind === "unlock" ? "public-unlock" : kind;
     const result = await platformRequest(`${base}/${path}/`, {
       method: "POST",
-      body: { expectedOrganizationVersion: company.organizationVersion, eventKey: keyRef.current },
+      body: { expectedOrganizationVersion: company.organizationVersion, eventKey: keys.current[kind] },
     });
     setBusy(false);
     setDialog(null);
     if (result.ok) {
-      keyRef.current = newIdempotencyKey();
+      keys.current[kind] = newIdempotencyKey();
       setNotice({
         tone: "success",
         text:
@@ -399,9 +404,10 @@ function ArchiveSection({ company, base, reload }: SectionProps) {
       await reload();
       return;
     }
-    if (!isUncertain(result)) keyRef.current = newIdempotencyKey();
+    if (!isUncertain(result)) keys.current[kind] = newIdempotencyKey();
     setNotice(
       failureNotice(result, {
+        PERIOD_VERSION_CONFLICT: "Okres usługi został zmieniony w innej sesji. Odświeżyliśmy kartę; sprawdź stan i spróbuj ponownie.",
         COMPANY_VERSION_CONFLICT: "Firma została zmieniona w innej sesji. Odświeżyliśmy kartę; sprawdź stan i spróbuj ponownie.",
         COMPANY_ALREADY_ARCHIVED: "Firma jest już zarchiwizowana.",
         COMPANY_NOT_ARCHIVED: "Firma nie jest zarchiwizowana.",
@@ -422,7 +428,7 @@ function ArchiveSection({ company, base, reload }: SectionProps) {
       <NoticeView notice={notice} />
       {needsUnlock && (
         <>
-          <p className={styles.hint}>
+          <p className={styles.opsHint}>
             Firma została przywrócona. Strona publiczna jest wyłączona do jawnego odblokowania i wymaga ważnej opłaty.
           </p>
           <Button
@@ -432,10 +438,10 @@ function ArchiveSection({ company, base, reload }: SectionProps) {
           >
             Odblokuj stronę publiczną
           </Button>
-          {!company.period.paidValid && <p className={styles.hint}>Najpierw wpisz ważną opłatę w okresie usługi.</p>}
+          {!company.period.paidValid && <p className={styles.opsHint}>Najpierw wpisz ważną opłatę w okresie usługi.</p>}
         </>
       )}
-      <p className={styles.hint}>
+      <p className={styles.opsHint}>
         {archived
           ? "Archiwum zachowuje dane i blokuje logowanie administratora oraz stronę publiczną. Jako superadmin nadal edytujesz dane firmy."
           : "Archiwizacja zachowa dane, wyłączy stronę publiczną i zablokuje logowanie administratora."}

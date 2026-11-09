@@ -67,7 +67,7 @@ export function CompanyListView() {
 
   return (
     <div className={styles.page}>
-      <p className={styles.lead}>Zarządzaj firmami i dostępem do usługi.</p>
+      <p className={styles.opsLead}>Zarządzaj firmami i dostępem do usługi.</p>
       <section aria-label="Podsumowanie okresów" className={styles.kpis}>
         <div className={styles.kpi}>
           <span className={styles.kpiLabel}>Opłacone</span>
@@ -82,7 +82,7 @@ export function CompanyListView() {
           </strong>
         </div>
       </section>
-      <p className={styles.hint}>Liczniki obejmują całą platformę, bez firm zarchiwizowanych.</p>
+      <p className={styles.opsHint}>Liczniki obejmują całą platformę, bez firm zarchiwizowanych.</p>
 
       <div className={styles.actionsRow}>
         <Link className={styles.linkButton} href="/firmy/nowa/" prefetch={false}>
@@ -138,7 +138,7 @@ export function CompanyListView() {
         </div>
       )}
       {state === "loading" && items.length === 0 && (
-        <p role="status" className={styles.hint}>
+        <p role="status" className={styles.opsHint}>
           Wczytywanie firm…
         </p>
       )}
@@ -174,9 +174,11 @@ export function CompanyListView() {
 
 function CompanyRow({ company }: { company: PlatformCompany }) {
   const panelHost = company.hosts.find((host) => host.area === "COMPANY_ADMIN");
-  const publicHost = company.hosts.find(
-    (host) => host.area === "COMPANY_PUBLIC" && host.kind === "PROVIDER",
-  );
+  // Same rule as the card: an active own domain, otherwise the provider alias.
+  const publicHost =
+    company.hosts.find(
+      (host) => host.area === "COMPANY_PUBLIC" && host.kind === "CUSTOM" && host.status === "ACTIVE",
+    ) ?? company.hosts.find((host) => host.area === "COMPANY_PUBLIC" && host.kind === "PROVIDER");
   const visible = company.publication.visible;
   return (
     <article className={styles.companyCard} aria-labelledby={`company-${company.organizationId}`}>
@@ -194,16 +196,17 @@ function CompanyRow({ company }: { company: PlatformCompany }) {
         Panel: {panelHost?.hostname ?? "brak"} · Strona: {publicHost?.hostname ?? "brak"}
       </p>
       <p className={styles.period}>{periodLabel(company)}</p>
-      <dl className={styles.facts}>
+      <dl className={styles.opsFacts}>
         <div>
           <dt>Widoczność</dt>
-          <dd className={visible ? styles.ok : styles.off} title={visibilityReason(company)}>
+          <dd className={visible ? styles.ok : styles.off}>
             {visible ? (
               <CircleCheck size={16} aria-hidden="true" />
             ) : (
               <CircleSlash size={16} aria-hidden="true" />
             )}{" "}
             {visible ? "Widoczna" : "Wyłączona"}
+            {!visible && <span className={styles.detail}>{visibilityReason(company)}</span>}
           </dd>
         </div>
         <div>

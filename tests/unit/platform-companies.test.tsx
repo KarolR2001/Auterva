@@ -102,6 +102,17 @@ describe("lista firm", () => {
     expect(String(fetchMock.mock.calls[0][0])).toContain("includeArchived=false");
   });
 
+  it("powód wyłączenia strony jest tekstem na liście, a lista nie linkuje do tras bez ekranów", async () => {
+    const off = company({ publication: { visible: false, domainReady: true, unlockRequired: false, requiresPaid: false },
+      period: { ...company().period, paidValid: false, publicVisible: false, headline: "EXPIRED" } });
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({ items: [off], total: 1, page: 1, pageSize: 20, kpis: { paidCompanies: 0, trialCompanies: 0 } }),
+    );
+    render(<CompanyListView />);
+    expect(await screen.findByText("Okres usługi wygasł.")).toBeVisible();
+    expect(document.querySelector('a[href*="pojazdy"], a[href*="wiadomosci"]')).toBeNull();
+  });
+
   it("filtr archiwum i szukanie trafiają do zapytania", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
       Response.json({ items: [], total: 0, page: 1, pageSize: 20, kpis: { paidCompanies: 0, trialCompanies: 0 } }),
@@ -150,6 +161,17 @@ describe("karta firmy i zmiana okresu", () => {
     await user.type(field, date);
     return user;
   }
+
+  it("firma zarchiwizowana ma pole okresu wyłączone z podpowiedzią o przywróceniu", async () => {
+    route({ card: () => company({ archivedAt: "2026-11-01T10:00:00.000Z" }) });
+    render(
+      <PanelShell area="platform" accessState="allowed" title="Firmy" currentPath="/firmy" onLogout={vi.fn()}>
+        <CompanyCard initial={company({ archivedAt: "2026-11-01T10:00:00.000Z" })} justSaved={false} />
+      </PanelShell>,
+    );
+    expect(await screen.findByLabelText("Opłacono do dnia włącznie")).toBeDisabled();
+    expect(screen.getByText(/Najpierw ją przywróć/)).toBeVisible();
+  });
 
   it("zapisuje okres z wersją i kluczem zdarzenia", async () => {
     const fetchMock = route({ patch: () => Response.json({ paidThrough: "2027-01-31", periodVersion: 5 }) });
