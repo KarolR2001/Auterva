@@ -37,8 +37,8 @@
         "src/app/admin/mfa/page.tsx"
       ],
       "testPaths": ["tests/unit/auth-flow.test.tsx", "tests/unit/auth-page.test.tsx", "tests/unit/auth-destination.test.ts", "tests/unit/mfa-qr.test.tsx", "tests/e2e/auth-ui.spec.ts"]
-      },
-      {
+    },
+    {
       "issue": 67,
       "scope": "Wyróżnianie pojazdów na home firmy (FR-PUB-002, D-22): publicznie tylko PUBLISHED z featured i do featuredVehicleCount w kolejności firmy; zmiana wyróżnienia lub kolejności w edycji pojazdu zapisuje audyt (featured, sortOrder) i działa od następnego odczytu tylko w jednej firmie; brak wyróżnionych to pusta lista bez danych zastępczych.",
       "relatedRequirementIds": ["FR-PUB-002", "D-22", "D-23"],
