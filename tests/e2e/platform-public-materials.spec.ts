@@ -77,11 +77,11 @@ test("public materials: card entry, file error keeps data, preview follows the s
 
     // A version conflict (another editor) is explicit; the typed description stays and is marked unsaved.
     await db.publicMedia.update({ where: { id: logo.id }, data: { version: { increment: 1 } } });
-    await page.getByLabel("Opis alternatywny (Logo 0)").fill("Logo firmy A");
+    await page.getByLabel("Opis alternatywny (Logo bez opisu)").fill("Logo firmy A");
     await expect(page.getByTestId(`media-state-${logo.id}`)).toContainText("Niezapisane zmiany");
     await page.getByRole("button", { name: "Zapisz opis i kolejność" }).click();
     await expect(page.getByText("Zdjęcie zostało zmienione w międzyczasie")).toBeVisible();
-    await expect(page.getByLabel("Opis alternatywny (Logo 0)")).toHaveValue("Logo firmy A");
+    await expect(page.getByLabel("Opis alternatywny (Logo bez opisu)")).toHaveValue("Logo firmy A");
     await page.getByRole("button", { name: "Odśwież listę" }).click();
     await page.getByRole("button", { name: "Zapisz opis i kolejność" }).click();
     await expect(page.getByText("Zapisano zdjęcie")).toBeVisible();

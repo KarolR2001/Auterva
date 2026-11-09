@@ -132,6 +132,8 @@ export function useAuthRequest() {
     onSuccess: (data: JsonResult) => boolean | void,
     onUncertain?: () => void,
     onDenied?: (response: Response) => void,
+    /** Runs before any message: resolving to true means the caller settled the refusal itself (no banner at all). */
+    resolveDenied?: (response: Response) => Promise<boolean>,
   ) {
     if (pending.current || cooldown > 0) return;
     pending.current = true;
@@ -154,6 +156,9 @@ export function useAuthRequest() {
       )
         onUncertain();
       else if (!response.ok) {
+        // A refusal that needs an answer from the server first (is the session alive?) shows nothing until it is known,
+        // so a screen reader never reads a banner and then a different error.
+        if (resolveDenied && (await resolveDenied(result.response))) return;
         setError(errorMessage(result, kind));
         onDenied?.(result.response);
         if ([409, 429, 503].includes(result.response.status)) {

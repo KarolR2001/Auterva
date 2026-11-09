@@ -10,6 +10,7 @@ export default async function AdminEditVehiclePage({ params }: { params: Promise
   if (!uuid.test(id)) notFound();
   return CompanyPanelPage({
     currentPath: `/admin/pojazdy/${id}`,
+    requireVehicleId: id,
     title: "Edycja pojazdu",
     children: ({ companyName }) => <VehicleForm vehicleId={id} title={`Edycja pojazdu · ${companyName}`} />,
   });

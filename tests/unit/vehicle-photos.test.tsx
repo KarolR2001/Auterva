@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { VehicleImage } from "../../src/components/admin/fleet-api";
 import { companyContext } from "../../src/components/admin/fleet-api";
-import { VehiclePhotos } from "../../src/components/admin/vehicle-photos";
+import { altBase, sizeText, VehiclePhotos } from "../../src/components/admin/vehicle-photos";
 import { createGuardRegistry, UnsavedChangesGuardContext } from "../../src/components/panel/unsaved-changes-guard";
 import * as core from "../../src/components/media/upload-core";
 
@@ -29,9 +29,9 @@ let calls: { url: string; method: string; body: unknown }[];
 
 function detail(images: VehicleImage[]) { return json(200, { id: vehicleId, images }); }
 
-function Harness({ initial, published = false, readOnly = false }: { initial: VehicleImage[]; published?: boolean; readOnly?: boolean }) {
+function Harness({ initial, published = false, readOnly = false, vehicleName }: { initial: VehicleImage[]; published?: boolean; readOnly?: boolean; vehicleName?: string }) {
   const [images, setImages] = useState(initial);
-  return <VehiclePhotos context={companyContext} vehicleId={vehicleId} published={published} readOnly={readOnly} images={images} onImages={setImages} />;
+  return <VehiclePhotos context={companyContext} vehicleId={vehicleId} published={published} readOnly={readOnly} images={images} vehicleName={vehicleName} onImages={setImages} />;
 }
 
 beforeEach(() => {
@@ -130,6 +130,35 @@ describe("zdjęcia pojazdu: upload", () => {
     await user.click(screen.getByRole("button", { name: /Spróbuj ponownie/ }));
     await waitFor(() => expect(keys).toHaveLength(2));
     expect(keys[1]).toBe(keys[0]);
+  });
+});
+
+describe("zdjęcia pojazdu: opis domyślny i rozmiar", () => {
+  it("opis domyślny jest podpowiedzią, nie wartością: wpisany tekst nie dokleja się do niego", async () => {
+    handler = (url, init) => init?.method === "PATCH" ? json(200, {}) : detail([image(1, { alt: "Auto, zdjęcie 1", version: 2 })]);
+    const user = userEvent.setup({ applyAccept: false });
+    render(<Harness initial={[image(1), image(2, { alt: "Własny opis" })]} vehicleName="Auto" />);
+    const first = screen.getByLabelText(/Opis alternatywny \(zdjęcie 1\)/);
+    expect(first).toHaveValue("");
+    expect(first).toHaveAttribute("placeholder", "Auto, zdjęcie 1");
+    expect(screen.getByLabelText(/Opis alternatywny \(zdjęcie 2\)/)).toHaveValue("Własny opis"); // an editor's text stays visible
+    await user.type(first, "Przód");
+    expect(first).toHaveValue("Przód");
+    await user.click(screen.getByRole("button", { name: /Zapisz opis, zdjęcie 1/ }));
+    await waitFor(() => expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({ expectedVersion: 1, alt: "Przód" }));
+  });
+
+  it("altBase rozpoznaje domyślny opis zwykłego i bezimiennego pojazdu", () => {
+    expect(altBase("Auto, zdjęcie 2", "Auto", 1)).toBe("");
+    expect(altBase("Zdjęcie pojazdu 1", null, 0)).toBe("");
+    expect(altBase("Ręczny", "Auto", 0)).toBe("Ręczny");
+  });
+
+  it("małe pliki mają rozmiar w KB, a nie 0,00 MB", () => {
+    expect(sizeText(0)).toBe("0 KB");
+    expect(sizeText(300)).toBe("1 KB");
+    expect(sizeText(2048)).toBe("2 KB");
+    expect(sizeText(5 * 1024 * 1024)).toBe("5,0 MB");
   });
 });
 

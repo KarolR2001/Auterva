@@ -14,10 +14,12 @@ import { requireRequestContext, resolveRequestArea } from "@/modules/tenancy/req
  * Server frame of a company panel page: authorizes the actor for the host's company, reads the
  * service status on the server (private, uncached) and hands it to the client frame.
  */
-export async function CompanyPanelPage({ currentPath, title, children }: {
+export async function CompanyPanelPage({ currentPath, title, requireVehicleId, children }: {
   currentPath: string;
   /** Heading of the shell; defaults to the company name. */
   title?: string;
+  /** A page about one vehicle: a foreign or missing vehicle is the neutral 404 from the server (never a 200 with a message). */
+  requireVehicleId?: string;
   /** The page content; a function receives the company name (for the document title) once the actor is authorized. */
   children: ReactNode | ((context: { companyName: string }) => ReactNode);
 }) {
@@ -26,6 +28,7 @@ export async function CompanyPanelPage({ currentPath, title, children }: {
   if (area?.area !== "COMPANY_ADMIN" || !area.organizationId) notFound();
   const actor = await requireRequestContext(prisma, auth, incoming, area.organizationId);
   if (!actor) return denyPanel(prisma, auth, incoming, { area: "COMPANY_ADMIN", organizationId: area.organizationId });
+  if (requireVehicleId && !(await prisma.vehicle.findFirst({ where: { id: requireVehicleId, organizationId: actor.organizationId }, select: { id: true } }))) notFound();
   const [organization, status, publicHost] = await Promise.all([
     prisma.organization.findUnique({ where: { id: actor.organizationId }, select: { name: true } }),
     getServiceStatus(prisma, actor.organizationId, new Date()),

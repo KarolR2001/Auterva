@@ -19,6 +19,16 @@ function thumb(base: string, id: string) {
 }
 
 /**
+ * Name of one material for controls and screen readers: its saved description, not its position, so a reorder never
+ * renames the controls. Without a description the ordinal in the list tells equal materials apart.
+ */
+export function materialLabel(title: string, alt: string | null, index: number, total: number): string {
+  const text = (alt ?? "").trim();
+  if (text) return `${title}: ${text.length > 40 ? `${text.slice(0, 40).trim()}…` : text}`;
+  return total > 1 ? `${title} bez opisu (${index + 1})` : `${title} bez opisu`;
+}
+
+/**
  * Logo, hero and brand images of one company (superadmin only, D-01/D-22). Uploads go through the media
  * pipeline; a stored image may still be processing, so the list is refreshed from the protected read.
  */
@@ -197,9 +207,9 @@ export function MediaManager({ snapshot, onItemsChange }: { snapshot: SettingsSn
             <p className={styles.status}>{hint}</p>
             {list.length === 0 && <p className={styles.empty}>Brak zdjęć tego rodzaju.</p>}
             <ul className={styles.mediaList}>
-              {list.map((item) => {
+              {list.map((item, at) => {
                 const draft = drafts[item.id] ?? { alt: item.alt ?? "", position: String(item.position ?? 0) };
-                const label = `${title} ${item.position ?? 0}`;
+                const label = materialLabel(title, item.alt, at, list.length);
                 return (
                   <li key={item.id} className={styles.mediaItem}>
                     {/* eslint-disable-next-line @next/next/no-img-element -- protected preview variant, not a public asset */}

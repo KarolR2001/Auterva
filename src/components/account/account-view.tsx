@@ -277,18 +277,19 @@ export function AccountView({
                 return true;
               },
               uncertain,
+              undefined,
               async (response) => {
                 // 5xx never gets here: request.run sends it to `uncertain`, which asks get-session.
-                if (response.status !== 401) return;
+                if (response.status !== 401) return false;
                 if ((await sessionAlive()) === false) toLogin("session=expired");
                 else {
-                  // A live session with a 401 means the current password was refused: a field error, not a banner.
-                  change.setError("");
+                  // A live session with a 401 means the current password was refused: one field error, never a banner.
                   passwordForm.setError("current", {
                     type: "server",
                     message: "Aktualne hasło jest nieprawidłowe.",
                   });
                 }
+                return true;
               },
             ),
           )}

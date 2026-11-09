@@ -93,6 +93,25 @@ describe("konto: zmiana hasła", () => {
     });
   });
 
+  it("401 na zmianie hasła: do rozstrzygnięcia sesji nie ma banera, potem jeden komunikat przy polu", async () => {
+    let release!: (response: Response) => void;
+    const session = new Promise<Response>((resolve) => { release = resolve; });
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json({ code: "INVALID_CREDENTIALS" }, { status: 401 }))
+      .mockReturnValueOnce(session);
+    const user = userEvent.setup();
+    render(<AccountView area="company" account={account} />);
+    await fill(user);
+    await user.click(screen.getByRole("button", { name: "Zmień hasło" }));
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2)); // the session is being asked
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByText(/Sprawdź aktualne hasło/)).toBeNull();
+    release(Response.json({ session: { id: "s" }, user: { id: "u" } }));
+    await waitFor(() => expect(screen.getByLabelText("Aktualne hasło")).toHaveAttribute("aria-invalid", "true"));
+    expect(screen.getAllByText("Aktualne hasło jest nieprawidłowe.")).toHaveLength(1);
+    expect(screen.queryByRole("alert", { name: /./ })).toBeNull();
+  });
+
   it("błędne aktualne hasło przy żywej sesji to błąd pola z aria-invalid i fokusem, bez banera", async () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(Response.json({ code: "INVALID_CREDENTIALS" }, { status: 401 }))

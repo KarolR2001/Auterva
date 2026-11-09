@@ -586,6 +586,23 @@
       ]
     },
     {
+      "issue": 284,
+      "scope": "Pięć drobnych poprawek P3 z odbiorów QA: pole opisu zdjęcia pojazdu pokazuje opis domyślny jako placeholder (pole puste = opis domyślny, bez doklejania tekstu), rozmiar małych plików w KB zamiast 0,00 MB, serwerowe 404 dla obcego lub nieistniejącego pojazdu na trasach panelu firmy formularza i kalendarza, etykieta kontrolek materiału z opisu zamiast pozycji, jeden komunikat przy 401 na zmianie hasła (baner dopiero po rozstrzygnięciu sesji, potem tylko błąd pola). Poza zakresem: trasy platformy (#47).",
+      "relatedRequirementIds": ["FR-ADM-045", "FR-ADM-040", "FR-ADM-050"],
+      "referenceScreenIds": ["ADM-06", "ADM-07", "ADM-09"],
+      "codePaths": [
+        "src/modules/media/default-alt.ts",
+        "src/components/admin/vehicle-photos.tsx",
+        "src/components/settings/media-manager.tsx",
+        "src/app/admin/company-panel.tsx",
+        "src/app/admin/pojazdy/[id]/page.tsx",
+        "src/app/admin/pojazdy/[id]/kalendarz/page.tsx",
+        "src/components/auth/auth-flow.tsx",
+        "src/components/account/account-view.tsx"
+      ],
+      "testPaths": ["tests/unit/vehicle-photos.test.tsx", "tests/unit/settings-media.test.tsx", "tests/unit/account-view.test.tsx", "tests/e2e/admin-vehicle-404.spec.ts"]
+    },
+    {
       "issue": 39,
       "scope": "Kalendarz pojazdu ADM-09 i overlaye OVR-06/07/08 w panelu firmy na prawdziwym API blokad i odczytu prywatnego (kontekst superadmina przez PanelContext): miesiac z dniami z odpowiedzi serwera (wolny, zajety z typem i ikona, poza aktywnoscia, nieznany przy bledzie odczytu, nigdy stary wynik po zapisie), nawigacja strzalkami/Home/End/PageUp/PageDown z roving tabindex i pelnymi etykietami dat (DS-N16), skroty Dzisiaj i miesiace, wybor zakresu dwoma dniami albo polami dat, lista nadchodzacych blokad i historia na zadanie, dodanie/edycja/usuniecie (usuwanie po potwierdzeniu), jeden dzien i granice wlacznie, Serwis jako MAINTENANCE, prywatny numer i notatka tylko w panelu, konflikt BLOCK_OVERLAP z przejsciem do istniejacego wpisu bez utraty wpisanej tresci, konflikt wersji z trojstronnym scaleniem, ostrzezenie i potwierdzenie dla dat przeszlych, niepewny wynik 5xx/sieci rozstrzygany odczytem stanu bez drugiego zapisu, dirty guard, archiwum pojazdu (tylko usuwanie), sticky CTA mobile, flaga routes.vehicleCalendar wlaczona. Poza zakresem: trasa kalendarza po stronie superadmina (w src/app nie ma stron platformy dla floty; komponent przyjmuje PanelContext), kalendarz calej floty ADM-10 (#65/#66), wybor pojazdu w szybkim flow poza lista pojazdow, zbiorcze blokady (#215, FE opcjonalny).",
       "relatedRequirementIds": ["C-F100", "C-F102", "C-F103", "C-F104", "C-F105", "FR-ADM-050", "FR-ADM-051", "FR-ADM-052", "FR-ADM-053", "FR-ADM-054", "FR-ADM-055", "FR-ADM-056", "DS-N16"],
