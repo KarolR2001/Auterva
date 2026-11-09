@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { VehicleDetail } from "../../src/components/admin/fleet-api";
 import {
   changedPayload, emptyValues, isDirty, MAX_SORT_ORDER, mergeAfterConflict, normalizeServerField, publicationErrors, sectionOf,
-  toPayload, toValues, validateValues, type FormValues,
+  statusOutcome, toPayload, toValues, validateValues, type FormValues,
 } from "../../src/components/admin/vehicle-form-model";
 
 const detail = (patch: Partial<VehicleDetail> = {}): VehicleDetail => ({ id: "v", status: "DRAFT", version: 2, updatedAt: "2026-11-01T10:00:00.000Z",
@@ -82,5 +82,20 @@ describe("#35 vehicle form model", () => {
     expect(merged.color).toBe("czarny");
     expect(merged.brand).toBe("Ford");
     expect(merged.price).toBe("200");
+  });
+
+  it("decides after a lost answer from the status the server reports", () => {
+    expect(statusOutcome("publish", "PUBLISHED")).toBe("applied");
+    expect(statusOutcome("publish", "DRAFT")).toBe("not-applied");
+    expect(statusOutcome("unpublish", "UNPUBLISHED")).toBe("applied");
+    expect(statusOutcome("unpublish", "PUBLISHED")).toBe("not-applied");
+    expect(statusOutcome("archive", "ARCHIVED")).toBe("applied");
+    expect(statusOutcome("archive", "UNPUBLISHED")).toBe("not-applied");
+  });
+
+  it("compares the slug case-insensitively so a change of letter case alone is no change", () => {
+    const base = toValues(detail({ slug: "bus-9" }));
+    expect(changedPayload(base, { ...base, slug: "BUS-9" })).toEqual({});
+    expect(changedPayload(base, { ...base, slug: "Bus-10" })).toEqual({ slug: "bus-10" });
   });
 });

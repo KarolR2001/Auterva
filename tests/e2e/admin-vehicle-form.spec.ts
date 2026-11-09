@@ -140,6 +140,26 @@ test("vehicle form: draft without data, publication gaps, publish, slug change, 
     const hidden = await db.vehicle.findUniqueOrThrow({ where: { id } });
     expect(hidden.status).toBe("UNPUBLISHED");
     expect(hidden.name).toBe("Bus E2E");
+    // No dead end: the vehicle calendar (#38) does not exist yet, so the form offers no link to it.
+    await expect(page.getByRole("link", { name: "Kalendarz pojazdu" })).toHaveCount(0);
+
+    // Lost answer to a publication that WAS stored: the button reads the vehicle and reports the real status.
+    let publishDropped = false;
+    await page.route("**/api/admin/vehicles/*/publish/", async (route) => {
+      if (publishDropped) return route.continue();
+      publishDropped = true;
+      const target = new URL(route.request().url());
+      target.hostname = "127.0.0.1";
+      await route.fetch({ url: target.toString(), headers: { ...route.request().headers(), host: `${host}:${target.port}` } });
+      await route.abort("failed");
+    });
+    await page.getByRole("button", { name: "Opublikuj ponownie" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Opublikuj" }).click();
+    await expect(page.getByText("Nie wiemy, czy zmiana została zapisana.")).toBeVisible();
+    await page.getByRole("button", { name: "Sprawdź stan pojazdu" }).click();
+    await expect(page.getByText("Zmiana była już zapisana.")).toBeVisible();
+    await expect(page.getByText("Status pojazdu na serwerze: Opublikowany.")).toBeVisible();
+    expect((await db.vehicle.findUniqueOrThrow({ where: { id } })).status).toBe("PUBLISHED");
   } finally {
     await context.close();
     await session?.dispose();

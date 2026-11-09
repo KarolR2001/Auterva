@@ -9,12 +9,12 @@ import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
 import { Dialog } from "../ui/dialog";
 import {
-  createDraft, errorMessage, listCategories, readVehicle, setVehicleStatus, statusLabels, updateVehicle, companyContext,
+  createDraft, errorMessage, listCategories, listFleet, readVehicle, routes, setVehicleStatus, statusLabels, updateVehicle, companyContext,
   type FieldErrorMap, type PanelContext, type VehicleCategory, type VehicleDetail, type VehicleMutation, type VehicleStatus,
 } from "./fleet-api";
 import {
   changedPayload, createPayload, emptyValues, isDirty, mergeAfterConflict, newFeatureKey, normalizeServerField, publicationErrors, sectionOf,
-  sections, serverFieldText, toValues, validateValues, type FormValues, type SectionId,
+  sections, serverFieldText, statusOutcome, toValues, validateValues, type FormValues, type SectionId,
 } from "./vehicle-form-model";
 import styles from "./vehicle-form.module.css";
 
@@ -201,6 +201,35 @@ export function VehicleForm({ context = companyContext, vehicleId, title }: { co
     setNotice({ tone: "info", title: "Wczytano aktualną wersję pojazdu.", text: "Pola, które zmieniałeś, zachowały Twoje wartości. Pozostałe pochodzą z serwera. Zapisz ponownie po sprawdzeniu." });
   }
 
+  /** After a lost answer to publish / unpublish / archive: read the vehicle and report what the server really has. */
+  async function checkStatus(action: "publish" | "unpublish" | "archive") {
+    if (!vehicleId) return;
+    await run(action, async () => {
+      const result = await readVehicle(context, vehicleId);
+      if (!result.ok) { setNotice({ tone: "error", title: errorMessage(result.code), text: "Stanu nie udało się odczytać. Twoje wpisy zostały zachowane." }); return; }
+      setVehicle(result.data);
+      setUncertain(null);
+      if (statusOutcome(action, result.data.status) === "applied") {
+        setNotice({ tone: "success", title: "Zmiana była już zapisana.", text: `Status pojazdu na serwerze: ${statusLabels[result.data.status]}.` });
+      } else {
+        setNotice({ tone: "warning", title: "Zmiana nie została zapisana.", text: `Status pojazdu na serwerze: ${statusLabels[result.data.status]} (wersja ${result.data.version}). Możesz ponowić akcję.` });
+      }
+    });
+  }
+
+  /** After a lost answer to the creation of a draft: look for the vehicle in the list before anything is sent again. */
+  async function checkCreated() {
+    await run("create", async () => {
+      const wanted = values.name.trim() || values.slug.trim();
+      const result = await listFleet(context, { search: wanted, status: "", activeToday: "", availableToday: "", page: 1, pageSize: 20 });
+      if (!result.ok) { setNotice({ tone: "error", title: errorMessage(result.code), text: "Listy nie udało się odczytać. Twoje wpisy zostały zachowane." }); return; }
+      const found = result.data.items.find((item) => (item.name ?? "").trim().toLowerCase() === values.name.trim().toLowerCase());
+      setUncertain(null);
+      if (found) { setCreatedId(found.id); setNotice({ tone: "success", title: "Szkic został już zapisany.", text: "Otwieramy go do edycji." }); }
+      else setNotice({ tone: "warning", title: "Nie znaleziono pojazdu o tej nazwie.", text: "Szkic nie został utworzony. Możesz zapisać ponownie." });
+    });
+  }
+
   function askPublish() {
     const found = { ...validateValues(values) } as Record<string, string>;
     const requirements = publicationErrors(values, vehicle?.images ?? [], hasSeatsRule, Boolean(category));
@@ -296,10 +325,12 @@ export function VehicleForm({ context = companyContext, vehicleId, title }: { co
         )}
         {uncertain && (
           <Alert tone="warning" title="Nie wiemy, czy zmiana została zapisana."
-            action={uncertain === "create" ? undefined : { label: uncertain === "save" ? "Sprawdź i zapisz ponownie" : "Spróbuj ponownie", onClick: () => { if (uncertain === "save") void saveDraft(); } }}>
+            action={{ label: uncertain === "save" ? "Sprawdź i zapisz ponownie" : uncertain === "create" ? "Sprawdź listę pojazdów" : "Sprawdź stan pojazdu",
+              onClick: () => { if (uncertain === "save") void saveDraft(); else if (uncertain === "create") void checkCreated(); else void checkStatus(uncertain); } }}>
             {uncertain === "create"
-              ? <>Połączenie przerwało się w trakcie tworzenia. Twoje wpisy zostały zachowane. Sprawdź <a href={`${context.hrefBase}/pojazdy/`}>listę pojazdów</a>, zanim zapiszesz ponownie, żeby nie utworzyć duplikatu.</>
-              : "Twoje wpisy i numer wersji zostały zachowane. Przed ponowieniem odczytamy aktualny stan z serwera."}
+              ? "Połączenie przerwało się w trakcie tworzenia. Twoje wpisy zostały zachowane. Najpierw sprawdzimy listę pojazdów, żeby nie utworzyć duplikatu."
+              : uncertain === "save" ? "Twoje wpisy i numer wersji zostały zachowane. Przed ponowieniem odczytamy aktualny stan z serwera."
+                : "Twoje wpisy zostały zachowane. Odczytamy aktualny status pojazdu z serwera i powiemy, czy zmiana została zapisana."}
           </Alert>
         )}
         {conflict && (
@@ -442,7 +473,7 @@ export function VehicleForm({ context = companyContext, vehicleId, title }: { co
             <h3 className={styles.cardTitle}>Status</h3>
             <p className={styles.badge}><StatusIcon aria-hidden="true" size={16} />{vehicleId ? statusLabels[status] : "Nowy szkic"}</p>
             {vehicle && <p className={styles.hint}>Ostatnia zmiana: {formatDate(vehicle.updatedAt)}</p>}
-            {vehicleId && !archived && <a href={`${context.hrefBase}/pojazdy/${vehicleId}/kalendarz/`}>Kalendarz pojazdu</a>}
+            {vehicleId && !archived && routes.vehicleCalendar && <a href={`${context.hrefBase}/pojazdy/${vehicleId}/kalendarz/`}>Kalendarz pojazdu</a>}
             {status === "PUBLISHED" && <Button variant="secondary" disabled={busy} icon={<EyeOff aria-hidden="true" size={18} />} onClick={() => { setDialogError(null); setDialog("unpublish"); }}>Ukryj</Button>}
             {vehicleId && !archived && <Button variant="tertiary" disabled={busy} icon={<Archive aria-hidden="true" size={18} />} onClick={() => { setDialogError(null); setDialog("archive"); }}>Archiwizuj</Button>}
           </div>

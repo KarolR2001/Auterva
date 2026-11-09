@@ -51,6 +51,7 @@ export function toPayload(values: FormValues): VehicleFieldsPayload {
   payload.year = intOrNull(values.year);
   payload.seats = intOrNull(values.seats);
   payload.doors = intOrNull(values.doors);
+  payload.slug = payload.slug === null || payload.slug === undefined ? null : payload.slug.toLowerCase();
   payload.categoryId = nullable(values.categoryId);
   payload.price = nullable(normalizePrice(values.price));
   payload.availableFrom = nullable(values.availableFrom);
@@ -174,4 +175,13 @@ export function createPayload(values: FormValues): VehicleFieldsPayload {
   const payload = toPayload(values);
   if (payload.slug === null) delete payload.slug;
   return payload;
+}
+
+/**
+ * After a lost answer to publish / unpublish / archive, what the server now says decides the message: the wanted
+ * status means the change was already stored; anything else means it was not applied and may be repeated.
+ */
+export function statusOutcome(action: "publish" | "unpublish" | "archive", serverStatus: string): "applied" | "not-applied" {
+  const wanted = { publish: "PUBLISHED", unpublish: "UNPUBLISHED", archive: "ARCHIVED" }[action];
+  return serverStatus === wanted ? "applied" : "not-applied";
 }
