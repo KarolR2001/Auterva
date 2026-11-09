@@ -73,3 +73,40 @@ test("nieznana ścieżka panelu: shell z powrotem do startu dla autoryzowanej se
     await db.$disconnect();
   }
 });
+
+// 320 px with a very long company name: the topbar truncates the title (ellipsis) and the page does not scroll sideways.
+test("panel firmy 320 px: długa nazwa firmy nie powoduje poziomego przewijania", async ({ page, context, baseURL }) => {
+  if (!baseURL) throw new Error("Missing trusted ingress URL");
+  const db = createPrismaClient(process.env.DATABASE_URL ?? "");
+  const tag = randomUUID().slice(0, 8);
+  const orgId = randomUUID();
+  const userId = randomUUID();
+  const hostname = `panel-320-${tag}.example.test`;
+  const origin = `http://${hostname}:${new URL(baseURL).port}`;
+  let session: Awaited<ReturnType<typeof verifiedFixtureSession>> | null = null;
+  try {
+    await db.organization.create({ data: { id: orgId, slug: `panel-320-${tag}`, firstAdminRegisteredAt: new Date(),
+      name: `Wypożyczalnia Samochodów Kempingowych i Przyczep Rekreacyjnych Bardzo Długa Nazwa ${tag}` } });
+    await db.user.create({ data: { id: userId, name: "Panel 320", email: `panel-320-${tag}@example.test`, role: "ADMIN_FIRMY",
+      organizationId: orgId, emailVerified: true, twoFactorEnabled: true } });
+    await db.hostMapping.create({ data: { hostname, area: "COMPANY_ADMIN", organizationId: orgId, status: "ACTIVE" } });
+    session = await verifiedFixtureSession(db, userId);
+    const [name, ...value] = session.cookie.split("=");
+    await context.addCookies([{ name, value: value.join("="), url: origin }]);
+    await page.setViewportSize({ width: 320, height: 700 });
+    for (const path of ["/admin/", "/admin/pojazdy/"]) {
+      await page.goto(`${origin}${path}`);
+      await expect(page.getByRole("button", { name: "Menu użytkownika" })).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth), path).toBeLessThanOrEqual(320);
+      // The profile trigger stays fully inside the viewport.
+      const box = await page.getByRole("button", { name: "Menu użytkownika" }).boundingBox();
+      expect(box!.x + box!.width, path).toBeLessThanOrEqual(320);
+    }
+  } finally {
+    if (session) await session.dispose();
+    await db.user.deleteMany({ where: { id: userId } });
+    await db.hostMapping.deleteMany({ where: { organizationId: orgId } });
+    await db.organization.deleteMany({ where: { id: orgId } });
+    await db.$disconnect();
+  }
+});
