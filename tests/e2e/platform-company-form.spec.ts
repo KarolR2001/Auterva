@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { createPrismaClient } from "../../src/lib/prisma";
-import { ensureControlledSuperadminMfa, verifiedFixtureSession } from "../fixtures/verified-session";
+import { ensureControlledSuperadminMfa, resetPlatformApiBudget, verifiedFixtureSession } from "../fixtures/verified-session";
 
 // #25: PLT-04 in a real browser: validation, save, the separate invitation step, UNCERTAIN-free happy path, revoke.
 test.use({ launchOptions: { args: ["--host-resolver-rules=MAP *.example.test 127.0.0.1"] } });
@@ -21,6 +21,7 @@ test("superadmin dodaje firmę, widzi zapis osobno od zaproszenia i cofa zaprosz
     const existing = await db.user.findFirst({ where: { role: "SUPERADMIN_AUTERVA" }, select: { id: true } });
     if (!existing) throw new Error("Fixture superadmin required");
     await ensureControlledSuperadminMfa(db, existing.id);
+    await resetPlatformApiBudget(db, existing.id);
     session = await verifiedFixtureSession(db, existing.id);
     const [cookieName, ...cookieValue] = session.cookie.split("=");
     await context.addCookies([{ name: cookieName, value: cookieValue.join("="), url: origin }]);

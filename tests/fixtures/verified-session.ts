@@ -70,3 +70,17 @@ export async function ensureControlledFixtureAccess(db: PrismaClient) {
   }
   return db.user.findUniqueOrThrow({ where: { id: FIXTURE.users[2] } });
 }
+
+/**
+ * Starts a platform spec with an empty API budget of the superadmin (#286). The budgets (read 120/min, write 60/min, media,
+ * D-19) are per actor and the MVP has exactly one superadmin (`user_one_superadmin`), so all platform specs share one
+ * actor and the minute window of the previous spec would otherwise leak into the next one ("Nie udało się sprawdzić dostępu",
+ * 429 RATE_LIMITED), making the result depend on the order. This only deletes that actor's rate-limit rows in the test
+ * database; the production limits and code are untouched.
+ */
+export async function resetPlatformApiBudget(db: PrismaClient, actorId: string) {
+  const secret = process.env.BETTER_AUTH_SECRET;
+  if (!secret) throw new Error("BETTER_AUTH_SECRET is required to reset the API budget");
+  const keyHash = (operation: string) => createHmac("sha256", secret).update(`api:${operation}:${actorId}:platform`).digest("hex");
+  await db.rateLimitEvent.deleteMany({ where: { keyHash: { in: ["read", "write", "media"].map(keyHash) } } });
+}

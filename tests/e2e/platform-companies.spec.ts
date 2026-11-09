@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { FIXTURE } from "../../scripts/fixture-ids";
-import { ensureControlledSuperadminMfa, verifiedFixtureSession } from "../fixtures/verified-session";
+import { ensureControlledSuperadminMfa, resetPlatformApiBudget, verifiedFixtureSession } from "../fixtures/verified-session";
 
 // Superadmin list, card, period edit (version conflict) and archive in a real browser behind the local ingress.
 test.use({ launchOptions: { args: ["--host-resolver-rules=MAP *.example.test 127.0.0.1"] } });
@@ -19,6 +19,7 @@ test("superadmin: search, card, period save, version conflict and archive keep o
   const day = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
   const session = await (async () => {
     await ensureControlledSuperadminMfa(db, FIXTURE.users[2]);
+    await resetPlatformApiBudget(db, FIXTURE.users[2]);
     return verifiedFixtureSession(db, FIXTURE.users[2]);
   })();
   try {
