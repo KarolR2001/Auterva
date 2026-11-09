@@ -175,3 +175,32 @@ test("a waiting update asks before it reloads a dirty form and sign-out removes 
   await page.getByRole("button", { name: "Wyloguj" }).click();
   await expect.poll(() => page.evaluate(async () => (await caches.keys()).some((name) => !name.includes("precache")))).toBe(false);
 });
+
+test("an update that never takes over keeps the unsaved-form guard and the banner offers a retry", async ({ page, baseURL }) => {
+  if (!baseURL) throw new Error("Missing PWA fixture URL");
+  await signIn(page, baseURL);
+  await controlledAdminPage(page);
+  await page.goto("/admin/pojazdy/nowy/");
+  await page.evaluate(async () => { await navigator.serviceWorker.ready; });
+  await page.getByRole("textbox").first().fill("Wpis w formularzu");
+  const file = new URL("../../public/sw.js", import.meta.url);
+  const original = await readFile(file);
+  try {
+    await writeFile(file, Buffer.concat([original, Buffer.from("\n// update fixture 3\n")]));
+    await page.evaluate(async () => { await (await navigator.serviceWorker.getRegistration("/admin/"))?.update(); });
+    await expect(page.getByRole("button", { name: "Odśwież teraz" })).toBeVisible();
+    // A worker that ignores SKIP_WAITING: the update never takes over.
+    await page.evaluate(() => { ServiceWorker.prototype.postMessage = () => undefined; });
+    await page.getByRole("button", { name: "Odśwież teraz" }).click();
+    await page.getByRole("button", { name: /Odrzuć zmiany/ }).click();
+    await expect(page.getByText(/Nie udało się zastosować aktualizacji/)).toBeVisible({ timeout: 15_000 });
+    expect(await page.evaluate(() => {
+      const event = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    })).toBe(true);
+    await expect(page.getByRole("textbox").first()).toHaveValue("Wpis w formularzu");
+  } finally {
+    await writeFile(file, original);
+  }
+});

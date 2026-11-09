@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PanelShell } from "../../src/components/panel/panel-shell";
 import { useUnsavedChanges } from "../../src/components/panel/unsaved-changes-guard";
-import { clearNonStaticCaches, PwaProvider, pwaBrowser, usePwa } from "../../src/components/pwa/pwa-provider";
+import { clearNonStaticCaches, PwaProvider, pwaBrowser, UPDATE_TIMEOUT_MS, usePwa } from "../../src/components/pwa/pwa-provider";
 
 class FakeWorker extends EventTarget {
   state = "installed";
@@ -131,6 +131,44 @@ describe("shell panelu firmy a PWA", () => {
     expect(waiting.postMessage).toHaveBeenCalledWith({ type: "SKIP_WAITING" });
     container.dispatchEvent(new Event("controllerchange"));
     expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it("aktualizacja bez przejęcia przez workera cofa „opuszczanie”: beforeunload nadal chroni formularz", async () => {
+    const waiting = new FakeWorker();
+    installServiceWorker({ controller: true, waiting });
+    const reload = vi.spyOn(pwaBrowser, "reload").mockImplementation(() => undefined);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      mount();
+      await user.type(screen.getByLabelText("Nazwa"), "Nowe auto");
+      await user.click(await screen.findByRole("button", { name: "Odśwież teraz" }));
+      await user.click(await screen.findByRole("button", { name: /Odrzuć zmiany/ }));
+      expect(waiting.postMessage).toHaveBeenCalledTimes(1);
+      await act(async () => { vi.advanceTimersByTime(UPDATE_TIMEOUT_MS + 100); });
+      expect(reload).not.toHaveBeenCalled();
+      expect(screen.getByText(/Nie udało się zastosować aktualizacji/)).toBeInTheDocument();
+      const unload = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(unload);
+      expect(unload.defaultPrevented).toBe(true);
+      expect(screen.getByLabelText("Nazwa")).toHaveValue("Nowe auto");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("redundantny worker usuwa baner aktualizacji i nie ustawia „opuszczania”", async () => {
+    const waiting = new FakeWorker();
+    installServiceWorker({ controller: true, waiting });
+    const user = userEvent.setup();
+    mount();
+    await user.type(screen.getByLabelText("Nazwa"), "Nowe auto");
+    await screen.findByRole("button", { name: "Odśwież teraz" });
+    act(() => { waiting.state = "redundant"; waiting.dispatchEvent(new Event("statechange")); });
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Odśwież teraz" })).toBeNull());
+    const unload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(true);
   });
 
   it("czysty formularz: aktualizacja po kliknięciu bez okna", async () => {

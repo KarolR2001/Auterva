@@ -333,8 +333,10 @@ function AvailablePanelShell({
   }
 
   function applyUpdate() {
-    leaving.current = true;
-    pwa.applyUpdate();
+    // "Leaving" switches the tab-close guard off, so it is set only once an update really started and is undone
+    // when the new worker does not take over.
+    const started = pwa.applyUpdate(() => { leaving.current = false; });
+    if (started) leaving.current = true;
   }
 
   function stayOnPage() {
@@ -522,7 +524,11 @@ function AvailablePanelShell({
             {area === "company" && pwa.updateReady && (
               <div role="status" aria-label="Aktualizacja panelu" className={styles.shellUpdate}>
                 <RefreshCw size={16} aria-hidden="true" />
-                <span>Dostępna nowa wersja panelu. Odświeżenie nastąpi dopiero po Twojej zgodzie.</span>
+                <span>
+                  {pwa.updateFailed
+                    ? "Nie udało się zastosować aktualizacji. Dane w formularzu pozostały bez zmian; spróbuj ponownie."
+                    : "Dostępna nowa wersja panelu. Odświeżenie nastąpi dopiero po Twojej zgodzie."}
+                </span>
                 <button type="button" onClick={requestUpdate}>
                   Odśwież teraz
                 </button>
