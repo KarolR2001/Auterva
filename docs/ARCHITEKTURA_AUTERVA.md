@@ -220,7 +220,7 @@ To struktura planowana. Rzeczywistych istniejących plików instrukcji nie nadpi
 | `ConversationReadCursor` | Użytkownik i rozmowa, ostatnia faktycznie pokazana wiadomość; monotoniczny wskaźnik unread/read |
 | `AuditLog` | Firma, aktor i rola, akcja, encja, bezpieczne pola zmiany, `requestId`, UTC; tylko dopisywanie |
 | `Job` / `Outbox` | Typ zadania/zdarzenia, firma, deduplication key, bezpieczny payload, termin, próby, blokada wykonania i wynik |
-| `OperationReceipt` | Idempotency key, aktor/obszar/firma/operacja, skrót wejścia, zapisany wynik; tylko mutacje wymagające bezpiecznego retry |
+| `OperationReceipt` | Idempotency key, aktor/obszar/firma/operacja, skrót wejścia, zapisany wynik, opcjonalne `expiresAt` (receipt zbiorczych blokad 24 h, #215; bez wartości = bez wygasania); tylko mutacje wymagające bezpiecznego retry |
 
 - Rekordy firmy mają `organizationId`; klucze obce dzieci obejmują parę `(organizationId, parentId)`, aby zdjęcie/blokada Alfy nie wskazały pojazdu Bety.
 - `UNIQUE(organizationId, slug)`, `UNIQUE(organizationId)` dla ustawień/rozmowy, globalne UNIQUE hostname i e-mail; jeden aktywny administrator firmy egzekwowany także w DB.
