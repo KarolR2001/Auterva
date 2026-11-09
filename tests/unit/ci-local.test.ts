@@ -265,7 +265,7 @@ test("E2E ports are derived from the worktree base and handed to Playwright", as
   const r = await t.runAsync("27400", t.out);
   expect(r.status).toBe(0);
   expect(readFileSync(join(t.root, "ports"), "utf8").trim()).toBe("27420 27421 27422");
-  const high = await setup({}, "exit 0").runAsync("65500", join(tmpdir(), "ci-local-unused2.txt"));
+  const high = await setup({}, "exit 0").runAsync("65520", join(tmpdir(), "ci-local-unused2.txt"));
   expect(high.status).toBe(2);
   expect(high.stderr).toMatch(/leaves no room for the E2E ports/);
 }, 60000);
