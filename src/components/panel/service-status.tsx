@@ -134,7 +134,7 @@ export function ServiceStatusCard(): ReactNode {
   const { dto, refresh, publicHost } = useStatus();
   const visible = dto.site.publicVisible;
   const SiteIcon = visible ? Globe : GlobeLock;
-  const headline = { PAID: "Usługa opłacona", TRIAL: "Okres próbny", EXPIRED: "Okres usługi zakończony", NOT_STARTED: "Okres usługi nie rozpoczął się" }[dto.period.headline];
+  const headline = { PAID: "Opłacony", TRIAL: "Okres próbny", EXPIRED: "Zakończony", NOT_STARTED: "Nie rozpoczął się" }[dto.period.headline];
   const active = dto.period.headline === "PAID" || dto.period.headline === "TRIAL";
   return (
     <section className={styles.serviceCard} aria-labelledby="service-status-title" data-testid="service-status">
@@ -163,7 +163,8 @@ export function ServiceStatusCard(): ReactNode {
           </dd>
         </div>
       </dl>
-      <p className={styles.serviceNote}>Okres usługi, okres próbny i adres zmienia wyłącznie Auterva. Pytania: <a className={styles.textLink} href="/admin/czat">czat z Autervą</a>.</p>
+      <p className={styles.serviceNote}>Okres usługi, okres próbny i adres zmienia wyłącznie Auterva.</p>
+      <div className={styles.serviceActions}><a className={styles.linkButton} href="/admin/czat">Napisz do Autervy</a></div>
     </section>
   );
 }

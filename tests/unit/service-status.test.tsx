@@ -46,6 +46,7 @@ describe("status usługi w panelu firmy", () => {
     expect(card).not.toHaveTextContent(/opłacone do/i);
     expect(screen.getByRole("link", { name: "firma.example.test" })).toHaveAttribute("href", "https://firma.example.test/");
     expect(card).not.toHaveTextContent(/zmień|edytuj/i);
+    expect(screen.getByRole("link", { name: "Napisz do Autervy" })).toHaveAttribute("href", "/admin/czat");
   });
 
   it("po wygaśnięciu zachowuje formularz, pokazuje komunikat i link do czatu", () => {
@@ -67,6 +68,7 @@ describe("status usługi w panelu firmy", () => {
     await act(async () => { input.focus(); window.dispatchEvent(new Event("focus")); });
     await waitFor(() => expect(screen.queryByText("Trial kończy się jutro.")).toBeNull());
     expect(screen.getByTestId("service-status")).toHaveTextContent("Opłacone do 31.12.2026 włącznie");
+    expect(screen.getByTestId("service-status")).toHaveTextContent("Opłacony");
     expect(screen.getByRole("textbox", { name: "Nazwa pojazdu" })).toBe(input);
   });
 
