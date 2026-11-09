@@ -32,7 +32,7 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
 
     await page.goto(`${base}/admin/pojazdy/`);
     await expect(page.getByRole("heading", { name: "Flota jest pusta" })).toBeVisible();
-    // The vehicle form exists since #35; the calendar (#38) does not, so no calendar link yet.
+    // The vehicle form exists since #35 and the vehicle calendar since #39.
     await expect(page.getByRole("link", { name: "Dodaj pierwszy pojazd" })).toHaveAttribute("href", "/admin/pojazdy/nowy/");
     await page.goto(`${base}/admin/`);
     await expect(page.getByRole("heading", { name: "Zacznij od pierwszego pojazdu" })).toBeVisible();
@@ -53,9 +53,9 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
     await expect(stats.getByRole("listitem").filter({ hasText: "Dostępne dziś" }).first()).toContainText("1");
     await expect(stats.getByRole("listitem").filter({ hasText: "Blokady w 7 dni" })).toContainText("1");
     await expect(stats.getByRole("listitem").filter({ hasText: "Aktywne pojazdy" })).toContainText("z 3 w ewidencji");
-    // The vehicle calendar is not shipped yet (#38): the block names the vehicle without a dead link.
+    // Since #39 the block names the vehicle and links to its calendar.
     await expect(page.getByText("Alfa Trzecia")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Alfa Trzecia" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Alfa Trzecia" })).toHaveAttribute("href", /^\/admin\/pojazdy\/[0-9a-f-]{36}\/kalendarz\/$/);
     await expect(page.getByText("Niedostępny", { exact: true })).toBeVisible();
     await expect(page.getByText("Opłacono do")).toBeVisible();
 

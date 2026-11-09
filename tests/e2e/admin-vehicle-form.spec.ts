@@ -140,8 +140,8 @@ test("vehicle form: draft without data, publication gaps, publish, slug change, 
     const hidden = await db.vehicle.findUniqueOrThrow({ where: { id } });
     expect(hidden.status).toBe("UNPUBLISHED");
     expect(hidden.name).toBe("Bus E2E");
-    // No dead end: the vehicle calendar (#38) does not exist yet, so the form offers no link to it.
-    await expect(page.getByRole("link", { name: "Kalendarz pojazdu" })).toHaveCount(0);
+    // Since #39 the form of a saved vehicle links to its calendar.
+    await expect(page.getByRole("link", { name: "Kalendarz pojazdu" })).toHaveAttribute("href", `/admin/pojazdy/${id}/kalendarz/`);
 
     // Lost answer to a publication that WAS stored: the button reads the vehicle and reports the real status.
     let publishDropped = false;
