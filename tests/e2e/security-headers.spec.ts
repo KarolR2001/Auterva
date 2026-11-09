@@ -90,8 +90,10 @@ test("built ingress: security headers, nonce CSP, CSRF from a sibling host and b
       ["platform", "/api/platform/companies/"], ["publicSite", "/admin/"], ["publicSite", "/api/admin/vehicles/"],
       ["publicSite", "/api/platform/companies/"], ["marketing", "/api/admin/vehicles/"]] as const) {
       const denied = await send(port, authority(name), path);
-      expect([401, 403, 404], `${name} ${path}`).toContain(denied.status);
-      expect(denied.text, `${name} ${path}`).not.toMatch(/Panel Auterva|Platforma Auterva|\bvehicles\b|\"items\"/);
+      // Anonymous panel entry on its own host goes to that host's login (#14); everything else stays a denial.
+      const panelEntry = (name === "admin" && path === "/admin/") || (name === "platform" && path === "/");
+      expect(panelEntry ? [307] : [401, 403, 404], `${name} ${path}`).toContain(denied.status);
+      expect(denied.text, `${name} ${path}`).not.toMatch(/Panel Auterva|Platforma Auterva|PanelShell|Nawigacja panelu|\bvehicles\b|\"items\"/);
       expect(header(denied, "cache-control"), `${name} ${path}`).toMatch(/no-store|private/);
     }
 
@@ -297,7 +299,7 @@ test("Proxy refuses a chunked body (411) and an oversized declared length (413);
 });
 
 // B3: RSC and prefetch requests are ordinary requests to the same handlers; they must not bypass the area and session gate.
-test("RSC and prefetch requests for the panels give 404 without panel content in every denied variant (#57)", async ({ baseURL }) => {
+test("RSC and prefetch requests for the panels never carry panel content: 404 for a foreign session, login for no session (#57, #14)", async ({ baseURL }) => {
   if (!baseURL) throw new Error("Missing trusted ingress URL");
   const db = createPrismaClient(process.env.DATABASE_URL ?? "");
   const port = Number(new URL(baseURL).port);
@@ -342,6 +344,22 @@ test("RSC and prefetch requests for the panels give 404 without panel content in
         let target = build(path);
         let reply = await send(port, authority, target, { headers });
         const name = `${label} / ${form}`;
+        if (!cookie) {
+          // No session at all (PWA cold start): the login of the same host, never panel content (#14).
+          const loginPath = path === "/" ? "/login" : "/admin/login";
+          for (let hop = 0; hop < 2 && reply.status === 307 && header(reply, "location").split("?")[0] === path; hop += 1) {
+            reply = await send(port, authority, header(reply, "location"), { headers });
+          }
+          if (reply.status === 307) expect(header(reply, "location").split("?")[0].replace(/\/$/, ""), name).toBe(loginPath);
+          else {
+            expect(reply.status, name).toBe(200);
+            if (!form.startsWith("Next-Router-Prefetch")) expect(reply.text, name).toContain("NEXT_REDIRECT");
+          }
+          expect(reply.text, name).not.toMatch(/Panel Auterva|Platforma Auterva|PanelShell|Nawigacja panelu|jest w przygotowaniu/);
+          for (const marker of [`RSC-SEKRET-a-${tag}`, `RSC-SEKRET-b-${tag}`, org.a, org.b, `sec-rsc-a-${tag}`, `sec-rsc-b-${tag}`]) expect(reply.text, `${name} ${marker}`).not.toContain(marker);
+          expect(header(reply, "cache-control"), name).toMatch(/no-store|private/);
+          continue;
+        }
         // Next answers an RSC request without its cache-busting hash with a same-path redirect; follow it, never off the path.
         for (let hop = 0; hop < 2 && reply.status === 307; hop += 1) {
           target = header(reply, "location");
@@ -356,7 +374,7 @@ test("RSC and prefetch requests for the panels give 404 without panel content in
           // A prefetch answers with a content-free segment shell instead of the digest.
           if (reply.status === 200 && !form.startsWith("Next-Router-Prefetch")) expect(reply.text, name).toContain("NEXT_HTTP_ERROR_FALLBACK;404");
         }
-        expect(reply.text, name).not.toMatch(/Panel Auterva|Platforma Auterva|jest w przygotowaniu/);
+        expect(reply.text, name).not.toMatch(/Panel Auterva|Platforma Auterva|PanelShell|Nawigacja panelu|jest w przygotowaniu/);
         // Company markers: nothing of either company (name, id, slug, e-mail) may appear in a denied answer.
         for (const marker of [`RSC-SEKRET-a-${tag}`, `RSC-SEKRET-b-${tag}`, org.a, org.b, `sec-rsc-a-${tag}`, `sec-rsc-b-${tag}`]) expect(reply.text, `${name} ${marker}`).not.toContain(marker);
         expect(header(reply, "cache-control"), name).toMatch(/no-store|private/);
@@ -365,7 +383,7 @@ test("RSC and prefetch requests for the panels give 404 without panel content in
     // Control: the same request with the right session does carry the panel, so the assertions above can fail.
     const allowed = await send(port, host.adminA, "/admin/?_rsc", { headers: { RSC: "1", cookie: cookieA } });
     expect(allowed.status).toBe(200);
-    expect(allowed.text).toMatch(/Panel Auterva/);
+    expect(allowed.text).toContain("PanelShell");
     expect(allowed.text).not.toContain("NEXT_HTTP_ERROR_FALLBACK");
   } finally {
     await db.session.deleteMany({ where: { id: { in: noMfaIds } } });
