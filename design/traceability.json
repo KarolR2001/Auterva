@@ -3,6 +3,25 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 49,
+      "scope": "Karta firmy superadmina: potwierdzenia archiwizacji, przywrócenia i odblokowania z nazwą firmy, skutkami i zachowaniem danych (bez trwałego kasowania); restore konta rozdzielony od odblokowania strony publicznej z rzeczywistym stanem publikacji i dalszymi krokami; niepewny wynik (5xx, brak odpowiedzi) kończy się odczytem stanu i komunikatem zgodnym z faktem; data archiwizacji na liście. Otwarty panel firmy po archiwizacji kończy się stanem odebranego dostępu (sesja unieważniona), nie banerem wygaśnięcia usługi.",
+      "relatedRequirementIds": ["C-F069", "C-F073", "C-F074", "C-F075", "C-F076", "C-F077", "C-F078", "C-F079", "C-F080", "C-F147", "C-R015"],
+      "referenceScreenIds": ["PLT-03", "FLOW-MVP-10", "ADM-19"],
+      "scenarioStates": {
+        "beforeArchive": "FLOW-MVP-10 / M+D / 01 — Firma przed archiwizacją (ArchiveSection, dialog archive)",
+        "card": "PLT-03 / state=active i archived (ArchiveSection)",
+        "revokedPanel": "ADM-19 / state=session-expired (PanelShell po cofnięciu sesji)"
+      },
+      "codePaths": [
+        "src/components/platform/company-ops.tsx",
+        "src/components/platform/company-list.tsx",
+        "src/components/platform/platform.module.css",
+        "src/components/panel/panel-shell.tsx"
+      ],
+      "testPaths": ["tests/unit/platform-companies.test.tsx", "tests/unit/panel-shell.test.tsx", "tests/e2e/platform-companies.spec.ts"],
+      "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
+    },
+    {
       "issue": 265,
       "scope": "Poprawki z QA #27: po niepewnym wyniku zapisu okresu (5xx, brak odpowiedzi) najpierw odczyt stanu, potem komunikat zgodny z faktem (zapisano / nie zapisano / zmieniono w innej sesji); lista firm `/firmy/` z tą samą polityką hosta co `/` i `/firmy/{id}/` (anonim do loginu platformy, inna sesja 404); ikona statusu w wierszu obok tekstu.",
       "relatedRequirementIds": ["C-F045", "C-F046", "C-F068", "C-F069"],
