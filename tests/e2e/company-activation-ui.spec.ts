@@ -94,7 +94,9 @@ test("activation page: open does not activate, validation, double submit, lost r
     await page.getByRole("button", { name: "Aktywuj konto" }).dblclick();
     await expect(page.getByText("Nie udało się połączyć.")).toBeVisible();
     expect(posts).toBe(1);
-    await page.getByRole("button", { name: "Aktywuj konto" }).click();
+    // Unconfirmed result: the passwords are frozen so the retry carries the same one.
+    await expect(page.getByLabel("Nowe hasło")).toHaveJSProperty("readOnly", true);
+    await page.getByRole("button", { name: "Ponów aktywację" }).click();
     await expect(page.getByRole("heading", { name: "Konto jest aktywne" })).toBeVisible();
     await expect(page.getByText("Strona firmy jest uruchomiona")).toBeVisible();
     await expect(page.getByRole("link", { name: "Przejdź do logowania" })).toHaveAttribute("href", "/admin/login/");

@@ -46,9 +46,14 @@ export function siteMessage(state: string | null): { title: string; text: string
   }
 }
 
+const UNCERTAIN_TEXT = "Aktywacja mogła się zakończyć. Ponów ją tym samym hasłem: serwer zwróci zapisany wynik i nie utworzy drugiego konta. Hasła są zablokowane do czasu potwierdzenia.";
+
 function Frame({ title, context = "Zaproszenie do firmy", children }: { title: string; context?: string; children: React.ReactNode }) {
   const heading = useRef<HTMLHeadingElement>(null);
-  useEffect(() => { heading.current?.focus(); }, [title]);
+  const previous = useRef(title);
+  useEffect(() => {
+    if (previous.current !== title) { heading.current?.focus(); previous.current = title; }
+  }, [title]);
   return (
     <main className={styles.page} data-area="company" data-view="activation">
       <p className={styles.brand}>AUTERVA</p>
@@ -86,6 +91,8 @@ export function ActivationFlow({ token }: { token: string }) {
   const [error, setError] = useState<{ title: string; text?: string } | null>(null);
   const [cooldown, setCooldown] = useState(0);
   const [loading, setLoading] = useState(false);
+  // After an unconfirmed POST the password is frozen: a retry must carry the same one the server may already have stored.
+  const [uncertain, setUncertain] = useState(false);
   const pending = useRef(false);
   const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: { password: "", confirm: "" }, mode: "onSubmit" });
   const password = useWatch({ control: form.control, name: "password" });
@@ -116,6 +123,9 @@ export function ActivationFlow({ token }: { token: string }) {
         headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: values.password }) });
       const data = await response.json().catch(() => ({})) as Record<string, unknown>;
       if (response.ok) {
+        setUncertain(false);
+        // Drop the one-time token from the address bar and history; the page is spent either way.
+        try { window.history.replaceState(null, "", "/admin/zaproszenie/"); } catch { /* ignore */ }
         form.reset({ password: "", confirm: "" });
         setPhase({ kind: "done", name: phase.invitation.name, siteState: typeof data.siteState === "string" ? data.siteState : null });
       } else if (response.status === 404) setPhase({ kind: "invalid" });
@@ -125,9 +135,16 @@ export function ActivationFlow({ token }: { token: string }) {
         setError({ title: "Zbyt wiele prób.", text: "Odczekaj i spróbuj ponownie." });
       } else if (response.status === 403) setError({ title: "Otwórz link z zaproszenia bezpośrednio z wiadomości e-mail.", text: "Aktywacja działa tylko na adresie panelu firmy." });
       else if (response.status === 400) setError({ title: "Hasło nie spełnia wymagań.", text: "Użyj od 12 do 256 znaków." });
-      else setError({ title: "Usługa chwilowo niedostępna.", text: "Konto nie zostało zmienione. Ponów aktywację za chwilę; to samo zaproszenie nie utworzy drugiego konta." });
+      else if (response.status === 503 && data.code === "INGRESS_NOT_CONFIGURED")
+        setError({ title: "Usługa chwilowo niedostępna.", text: "Konto nie zostało zmienione. Ponów aktywację za chwilę; to samo zaproszenie nie utworzy drugiego konta." });
+      else {
+        // Any other 5xx (gateway 502/504, 500) may arrive after the commit: treat it like a lost response.
+        setUncertain(true);
+        setError({ title: "Nie udało się potwierdzić aktywacji.", text: UNCERTAIN_TEXT });
+      }
     } catch {
-      setError({ title: "Nie udało się połączyć.", text: "Aktywacja mogła się zakończyć. Ponów ją tym samym hasłem: serwer zwróci zapisany wynik i nie utworzy drugiego konta." });
+      setUncertain(true);
+      setError({ title: "Nie udało się połączyć.", text: UNCERTAIN_TEXT });
     } finally {
       clearTimeout(timer);
       pending.current = false;
@@ -166,7 +183,7 @@ export function ActivationFlow({ token }: { token: string }) {
     const site = siteMessage(phase.siteState);
     return (
       <Frame title="Konto jest aktywne" context="Aktywacja zakończona">
-        <p className={styles.intro}>{phase.name}. Zaloguj się hasłem, które właśnie ustawiono. Po haśle skonfigurujesz MFA.</p>
+        <p className={styles.intro}>{phase.name}. Zaloguj się hasłem ustawionym przy aktywacji. Po haśle skonfigurujesz MFA.</p>
         <div className={styles.notices}><Alert tone={phase.siteState === "READY" ? "success" : "info"} title={site.title}>{site.text}</Alert></div>
         <div className={styles.form}>
           <Link href="/admin/login" className={styles.loginLink}>Przejdź do logowania</Link>
@@ -181,17 +198,17 @@ export function ActivationFlow({ token }: { token: string }) {
       <form className={styles.form} noValidate onSubmit={onSubmit}>
         <PasswordInput id="activation-password" label="Nowe hasło" autoComplete="new-password" placeholder="Wpisz nowe hasło"
           hint="Użyj co najmniej 12 znaków." visibility={visibility} onVisibilityChange={setVisibility}
-          error={form.formState.errors.password?.message} {...form.register("password")} />
+          error={form.formState.errors.password?.message} readOnly={uncertain} {...form.register("password")} />
         <p className={styles.pending} data-met={long}>
           {long ? <CircleCheck aria-hidden="true" size={16} /> : <Circle aria-hidden="true" size={16} />}{" "}
           {long ? "Spełnione: co najmniej 12 znaków" : "Wymagane: co najmniej 12 znaków"}
         </p>
         <PasswordInput id="activation-confirm" label="Powtórz hasło" autoComplete="new-password" placeholder="Wpisz hasło ponownie"
           hint="Oba hasła muszą być identyczne." visibility={visibility} onVisibilityChange={setVisibility}
-          error={form.formState.errors.confirm?.message} {...form.register("confirm")} />
+          error={form.formState.errors.confirm?.message} readOnly={uncertain} {...form.register("confirm")} />
         {error && <Alert tone="error" title={error.title}>{[error.text, cooldown > 0 ? `Ponów za ${cooldown} s.` : null].filter(Boolean).join(" ")}</Alert>}
         <Button type="submit" width="fill" loading={loading} loadingLabel="Aktywowanie…" disabled={cooldown > 0}>
-          {cooldown > 0 ? "Ponów po limicie" : "Aktywuj konto"}
+          {cooldown > 0 ? "Ponów po limicie" : uncertain ? "Ponów aktywację" : "Aktywuj konto"}
         </Button>
       </form>
       <LoginLink />
