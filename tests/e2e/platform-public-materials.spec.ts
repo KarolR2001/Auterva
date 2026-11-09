@@ -71,6 +71,8 @@ test("public materials: card entry, file error keeps data, preview follows the s
     expect(claim).not.toBeNull();
     expect(await processMediaClaim(db, storage, claim!)).toBe(true);
     await page.getByRole("button", { name: "Odśwież listę" }).click();
+    // Save only after the refreshed list (new version) arrived; saving earlier races with the refresh and conflicts again.
+    await expect(page.getByText("Zdjęcie zostało zmienione w międzyczasie")).toHaveCount(0);
     const logo = await db.publicMedia.findFirstOrThrow({ where: { organizationId: orgA, kind: "LOGO" } });
     await expect(page.getByLabel("Podgląd wyglądu publicznego").locator("img").first()).toHaveAttribute("src", new RegExp(logo.id));
     await expect(page.getByTestId(`media-state-${logo.id}`)).toContainText("Zapisane");
