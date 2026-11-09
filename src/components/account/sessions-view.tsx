@@ -74,7 +74,7 @@ export function SessionsView({ area }: { area: AuthArea }) {
     setCode("");
     setCodeError("");
     setNotice(null);
-    requestAnimationFrame(() => confirmation.current?.querySelector("input")?.focus());
+    requestAnimationFrame(() => confirmation.current?.querySelector<HTMLInputElement>("#end-code")?.focus());
   }
   function close() {
     setTarget(null);
