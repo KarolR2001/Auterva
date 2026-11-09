@@ -69,6 +69,7 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
   const listTickets = useRef(createLatest());
   const historyTickets = useRef(createLatest());
   const heading = useRef<HTMLHeadingElement | null>(null);
+  const gridRef = useRef<HTMLTableElement | null>(null);
 
   // Dialog and form.
   const [open, setOpen] = useState(false);
@@ -370,8 +371,15 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
   }
   useEffect(() => {
     if (wantFocus.current && focusDate) {
-      const node = buttons.current.get(focusDate);
-      if (node) { node.focus(); wantFocus.current = false; }
+      // Focus is only handed back while it is still in the grid (or lost with a replaced button); a user who already
+      // tabbed away must not be pulled back when the month finishes loading.
+      const active = document.activeElement;
+      const inGrid = !active || active === document.body || Boolean(gridRef.current?.contains(active));
+      // One shot: the request is spent after the render it was made for, so a later render (a month that finishes
+      // loading) can never pull focus back after the user moved on with Tab.
+      wantFocus.current = false;
+      if (!inGrid) return;
+      buttons.current.get(focusDate)?.focus();
     }
   });
 
@@ -465,7 +473,7 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
               <Button variant="tertiary" size="sm" onClick={() => setPick(null)}>Anuluj wybór</Button>
             </div>
           ) : null}
-          <table className={styles.table}>
+          <table className={styles.table} ref={gridRef} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null) && event.relatedTarget) wantFocus.current = false; }}>
             <caption className={styles.srOnly}>Kalendarz pojazdu {name}, {monthLabel(month)}. Strzałki zmieniają dzień, Page Up i Page Down miesiąc, Enter wybiera dzień. Wybór wolnego dnia zaczyna blokadę, wybór zajętego otwiera jej edycję.</caption>
             <thead><tr>{weekdays.map((day) => <th key={day} scope="col">{day}</th>)}</tr></thead>
             <tbody>

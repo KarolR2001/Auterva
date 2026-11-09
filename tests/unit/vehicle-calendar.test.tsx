@@ -71,7 +71,7 @@ describe("#39 model: daty, walidacja, stany dni", () => {
   });
 });
 
-type Server = { blocks: CalendarBlock[]; calls: { method: string; url: string; body: unknown }[]; fail?: (call: { method: string; url: string; body: unknown }) => Response | Promise<Response> | null };
+type Server = { blocks: CalendarBlock[]; calls: { method: string; url: string; body: unknown }[]; fail?: (call: { method: string; url: string; body: unknown }) => Response | Promise<Response | null> | null };
 const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
 function install(server: Server, vehicle: Partial<{ status: string }> = {}) {
@@ -81,7 +81,7 @@ function install(server: Server, vehicle: Partial<{ status: string }> = {}) {
     const body = init?.body ? JSON.parse(String(init.body)) : null;
     const call = { method, url, body };
     server.calls.push(call);
-    const forced = server.fail?.(call);
+    const forced = await server.fail?.(call);
     if (forced) return forced;
     if (/\/vehicles\/[^/]+\/availability\//.test(url)) {
       const params = new URL(url, "http://x").searchParams;
@@ -307,6 +307,28 @@ describe("#39 kalendarz pojazdu", () => {
     (dialog.querySelector("form") as HTMLFormElement).requestSubmit();
     await waitFor(() => expect(reads()).toBeGreaterThan(before));
     expect(server.calls.filter((call) => call.method === "POST")).toHaveLength(1);
+  });
+
+  it("Tab zaraz po PageDown: po wczytaniu miesiąca fokus nie wraca do siatki", async () => {
+    const user = userEvent.setup();
+    const server: Server = { blocks: [], calls: [] };
+    let release: (() => void) | null = null;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    server.fail = async (call) => {
+      if (/from=2026-12-01/.test(call.url)) await gate; // the next month answers late
+      return null;
+    };
+    install(server); mount();
+    const day = await screen.findByRole("button", { name: /10 listopada 2026, wolny/ });
+    day.focus();
+    await user.keyboard("{PageDown}");
+    await user.tab();
+    const away = document.activeElement;
+    expect(away?.closest("table")).toBeNull();
+    release!();
+    await screen.findByRole("button", { name: /, 1 grudnia 2026/ });
+    await waitFor(() => expect(document.activeElement).toBe(away));
+    expect(document.activeElement?.closest("table")).toBeNull();
   });
 
   it("usuwanie wymaga potwierdzenia i wysyła wersję", async () => {
