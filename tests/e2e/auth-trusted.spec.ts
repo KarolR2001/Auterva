@@ -83,7 +83,10 @@ test("built auth uses socket ingress for MFA; spoofed headers cannot merge two c
     const registered = await fixtureAuth.api.signUpEmail({ body: { name: "Fixture", email, password } });
     await db.user.update({ where: { id: registered.user.id }, data: { organizationId: company, role: "ADMIN_FIRMY", emailVerified: true } });
 
-    expect((await request.get("/admin/")).status()).toBe(404);
+    const cold = await request.get("/admin/", { maxRedirects: 0 });
+    expect(cold.status()).toBe(307);
+    expect(new URL(cold.headers().location, baseURL).pathname).toMatch(/^\/admin\/login\/?$/);
+    expect(await cold.text()).not.toMatch(/Panel Auterva|PanelShell|jest w przygotowaniu/);
 
     const first = await request.post("/api/auth/sign-in/email/", { headers: { origin: baseURL, "x-forwarded-for": "203.0.113.61" }, data: { email, password } });
     expect(first.status()).toBe(200);
@@ -99,7 +102,11 @@ test("built auth uses socket ingress for MFA; spoofed headers cannot merge two c
     })).status).toBe(401);
     expect(await db.auditLog.count({ where: { actorId: registered.user.id, action: "AUTH_LOGOUT" } })).toBe(0);
     expect((await request.post("/api/auth/sign-in/email/", { headers: { origin: baseURL }, data: { email, password } })).status()).toBe(200);
-    expect((await request.get("/admin/")).status()).toBe(404);
+    // Own limited session (password only, no factor yet): on to MFA enrolment of the same host, no panel content (#14).
+    const limitedPanel = await request.get("/admin/", { maxRedirects: 0 });
+    expect(limitedPanel.status()).toBe(307);
+    expect(limitedPanel.headers()["location"]).toMatch(/\/admin\/mfa\?returnTo=%2Fadmin/);
+    expect(await limitedPanel.text()).not.toContain("Nawigacja panelu");
     const enrollment = await request.post("/api/auth/two-factor/enable/", { headers: { origin: baseURL }, data: { password, method: "totp" } });
     expect(enrollment.status()).toBe(200);
     const setup = await enrollment.json() as { totpURI: string };
@@ -183,7 +190,9 @@ test("platform root requires a verified superadmin session", async ({ request, b
   let platform: Awaited<ReturnType<typeof platformSession>> | null = null;
   try {
     platform = await platformSession(db, baseURL);
-    expect((await request.get("/")).status()).toBe(404);
+    const cold = await request.get("/", { maxRedirects: 0 });
+    expect(cold.status()).toBe(307);
+    expect(new URL(cold.headers().location, baseURL).pathname).toMatch(/^\/login\/?$/);
     expect((await request.get("/api/auth/get-session/", { headers: { cookie: platform.cookie } })).status()).toBe(200);
     expect((await request.get("/", { headers: { cookie: platform.cookie } })).status()).toBe(200);
   } finally {

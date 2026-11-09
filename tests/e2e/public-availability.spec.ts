@@ -127,6 +127,26 @@ test("availability panel: calendar range, late answer dropped, error clears resu
     // An invalid range from the URL keeps what was typed.
     await page.goto(`${origin}/pojazdy/${slug}/?from=${day(-3)}&to=${day(2)}`);
     await expect(page.getByLabel("Od", { exact: true })).toHaveValue(day(-3));
+    // #251: a reversed or unreadable range from the URL gets its own message, not "Podaj obie daty".
+    await page.goto(`${origin}/pojazdy/${slug}/?from=${day(6)}&to=${day(4)}`);
+    await expect(page.getByRole("alert").filter({ hasText: "nie może być wcześniejsza" })).toBeVisible();
+    await expect(page.getByText("Podaj obie daty")).toHaveCount(0);
+    await page.goto(`${origin}/pojazdy/${slug}/?from=2026-13-45&to=${day(4)}`);
+    await expect(page.getByRole("alert").filter({ hasText: "Nie rozpoznaliśmy daty" })).toBeVisible();
+    // #251: past and unavailable days differ by more than the strike-through: past is plain grey text,
+    // unavailable keeps the strike-through and gets a cross icon.
+    await page.goto(`${origin}/pojazdy/${slug}/`);
+    if (day(5).slice(0, 7) !== today.slice(0, 7)) await page.getByRole("link", { name: "Następny miesiąc" }).click();
+    const unavailable = page.locator("#kalendarz button[aria-label*=', niedostępny']").first();
+    await expect(unavailable).toBeVisible();
+    await expect(unavailable.locator("svg")).toHaveCount(1);
+    expect(await unavailable.locator("xpath=..").evaluate((node) => getComputedStyle(node).textDecorationLine)).toContain("line-through");
+    await page.goto(`${origin}/pojazdy/${slug}/`);
+    const past = page.locator("#kalendarz td", { hasText: "minął" }).first();
+    if (await past.count()) {
+      expect(await past.evaluate((node) => getComputedStyle(node).textDecorationLine)).not.toContain("line-through");
+      await expect(page.getByLabel("Legenda kalendarza")).toContainText("Minął");
+    }
   } finally {
     await db.availabilityBlock.deleteMany({ where: { organizationId: org } });
     await db.vehicle.deleteMany({ where: { organizationId: org } });
