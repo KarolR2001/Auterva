@@ -3,6 +3,20 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 227,
+      "scope": "Ograniczenie bazy sortOrder >= 0 dla pojazdów (z CR #67): migracja zatrzymuje się jawnym błędem przy istniejących wierszach ujemnych, naruszenie zapisu poza API mapuje się na FLEET_INVALID_INPUT bez treści wiersza; API bez zmian.",
+      "relatedRequirementIds": ["FR-PUB-002", "D-22"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "prisma/migrations/20261108110000_vehicle_sort_order_check_issue_227/migration.sql",
+        "src/modules/fleet/mutations.ts",
+        "docs/contracts/fleet-crud-publication.md"
+      ],
+      "testPaths": [
+        "tests/integration/vehicle-sort-order-migration.test.ts"
+      ]
+    },
+    {
       "issue": 15,
       "scope": "Logowanie obu ról, obowiązkowe MFA (enrollment, challenge, kod odzyskania z ponownym enrollmentem, ręczna procedura), niepewny wynik z odczytem sesji, ponowne wydanie kodów, neutralne odmowy (także archiwum/blokada konta), limit z pełnym Retry-After i wygaśnięcie challenge/sesji na hostach właściwego obszaru.",
       "relatedRequirementIds": ["C-F010", "C-F011", "C-F013", "C-F014", "C-F040", "C-F044", "FR-ADM-001", "FR-ADM-002", "FR-ADM-003", "FR-ADM-004", "FR-ADM-005", "FR-ADM-007"],
@@ -37,8 +51,23 @@
         "src/app/admin/mfa/page.tsx"
       ],
       "testPaths": ["tests/unit/auth-flow.test.tsx", "tests/unit/auth-page.test.tsx", "tests/unit/auth-destination.test.ts", "tests/unit/mfa-qr.test.tsx", "tests/e2e/auth-ui.spec.ts"]
-      },
-      {
+    },
+    {
+      "issue": 67,
+      "scope": "Wyróżnianie pojazdów na home firmy (FR-PUB-002, D-22): publicznie tylko PUBLISHED z featured i do featuredVehicleCount w kolejności firmy; zmiana wyróżnienia lub kolejności w edycji pojazdu zapisuje audyt (featured, sortOrder) i działa od następnego odczytu tylko w jednej firmie; brak wyróżnionych to pusta lista bez danych zastępczych.",
+      "relatedRequirementIds": ["FR-PUB-002", "D-22", "D-23"],
+      "referenceScreenIds": ["PUB-01"],
+      "codePaths": [
+        "src/modules/fleet/mutations.ts",
+        "src/modules/public-offer/read.ts",
+        "docs/contracts/public-offer-seo.md",
+        "docs/contracts/fleet-crud-publication.md"
+      ],
+      "testPaths": [
+        "tests/integration/featured-vehicles.test.ts"
+      ]
+    },
+    {
       "issue": 74,
       "scope": "Opcjonalny prywatny odczyt audytu do paneli: admin firmy tylko własna firma (ADM-17), superadmin firma wybrana w ścieżce, także archiwalna; filtry czasu/aktora/działania/obiektu w granicach firmy, kursor (createdAt z mikrosekundami, id), redakcja jak przy zapisie, tylko GET; bez audytu platformy i bez UI.",
       "relatedRequirementIds": ["C-F151", "C-N019", "C-N037", "C-N040", "FR-ADM-070", "FR-ADM-071", "D-10", "D-30"],
@@ -84,6 +113,18 @@
       "testPaths": [
         "tests/integration/availability-bulk-blocks.test.ts",
         "tests/integration/security-regression.test.ts"
+      ]
+    },
+    {
+      "issue": 230,
+      "scope": "Spójny zakres sortOrder 0..2147483647 włącznie w PATCH i reorder floty (jedna stała i walidacja w mutations.ts); test graniczny dla obu ścieżek.",
+      "relatedRequirementIds": ["FR-ADM-022"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/fleet/mutations.ts"
+      ],
+      "testPaths": [
+        "tests/integration/fleet-mutations.test.ts"
       ]
     },
     {
@@ -594,6 +635,12 @@
         "src/components/panel/deny-panel.ts",
         "src/components/panel/unsaved-changes-dialog.tsx"
       ],
+      "unmappedStates": [
+        "ADM-04 D: wyszukiwarka „Szukaj pojazdu lub blokady” w topbarze nie jest renderowana w shellu (martwa kontrolka bez trasy wyszukiwania); powstaje z listą floty i dashboardem w #34.",
+        "ADM-04 D/M: chip „Online” (SPEC 7.11: status online/PWA) nie jest renderowany; wskaźnik połączenia i instalacji należy do PWA #56.",
+        "ADM-04 stany service-expired i archived: komponent PanelAccess je obsługuje, ale trasa nie ma danych okresu usługi w shellu; baner „Usługa wygasła” i status usługi należą do #55. Archiwizacja blokuje sesję (neutralne 404 / Sesja wygasła), zgodnie z PRD 3.1.",
+        "ADM-04 awatar z inicjałami: shell nie ma imienia użytkownika, więc awatar pokazuje ikonę konta i nazwę dostępną „Menu użytkownika”."
+      ],
       "stylePath": "src/components/panel/panel.module.css",
       "testPaths": [
         "tests/unit/panel-routes.test.tsx",
@@ -779,6 +826,17 @@
         "src/app/api/platform/companies/[organizationId]/launch-diagnostics/route.ts"
       ],
       "testPaths": ["tests/integration/launch-diagnostics.test.ts"]
+    },
+    {
+      "issue": 242,
+      "scope": "Mutacje domeny własnej a stan archiwum (D-23): superadmin nie zmienia domeny zarchiwizowanej firmy; stabilna odmowa 409 DOMAIN_COMPANY_ARCHIVED w transakcji z aktorem, rolą, firmą i stanem.",
+      "relatedRequirementIds": ["D-23", "C-F086", "C-F089"],
+      "codePaths": [
+        "docs/contracts/custom-domain-lifecycle.md",
+        "src/modules/domains/lifecycle.ts",
+        "src/modules/domains/http.ts"
+      ],
+      "testPaths": ["tests/integration/custom-domain-lifecycle.test.ts"]
     },
     {
       "issue": 23,

@@ -217,11 +217,22 @@ function AvailablePanelShell({
     { kind: "href"; href: string } | { kind: "logout" } | null
   >(null);
   const [busyNotice, setBusyNotice] = useState(false);
+  const [menuSource, setMenuSource] = useState<"avatar" | "more">("avatar");
   const leaving = useRef(false);
   const menuTrigger = useRef<HTMLElement | null>(null);
+  // Where focus returns after "Zostań": the clicked link, or the menu trigger when the opener was inside the menu.
+  const returnFocus = useRef<HTMLElement | null>(null);
   const menuVisible =
     menuOpen && openedEpoch === connectionEpoch && !connectionError;
   const desktopItems = area === "company" ? companyDesktop : platformNavigation;
+  const pinnedItems =
+    area === "company"
+      ? companyDesktop.filter(
+          (item) =>
+            item.href === "/admin/ustawienia" || item.href === "/admin/konto",
+        )
+      : [];
+  const pinnedHrefs = new Set<string>(pinnedItems.map((item) => item.href));
   const mobileItems = area === "company" ? companyMobile : platformNavigation;
   const menuLinks =
     area === "company"
@@ -261,6 +272,7 @@ function AvailablePanelShell({
           return;
       }
       event.preventDefault();
+      returnFocus.current = anchor.closest('[role="dialog"]') ? menuTrigger.current : anchor;
       setMenuOpen(false);
       if (registry.state() === "busy") setBusyNotice(true);
       else setLeaveTarget({ kind: "href", href: url.href });
@@ -287,14 +299,15 @@ function AvailablePanelShell({
   function requestLogout() {
     const guard = registry.state();
     if (guard === "free") return void logout();
+    returnFocus.current = menuTrigger.current;
     setMenuOpen(false);
     if (guard === "busy") setBusyNotice(true);
     else setLeaveTarget({ kind: "logout" });
   }
 
   function stayOnPage() {
+    // Focus returns through the dialog (opener, else the menu trigger): see UnsavedChangesDialog.
     setLeaveTarget(null);
-    menuTrigger.current?.focus();
   }
 
   async function leave(target: NonNullable<typeof leaveTarget>) {
@@ -307,8 +320,13 @@ function AvailablePanelShell({
     navigation.assign(target.href);
   }
 
-  function openMenu(mode: "mobile" | "desktop", trigger: HTMLElement) {
+  function openMenu(
+    mode: "mobile" | "desktop",
+    trigger: HTMLElement,
+    source: "avatar" | "more",
+  ) {
     menuTrigger.current = trigger;
+    setMenuSource(source);
     setMenuMode(mode);
     setLogoutError(false);
     setOpenedEpoch(connectionEpoch);
@@ -385,30 +403,58 @@ function AvailablePanelShell({
       <div className={styles.shell} data-area={area} hidden={connectionError}>
         <SkipLink target="content" />
         <nav className={styles.shellDesktopNav} aria-label="Nawigacja panelu">
-          <a
-            className={styles.shellBrand}
-            href={area === "company" ? "/admin" : "/firmy"}
-          >
-            Auterva
-          </a>
-          <div className={styles.shellNavItems}>
-            {desktopItems.map(navigationLink)}
+          <div className={styles.shellBrandBlock}>
+            <a
+              className={styles.shellBrand}
+              href={area === "company" ? "/admin" : "/firmy"}
+            >
+              Auterva
+            </a>
+            <span className={styles.shellAreaLabel}>
+              {area === "company" ? "Panel admina" : "Panel superadmina"}
+            </span>
           </div>
+          <div className={styles.shellNavItems}>
+            {desktopItems
+              .filter((item) => !pinnedHrefs.has(item.href))
+              .map(navigationLink)}
+          </div>
+          {pinnedItems.length > 0 && (
+            <div className={styles.shellNavPinned}>
+              {pinnedItems.map(navigationLink)}
+            </div>
+          )}
         </nav>
         <div className={styles.shellBody}>
           <header className={styles.shellTopbar}>
-            <h1>{title}</h1>
+            <nav aria-label="Okruszki" className={styles.shellBreadcrumbs}>
+              <ol>
+                <li className={styles.shellBreadcrumbRoot}>Panel</li>
+                <li>
+                  <h1>{title}</h1>
+                </li>
+              </ol>
+            </nav>
             <button
               type="button"
               className={styles.shellProfileTrigger}
               aria-haspopup="dialog"
-              aria-expanded={menuVisible && menuMode === "desktop"}
-              onClick={(event) => openMenu("desktop", event.currentTarget)}
+              aria-expanded={menuVisible && menuSource === "avatar"}
+              aria-label={
+                area === "company" ? "Menu użytkownika" : "Profil superadmina"
+              }
+              onClick={(event) =>
+                openMenu(
+                  typeof window.matchMedia === "function" &&
+                    window.matchMedia("(max-width: 767px)").matches
+                    ? "mobile"
+                    : "desktop",
+                  event.currentTarget,
+                  "avatar",
+                )
+              }
             >
               <CircleUserRound size={20} aria-hidden="true" />
-              <span>
-                {area === "company" ? "Menu użytkownika" : "Profil superadmina"}
-              </span>
             </button>
           </header>
           {area === "platform" && companyContext && (
@@ -435,8 +481,8 @@ function AvailablePanelShell({
             type="button"
             className={styles.shellMoreTrigger}
             aria-haspopup="dialog"
-            aria-expanded={menuVisible && menuMode === "mobile"}
-            onClick={(event) => openMenu("mobile", event.currentTarget)}
+            aria-expanded={menuVisible && menuSource === "more"}
+            onClick={(event) => openMenu("mobile", event.currentTarget, "more")}
           >
             <Menu size={20} aria-hidden="true" />
             <span>Więcej</span>
@@ -504,6 +550,7 @@ function AvailablePanelShell({
       open={leaveTarget !== null}
       contextLabel={registry.label()}
       onStay={stayOnPage}
+      returnFocusRef={returnFocus}
       onDiscard={() => leave(leaveTarget!)}
       onSaveAndLeave={
         registry.hasSave()
