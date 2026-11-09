@@ -650,6 +650,32 @@
       ]
     },
     {
+      "issue": 14,
+      "scope": "Shell firmy i platformy po serwerowej kontroli kontekstu #13, stany dostępu/błędów oraz ochrona niezapisanych zmian; treści modułów powstają w późniejszych issue.",
+      "relatedRequirementIds": ["C-F018", "C-F147", "C-F148", "C-F149", "C-F150", "DS-N07", "DS-N08", "DS-N14"],
+      "referenceScreenIds": ["ADM-01", "ADM-04", "ADM-19", "ADM-20", "ADM-21", "PLT-01-02", "PLT-04", "OVR-13", "OVR-17"],
+      "codePaths": [
+        "src/app/page.tsx",
+        "src/app/admin/page.tsx",
+        "src/components/panel/panel-states.tsx",
+        "src/components/panel/panel-shell.tsx",
+        "src/components/panel/deny-panel.ts",
+        "src/components/panel/unsaved-changes-dialog.tsx"
+      ],
+      "stylePath": "src/components/panel/panel.module.css",
+      "testPaths": [
+        "tests/unit/panel-routes.test.tsx",
+        "tests/integration/panel-routes.test.tsx",
+        "tests/unit/panel-states.test.tsx",
+        "tests/unit/panel-shell.test.tsx",
+        "tests/unit/unsaved-changes-dialog.test.tsx",
+        "tests/e2e/auth-host.spec.ts",
+        "tests/e2e/auth-trusted.spec.ts",
+        "tests/e2e/security-headers.spec.ts"
+      ],
+      "fixturePath": "tests/fixtures/panel-check.tsx"
+    },
+    {
       "issue": 13,
       "scope": "Aktywny host wybiera obszar; serwer sprawdza aktora i firmę, lokalny ingress dostarcza adres klienta, a wspólny limiter chroni uwierzytelnione API. Brzeg dostawcy pozostaje do odbioru przed stagingiem.",
       "relatedRequirementIds": ["C-N002", "C-N003", "C-N005", "C-N007", "C-N008", "C-N009", "C-N012", "C-N013", "C-N024"],
