@@ -3,6 +3,42 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 15,
+      "scope": "Logowanie obu ról, obowiązkowe MFA (enrollment, challenge, kod odzyskania z ponownym enrollmentem, ręczna procedura), niepewny wynik z odczytem sesji, ponowne wydanie kodów, neutralne odmowy (także archiwum/blokada konta), limit z pełnym Retry-After i wygaśnięcie challenge/sesji na hostach właściwego obszaru.",
+      "relatedRequirementIds": ["C-F010", "C-F011", "C-F013", "C-F014", "C-F040", "C-F044", "FR-ADM-001", "FR-ADM-002", "FR-ADM-003", "FR-ADM-004", "FR-ADM-005", "FR-ADM-007"],
+      "referenceScreenIds": ["ADM-01", "PLT-08", "ACC-07"],
+      "scenarioStates": {
+        "totpChallenge": "MfaFlow step=challenge (07A/07B)",
+        "enrollment": "MfaFlow step=password → setup → codes (07 → 07G)",
+        "recoveryCode": "MfaFlow step=recovery, błąd/pending/limit (07D/07D1/07D2/07D3)",
+        "recoveryPassword": "MfaFlow step=password po kodzie odzyskania (07E)",
+        "issuedCodes": "MfaFlow step=codes (07G)",
+        "uncertainResult": "MfaFlow step=uncertain z błędem odczytu (07H/07H1); 07H0 to wyłącznie symulacja prototypu",
+        "noSessionWithRecoveryIntent": "LoginForm recoverCodes (07H2)",
+        "rotateFreshFactor": "MfaFlow step=restoreFactor (07I)",
+        "rotatePassword": "MfaFlow step=restorePassword (07J)",
+        "expiredProof": "MfaFlow step=proofExpired (07J1)",
+        "manualRecovery": "MfaFlow step=manual (07C)"
+      },
+      "unmappedStates": ["Informacja o wygasłej sesji na ekranie logowania (session=expired) używa tekstu SPEC; dedykowany ADM-19/OVR-14 i powrót z panelu należą do #14."],
+      "components": [
+        { "itemId": "DS-AUT-001", "codePath": "src/components/auth/auth-flow.tsx" },
+        { "itemId": "DS-AUT-005", "codePath": "src/components/auth/auth-flow.tsx" }
+      ],
+      "codePaths": [
+        "src/components/auth/auth-flow.tsx",
+        "src/components/auth/auth-page.tsx",
+        "src/components/auth/auth-destination.ts",
+        "src/components/auth/mfa-qr.tsx",
+        "src/components/auth/auth.module.css",
+        "src/app/login/page.tsx",
+        "src/app/mfa/page.tsx",
+        "src/app/admin/login/page.tsx",
+        "src/app/admin/mfa/page.tsx"
+      ],
+      "testPaths": ["tests/unit/auth-flow.test.tsx", "tests/unit/auth-page.test.tsx", "tests/unit/auth-destination.test.ts", "tests/unit/mfa-qr.test.tsx", "tests/e2e/auth-ui.spec.ts"]
+    },
+    {
       "issue": 67,
       "scope": "Wyróżnianie pojazdów na home firmy (FR-PUB-002, D-22): publicznie tylko PUBLISHED z featured i do featuredVehicleCount w kolejności firmy; zmiana wyróżnienia lub kolejności w edycji pojazdu zapisuje audyt (featured, sortOrder) i działa od następnego odczytu tylko w jednej firmie; brak wyróżnionych to pusta lista bez danych zastępczych.",
       "relatedRequirementIds": ["FR-PUB-002", "D-22", "D-23"],
