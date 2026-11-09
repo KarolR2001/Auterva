@@ -23,8 +23,20 @@ function urlAt(origin: string, path: string, query = "") {
   return new RegExp(`^${esc(origin)}${esc(path)}/?${esc(query)}$`);
 }
 
+/** The page must not scroll sideways at any supported width; the original viewport is restored. */
 async function noHorizontalOverflow(page: Page) {
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  const original = page.viewportSize();
+  try {
+    for (const width of [320, 390, 768, 1024, 1920]) {
+      await page.setViewportSize({ width, height: original?.height ?? 900 });
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+        `horizontal overflow at ${width}px`,
+      ).toBe(true);
+    }
+  } finally {
+    if (original) await page.setViewportSize(original);
+  }
 }
 
 /** Optional reference renders for the Penpot comparison (ACCOUNT_UI_SCREENSHOTS=<dir>) at 390 and 1440 px. */
@@ -164,10 +176,12 @@ test("company admin: reset, account, password change, logout and expired service
     await expect(page.getByLabel("Nowe hasło", { exact: true })).toHaveValue(finalPassword);
     expect(await db.session.count({ where: { userId: registered.user.id } })).toBeGreaterThan(0);
 
-    // Wrong current password: neutral message, session kept.
+    // Wrong current password: a field error with aria-invalid and focus on the field, session kept.
     await page.getByLabel("Aktualne hasło").fill("Wrong current password 1!");
     await page.getByRole("button", { name: "Zmień hasło" }).click();
-    await expect(page.getByRole("main").getByRole("alert")).toContainText("Sprawdź aktualne hasło");
+    await expect(page.getByLabel("Aktualne hasło")).toHaveAttribute("aria-invalid", "true");
+    await expect(page.getByRole("main").getByText("Aktualne hasło jest nieprawidłowe.")).toBeVisible();
+    await expect(page.getByLabel("Aktualne hasło")).toBeFocused();
     await expect(page).toHaveURL(urlAt(origin, "/admin/konto"));
     await snap(page, "account-password-error");
 

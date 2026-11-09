@@ -874,6 +874,19 @@
       "testPaths": ["tests/integration/password-reset.test.ts", "tests/integration/password-lock-order.test.ts", "tests/integration/password-change-limit.test.ts", "tests/integration/auth-login-neutral-work.test.ts", "tests/isolated/bootstrap-superadmin.test.ts"]
     },
     {
+      "issue": 253,
+      "scope": "Poprawki dostępności formularzy reset hasła i konta po CR #19: fokus na tytule po sukcesie prośby o reset i na polu po błędzie (reset, ustawienie hasła, nazwa, zmiana hasła), błędne aktualne hasło jako błąd pola z aria-invalid, 5xx przy zmianie hasła rozstrzyga odczyt sesji (komunikat bez pozornej pewności), usunięte martwe gałęzie 5xx, brak poziomego overflow konta przy 320/390/768/1024/1920. Miernik siły hasła poza zakresem (#252).",
+      "relatedRequirementIds": ["C-F041", "C-F042", "C-F044", "FR-ADM-006", "FR-ADM-080"],
+      "referenceScreenIds": ["ADM-02", "ADM-03", "ADM-15", "PLT-10"],
+      "codePaths": [
+        "src/components/auth/use-refocus.ts",
+        "src/components/auth/auth-flow.tsx",
+        "src/components/auth/reset-flow.tsx",
+        "src/components/account/account-view.tsx"
+      ],
+      "testPaths": ["tests/unit/reset-flow.test.tsx", "tests/unit/account-view.test.tsx", "tests/e2e/account-ui.spec.ts"]
+    },
+    {
       "issue": 20,
       "scope": "Prerejestracja firmy, jednorazowe zaproszenie i przypięcie aktywnego hosta; aktywacja konta i trialu należy do #22.",
       "relatedRequirementIds": ["C-F015", "C-F019", "C-F020", "C-F021", "C-F022", "C-F023", "C-F024", "C-F025", "C-F028", "C-F030", "C-F034", "C-F035", "C-F036", "C-N014", "C-N018"],
