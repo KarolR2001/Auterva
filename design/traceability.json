@@ -3,6 +3,20 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 227,
+      "scope": "Ograniczenie bazy sortOrder >= 0 dla pojazdów (z CR #67): migracja zatrzymuje się jawnym błędem przy istniejących wierszach ujemnych, naruszenie zapisu poza API mapuje się na FLEET_INVALID_INPUT bez treści wiersza; API bez zmian.",
+      "relatedRequirementIds": ["FR-PUB-002", "D-22"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "prisma/migrations/20261108110000_vehicle_sort_order_check_issue_227/migration.sql",
+        "src/modules/fleet/mutations.ts",
+        "docs/contracts/fleet-crud-publication.md"
+      ],
+      "testPaths": [
+        "tests/integration/vehicle-sort-order-migration.test.ts"
+      ]
+    },
+    {
       "issue": 15,
       "scope": "Logowanie obu ról, obowiązkowe MFA (enrollment, challenge, kod odzyskania z ponownym enrollmentem, ręczna procedura), niepewny wynik z odczytem sesji, ponowne wydanie kodów, neutralne odmowy (także archiwum/blokada konta), limit z pełnym Retry-After i wygaśnięcie challenge/sesji na hostach właściwego obszaru.",
       "relatedRequirementIds": ["C-F010", "C-F011", "C-F013", "C-F014", "C-F040", "C-F044", "FR-ADM-001", "FR-ADM-002", "FR-ADM-003", "FR-ADM-004", "FR-ADM-005", "FR-ADM-007"],
@@ -250,6 +264,16 @@
         "tests/integration/service-reminders-process.test.ts",
         "tests/integration/service-reminders-migration.test.ts",
         "tests/e2e/service-reminders.spec.ts"
+      ]
+    },
+    {
+      "issue": 241,
+      "scope": "Deterministyczny test procesów workera przypomnień pod obciążeniem: jawny limit testu z procesami i ograniczone czekanie na gotowość workera, bez osłabiania asercji.",
+      "relatedRequirementIds": ["C-F067", "C-N004", "C-F058", "C-F062", "D-07", "D-14"],
+      "referenceScreenIds": [],
+      "codePaths": [],
+      "testPaths": [
+        "tests/integration/service-reminders-process.test.ts"
       ]
     },
     {
@@ -753,6 +777,17 @@
         "src/app/api/platform/companies/[organizationId]/launch-diagnostics/route.ts"
       ],
       "testPaths": ["tests/integration/launch-diagnostics.test.ts"]
+    },
+    {
+      "issue": 242,
+      "scope": "Mutacje domeny własnej a stan archiwum (D-23): superadmin nie zmienia domeny zarchiwizowanej firmy; stabilna odmowa 409 DOMAIN_COMPANY_ARCHIVED w transakcji z aktorem, rolą, firmą i stanem.",
+      "relatedRequirementIds": ["D-23", "C-F086", "C-F089"],
+      "codePaths": [
+        "docs/contracts/custom-domain-lifecycle.md",
+        "src/modules/domains/lifecycle.ts",
+        "src/modules/domains/http.ts"
+      ],
+      "testPaths": ["tests/integration/custom-domain-lifecycle.test.ts"]
     },
     {
       "issue": 23,
