@@ -38,8 +38,3 @@ export function documentCsp(nonce: string, authority: string | null, development
     "frame-ancestors 'none'",
   ].join("; ");
 }
-
-/** The nonce of a document CSP built by `documentCsp` (null when the header is absent or has none). */
-export function nonceFromCsp(csp: string | null): string | null {
-  return csp?.match(/'nonce-([A-Za-z0-9+/=_-]+)'/)?.[1] ?? null;
-}

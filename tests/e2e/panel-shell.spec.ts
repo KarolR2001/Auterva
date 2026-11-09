@@ -111,6 +111,23 @@ test("panel firmy: otwarte menu użytkownika i Więcej nie powodują naruszeń C
       const inPage = await page.evaluate(() => (window as unknown as { __csp: string[] }).__csp);
       expect(inPage, `${trigger} securitypolicyviolation`).toEqual([]);
     }
+
+    // A server refresh renders the root layout again with a NEW request nonce (Proxy makes one per request). The
+    // scroll-lock style of a dialog opened afterwards must still carry the nonce of the document's CSP.
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${origin}/admin/`);
+    const documentNonce = await page.evaluate(() => document.querySelector<HTMLScriptElement>("script[nonce]")?.nonce ?? "");
+    expect(documentNonce).not.toBe("");
+    const refreshed = page.waitForResponse((response) => response.url().includes("_rsc=") && response.status() === 200);
+    await page.evaluate(() => (window as unknown as { next: { router: { refresh: () => void } } }).next.router.refresh());
+    const rsc = await refreshed;
+    expect(rsc.headers()["content-security-policy"] ?? "", "the refresh response carries another nonce").not.toContain(`'nonce-${documentNonce}'`);
+    await page.getByRole("button", { name: "Menu użytkownika" }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+    expect(await page.evaluate(() => (window as unknown as { __csp: string[] }).__csp), "after router.refresh()").toEqual([]);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
     expect(violations).toEqual([]);
   } finally {
     if (session) await session.dispose();
