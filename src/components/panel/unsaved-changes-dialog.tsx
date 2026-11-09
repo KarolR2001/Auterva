@@ -19,6 +19,8 @@ type UnsavedChangesDialogProps = {
   contextLabel?: string;
   /** The entry stays stored on this device: "Odrzuć zmiany" would mislead, so the exit is labelled as leaving only. */
   keepsEntry?: boolean;
+  /** Leaving (sign-out) deletes the locally stored entry: the standard labels stay and the text says so. */
+  removesEntry?: boolean;
   onStay: () => void;
   onDiscard: () => void | Promise<void>;
   onSaveAndLeave?: () => void | Promise<void>;
@@ -32,6 +34,7 @@ export function UnsavedChangesDialog({
   open,
   contextLabel,
   keepsEntry = false,
+  removesEntry = false,
   onStay,
   onDiscard,
   onSaveAndLeave,
@@ -120,11 +123,13 @@ export function UnsavedChangesDialog({
             {keepsEntry ? (
               <>
                 {contextLabel ?? "Wpis czeka na wysłanie"}. Zostaje na tym
-                urządzeniu, więc możesz wyjść bez wysyłania i wrócić do niego
+                urządzeniu, więc możesz wyjść bez wysyłania i wrócić do niej
                 później albo zostać tutaj.
               </>
             ) : (
               <>
+                {removesEntry &&
+                  "Po wylogowaniu niewysłany wpis zostanie usunięty z tego urządzenia. "}
                 Masz niezapisane zmiany{contextLabel ? ` w: ${contextLabel}` : ""}.
                 {" "}
                 {onSaveAndLeave

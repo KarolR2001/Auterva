@@ -401,7 +401,7 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
   }, [messages]);
   return (
     <section className={styles.chat} aria-labelledby="chat-title">
-      <h2 id="chat-title" className={styles.srOnly}>Czat z {peerLabel}</h2>
+      <h2 id="chat-title" className={styles.srOnly}>Czat z {peerWith ?? peerLabel}</h2>
       <p className={styles.subtitle}>{companyName} · kontakt z {peerWith ?? peerLabel}</p>
       <div className={styles.status} role="status">
         {connection === "online" && <span><span className={styles.onlineDot} aria-hidden="true" />Online</span>}

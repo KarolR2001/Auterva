@@ -97,6 +97,7 @@ describe("czat firmy (#52)", () => {
     renderChat();
     await waitFor(() => expect(screen.getByText("pytanie")).toBeInTheDocument());
     expect(screen.getByText("Alfa Rent · kontakt z Autervą")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Czat z Autervą" })).toBeInTheDocument();
     expect(screen.getByText("Alfa Rent", { selector: "p" })).toBeInTheDocument(); // own message signed with the company
     expect(screen.queryByText("Ty", { exact: true })).toBeNull();
     expect(screen.getByText(/Szkic Alfa Rent · odbiorca: Auterva/)).toBeInTheDocument();
@@ -125,6 +126,26 @@ describe("czat firmy (#52)", () => {
     await user.click(screen.getByRole("button", { name: "Wyjdź bez wysyłania" }));
     await waitFor(() => expect(assign).toHaveBeenCalledOnce());
     expect(window.localStorage.length).toBeGreaterThan(0); // the unsent message is still stored
+  });
+
+  it("guard przy wylogowaniu: standardowe OVR-13, ostrzega o usunięciu i wpis faktycznie znika po potwierdzeniu", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) =>
+      init?.method === "POST" ? new Response(null, { status: 502 }) : Response.json(history([])));
+    renderChat();
+    await waitFor(() => expect(screen.getByText(/Brak wiadomości/)).toBeInTheDocument());
+    await user.type(screen.getByRole("textbox", { name: /Napisz wiadomość/ }), "do wysłania");
+    await user.click(screen.getByRole("button", { name: "Wyślij" }));
+    await waitFor(() => expect(screen.getByText("Niepewny wynik wysyłki")).toBeInTheDocument());
+    expect(window.localStorage.length).toBeGreaterThan(0);
+    await user.click(screen.getByRole("button", { name: "Menu użytkownika" }));
+    await user.click(screen.getByRole("button", { name: "Wyloguj" }));
+    const dialog = screen.getByRole("alertdialog", { name: "Niezapisane zmiany" });
+    expect(dialog).toHaveTextContent("zostanie usunięty z tego urządzenia");
+    expect(dialog).not.toHaveTextContent("Zostaje na tym urządzeniu");
+    expect(screen.queryByRole("button", { name: "Wyjdź bez wysyłania" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Odrzuć zmiany" }));
+    await waitFor(() => expect(window.localStorage.length).toBe(0)); // the stored unsent message is really gone
   });
 
   it("wiadomość drugiej strony z WebSocket, statusy odczytu i pisania; ready/połączenie nie czyta", async () => {
