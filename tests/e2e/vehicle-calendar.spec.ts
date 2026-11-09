@@ -186,8 +186,8 @@ test("vehicle calendar: add, one day, overlap from two cards, version conflict, 
     const contextB = await browser.newContext();
     await contextB.addCookies([{ name: nameB, value: valueB, domain: hosts.adminB, path: "/" }]);
     const pageB = await contextB.newPage();
-    await pageB.goto(`http://${hosts.adminB}:${port}/admin/pojazdy/${car}/kalendarz/`);
-    await expect(pageB.getByText("Pojazd nie istnieje w tej firmie.")).toBeVisible();
+    // Since #284 the server answers a neutral 404 for a vehicle of another company (never a 200 with a message).
+    expect((await pageB.goto(`http://${hosts.adminB}:${port}/admin/pojazdy/${car}/kalendarz/`))!.status()).toBe(404);
     await expect(pageB.getByText("CAL-REF-SECRET")).toHaveCount(0);
     await contextB.close();
   } finally {
