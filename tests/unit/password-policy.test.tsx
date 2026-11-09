@@ -31,9 +31,9 @@ describe("PasswordStrength", () => {
     const result = evaluatePassword("Abcdefghijk1");
     render(<PasswordStrength id="s" {...result} />);
     expect(screen.getByText("Siła hasła: Średnie")).toBeVisible();
-    expect(screen.getByText(/Cyfra/)).toHaveTextContent("Cyfra: spełnione");
+    expect(screen.getByText(/Cyfra/)).toHaveTextContent("Cyfra (zalecane): spełnione");
     expect(screen.getByText(/Znak specjalny/)).toHaveTextContent(
-      "Znak specjalny: oczekuje",
+      "Znak specjalny (zalecane): oczekuje",
     );
     expect(screen.getAllByRole("listitem")).toHaveLength(4);
   });
@@ -56,5 +56,13 @@ describe("PasswordStrength", () => {
     );
     expect(container.querySelector("[data-level]")).toHaveAttribute("data-level", "medium");
     expect(container.querySelector("[aria-hidden='true'] > div")).toHaveStyle({ width: "75%" });
+  });
+
+  it("tylko długość jest wymagana, pozostałe kryteria są oznaczone jako zalecane", () => {
+    render(<PasswordStrength id="s" {...evaluatePassword("abc")} />);
+    const items = screen.getAllByRole("listitem");
+    expect(items[0]).toHaveTextContent("Co najmniej 12 znaków (wymagane)");
+    for (const item of items.slice(1)) expect(item).toHaveTextContent("(zalecane)");
+    expect(screen.getAllByText("(wymagane)", { exact: false })).toHaveLength(1);
   });
 });

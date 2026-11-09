@@ -54,7 +54,7 @@
     },
     {
       "issue": 252,
-      "scope": "Wskaźnik siły hasła DS-AUT-004 (SPEC 6.10, handoff components.md): wspólny PasswordStrength z etykietą, paskiem i checklistą tekstową, aria-live tylko dla poziomu; w resecie i zmianie hasła z #19, aktywacja z #26 po merge PR #228. Polityka serwera 12–256 znaków; pozostałe kryteria są wskazówką i nie blokują wysłania.",
+      "scope": "Wskaźnik siły hasła DS-AUT-004 (SPEC 6.10, handoff components.md): wspólny PasswordStrength z etykietą, paskiem i checklistą tekstową, aria-live tylko dla poziomu; w resecie i zmianie hasła z #19, aktywacja z #26 po merge PR #228. Polityka serwera 12–256 znaków; długość jest jedynym kryterium „wymagane”, litery, cyfra i znak specjalny są oznaczone „zalecane” (nie blokują wysłania).",
       "relatedRequirementIds": ["FR-ADM-006", "FR-ADM-007", "FR-ADM-080", "FR-ADM-082"],
       "referenceScreenIds": ["ADM-03", "PLT-10"],
       "scenarioStates": {
