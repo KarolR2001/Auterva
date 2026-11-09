@@ -2,7 +2,15 @@ import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from "node:chil
 import { chmodSync, existsSync, utimesSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { afterAll, expect, test } from "vitest";
+import { afterAll, expect, test, vi } from "vitest";
+
+/**
+ * Every test here runs the real script in a child bash (git, node, several subprocesses; seconds under load) or waits on
+ * real processes, so the default 5 s is shorter than the work itself on a busy machine (#264). File-level default for
+ * current and future tests; the inner waits stay bounded, no assertion is weakened.
+ */
+vi.setConfig({ testTimeout: 60_000 });
+const TEST_TIMEOUT_MS = 60_000;
 
 // Runs scripts/ci-local.sh in a throwaway repository with stub tools in PATH. No gate is executed:
 // the stub pnpm either fails the install step or ends the run, so the script never reaches real jobs.
@@ -66,7 +74,7 @@ test("refuses to start on a dirty tree (tracked, staged or untracked) but ignore
   rmSync(join(t.repo, "untracked.txt"));
   writeFileSync(join(t.repo, "package.json"), "{}\n");
   expect(t.run("27400", t.out).status).toBe(2);
-});
+}, TEST_TIMEOUT_MS);
 
 test.each([
   [{ gitleaks: "8.29.0" }, /gitleaks 8\.29\.0 found, but 8\.30\.1/],
@@ -87,14 +95,14 @@ test("rejects a semver range in engines.node explicitly", () => {
   const r = t.run("27400", t.out);
   expect(r.status).toBe(2);
   expect(r.stderr).toMatch(/semver range/);
-});
+}, TEST_TIMEOUT_MS);
 
 test("accepts matching tool versions and reaches the install step", () => {
   const t = setup();
   const r = t.run("27400", t.out);
   expect(r.status).toBe(1);
   expect(readFileSync(t.out, "utf8")).toMatch(/tools\tnode v24\.20\.0; gitleaks 8\.30\.1; pg_dump 18\.1/);
-});
+}, TEST_TIMEOUT_MS);
 
 test("SIGTERM stops a running step at once, removes the quality worktree and leaves no step process", async () => {
   // The stub pnpm records its PID, terminates the main script (stub -> subshell -> step subshell -> script)
@@ -131,7 +139,7 @@ test("refuses to start when mktemp fails instead of using an empty path", () => 
   const r = setup({}, "exit 0", { mktempFails: true }).run("27400", join(tmpdir(), "ci-local-unused.txt"));
   expect(r.status).toBe(2);
   expect(r.stderr).toMatch(/cannot create a temporary directory/);
-});
+}, TEST_TIMEOUT_MS);
 
 const live = () => spawn("/bin/sleep", ["60"], { stdio: "ignore" });
 const e2eLine = (out: string) => readFileSync(out, "utf8").split("\n").find((line) => line.startsWith("Build and E2E")) ?? "";
