@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { FIXTURE } from "../../scripts/fixture-ids";
-import { ensureControlledSuperadminMfa, verifiedFixtureSession } from "../fixtures/verified-session";
+import { ensureControlledSuperadminMfa, resetPlatformApiBudget, verifiedFixtureSession } from "../fixtures/verified-session";
 
 // #53: the superadmin inbox in a real browser. The local ingress carries no WebSocket, so the live channels show their
 // reconnect state; the list, history, sending and drafts work over HTTP and local storage.
@@ -20,6 +20,7 @@ test("skrzynka superadmina: lista, przełączanie rozmów ze szkicami, wysyłka 
   const origin = `http://${platformHost}:${port}`;
   const session = await (async () => {
     await ensureControlledSuperadminMfa(db, FIXTURE.users[2]);
+    await resetPlatformApiBudget(db, FIXTURE.users[2]);
     return verifiedFixtureSession(db, FIXTURE.users[2]);
   })();
   const all = Object.values(ids);
