@@ -73,3 +73,50 @@ test("nieznana ścieżka panelu: shell z powrotem do startu dla autoryzowanej se
     await db.$disconnect();
   }
 });
+
+// #234: the panel's dialogs (user menu, "Więcej") must not trip the nonce CSP: no inline <style> without a nonce.
+test("panel firmy: otwarte menu użytkownika i Więcej nie powodują naruszeń CSP", async ({ page, context, baseURL }) => {
+  if (!baseURL) throw new Error("Missing trusted ingress URL");
+  const db = createPrismaClient(process.env.DATABASE_URL ?? "");
+  const tag = randomUUID().slice(0, 8);
+  const orgId = randomUUID();
+  const userId = randomUUID();
+  const hostname = `panel-csp-${tag}.example.test`;
+  const origin = `http://${hostname}:${new URL(baseURL).port}`;
+  let session: Awaited<ReturnType<typeof verifiedFixtureSession>> | null = null;
+  try {
+    await db.organization.create({ data: { id: orgId, slug: `panel-csp-${tag}`, name: `Firma CSP ${tag}`, firstAdminRegisteredAt: new Date() } });
+    await db.user.create({ data: { id: userId, name: "Panel CSP", email: `panel-csp-${tag}@example.test`, role: "ADMIN_FIRMY",
+      organizationId: orgId, emailVerified: true, twoFactorEnabled: true } });
+    await db.hostMapping.create({ data: { hostname, area: "COMPANY_ADMIN", organizationId: orgId, status: "ACTIVE" } });
+    session = await verifiedFixtureSession(db, userId);
+    const [name, ...value] = session.cookie.split("=");
+    await context.addCookies([{ name, value: value.join("="), url: origin }]);
+    const violations: string[] = [];
+    await page.addInitScript(() => {
+      (window as unknown as { __csp: string[] }).__csp = [];
+      document.addEventListener("securitypolicyviolation", (event) => {
+        (window as unknown as { __csp: string[] }).__csp.push(`${event.violatedDirective} ${event.blockedURI}`);
+      });
+    });
+    page.on("console", (message) => { if (/content security policy/i.test(message.text())) violations.push(message.text().slice(0, 200)); });
+
+    for (const [width, trigger] of [[1440, "Menu użytkownika"], [390, "Więcej"]] as const) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`${origin}/admin/`);
+      await page.getByRole("button", { name: trigger }).click();
+      await expect(page.getByRole("dialog")).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      const inPage = await page.evaluate(() => (window as unknown as { __csp: string[] }).__csp);
+      expect(inPage, `${trigger} securitypolicyviolation`).toEqual([]);
+    }
+    expect(violations).toEqual([]);
+  } finally {
+    if (session) await session.dispose();
+    await db.user.deleteMany({ where: { id: userId } });
+    await db.hostMapping.deleteMany({ where: { organizationId: orgId } });
+    await db.organization.deleteMany({ where: { id: orgId } });
+    await db.$disconnect();
+  }
+});
