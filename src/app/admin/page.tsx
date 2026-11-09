@@ -6,9 +6,9 @@ import { PwaRegistration } from "./pwa-registration";
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
-  const { sessionId, companyName } = await requireCompanyAdminPage();
+  const { sessionId, companyName, unreadChat } = await requireCompanyAdminPage();
   return (
-    <PanelShell area="company" accessState="allowed" expectedSessionId={sessionId} title={companyName} currentPath="/admin">
+    <PanelShell area="company" accessState="allowed" expectedSessionId={sessionId} title={companyName} currentPath="/admin" unreadChat={unreadChat}>
       <Dashboard title={`Panel · ${companyName}`} />
       <PwaRegistration />
     </PanelShell>

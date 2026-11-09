@@ -73,6 +73,47 @@
       "testPaths": ["tests/unit/auth-flow.test.tsx", "tests/unit/auth-page.test.tsx", "tests/unit/auth-destination.test.ts", "tests/unit/mfa-qr.test.tsx", "tests/e2e/auth-ui.spec.ts"]
     },
     {
+      "issue": 19,
+      "scope": "Reset hasła (prośba z neutralnym wynikiem, ustawienie nowego hasła z jednorazowym linkiem), konto obu ról (nazwa, e-mail i rola tylko do odczytu), zmiana hasła z cofnięciem sesji, wydanie nowych kodów przez świeżą weryfikację MFA, wylogowanie z potwierdzeniem serwera; PasswordStrength (DS-AUT-004) zgodny z polityką serwera 12–256 znaków.",
+      "relatedRequirementIds": ["C-F041", "C-F042", "C-F044", "FR-ADM-006", "FR-ADM-007", "FR-ADM-080", "FR-ADM-082"],
+      "referenceScreenIds": ["ADM-02", "ADM-03", "ADM-15", "PLT-10"],
+      "scenarioStates": {
+        "resetRequestNeutral": "ResetRequestForm sent (ADM-02)",
+        "resetRequestUncertain": "ResetRequestForm 5xx/utrata odpowiedzi, ponowienie z tym samym kluczem (ADM-02)",
+        "setNewPassword": "SetNewPasswordForm form/mismatch/loading/success/expired (ADM-03, DS-AUT-003)",
+        "setNewPasswordUncertain": "SetNewPasswordForm 5xx/utrata odpowiedzi, bez fałszywego sukcesu (ADM-03)",
+        "passwordStrength": "PasswordStrength weak/medium/strong (DS-AUT-004)",
+        "account": "AccountView: Dane konta, Zmień hasło, MFA (ADM-15 anatomia, PLT-10)",
+        "freshMfaForCodes": "AccountView → MfaFlow recoverCodes (PLT-10 → 07I)",
+        "manualRecovery": "AccountView Nie mam obu czynników (PLT-10 → 07C)"
+      },
+      "unmappedStates": ["Brak celu w makiecie dla 07D2 „Użyj kodu z aplikacji” (zgłoszone, bez zgadywania).", "PLT-10 D: ukryty slot Actions (Action / Primary → FLOW-MVP-02, Action / Secondary → FLOW-MVP-06) nie ma odpowiednika w kodzie konta; nie renderowany (odczyt Penpota 08.11).", "Rotacja TOTP w pełnej sesji (D-05 pkt 5): API nie ma endpointu; konto oferuje tylko ponowne wydanie kodów i odzyskanie kodem."],
+      "components": [
+        { "itemId": "DS-AUT-002", "codePath": "src/components/auth/reset-flow.tsx" },
+        { "itemId": "DS-AUT-003", "codePath": "src/components/auth/reset-flow.tsx" },
+        { "itemId": "DS-AUT-004", "codePath": "src/components/auth/password-strength.tsx" },
+        { "itemId": "DS-AUT-007", "codePath": "src/components/account/account-view.tsx" }
+      ],
+      "codePaths": [
+        "src/components/auth/reset-flow.tsx",
+        "src/components/auth/reset-page.tsx",
+        "src/components/auth/auth-host.ts",
+        "src/components/auth/password-policy.ts",
+        "src/components/auth/password-strength.tsx",
+        "src/components/account/account-view.tsx",
+        "src/components/account/account-page.tsx",
+        "src/components/account/account.module.css",
+        "src/app/admin/reset-hasla/page.tsx",
+        "src/app/admin/reset-hasla/[token]/page.tsx",
+        "src/app/reset-hasla/page.tsx",
+        "src/app/reset-hasla/[token]/page.tsx",
+        "src/app/admin/konto/page.tsx",
+        "src/app/konto/page.tsx",
+        "src/modules/tenancy/host-route-policy.ts"
+      ],
+      "testPaths": ["tests/unit/password-policy.test.tsx", "tests/unit/reset-flow.test.tsx", "tests/unit/account-view.test.tsx", "tests/unit/account-page.test.tsx", "tests/unit/host-route-policy.test.ts", "tests/e2e/account-ui.spec.ts"]
+    },
+    {
       "issue": 67,
       "scope": "Wyróżnianie pojazdów na home firmy (FR-PUB-002, D-22): publicznie tylko PUBLISHED z featured i do featuredVehicleCount w kolejności firmy; zmiana wyróżnienia lub kolejności w edycji pojazdu zapisuje audyt (featured, sortOrder) i działa od następnego odczytu tylko w jednej firmie; brak wyróżnionych to pusta lista bez danych zastępczych.",
       "relatedRequirementIds": ["FR-PUB-002", "D-22", "D-23"],
@@ -198,6 +239,26 @@
         "docs/contracts/availability-reads.md"
       ],
       "testPaths": ["tests/integration/availability-query-regression.test.ts", "tests/unit/perf-generator.test.ts"]
+    },
+    {
+      "issue": 26,
+      "scope": "Ekran aktywacji zaproszenia /admin/zaproszenie/[token]: odczyt bez skutków, firma i adresat z serwera, hasło z potwierdzeniem, jeden POST, wszystkie stany tokenu/sieci/limitu, wynik publicznej strony z siteState serwera i przejście do logowania/MFA.",
+      "relatedRequirementIds": ["C-F026", "C-F027", "C-F028", "C-F029", "C-F030", "C-F031", "C-F032", "C-F033", "C-F037", "C-F038", "C-F039", "C-F052", "C-F108", "D-11"],
+      "referenceScreenIds": ["ACC-04"],
+      "scenarioStates": {
+        "valid": "ActivationFlow phase=ready (ACC-04 state=valid, M 1e066793-8858-8051-8008-cf3e9d891551, D 269b07ba-69e5-8066-8008-c84b98156520)",
+        "invalidUsedExpiredRevoked": "ActivationFlow phase=invalid (neutralne 404, bez formularza)",
+        "network": "POST bez odpowiedzi: ponowienie tym samym hasłem zwraca zapisany wynik; GET: phase=unavailable",
+        "limit": "429: phase=limited (GET) albo cooldown z Retry-After (POST)",
+        "success": "ActivationFlow phase=done; READY, DOMAIN_PENDING, PERIOD_EXPIRED, RESTORE_LOCKED"
+      },
+      "unmappedStates": ["Makieta ACC-04 ma miernik siły hasła i reguły wielkich liter, cyfry i znaku specjalnego; kontrakt #22 wymaga tylko 12–256 znaków, więc ekran pokazuje wyłącznie regułę długości, żeby nie obiecywać nieegzekwowanych reguł."],
+      "components": [],
+      "codePaths": [
+        "src/components/auth/activation-flow.tsx",
+        "src/app/admin/zaproszenie/[token]/page.tsx"
+      ],
+      "testPaths": ["tests/e2e/company-activation-ui.spec.ts"]
     },
     {
       "issue": 150,
@@ -1378,6 +1439,21 @@
       "testPaths": ["tests/unit/contact-legal.test.tsx", "tests/e2e/public-contact.spec.ts"]
     },
     {
+      "issue": 235,
+      "scope": "PUB-04 wygląd po QA #44: hero z eyebrow, ciemna karta preferowanego kanału z nagłówkiem akcji, pozostałe kanały w kartach (desktop 2 kolumny pod pełnoszerokim preferowanym), pełnoszerokie przyciski na mobile, akcje „Zadzwoń teraz”/„Otwórz WhatsApp →”/„Otwórz w mapach”, dekoracyjna grafika mapy, blok „Przygotuj do rozmowy” bez kontekstu; komunikat po kopiowaniu i temat e-maila bez nowej linii. Logika kontaktu bez zmian. Porównanie z Penpotem PUB-04 M/D nie wykonane w tym przebiegu (wtyczka Penpot uśpiona, timeout); oparte na eksportach i opisie QA #44 oraz SPEC 9.4. Makieta ma też „Obszar odbioru” i obszar działania: brak pola w DTO, nie dodano (osobna decyzja).",
+      "relatedRequirementIds": ["C-F106", "FR-PUB-030", "FR-PUB-031", "FR-PUB-032"],
+      "referenceScreenIds": ["PUB-04"],
+      "codePaths": [
+        "src/components/public/contact-page.tsx",
+        "src/components/public/contact.module.css",
+        "src/components/public/copy-button.tsx",
+        "src/components/public/public-chrome.tsx",
+        "src/components/public/public.module.css",
+        "src/modules/public-offer/read.ts"
+      ],
+      "testPaths": ["tests/unit/contact-legal.test.tsx", "tests/e2e/public-contact.spec.ts"]
+    },
+    {
       "issue": 45,
       "scope": "MKT-01 marketingowy onepage Autervy na hoście MARKETING (SSR, metadane i canonical, kontakt nieaktywny do czasu prawdziwych danych); materiały AUT-01–05 jako DEMO (D-17).",
       "relatedRequirementIds": ["C-F001", "C-F019", "C-F020", "C-F021", "C-F138", "C-F139", "C-F140", "C-F141", "C-F142", "C-R018", "DS-N22", "DS-N23"],
@@ -1391,6 +1467,24 @@
         "src/modules/marketing/metadata.ts"
       ],
       "testPaths": ["tests/unit/marketing-page.test.tsx", "tests/e2e/marketing.spec.ts"]
+    },
+    {
+      "issue": 52,
+      "scope": "TEN-11 czat firmy z Autervą (/admin/czat): historia i starsze strony, wysyłka z trwałym potwierdzeniem i tym samym clientMessageId przy ponowieniu, statusy Wysłano/Przeczytano, pisanie, wznowienie połączenia od kursora, 4401 bez ponownego łączenia, read po ok. 500 ms widoczności, akcja Nowe wiadomości bez wymuszonego scrolla, szkic lokalny per (konto, rozmowa) usuwany przy wylogowaniu i wyjęty z guardu niezapisanych zmian, wskaźnik nowych wiadomości w nawigacji. Bez załączników i poczty. Widok superadmina (skrzynka, rozmowa w kontekście firmy) poza zakresem.",
+      "relatedRequirementIds": ["C-F115", "C-F116", "C-F117", "C-F118", "C-F119", "C-F120", "C-F121", "C-F122", "C-F123", "C-F124", "C-F125", "C-F126", "C-F127", "C-F128", "C-F129", "C-F130", "C-F131", "C-F132", "C-F133", "C-N051", "C-N054", "DS-N09"],
+      "referenceScreenIds": ["TEN-11"],
+      "codePaths": [
+        "src/app/admin/czat/page.tsx",
+        "src/app/admin/page.tsx",
+        "src/components/chat/chat-panel.tsx",
+        "src/components/chat/chat-protocol.ts",
+        "src/components/chat/draft-store.ts",
+        "src/components/chat/chat.module.css",
+        "src/components/panel/chat-unread.tsx",
+        "src/components/panel/panel-shell.tsx",
+        "src/lib/client-uuid.ts"
+      ],
+      "testPaths": ["tests/unit/chat-protocol.test.ts", "tests/unit/chat-panel.test.tsx", "tests/e2e/chat-ui.spec.ts"]
     },
     {
       "issue": 234,

@@ -22,10 +22,27 @@ const contact = (extra: Partial<ContactProp>) => ({ ...base, channels: [phone, m
 describe("kontakt (PUB-04)", () => {
   it("pokazuje kanały z linkami i oznacza preferowany tekstem", () => {
     render(<ContactPage contact={contact({})} brand={brand} header={[]} termsAvailable />);
-    expect(screen.getByRole("heading", { level: 1, name: "Kontakt" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Zadzwoń" })).toHaveAttribute("href", "tel:+48600000111");
+    expect(screen.getByRole("heading", { level: 1, name: "Porozmawiajmy o właściwym samochodzie" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Zadzwoń teraz" })).toHaveAttribute("href", "tel:+48600000111");
     expect(screen.getByRole("link", { name: "Napisz e-mail" })).toHaveAttribute("href", "mailto:a@example.test?subject=Zapytanie");
     expect(screen.getByText("Preferowany kanał")).toBeInTheDocument();
+  });
+
+  it("preferowany kanał jest ciemną kartą z nagłówkiem akcji, pozostałe są zwykłe", () => {
+    render(<ContactPage contact={contact({})} brand={brand} header={[]} termsAvailable />);
+    expect(screen.getByText("Zadzwoń — odpowiadamy najszybciej")).toBeInTheDocument();
+    const items = screen.getByRole("list", { name: "Kanały kontaktu" }).querySelectorAll(":scope > li");
+    expect(items).toHaveLength(2);
+    expect(items[0].className).toMatch(/channelPreferred/);
+    expect(items[1].className).not.toMatch(/channelPreferred/);
+  });
+
+  it("blok Przygotuj do rozmowy tylko przy wejściu bez kontekstu", () => {
+    const { rerender } = render(<ContactPage contact={contact({})} brand={brand} header={[]} termsAvailable />);
+    expect(screen.getByRole("heading", { level: 2, name: "Przygotuj do rozmowy" })).toBeInTheDocument();
+    rerender(<ContactPage brand={brand} header={[]} termsAvailable
+      contact={contact({ message: { text: "x", vehicle: { slug: "k", name: "K" }, range: null } })} />);
+    expect(screen.queryByRole("heading", { name: "Przygotuj do rozmowy" })).not.toBeInTheDocument();
   });
 
   it("pokazuje pojazd, termin i treść wiadomości oraz nie obiecuje rezerwacji", () => {
