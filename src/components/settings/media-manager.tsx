@@ -7,7 +7,7 @@ import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
 import { FormField } from "../ui/form-field";
 import { TextInput } from "../ui/text-input";
-import { mediaKinds, type PublicMediaItem, type SettingsSnapshot } from "./settings-model";
+import { mediaKinds, newEventKey, type PublicMediaItem, type SettingsSnapshot } from "./settings-model";
 import styles from "./settings.module.css";
 
 const maxBytes = 10 * 1024 * 1024;
@@ -78,7 +78,7 @@ export function MediaManager({ snapshot }: { snapshot: SettingsSnapshot }) {
       const response = await fetch(`${api}/public-media/${kind.toLowerCase()}/`, {
         method: "POST",
         credentials: "same-origin",
-        headers: { "Content-Type": file.type, "Idempotency-Key": crypto.randomUUID() },
+        headers: { "Content-Type": file.type, "Idempotency-Key": newEventKey() },
         body: file,
       });
       const body = (await response.json().catch(() => ({}))) as { code?: string; state?: string };
@@ -106,7 +106,7 @@ export function MediaManager({ snapshot }: { snapshot: SettingsSnapshot }) {
         method: init.method,
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ expectedVersion: item.version ?? 0, eventKey: crypto.randomUUID(), ...init.body }),
+        body: JSON.stringify({ expectedVersion: item.version ?? 0, eventKey: newEventKey(), ...init.body }),
       });
       const body = (await response.json().catch(() => ({}))) as { code?: string; fieldErrors?: Record<string, string> };
       if (response.ok) {

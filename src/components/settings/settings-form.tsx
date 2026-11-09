@@ -23,6 +23,7 @@ import {
   changedGroups,
   channelLabels,
   fieldDefs,
+  newEventKey,
   sectionTitles,
   serverErrorMessage,
   valuesFor,
@@ -36,10 +37,6 @@ import styles from "./settings.module.css";
 
 type Conflict = { currentVersion: number | null };
 type Notice = { tone: "success" | "error" | "info"; title: string; text?: string } | null;
-
-function newKey(): string {
-  return crypto.randomUUID();
-}
 
 /**
  * Superadmin editor of one settings section (D-01). The admin of a company never gets this component.
@@ -86,7 +83,7 @@ export function SettingsForm({ snapshot, section }: { snapshot: SettingsSnapshot
     try {
       for (const patch of patches) {
         const signature = `${patch.group}:${currentVersion}:${JSON.stringify(patch.fields)}`;
-        const eventKey = keys.current.get(signature) ?? newKey();
+        const eventKey = keys.current.get(signature) ?? newEventKey();
         keys.current.set(signature, eventKey);
         let response: Response;
         try {
