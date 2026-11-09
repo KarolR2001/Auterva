@@ -1243,6 +1243,29 @@
       ]
     },
     {
+      "issue": 35,
+      "scope": "Formularz pojazdu ADM-06 i ADM-07 na prawdziwym API floty (hosty firmy, kontekst superadmina przez PanelContext): sekcje w akordeonach z licznikiem bledow i nawigacja, szkic bez kompletu danych (walidacja tylko techniczna), checklist wymagan D-02 i podsumowanie brakow bez pustego dialogu, publikacja z potwierdzeniem i bledami serwera w polach, ukrycie i archiwizacja po potwierdzeniu, potwierdzenie zmiany sluga opublikowanego pojazdu, dirty guard useUnsavedChanges, konflikt wersji z zachowaniem wpisow (merge trojstronny), niepewny wynik 5xx/sieci z ponowieniem po odczycie stanu, sortOrder 0..2147483647, odczyt kategorii z nowego GET vehicle-categories. Poza zakresem: zdjecia (osobne zadanie), pola SEO pojazdu (API ich nie przyjmuje, D-01), podglad ADM-08, formularz po stronie superadmina (strony platformy).",
+      "relatedRequirementIds": ["C-F095", "C-F096", "C-F097", "C-F104", "FR-ADM-030", "FR-ADM-031", "FR-ADM-032", "FR-ADM-033", "FR-ADM-034", "FR-ADM-035", "DS-N12", "DS-N13", "DS-N15"],
+      "referenceScreenIds": ["ADM-06", "ADM-07"],
+      "unmappedStates": ["Sekcja zdjec formularza pokazuje tylko stan i miniatury gotowych zdjec; upload i kolejnosc to osobne zadanie.", "Podglad ADM-08 jest SHOULD i nie jest akcja formularza MVP."],
+      "codePaths": [
+        "src/app/admin/pojazdy/nowy/page.tsx",
+        "src/app/admin/pojazdy/[id]/page.tsx",
+        "src/components/admin/vehicle-form.tsx",
+        "src/components/admin/vehicle-form-model.ts",
+        "src/components/admin/vehicle-form.module.css",
+        "src/components/admin/fleet-api.ts",
+        "src/modules/fleet/http.ts",
+        "src/app/api/admin/vehicle-categories/route.ts",
+        "src/app/api/platform/companies/[organizationId]/vehicle-categories/route.ts",
+        "docs/contracts/fleet-crud-publication.md"
+      ],
+      "testPaths": [
+        "tests/unit/vehicle-form-model.test.ts",
+        "tests/e2e/admin-vehicle-form.spec.ts"
+      ]
+    },
+    {
       "issue": 34,
       "scope": "Panel firmy ADM-04 i ADM-05 na prawdziwym API floty (hosty firmy, kontekst superadmina przez PanelContext): lista z wyszukiwaniem, filtrem publikacji, aktywnosci i dostepnosci dzis, paginacja, kolejnosc przyciskami z klawiatury (zapis /vehicles/reorder), menu Wiecej z Ukryj i Archiwizuj po potwierdzeniu z wersja wiersza, stany loading, pusta flota, brak wynikow i blad. Dashboard: opublikowane, aktywne, dostepne i niedostepne dzis (data Warszawy), najblizsze blokady z linkiem do kalendarza pojazdu, status strony i okresu. Poza zakresem: nawigacja paneli i wspolne stany dostepu (#14), formularz #35, kalendarz #38, filtr kategorii (brak listy kategorii w API), ostrzezenia jakosci danych i status czatu.",
       "relatedRequirementIds": ["C-F095", "C-F097", "FR-ADM-010", "FR-ADM-020", "FR-ADM-021", "FR-ADM-022"],

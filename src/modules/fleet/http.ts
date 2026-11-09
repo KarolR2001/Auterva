@@ -109,6 +109,18 @@ export async function listVehicles(request: Request, area: Area, targetOrganizat
   } catch (error) { return failure(error, requestId); }
 }
 
+/** Read-only list of the vehicle categories for the form selector (#35); categories are global, not per company. */
+export async function listCategories(request: Request, area: Area, targetOrganizationId?: string) {
+  const requestId = randomUUID();
+  try {
+    const access = await actor(request, area, targetOrganizationId, false, requestId);
+    if (access.error) return access.error;
+    const items = await prisma.vehicleCategory.findMany({ orderBy: [{ name: "asc" }, { id: "asc" }],
+      select: { id: true, name: true, requiresSeats: true } });
+    return response({ items }, 200, requestId);
+  } catch (error) { return failure(error, requestId); }
+}
+
 export async function getVehicle(request: Request, area: Area, vehicleId: string,
   targetOrganizationId?: string) {
   const requestId = randomUUID();
