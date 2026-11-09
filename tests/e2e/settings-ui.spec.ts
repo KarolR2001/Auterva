@@ -76,7 +76,7 @@ test("settings UI: superadmin saves a section, keeps data on conflict and valida
     // Unsaved changes are guarded when leaving through the shell navigation.
     await page.getByLabel("Telefon").fill("+48 999 000 111");
     await page.getByRole("link", { name: "Prezentacja i SEO" }).click();
-    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.getByRole("alertdialog")).toBeVisible();
     await page.getByRole("button", { name: "Zostań" }).click();
     await expect(page.getByLabel("Telefon")).toHaveValue("+48 999 000 111");
 
