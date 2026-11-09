@@ -11,7 +11,7 @@ import { reportInternalError } from "@/modules/observability/http-observe";
 
 const statusByCode: Record<string, number> = {
   INVALID_HOSTNAME: 400, FORBIDDEN: 403, DOMAIN_NOT_FOUND: 404, DOMAIN_COMPANY_NOT_FOUND: 404,
-  DOMAIN_TAKEN: 409, DOMAIN_VERSION_CONFLICT: 409, DOMAIN_NOT_READY: 422,
+  DOMAIN_TAKEN: 409, DOMAIN_COMPANY_ARCHIVED: 409, DOMAIN_VERSION_CONFLICT: 409, DOMAIN_NOT_READY: 422,
 };
 const publicCode: Record<string, string> = { DOMAIN_NOT_FOUND: "NOT_FOUND", DOMAIN_COMPANY_NOT_FOUND: "NOT_FOUND" };
 

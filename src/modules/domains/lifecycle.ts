@@ -41,11 +41,16 @@ async function platformActor(tx: Prisma.TransactionClient, input: Operation) {
   if (actor.role !== "SUPERADMIN_AUTERVA") throw new Error("FORBIDDEN");
 }
 
-/** Every domain mutation serializes on the organization row, like period mutations. */
+/**
+ * Every domain mutation serializes on the organization row, like period mutations. D-23 (#242): the write list of a
+ * superadmin in an archived company does not include domains (activation would re-point the alias of a disabled
+ * public page), so an archived company refuses every domain mutation with DOMAIN_COMPANY_ARCHIVED.
+ */
 async function lockOrganization(tx: Prisma.TransactionClient, organizationId: string) {
-  const rows = await tx.$queryRaw<{ id: string }[]>`
-    SELECT id FROM "Organization" WHERE id = ${organizationId}::uuid FOR UPDATE`;
+  const rows = await tx.$queryRaw<{ id: string; archivedAt: Date | null }[]>`
+    SELECT id, "archivedAt" FROM "Organization" WHERE id = ${organizationId}::uuid FOR UPDATE`;
   if (rows.length !== 1) throw new Error("DOMAIN_COMPANY_NOT_FOUND");
+  if (rows[0].archivedAt !== null) throw new Error("DOMAIN_COMPANY_ARCHIVED");
 }
 
 function view(domain: DomainRow | null, alias: string | null, config: DomainConfig): DomainView {
@@ -149,6 +154,9 @@ export async function removeDomain(db: PrismaClient, input: Operation & { expect
 async function snapshot(db: PrismaClient, input: Operation) {
   return db.$transaction(async (tx) => {
     await platformActor(tx, input);
+    const company = await tx.organization.findUnique({ where: { id: input.organizationId }, select: { archivedAt: true } });
+    if (!company) throw new Error("DOMAIN_COMPANY_NOT_FOUND");
+    if (company.archivedAt !== null) throw new Error("DOMAIN_COMPANY_ARCHIVED"); // before any network probe
     const domain = await tx.customDomain.findUnique({ where: { organizationId: input.organizationId }, ...withHost });
     if (!domain) throw new Error("DOMAIN_NOT_FOUND");
     return domain;

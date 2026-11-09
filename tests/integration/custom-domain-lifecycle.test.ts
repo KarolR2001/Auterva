@@ -18,7 +18,7 @@ import { ensureControlledSuperadminMfa, verifiedFixtureSession } from "../fixtur
 const db = createPrismaClient(process.env.DATABASE_URL ?? "");
 const config: DomainConfig = { cnameTarget: "edge.auterva.test", reservedBases: ["sites.auterva.test", "auterva.test"] };
 const suffix = randomUUID().slice(0, 8);
-const [orgA, orgB, orgC] = [randomUUID(), randomUUID(), randomUUID()];
+const [orgA, orgB, orgC, orgD] = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
 const alias = { a: `a-${suffix}.pub.example.test`, b: `b-${suffix}.pub.example.test` };
 const panel = { a: `a-${suffix}.adm.example.test`, b: `b-${suffix}.adm.example.test` };
 const platformHost = `platform-${suffix}.example.test`;
@@ -86,17 +86,17 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await superCookie?.dispose(); await adminCookie?.dispose();
-  await db.auditLog.deleteMany({ where: { organizationId: { in: [orgA, orgB, orgC] } } });
-  await db.customDomain.deleteMany({ where: { organizationId: { in: [orgA, orgB, orgC] } } });
-  await db.hostMapping.deleteMany({ where: { OR: [{ organizationId: { in: [orgA, orgB, orgC] } },
+  await db.auditLog.deleteMany({ where: { organizationId: { in: [orgA, orgB, orgC, orgD] } } });
+  await db.customDomain.deleteMany({ where: { organizationId: { in: [orgA, orgB, orgC, orgD] } } });
+  await db.hostMapping.deleteMany({ where: { OR: [{ organizationId: { in: [orgA, orgB, orgC, orgD] } },
     { hostname: { in: [platformHost, marketingHost] } }] } });
-  await db.serviceAccess.deleteMany({ where: { organizationId: { in: [orgA, orgB, orgC] } } });
+  await db.serviceAccess.deleteMany({ where: { organizationId: { in: [orgA, orgB, orgC, orgD] } } });
   await db.session.deleteMany({ where: { id: { in: [platformSession, adminASession] } } });
   await db.user.deleteMany({ where: { id: adminA } });
   if (createdPlatformUser) await db.user.deleteMany({ where: { id: platformUserId } });
-  await db.reminderIntent.deleteMany({ where: { organizationId: { in: [orgA, orgB, orgC] } } });
-  await db.reminderPlan.deleteMany({ where: { organizationId: { in: [orgA, orgB, orgC] } } });
-  await db.organization.deleteMany({ where: { id: { in: [orgA, orgB, orgC] } } });
+  await db.reminderIntent.deleteMany({ where: { organizationId: { in: [orgA, orgB, orgC, orgD] } } });
+  await db.reminderPlan.deleteMany({ where: { organizationId: { in: [orgA, orgB, orgC, orgD] } } });
+  await db.organization.deleteMany({ where: { id: { in: [orgA, orgB, orgC, orgD] } } });
   await db.$disconnect();
 });
 
@@ -516,3 +516,46 @@ describe("real DNS and real TLS through the application", () => {
 });
 
 function publicPathFor() { return "/pojazdy/?od=2099-02-01&do=2099-02-02"; }
+
+describe("archived company (D-23, #242)", () => {
+  test("every domain mutation is refused with DOMAIN_COMPANY_ARCHIVED, changes nothing and works again after restore", async () => {
+    await db.organization.create({ data: { id: orgD, slug: `domain-${orgD}`, firstAdminRegisteredAt: new Date("2026-10-01T10:00:00.000Z") } });
+    await db.serviceAccess.create({ data: { organizationId: orgD, paidThrough: new Date("2099-12-31T00:00:00.000Z") } });
+    const { checker, script } = scripted();
+    script.routing = { ok: true };
+    const handlers = createPlatformDomainHandlers(() => ({ checker, config }));
+    const call = (method: "put" | "remove" | "verify" | "activate", body: unknown) => handlers[method](
+      new Request(`http://127.0.0.1:3339/api/platform/companies/${orgD}/domains/`, { method: method === "remove" ? "DELETE" : method === "put" ? "PUT" : "POST",
+        headers: { host: platformHost, origin: `http://${platformHost}`, cookie: superCookie.cookie, "content-type": "application/json" },
+        body: JSON.stringify(body) }), orgD);
+    const hostname = hostFor("archived");
+    const live = await registerDomain(db, { ...op(orgD), hostname, expectedVersion: null, config });
+    const version = live.domain!.version;
+    await db.organization.update({ where: { id: orgD }, data: { archivedAt: new Date() } });
+    const auditBefore = await db.auditLog.count({ where: { organizationId: orgD } });
+    script.calls.length = 0;
+
+    const refusals = [
+      () => registerDomain(db, { ...op(orgD), hostname: hostFor("archived-new"), expectedVersion: version, config }),
+      () => removeDomain(db, { ...op(orgD), expectedVersion: version, config }),
+      () => verifyDomain(db, checker, { ...op(orgD), config }),
+      () => activateDomain(db, checker, { ...op(orgD), expectedVersion: version, config }),
+    ];
+    for (const refusal of refusals) await expect(refusal()).rejects.toThrow("DOMAIN_COMPANY_ARCHIVED");
+    expect(script.calls).toEqual([]); // refused before any network probe
+    for (const [method, body] of [["put", { hostname: hostFor("archived-http"), expectedVersion: version, eventKey: randomUUID() }],
+      ["remove", { expectedVersion: version, eventKey: randomUUID() }], ["verify", { eventKey: randomUUID() }],
+      ["activate", { expectedVersion: version, eventKey: randomUUID() }]] as const) {
+      const response = await call(method, body);
+      expect([response.status, (await response.json()).code]).toEqual([409, "DOMAIN_COMPANY_ARCHIVED"]);
+    }
+    expect(await db.auditLog.count({ where: { organizationId: orgD } })).toBe(auditBefore);
+    expect((await readDomain(db, orgD, config))!.domain).toMatchObject({ hostname, status: "PENDING_OWNERSHIP", version });
+    // A non-platform or unknown actor still fails closed before the archive state is revealed.
+    await expect(registerDomain(db, { ...op(orgD), actorId: randomUUID(), hostname, expectedVersion: version, config })).rejects.toThrow();
+
+    await db.organization.update({ where: { id: orgD }, data: { archivedAt: null } });
+    expect((await verifyDomain(db, checker, { ...op(orgD), config })).domain).toMatchObject({ status: "READY" });
+    await removeDomain(db, { ...op(orgD), expectedVersion: await ver(orgD), config });
+  }, 60000);
+});
