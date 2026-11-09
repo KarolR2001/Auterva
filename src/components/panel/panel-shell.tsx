@@ -220,6 +220,8 @@ function AvailablePanelShell({
   const [menuSource, setMenuSource] = useState<"avatar" | "more">("avatar");
   const leaving = useRef(false);
   const menuTrigger = useRef<HTMLElement | null>(null);
+  // Where focus returns after "Zostań": the clicked link, or the menu trigger when the opener was inside the menu.
+  const returnFocus = useRef<HTMLElement | null>(null);
   const menuVisible =
     menuOpen && openedEpoch === connectionEpoch && !connectionError;
   const desktopItems = area === "company" ? companyDesktop : platformNavigation;
@@ -270,6 +272,7 @@ function AvailablePanelShell({
           return;
       }
       event.preventDefault();
+      returnFocus.current = anchor.closest('[role="dialog"]') ? menuTrigger.current : anchor;
       setMenuOpen(false);
       if (registry.state() === "busy") setBusyNotice(true);
       else setLeaveTarget({ kind: "href", href: url.href });
@@ -296,14 +299,15 @@ function AvailablePanelShell({
   function requestLogout() {
     const guard = registry.state();
     if (guard === "free") return void logout();
+    returnFocus.current = menuTrigger.current;
     setMenuOpen(false);
     if (guard === "busy") setBusyNotice(true);
     else setLeaveTarget({ kind: "logout" });
   }
 
   function stayOnPage() {
+    // Focus returns through the dialog (opener, else the menu trigger): see UnsavedChangesDialog.
     setLeaveTarget(null);
-    menuTrigger.current?.focus();
   }
 
   async function leave(target: NonNullable<typeof leaveTarget>) {
@@ -546,6 +550,7 @@ function AvailablePanelShell({
       open={leaveTarget !== null}
       contextLabel={registry.label()}
       onStay={stayOnPage}
+      returnFocusRef={returnFocus}
       onDiscard={() => leave(leaveTarget!)}
       onSaveAndLeave={
         registry.hasSave()

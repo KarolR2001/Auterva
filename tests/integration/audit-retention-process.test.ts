@@ -5,6 +5,14 @@ import { afterAll, expect, test } from "vitest";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { scheduleAuditRetention } from "../../src/modules/audit/retention";
 
+/**
+ * Real child processes, a real HTTP/WebSocket server or a PostgreSQL migration run in this file; under parallel
+ * ci-local runs (load average far above the core count, #247) they take several times longer than the default 5 s.
+ * The inner waits stay bounded (readiness and state polls, 30 s), so this limit only has to cover them. No assertion
+ * is weakened.
+ */
+const TEST_TIMEOUT_MS = 90_000;
+
 const db = createPrismaClient(process.env.DATABASE_URL ?? "");
 const children = new Set<ChildProcess>();
 const auditIds: string[] = [];
@@ -18,7 +26,7 @@ afterAll(async () => {
   }
   await db.auditLog.deleteMany({ where: { id: { in: auditIds } } });
   await db.$disconnect();
-});
+}, TEST_TIMEOUT_MS);
 
 function startWorker(hold = "") {
   const child = spawn(process.execPath, ["--import", "tsx", "tests/fixtures/audit-retention-process.ts"], {
@@ -31,7 +39,7 @@ function startWorker(hold = "") {
 
 function waitMessage(child: ChildProcess, expected: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => { cleanup(); reject(new Error(`Audit worker did not report ${expected}`)); }, 5_000);
+    const timeout = setTimeout(() => { cleanup(); reject(new Error(`Audit worker did not report ${expected}`)); }, 30_000);
     const onMessage = (message: unknown) => {
       if ((message as { event?: string }).event === expected) { cleanup(); resolve(); }
     };
@@ -79,4 +87,4 @@ test("killed owner and two real worker processes resume one purge without duplic
   expect(manifests).toHaveLength(1);
   expect(manifests[0].count).toBe(3);
   expect((await db.job.findUniqueOrThrow({ where: { id: job.id } })).attempts).toBe(2);
-});
+}, TEST_TIMEOUT_MS);

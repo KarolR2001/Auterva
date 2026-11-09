@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addDays, blocksWithin, nearestBlocks, warsawToday } from "../../src/components/admin/dashboard";
-import { errorMessage, isUncertain, rowActions } from "../../src/components/admin/fleet-api";
+import { errorMessage, isUncertain, readErrorMessage, rowActions } from "../../src/components/admin/fleet-api";
 import type { FleetItem } from "../../src/components/admin/fleet-api";
 import { filtersActive, REORDER_LIMIT, reorderPayload } from "../../src/components/admin/vehicle-list";
 
@@ -55,6 +55,11 @@ describe("#34 fleet list", () => {
     expect(isUncertain({ status: 502 })).toBe(true);
     expect(isUncertain({ status: 409 })).toBe(false);
     expect(isUncertain({ status: 404 })).toBe(false);
+  });
+
+  it("never speaks of an unsaved change when a read fails", () => {
+    for (const code of ["NETWORK", "UNKNOWN", "INTERNAL_ERROR", "FORBIDDEN", "RATE_LIMITED"]) expect(readErrorMessage(code)).not.toMatch(/nie została zapisana/i);
+    expect(readErrorMessage("UNKNOWN")).toMatch(/pobrać danych/);
   });
 
   it("counts blocks that overlap the next 7 days", () => {

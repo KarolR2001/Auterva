@@ -169,3 +169,11 @@ const errorText: Record<string, string> = {
 export function errorMessage(code: string): string {
   return errorText[code] ?? "Operacja nie powiodła się. Zmiana nie została zapisana.";
 }
+
+/** Text for a failed READ (list, dashboard): nothing was being saved, so never talk about an unsaved change. */
+export function readErrorMessage(code: string): string {
+  if (code === "NETWORK") return "Brak połączenia z serwerem. Sprawdź internet i spróbuj ponownie.";
+  if (code === "FORBIDDEN") return errorMessage(code);
+  if (code === "RATE_LIMITED") return errorMessage(code);
+  return "Nie udało się pobrać danych. Spróbuj ponownie za chwilę.";
+}

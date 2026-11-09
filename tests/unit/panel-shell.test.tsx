@@ -655,6 +655,23 @@ describe("ochrona niezapisanych zmian w shellu (OVR-13)", () => {
     expect(screen.queryByText("Sesja wygasła")).toBeNull();
   });
 
+  it("Wyloguj z menu profilu → Zostań: fokus wraca na przycisk profilu, a wartości formularza zostają", async () => {
+    const user = userEvent.setup();
+    const logout = vi.fn();
+    shell(<Form />, logout);
+    const input = screen.getByRole("textbox", { name: "Nazwa" });
+    await user.type(input, "x");
+    const avatar = screen.getByRole("button", { name: "Menu użytkownika" });
+    await user.click(avatar);
+    await user.click(screen.getByRole("button", { name: "Wyloguj" }));
+    expect(alert()).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Zostań" }));
+    await waitFor(() => expect(alert()).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(avatar));
+    expect(input).toHaveValue("Firmax");
+    expect(logout).not.toHaveBeenCalled();
+  });
+
   it("Zapisz i wyjdź woła zapis zarejestrowany przez formularz", async () => {
     const user = userEvent.setup();
     const assign = vi.spyOn(navigation, "assign").mockImplementation(() => {});
@@ -702,5 +719,23 @@ describe("ochrona niezapisanych zmian w shellu (OVR-13)", () => {
     const unload = new Event("beforeunload", { cancelable: true });
     window.dispatchEvent(unload);
     expect(unload.defaultPrevented).toBe(false);
+  });
+});
+
+describe("awatar w topbarze (#14)", () => {
+  it("aria-expanded awatara odzwierciedla otwarte menu i wraca po zamknięciu", async () => {
+    const user = userEvent.setup();
+    render(
+      <PanelShell area="company" accessState="allowed" title="Panel" currentPath="/admin" onLogout={vi.fn()}>
+        <p>Treść</p>
+      </PanelShell>,
+    );
+    const avatar = screen.getByRole("button", { name: "Menu użytkownika" });
+    expect(avatar).toHaveAttribute("aria-expanded", "false");
+    await user.click(avatar);
+    await waitFor(() => expect(avatar).toHaveAttribute("aria-expanded", "true"));
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(avatar).toHaveAttribute("aria-expanded", "false"));
+    expect(avatar).toHaveFocus();
   });
 });
