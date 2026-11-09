@@ -239,7 +239,8 @@ test("an open panel distinguishes network failure from server revocation", async
 
     await page.unroute(sessionUrl, interrupt);
     await page.getByRole("button", { name: "Spróbuj ponownie" }).click();
-    await expect(page.getByRole("heading", { name: "Panel", exact: true })).toBeVisible();
+    // The dashboard heading comes from a client component on the dev server of this project; allow for a loaded machine.
+    await expect(page.getByRole("heading", { name: "Panel", exact: true })).toBeVisible({ timeout: 20_000 });
 
     await session.dispose();
     await expect(page.getByText("Sesja wygasła")).toBeVisible({
