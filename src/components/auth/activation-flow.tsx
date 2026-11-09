@@ -46,13 +46,18 @@ export function siteMessage(state: string | null): { title: string; text: string
   }
 }
 
+const LOADING_TITLE = "Sprawdzamy zaproszenie";
 const UNCERTAIN_TEXT = "Aktywacja mogła się zakończyć. Ponów ją tym samym hasłem: serwer zwróci zapisany wynik i nie utworzy drugiego konta. Hasła są zablokowane do czasu potwierdzenia.";
 
 function Frame({ title, context = "Zaproszenie do firmy", children }: { title: string; context?: string; children: React.ReactNode }) {
   const heading = useRef<HTMLHeadingElement>(null);
   const previous = useRef(title);
   useEffect(() => {
-    if (previous.current !== title) { heading.current?.focus(); previous.current = title; }
+    if (previous.current !== title) {
+      // Loading -> first real screen is not a step change: keep focus where it is.
+      if (previous.current !== LOADING_TITLE) heading.current?.focus();
+      previous.current = title;
+    }
   }, [title]);
   return (
     <main className={styles.page} data-area="company" data-view="activation">
@@ -124,8 +129,8 @@ export function ActivationFlow({ token }: { token: string }) {
       const data = await response.json().catch(() => ({})) as Record<string, unknown>;
       if (response.ok) {
         setUncertain(false);
-        // Drop the one-time token from the address bar and history; the page is spent either way.
-        try { window.history.replaceState(null, "", "/admin/zaproszenie/"); } catch { /* ignore */ }
+        // Drop the one-time token from the address bar and history; a reload lands on the login page, not a bare 404.
+        try { window.history.replaceState(null, "", "/admin/login/"); } catch { /* ignore */ }
         form.reset({ password: "", confirm: "" });
         setPhase({ kind: "done", name: phase.invitation.name, siteState: typeof data.siteState === "string" ? data.siteState : null });
       } else if (response.status === 404) setPhase({ kind: "invalid" });
@@ -155,7 +160,7 @@ export function ActivationFlow({ token }: { token: string }) {
   function onSubmit(event: React.FormEvent<HTMLFormElement>) { void form.handleSubmit(activate)(event); }
 
   if (phase.kind === "loading")
-    return <Frame title="Sprawdzamy zaproszenie"><p className={styles.intro} role="status">Chwila, weryfikujemy link.</p></Frame>;
+    return <Frame title={LOADING_TITLE}><p className={styles.intro} role="status">Chwila, weryfikujemy link.</p></Frame>;
   if (phase.kind === "invalid")
     return (
       <Frame title="Link jest nieaktualny">

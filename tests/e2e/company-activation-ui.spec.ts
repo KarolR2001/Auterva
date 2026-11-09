@@ -102,6 +102,10 @@ test("activation page: open does not activate, validation, double submit, lost r
     await expect(page.getByRole("link", { name: "Przejdź do logowania" })).toHaveAttribute("href", "/admin/login/");
     expect(await db.auditLog.count({ where: { organizationId: fixture.organizationId, action: "INVITATION_ACCEPTED" } })).toBe(1);
     expect(await db.account.count({ where: { user: { organizationId: fixture.organizationId } } })).toBe(1);
+    // The token is gone from the address bar; a reload lands on the login page, not a 404.
+    expect(new URL(page.url()).pathname).toBe("/admin/login/");
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Zaloguj się do panelu" })).toBeVisible();
     // Spent link: neutral dead end without a form.
     await page.goto(`${origin}/admin/zaproszenie/${fixture.token}`);
     await expect(page.getByRole("heading", { name: "Link jest nieaktualny" })).toBeVisible();

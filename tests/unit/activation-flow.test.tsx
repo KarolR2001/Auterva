@@ -74,6 +74,7 @@ describe("aktywacja konta: wynik POST", () => {
   it("sukces nie obiecuje wpisanego hasła", async () => {
     await submit(() => Response.json({ siteState: "RESTORE_LOCKED" }));
     expect(await screen.findByText(/hasłem ustawionym przy aktywacji/)).toBeVisible();
+    expect(window.location.pathname).toBe("/admin/login/");
     expect(screen.getByText("Publikacja strony czeka na odblokowanie")).toBeVisible();
   });
 });
