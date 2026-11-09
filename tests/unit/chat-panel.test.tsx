@@ -1,0 +1,178 @@
+// @vitest-environment jsdom
+import "@testing-library/jest-dom/vitest";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent } from "@testing-library/react";
+
+import { ChatPanel } from "../../src/components/chat/chat-panel";
+import { loadDraft } from "../../src/components/chat/draft-store";
+import { PanelShell } from "../../src/components/panel/panel-shell";
+
+class FakeSocket {
+  static instances: FakeSocket[] = [];
+  static OPEN = 1;
+  readyState = 1;
+  sent: string[] = [];
+  onmessage: ((event: { data: string }) => void) | null = null;
+  onclose: ((event: { code: number }) => void) | null = null;
+  constructor(public url: string) { FakeSocket.instances.push(this); }
+  send(data: string) { this.sent.push(data); }
+  close(code = 1000) { this.readyState = 3; this.onclose?.({ code }); }
+  emit(frame: object) { this.onmessage?.({ data: JSON.stringify(frame) }); }
+}
+
+const m = (id: string, own: boolean, body = id) => ({ id, clientMessageId: own ? `c-${id}` : null, body,
+  senderRole: own ? "ADMIN_FIRMY" : "SUPERADMIN_AUTERVA", own, createdAt: "2026-11-09T10:00:00Z" });
+const history = (messages: object[], extra: object = {}) => ({ conversationId: "conv-1", messages, olderCursor: null, newerCursor: "cur-1", hasNewer: false, ...extra });
+const state = { ownMessageId: null, ownSeq: 0, peerMessageId: null, peerSeq: 0, unread: 0 };
+
+beforeEach(() => {
+  FakeSocket.instances = [];
+  vi.stubGlobal("WebSocket", FakeSocket);
+  window.localStorage.clear();
+  Element.prototype.scrollTo = vi.fn();
+});
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.useRealTimers(); });
+
+const renderChat = () => render(
+  <PanelShell area="company" accessState="allowed" title="Czat z Autervą" currentPath="/admin/czat" onLogout={vi.fn()}>
+    <ChatPanel accountId="konto-a" organizationId="org-1" conversationId="conv-1" apiBase="/api/admin/chat" peerLabel="Auterva" loginHref="/admin/login" />
+  </PanelShell>);
+
+describe("czat firmy (#52)", () => {
+  it("pokazuje pustą historię, a szkic zostaje i nie blokuje wyjścia", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json(history([])));
+    const user = userEvent.setup();
+    renderChat();
+    await waitFor(() => expect(screen.getByText(/Brak wiadomości/)).toBeInTheDocument());
+    await user.type(screen.getByRole("textbox", { name: /Napisz wiadomość/ }), "roboczy tekst");
+    expect(loadDraft("konto-a", "conv-1")).toBe("roboczy tekst");
+    const unload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(false); // chat draft is the exception of the #14 guard
+  });
+
+  it("sukces wysyłki wynika z odpowiedzi serwera; po 5xx ponowienie używa tego samego clientMessageId", async () => {
+    const user = userEvent.setup();
+    const keys: string[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+      if (init?.method === "POST") {
+        const body = JSON.parse(String(init.body));
+        keys.push(body.clientMessageId);
+        return keys.length === 1 ? new Response(null, { status: 502 })
+          : Response.json({ message: { ...m("n1", true, body.body), clientMessageId: body.clientMessageId }, conversationId: "conv-1", deduplicated: false }, { status: 201 });
+      }
+      return Response.json(history([]));
+    });
+    renderChat();
+    await waitFor(() => expect(screen.getByText(/Brak wiadomości/)).toBeInTheDocument());
+    await user.type(screen.getByRole("textbox", { name: /Napisz wiadomość/ }), "Dzień dobry");
+    await user.click(screen.getByRole("button", { name: "Wyślij" }));
+    await waitFor(() => expect(screen.getByText("Niepewny wynik wysyłki")).toBeInTheDocument());
+    expect(screen.getByText("Dzień dobry")).toBeInTheDocument(); // text kept, no false success
+    expect(screen.queryByText(/Wysłano/)).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Ponów wysyłkę" }));
+    await waitFor(() => expect(screen.getByText(/Wysłano/)).toBeInTheDocument());
+    expect(keys[1]).toBe(keys[0]);
+    expect(loadDraft("konto-a", "conv-1")).toBe("");
+  });
+
+  it("błąd definitywny pozwala wrócić do edycji bez utraty tekstu", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) =>
+      init?.method === "POST" ? Response.json({ code: "INVALID_MESSAGE" }, { status: 400 }) : Response.json(history([])));
+    renderChat();
+    await waitFor(() => expect(screen.getByText(/Brak wiadomości/)).toBeInTheDocument());
+    await user.type(screen.getByRole("textbox", { name: /Napisz wiadomość/ }), "x");
+    await user.click(screen.getByRole("button", { name: "Wyślij" }));
+    await waitFor(() => expect(screen.getByText("Nie wysłano")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Edytuj tekst" }));
+    expect(screen.getByRole("textbox", { name: /Napisz wiadomość/ })).toHaveValue("x");
+  });
+
+  it("wiadomość drugiej strony z WebSocket, statusy odczytu i pisania; ready/połączenie nie czyta", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json(history([m("1", true, "moja"), m("2", false, "pytanie")])));
+    renderChat();
+    await waitFor(() => expect(screen.getByText("pytanie")).toBeInTheDocument());
+    await waitFor(() => expect(FakeSocket.instances).toHaveLength(1));
+    const socket = FakeSocket.instances[0];
+    expect(socket.url).toContain("/ws?organizationId=org-1&after=cur-1");
+    act(() => socket.emit({ type: "ready", protocol: 1, conversationId: "conv-1", cursor: "cur-1", backlog: "none", state: { ...state, unread: 1 } }));
+    expect(socket.sent).toEqual([]); // connecting never writes a read cursor
+    act(() => socket.emit({ type: "message", conversationId: "conv-1", message: m("3", false, "odpowiedź"), cursor: "cur-3" }));
+    act(() => socket.emit({ type: "message", conversationId: "conv-1", message: m("3", false, "odpowiedź"), cursor: "cur-3" }));
+    expect(screen.getAllByText("odpowiedź")).toHaveLength(1); // deduplicated by id
+    act(() => socket.emit({ type: "typing", conversationId: "conv-1", senderRole: "SUPERADMIN_AUTERVA", active: true }));
+    expect(screen.getByText("Auterva pisze…")).toBeInTheDocument();
+    act(() => socket.emit({ type: "read", conversationId: "conv-1", own: false, readerRole: "SUPERADMIN_AUTERVA", messageId: "2" }));
+    expect(screen.getByText(/Przeczytano/)).toBeInTheDocument();
+  });
+
+  it("zerwanie łączy ponownie od ostatniego kursora, a 4401 nie łączy i prowadzi do logowania", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json(history([m("1", false)])));
+    renderChat();
+    await waitFor(() => expect(FakeSocket.instances).toHaveLength(1));
+    act(() => FakeSocket.instances[0].emit({ type: "message", conversationId: "conv-1", message: m("2", false), cursor: "cur-2" }));
+    act(() => FakeSocket.instances[0].close(1006));
+    expect(screen.getByText(/łączymy ponownie/)).toBeInTheDocument();
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+    expect(FakeSocket.instances).toHaveLength(2);
+    expect(FakeSocket.instances[1].url).toContain("after=cur-2");
+    act(() => FakeSocket.instances[1].close(4401));
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    expect(FakeSocket.instances).toHaveLength(2);
+    expect(screen.getByRole("link", { name: "Zaloguj się ponownie" })).toHaveAttribute("href", "/admin/login");
+  });
+
+  it("read dopiero po ok. 500 ms faktycznej widoczności najnowszej wiadomości drugiej strony", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let notify: ((entries: { isIntersecting: boolean }[]) => void) | null = null;
+    vi.stubGlobal("IntersectionObserver", class {
+      constructor(callback: (entries: { isIntersecting: boolean }[]) => void) { notify = callback; }
+      observe() {} disconnect() {}
+    });
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json(history([m("1", false, "pytanie")])));
+    renderChat();
+    await waitFor(() => expect(FakeSocket.instances).toHaveLength(1));
+    const socket = FakeSocket.instances[0];
+    act(() => socket.emit({ type: "ready", protocol: 1, conversationId: "conv-1", cursor: "cur-1", backlog: "none", state: { ...state, unread: 1 } }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+    expect(socket.sent).toEqual([]); // not visible yet: nothing is read
+    act(() => notify?.([{ isIntersecting: true }]));
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+    expect(socket.sent).toEqual([]);
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+    expect(socket.sent.map((frame) => JSON.parse(frame))).toEqual([{ type: "read", messageId: "1" }]);
+  });
+
+  it("nowa wiadomość nie przewija czytającego historię; akcja prowadzi do nowych", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json(history([m("1", false, "stara")])));
+    renderChat();
+    await waitFor(() => expect(FakeSocket.instances).toHaveLength(1));
+    const log = screen.getByRole("log", { name: "Historia rozmowy" });
+    Object.defineProperty(log, "scrollHeight", { value: 1000, configurable: true });
+    Object.defineProperty(log, "clientHeight", { value: 300, configurable: true });
+    log.scrollTop = 100;
+    fireEvent.scroll(log);
+    act(() => FakeSocket.instances[0].emit({ type: "message", conversationId: "conv-1", message: m("2", false, "nowa"), cursor: "cur-2" }));
+    expect(log.scrollTop).toBe(100); // the reader is not moved
+    await user.click(screen.getByRole("button", { name: /Nowe wiadomości \(1\)/ }));
+    expect(log.scrollTop).toBe(1000);
+    expect(screen.queryByRole("button", { name: /Nowe wiadomości/ })).toBeNull();
+  });
+
+  it("wylogowanie usuwa szkice czatu z przeglądarki", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json(history([])));
+    renderChat();
+    await waitFor(() => expect(screen.getByText(/Brak wiadomości/)).toBeInTheDocument());
+    await user.type(screen.getByRole("textbox", { name: /Napisz wiadomość/ }), "szkic");
+    expect(loadDraft("konto-a", "conv-1")).toBe("szkic");
+    await user.click(screen.getByRole("button", { name: "Menu użytkownika" }));
+    await user.click(screen.getByRole("button", { name: "Wyloguj" }));
+    await waitFor(() => expect(loadDraft("konto-a", "conv-1")).toBe(""));
+  });
+});

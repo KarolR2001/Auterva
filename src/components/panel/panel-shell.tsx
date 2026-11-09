@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
+import { clearAllDrafts } from "../chat/draft-store";
+import { ChatUnreadContext } from "./chat-unread";
 import { SkipLink } from "../ui/skip-link";
 import { PanelAccess, type PanelAccessState } from "./panel-states";
 import {
@@ -194,7 +196,7 @@ function AvailablePanelShell({
   area,
   title,
   currentPath,
-  unreadChat = false,
+  unreadChat: initialUnreadChat = false,
   companyContext,
   canInstallPwa = false,
   onInstallPwa,
@@ -213,6 +215,9 @@ function AvailablePanelShell({
   const [logoutError, setLogoutError] = useState(false);
   const [loggedOut, setLoggedOut] = useState(false);
   const [registry] = useState(createGuardRegistry);
+  // The chat reports its live count; until then the server's value stands (C-F127).
+  const [liveUnread, setLiveUnread] = useState<number | null>(null);
+  const unreadChat = liveUnread === null ? initialUnreadChat : liveUnread > 0;
   const [leaveTarget, setLeaveTarget] = useState<
     { kind: "href"; href: string } | { kind: "logout" } | null
   >(null);
@@ -317,6 +322,8 @@ function AvailablePanelShell({
 
   async function logoutOrThrow() {
     await (onLogout ?? signOutOnCurrentHost)();
+    // Sign-out removes the chat drafts kept in this browser (D-08, C-F123).
+    clearAllDrafts();
     leaving.current = true;
     setLoggedOut(true);
   }
@@ -375,6 +382,7 @@ function AvailablePanelShell({
 
   return (
     <UnsavedChangesGuardContext.Provider value={registry}>
+    <ChatUnreadContext.Provider value={setLiveUnread}>
     <DialogPrimitive.Root
       open={menuVisible}
       onOpenChange={(open) => {
@@ -514,6 +522,7 @@ function AvailablePanelShell({
           : undefined
       }
     />
+    </ChatUnreadContext.Provider>
     </UnsavedChangesGuardContext.Provider>
   );
 }
