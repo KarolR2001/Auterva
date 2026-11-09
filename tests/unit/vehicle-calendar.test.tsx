@@ -246,6 +246,27 @@ describe("#39 kalendarz pojazdu", () => {
     expect(screen.getByText("Zmiana została zapisana.")).toBeInTheDocument();
   });
 
+  it("Enter po utraconej odpowiedzi czyta stan zamiast wysyłać drugi POST, a pola są zablokowane", async () => {
+    const user = userEvent.setup();
+    const server: Server = { blocks: [], calls: [] };
+    server.fail = (call) => { if (call.method === "POST") throw new TypeError("network"); return null; };
+    install(server); mount();
+    await user.click((await screen.findAllByRole("button", { name: "Dodaj okres niedostępności" }))[0]!);
+    const dialog = await screen.findByRole("dialog");
+    await user.type(within(dialog).getByLabelText(/^Od/), "2026-11-20");
+    await user.type(within(dialog).getByLabelText(/^Do/), "2026-11-21");
+    await user.type(within(dialog).getByLabelText(/Numer odniesienia/), "X");
+    await user.keyboard("{Enter}");
+    expect(await within(dialog).findByText("Nie wiemy, czy zmiana została zapisana.")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/^Od/)).toBeDisabled();
+    const reads = () => server.calls.filter((call) => call.method === "GET").length;
+    const before = reads();
+    within(dialog).getByLabelText(/Numer odniesienia/).focus();
+    (dialog.querySelector("form") as HTMLFormElement).requestSubmit();
+    await waitFor(() => expect(reads()).toBeGreaterThan(before));
+    expect(server.calls.filter((call) => call.method === "POST")).toHaveLength(1);
+  });
+
   it("usuwanie wymaga potwierdzenia i wysyła wersję", async () => {
     const user = userEvent.setup();
     const server: Server = { blocks: [block({ version: 3 })], calls: [] };

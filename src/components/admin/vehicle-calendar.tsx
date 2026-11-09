@@ -216,6 +216,8 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today, ti
 
   async function submit() {
     if (busyRef.current || panel !== "form") return;
+    // After a lost response Enter and every other route to submit read the state first; a blind retry could save twice.
+    if (uncertain) { void checkUncertain(); return; }
     if (archived) { setFailure(saveErrorText("BLOCK_VEHICLE_ARCHIVED")); return; }
     const checked = validateValues(values);
     const needsAck = startsInPast(values, today) && (editor.mode === "create" || values.from !== baseline.from || values.to !== baseline.to);
@@ -501,7 +503,7 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today, ti
         description={panel === "delete" && dialogBlock ? `${typeLabel(dialogBlock.type)}, ${rangeText(dialogBlock.from, dialogBlock.to)}. Termin znów będzie wolny, jeśli nic innego go nie zajmuje. Tej operacji nie można cofnąć.`
           : `Pojazd: ${name}. Daty obejmują całe dni, obie wliczone; jeden dzień to ta sama data w obu polach.`}
         primaryAction={panel === "delete"
-          ? { label: busy ? "Usuwanie…" : "Usuń blokadę", onClick: () => { if (dialogBlock) void run({ action: "delete", editor, values }); } }
+          ? { label: busy ? "Usuwanie…" : "Usuń blokadę", onClick: () => { if (uncertain) void checkUncertain(); else if (dialogBlock) void run({ action: "delete", editor, values }); } }
           : uncertain ? { label: busy ? "Sprawdzanie…" : "Sprawdź stan", onClick: () => void checkUncertain() }
             : { label: busy ? "Zapisywanie…" : editor.mode === "create" ? "Dodaj blokadę" : "Zapisz zmiany", onClick: () => void submit() }}
         secondaryAction={{ label: panel === "delete" ? "Anuluj" : "Zamknij", onClick: requestClose }}>
@@ -547,7 +549,7 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today, ti
                 </div>
               </Alert>
             )}
-            {uncertain && <Alert tone="warning" title="Nie wiemy, czy zmiana została zapisana.">Połączenie przerwało się w trakcie. Twoje wpisy zostały zachowane. Użyj „Sprawdź stan”, a nie zapiszemy blokady drugi raz.</Alert>}
+            {uncertain && <Alert tone="warning" title="Nie wiemy, czy zmiana została zapisana.">Połączenie przerwało się w trakcie. Twoje wpisy zostały zachowane. Pola są zablokowane do rozstrzygnięcia: użyj „Sprawdź stan” (także Enter), a nie zapiszemy blokady drugi raz.</Alert>}
             {failure && !overlap && !versionConflict && !uncertain && <Alert tone="error" title={failure} />}
             {summary.length > 0 && !overlap && (
               <Alert tone="error" title={`Do poprawy: ${summary.length}`}>
@@ -558,10 +560,10 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today, ti
             )}
             <div className={styles.dates}>
               <FormField id="bc-from" label="Od" required error={errors.from} hint="Format RRRR-MM-DD albo wybór z kalendarza.">
-                <TextInput type="date" value={values.from} disabled={archived || busy} onChange={(event) => set("from", event.target.value)} />
+                <TextInput type="date" value={values.from} disabled={archived || busy || uncertain !== null} onChange={(event) => set("from", event.target.value)} />
               </FormField>
               <FormField id="bc-to" label="Do (włącznie)" required error={errors.to}>
-                <TextInput type="date" value={values.to} min={values.from || undefined} disabled={archived || busy} onChange={(event) => set("to", event.target.value)} />
+                <TextInput type="date" value={values.to} min={values.from || undefined} disabled={archived || busy || uncertain !== null} onChange={(event) => set("to", event.target.value)} />
               </FormField>
             </div>
             {isOk(values) && <p className={styles.muted}>Zakres: {rangeText(values.from, values.to)}.</p>}
@@ -577,20 +579,20 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today, ti
               </Alert>
             )}
             <FormField id="bc-type" label="Typ" required error={errors.type}>
-              <Select value={values.type} disabled={archived || busy} onChange={(event) => set("type", event.target.value as BlockTypeCode)}>
+              <Select value={values.type} disabled={archived || busy || uncertain !== null} onChange={(event) => set("type", event.target.value as BlockTypeCode)}>
                 {blockTypeOrder.map((type) => <option key={type} value={type}>{typeLabel(type)}</option>)}
               </Select>
             </FormField>
             <FormField id="bc-reference" label="Numer odniesienia" optionalLabel="(opcjonalnie)" error={errors.reference}
               hint="Prywatne: widoczne tylko w panelu, nigdy na stronie publicznej.">
-              <TextInput value={values.reference} maxLength={120} autoComplete="off" disabled={archived || busy} onChange={(event) => set("reference", event.target.value)} />
+              <TextInput value={values.reference} maxLength={120} autoComplete="off" disabled={archived || busy || uncertain !== null} onChange={(event) => set("reference", event.target.value)} />
             </FormField>
             <FormField id="bc-internalNote" label="Notatka prywatna" optionalLabel="(opcjonalnie)" error={errors.internalNote}
               hint="Prywatna, do 2000 znaków. Nie wpisuj danych klientów, których nie potrzebujesz.">
-              <Textarea value={values.internalNote} maxLength={2000} rows={4} disabled={archived || busy} onChange={(event) => set("internalNote", event.target.value)} />
+              <Textarea value={values.internalNote} maxLength={2000} rows={4} disabled={archived || busy || uncertain !== null} onChange={(event) => set("internalNote", event.target.value)} />
             </FormField>
             {editor.mode === "edit" && dialogBlock && (
-              <div><Button variant="destructive" size="sm" icon={<Trash2 aria-hidden="true" size={16} />} disabled={busy} onClick={() => { setPanel("delete"); setDirectDelete(false); }}>Usuń blokadę</Button></div>
+              <div><Button variant="destructive" size="sm" icon={<Trash2 aria-hidden="true" size={16} />} disabled={busy || uncertain !== null} onClick={() => { setPanel("delete"); setDirectDelete(false); }}>Usuń blokadę</Button></div>
             )}
           </form>
         )}
