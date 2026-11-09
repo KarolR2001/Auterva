@@ -6,7 +6,7 @@ import { availabilityToday, sqlDate } from "../../src/modules/availability/dates
 // #43: interactive availability on the public vehicle page (calendar picking, stale answers, errors, alternatives).
 test.use({ launchOptions: { args: ["--host-resolver-rules=MAP *.example.test 127.0.0.1"] } });
 
-test("availability panel: calendar range, late answer dropped, error clears result, alternatives, contact context", async ({ baseURL, page }) => {
+test("availability panel: calendar range, late answer dropped, error clears result, alternatives, contact context", async ({ baseURL, page, browser }) => {
   if (!baseURL) throw new Error("Missing trusted ingress URL");
   const port = Number(new URL(baseURL).port);
   const db = createPrismaClient(process.env.DATABASE_URL ?? "");
@@ -116,12 +116,101 @@ test("availability panel: calendar range, late answer dropped, error clears resu
     await page.route("**/api/public/vehicles/*/calendar*", (route) => route.fulfill({ status: 500, body: "{}" }));
     await page.getByRole("link", { name: "Następny miesiąc" }).click();
     await expect(page.getByRole("alert").filter({ hasText: "Nie udało się wczytać kalendarza" })).toBeVisible();
-    await expect(page.locator("#kalendarz td", { hasText: "dostępny" })).toHaveCount(0);
+    await expect(page.locator("#kalendarz button[aria-label*=', dostępny']")).toHaveCount(0);
 
     // Without script the same page is a GET form with a server-rendered result.
     await page.unroute("**/api/public/vehicles/*/calendar*");
-    await page.goto(`${origin}/pojazdy/${slug}/?from=${day(5)}&to=${day(6)}`);
+    const plain = await (await browser.newContext({ javaScriptEnabled: false })).newPage();
+    await plain.goto(`${origin}/pojazdy/${slug}/?from=${day(5)}&to=${day(6)}`);
+    await expect(plain.getByText("Pojazd jest niedostępny w tym terminie")).toBeVisible();
+    await plain.close();
+    // An invalid range from the URL keeps what was typed.
+    await page.goto(`${origin}/pojazdy/${slug}/?from=${day(-3)}&to=${day(2)}`);
+    await expect(page.getByLabel("Od", { exact: true })).toHaveValue(day(-3));
+  } finally {
+    await db.availabilityBlock.deleteMany({ where: { organizationId: org } });
+    await db.vehicle.deleteMany({ where: { organizationId: org } });
+    await db.hostMapping.deleteMany({ where: { organizationId: org } });
+    await db.siteSettings.deleteMany({ where: { organizationId: org } });
+    await db.serviceAccess.deleteMany({ where: { organizationId: org } });
+    await db.organization.deleteMany({ where: { id: org } });
+    await db.$disconnect();
+  }
+});
+
+test("availability calendar: one Tab stop, arrows move by day and week across months, readable names", async ({ baseURL, page }) => {
+  if (!baseURL) throw new Error("Missing trusted ingress URL");
+  const port = Number(new URL(baseURL).port);
+  const db = createPrismaClient(process.env.DATABASE_URL ?? "");
+  const [org, car] = Array.from({ length: 2 }, () => randomUUID());
+  const host = `avail-kbd-${org}.example.test`;
+  const today = availabilityToday();
+  const now = new Date();
+  const slug = `k-${car}`;
+  try {
+    await db.organization.create({ data: { id: org, slug: `avail-kbd-${org}`, name: "Firma Klawiatury E2E", firstAdminRegisteredAt: now } });
+    await db.serviceAccess.create({ data: { organizationId: org, trialGranted: true, trialStartedAt: now, trialEndsAt: new Date(now.getTime() + 336 * 3_600_000) } });
+    await db.siteSettings.create({ data: { organizationId: org, publicName: "Firma Klawiatury E2E", phone: "+48 600 000 334" } });
+    await db.hostMapping.create({ data: { hostname: host, organizationId: org, area: "COMPANY_PUBLIC", status: "ACTIVE" } });
+    await db.vehicle.create({ data: { id: car, organizationId: org, status: "PUBLISHED", availableFrom: sqlDate(today), slug, name: "Auto Klawiatury" } });
+    await page.goto(`http://${host}:${port}/pojazdy/${slug}/`);
+    const buttons = page.locator("#kalendarz table button");
+    // Roving tabindex: exactly one day is a Tab stop.
+    await expect(buttons.and(page.locator("[tabindex='0']"))).toHaveCount(1);
+    const stop = page.locator("#kalendarz table button[tabindex='0']");
+    // The name is a full readable date, not a bare number.
+    await expect(stop).toHaveAttribute("aria-label", /^\p{L}+, \d{1,2} \p{L}+ \d{4}, (dostępny|niedostępny|stan nieznany)/u);
+    await stop.focus();
+    const label = async () => (await page.locator("#kalendarz table button:focus").getAttribute("aria-label")) ?? "";
+    const first = await label();
+    await page.keyboard.press("ArrowRight");
+    expect(await label()).not.toBe(first);
+    await page.keyboard.press("ArrowLeft");
+    expect(await label()).toBe(first);
+    await expect(buttons.and(page.locator("[tabindex='0']"))).toHaveCount(1);
+    // Down moves a week; going far enough crosses into the next month and keeps focus on a day button.
+    const month = await page.locator("#calendar-title").textContent();
+    for (let step = 0; step < 6; step += 1) await page.keyboard.press("ArrowDown");
+    await expect(page.locator("#calendar-title")).not.toHaveText(month ?? "");
+    await expect(page.locator("#kalendarz table button:focus")).toHaveCount(1);
+    // Enter picks the start; the status names it in words, not ISO.
+    await page.keyboard.press("Enter");
+    await expect(page.getByText(/Wybrano początek: \p{L}+, \d{1,2} \p{L}+ \d{4}\./u)).toBeVisible();
+    await expect(page.getByText(/Wybrano początek: \d{4}-\d{2}-\d{2}/)).toHaveCount(0);
+  } finally {
+    await db.vehicle.deleteMany({ where: { organizationId: org } });
+    await db.hostMapping.deleteMany({ where: { organizationId: org } });
+    await db.siteSettings.deleteMany({ where: { organizationId: org } });
+    await db.serviceAccess.deleteMany({ where: { organizationId: org } });
+    await db.organization.deleteMany({ where: { id: org } });
+    await db.$disconnect();
+  }
+});
+
+test("availability alternatives: a fleet larger than one catalog page still finds a free car", async ({ baseURL, page }) => {
+  if (!baseURL) throw new Error("Missing trusted ingress URL");
+  const port = Number(new URL(baseURL).port);
+  const db = createPrismaClient(process.env.DATABASE_URL ?? "");
+  const org = randomUUID();
+  const host = `avail-fleet-${org}.example.test`;
+  const today = availabilityToday();
+  const day = (offset: number) => new Date(sqlDate(today).getTime() + offset * 86_400_000).toISOString().slice(0, 10);
+  const now = new Date();
+  const ids = Array.from({ length: 15 }, () => randomUUID());
+  try {
+    await db.organization.create({ data: { id: org, slug: `avail-fleet-${org}`, name: "Firma Floty E2E", firstAdminRegisteredAt: now } });
+    await db.serviceAccess.create({ data: { organizationId: org, trialGranted: true, trialStartedAt: now, trialEndsAt: new Date(now.getTime() + 336 * 3_600_000) } });
+    await db.siteSettings.create({ data: { organizationId: org, publicName: "Firma Floty E2E", phone: "+48 600 000 335" } });
+    await db.hostMapping.create({ data: { hostname: host, organizationId: org, area: "COMPANY_PUBLIC", status: "ACTIVE" } });
+    await db.vehicle.createMany({ data: ids.map((id, index) => ({ id, organizationId: org, status: "PUBLISHED", availableFrom: sqlDate(today),
+      slug: `f${index}-${id}`, name: `Auto ${index}`, sortOrder: index })) });
+    // Every car but the last (outside the first catalog page of 12) is blocked for the whole range.
+    await db.availabilityBlock.createMany({ data: ids.slice(0, 14).map((id) => ({ organizationId: org, vehicleId: id, from: sqlDate(day(2)), to: sqlDate(day(4)), type: "MAINTENANCE" })) });
+    await page.goto(`http://${host}:${port}/pojazdy/f0-${ids[0]}/?from=${day(2)}&to=${day(4)}`);
     await expect(page.getByText("Pojazd jest niedostępny w tym terminie")).toBeVisible();
+    const alternatives = page.getByTestId("alternatives");
+    await expect(alternatives.getByRole("link", { name: "Auto 14" })).toBeVisible();
+    await expect(alternatives.getByText("Żadne inne auto")).toHaveCount(0);
   } finally {
     await db.availabilityBlock.deleteMany({ where: { organizationId: org } });
     await db.vehicle.deleteMany({ where: { organizationId: org } });

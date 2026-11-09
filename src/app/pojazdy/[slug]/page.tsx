@@ -54,8 +54,11 @@ export default async function VehiclePage({ params, searchParams }: Props) {
   const calendar = span ? await loadCalendar(host, slug, { ...span, days: 1 + (Date.parse(span.to) - Date.parse(span.from)) / 86_400_000 }) : { days: [] };
   if (!calendar) notFound();
   // Other published vehicles for "alternatives in the same dates"; their availability is asked on demand (batch, max 50).
-  const catalog = await loadCatalog(host, "");
-  const others = catalog?.ok ? catalog.items.filter((item) => item.slug !== slug).slice(0, 50).map((item) => ({ slug: item.slug, name: item.name ?? "Pojazd" })) : [];
+  // The candidates are the catalog maximum (50); a larger fleet or a failed read is not "the whole fleet" (FR-PUB-026).
+  const catalog = await loadCatalog(host, "limit=50");
+  const candidates = catalog?.ok ? catalog.items.filter((item) => item.slug !== slug) : [];
+  const others = candidates.map((item) => ({ slug: item.slug, name: item.name ?? "Pojazd" }));
+  const othersComplete = Boolean(catalog?.ok && catalog.total <= catalog.items.length && catalog.nextCursor === null);
 
   const specs = [vehicle.seats ? `${vehicle.seats} miejsc` : null, vehicle.doors ? `${vehicle.doors} drzwi` : null, vehicle.transmission,
     vehicle.fuel, vehicle.drive, vehicle.category?.name, vehicle.year ? String(vehicle.year) : null, vehicle.color, vehicle.luggage ? `Bagaż: ${vehicle.luggage}` : null]
@@ -78,7 +81,7 @@ export default async function VehiclePage({ params, searchParams }: Props) {
             {specs.length ? <ul className={styles.specs} aria-label="Najważniejsze parametry">{specs.map((spec) => <li key={spec} className={styles.chip}>{spec}</li>)}</ul> : null}
 
             <AvailabilityPanel slug={slug} vehicleName={vehicle.name ?? "Pojazd"} today={today} minMonth={minMonth} maxMonth={maxMonth}
-              others={others} initial={{ from: range.from, to: range.to, invalid: picked.kind === "INVALID" ? picked.reason : null,
+              others={others} othersComplete={othersComplete} initial={{ from: range.from ?? (picked.kind === "INVALID" ? first(raw.from) ?? null : null), to: range.to ?? (picked.kind === "INVALID" ? first(raw.to) ?? null : null), invalid: picked.kind === "INVALID" ? picked.reason : null,
                 available: availability?.available ?? null, month, days: Object.fromEntries(calendar.days.map((day) => [day.date, day.available])) }} />
           </div>
         </div>

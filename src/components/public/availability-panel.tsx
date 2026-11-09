@@ -4,7 +4,7 @@ import { CalendarSearch, Check, CircleSlash, LoaderCircle, TriangleAlert } from 
 import { useEffect, useRef, useState } from "react";
 
 import { createLatest, problemMessages, validateRange } from "@/modules/public-offer/availability-client";
-import { calendarRange, catalogHref, catalogPath, contactHref, formatRangeShort, monthDays, monthLabel, pluralDays, shiftMonth, type DayState } from "@/modules/public-offer/presentation";
+import { addDays, calendarRange, catalogHref, catalogPath, contactHref, formatRangeShort, longDate, monthDays, monthLabel, pluralDays, shiftMonth, type DayState } from "@/modules/public-offer/presentation";
 
 import { rangeEvent } from "./contact-cta";
 import { LinkButton } from "./public-chrome";
@@ -30,11 +30,15 @@ export type PanelInitial = {
 type Props = {
   slug: string; vehicleName: string; today: string; minMonth: string; maxMonth: string;
   initial: PanelInitial; others: { slug: string; name: string }[];
+  /** False when the candidates are only part of the fleet (or the catalog failed): "none available" must not be claimed. */
+  othersComplete: boolean;
 };
 
-async function request<T>(url: string, init?: RequestInit): Promise<{ status: number; body: T | null }> {
+async function request<T>(url: string, init?: RequestInit): Promise<{ status: number; body: T | null; code: string | null }> {
   const response = await fetch(url, { ...init, cache: "no-store", headers: { ...(init?.body ? { "content-type": "application/json" } : {}) } });
-  return { status: response.status, body: response.ok ? ((await response.json()) as T) : null };
+  if (response.ok) return { status: response.status, body: (await response.json()) as T, code: null };
+  const failure = (await response.json().catch(() => null)) as { code?: unknown } | null;
+  return { status: response.status, body: null, code: typeof failure?.code === "string" ? failure.code : null };
 }
 
 /**
@@ -44,7 +48,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<{ status: nu
  * form without script (the server renders the same result), and it never writes anything: contact only receives the
  * checked vehicle and dates.
  */
-export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth, initial, others }: Props) {
+export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth, initial, others, othersComplete }: Props) {
   const initialRange = initial.from && initial.to ? validateRange(initial.from, initial.to, today) : null;
   const [from, setFrom] = useState(initial.from ?? "");
   const [to, setTo] = useState(initial.to ?? "");
@@ -53,6 +57,10 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
       : initialRange?.ok && initial.available !== null ? { status: "done", range: initialRange, available: initial.available } : { status: "idle" });
   const [alternatives, setAlternatives] = useState<Alternatives>({ status: "idle" });
   const [month, setMonth] = useState(initial.month);
+  const monthRef = useRef(initial.month);
+  const [focusDate, setFocusDate] = useState<string | null>(null);
+  const wantFocus = useRef(false);
+  const buttons = useRef(new Map<string, HTMLButtonElement>());
   const [calendar, setCalendar] = useState<Calendar>({ status: "ready", days: initial.days });
   const checks = useRef(createLatest());
   const alts = useRef(createLatest());
@@ -93,25 +101,30 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
     setCheck({ status: "loading", range });
     syncUrl(range, month);
     try {
-      const { status, body } = await request<{ available: boolean }>("/api/public/availability/check",
+      const { status, body, code } = await request<{ available: boolean }>("/api/public/availability/check",
         { method: "POST", body: JSON.stringify({ slug, from: range.from, to: range.to }) });
       if (!checks.current.isCurrent(ticket)) return;
-      if (status === 422 || status === 400) { setCheck({ status: "invalid", message: problemMessages.PAST }); return; }
+      if (status === 422 && code === "PAST_DATE") { setCheck({ status: "invalid", message: problemMessages.PAST }); return; }
+      if (status === 400 && (code === "INVALID_DATE_RANGE" || code === "INVALID_INPUT")) { setCheck({ status: "invalid", message: problemMessages.INVALID }); return; }
       if (!body || typeof body.available !== "boolean") { setCheck({ status: "error", range }); return; }
       setCheck({ status: "done", range, available: body.available });
+      void loadMonth(monthRef.current, true);
       if (!body.available) void loadAlternatives(range);
     } catch {
       if (checks.current.isCurrent(ticket)) setCheck({ status: "error", range });
     }
   }
 
-  async function loadMonth(target: string) {
+  /** `silent` refreshes the shown month after a check (a block may have been saved since the page loaded) without a loading flash. */
+  async function loadMonth(target: string, silent = false) {
     const ticket = months.current.next();
     const span = calendarRange(target, today);
-    setMonth(target);
-    syncUrl(check.status === "done" || check.status === "loading" ? check.range : null, target);
+    if (!silent) {
+      monthRef.current = target; setMonth(target);
+      syncUrl(check.status === "done" || check.status === "loading" ? check.range : null, target);
+    }
     if (!span) { setCalendar({ status: "ready", days: {} }); return; }
-    setCalendar({ status: "loading" });
+    if (!silent) setCalendar({ status: "loading" });
     try {
       const { body } = await request<{ days: { date: string; available: boolean }[] }>(
         `/api/public/vehicles/${encodeURIComponent(slug)}/calendar?from=${span.from}&to=${span.to}`);
@@ -136,6 +149,25 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
     void runCheck(from, date);
   }
 
+  function moveFocus(from: string, delta: number) {
+    let target = addDays(from, delta);
+    if (target < today) target = today;
+    const limit = `${shiftMonth(maxMonth, 1)}-01`;
+    if (target >= limit) target = addDays(limit, -1);
+    if (target === from) return;
+    wantFocus.current = true; setFocusDate(target);
+    if (target.slice(0, 7) !== month) void loadMonth(target.slice(0, 7));
+  }
+  function onDayKey(event: React.KeyboardEvent, date: string) {
+    const step: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
+    if (event.key in step) { event.preventDefault(); moveFocus(date, step[event.key]); return; }
+    if (event.key === "Home" || event.key === "End") {
+      event.preventDefault();
+      const weekday = (new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7;
+      moveFocus(date, event.key === "Home" ? -weekday : 6 - weekday);
+    }
+  }
+
   const cells = monthDays(month);
   const flat: ({ date: string; day: number } | null)[] = [...Array<null>(cells[0].weekday).fill(null), ...cells.map(({ date }) => ({ date, day: Number(date.slice(8)) }))];
   while (flat.length % 7 !== 0) flat.push(null);
@@ -149,6 +181,15 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
     params.set("month", target);
     return `${catalogPath}${slug}/?${params.toString()}#kalendarz`;
   };
+  const firstPick = cells.find(({ date }) => date >= today)?.date ?? null;
+  const tabStop = focusDate && focusDate.slice(0, 7) === month && focusDate >= today ? focusDate
+    : from && from.slice(0, 7) === month && from >= today ? from : firstPick;
+  useEffect(() => {
+    if (wantFocus.current && focusDate) {
+      const node = buttons.current.get(focusDate);
+      if (node) { node.focus(); wantFocus.current = false; }
+    }
+  });
   const checkedRange = check.status === "done" ? { from: check.range.from, to: check.range.to } : null;
   const checkedKey = checkedRange ? `${checkedRange.from}/${checkedRange.to}` : "";
   useEffect(() => {
@@ -183,13 +224,6 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
         <div role="status" aria-live="polite" data-testid="availability-result">
           {check.status === "idle" ? <p className={styles.small}>Wybierz zakres dat w polach lub w kalendarzu. Dostępność jest informacyjna i nie stanowi rezerwacji terminu.</p> : null}
           {check.status === "loading" ? <p className={styles.small}><LoaderCircle aria-hidden="true" size={16} /> Sprawdzamy dostępność: {formatRangeShort(check.range.from, check.range.to)}…</p> : null}
-          {check.status === "error" ? (
-            <div role="alert" className={styles.notice}>
-              <TriangleAlert aria-hidden="true" size={18} />
-              <span>Nie udało się sprawdzić terminu {formatRangeShort(check.range.from, check.range.to)}. Poprzedni wynik nie jest już aktualny.{" "}
-                <button type="button" className={styles.link} onClick={() => void runCheck(check.range.from, check.range.to)}>Spróbuj ponownie</button></span>
-            </div>
-          ) : null}
           {check.status === "done" ? (
             <>
               <span className={`${styles.badge} ${check.available ? styles.badgeAvailable : styles.badgeUnavailable}`}>
@@ -204,6 +238,13 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
             </>
           ) : null}
         </div>
+        {check.status === "error" ? (
+          <div role="alert" className={styles.notice}>
+            <TriangleAlert aria-hidden="true" size={18} />
+            <span>Nie udało się sprawdzić terminu {formatRangeShort(check.range.from, check.range.to)}. Poprzedni wynik nie jest już aktualny.{" "}
+              <button type="button" className={styles.link} onClick={() => void runCheck(check.range.from, check.range.to)}>Spróbuj ponownie</button></span>
+          </div>
+        ) : null}
         {result && check.status !== "loading" ? (
           <div className={styles.stateActions}>
             <LinkButton href={contactHref(slug, result)}>{check.status === "done" && !check.available ? "Skontaktuj się po alternatywę" : "Skontaktuj się"}</LinkButton>
@@ -218,8 +259,9 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
               {alternatives.status === "loading" ? <p className={styles.small}>Szukamy innych dostępnych aut…</p> : null}
               {alternatives.status === "error" ? <p className={styles.small}>Nie udało się sprawdzić innych aut. Zobacz{" "}
                 <a className={styles.link} href={catalogHref({ from: alternativesRange.from, to: alternativesRange.to })}>listę pojazdów z tym terminem</a>.</p> : null}
-              {alternatives.status === "ready" && alternatives.items.length === 0 ? <p className={styles.small}>Żadne inne auto nie jest dostępne w tym terminie.
-                {" "}<a className={styles.link} href={catalogHref({ from: alternativesRange.from, to: alternativesRange.to })}>Zobacz całą ofertę</a>.</p> : null}
+              {alternatives.status === "ready" && alternatives.items.length === 0 ? (othersComplete
+                ? <p className={styles.small}>Żadne inne auto nie jest dostępne w tym terminie.{" "}<a className={styles.link} href={catalogHref({ from: alternativesRange.from, to: alternativesRange.to })}>Zobacz całą ofertę</a>.</p>
+                : <p className={styles.small}>Nie sprawdziliśmy całej oferty. Zobacz{" "}<a className={styles.link} href={catalogHref({ from: alternativesRange.from, to: alternativesRange.to })}>listę pojazdów dostępnych w tym terminie</a>.</p>) : null}
               {alternatives.status === "ready" && alternatives.items.length > 0 ? (
                 <ul className={styles.altList}>
                   {alternatives.items.map((item) => (
@@ -227,6 +269,8 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
                   ))}
                 </ul>
               ) : null}
+              {alternatives.status === "ready" && alternatives.items.length > 0 && !othersComplete ? <p className={styles.small}>To nie jest cała oferta.{" "}
+                <a className={styles.link} href={catalogHref({ from: alternativesRange.from, to: alternativesRange.to })}>Zobacz wszystkie dostępne pojazdy</a>.</p> : null}
             </div>
           </section>
         ) : null}
@@ -246,11 +290,11 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
         </div>
         <div role="status" aria-live="polite">
           {calendar.status === "loading" ? <p className={styles.small}>Ładujemy kalendarz…</p> : null}
-          {calendar.status === "error" ? <div role="alert" className={styles.notice}><TriangleAlert aria-hidden="true" size={18} />
-            <span>Nie udało się wczytać kalendarza. Stany dni nie są aktualne.{" "}
-              <button type="button" className={styles.link} onClick={() => void loadMonth(month)}>Spróbuj ponownie</button></span></div> : null}
-          {pickingEnd ? <p className={styles.small}>Wybrano początek: {from}. Wybierz dzień końca terminu.</p> : null}
+          {pickingEnd ? <p className={styles.small}>Wybrano początek: {longDate(from)}. Wybierz dzień końca terminu.</p> : null}
         </div>
+        {calendar.status === "error" ? <div role="alert" className={styles.notice}><TriangleAlert aria-hidden="true" size={18} />
+          <span>Nie udało się wczytać kalendarza. Stany dni nie są aktualne.{" "}
+            <button type="button" className={styles.link} onClick={() => void loadMonth(month)}>Spróbuj ponownie</button></span></div> : null}
         <table className={styles.calendarTable}>
           <caption className={styles.srOnly}>Dostępność pojazdu w miesiącu: {monthLabel(month)}. Wybierz dzień początku i końca terminu. Informacja nie jest rezerwacją terminu.</caption>
           <thead><tr>{weekdays.map((name) => <th key={name} scope="col">{name}</th>)}</tr></thead>
@@ -266,9 +310,10 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
                   return (
                     <td key={column} className={classes} aria-current={cell.date === today ? "date" : undefined}>
                       {state === "past" ? cell.day : (
-                        <button type="button" className={styles.dayButton} aria-pressed={selected} onClick={() => pick(cell.date)}>{cell.day}
-                          <span className={styles.srOnly}> {state === "unknown" ? "stan nieznany" : dayText[state]}{cell.date === today ? ", dzisiaj" : ""}{selected ? ", wybrany zakres" : ""}</span>
-                        </button>
+                        <button type="button" className={styles.dayButton} aria-pressed={selected} tabIndex={cell.date === tabStop ? 0 : -1}
+                          ref={(node) => { if (node) buttons.current.set(cell.date, node); else buttons.current.delete(cell.date); }}
+                          aria-label={`${longDate(cell.date)}, ${state === "unknown" ? "stan nieznany" : dayText[state]}${cell.date === today ? ", dzisiaj" : ""}${selected ? ", wybrany zakres" : ""}`}
+                          onFocus={() => setFocusDate(cell.date)} onKeyDown={(event) => onDayKey(event, cell.date)} onClick={() => pick(cell.date)}>{cell.day}</button>
                       )}
                       {state === "past" ? <span className={styles.srOnly}> minął</span> : null}
                     </td>
