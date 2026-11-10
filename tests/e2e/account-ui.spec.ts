@@ -120,7 +120,7 @@ test("company admin: reset, account, password change, logout and expired service
     await page.goto(`${origin}/admin/reset-hasla/${token}`);
     await expect(page.getByRole("heading", { name: "Ustaw nowe hasło" })).toBeVisible();
     await page.getByLabel("Nowe hasło", { exact: true }).fill("krotkie");
-    await expect(page.getByText("Siła hasła: Słabe")).toBeVisible();
+    await expect(page.getByText("Siła hasła: Za krótkie")).toBeVisible();
     await page.getByLabel("Powtórz hasło").fill("inne");
     await page.getByRole("button", { name: "Ustaw nowe hasło" }).click();
     await expect(page.getByText("Hasło musi mieć od 12 do 256 znaków")).toBeVisible();

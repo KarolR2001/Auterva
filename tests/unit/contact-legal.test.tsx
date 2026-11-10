@@ -95,6 +95,29 @@ describe("dokumenty firmy (PUB-05/06)", () => {
     expect(container.querySelector("main b")).toBeNull();
     expect(screen.getByText("Treść <b>polityki</b>")).toBeInTheDocument();
   });
+  it("nagłówki ## to numerowane h2 ze spisem treści i kotwicami, reszta akapity, bez HTML", () => {
+    const text = "Wstęp <i>x</i>\n\n## Dane\nTreść <b>1</b>\n\n## Cele\nTreść 2";
+    const { container } = render(<LegalPage legal={legal({ status: "TEXT", text })} brand={brand} contact={[]} />);
+    expect(screen.getByRole("navigation", { name: "Spis treści" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "1. Dane" })).toHaveAttribute("href", "#sekcja-1");
+    expect(screen.getByRole("heading", { level: 2, name: "2. Cele" })).toHaveAttribute("id", "sekcja-2");
+    expect(container.querySelector("main b, main i")).toBeNull();
+    expect(screen.getByText("Treść <b>1</b>")).toBeInTheDocument();
+    expect(screen.getByText("Informacje prawne")).toBeInTheDocument();
+  });
+  it("bez nagłówków nie ma spisu treści; eyebrow regulaminu", () => {
+    render(<LegalPage legal={legal({ kind: "terms", status: "TEXT", text: "Sam tekst" })} brand={brand} contact={[]} />);
+    expect(screen.queryByRole("navigation", { name: "Spis treści" })).toBeNull();
+    expect(screen.getByText("Zasady wynajmu")).toBeInTheDocument();
+  });
+  it("data aktualizacji tylko gdy pole istnieje; link powrotny tylko z pojazdem", () => {
+    const { rerender } = render(<LegalPage legal={legal({ status: "TEXT", text: "x" })} brand={brand} contact={[]} />);
+    expect(screen.queryByText(/Ostatnia aktualizacja/)).toBeNull();
+    expect(screen.queryByRole("link", { name: /Wróć do pojazdu/ })).toBeNull();
+    rerender(<LegalPage legal={legal({ status: "TEXT", text: "x", updatedAt: "2026-11-10" })} brand={brand} contact={[]} vehicle={{ slug: "kamper", name: "Kamper <b>" }} />);
+    expect(screen.getByText(/Ostatnia aktualizacja: 10 listopada 2026/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Wróć do pojazdu: Kamper <b>/ })).toHaveAttribute("href", "/pojazdy/kamper/");
+  });
   it("link do dokumentu tylko dla http(s)", () => {
     render(<LegalPage legal={legal({ kind: "terms", status: "LINK", url: "https://firma.example/regulamin.pdf" })} brand={brand} contact={[]} />);
     expect(screen.getByRole("link", { name: /Otwórz: Regulamin/ })).toHaveAttribute("href", "https://firma.example/regulamin.pdf");

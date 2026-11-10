@@ -20,6 +20,9 @@ export function LegalStatus({ kind, text, url }: { kind: "privacy" | "terms"; te
         <span>Stan: {legalLabels[status]}</span>
       </p>
       {status === "TEXT" && <p className={styles.preview}>{String(text)}</p>}
+      {status === "TEXT" && (
+        <p>Linia zaczynająca się od „## ” staje się numerowanym nagłówkiem sekcji i pozycją spisu treści strony publicznej.</p>
+      )}
       {status === "LINK" && (
         <p>
           Strona publiczna wskaże zewnętrzny dokument:{" "}

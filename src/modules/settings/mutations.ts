@@ -74,6 +74,10 @@ export async function updateCompanySettings(db: PrismaClient, input: PlatformOpe
     if (changed.length === 0) return { version: oldVersion, changedFields: [] as string[] };
     const settingsData: Record<string, unknown> = {};
     for (const key of changed) if (key !== "name") settingsData[key] = incoming[key];
+    // D-36: the server stamps the legal text date (UTC) only when that text really changed; clearing the text clears the date.
+    const stamp = new Date();
+    if (changed.includes("privacyText")) settingsData.privacyTextUpdatedAt = incoming.privacyText ? stamp : null;
+    if (changed.includes("termsText")) settingsData.termsTextUpdatedAt = incoming.termsText ? stamp : null;
     const nextVersion = oldVersion + 1;
     if (current) {
       const result = await tx.siteSettings.updateMany({ where: { organizationId: input.organizationId,

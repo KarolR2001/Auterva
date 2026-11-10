@@ -33,6 +33,7 @@ model Organization {
   operationReceipts      OperationReceipt[]
   reminderPlan           ReminderPlan?
   reminderIntents        ReminderIntent[]
+  calendarFeedTokens     CalendarFeedToken[]
 }
 
 model Vehicle {
@@ -135,6 +136,7 @@ model User {
   twofactors       TwoFactor[]
   sentMessages     ChatMessage[]
   readCursors      ConversationReadCursor[]
+  calendarFeedTokens CalendarFeedToken[]
 
   @@unique([email])
   @@index([organizationId])
@@ -387,6 +389,8 @@ model SiteSettings {
   seoDescription       String?
   privacyText          String?
   termsText            String?
+  privacyTextUpdatedAt DateTime?    @db.Timestamptz(6)
+  termsTextUpdatedAt   DateTime?    @db.Timestamptz(6)
   availabilityNotice   String?
   heroText             String?
   serviceArea          String?
@@ -597,4 +601,24 @@ model ReminderIntent {
   @@unique([organizationId, effectiveEndsAt, offsetDays, channel])
   @@index([status, slotAt])
   @@index([organizationId, status])
+}
+
+// #327 (D-40): private iCal feed token. Only the SHA-256 of the secret is stored; the secret is shown once.
+// Rows are never restored from a backup (the creating user rows are replaced, which cascades here).
+model CalendarFeedToken {
+  id              String       @id @default(uuid()) @db.Uuid
+  organizationId  String       @db.Uuid
+  createdByUserId String
+  label           String
+  tokenHash       String       @unique
+  createdAt       DateTime     @default(now()) @db.Timestamptz(6)
+  expiresAt       DateTime     @db.Timestamptz(6)
+  lastUsedAt      DateTime?    @db.Timestamptz(6)
+  revokedAt       DateTime?    @db.Timestamptz(6)
+  revokedReason   String?
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdBy       User         @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, revokedAt, expiresAt])
+  @@index([createdByUserId])
 }

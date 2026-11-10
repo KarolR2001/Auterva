@@ -22,6 +22,28 @@
       "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
     },
     {
+      "issue": 339,
+      "scope": "Miernik „Siła hasła” (D-45, D-46) w aktywacji (ACC-04), resecie (ADM-03) i zmianie hasła: poniżej 12 znaków stan „Za krótkie” (pusty pasek, bez poziomu); od 12 znaków poziom słabe/średnie/mocne z punktów: małe i wielkie litery, cyfra, znak specjalny (po 1) oraz długość 16+ (dodatkowy 1); 3+ mocne, 2 średnie, reszta słabe. Miernik jest informacyjny: nie zmienia walidacji serwera (12–256) ani blokady zapisu; aria-live obejmuje tylko etykietę poziomu. Hasło nie jest logowane ani wysyłane.",
+      "relatedRequirementIds": ["FR-ADM-006", "FR-ADM-007", "FR-ADM-080", "FR-ADM-082"],
+      "referenceScreenIds": ["ADM-03", "PLT-10"],
+      "scenarioStates": {
+        "passwordStrength": "PasswordStrength weak/medium/strong (DS-AUT-004); stan „Za krótkie” bez odpowiednika w makiecie (do ustalenia)"
+      },
+      "unmappedStates": ["Porównanie z planszami DS-AUT-004 i ACC-04 w Penpocie: DEFERRED (#263); stan „Za krótkie” dodany w aplikacji."],
+      "components": [
+        { "itemId": "DS-AUT-004", "codePath": "src/components/auth/password-strength.tsx" }
+      ],
+      "codePaths": [
+        "src/components/auth/password-strength.tsx",
+        "src/components/auth/password-policy.ts",
+        "src/components/auth/auth.module.css",
+        "src/components/auth/reset-flow.tsx",
+        "src/components/auth/activation-flow.tsx",
+        "src/components/account/account-view.tsx"
+      ],
+      "testPaths": ["tests/unit/password-policy.test.tsx", "tests/e2e/account-ui.spec.ts", "tests/e2e/company-activation-ui.spec.ts"]
+    },
+    {
       "issue": 336,
       "scope": "API listy pojazdów firmy (panel i superadmin w kontekście firmy) po decyzji D-42: filtr kategorii (categoryId, już istniał), filtr ostatniej zmiany updatedFrom/updatedTo (dni Europe/Warsaw, włącznie), sortowanie sort=order|updatedDesc|updatedAsc oraz statusCounts (all/published/draft/unpublished/archived) niezależne od paginacji i filtra status. UI (ADM-05) to osobne issue Frontend #337.",
       "relatedRequirementIds": ["C-F095", "C-F097", "FR-ADM-021", "FR-ADM-022"],
@@ -36,6 +58,36 @@
       "testPaths": ["tests/integration/fleet-list-filters.test.ts", "tests/integration/fleet-list-http.test.ts", "tests/integration/fleet-list.test.ts"]
     },
     {
+      "issue": 334,
+      "scope": "D-41: POST /api/platform/companies przyjmuje opcjonalnie telefon, publiczny e-mail i adres (phone, email, addressLine, postalCode, city, country; reguły i schematy jak grupy contact/address ustawień firmy #31), zapisywane do SiteSettings w tej samej transakcji co utworzenie firmy, z audytem SETTINGS_CHANGED (same nazwy pól). Brak pól = zachowanie jak dotąd; nie publikuje strony i nie wysyła zaproszenia. UI formularza: #335.",
+      "referenceScreenIds": ["PLT-04", "FLOW-MVP-02"],
+      "codePaths": [
+        "src/modules/organizations/onboarding.ts",
+        "src/modules/organizations/http.ts",
+        "src/modules/settings/fields.ts",
+        "src/app/api/platform/companies/route.ts"
+      ],
+      "testPaths": ["tests/integration/company-creation-contact.test.ts", "tests/integration/company-preregistration.test.ts"],
+      "sharedWith": "Kontrakt: docs/contracts/company-onboarding-invitations.md; reguły pól: docs/contracts/company-settings-and-vehicle-publication.md."
+    },
+    {
+      "issue": 325,
+      "scope": "Backend D-36 dla PUB-05/06 (#232): data ostatniej zmiany tekstu polityki prywatności i regulaminu firmy (privacyTextUpdatedAt, termsTextUpdatedAt; UTC, ustawiana przez serwer tylko przy zmienionym tekście) w ustawieniach (odczyt admin i platforma) oraz w publicznym DTO strony prawnej (updatedAt, ISO 8601). Wartość początkowa istniejących dokumentów: NULL (UI bez daty). Brak zmian UI.",
+      "relatedRequirementIds": ["FR-PUB-041", "FR-PUB-042"],
+      "referenceScreenIds": ["PUB-05", "PUB-06"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261110120000_legal_text_updated_at_issue_325/migration.sql",
+        "src/modules/settings/mutations.ts",
+        "src/modules/settings/read.ts",
+        "src/modules/public-offer/read.ts",
+        "docs/contracts/company-settings-and-vehicle-publication.md",
+        "docs/contracts/public-offer-seo.md"
+      ],
+      "testPaths": ["tests/integration/company-settings.test.ts", "tests/integration/legal-updated-at-migration.test.ts"],
+      "sharedWith": "Frontend #232 używa pola updatedAt do wiersza „Ostatnia aktualizacja”."
+    },
+    {
       "issue": 323,
       "scope": "PUB-03 po #319 (QA #322) i pozycje PUB-03 z #320: podsumowanie „Wybrany zakres … · N dni” tylko po werdykcie (nie w ładowaniu i błędzie); pola dat bez obcięcia przy 1024 px (wiersz Od/Do, przycisk poniżej do 1280 px); dialog galerii wyśrodkowany; scroll-margin chroniący fokus przed przyklejonym CTA na mobile; karta kalendarza bezpośrednio pod kartą sprawdzania (bez pustej przestrzeni przy wysokiej galerii); chipy w kształcie pigułki, tytuł bez etykiety kategorii (kategoria zostaje w chipach), nagłówek desktop bez linku Kontakt (jest przycisk Skontaktuj się), stopka z „© rok nazwa”. Poza zakresem: hasło firmy w stopce (brak pola danych), reszta #320 (ADM-02/03).",
       "referenceScreenIds": ["PUB-03"],
@@ -46,6 +98,48 @@
         "src/components/public/public.module.css"
       ],
       "testPaths": ["tests/e2e/public-vehicle.spec.ts", "tests/e2e/public-site.spec.ts", "tests/unit/vehicle-gallery.test.tsx"]
+    },
+    {
+      "issue": 338,
+      "scope": "PUB-03 po D-44 (#297): termin wybiera się wyłącznie w kalendarzu (pierwszy klik/Enter = początek, drugi = koniec, ten sam dzień dwa razy lub „Tylko ten dzień” = jeden dzień, „Wyczyść termin”); usunięte pola Od/Do i przycisk Sprawdź; usunięta pozycja „Minął” z legendy, dni minione nadal niewybieralne (aria-disabled, nazwa „miniony”). Bez zmian: klawiatura siatki, zakres w URL (?from&to), brak starego wyniku, kontakt bez rezerwacji. Zmiana SPEC (sekcja PUB-03) jest w PR #329; filtry dat katalogu poza zakresem.",
+      "referenceScreenIds": ["PUB-03"],
+      "codePaths": [
+        "src/components/public/availability-panel.tsx",
+        "src/components/public/public.module.css"
+      ],
+      "testPaths": ["tests/e2e/public-availability.spec.ts", "tests/e2e/public-vehicle.spec.ts", "tests/e2e/public-calendar-helpers.ts", "tests/unit/vehicle-gallery.test.tsx"]
+    },
+    {
+      "issue": 327,
+      "scope": "Backend prywatnego feedu iCal floty firmy (D-40, pierwszy krok E14; kontrakt discovery #79, wariant S2 + Z1): tokeny 256 bit w ścieżce z hashem SHA-256 w bazie (do 5 aktywnych na firmę, 365 dni), API zarządzania (admin firmy: lista, utworzenie z jednorazowym pokazaniem adresu, rotacja, odwołanie; superadmin w kontekście firmy: lista i odwołanie), audyt CALENDAR_FEED_* bez tokena i URL, publiczny GET /api/calendar/feed/{token}.ics z wyłącznie zakresami „Niedostępny” (nigdy typ, reference, internalNote, id blokady), automatyczne odwołanie przy archiwizacji, restore, resecie i zmianie hasła oraz wyłączeniu konta. Ekran zarządzania feedem (Frontend) poza zakresem do makiety Penpota.",
+      "referenceScreenIds": [],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261110160000_calendar_feed_token_issue_327/migration.sql",
+        "src/modules/calendar-feed/tokens.ts",
+        "src/modules/calendar-feed/feed.ts",
+        "src/modules/calendar-feed/ics.ts",
+        "src/modules/calendar-feed/http.ts",
+        "src/modules/calendar-feed/feed-http.ts",
+        "src/app/api/calendar/feed/[token]/route.ts",
+        "src/app/api/admin/calendar-feeds/route.ts",
+        "src/app/api/admin/calendar-feeds/[id]/route.ts",
+        "src/app/api/admin/calendar-feeds/[id]/rotate/route.ts",
+        "src/app/api/platform/companies/[organizationId]/calendar-feeds/route.ts",
+        "src/app/api/platform/companies/[organizationId]/calendar-feeds/[id]/route.ts",
+        "src/modules/audit/append.ts",
+        "src/modules/organizations/archive.ts",
+        "src/modules/auth/account-operations.ts",
+        "src/modules/backup/restore.ts",
+        "src/modules/backup/company.ts",
+        "src/modules/tenancy/host-route-policy.ts",
+        "src/modules/observability/redact.ts",
+        "docs/contracts/calendar-feed-implementation.md"
+      ],
+      "testPaths": [
+        "tests/unit/calendar-feed-ics.test.ts",
+        "tests/integration/calendar-feed.test.ts"
+      ]
     },
     {
       "issue": 320,
@@ -1931,6 +2025,21 @@
         "src/modules/public-offer/contact-presentation.ts"
       ],
       "testPaths": ["tests/unit/contact-legal.test.tsx", "tests/e2e/public-contact.spec.ts"]
+    },
+    {
+      "issue": 232,
+      "scope": "PUB-05/06 struktura dokumentu prawnego (D-36): eyebrow (INFORMACJE PRAWNE / ZASADY WYNAJMU) i lead, lekka konwencja treści (linia zaczynająca się od `## ` to numerowany nagłówek h2 z kotwicą i pozycją spisu treści, reszta akapity; tekst escapowany, bez HTML i markdownu, brak nagłówków = brak spisu), link powrotny do pojazdu przez ?vehicle=<slug> tylko dla opublikowanego pojazdu tej firmy (walidacja serwerowa), wiersz „Ostatnia aktualizacja” renderowany tylko, gdy DTO ma pole updatedAt (zależność: Backend #325, pole podłączone po jego scaleniu), podpowiedź o konwencji w podglądzie ustawień. Penpot nieodczytany w tym przebiegu (karta współdzielona, brief zakazał wywołań): porównanie oparte na SPEC 9.5/9.6 i opisie rozbieżności z #44; porównanie wizualne z planszami PUB-05/06 do odbioru QA.",
+      "relatedRequirementIds": ["FR-PUB-041", "FR-PUB-042"],
+      "referenceScreenIds": ["PUB-05", "PUB-06"],
+      "codePaths": [
+        "src/components/public/legal-page.tsx",
+        "src/components/public/contact.module.css",
+        "src/components/settings/settings-extras.tsx",
+        "src/modules/public-offer/legal-structure.ts",
+        "src/app/polityka-prywatnosci/page.tsx",
+        "src/app/regulamin/page.tsx"
+      ],
+      "testPaths": ["tests/unit/legal-structure.test.ts", "tests/unit/contact-legal.test.tsx", "tests/e2e/public-legal-structure.spec.ts"]
     },
     {
       "issue": 235,

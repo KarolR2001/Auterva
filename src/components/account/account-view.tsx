@@ -320,7 +320,7 @@ export function AccountView({
           />
           <PasswordStrength
             id="account-strength"
-            level={strength.level}
+            level={strength.level} tooShort={strength.tooShort}
             criteria={strength.criteria}
           />
           <PasswordInput

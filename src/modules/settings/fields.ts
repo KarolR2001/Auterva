@@ -124,3 +124,29 @@ export function parseGroupFields(group: SettingsGroup, fields: unknown): ParsedF
 export const altText = text(200);
 export const siteSettingsFieldNames = Object.values(schemas)
   .flatMap((schema) => Object.keys(schema.shape));
+
+/** D-41: optional company-creation contact fields (flat names) reuse the `contact` and `address` group schemas. */
+export const creationContactFieldNames = ["phone", "email", "addressLine", "postalCode", "city", "country"] as const;
+const creationContactKeys = new Set<string>(creationContactFieldNames);
+
+export type CreationContactResult =
+  | { ok: true; data: Record<string, string> }
+  | { ok: false; fieldErrors: FieldErrors };
+
+/** Empty values mean "not provided"; the result holds only non-empty normalized values. */
+export function parseCreationContact(input: Record<string, unknown>): CreationContactResult {
+  const groups = { contact: {} as Record<string, unknown>, address: {} as Record<string, unknown> };
+  for (const [key, value] of Object.entries(input)) {
+    if (value === undefined || !creationContactKeys.has(key)) continue;
+    groups[key === "phone" || key === "email" ? "contact" : "address"][key] = value;
+  }
+  const data: Record<string, string> = {};
+  const fieldErrors: FieldErrors = {};
+  for (const group of ["contact", "address"] as const) {
+    if (Object.keys(groups[group]).length === 0) continue;
+    const parsed = parseGroupFields(group, groups[group]);
+    if (!parsed.ok) Object.assign(fieldErrors, parsed.fieldErrors);
+    else for (const [key, value] of Object.entries(parsed.data)) if (typeof value === "string") data[key] = value;
+  }
+  return Object.keys(fieldErrors).length ? { ok: false, fieldErrors } : { ok: true, data };
+}
