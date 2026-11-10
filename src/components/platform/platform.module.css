@@ -118,7 +118,7 @@
 }
 
 /* #27: lista firm, okres, archiwum */
-.page { display: grid; gap: var(--space-5); max-width: var(--content-admin-max); }
+.page { display: grid; gap: var(--space-5); max-width: var(--content-admin-max); container-type: inline-size; }
 .opsLead { margin: 0; color: var(--text-secondary); line-height: var(--line-height-24); }
 .opsHint { margin: 0; color: var(--text-secondary); font-size: var(--font-size-14); line-height: var(--line-height-20); }
 .mono { font-size: var(--font-size-14); overflow-wrap: anywhere; }
@@ -185,6 +185,14 @@
   .companyCard, .panelCard { padding: var(--card-padding-desktop); }
   .toolbar { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
   .listHeader { grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+  .toolbar .searchLabel { grid-column: 1 / -1; }
+}
+
+.subTitle { margin: var(--space-2) 0 0; font-size: var(--font-size-16); line-height: var(--line-height-24); color: var(--text-primary); }
+.stepList, .effectList { margin: 0; padding-left: var(--space-5); display: grid; gap: var(--space-1); color: var(--text-secondary); font-size: var(--font-size-14); line-height: var(--line-height-20); }
+
+/* #293: tabela tylko, gdy kontener listy (nie viewport, obok sidebara) pomieści 5 kolumn; niżej karty. */
+@container (min-width: 900px) {
   .companyTable { display: table; border-collapse: separate; border-spacing: 0; border: var(--border-width-hairline) solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-default); overflow: hidden; }
   .companyTable thead { position: static; width: auto; height: auto; overflow: visible; clip-path: none; display: table-header-group; }
   .companyTable tbody { display: table-row-group; }
@@ -197,8 +205,5 @@
   .cellCompany { display: table-cell; }
   .cellCompany > span { display: flex; }
   .companyTable .detail { margin-top: var(--space-1); max-width: 24ch; }
-  .toolbar .searchLabel { grid-column: 1 / -1; }
+  .cellCompany { min-width: 0; overflow-wrap: anywhere; }
 }
-
-.subTitle { margin: var(--space-2) 0 0; font-size: var(--font-size-16); line-height: var(--line-height-24); color: var(--text-primary); }
-.stepList, .effectList { margin: 0; padding-left: var(--space-5); display: grid; gap: var(--space-1); color: var(--text-secondary); font-size: var(--font-size-14); line-height: var(--line-height-20); }
