@@ -547,8 +547,9 @@ test("every public route with a path parameter or a slug in the body answers NUL
   }
   const check = routes.find((route) => route.url === "/api/public/availability/check/")!;
   const batch = routes.find((route) => route.url === "/api/public/availability/batch/")!;
+  const nearest = routes.find((route) => route.url === "/api/public/availability/next/")!;
   for (const value of hostile) {
-    for (const [route, body] of [[check, { slug: value, from: day, to: day }], [batch, { slugs: [value], from: day, to: day }], [batch, { slugs: [`slug-${tag}`, value], from: day, to: day }]] as const) {
+    for (const [route, body] of [[check, { slug: value, from: day, to: day }], [nearest, { slug: value, from: day, to: day }], [batch, { slugs: [value], from: day, to: day }], [batch, { slugs: [`slug-${tag}`, value], from: day, to: day }]] as const) {
       const reply = await runWithTrustedClientAddress(`10.${randomBytes(3).join(".")}`, async () => route.methods.POST!(new Request(`http://${host.publicA}${route.url}`,
         { method: "POST", headers: { host: host.publicA, "content-type": "application/json" }, body: JSON.stringify(body) }), { params: Promise.resolve({}) }));
       if (reply.status !== 400 && reply.status !== 404) failures.push(`POST ${route.url} ${JSON.stringify(value).slice(0, 12)} -> ${reply.status}`);

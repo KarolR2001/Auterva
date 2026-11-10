@@ -10,7 +10,7 @@ import { readJsonBody } from "@/modules/tenancy/json-body";
 import { resolveRequestArea, requireRequestContext } from "@/modules/tenancy/request-context";
 import { withErrorRequestId } from "@/modules/tenancy/request-id";
 import { availabilityToday, parseAvailabilityRange, type AvailabilityRange } from "./dates";
-import { getPrivateCalendar, getPrivateFleetCalendar, type VehicleStatus, getPublicAvailability, getPublicBatchAvailability, getPublicCalendar } from "./read";
+import { getPrivateCalendar, getPrivateFleetCalendar, type VehicleStatus, getPublicAvailability, getPublicBatchAvailability, getPublicCalendar, getPublicNearestSlot } from "./read";
 
 // Same shape as public-offer/read.ts: a slug that cannot exist (NUL included, which PostgreSQL refuses) is refused up front.
 const slugText = z.string().min(1).max(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
@@ -56,6 +56,19 @@ export async function publicCheck(request: Request): Promise<Response> {
   const range = rangeOrError(parsed.data.from, parsed.data.to, requestId, true);
   if (range instanceof Response) return range;
   const result = await getPublicAvailability(prisma, request.headers.get("host") ?? "", parsed.data.slug, range);
+  return result ? respond(result, 200, requestId) : respond({ code: "NOT_FOUND" }, 404, requestId);
+}
+
+export async function publicNext(request: Request): Promise<Response> {
+  const requestId = randomUUID();
+  const limited = await publicLimit(requestId);
+  if (limited) return limited;
+  const parsed = checkBody.safeParse(await jsonBody(request));
+  if (!parsed.success) return respond({ code: "INVALID_INPUT" }, 400, requestId);
+  const range = rangeOrError(parsed.data.from, parsed.data.to, requestId, true);
+  if (range instanceof Response) return range;
+  const result = await getPublicNearestSlot(prisma, request.headers.get("host") ?? "", parsed.data.slug, range,
+    availabilityToday());
   return result ? respond(result, 200, requestId) : respond({ code: "NOT_FOUND" }, 404, requestId);
 }
 
