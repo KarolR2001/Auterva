@@ -182,6 +182,25 @@
       ]
     },
     {
+      "issue": 68,
+      "scope": "Wyróżnieni na home firmy (FR-PUB-002, D-22): wybór featured i pozycji w formularzu pojazdu (panel firmy i superadmin we własnym kontekście) odzwierciedla zapis API; publiczny home pokazuje tylko PUBLISHED w kolejności firmy kartą DS-DAT-003 large (DS-DAT-002 layout=featured); brak wyróżnionych ukrywa sekcję bez placeholderów, w HTML i RSC props; niepewny wynik zapisu to komunikat, nie sukces.",
+      "relatedRequirementIds": ["FR-PUB-002", "D-22", "D-23"],
+      "referenceScreenIds": ["PUB-01", "ADM-07"],
+      "codePaths": [
+        "src/components/admin/vehicle-form.tsx",
+        "src/components/admin/vehicle-form-model.ts",
+        "src/components/public/public-home.tsx",
+        "src/components/public/vehicle-card.tsx",
+        "src/components/public/public.module.css"
+      ],
+      "testPaths": [
+        "tests/unit/public-home-visual.test.tsx",
+        "tests/unit/vehicle-form-model.test.ts",
+        "tests/e2e/featured-vehicles-ui.spec.ts",
+        "tests/integration/featured-vehicles.test.ts"
+      ]
+    },
+    {
       "issue": 74,
       "scope": "Opcjonalny prywatny odczyt audytu do paneli: admin firmy tylko własna firma (ADM-17), superadmin firma wybrana w ścieżce, także archiwalna; filtry czasu/aktora/działania/obiektu w granicach firmy, kursor (createdAt z mikrosekundami, id), redakcja jak przy zapisie, tylko GET; bez audytu platformy i bez UI.",
       "relatedRequirementIds": ["C-F151", "C-N019", "C-N037", "C-N040", "FR-ADM-070", "FR-ADM-071", "D-10", "D-30"],
