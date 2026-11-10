@@ -1,6 +1,6 @@
 # Eksport danych firmy i subskrypcja kalendarza: kontrakt discovery (#79)
 
-Status: **propozycja do decyzji właściciela; nic nie jest zatwierdzone ani zaimplementowane**. Zakres opcjonalny (COULD po stabilizacji, `docs/WYMAGANIA_AUTERVA.md` §10 „eksport kalendarza oraz danych firmy”), poza obowiązkowym MVP. Wszystkie „rekomendacje” poniżej to propozycje wykonawcy, nie decyzje; pytania E1–E14 (sekcja 4) czekają na właściciela. Po decyzji powstają osobne zadania BE i FE (sekcja 5). Źródła: C-N006, C-N029, FR-SAS-024 (samoobsługowy eksport odłożony; bezpieczna operacyjna obsługa praw do danych pozostaje potrzebna), kontrakty [odczyty #33](availability-reads.md), [blokady #38](availability-blocks.md), [audyt](audit-append-and-access.md) i [retencja/eksport operatora](audit-retention-operations.md), [media](media-upload-processing.md), [archiwum i restore firmy #48](company-archive-restore.md), [okres usługi](service-period-runtime.md), [środowiska i backup](environments-hosts-operations.md), [runbook #60](../runbooks/backup-restore.md), [limity i MFA](technical-limits-and-mfa-bootstrap.md).
+Status: **zatwierdzone przez właściciela 10.11.2026 (D-40); niezaimplementowane**. Zatwierdzono rekomendacje E1–E7, E9 i E11–E14; E8 = 30 dni, E10 = nigdy (typ blokady nie trafia do prywatnego feedu). Zakres opcjonalny (COULD po stabilizacji, `docs/WYMAGANIA_AUTERVA.md` §10 „eksport kalendarza oraz danych firmy”), poza obowiązkowym MVP. Poniższe „rekomendacje” są teraz decyzjami właściciela w zakresie opisanym wyżej (sekcja 4 zapisuje rozstrzygnięcia). Osobne zadania BE i FE: sekcja 5; feed to #327, eksport to #328. Źródła: C-N006, C-N029, FR-SAS-024 (samoobsługowy eksport odłożony; bezpieczna operacyjna obsługa praw do danych pozostaje potrzebna), kontrakty [odczyty #33](availability-reads.md), [blokady #38](availability-blocks.md), [audyt](audit-append-and-access.md) i [retencja/eksport operatora](audit-retention-operations.md), [media](media-upload-processing.md), [archiwum i restore firmy #48](company-archive-restore.md), [okres usługi](service-period-runtime.md), [środowiska i backup](environments-hosts-operations.md), [runbook #60](../runbooks/backup-restore.md), [limity i MFA](technical-limits-and-mfa-bootstrap.md).
 
 To dwie różne funkcje o różnym modelu zagrożeń; kontrakt rozdziela je i nie wiąże decyzji jednej z drugą.
 
@@ -105,7 +105,7 @@ Rekomendacja: **S0 plus S2**; publiczny feed (S1) tylko jeśli właściciel wska
 | Z2. Zajętość + etykieta typu | `SUMMARY: Serwis — {pojazd}` (`typeLabel` jak w panelu: RESERVED/MAINTENANCE/BLOCKED/OTHER) | Typ trafia do dostawców kalendarza (Google/Apple/Microsoft), do współdzielonych kalendarzy i ich kopii; `RESERVED` może ujawnić fakt zarezerwowania poza Autervą; dłużej żyje poza naszą kontrolą. Wartość dla admina: odróżnia serwis od urlopu. |
 | Z3. Z2 + `reference` i `internalNote` w opisie | Pełne dane blokady | **Odrzucone**: najwrażliwsze pola, kopiowane do cudzych serwerów, a adres feedu jest tylko bearerem. |
 
-Rekomendacja: **Z1**; Z2 jedynie jako jawna opcja przy tworzeniu prywatnego feedu (`includeTypeLabel`, domyślnie wyłączona, zmiana opcji wymaga rotacji tokena, bo zmienia dane już rozesłane), nigdy w feedzie publicznym (E10). Z3 nie wchodzi w grę.
+Rekomendacja: **Z1**; **zatwierdzone Z1 (E10, 10.11.2026)**: typ blokady nigdy nie trafia do feedu, ani prywatnego, ani publicznego; Z2 jest odrzucone, więc nie ma opcji `includeTypeLabel`. Z3 nie wchodzi w grę.
 
 Format zdarzeń: `DTSTART;VALUE=DATE:YYYYMMDD` i `DTEND;VALUE=DATE:` **dzień po `to`** (RFC 5545: koniec wyłączny, a nasze `to` jest włączne; test na jeden dzień, granicę miesiąca, rok przestępny 28–29.02); wartości DATE, więc bez `VTIMEZONE` i bez DST; `DTSTAMP` UTC; `UID` stabilny i nieujawniający identyfikatorów (np. HMAC kluczem serwera z `id` blokady i firmy); `SEQUENCE` z wersji blokady; `TRANSP:OPAQUE`; folding wierszy do 75 oktetów i escape `, ; \ \n` w nazwach pojazdów (wejście pochodzi od użytkownika; test na wstrzyknięcie `\r\n` i `BEGIN:VEVENT`). Okno: od dziś (`Europe/Warsaw`) do +365 dni, stały limit liczby zdarzeń (np. 5000, ostrzeżenie w nagłówku `X-`/logu, nie obcinanie po cichu).
 
@@ -146,7 +146,7 @@ Format zdarzeń: `DTSTART;VALUE=DATE:YYYYMMDD` i `DTEND;VALUE=DATE:` **dzień po
 
 ## 4. Pytania decyzyjne dla właściciela (E1–E14)
 
-Każde pytanie ma rekomendację wykonawcy; to nie jest decyzja. Pytania E1–E8 dotyczą eksportu (a), E9–E12 kalendarza (b), E13–E14 wspólne.
+Każde pytanie ma rekomendację wykonawcy; właściciel zatwierdził 10.11.2026 rekomendacje E1–E7, E9 i E11–E14, a E8 i E10 rozstrzygnął jak niżej. Pytania E1–E8 dotyczą eksportu (a), E9–E12 kalendarza (b), E13–E14 wspólne.
 
 | ID | Pytanie | Rekomendacja |
 |---|---|---|
@@ -157,15 +157,17 @@ Każde pytanie ma rekomendację wykonawcy; to nie jest decyzja. Pytania E1–E8 
 | **E5** | Pobranie wyłącznie przez uwierzytelnione `GET` (P1), czy podpisany link (P2)? | P1 |
 | **E6** | Termin ważności pliku (24 h?), liczba żądań (1 aktywny, do 3 na dobę?) i maksymalny rozmiar paczki — jakie liczby przyjmujemy? | 24 h od `READY`, 1 aktywny, 3/dobę, limit rozmiaru po pomiarze |
 | **E7** | Czy wysyłamy e-mail „eksport gotowy” (bez linku) do admina? | Nie w pierwszym kroku |
-| **E8** | Retencja danych firmy po zakończeniu współpracy i okno obsługi eksportu po archiwizacji: ile dni, kto inicjuje (superadmin na prośbę)? Czy zatwierdzamy 30 dni jako liczbę, a nie tylko jako historyczną propozycję v2? | Superadmin eksportuje w archiwum na prośbę; liczba dni wymaga decyzji prawnej/produktowej, bez domyślnej |
+| **E8** | Retencja danych firmy po zakończeniu współpracy i okno obsługi eksportu po archiwizacji: ile dni, kto inicjuje (superadmin na prośbę)? Czy zatwierdzamy 30 dni jako liczbę, a nie tylko jako historyczną propozycję v2? | Superadmin eksportuje w archiwum na prośbę; **Zatwierdzone 10.11.2026: 30 dni** (okno eksportu na prośbę po archiwizacji lub zakończeniu współpracy; inicjuje superadmin) |
 | **E9** | Czy potrzebny jest publiczny feed iCal (S1), czy zostajemy przy kalendarzu w UI (S0)? | S0; S1 tylko przy zgłoszonym wymaganiu, wtedy wyłącznie „Niedostępny” |
-| **E10** | Czy prywatny feed może zawierać etykietę typu blokady (Z2) jako opcję włączaną przez admina, czy nigdy (Z1)? `reference`/`internalNote` nigdy (Z3 odrzucone) — potwierdzić. | Z1 domyślnie; Z2 jako jawna opcja, albo nigdy, jeśli właściciel woli ostrożniej |
+| **E10** | Czy prywatny feed może zawierać etykietę typu blokady (Z2) jako opcję włączaną przez admina, czy nigdy (Z1)? `reference`/`internalNote` nigdy (Z3 odrzucone) — potwierdzić. | **Zatwierdzone 10.11.2026: nigdy** (Z1; bez opcji Z2); `reference`/`internalNote` nigdy |
 | **E11** | Model tokenów prywatnego feedu: ścieżka, hash w bazie, zakres (cała flota/pojazdy), limit aktywnych tokenów (5?), wygasanie (365 dni z przypomnieniem?), host feedu (host publiczny firmy czy dedykowany host/ścieżka)? | Token 256 bit w ścieżce, hash, 5 tokenów, 365 dni, dedykowana ścieżka; host do uzgodnienia z operatorem |
 | **E12** | Które zdarzenia kont odwołują tokeny automatycznie: wyłączenie konta/rola (tak), archiwizacja i restore (tak), zmiana lub reset hasła tworzącego (czy też)? Czy superadmin może tworzyć feed w kontekście firmy (token związany z jego kontem), czy tylko admin firmy? | Konto wyłączone, archiwizacja, restore: tak; reset hasła: tak (bezpieczniej, koszt: ponowna subskrypcja); feed tylko dla admina firmy w pierwszym kroku |
 | **E13** | Czy okres usługi (wygaśnięcie) ma wpływać na prywatny feed i eksport admina? | Nie: panel działa, więc eksport i prywatny feed działają; wpływa tylko na publiczne |
 | **E14** | Priorytet i kolejność: najpierw eksport (a) czy kalendarz (b)? Czy oba zostają COULD po stabilizacji i po #57/#60 w produkcji? | Najpierw (b) S2/Z1 (mniejszy, prywatny, wąski), potem (a) F1/M1; (a) po chronionym storage z #60 |
 
-## 5. Podział na zadania po decyzji (propozycja)
+## 5. Podział na zadania po decyzji
+
+Kolejność zatwierdzona przez właściciela (D-40): najpierw prywatny feed [#327](https://github.com/KarolR2001/Auterva/issues/327) (tokeny, endpoint `.ics`, ekran „Kalendarz zewnętrzny”), potem eksport danych firmy [#328](https://github.com/KarolR2001/Auterva/issues/328). Wiersze z publicznym feedem (E9 = S0) i opcją Z2 (E10) są bezprzedmiotowe.
 
 | Zadanie | Rola | Zależności | Kryterium QA |
 |---|---|---|---|
