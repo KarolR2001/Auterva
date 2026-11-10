@@ -128,8 +128,8 @@ export function CompanyDomain({ organizationId, archived }: { organizationId: st
         setNotice({ tone: "warning", title: "Nie wiemy, jaki jest stan domeny.", text: "Odświeżamy dane — nie zakładaj, że operacja się powiodła." });
         await load(true);
       }
-    } else if (!response || (response.status >= 500 && response.status !== 503)) {
-      // Unknown outcome: never claim success; the server state is the only truth.
+    } else if (!response || response.status >= 500) {
+      // Unknown outcome (the domain routes return no pre-write 503, so every 5xx is uncertain): never claim success; the server state is the only truth.
       setNotice({ tone: "warning", title: "Nie wiemy, czy operacja została wykonana.",
         text: "Odświeżyliśmy stan domeny. Sprawdź go poniżej, zanim ponowisz." });
       await load(true);
