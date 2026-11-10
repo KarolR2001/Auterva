@@ -1,9 +1,9 @@
+import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { chromium } from "@playwright/test";
 import { FIXTURE } from "../fixture-ids";
 import { createPrismaClient } from "../../src/lib/prisma";
-import { verifiedFixtureSession } from "../../tests/fixtures/verified-session";
 
 /**
  * Lab measurement of the pages for #340 (NFR-PERF-003): LCP, CLS, total blocking time (the lab stand-in for INP), JS
@@ -32,7 +32,18 @@ const pages: { name: string; host: string; path: string; area: "public" | "panel
 const median = (values: number[]) => values.length ? [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)] : null;
 
 const db = createPrismaClient(process.env.DATABASE_URL ?? "");
-const session = await verifiedFixtureSession(db, FIXTURE.users[0]);
+// A one-hour session with proof of MFA for the seeded fixture admin (same cookie format as tests/fixtures/verified-session.ts,
+// not imported because the Docker image has no tests/); it changes no credential and is deleted at the end.
+async function fixtureSession(userId: string) {
+  const secret = process.env.BETTER_AUTH_SECRET;
+  if (!secret) throw new Error("BETTER_AUTH_SECRET is required");
+  const token = randomBytes(32).toString("base64url");
+  const id = randomUUID();
+  await db.session.create({ data: { id, userId, token, expiresAt: new Date(Date.now() + 60 * 60_000), mfaVerifiedAt: new Date() } });
+  return { cookie: `better-auth.session_token=${token}.${createHmac("sha256", secret).update(token).digest("base64")}`,
+    dispose: () => db.session.deleteMany({ where: { id } }) };
+}
+const session = await fixtureSession(FIXTURE.users[0]);
 const browser = await chromium.launch({ args: [`--host-resolver-rules=MAP *.localhost 127.0.0.1`] });
 const results: Record<string, Record<string, unknown>> = {};
 try {
