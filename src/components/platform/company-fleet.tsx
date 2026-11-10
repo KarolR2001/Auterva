@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 
 import { platformContext } from "../admin/fleet-api";
+import { FleetCalendar } from "../admin/fleet-calendar";
 import { VehicleCalendar } from "../admin/vehicle-calendar";
 import { VehicleForm } from "../admin/vehicle-form";
 import { VehicleList } from "../admin/vehicle-list";
@@ -22,4 +23,7 @@ export function PlatformVehicleForm({ organizationId, vehicleId, title }: { orga
 }
 export function PlatformVehicleCalendar({ organizationId, vehicleId, today, title }: { organizationId: string; vehicleId: string; today: string; title: string }) {
   return <VehicleCalendar context={usePlatformContext(organizationId)} vehicleId={vehicleId} today={today} title={title} />;
+}
+export function PlatformFleetCalendar({ organizationId, today, title }: { organizationId: string; today: string; title: string }) {
+  return <FleetCalendar context={usePlatformContext(organizationId)} today={today} title={title} />;
 }
