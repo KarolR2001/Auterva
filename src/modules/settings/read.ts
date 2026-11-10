@@ -4,6 +4,8 @@ import { resolvePublicVisibility } from "@/modules/service-period/public";
 
 const decimal = (value: Prisma.Decimal | null) => (value === null ? null : value.toNumber());
 
+const iso = (value: Date | null | undefined) => value?.toISOString() ?? null;
+
 type Row = Prisma.SiteSettingsGetPayload<Record<string, never>>;
 
 function settingsDto(row: Row | null, organizationName: string | null) {
@@ -18,7 +20,8 @@ function settingsDto(row: Row | null, organizationName: string | null) {
       contactHours: row?.contactHours ?? null },
     seo: { seoTitle: row?.seoTitle ?? null, seoDescription: row?.seoDescription ?? null },
     legal: { availabilityNotice: row?.availabilityNotice ?? null, privacyText: row?.privacyText ?? null,
-      privacyUrl: row?.privacyUrl ?? null, termsText: row?.termsText ?? null, termsUrl: row?.termsUrl ?? null },
+      privacyUrl: row?.privacyUrl ?? null, termsText: row?.termsText ?? null, termsUrl: row?.termsUrl ?? null,
+      privacyTextUpdatedAt: iso(row?.privacyTextUpdatedAt), termsTextUpdatedAt: iso(row?.termsTextUpdatedAt) },
     display: { showPrices: row?.showPrices ?? false, featuredVehicleCount: row?.featuredVehicleCount ?? 0 },
     branding: { heroText: row?.heroText ?? null },
   };
@@ -71,7 +74,8 @@ export async function getPublicCompanySettings(db: PrismaClient, authority: stri
         ? { latitude: decimal(row.mapLatitude), longitude: decimal(row.mapLongitude) } : null },
     seo: { title: row?.seoTitle ?? null, description: row?.seoDescription ?? null },
     legal: { availabilityNotice: row?.availabilityNotice ?? null, privacyText: row?.privacyText ?? null,
-      privacyUrl: row?.privacyUrl ?? null, termsText: row?.termsText ?? null, termsUrl: row?.termsUrl ?? null },
+      privacyUrl: row?.privacyUrl ?? null, termsText: row?.termsText ?? null, termsUrl: row?.termsUrl ?? null,
+      privacyTextUpdatedAt: iso(row?.privacyTextUpdatedAt), termsTextUpdatedAt: iso(row?.termsTextUpdatedAt) },
     hero: { text: row?.heroText ?? null },
     display: { showPrices: row?.showPrices ?? false, featuredVehicleCount: row?.featuredVehicleCount ?? 0 },
     media: company.publicMedia.map((media) => ({ id: media.id, kind: media.kind, alt: media.alt,
