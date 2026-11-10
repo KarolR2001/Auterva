@@ -198,7 +198,7 @@ function AuditRow({ entry }: { entry: AuditEntryDto }) {
         <div id={detailsId} className={styles.details}>
           <dl className={styles.dl}>
             <div><dt>Aktor</dt><dd>{actorLabel(entry.actor.role)}</dd></div>
-            <div><dt>Obiekt</dt><dd>{entityLabel(entry.entity.type)}<br /><code className={styles.code}>{entry.entity.id}</code></dd></div>
+            <div><dt>Obiekt</dt><dd>{entityLabel(entry.entity.type)}<br /><code className={styles.code}>{entry.entity.type === "User" ? shortId(entry.entity.id) : entry.entity.id}</code></dd></div>
             <div><dt>Identyfikator żądania</dt><dd><code className={styles.code}>{entry.requestId}</code></dd></div>
             <div><dt>Czas (UTC)</dt><dd><code className={styles.code}>{entry.createdAt}</code></dd></div>
           </dl>

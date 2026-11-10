@@ -67,11 +67,22 @@ test("change log: local time from UTC, filters, cursor, superadmin as themselves
     await expect(list.getByRole("listitem")).toHaveCount(30);
     await expect(list).not.toContainText("Usunięcie blokady terminu");
     await expect(list).toContainText("Superadmin Autervy");
+    // At 1440 px the header and every row are one column table (a container query cannot style its own container).
+    const cells = await list.getByRole("listitem").first().locator("> div").evaluate((element) => ({
+      columns: getComputedStyle(element).gridTemplateColumns.split(" ").length,
+      tops: [...element.children].map((child) => Math.round(child.getBoundingClientRect().top)) }));
+    expect(cells.columns).toBe(6);
+    expect(new Set(cells.tops).size).toBe(1);
     await page.getByRole("button", { name: "Pokaż starsze" }).click();
     await expect(list.getByRole("listitem")).toHaveCount(32);
     await expect(page.getByText("To wszystkie wpisy")).toBeVisible();
     await expect(list).not.toContainText("Usunięcie blokady terminu");
 
+    await page.getByLabel("Akcja").selectOption("AUTH_LOGOUT");
+    await page.getByRole("button", { name: "Zastosuj" }).click();
+    await page.getByRole("button", { name: /Szczegóły/ }).click();
+    await expect(page.locator("body")).not.toContainText(adminA);
+    await page.getByRole("button", { name: "Wyczyść", exact: true }).click();
     await page.getByLabel("Akcja").selectOption("PERIOD_CHANGED");
     await page.getByRole("button", { name: "Zastosuj" }).click();
     await expect(list.getByRole("listitem")).toHaveCount(1);
