@@ -140,7 +140,7 @@ test("company fleet by the superadmin: card -> fleet -> form -> photos -> calend
     // Company B: its own fleet only, nothing of A (the vehicle id of A is not reachable under B).
     await page.goto(`${origin}/firmy/${orgB}/pojazdy/`);
     await expect(page.getByText("Auto Beta").first()).toBeVisible();
-    await expectDesktopRowLayout(page);
+    await expectDesktopRowLayout(page, false);
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(page.getByText(/Auto Alfa/)).toHaveCount(0);
     // Since #289 a vehicle of another company is the neutral 404 from the server (never a 200 with a message).
