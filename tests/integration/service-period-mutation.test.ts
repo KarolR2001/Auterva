@@ -1,6 +1,7 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { createPrismaClient } from "../../src/lib/prisma";
+import { isTransientDbError } from "../../src/modules/observability/http-observe";
 import { periodFailure } from "../../src/modules/service-period/http";
 import { changePaidThrough, unlockPublicAfterRestore } from "../../src/modules/service-period/mutations";
 import { resolvePublicVisibility } from "../../src/modules/service-period/public";
@@ -298,4 +299,42 @@ test("an archived company is refused before the organization lock is taken", asy
     await holder.$disconnect();
     await db.organization.update({ where: { id: organizationId }, data: { archivedAt: null } });
   }
+});
+
+// #314: a foreign FOR UPDATE must not hang the request; lock_timeout ends the wait near its limit.
+test("a held organization lock ends the wait at lock_timeout with a 503 and no write", async () => {
+  const organizationId = companies[0];
+  const before = await db.serviceAccess.findUniqueOrThrow({ where: { organizationId } });
+  const auditBefore = await db.auditLog.count({ where: { organizationId } });
+  const limited = createPrismaClient(process.env.DATABASE_URL ?? "", { lockTimeoutMs: 400, statementTimeoutMs: 10_000 });
+  const holder = createPrismaClient(process.env.DATABASE_URL ?? "");
+  let release!: () => void;
+  const hold = new Promise<void>((resolve) => { release = resolve; });
+  let locked!: () => void;
+  const lockTaken = new Promise<void>((resolve) => { locked = resolve; });
+  const blocker = holder.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${organizationId}::uuid FOR UPDATE`;
+    locked();
+    await hold;
+  }, { timeout: 30_000 });
+  try {
+    await lockTaken;
+    const started = Date.now();
+    const error = await changePaidThrough(limited, { ...actor(), organizationId, expectedVersion: before.periodVersion,
+      paidThrough: "2027-02-28", eventKey: randomUUID(), requestId: randomUUID() }).catch((reason: unknown) => reason);
+    expect(Date.now() - started).toBeLessThan(3_000);
+    expect(isTransientDbError(error)).toBe(true);
+    const response = periodFailure(error, randomUUID());
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Retry-After")).toBe("2");
+    expect(await response.json()).toEqual({ code: "TEMPORARILY_UNAVAILABLE" });
+  } finally {
+    release();
+    await blocker;
+    await holder.$disconnect();
+    await limited.$disconnect();
+  }
+  expect(await db.serviceAccess.findUniqueOrThrow({ where: { organizationId } })).toMatchObject({
+    periodVersion: before.periodVersion, paidThrough: before.paidThrough });
+  expect(await db.auditLog.count({ where: { organizationId } })).toBe(auditBefore);
 });

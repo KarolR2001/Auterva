@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { isUuid, isVersion, newPeriodRequestId, periodResponse, platformPeriodActor,
   readPeriodBody } from "@/modules/service-period/http";
 import { archiveCompany, restoreCompany } from "./archive";
-import { reportInternalError } from "@/modules/observability/http-observe";
+import { reportInternalError, transientDbResponse } from "@/modules/observability/http-observe";
 
 function archiveFailure(error: unknown, requestId: string): Response {
   const message = error instanceof Error ? error.message : "";
@@ -13,6 +13,8 @@ function archiveFailure(error: unknown, requestId: string): Response {
   // A reused audit event key rolls back the whole mutation; never report it as success.
   if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002")
     return periodResponse({ code: "EVENT_KEY_CONFLICT" }, 409, requestId);
+  const busy = transientDbResponse(error, requestId, "archive");
+  if (busy) return busy;
   return periodResponse({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "archive"));
 }
 

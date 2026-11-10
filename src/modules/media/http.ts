@@ -10,7 +10,7 @@ import { publicMediaKinds, rejectImageUpload, reservePublicMediaUpload, reserveV
   type PublicMediaKind } from "./reservation";
 import { createMediaStorage, stageBytes } from "./storage";
 import { declaredUploadLength, readUploadBody } from "./stream";
-import { reportInternalError } from "@/modules/observability/http-observe";
+import { reportInternalError, transientDbResponse } from "@/modules/observability/http-observe";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 type Area = "COMPANY_ADMIN" | "PLATFORM";
@@ -53,6 +53,8 @@ export function mediaFailure(error: unknown, requestId: string) {
   if (code === "MEDIA_UPLOAD_ABORTED") return response({ code }, 400, requestId);
   if (["MEDIA_UNSUPPORTED_TYPE", "MEDIA_INVALID_IMAGE", "MEDIA_DECODE_FAILED", "MEDIA_MIME_MISMATCH"].includes(code))
     return response({ code: "INVALID_IMAGE" }, 422, requestId);
+  const busy = transientDbResponse(error, requestId, "media");
+  if (busy) return busy;
   return response({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "media"));
 }
 
