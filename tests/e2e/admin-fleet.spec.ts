@@ -25,7 +25,7 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
       email: `admin-fleet-${user}@example.test`, emailVerified: true, twoFactorEnabled: true } });
     await db.hostMapping.create({ data: { hostname: host, organizationId: org, area: "COMPANY_ADMIN", status: "ACTIVE" } });
     await db.serviceAccess.create({ data: { organizationId: org, paidThrough: sqlDate(day(30)) } });
-    await db.vehicleCategory.create({ data: { id: cat, code: `af-${cat.slice(0, 8)}`, name: "Osobowe" } });
+    await db.vehicleCategory.create({ data: { id: cat, code: `af-${cat.slice(0, 8)}`, name: "Samochody osobowe klasy premium z długą nazwą" } });
     session = await verifiedFixtureSession(db, user);
     const [name, value] = session.cookie.split(/=(.*)/s);
     await context.addCookies([{ name, value, domain: host, path: "/" }]);
@@ -90,10 +90,15 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
 
     // D-42/D-50: status summary, category filter and "Ostatnia zmiana" sort button in one toolbar row; state lives in the address.
     await expect(page.getByText("3 pojazdy • 2 opublikowane • 1 szkic")).toBeVisible();
-    const pills = [page.getByLabel("Szukaj"), page.getByRole("combobox", { name: "Publikacja" }), page.getByRole("combobox", { name: "Kategoria" }),
+    const pills = () => [page.getByLabel("Szukaj"), page.getByRole("combobox", { name: "Publikacja" }), page.getByRole("combobox", { name: "Kategoria" }),
       page.getByRole("button", { name: /^Ostatnia zmiana/ }), page.getByRole("link", { name: "Dodaj pojazd" })];
-    const tops = await Promise.all(pills.map(async (pill) => Math.round((await pill.boundingBox())!.y / 8)));
-    expect(new Set(tops).size, "toolbar controls share one row").toBe(1);
+    for (const width of [1024, 1100, 1200, 1280, 1320, 1440, 1920]) {
+      await page.setViewportSize({ width, height: 800 });
+      await expect.poll(async () => new Set(await Promise.all(pills().map(async (pill) => Math.round((await pill.boundingBox())!.y / 8)))).size,
+        { message: `toolbar controls share one row at ${width} px` }).toBe(1);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `no overflow at ${width} px`).toBe(true);
+    }
+    await page.setViewportSize({ width: 1280, height: 720 });
     await expect(page.getByText("Ostatnia zmiana od")).toHaveCount(0);
     await page.getByRole("combobox", { name: "Kategoria" }).selectOption(cat);
     await expect(page.getByRole("heading", { level: 3 })).toHaveCount(3);
