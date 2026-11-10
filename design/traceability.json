@@ -218,6 +218,29 @@
       "testPaths": ["tests/integration/audit-read-http.test.ts", "tests/unit/audit-cursor.test.ts"]
     },
     {
+      "issue": 75,
+      "scope": "Dziennik zmian ADM-17 (opcjonalny): /admin/logi dla administratora firmy i /firmy/{id}/logi dla superadmina w kontekście wybranej firmy (także archiwalnej), na filtrowanym odczycie audytu z #74. Czas lokalny (Europe/Warsaw) z danych UTC, filtry zakres dat/administrator/akcja/obiekt, kursor „Pokaż starsze”, bezpieczne podsumowanie i szczegóły przed/po bez identyfikatorów kont (aktor jako rola, superadmin widoczny jako on sam), loading/empty/error, filtry w arkuszu na wąskim ekranie.",
+      "relatedRequirementIds": ["FR-ADM-070", "FR-ADM-071", "C-F151", "D-10", "D-30"],
+      "referenceScreenIds": ["ADM-17", "OVR-18"],
+      "scenarioStates": {
+        "list": "AuditLogRow lista z filtrami (ADM-17 desktop a4abf4c9-2e1f-80fd-8008-affca1f45000, mobile 1e066793-8858-8051-8008-cf3e9586dd76)",
+        "details": "Szczegóły wpisu rozwijane w wierszu (zamiast OVR-18)",
+        "empty": "Brak wpisów / brak wyników filtra",
+        "error": "Błąd odczytu z ponowieniem"
+      },
+      "unmappedStates": ["Porównanie z makietą ADM-17: tylko eksport 10.11 (Penpot nie wywoływany).", "Przejście do ADM-07/ADM-09 z wpisu (SPEC 9.19): pominięte, brak sprawdzenia istnienia encji w odczycie audytu; wpis pokazuje bezpieczne podsumowanie historyczne.", "Makieta pokazuje techniczne kody akcji i ID AUD-…; aplikacja używa polskich nazw i końcówki identyfikatora obiektu."],
+      "codePaths": [
+        "src/components/audit/audit-log.tsx",
+        "src/components/audit/audit-log.module.css",
+        "src/modules/audit/view.ts",
+        "src/app/admin/logi/page.tsx",
+        "src/app/firmy/[organizationId]/logi/page.tsx",
+        "src/components/panel/panel-shell.tsx",
+        "src/components/platform/company-card.tsx"
+      ],
+      "testPaths": ["tests/unit/audit-view.test.ts", "tests/unit/panel-shell.test.tsx", "tests/e2e/audit-log-ui.spec.ts"]
+    },
+    {
       "issue": 70,
       "scope": "Kontrakt discovery najbliższego wolnego terminu i zbiorczych/kopiowanych blokad z wariantami i raportem konfliktów; decyzje właściciela P1-P7 zapisane jako D-32. Kontrakt jest źródłem implementacji w osobnych zadaniach (API zbiorczych blokad: #215); sam #70 nie zawiera kodu.",
       "relatedRequirementIds": ["C-F102", "C-F103", "C-F104", "C-N027", "FR-ADM-055", "D-15"],
@@ -635,6 +658,14 @@
         "src/modules/invitations/view-state.ts"
       ],
       "testPaths": ["tests/unit/company-card.test.tsx", "tests/unit/company-domain.test.tsx", "tests/unit/upload-core.test.ts"]
+    },
+    {
+      "issue": 304,
+      "scope": "PLT-04: odrzucenie z czyszczeniem klucza idempotencji tylko dla 503 z kodem HOST_DOMAINS_NOT_CONFIGURED lub INGRESS_NOT_CONFIGURED (oba przed zapisem); każde inne 503 to wynik niepewny z zachowaniem klucza i bez fałszywego sukcesu/odrzucenia. Bez zmian wyglądu ani API.",
+      "relatedRequirementIds": ["C-F022", "C-F024"],
+      "referenceScreenIds": ["PLT-04"],
+      "codePaths": ["src/modules/organizations/new-company-form.ts", "src/components/platform/new-company-form.tsx"],
+      "testPaths": ["tests/unit/new-company-form.test.ts"]
     },
     {
       "issue": 289,
@@ -1942,6 +1973,20 @@
         "src/components/panel/panel-shell.tsx"
       ],
       "testPaths": ["tests/unit/chat-panel.test.tsx"]
+    },
+    {
+      "issue": 295,
+      "scope": "Układ i nagłówek PLT-03 (karta firmy) i PLT-04 (formularz nowej firmy) według makiety: duży tytuł z kontekstem i akcjami w nagłówku, dwie kolumny od 1024 px z kartą statusu po prawej (karta) i panelem „Przed wysłaniem zaproszenia” (formularz), pola w siatce dwukolumnowej, wybór okresu jako kafelki. Zakres pól bez zmian (PRD 3.1): telefon, publiczny e-mail i treści strony edytuje superadmin w ustawieniach firmy (#31, C-F023), nie w formularzu; trial 336 godzin (U4) zamiast „14 dni” z makiety. Brak tekstu „Trial 14 dni” i pól spoza PRD.",
+      "relatedRequirementIds": ["C-F022", "C-F024", "C-F034", "C-F035"],
+      "referenceScreenIds": ["PLT-03", "PLT-04"],
+      "codePaths": [
+        "src/components/platform/page-header.tsx",
+        "src/components/platform/company-card.tsx",
+        "src/components/platform/company-ops.tsx",
+        "src/components/platform/new-company-form.tsx",
+        "src/components/platform/platform.module.css"
+      ],
+      "testPaths": ["tests/unit/company-card.test.tsx", "tests/e2e/platform-company-form.spec.ts", "tests/e2e/messages-inbox.spec.ts"]
     }
   ],
   "sources": [

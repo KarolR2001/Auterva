@@ -12,6 +12,7 @@ import { GET as adminConversationGet, POST as adminConversationPost } from "../.
 import { GET as platformMessagesGet, POST as platformMessagesPost } from "../../src/app/api/platform/companies/[organizationId]/chat/messages/route";
 import { GET as platformConversationGet, POST as platformConversationPost } from "../../src/app/api/platform/companies/[organizationId]/chat/conversation/route";
 import { GET as platformList } from "../../src/app/api/platform/chat/conversations/route";
+import { expiredTrial } from "../fixtures/expired-trial";
 
 const db = createPrismaClient(process.env.DATABASE_URL ?? "");
 const platformHost = `chat-platform-${randomUUID()}.example.test`;
@@ -33,8 +34,7 @@ async function makeCompany(label: string, options: { expiredPeriod?: boolean } =
     name: `Firma ${label}`, firstAdminRegisteredAt: new Date() } });
   await db.hostMapping.create({ data: { hostname: host, organizationId, area: "COMPANY_ADMIN", status: "ACTIVE" } });
   if (options.expiredPeriod) {
-    await db.serviceAccess.create({ data: { organizationId, trialGranted: true,
-      trialStartedAt: new Date(Date.now() - 400 * 3_600_000), trialEndsAt: new Date(Date.now() - 64 * 3_600_000),
+    await db.serviceAccess.create({ data: { organizationId, ...expiredTrial({ endedHoursAgo: 64 }),
       paidThrough: new Date("2026-01-01T00:00:00Z"), changedById: platformId } });
   }
   await db.user.create({ data: { id: adminId, name: `Admin ${label}`, email: `chat-${adminId}@example.test`,
