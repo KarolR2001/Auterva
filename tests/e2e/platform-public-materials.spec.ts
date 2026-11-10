@@ -88,6 +88,8 @@ test("public materials: card entry, file error keeps data, preview follows the s
     await expect(page.getByText("Zdjęcie zostało zmienione w międzyczasie")).toBeVisible();
     await expect(page.getByLabel("Opis alternatywny (Logo bez opisu)")).toHaveValue("Logo firmy A");
     await page.getByRole("button", { name: "Odśwież listę" }).click();
+    // The conflict message disappears only once the refreshed list (new version) arrived; saving earlier conflicts again.
+    await expect(page.getByText("Zdjęcie zostało zmienione w międzyczasie")).toHaveCount(0);
     await page.getByRole("button", { name: "Zapisz opis i kolejność" }).click();
     await expect(page.getByText("Zapisano zdjęcie")).toBeVisible();
     expect((await db.publicMedia.findUniqueOrThrow({ where: { id: logo.id } })).alt).toBe("Logo firmy A");

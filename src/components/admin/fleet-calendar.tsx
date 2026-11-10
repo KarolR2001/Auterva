@@ -240,9 +240,9 @@ export function FleetCalendar({ context = companyContext, today: initialToday, t
                           return (
                             <a key={block.id} className={styles.block} style={{ gridColumn: `${place.start} / span ${place.span}` }}
                               href={blockHref(context.hrefBase, item.vehicleId, block)}
-                              aria-label={`${label}: ${blockLabel(block)}. Otwórz blokadę w kalendarzu pojazdu`} title={blockLabel(block)}>
+                              aria-label={`${place.span > 1 ? `${block.typeLabel} ${blockShortRange(block)}, ` : ""}${label}: ${blockLabel(block)}. Otwórz blokadę w kalendarzu pojazdu`} title={blockLabel(block)}>
                               <BlockIcon type={block.type} />
-                              {place.span > 1 && <span className={styles.blockText}><strong>{block.typeLabel}</strong><span>{blockShortRange(block)}</span></span>}
+                              {place.span > 1 && <span className={styles.blockText}><strong>{block.typeLabel}</strong>{" "}<span>{blockShortRange(block)}</span></span>}
                             </a>
                           );
                         })}
@@ -268,7 +268,7 @@ export function FleetCalendar({ context = companyContext, today: initialToday, t
                       {item.blocks.map((block: FleetBlock) => (
                         <li key={block.id}>
                           <a className={styles.cardBlock} href={blockHref(context.hrefBase, item.vehicleId, block)} aria-label={`${label}: ${blockLabel(block)}. Otwórz blokadę`}>
-                            <BlockIcon type={block.type} /><strong>{block.typeLabel}</strong><span>{blockShortRange(block)}</span>
+                            <BlockIcon type={block.type} /><strong>{block.typeLabel}</strong>{" "}<span>{blockShortRange(block)}</span>
                           </a>
                         </li>
                       ))}
