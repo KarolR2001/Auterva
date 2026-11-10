@@ -19,7 +19,7 @@ type Props = { adminBaseDomain: string | null; publicBaseDomain: string | null }
 type Status = "idle" | "saving" | "failed" | "uncertain";
 type Notice = { tone: "error" | "warning"; title: string; text?: string } | null;
 
-const fieldOrder: CompanyField[] = ["name", "adminEmail", "phone", "email", "addressLine", "postalCode", "city", "country",
+const fieldOrder: CompanyField[] = ["name", "phone", "adminEmail", "email", "addressLine", "postalCode", "city", "country",
   "slug", "periodKind", "paidThrough"];
 const fieldIds: Record<CompanyField, string> = {
   name: "company-name", adminEmail: "company-admin-email", slug: "company-slug",
@@ -194,11 +194,15 @@ export function NewCompanyForm({ adminBaseDomain, publicBaseDomain }: Props) {
 
         <fieldset className={styles.section} disabled={saving}>
           <legend>Firma i administrator</legend>
-          <p className={styles.hint}>Jedna firma i jedno konto administratora. Dane kontaktowe i adres możesz podać poniżej albo uzupełnić później w ustawieniach firmy.</p>
+          <p className={styles.hint}>Jedna firma i jedno konto administratora. Telefon i publiczny e-mail są opcjonalne i można je uzupełnić później w ustawieniach firmy.</p>
           <div className={styles.fieldGrid}>
           <FormField id={fieldIds.name} label="Nazwa firmy" required hint="Nazwa widoczna w panelu." error={errors.name}>
             <TextInput value={values.name} maxLength={120} placeholder="np. Alfa Campers" autoComplete="organization"
               onChange={(event) => update({ name: event.target.value }, "name")} />
+          </FormField>
+          <FormField id={fieldIds.phone} label="Telefon kontaktowy (opcjonalnie)" hint="Numer widoczny dla klientów, np. +48 600 100 200." error={errors.phone}>
+            <TextInput type="tel" inputMode="tel" value={values.phone} maxLength={24} autoComplete="off"
+              onChange={(event) => update({ phone: event.target.value }, "phone")} />
           </FormField>
           <FormField id={fieldIds.adminEmail} label="E-mail administratora (konto Autervy)" required
             hint="Na ten adres wyślesz zaproszenie do panelu. Musi być globalnie unikalny; to nie jest publiczny e-mail firmy."
@@ -206,22 +210,18 @@ export function NewCompanyForm({ adminBaseDomain, publicBaseDomain }: Props) {
             <TextInput type="email" inputMode="email" value={values.adminEmail} maxLength={254} placeholder="np. admin@alfarent.pl"
               autoComplete="off" onChange={(event) => update({ adminEmail: event.target.value }, "adminEmail")} />
           </FormField>
+          <FormField id={fieldIds.email} label="Publiczny e-mail kontaktowy (opcjonalnie)" error={errors.email}
+            hint="Adres dla klientów. To inny adres niż e-mail administratora, który służy do logowania.">
+            <TextInput type="email" inputMode="email" value={values.email} maxLength={254} autoComplete="off"
+              onChange={(event) => update({ email: event.target.value }, "email")} />
+          </FormField>
           </div>
         </fieldset>
 
         <fieldset className={styles.section} disabled={saving}>
-          <legend>Kontakt i adres (opcjonalnie)</legend>
-          <p className={styles.hint}>Publiczne dane firmy dla klientów. Możesz je pominąć i uzupełnić później w ustawieniach firmy. Zapis firmy ich nie publikuje.</p>
+          <legend>Adres (opcjonalnie)</legend>
+          <p className={styles.hint}>Publiczny adres firmy dla klientów. Możesz go pominąć i uzupełnić później w ustawieniach firmy. Zapis firmy go nie publikuje.</p>
           <div className={styles.fieldGrid}>
-          <FormField id={fieldIds.phone} label="Telefon kontaktowy" hint="Np. +48 600 100 200." error={errors.phone}>
-            <TextInput type="tel" inputMode="tel" value={values.phone} maxLength={24} autoComplete="off"
-              onChange={(event) => update({ phone: event.target.value }, "phone")} />
-          </FormField>
-          <FormField id={fieldIds.email} label="Publiczny e-mail kontaktowy" error={errors.email}
-            hint="Adres widoczny dla klientów; nie jest adresem logowania administratora.">
-            <TextInput type="email" inputMode="email" value={values.email} maxLength={254} autoComplete="off"
-              onChange={(event) => update({ email: event.target.value }, "email")} />
-          </FormField>
           <FormField id={fieldIds.addressLine} label="Ulica i numer" error={errors.addressLine}>
             <TextInput value={values.addressLine} maxLength={200} autoComplete="off"
               onChange={(event) => update({ addressLine: event.target.value }, "addressLine")} />

@@ -23,7 +23,7 @@
     },
     {
       "issue": 335,
-      "scope": "D-41: PLT-04 (FLOW-MVP-02 D/01) ma opcjonalną sekcję „Kontakt i adres (opcjonalnie)”: telefon, publiczny e-mail, ulica i numer, kod pocztowy, miejscowość, kraj. Walidacja klienta to te same helpery co ustawienia firmy (#31), błędy serwera (400 fieldErrors) mapują się na pola z fokusem na pierwszym, body bez pustych pól, klucz idempotencji zależy od danych, niepewny wynik 5xx jak dotąd, guard niezapisanych zmian obejmuje nowe pola. Zależy od #334 (PR #343).",
+      "scope": "D-41: PLT-04 (FLOW-MVP-02 D/01) ma opcjonalny telefon kontaktowy i publiczny e-mail w sekcji „Firma i administrator” (siatka 2×2 obok nazwy i e-maila administratora, jak w makiecie) oraz osobną grupę „Adres (opcjonalnie)”: ulica i numer, kod pocztowy, miejscowość, kraj. Walidacja klienta to te same helpery co ustawienia firmy (#31), błędy serwera (400 fieldErrors) mapują się na pola z fokusem na pierwszym, body bez pustych pól, klucz idempotencji zależy od danych, niepewny wynik 5xx jak dotąd, guard niezapisanych zmian obejmuje nowe pola. Zależy od #334 (PR #343).",
       "referenceScreenIds": ["PLT-04", "FLOW-MVP-02"],
       "codePaths": [
         "src/components/platform/new-company-form.tsx",

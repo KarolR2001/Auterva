@@ -51,18 +51,18 @@ test("superadmin dodaje firmę, widzi zapis osobno od zaproszenia i cofa zaprosz
     // The slug suggestion follows the name until edited.
     await expect(page.getByLabel(/Slug panelu/)).toHaveValue("plt04-wypozyczalnia-lodz");
     await page.getByLabel(/Slug panelu/).fill(slug);
-    await page.getByLabel(/E-mail administratora/).fill(email);
+    await page.getByLabel(/^E-mail administratora/).fill(email);
     await page.getByLabel(/^Trial/).check();
 
     // D-41: the optional contact section validates like company settings and keeps the entries.
-    await expect(page.getByRole("group", { name: "Kontakt i adres (opcjonalnie)" })).toBeVisible();
-    await page.getByLabel("Telefon kontaktowy").fill("12");
+    await expect(page.getByRole("group", { name: "Adres (opcjonalnie)" })).toBeVisible();
+    await page.getByLabel(/^Telefon kontaktowy/).fill("12");
     await page.getByRole("button", { name: "Zapisz firmę" }).click();
     await expect(page.getByText(/Podaj poprawny numer telefonu/).first()).toBeVisible();
-    await expect(page.getByLabel("Telefon kontaktowy")).toBeFocused();
+    await expect(page.getByLabel(/^Telefon kontaktowy/)).toBeFocused();
     await expectNoHorizontalScroll(page);
-    await page.getByLabel("Telefon kontaktowy").fill("+48 600 100 200");
-    await page.getByLabel("Publiczny e-mail kontaktowy").fill(`kontakt-${marker.slice(0, 8)}@example.test`);
+    await page.getByLabel(/^Telefon kontaktowy/).fill("+48 600 100 200");
+    await page.getByLabel(/^Publiczny e-mail kontaktowy/).fill(`kontakt-${marker.slice(0, 8)}@example.test`);
     await page.getByLabel("Ulica i numer").fill("ul. Przykładowa 12");
     await page.getByLabel("Kod pocztowy").fill("30-001");
     await page.getByLabel("Miejscowość").fill("Kraków");
@@ -120,7 +120,7 @@ test("superadmin dodaje firmę, widzi zapis osobno od zaproszenia i cofa zaprosz
     await page.goto(`${origin}/firmy/nowa/`);
     await page.getByLabel(/Nazwa firmy/).fill("Drugi");
     await page.getByLabel(/Slug panelu/).fill(slug);
-    await page.getByLabel(/E-mail administratora/).fill(`other-${email}`);
+    await page.getByLabel(/^E-mail administratora/).fill(`other-${email}`);
     await page.getByLabel(/^Trial/).check();
     await page.getByRole("button", { name: "Zapisz firmę" }).click();
     await expect(page.getByText(/zajęty/).first()).toBeVisible();
