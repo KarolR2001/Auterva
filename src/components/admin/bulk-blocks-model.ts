@@ -12,6 +12,7 @@ export type BulkMode = "create" | "copy";
 export type BulkDraft = BlockValues & { vehicleIds: string[]; onConflict: OnConflict; copyNote: boolean };
 export type BulkSource = { blockId: string; vehicleId: string; vehicleName: string; from: string; to: string; type: BlockTypeCode;
   reference: string | null; hasNote: boolean };
+export type BulkVehicle = { id: string; name: string | null; availableFrom: string | null; availableTo: string | null };
 export type BulkErrorKey = "vehicles" | "from" | "to" | "type" | "reference" | "internalNote";
 
 export const emptyDraft = (): BulkDraft => ({ from: "", to: "", type: "BLOCKED", reference: "", internalNote: "", vehicleIds: [],
@@ -53,16 +54,36 @@ export const pluralBlocks = (count: number) => {
   return last >= 2 && last <= 4 && (tens < 12 || tens > 14) ? `${count} blokady` : `${count} blokad`;
 };
 
+/** Genitive after "dla"/"z": 1 pojazdu, 4 pojazdów. */
+export const ofVehicles = (count: number) => (count === 1 ? "1 pojazdu" : `${count} pojazdów`);
+export const checkedVehicles = (count: number) => {
+  if (count === 1) return "1 pojazd sprawdzony";
+  const last = count % 10, tens = count % 100;
+  return last >= 2 && last <= 4 && (tens < 12 || tens > 14) ? `${count} pojazdy sprawdzone` : `${count} pojazdów sprawdzonych`;
+};
+const dotted = (date: string) => date.split("-").reverse().join(".");
+/** The vehicle's activity in the list, as the design shows it ("Aktywny od 01.01.2026"). */
+export function activityText(vehicle: Pick<BulkVehicle, "availableFrom" | "availableTo">): string {
+  const { availableFrom: from, availableTo: to } = vehicle;
+  if (from && to) return `Aktywny ${dotted(from)}–${dotted(to)}`;
+  if (from) return `Aktywny od ${dotted(from)}`;
+  if (to) return `Aktywny do ${dotted(to)}`;
+  return "Bez okresu aktywności";
+}
+
 /** Why the server refused one vehicle, in words (dates of the colliding entry are private, panel only). */
-export function rejectionText(rejection: Rejection): string {
+export function rejectionText(rejection: Rejection, vehicle?: Pick<BulkVehicle, "availableFrom" | "availableTo">): string {
   switch (rejection.code) {
     case "BLOCK_OVERLAP": return rejection.conflict
-      ? `Konflikt z istniejącą blokadą: ${typeLabel(rejection.conflict.type)} ${formatRangeShort(rejection.conflict.from, rejection.conflict.to)}.`
-      : "Konflikt z istniejącą blokadą.";
-    case "BLOCK_OUTSIDE_ACTIVITY": return "Zakres wykracza poza okres aktywności pojazdu.";
-    case "BLOCK_VEHICLE_ARCHIVED": return "Pojazd jest zarchiwizowany i nie przyjmuje blokad.";
-    case "BLOCK_DATA_INVALID": return "Numer odniesienia lub notatka źródłowej blokady przekracza limit znaków.";
-    default: return "Pojazd odrzucony przez serwer.";
+      ? `Konflikt: ${typeLabel(rejection.conflict.type)} ${formatRangeShort(rejection.conflict.from, rejection.conflict.to)}`
+      : "Konflikt z istniejącą blokadą";
+    case "BLOCK_OUTSIDE_ACTIVITY": {
+      const window = vehicle ? activityText(vehicle) : "";
+      return `Poza okresem aktywności pojazdu${window && window !== "Bez okresu aktywności" ? ` (${window.replace(/^Aktywny /, "")})` : ""}`;
+    }
+    case "BLOCK_VEHICLE_ARCHIVED": return "Pojazd zarchiwizowany: nie przyjmuje blokad";
+    case "BLOCK_DATA_INVALID": return "Numer odniesienia lub notatka przekracza limit znaków";
+    default: return "Odrzucony przez serwer";
   }
 }
 

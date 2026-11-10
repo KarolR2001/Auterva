@@ -1,45 +1,56 @@
 "use client";
 
-import { Ban, CircleCheck, Copy, Eye, Search } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Ban, CircleCheck, CircleHelp } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { newClientUuid } from "@/lib/client-uuid";
+import { formatRangeShort } from "@/modules/public-offer/presentation";
 import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
-import { Dialog } from "../ui/dialog";
 import { FormField } from "../ui/form-field";
 import { Select } from "../ui/select";
 import { Textarea } from "../ui/textarea";
 import { TextInput } from "../ui/text-input";
-import { bulkCopyBlock, bulkCreateBlocks, type BulkAnswer, type BulkCopyBody, type BulkCreateBody, type Rejection, type Saved } from "./bulk-blocks-api";
+import { bulkCopyBlock, bulkCreateBlocks, type BulkAnswer, type BulkCopyBody, type BulkCreateBody, type Rejection } from "./bulk-blocks-api";
 import {
-  bulkErrorText, emptyDraft, keyFor, MAX_BULK_VEHICLES, pluralBlocks, pluralVehicles, rejectionText, requestOf, signatureOf, validateDraft,
-  type BulkDraft, type BulkErrorKey, type BulkMode, type BulkSource,
+  activityText, bulkErrorText, checkedVehicles, emptyDraft, keyFor, MAX_BULK_VEHICLES, ofVehicles, pluralVehicles, rejectionText, requestOf, signatureOf, validateDraft,
+  type BulkDraft, type BulkErrorKey, type BulkMode, type BulkSource, type BulkVehicle,
 } from "./bulk-blocks-model";
 import type { BlockTypeCode } from "./calendar-api";
-import { listWholeFleet, readErrorMessage, type PanelContext } from "./fleet-api";
-import { blockTypeOrder, rangeText, typeLabel } from "./vehicle-calendar-model";
+import { readErrorMessage, readFleetGrid, type ApiResult, type PanelContext } from "./fleet-api";
+import { blockTypeOrder, typeLabel } from "./vehicle-calendar-model";
 import styles from "./bulk-blocks.module.css";
 
-export type BulkVehicle = { id: string; name: string | null };
-
-type Stage =
-  | { kind: "form" }
-  | { kind: "preview"; answer: Extract<BulkAnswer, { kind: "preview" }> }
-  | { kind: "result"; answer: Extract<BulkAnswer, { kind: "saved" | "aborted" }> }
-  | { kind: "uncertain" };
+type Preview = Extract<BulkAnswer, { kind: "preview" }>;
+type Result = Extract<BulkAnswer, { kind: "saved" | "aborted" }>;
+type Stage = { kind: "form" } | { kind: "preview"; answer: Preview } | { kind: "result"; answer: Result } | { kind: "uncertain" };
 type Vehicles = { status: "loading" } | { status: "error"; code: string } | { status: "ready"; items: BulkVehicle[] };
+type RowState = { tone: "ok" | "off" | "unknown"; text: string };
 
 const fieldLabels: Record<BulkErrorKey, string> = { vehicles: "Pojazdy", from: "Od", to: "Do", type: "Typ", reference: "Numer odniesienia", internalNote: "Notatka wewnętrzna" };
+const rowIcon = { ok: CircleCheck, off: Ban, unknown: CircleHelp };
+
+/** Every vehicle that can take a block (the fleet calendar's own read, archived excluded), pages of 100, as one list. */
+async function readVehicles(context: PanelContext, today: string, signal: AbortSignal): Promise<ApiResult<BulkVehicle[]>> {
+  const items: BulkVehicle[] = [];
+  for (let page = 1; ; page += 1) {
+    const result = await readFleetGrid(context, { from: today, to: today, page, pageSize: 100 }, signal);
+    if (!result.ok) return result;
+    if (!Array.isArray(result.data.items)) return { ok: false, status: 200, code: "UNKNOWN" };
+    items.push(...result.data.items.filter((item) => item.status !== "ARCHIVED").map((item) => ({ id: item.vehicleId, name: item.name,
+      availableFrom: item.availableFrom, availableTo: item.availableTo })));
+    if (page * result.data.pageSize >= result.data.total || result.data.items.length === 0) return { ok: true, data: items };
+  }
+}
 
 /**
- * Bulk block and copy of a block to other vehicles (ADM-10 state=bulk-*, #217, D-32, D-48). Every outcome is the server's:
- * the preview is a dryRun that saves nothing, a save re-checks under locks, an unknown outcome (5xx, lost connection) is
- * never shown as success and is retried only with the same idempotency key; any change of data issues a new key.
+ * Bulk block and copy of a block to other vehicles (ADM-10 state=bulk-*, #217, D-32, D-48), shown in place of the fleet grid.
+ * Every outcome is the server's: the preview is a dryRun that saves nothing, a save re-checks under locks, an unknown
+ * outcome (5xx, lost connection) is never a success and is retried only with the same idempotency key; new data, new key.
  */
-export function BulkBlocks({ context, open, mode, source, onClose, onSaved }: {
-  context: PanelContext; open: boolean; mode: BulkMode; source: BulkSource | null;
-  onClose: () => void; onSaved: () => void;
+export function BulkBlocks({ context, mode, source, today, calendarHref, onClose, onSaved, onCopy }: {
+  context: PanelContext; mode: BulkMode; source: BulkSource | null; today: string; calendarHref: string;
+  onClose: () => void; onSaved: () => void; onCopy: (source: BulkSource) => void;
 }) {
   const [draft, setDraft] = useState<BulkDraft>(emptyDraft);
   const [errors, setErrors] = useState<Partial<Record<BulkErrorKey, string>>>({});
@@ -50,73 +61,67 @@ export function BulkBlocks({ context, open, mode, source, onClose, onSaved }: {
   const [vehicles, setVehicles] = useState<Vehicles>({ status: "loading" });
   const [search, setSearch] = useState("");
   const keyRef = useRef<{ signature: string; key: string } | null>(null);
-  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const heading = useRef<HTMLHeadingElement | null>(null);
+  const banner = useRef<HTMLDivElement | null>(null);
 
+  useEffect(() => { heading.current?.focus(); }, []);
   useEffect(() => {
-    if (!open) return;
     const controller = new AbortController();
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- each opening starts from a clean form and a fresh vehicle list
-    setDraft(emptyDraft()); setErrors({}); setStage({ kind: "form" }); setFailure(null); setSearch(""); keyRef.current = null;
-    setVehicles({ status: "loading" });
-    void listWholeFleet(context, controller.signal).then((result) => {
+    void readVehicles(context, today, controller.signal).then((result) => {
       if (controller.signal.aborted) return;
-      setVehicles(result.ok
-        ? { status: "ready", items: result.data.filter((item) => item.status !== "ARCHIVED" && item.id !== source?.vehicleId).map((item) => ({ id: item.id, name: item.name })) }
-        : { status: "error", code: result.code });
+      setVehicles(result.ok ? { status: "ready", items: result.data.filter((item) => item.id !== source?.vehicleId) } : { status: "error", code: result.code });
     }, () => undefined);
     return () => controller.abort();
-  }, [open, context, source?.vehicleId]);
+  }, [context, today, source?.vehicleId]);
 
-  const names = useMemo(() => new Map(vehicles.status === "ready" ? vehicles.items.map((item) => [item.id, item.name ?? "Pojazd bez nazwy"]) : []), [vehicles]);
-  const nameOf = (id: string) => names.get(id) ?? "Pojazd spoza listy";
-  const shown = vehicles.status === "ready"
-    ? vehicles.items.filter((item) => !search.trim() || (item.name ?? "").toLocaleLowerCase("pl").includes(search.trim().toLocaleLowerCase("pl")))
-    : [];
-  const locked = busy !== null || stage.kind === "uncertain";
-  const editing = stage.kind === "form";
+  const byId = useMemo(() => new Map(vehicles.status === "ready" ? vehicles.items.map((item) => [item.id, item]) : []), [vehicles]);
+  const nameOf = (id: string) => byId.get(id)?.name ?? "Pojazd bez nazwy";
+  const all = vehicles.status === "ready" ? vehicles.items : [];
+  const settled = stage.kind === "result" || stage.kind === "uncertain";
+  // After a save the list shows what was sent; before it every vehicle, narrowed by the search.
+  const shown = settled ? draft.vehicleIds.map((id) => byId.get(id) ?? { id, name: null, availableFrom: null, availableTo: null })
+    : all.filter((item) => !search.trim() || (item.name ?? "").toLocaleLowerCase("pl").includes(search.trim().toLocaleLowerCase("pl")));
+  const locked = busy !== null || settled;
+  const count = draft.vehicleIds.length;
 
   function change<K extends keyof BulkDraft>(key: K, value: BulkDraft[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
     setErrors((current) => ({ ...current, [key === "vehicleIds" ? "vehicles" : key]: undefined }));
     setFailure(null);
+    // Any change makes the preview stale: it is dropped rather than shown for other data.
+    if (stage.kind === "preview") setStage({ kind: "form" });
   }
-  function toggle(id: string, checked: boolean) {
-    change("vehicleIds", checked ? [...draft.vehicleIds, id] : draft.vehicleIds.filter((entry) => entry !== id));
-  }
+  const toggle = (id: string, checked: boolean) => change("vehicleIds", checked ? [...draft.vehicleIds, id] : draft.vehicleIds.filter((entry) => entry !== id));
   function selectShown() {
     const next = [...draft.vehicleIds];
     for (const item of shown) if (!next.includes(item.id) && next.length < MAX_BULK_VEHICLES) next.push(item.id);
     change("vehicleIds", next);
   }
-  const focusTop = () => requestAnimationFrame(() => bodyRef.current?.querySelector<HTMLElement>("[data-focus-first]")?.focus());
+  const focusBanner = () => requestAnimationFrame(() => banner.current?.focus());
 
-  function request(dryRun: boolean, current: BulkDraft = draft): BulkCreateBody | BulkCopyBody | null {
-    const found = validateDraft(mode, current);
+  function request(dryRun: boolean): BulkCreateBody | BulkCopyBody | null {
+    const found = validateDraft(mode, draft);
     setErrors(found);
-    if (Object.keys(found).length > 0) {
-      setStage({ kind: "form" });
-      requestAnimationFrame(() => document.getElementById("bulk-summary")?.focus());
-      return null;
-    }
-    const base = requestOf(mode, current, source);
+    if (Object.keys(found).length > 0) { requestAnimationFrame(() => document.getElementById("bulk-summary")?.focus()); return null; }
+    const base = requestOf(mode, draft, source);
     if (dryRun) return { ...base, dryRun: true } as BulkCreateBody | BulkCopyBody;
     keyRef.current = keyFor(keyRef.current, signatureOf(base), newClientUuid);
     return { ...base, dryRun: false, idempotencyKey: keyRef.current.key } as BulkCreateBody | BulkCopyBody;
   }
   const send = (body: BulkCreateBody | BulkCopyBody) => mode === "copy" ? bulkCopyBlock(context, body as BulkCopyBody) : bulkCreateBlocks(context, body as BulkCreateBody);
 
-  async function preview(current: BulkDraft = draft) {
+  async function preview() {
     if (busyRef.current) return;
-    const body = request(true, current);
+    const body = request(true);
     if (!body) return;
     busyRef.current = true; setBusy("preview"); setFailure(null);
     const answer = await send(body);
     busyRef.current = false; setBusy(null);
-    if (answer.kind === "preview") { setStage({ kind: "preview", answer }); focusTop(); return; }
+    if (answer.kind === "preview") { setStage({ kind: "preview", answer }); focusBanner(); return; }
     setStage({ kind: "form" });
     setFailure(answer.kind === "error" ? bulkErrorText(answer.code, answer.retryAfter)
       : "Nie udało się sprawdzić konfliktów: brak odpowiedzi serwera. Podgląd niczego nie zapisuje; spróbuj ponownie.");
-    if (answer.kind === "error" && answer.code === "IDEMPOTENCY_KEY_CONFLICT") keyRef.current = null;
+    focusBanner();
   }
 
   async function save() {
@@ -128,210 +133,225 @@ export function BulkBlocks({ context, open, mode, source, onClose, onSaved }: {
     busyRef.current = false; setBusy(null);
     if (answer.kind === "saved" || answer.kind === "aborted") {
       setStage({ kind: "result", answer });
-      // The fleet calendar reads the server again: no old "free" answer stays on screen.
+      // The fleet calendar reads the server again: no old "free" answer stays behind.
       if (answer.kind === "saved") onSaved();
-      focusTop();
-      return;
+    } else if (answer.kind === "uncertain") {
+      setStage({ kind: "uncertain" }); onSaved();
+    } else {
+      if (answer.kind === "error" && answer.code === "IDEMPOTENCY_KEY_CONFLICT") keyRef.current = null;
+      setStage({ kind: "form" });
+      setFailure(answer.kind === "error" ? bulkErrorText(answer.code, answer.retryAfter) : bulkErrorText("UNKNOWN"));
     }
-    if (answer.kind === "uncertain") { setStage({ kind: "uncertain" }); onSaved(); focusTop(); return; }
-    if (answer.kind === "error" && answer.code === "IDEMPOTENCY_KEY_CONFLICT") keyRef.current = null;
-    setStage({ kind: "form" });
-    setFailure(answer.kind === "error" ? bulkErrorText(answer.code, answer.retryAfter) : bulkErrorText("UNKNOWN"));
+    focusBanner();
   }
 
-  function backToForm() { setStage({ kind: "form" }); requestAnimationFrame(() => document.getElementById("bulk-search")?.focus()); }
-  function changeAfterUncertain() {
-    // New data means a new request with a new key; the earlier one may have been saved, so the calendar shows the truth.
-    keyRef.current = null; backToForm();
+  function backToForm() { setStage({ kind: "form" }); requestAnimationFrame(() => document.getElementById(mode === "copy" ? "bulk-search" : "bulk-from")?.focus()); }
+  /** New data after an unknown outcome is a new request with a new key; the earlier one may have been saved. */
+  function changeAfterUncertain() { keyRef.current = null; backToForm(); }
+  function copyFirstSaved(answer: Result) {
+    if (answer.kind !== "saved" || answer.saved.length === 0) return;
+    const first = answer.saved[0];
+    onCopy({ blockId: first.blockId, vehicleId: first.vehicleId, vehicleName: nameOf(first.vehicleId), from: draft.from, to: draft.to,
+      type: draft.type, reference: draft.reference.trim() || null, hasNote: Boolean(draft.internalNote.trim()) });
   }
-  /** From an ABORT preview: switch to the explicit SKIP mode and run the preview again (still saves nothing). */
-  function skipConflicts() {
-    const next: BulkDraft = { ...draft, onConflict: "SKIP" };
-    setDraft(next);
-    void preview(next);
+
+  // --- report per vehicle ------------------------------------------------------------------------------------------
+  const rejectedOf = (list: Rejection[]) => new Map(list.map((entry) => [entry.vehicleId, entry]));
+  function rowState(id: string): RowState | null {
+    if (!draft.vehicleIds.includes(id)) return null;
+    const why = (entry: Rejection): RowState => ({ tone: "off", text: rejectionText(entry, byId.get(id)) });
+    if (stage.kind === "preview") {
+      const rejected = rejectedOf(stage.answer.rejected).get(id);
+      return rejected ? why(rejected) : { tone: "ok", text: "Wolny w tym terminie" };
+    }
+    if (stage.kind === "result") {
+      const rejected = rejectedOf(stage.answer.rejected).get(id);
+      if (rejected) return why(rejected);
+      return stage.answer.kind === "saved" ? { tone: "ok", text: "Zapisano" } : { tone: "unknown", text: "Nie zapisano (wszystko albo nic)" };
+    }
+    if (stage.kind === "uncertain") return { tone: "unknown", text: "Wynik nieznany — nie potwierdzono zapisu" };
+    return null;
+  }
+
+  const range = draft.from && draft.to ? formatRangeShort(draft.from, draft.to) : "";
+  let bannerNode: ReactNode = null;
+  if (failure) bannerNode = <Alert tone="error" title={failure} />;
+  else if (stage.kind === "preview") {
+    const { rejected, wouldSave, onConflict } = stage.answer;
+    bannerNode = (
+      <Alert tone="info" title="Podgląd konfliktów — nic nie zapisano">
+        {rejected.length === 0 ? `${pluralVehicles(wouldSave.length)} bez konfliktu w tym terminie. `
+          : onConflict === "ABORT" ? `Konflikty: ${pluralVehicles(rejected.length)}. W trybie „wszystko albo nic” zapis zostanie wstrzymany dla wszystkich pojazdów. `
+            : `Zapiszemy ${wouldSave.length}, pominiemy ${rejected.length}; pominięte pojazdy nie dostaną blokady. `}
+        Wynik jest chwilowy i nie jest rezerwacją terminu.
+      </Alert>
+    );
+  } else if (stage.kind === "result") {
+    const answer = stage.answer;
+    bannerNode = answer.kind === "aborted"
+      ? <Alert tone="error" title="Nic nie zapisano">Wszystko albo nic: odrzucono {pluralVehicles(answer.rejected.length)}, więc żadna blokada nie powstała. Pełny raport poniżej.</Alert>
+      : <Alert tone="success" title={`Zapisano ${answer.saved.length} z ${ofVehicles(answer.saved.length + answer.rejected.length)}`}>
+          {mode === "copy" ? "Kopia blokady" : `Blokada ${typeLabel(draft.type)} ${range}`} została zapisana dla {ofVehicles(answer.saved.length)}.
+          {answer.rejected.length > 0 ? ` Odrzucono ${pluralVehicles(answer.rejected.length)}: dla nich nie powstała żadna blokada.` : ""} Pełny raport poniżej.
+        </Alert>;
+  } else if (stage.kind === "uncertain") {
+    bannerNode = (
+      <Alert tone="warning" title="Nie wiemy, czy blokady zostały zapisane">
+        Serwer nie odpowiedział poprawnie (błąd 5xx lub brak połączenia). Blokady mogły się zapisać albo nie. Nie pokazujemy sukcesu.
+        Sprawdź kalendarz albo ponów wysyłkę: ten sam klucz w ciągu 24 godzin nie utworzy duplikatów.
+      </Alert>
+    );
   }
 
   const summary = Object.entries(errors).filter(([, text]) => text) as [BulkErrorKey, string][];
-  const count = draft.vehicleIds.length;
-  const title = mode === "copy" ? "Kopiuj blokadę na inne auta" : "Blokada zbiorcza";
-  const description = mode === "copy"
-    ? "Te same daty, typ i numer odniesienia na wybranych pojazdach. Najpierw sprawdzimy konflikty; podgląd niczego nie zapisuje."
-    : `Jedna blokada dla najwyżej ${MAX_BULK_VEHICLES} pojazdów. Daty obejmują całe dni (Europe/Warsaw), obie wliczone. Najpierw sprawdzimy konflikty; podgląd niczego nie zapisuje.`;
+  const title = mode === "copy" ? "Kopiuj blokadę" : "Blokada zbiorcza";
+  const pv = stage.kind === "preview" ? stage.answer : null;
+  const held = pv !== null && pv.onConflict === "ABORT" && pv.rejected.length > 0;
+  const saveLabel = held ? (mode === "copy" ? "Kopiuj blokadę (wstrzymane)" : "Zapisz blokadę (wstrzymane)")
+    : pv && pv.rejected.length > 0 && pv.wouldSave.length > 0 ? `Zapisz ${pv.wouldSave.length}, pomiń ${pv.rejected.length}`
+      : mode === "copy" ? "Kopiuj blokadę" : "Zapisz blokadę";
+  const listLine = stage.kind === "preview" ? `Podgląd: nic nie zapisano · ${checkedVehicles(count)}`
+    : stage.kind === "result" ? stage.answer.kind === "saved" ? `Wynik zapisu: ${stage.answer.saved.length} zapisane, ${stage.answer.rejected.length} odrzucone` : `Wynik zapisu: nic nie zapisano, ${stage.answer.rejected.length} odrzucone`
+      : stage.kind === "uncertain" ? `Wynik zapisu nieznany · ${pluralVehicles(count)}`
+        : `Zaznaczono ${count} z ${all.length} · limit ${MAX_BULK_VEHICLES} pojazdów w jednym żądaniu`;
 
-  const primary = stage.kind === "form"
-    ? { label: busy === "preview" ? "Sprawdzanie…" : "Sprawdź konflikty", onClick: () => void preview() }
-    : stage.kind === "preview"
-      ? stage.answer.wouldSave.length > 0
-        ? { label: busy === "save" ? "Zapisywanie…" : stage.answer.rejected.length > 0 ? `Zapisz ${stage.answer.wouldSave.length}, pomiń ${stage.answer.rejected.length}` : `Zapisz ${pluralBlocks(stage.answer.wouldSave.length)}`, onClick: () => void save() }
-        : { label: "Zmień wybór", onClick: backToForm }
-      : stage.kind === "uncertain"
-        ? { label: busy === "save" ? "Wysyłanie…" : "Ponów wysyłkę (ten sam klucz)", onClick: () => void save() }
-        : stage.answer.kind === "aborted"
-          ? { label: "Zmień wybór", onClick: backToForm }
-          : { label: "Zamknij", onClick: onClose };
-  const secondary = stage.kind === "result" && stage.answer.kind === "saved" ? undefined
-    : stage.kind === "preview" ? { label: "Wróć do wyboru", onClick: backToForm }
-      : { label: stage.kind === "form" ? "Anuluj" : "Zamknij", onClick: onClose };
-
-  const reportRow = (vehicleId: string, ok: boolean, text: string) => (
-    <li key={vehicleId} className={ok ? styles.rowOk : styles.rowOff}>
-      {ok ? <CircleCheck aria-hidden="true" size={18} /> : <Ban aria-hidden="true" size={18} />}
-      <span><strong>{nameOf(vehicleId)}</strong><span>{text}</span></span>
-    </li>
-  );
-  const report = (saved: { vehicleId: string }[], rejected: Rejection[], savedText: string, savedHeading: string) => (
-    <>
-      {saved.length > 0 && <section aria-labelledby="bulk-saved-h"><h3 id="bulk-saved-h" className={styles.h3}>{savedHeading} ({saved.length})</h3>
-        <ul className={styles.report}>{saved.map((entry) => reportRow(entry.vehicleId, true, savedText))}</ul></section>}
-      {rejected.length > 0 && <section aria-labelledby="bulk-rejected-h"><h3 id="bulk-rejected-h" className={styles.h3}>Odrzucone ({rejected.length})</h3>
-        <ul className={styles.report}>{rejected.map((entry) => reportRow(entry.vehicleId, false, rejectionText(entry)))}</ul></section>}
-    </>
-  );
+  let actions: ReactNode;
+  if (stage.kind === "result") {
+    actions = stage.answer.kind === "saved" ? <>
+      <Button width="fill" onClick={onClose}>Wróć do kalendarza</Button>
+      {mode === "create" && stage.answer.saved.length > 0 && <Button width="fill" variant="secondary" onClick={() => copyFirstSaved(stage.answer)}>Kopiuj blokadę na inne pojazdy</Button>}
+    </> : <>
+      <Button width="fill" onClick={backToForm}>Zmień wybór</Button>
+      <Button width="fill" variant="secondary" onClick={onClose}>Wróć do kalendarza</Button>
+    </>;
+  } else if (stage.kind === "uncertain") {
+    actions = <>
+      <Button width="fill" loading={busy === "save"} loadingLabel="Wysyłanie…" onClick={() => void save()}>Ponów wysyłkę (ten sam klucz)</Button>
+      <Button width="fill" variant="secondary" onClick={onClose}>Sprawdź kalendarz floty</Button>
+      <Button width="fill" variant="tertiary" disabled={busy !== null} onClick={changeAfterUncertain}>Zmień dane (nowe żądanie)</Button>
+    </>;
+  } else {
+    actions = <>
+      <Button width="fill" variant="secondary" loading={busy === "preview"} loadingLabel="Sprawdzanie…" disabled={busy !== null} onClick={() => void preview()}>{pv ? "Sprawdź ponownie" : "Sprawdź konflikty"}</Button>
+      <Button width="fill" loading={busy === "save"} loadingLabel="Zapisywanie…" disabled={busy !== null || held} onClick={() => void save()}>{saveLabel}</Button>
+    </>;
+  }
+  const actionHint = stage.kind === "result" ? "To informacja o blokadzie, nie rezerwacja terminu."
+    : stage.kind === "uncertain" ? "Ponowienie zwróci zapisany wynik, jeśli poprzednie żądanie się powiodło."
+      : held ? "Usuń kolidujące pojazdy z wyboru albo wybierz „Pomiń konflikty”." : "Podgląd nic nie zapisuje. Zapis sprawdzi stan ponownie.";
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next && busy === null) onClose(); }} type="form" title={title} description={description}
-      primaryAction={primary} secondaryAction={secondary}>
-      <div ref={bodyRef} className={styles.body}>
-        {mode === "copy" && source && (
-          <section className={styles.source} aria-label="Blokada źródłowa">
-            <Copy aria-hidden="true" size={18} />
-            <span><strong>{source.vehicleName}</strong>: {typeLabel(source.type)}, {rangeText(source.from, source.to)}{source.reference ? `, nr ${source.reference}` : ""}</span>
-          </section>
-        )}
+    <section className={styles.page} aria-labelledby="bulk-title" aria-busy={busy !== null}>
+      <nav aria-label="Ścieżka" className={styles.crumbs}>
+        <a href={calendarHref} onClick={(event) => { event.preventDefault(); onClose(); }}>Kalendarz floty</a>
+        <span aria-hidden="true"> / </span><span aria-current="page">{title}</span>
+      </nav>
+      <h2 id="bulk-title" className={styles.title} ref={heading} tabIndex={-1}>{title}</h2>
+      <p className={styles.sub}>{mode === "copy" ? "Skopiuj blokadę na inne pojazdy na te same daty. To nie jest rezerwacja terminu."
+        : `Do ${MAX_BULK_VEHICLES} pojazdów i jeden zakres dat (Europe/Warsaw, obie daty wliczone). Blokada nie jest rezerwacją terminu.`}</p>
 
-        {stage.kind === "preview" && (
-          <div className={styles.stack}>
-            <p className={styles.dryRun} tabIndex={-1} data-focus-first><Eye aria-hidden="true" size={18} />Podgląd konfliktów — nic nie zapisano.</p>
-            {stage.answer.rejected.length === 0
-              ? <Alert tone="info" title={`Bez konfliktów: ${pluralVehicles(stage.answer.wouldSave.length)}.`}>Zapis sprawdzi stan ponownie; wynik podglądu nie rezerwuje terminu.</Alert>
-              : stage.answer.onConflict === "ABORT"
-                ? <Alert tone="warning" title={`Zapis wstrzymany: konflikty w ${stage.answer.rejected.length === 1 ? "1 pojeździe" : `${stage.answer.rejected.length} pojazdach`}.`}>
-                    W trybie „Wszystko albo nic” nic nie zostanie zapisane. Zmień wybór pojazdów lub daty albo pomiń konflikty.
-                    <div className={styles.inline}><Button variant="secondary" size="sm" onClick={skipConflicts}>Pomiń konflikty i sprawdź ponownie</Button></div>
-                  </Alert>
-                : <Alert tone="warning" title={`Zapiszemy ${stage.answer.wouldSave.length}, pominiemy ${stage.answer.rejected.length}.`}>Pominięte pojazdy nie dostaną blokady. Zapis sprawdzi stan ponownie.</Alert>}
-            {report(stage.answer.wouldSave.map((vehicleId) => ({ vehicleId })), stage.answer.rejected, "Bez konfliktu", "Do zapisu")}
-          </div>
-        )}
+      <div ref={banner} tabIndex={-1} className={styles.banner} aria-live="polite">{bannerNode}</div>
+      {summary.length > 0 && (
+        <div id="bulk-summary" tabIndex={-1} className={styles.banner}>
+          <Alert tone="error" title={`Do poprawy: ${summary.length}`}>
+            <ul className={styles.summary}>{summary.map(([field, text]) => (
+              <li key={field}><button type="button" className={styles.linkButton} onClick={() => document.getElementById(field === "vehicles" ? "bulk-vehicles" : `bulk-${field}`)?.focus()}>{fieldLabels[field]}</button>: {text}</li>
+            ))}</ul>
+          </Alert>
+        </div>
+      )}
 
-        {stage.kind === "result" && (
-          <div className={styles.stack}>
-            {stage.answer.kind === "aborted"
-              ? <Alert tone="error" title="Nic nie zapisano.">Wszystko albo nic: {stage.answer.rejected.length === 1 ? "1 pojazd ma" : `${pluralVehicles(stage.answer.rejected.length)} ma`} konflikt. Poniżej wszystkie przyczyny.</Alert>
-              : stage.answer.rejected.length === 0
-                ? <Alert tone="success" title={`Zapisano ${pluralBlocks(stage.answer.saved.length)}.`}>Kalendarz floty pokazuje aktualny stan z serwera.</Alert>
-                : <Alert tone="warning" title={`Zapisano ${stage.answer.saved.length}, odrzucono ${stage.answer.rejected.length}.`}>Odrzucone pojazdy nie mają nowej blokady. Kalendarz floty pokazuje aktualny stan.</Alert>}
-            <div tabIndex={-1} data-focus-first className={styles.anchor} aria-hidden="true" />
-            {report(stage.answer.kind === "saved" ? stage.answer.saved.map((entry: Saved) => ({ vehicleId: entry.vehicleId })) : [], stage.answer.rejected, "Blokada zapisana", "Zapisane")}
-          </div>
-        )}
-
-        {stage.kind === "uncertain" && (
-          <div className={styles.stack}>
-            <div tabIndex={-1} data-focus-first className={styles.anchor} aria-hidden="true" />
-            <Alert tone="warning" title="Wynik nieznany: nie wiemy, czy blokady zostały zapisane.">
-              Połączenie przerwało się albo serwer nie odpowiedział. Nie pokazujemy sukcesu. Ponów wysyłkę: to samo żądanie z tym samym kluczem
-              nie zapisze blokad drugi raz. Kalendarz floty odczytaliśmy ponownie.
-              <div className={styles.inline}><Button variant="tertiary" size="sm" onClick={changeAfterUncertain}>Zmień dane (nowe żądanie)</Button></div>
-            </Alert>
-          </div>
-        )}
-
-        {(editing || stage.kind === "uncertain") && (
-          <form id="bulk-form" noValidate className={styles.stack} onSubmit={(event) => { event.preventDefault(); if (stage.kind === "uncertain") void save(); else void preview(); }}>
-            <button type="submit" hidden tabIndex={-1} aria-hidden="true" />
-            {failure && <Alert tone="error" title={failure} />}
-            {summary.length > 0 && (
-              <div id="bulk-summary" tabIndex={-1}>
-                <Alert tone="error" title={`Do poprawy: ${summary.length}`}>
-                  <ul className={styles.summary}>{summary.map(([field, text]) => (
-                    <li key={field}><button type="button" className={styles.linkButton} onClick={() => document.getElementById(field === "vehicles" ? "bulk-search" : `bulk-${field}`)?.focus()}>{fieldLabels[field]}</button>: {text}</li>
-                  ))}</ul>
-                </Alert>
+      <form noValidate className={styles.layout} onSubmit={(event) => { event.preventDefault(); if (stage.kind === "uncertain") void save(); else if (!settled) void preview(); }}>
+        <button type="submit" hidden tabIndex={-1} aria-hidden="true" />
+        <section className={styles.card} aria-labelledby="bulk-vehicles-h">
+          <h3 id="bulk-vehicles-h" className={styles.h3}>{mode === "copy" ? "Kopiuj na pojazdy" : "Pojazdy"}</h3>
+          <p id="bulk-count" className={styles.muted} aria-live="polite">{listLine}</p>
+          {errors.vehicles && <p id="bulk-vehicles-error" className={styles.fieldError}>{errors.vehicles}</p>}
+          {vehicles.status === "loading" && <p className={styles.muted} role="status">Wczytujemy pojazdy…</p>}
+          {vehicles.status === "error" && <Alert tone="error" title="Nie udało się wczytać pojazdów.">{readErrorMessage(vehicles.code)}</Alert>}
+          {vehicles.status === "ready" && !settled && all.length > 8 && (
+            <>
+              <TextInput id="bulk-search" type="search" aria-label="Szukaj pojazdu" placeholder="Szukaj pojazdu" value={search} disabled={locked} onChange={(event) => setSearch(event.target.value)} />
+              <div className={styles.inline}>
+                <Button variant="secondary" size="sm" onClick={selectShown} disabled={locked || shown.length === 0 || count >= MAX_BULK_VEHICLES}>Zaznacz widoczne (do {MAX_BULK_VEHICLES})</Button>
+                <Button variant="tertiary" size="sm" onClick={() => change("vehicleIds", [])} disabled={locked || count === 0}>Wyczyść wybór</Button>
               </div>
-            )}
+            </>
+          )}
+          {vehicles.status === "ready" && (all.length === 0 ? <p className={styles.muted}>Brak pojazdów, które mogą dostać blokadę.</p>
+            : shown.length === 0 ? <p className={styles.muted}>Żaden pojazd nie pasuje do wyszukiwania.</p> : (
+              <ul id="bulk-vehicles" tabIndex={-1} className={styles.vehicles} aria-labelledby="bulk-vehicles-h" aria-describedby={errors.vehicles ? "bulk-vehicles-error" : "bulk-count"}>
+                {shown.map((item) => {
+                  const checked = draft.vehicleIds.includes(item.id);
+                  const state = rowState(item.id);
+                  const Icon = state ? rowIcon[state.tone] : null;
+                  return (
+                    <li key={item.id} className={`${styles.vehicle} ${state ? styles[`row_${state.tone}`] : ""}`}>
+                      <label className={styles.vehicleLabel}>
+                        <input type="checkbox" checked={checked} disabled={locked || (!checked && count >= MAX_BULK_VEHICLES)} onChange={(event) => toggle(item.id, event.target.checked)} />
+                        <span className={styles.vehicleText}><strong>{item.name ?? "Pojazd bez nazwy"}</strong><span>{activityText(item)}</span></span>
+                      </label>
+                      {state && Icon && <span className={styles.rowState}><Icon aria-hidden="true" size={16} />{state.text}</span>}
+                    </li>
+                  );
+                })}
+              </ul>
+            ))}
+        </section>
 
-            {mode === "create" && (
-              <fieldset className={styles.fieldset} disabled={locked}>
-                <legend className={styles.legend}>Zakres i typ</legend>
-                <div className={styles.dates}>
-                  <FormField id="bulk-from" label="Od" required error={errors.from} hint="RRRR-MM-DD, Europe/Warsaw.">
-                    <TextInput type="date" value={draft.from} onChange={(event) => { change("from", event.target.value); if (!draft.to) change("to", event.target.value); }} />
-                  </FormField>
-                  <FormField id="bulk-to" label="Do (włącznie)" required error={errors.to} hint="Jeden dzień: ta sama data.">
-                    <TextInput type="date" value={draft.to} min={draft.from || undefined} onChange={(event) => change("to", event.target.value)} />
-                  </FormField>
-                </div>
-                <FormField id="bulk-type" label="Typ" required error={errors.type}>
-                  <Select value={draft.type} onChange={(event) => change("type", event.target.value as BlockTypeCode)}>
-                    {blockTypeOrder.map((type) => <option key={type} value={type}>{typeLabel(type)}</option>)}
-                  </Select>
+        <section className={styles.card} aria-labelledby="bulk-block-h">
+          <h3 id="bulk-block-h" className={styles.h3}>{mode === "copy" ? "Blokada do skopiowania" : "Blokada"}</h3>
+          {mode === "copy" && source && (
+            <div className={styles.source} role="group" aria-label="Blokada źródłowa">
+              <strong>{typeLabel(source.type)} · {formatRangeShort(source.from, source.to)}</strong>
+              <span>{source.vehicleName}{source.reference ? ` · ${source.reference}` : ""}</span>
+            </div>
+          )}
+          {mode === "copy" && <p className={styles.muted}>Te same daty, typ i numer odniesienia na wybranych pojazdach.</p>}
+          {mode === "copy" && (
+            <label className={styles.option}>
+              <input type="checkbox" checked={draft.copyNote} disabled={locked || !source?.hasNote} onChange={(event) => change("copyNote", event.target.checked)} />
+              <span><strong>Kopiuj także notatkę wewnętrzną</strong><span className={styles.muted}>{source?.hasNote ? "Domyślnie wyłączone: notatka może zawierać dane wrażliwe dla konkretnego auta." : "Ta blokada nie ma notatki."}</span></span>
+            </label>
+          )}
+          {mode === "create" && (
+            <>
+              <div className={styles.dates}>
+                <FormField id="bulk-from" label="Od" required error={errors.from}>
+                  <TextInput type="date" value={draft.from} disabled={locked} onChange={(event) => { const value = event.target.value; change("from", value); if (!draft.to || draft.to < value) change("to", value); }} />
                 </FormField>
-                <FormField id="bulk-reference" label="Numer odniesienia" optionalLabel="(opcjonalnie)" error={errors.reference} hint="Prywatny: tylko w panelu, nigdy na stronie publicznej.">
-                  <TextInput value={draft.reference} maxLength={120} autoComplete="off" onChange={(event) => change("reference", event.target.value)} />
+                <FormField id="bulk-to" label="Do" required error={errors.to} hint="Włącznie; jeden dzień to ta sama data.">
+                  <TextInput type="date" value={draft.to} min={draft.from || undefined} disabled={locked} onChange={(event) => change("to", event.target.value)} />
                 </FormField>
-                <FormField id="bulk-internalNote" label="Notatka wewnętrzna" optionalLabel="(opcjonalnie)" error={errors.internalNote} hint="Prywatna, do 2000 znaków; trafi do każdej utworzonej blokady.">
-                  <Textarea value={draft.internalNote} maxLength={2000} rows={3} onChange={(event) => change("internalNote", event.target.value)} />
-                </FormField>
-              </fieldset>
-            )}
-            {mode === "copy" && source?.hasNote && (
-              <label className={styles.check}>
-                <input type="checkbox" checked={draft.copyNote} disabled={locked} onChange={(event) => change("copyNote", event.target.checked)} />
-                Kopiuj także notatkę wewnętrzną
-              </label>
-            )}
-
-            <fieldset className={styles.fieldset} disabled={locked} aria-describedby={errors.vehicles ? "bulk-vehicles-error" : "bulk-count"}>
-              <legend className={styles.legend}>{mode === "copy" ? "Pojazdy docelowe" : "Pojazdy"}</legend>
-              <p id="bulk-count" className={styles.count} aria-live="polite">Wybrano {count} z {MAX_BULK_VEHICLES}</p>
-              {errors.vehicles && <p id="bulk-vehicles-error" className={styles.fieldError}>{errors.vehicles}</p>}
-              {vehicles.status === "loading" && <p className={styles.muted} role="status">Wczytujemy pojazdy…</p>}
-              {vehicles.status === "error" && <Alert tone="error" title="Nie udało się wczytać pojazdów.">{readErrorMessage(vehicles.code)}</Alert>}
-              {vehicles.status === "ready" && (
-                <>
-                  <div className={styles.searchRow}>
-                    <Search aria-hidden="true" size={18} className={styles.searchIcon} />
-                    <TextInput id="bulk-search" type="search" aria-label="Szukaj pojazdu" placeholder="Szukaj pojazdu" value={search} onChange={(event) => setSearch(event.target.value)} />
-                  </div>
-                  <div className={styles.inline}>
-                    <Button variant="secondary" size="sm" onClick={selectShown} disabled={shown.length === 0 || count >= MAX_BULK_VEHICLES}>Zaznacz widoczne (do {MAX_BULK_VEHICLES})</Button>
-                    <Button variant="tertiary" size="sm" onClick={() => change("vehicleIds", [])} disabled={count === 0}>Wyczyść wybór</Button>
-                  </div>
-                  {vehicles.items.length === 0 ? <p className={styles.muted}>Brak pojazdów, które mogą dostać blokadę.</p>
-                    : shown.length === 0 ? <p className={styles.muted}>Żaden pojazd nie pasuje do wyszukiwania.</p> : (
-                      <ul className={styles.vehicles}>
-                        {shown.map((item) => {
-                          const checked = draft.vehicleIds.includes(item.id);
-                          return (
-                            <li key={item.id}>
-                              <label className={styles.vehicle}>
-                                <input type="checkbox" checked={checked} disabled={!checked && count >= MAX_BULK_VEHICLES} onChange={(event) => toggle(item.id, event.target.checked)} />
-                                <span>{item.name ?? "Pojazd bez nazwy"}</span>
-                              </label>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    )}
-                </>
-              )}
-            </fieldset>
-
-            <fieldset className={styles.fieldset} disabled={locked}>
-              <legend className={styles.legend}>Gdy wystąpi konflikt</legend>
-              <label className={styles.radio}>
-                <input type="radio" name="bulk-conflict" value="ABORT" checked={draft.onConflict === "ABORT"} onChange={() => change("onConflict", "ABORT")} />
-                <span><strong>Wszystko albo nic (domyślnie)</strong><span className={styles.muted}>Jeden konflikt wstrzymuje cały zapis; nic nie zostanie zapisane.</span></span>
-              </label>
-              <label className={styles.radio}>
-                <input type="radio" name="bulk-conflict" value="SKIP" checked={draft.onConflict === "SKIP"} onChange={() => change("onConflict", "SKIP")} />
-                <span><strong>Pomiń konflikty</strong><span className={styles.muted}>Zapiszemy pojazdy bez konfliktu i pokażemy pełną listę pominiętych.</span></span>
-              </label>
-            </fieldset>
-          </form>
-        )}
-      </div>
-    </Dialog>
+              </div>
+              <FormField id="bulk-type" label="Typ" required error={errors.type}>
+                <Select value={draft.type} disabled={locked} onChange={(event) => change("type", event.target.value as BlockTypeCode)}>
+                  {blockTypeOrder.map((type) => <option key={type} value={type}>{typeLabel(type)}</option>)}
+                </Select>
+              </FormField>
+              <FormField id="bulk-reference" label="Numer odniesienia" error={errors.reference} hint="Opcjonalnie. Widoczny tylko w panelu.">
+                <TextInput value={draft.reference} maxLength={120} autoComplete="off" disabled={locked} onChange={(event) => change("reference", event.target.value)} />
+              </FormField>
+              <FormField id="bulk-internalNote" label="Notatka wewnętrzna" error={errors.internalNote} hint="Opcjonalnie. Nie trafia na stronę publiczną.">
+                <Textarea value={draft.internalNote} maxLength={2000} rows={2} disabled={locked} onChange={(event) => change("internalNote", event.target.value)} />
+              </FormField>
+            </>
+          )}
+          <fieldset className={styles.fieldset} disabled={locked}>
+            <legend className={styles.legend}>Gdy pojazd koliduje</legend>
+            <label className={styles.option}>
+              <input type="radio" name="bulk-conflict" value="ABORT" checked={draft.onConflict === "ABORT"} onChange={() => change("onConflict", "ABORT")} />
+              <span><strong>Wszystko albo nic (domyślnie)</strong><span className={styles.muted}>Przy konflikcie nic się nie zapisze.</span></span>
+            </label>
+            <label className={styles.option}>
+              <input type="radio" name="bulk-conflict" value="SKIP" checked={draft.onConflict === "SKIP"} onChange={() => change("onConflict", "SKIP")} />
+              <span><strong>Pomiń konflikty</strong><span className={styles.muted}>Zapisze tylko wolne pojazdy; raport pokaże pominięte.</span></span>
+            </label>
+          </fieldset>
+          <div className={styles.actions}>{actions}</div>
+          <p className={styles.muted}>{actionHint}</p>
+        </section>
+      </form>
+    </section>
   );
 }
