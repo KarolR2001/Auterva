@@ -89,22 +89,19 @@ function StatusRow({ label, ok, value, detail }: { label: string; ok: boolean; v
 }
 
 /** Context, independent status rows and the superadmin entries into the company. */
-export function CompanyStatus({ company }: { company: CompanyCardData }) {
-  const archived = !!company.archivedAt;
+export function companyHostLine(company: CompanyCardData) {
   const panel = company.hosts.find((host) => host.area === "COMPANY_ADMIN");
   const alias = company.hosts.find((host) => host.area === "COMPANY_PUBLIC" && host.kind === "PROVIDER");
   const customActive = company.hosts.find(
     (host) => host.area === "COMPANY_PUBLIC" && host.kind === "CUSTOM" && host.status === "ACTIVE",
   );
+  return `Panel: ${panel?.hostname ?? "brak"} · Strona: ${customActive?.hostname ?? alias?.hostname ?? "brak"}`;
+}
+
+export function CompanyStatus({ company }: { company: CompanyCardData }) {
+  const archived = !!company.archivedAt;
   return (
     <>
-      <p className={styles.hostLine}>
-        Panel: {panel?.hostname ?? "brak"} · Strona: {customActive?.hostname ?? alias?.hostname ?? "brak"}
-      </p>
-      <p className={styles.opsHint}>
-        Działasz jako superadmin w kontekście firmy {company.name}. Nie przejmujesz konta administratora.
-      </p>
-
       <section aria-labelledby="status-title" className={styles.panelCard}>
         <h2 id="status-title" className={styles.sectionTitle}>
           Status firmy

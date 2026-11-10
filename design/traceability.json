@@ -1866,6 +1866,20 @@
         "src/components/panel/panel-shell.tsx"
       ],
       "testPaths": ["tests/unit/chat-panel.test.tsx"]
+    },
+    {
+      "issue": 295,
+      "scope": "Układ i nagłówek PLT-03 (karta firmy) i PLT-04 (formularz nowej firmy) według makiety: duży tytuł z kontekstem i akcjami w nagłówku, dwie kolumny od 1024 px z kartą statusu po prawej (karta) i panelem „Przed wysłaniem zaproszenia” (formularz), pola w siatce dwukolumnowej, wybór okresu jako kafelki. Zakres pól bez zmian (PRD 3.1): telefon, publiczny e-mail i treści strony edytuje superadmin w ustawieniach firmy (#31, C-F023), nie w formularzu; trial 336 godzin (U4) zamiast „14 dni” z makiety; edycja nazwy i e-maila administratora na karcie poza zakresem. Brak tekstu „Trial 14 dni” i pól spoza PRD.",
+      "relatedRequirementIds": ["C-F022", "C-F024", "C-F034", "C-F035"],
+      "referenceScreenIds": ["PLT-03", "PLT-04"],
+      "codePaths": [
+        "src/components/platform/page-header.tsx",
+        "src/components/platform/company-card.tsx",
+        "src/components/platform/company-ops.tsx",
+        "src/components/platform/new-company-form.tsx",
+        "src/components/platform/platform.module.css"
+      ],
+      "testPaths": ["tests/unit/company-card.test.tsx", "tests/e2e/platform-company-form.spec.ts", "tests/e2e/messages-inbox.spec.ts"]
     }
   ],
   "sources": [

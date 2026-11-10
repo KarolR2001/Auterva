@@ -34,6 +34,25 @@ describe("karta firmy i zaproszenie (#25)", () => {
     expect(screen.queryByText("Opublikowana")).toBeNull();
   });
 
+  it("nagłówek karty ma nazwę firmy, kontekst adresów i główne akcje (#295)", () => {
+    const hosts = [{ hostname: "alfa.sites.test", area: "COMPANY_ADMIN", kind: "PROVIDER", status: "ACTIVE" }] as unknown as CompanyCardDto["hosts"];
+    shell(<CompanyCard initial={{ ...base, hosts }} justSaved={false} />);
+    expect(screen.getByRole("heading", { level: 2, name: "Alfa" })).toBeInTheDocument();
+    expect(screen.getByText(/Panel: alfa\.sites\.test/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Napisz do firmy" }).getAttribute("href")).toMatch(new RegExp(`/wiadomosci/?\\?firma=${base.organizationId}`));
+    expect(screen.getByRole("link", { name: "Zarządzaj flotą" }).getAttribute("href")).toContain(`/firmy/${base.organizationId}/pojazdy`);
+    expect(screen.getByRole("heading", { name: "Status firmy" })).toBeInTheDocument();
+  });
+
+  it("formularz nowej firmy ma nagłówek z akcjami i panel przed wysłaniem zaproszenia (#295)", () => {
+    shell(<NewCompanyForm adminBaseDomain={null} publicBaseDomain={null} />);
+    expect(screen.getByRole("heading", { level: 2, name: "Dodaj firmę" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Zapisz firmę" })).toHaveLength(1);
+    expect(screen.getByRole("link", { name: "Anuluj" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Przed wysłaniem zaproszenia" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Trial/)).toBeInTheDocument();
+  });
+
   it("karta prowadzi do materiałów publicznych i ustawień tej firmy (#37)", () => {
     shell(<CompanyCard initial={base} justSaved={false} />);
     expect(screen.getByRole("link", { name: "Edytuj logo i materiały publiczne" }).getAttribute("href")).toMatch(new RegExp(`^/firmy/${base.organizationId}/ustawienia/?\\?sekcja=wyglad$`));
