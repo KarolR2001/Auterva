@@ -220,9 +220,11 @@ describe("nawigacja panelu", () => {
     expect(
       within(menu).getByRole("button", { name: "Wyloguj" }),
     ).toBeInTheDocument();
+    // ADM-17 (#75): the change log is reachable from the menu; sessions still have no entry.
     expect(
-      within(menu).queryByRole("link", { name: /dziennik|sesje/i }),
-    ).toBeNull();
+      within(menu).getByRole("link", { name: "Dziennik zmian" }),
+    ).toHaveAttribute("href", "/admin/logi");
+    expect(within(menu).queryByRole("link", { name: /sesje/i })).toBeNull();
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(more).toHaveFocus();
