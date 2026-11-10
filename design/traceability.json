@@ -30,6 +30,17 @@
       "testPaths": ["tests/e2e/platform-companies.spec.ts"]
     },
     {
+      "issue": 293,
+      "scope": "Lista firm PLT-01-02: tabela (Firma, Okres usługi, Widoczność, Rejestracja, Akcje) na desktopie i karty na mobile, chipy statusu z ikoną i tekstem, akcje Otwórz i Czat (do /wiadomosci/?firma=, C-F135) w wierszu, akcje Wiadomości i Dodaj firmę w nagłówku. Bez licznika nieprzeczytanych (lista API go nie zwraca); H1 pozostaje w PanelShell (#66/#75).",
+      "relatedRequirementIds": ["C-F015", "C-F045", "C-F135"],
+      "referenceScreenIds": ["PLT-01-02"],
+      "codePaths": [
+        "src/components/platform/company-list.tsx",
+        "src/components/platform/platform.module.css"
+      ],
+      "testPaths": ["tests/unit/platform-companies.test.tsx", "tests/e2e/platform-companies.spec.ts"]
+    },
+    {
       "issue": 265,
       "scope": "Poprawki z QA #27: po niepewnym wyniku zapisu okresu (5xx, brak odpowiedzi) najpierw odczyt stanu, potem komunikat zgodny z faktem (zapisano / nie zapisano / zmieniono w innej sesji); lista firm `/firmy/` z tą samą polityką hosta co `/` i `/firmy/{id}/` (anonim do loginu platformy, inna sesja 404); ikona statusu w wierszu obok tekstu.",
       "relatedRequirementIds": ["C-F045", "C-F046", "C-F068", "C-F069"],
@@ -224,6 +235,29 @@
         "docs/contracts/audit-append-and-access.md"
       ],
       "testPaths": ["tests/integration/audit-read-http.test.ts", "tests/unit/audit-cursor.test.ts"]
+    },
+    {
+      "issue": 75,
+      "scope": "Dziennik zmian ADM-17 (opcjonalny): /admin/logi dla administratora firmy i /firmy/{id}/logi dla superadmina w kontekście wybranej firmy (także archiwalnej), na filtrowanym odczycie audytu z #74. Czas lokalny (Europe/Warsaw) z danych UTC, filtry zakres dat/administrator/akcja/obiekt, kursor „Pokaż starsze”, bezpieczne podsumowanie i szczegóły przed/po bez identyfikatorów kont (aktor jako rola, superadmin widoczny jako on sam), loading/empty/error, filtry w arkuszu na wąskim ekranie.",
+      "relatedRequirementIds": ["FR-ADM-070", "FR-ADM-071", "C-F151", "D-10", "D-30"],
+      "referenceScreenIds": ["ADM-17", "OVR-18"],
+      "scenarioStates": {
+        "list": "AuditLogRow lista z filtrami (ADM-17 desktop a4abf4c9-2e1f-80fd-8008-affca1f45000, mobile 1e066793-8858-8051-8008-cf3e9586dd76)",
+        "details": "Szczegóły wpisu rozwijane w wierszu (zamiast OVR-18)",
+        "empty": "Brak wpisów / brak wyników filtra",
+        "error": "Błąd odczytu z ponowieniem"
+      },
+      "unmappedStates": ["Porównanie z makietą ADM-17: tylko eksport 10.11 (Penpot nie wywoływany).", "Przejście do ADM-07/ADM-09 z wpisu (SPEC 9.19): pominięte, brak sprawdzenia istnienia encji w odczycie audytu; wpis pokazuje bezpieczne podsumowanie historyczne.", "Makieta pokazuje techniczne kody akcji i ID AUD-…; aplikacja używa polskich nazw i końcówki identyfikatora obiektu."],
+      "codePaths": [
+        "src/components/audit/audit-log.tsx",
+        "src/components/audit/audit-log.module.css",
+        "src/modules/audit/view.ts",
+        "src/app/admin/logi/page.tsx",
+        "src/app/firmy/[organizationId]/logi/page.tsx",
+        "src/components/panel/panel-shell.tsx",
+        "src/components/platform/company-card.tsx"
+      ],
+      "testPaths": ["tests/unit/audit-view.test.ts", "tests/unit/panel-shell.test.tsx", "tests/e2e/audit-log-ui.spec.ts"]
     },
     {
       "issue": 70,

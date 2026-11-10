@@ -206,6 +206,7 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
           <Link className={styles.cancel} href={`/firmy/${encodeURIComponent(company.organizationId)}/podglad/`} prefetch={false}>Podgląd strony (chroniony)</Link>
           <Link className={styles.cancel} href={`/firmy/${encodeURIComponent(company.organizationId)}/ustawienia/?sekcja=wyglad`} prefetch={false}>Edytuj logo i materiały publiczne</Link>
           <Link className={styles.cancel} href={`/firmy/${encodeURIComponent(company.organizationId)}/ustawienia/`} prefetch={false}>Ustawienia firmy</Link>
+          <Link className={styles.cancel} href={`/firmy/${encodeURIComponent(company.organizationId)}/logi/`} prefetch={false}>Dziennik zmian</Link>
         </div>
       </section>
 

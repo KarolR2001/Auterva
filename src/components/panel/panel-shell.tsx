@@ -260,6 +260,7 @@ function AvailablePanelShell({
           { label: "Kalendarz floty", href: "/admin/kalendarz" },
           { label: "Status usługi", href: "/admin/usluga" },
           { label: "Ustawienia", href: "/admin/ustawienia" },
+          { label: "Dziennik zmian", href: "/admin/logi" },
           { label: "Konto", href: "/admin/konto" },
         ]
       : [{ label: "Konto", href: "/konto" }];

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -102,6 +102,22 @@ describe("lista firm", () => {
     expect(String(fetchMock.mock.calls[0][0])).toContain("includeArchived=false");
   });
 
+  it("pokazuje tabelę z kolumnami, chipami statusu oraz akcjami Otwórz i Czat do skrzynki firmy (PLT-01-02)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({ items: [company()], total: 1, page: 1, pageSize: 20, kpis: { paidCompanies: 1, trialCompanies: 0 } }),
+    );
+    render(<CompanyListView />);
+    await screen.findByText("Alfa Campers", { exact: false });
+    const headers = screen.getAllByRole("columnheader").map((header) => header.textContent);
+    expect(headers).toEqual(["Firma", "Okres usługi", "Widoczność", "Rejestracja", "Akcje"]);
+    const row = screen.getByRole("row", { name: /Alfa Campers/ });
+    expect(within(row).getByText("Widoczna")).toBeVisible();
+    expect(within(row).getByText("Zakończona")).toBeVisible();
+    expect(within(row).getByRole("link", { name: "Czat z firmą Alfa Campers" })).toHaveAttribute("href", expect.stringMatching(new RegExp(`^/wiadomosci/?\\?firma=${ID}$`)));
+    expect(screen.getByRole("link", { name: "Wiadomości" })).toHaveAttribute("href", expect.stringMatching(/^\/wiadomosci\/?$/));
+    expect(screen.getByRole("link", { name: "Dodaj firmę" })).toHaveAttribute("href", expect.stringMatching(/^\/firmy\/nowa\/?$/));
+  });
+
   it("powód wyłączenia strony jest tekstem na liście, a lista nie linkuje do tras bez ekranów", async () => {
     const off = company({ publication: { visible: false, domainReady: true, unlockRequired: false, requiresPaid: false },
       period: { ...company().period, paidValid: false, publicVisible: false, headline: "EXPIRED" } });
@@ -110,7 +126,7 @@ describe("lista firm", () => {
     );
     render(<CompanyListView />);
     expect(await screen.findByText("Okres usługi wygasł.")).toBeVisible();
-    expect(document.querySelector('a[href*="pojazdy"], a[href*="wiadomosci"]')).toBeNull();
+    expect(document.querySelector('a[href*="pojazdy"]')).toBeNull();
   });
 
   it("filtr archiwum i szukanie trafiają do zapytania", async () => {
