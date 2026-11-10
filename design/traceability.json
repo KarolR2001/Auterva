@@ -241,6 +241,25 @@
       ]
     },
     {
+      "issue": 216,
+      "scope": "Publiczne POST /api/public/availability/next: najbliższy wolny termin jednego opublikowanego pojazdu firmy z hosta (wariant A, D-32 P1/P2): horyzont 180 dni jako stała serwera, start max(from, dzisiaj w Europe/Warsaw), ta sama reguła aktywność minus blokady na LocalDate z końcami włącznie, obliczane na żądanie po indeksie AvailabilityBlock(vehicleId, from), no-store, wspólny limit publiczny 60/min, tylko {found,from,to}, bez typu/reference/internalNote.",
+      "relatedRequirementIds": ["C-F102", "C-F103", "C-F104", "FR-ADM-051", "FR-ADM-053", "D-15"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/availability/read.ts",
+        "src/modules/availability/http.ts",
+        "src/modules/availability/dates.ts",
+        "src/app/api/public/availability/next/route.ts",
+        "docs/contracts/availability-nearest-and-bulk-blocks.md",
+        "docs/contracts/availability-reads.md"
+      ],
+      "testPaths": [
+        "tests/unit/availability-nearest.test.ts",
+        "tests/integration/availability-nearest.test.ts",
+        "tests/integration/security-regression.test.ts"
+      ]
+    },
+    {
       "issue": 230,
       "scope": "Spójny zakres sortOrder 0..2147483647 włącznie w PATCH i reorder floty (jedna stała i walidacja w mutations.ts); test graniczny dla obu ścieżek.",
       "relatedRequirementIds": ["FR-ADM-022"],
