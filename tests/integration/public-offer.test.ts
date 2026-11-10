@@ -231,6 +231,15 @@ test("states: empty offer, no results and the first published vehicle without an
   expect(items(none).filters.categories.map((category) => category.code).sort()).toEqual([catA.code, catB.code].sort());
   expect(items(none).filters.seats).toEqual({ min: 5, max: 9 });
   expect(items(none).filters.transmissions).toEqual(["Automatyczna", "Manualna"]);
+  // #359: the shown spelling does not depend on which row the database returns first.
+  await db.vehicle.update({ where: { id: ids[0] }, data: { transmission: "manualna" } });
+  await db.vehicle.update({ where: { id: ids[2] }, data: { transmission: "Manualna" } });
+  try {
+    expect(items(await listPublicVehicles(db, hostA, q(""))).filters.transmissions).toEqual(["Automatyczna", "Manualna"]);
+  } finally {
+    await db.vehicle.update({ where: { id: ids[0] }, data: { transmission: "Manualna" } });
+    await db.vehicle.update({ where: { id: ids[2] }, data: { transmission: "manualna" } });
+  }
 });
 
 test("home features the configured number of published featured vehicles", async () => {

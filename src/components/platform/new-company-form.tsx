@@ -19,10 +19,13 @@ type Props = { adminBaseDomain: string | null; publicBaseDomain: string | null }
 type Status = "idle" | "saving" | "failed" | "uncertain";
 type Notice = { tone: "error" | "warning"; title: string; text?: string } | null;
 
-const fieldOrder: CompanyField[] = ["name", "adminEmail", "slug", "periodKind", "paidThrough"];
+const fieldOrder: CompanyField[] = ["name", "phone", "adminEmail", "email", "addressLine", "postalCode", "city", "country",
+  "slug", "periodKind", "paidThrough"];
 const fieldIds: Record<CompanyField, string> = {
   name: "company-name", adminEmail: "company-admin-email", slug: "company-slug",
   periodKind: "company-period-trial", paidThrough: "company-paid-through",
+  phone: "company-phone", email: "company-public-email", addressLine: "company-address-line",
+  postalCode: "company-postal-code", city: "company-city", country: "company-country",
 };
 
 async function lookupConflictFields(values: CompanyFormValues): Promise<FieldErrors> {
@@ -191,17 +194,49 @@ export function NewCompanyForm({ adminBaseDomain, publicBaseDomain }: Props) {
 
         <fieldset className={styles.section} disabled={saving}>
           <legend>Firma i administrator</legend>
-          <p className={styles.hint}>Jedna firma i jedno konto administratora. Dane kontaktowe strony uzupełnisz w ustawieniach firmy po zapisie.</p>
+          <p className={styles.hint}>Jedna firma i jedno konto administratora. Telefon i publiczny e-mail są opcjonalne i można je uzupełnić później w ustawieniach firmy.</p>
           <div className={styles.fieldGrid}>
           <FormField id={fieldIds.name} label="Nazwa firmy" required hint="Nazwa widoczna w panelu." error={errors.name}>
             <TextInput value={values.name} maxLength={120} placeholder="np. Alfa Campers" autoComplete="organization"
               onChange={(event) => update({ name: event.target.value }, "name")} />
+          </FormField>
+          <FormField id={fieldIds.phone} label="Telefon kontaktowy (opcjonalnie)" hint="Numer widoczny dla klientów, np. +48 600 100 200." error={errors.phone}>
+            <TextInput type="tel" inputMode="tel" value={values.phone} maxLength={24} autoComplete="off"
+              onChange={(event) => update({ phone: event.target.value }, "phone")} />
           </FormField>
           <FormField id={fieldIds.adminEmail} label="E-mail administratora (konto Autervy)" required
             hint="Na ten adres wyślesz zaproszenie do panelu. Musi być globalnie unikalny; to nie jest publiczny e-mail firmy."
             error={errors.adminEmail}>
             <TextInput type="email" inputMode="email" value={values.adminEmail} maxLength={254} placeholder="np. admin@alfarent.pl"
               autoComplete="off" onChange={(event) => update({ adminEmail: event.target.value }, "adminEmail")} />
+          </FormField>
+          <FormField id={fieldIds.email} label="Publiczny e-mail kontaktowy (opcjonalnie)" error={errors.email}
+            hint="Adres dla klientów. To inny adres niż e-mail administratora, który służy do logowania.">
+            <TextInput type="email" inputMode="email" value={values.email} maxLength={254} autoComplete="off"
+              onChange={(event) => update({ email: event.target.value }, "email")} />
+          </FormField>
+          </div>
+        </fieldset>
+
+        <fieldset className={styles.section} disabled={saving}>
+          <legend>Adres (opcjonalnie)</legend>
+          <p className={styles.hint}>Publiczny adres firmy dla klientów. Możesz go pominąć i uzupełnić później w ustawieniach firmy. Zapis firmy go nie publikuje.</p>
+          <div className={styles.fieldGrid}>
+          <FormField id={fieldIds.addressLine} label="Ulica i numer" error={errors.addressLine}>
+            <TextInput value={values.addressLine} maxLength={200} autoComplete="off"
+              onChange={(event) => update({ addressLine: event.target.value }, "addressLine")} />
+          </FormField>
+          <FormField id={fieldIds.postalCode} label="Kod pocztowy" error={errors.postalCode}>
+            <TextInput value={values.postalCode} maxLength={16} autoComplete="off"
+              onChange={(event) => update({ postalCode: event.target.value }, "postalCode")} />
+          </FormField>
+          <FormField id={fieldIds.city} label="Miejscowość" error={errors.city}>
+            <TextInput value={values.city} maxLength={100} autoComplete="off"
+              onChange={(event) => update({ city: event.target.value }, "city")} />
+          </FormField>
+          <FormField id={fieldIds.country} label="Kraj" error={errors.country}>
+            <TextInput value={values.country} maxLength={100} placeholder="np. Polska" autoComplete="off"
+              onChange={(event) => update({ country: event.target.value }, "country")} />
           </FormField>
           </div>
         </fieldset>

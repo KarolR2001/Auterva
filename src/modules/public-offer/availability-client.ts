@@ -39,3 +39,6 @@ export function createLatest() {
     invalidate: () => { current += 1; },
   };
 }
+
+/** Search horizon of the server for the nearest free term (NEAREST_HORIZON_DAYS in src/modules/availability/read.ts, #216); only worded here, never sent. */
+export const NEAREST_HORIZON_DAYS = 180;

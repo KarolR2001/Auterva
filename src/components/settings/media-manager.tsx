@@ -106,6 +106,11 @@ export function MediaManager({ snapshot, onItemsChange }: { snapshot: SettingsSn
     }
   }
 
+  // An explicit refresh that succeeded retires an old conflict message: the list now holds the current versions.
+  async function refreshList() {
+    if (await refresh()) setNotice((current) => (current?.title === "Zdjęcie zostało zmienione w międzyczasie" ? null : current));
+  }
+
   async function upload(kind: string, file: File | undefined) {
     if (!file || busy) return;
     const invalid = checkImageFile(file);
@@ -281,7 +286,7 @@ export function MediaManager({ snapshot, onItemsChange }: { snapshot: SettingsSn
         );
       })}
       <div className={styles.actions}>
-        <Button type="button" variant="tertiary" disabled={busy !== null} onClick={() => void refresh()}>Odśwież listę</Button>
+        <Button type="button" variant="tertiary" disabled={busy !== null} onClick={() => void refreshList()}>Odśwież listę</Button>
       </div>
     </section>
   );
