@@ -51,6 +51,14 @@ describe("karta firmy i zaproszenie (#25)", () => {
     expect(screen.getByRole("link", { name: "Anuluj" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Przed wysłaniem zaproszenia" })).toBeInTheDocument();
     expect(screen.getByLabelText(/^Trial/)).toBeInTheDocument();
+    expect(screen.getByText("Trial — 14 dni od rejestracji administratora")).toBeInTheDocument();
+    expect(screen.queryByText(/336/)).toBeNull();
+  });
+
+  it("karta firmy opisuje trial jako 14 dni od rejestracji administratora (D-38)", () => {
+    shell(<CompanyCard initial={base} justSaved={false} />);
+    expect(screen.getByText("Trial (14 dni od rejestracji administratora)")).toBeInTheDocument();
+    expect(screen.queryByText(/336/)).toBeNull();
   });
 
   it("karta prowadzi do materiałów publicznych i ustawień tej firmy (#37)", () => {

@@ -231,7 +231,7 @@ export function NewCompanyForm({ adminBaseDomain, publicBaseDomain }: Props) {
               <input id="company-period-trial" type="radio" name="periodKind" checked={values.periodKind === "trial"}
                 aria-describedby={errors.periodKind ? "company-period-error" : undefined}
                 onChange={() => update({ periodKind: "trial", paidThrough: "" }, "periodKind")} />
-              <span>Trial — 336 godzin od rejestracji administratora</span>
+              <span>Trial — 14 dni od rejestracji administratora</span>
             </label>
             <label className={styles.segment}>
               <input id="company-period-paid" type="radio" name="periodKind" checked={values.periodKind === "paid"}
