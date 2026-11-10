@@ -7,6 +7,7 @@ import { availabilityToday, sqlDate } from "../../src/modules/availability/dates
 import { claimNextJob } from "../../src/modules/jobs/queue";
 import { createMediaStorage, removeObject } from "../../src/modules/media/storage";
 import { processMediaClaim } from "../../src/modules/media/worker";
+import { expectDesktopRowLayout } from "../fixtures/fleet-row-layout";
 import { ensureControlledSuperadminMfa, resetPlatformApiBudget, verifiedFixtureSession } from "../fixtures/verified-session";
 
 // #47: the superadmin manages one company's fleet, photos, calendar and protected preview from its card (mobile width),
@@ -139,6 +140,8 @@ test("company fleet by the superadmin: card -> fleet -> form -> photos -> calend
     // Company B: its own fleet only, nothing of A (the vehicle id of A is not reachable under B).
     await page.goto(`${origin}/firmy/${orgB}/pojazdy/`);
     await expect(page.getByText("Auto Beta").first()).toBeVisible();
+    await expectDesktopRowLayout(page, false);
+    await page.setViewportSize({ width: 390, height: 844 });
     await expect(page.getByText(/Auto Alfa/)).toHaveCount(0);
     // Since #289 a vehicle of another company is the neutral 404 from the server (never a 200 with a message).
     expect((await page.goto(`${origin}/firmy/${orgB}/pojazdy/${carA}/`))?.status()).toBe(404);

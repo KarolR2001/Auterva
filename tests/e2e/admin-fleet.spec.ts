@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { availabilityToday, sqlDate } from "../../src/modules/availability/dates";
+import { expectDesktopRowLayout } from "../fixtures/fleet-row-layout";
 import { verifiedFixtureSession } from "../fixtures/verified-session";
 
 // #34: fleet list and dashboard of the company admin against the real API of the built ingress.
@@ -71,6 +72,8 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
     await expect(rows.nth(2)).toContainText("Niedostępny dziś");
     await expect(rows.nth(1)).toContainText("Szkic");
     await expect(rows.nth(1)).toContainText("— Niepubliczny");
+    await expectDesktopRowLayout(page);
+    await page.setViewportSize({ width: 1280, height: 720 });
 
     // Filters: search, no results and reset.
     await page.getByLabel("Szukaj").fill("alfa");
