@@ -24,7 +24,7 @@ export async function requestExportRoute(request: Request, area: Area, organizat
     const access = await actor(request, area, organizationId, true, requestId);
     if (access.error) return access.error;
     const input = await body(request);
-    if (!input || !only(input, ["proof", "idempotencyKey"]) || typeof input.proof !== "string"
+    if (!input || !only(input, ["proof", "idempotencyKey"]) || typeof input.proof !== "string" || !/^[a-f0-9]{64}$/.test(input.proof)
       || typeof input.idempotencyKey !== "string" || !uuid.test(input.idempotencyKey)) {
       return response({ code: "INVALID_INPUT" }, 400, requestId);
     }
