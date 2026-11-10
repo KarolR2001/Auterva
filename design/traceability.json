@@ -34,6 +34,23 @@
       "testPaths": ["tests/e2e/settings-nav-focus.spec.ts"]
     },
     {
+      "issue": 366,
+      "scope": "Backend zakresu prywatnego feedu iCal (E11, D-47; rozszerzenie #327): przy tworzeniu opcjonalne vehicleIds (1–50 UUID bez powtórzeń, tylko pojazdy tej firmy opublikowane w chwili tworzenia; obcy i nieznany dają tę samą odmowę 400 INVALID_INPUT z fieldErrors.vehicleIds), jawna kolumna scope FLEET/VEHICLES i tabela CalendarFeedTokenVehicle ze złożonymi FK (firma) i ON DELETE CASCADE; rotacja zachowuje zakres atomowo; lista admina i superadmina zwraca scope i vehicles [{id, name}]; feed tylko z pojazdów zakresu PUBLISHED w chwili odczytu, bez pozostałych pusty kalendarz. Ekran ADM-22 state=create (wybór „Wybrane pojazdy (opublikowane)”) wdraża osobne zadanie Frontend.",
+      "referenceScreenIds": [],
+      "unmappedStates": ["Backend bez UI; stan create ekranu „Kalendarz zewnętrzny” (Penpot b4e99770-b096-80ee-8008-ece4de62b468 desktop, b4e99770-b096-80ee-8008-ece599d8ec7d mobile, komentarz #327) mapuje zadanie Frontend."],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261110230000_calendar_feed_vehicle_scope_issue_366/migration.sql",
+        "src/modules/calendar-feed/tokens.ts",
+        "src/modules/calendar-feed/feed.ts",
+        "src/modules/calendar-feed/feed-http.ts",
+        "src/modules/calendar-feed/http.ts",
+        "src/modules/backup/company.ts",
+        "docs/contracts/calendar-feed-implementation.md"
+      ],
+      "testPaths": ["tests/integration/calendar-feed-scope.test.ts", "tests/integration/calendar-feed.test.ts"]
+    },
+    {
       "issue": 339,
       "scope": "Miernik „Siła hasła” (D-45, D-46) w aktywacji (ACC-04), resecie (ADM-03) i zmianie hasła: poniżej 12 znaków stan „Za krótkie” (pusty pasek, bez poziomu); od 12 znaków poziom słabe/średnie/mocne z punktów: małe i wielkie litery, cyfra, znak specjalny (po 1) oraz długość 16+ (dodatkowy 1); 3+ mocne, 2 średnie, reszta słabe. Miernik jest informacyjny: nie zmienia walidacji serwera (12–256) ani blokady zapisu; aria-live obejmuje tylko etykietę poziomu. Hasło nie jest logowane ani wysyłane.",
       "relatedRequirementIds": ["FR-ADM-006", "FR-ADM-007", "FR-ADM-080", "FR-ADM-082"],

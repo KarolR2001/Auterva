@@ -3,12 +3,14 @@ import { prisma } from "@/lib/prisma";
 import { InvalidCharactersError } from "@/lib/text-policy";
 import { actor, body, only, response, uuid } from "@/modules/fleet/http";
 import { reportInternalError, transientDbResponse } from "@/modules/observability/http-observe";
-import { createFeedToken, feedPath, listFeedTokens, revokeFeedToken, rotateFeedToken } from "./tokens";
+import { createFeedToken, feedPath, FeedVehiclesError, listFeedTokens, revokeFeedToken, rotateFeedToken } from "./tokens";
 
 type Area = "COMPANY_ADMIN" | "PLATFORM";
 
 function failure(error: unknown, requestId: string) {
-  if (error instanceof InvalidCharactersError) return response({ code: "INVALID_INPUT", fieldErrors: error.fieldErrors }, 400, requestId);
+  if (error instanceof InvalidCharactersError || error instanceof FeedVehiclesError) {
+    return response({ code: "INVALID_INPUT", fieldErrors: error.fieldErrors }, 400, requestId);
+  }
   const code = error instanceof Error ? error.message : "";
   if (code === "FEED_INVALID_INPUT") return response({ code: "INVALID_INPUT" }, 400, requestId);
   if (code === "FEED_NOT_FOUND") return response({ code: "NOT_FOUND" }, 404, requestId);
@@ -48,8 +50,9 @@ export async function addFeed(request: Request, area: Area, targetOrganizationId
     const access = await actor(request, area, targetOrganizationId, true, requestId);
     if (access.error) return access.error;
     const parsed = await body(request);
-    if (!parsed || !only(parsed, ["label"])) return response({ code: "INVALID_INPUT" }, 400, requestId);
-    const issued = await createFeedToken(prisma, { ...operation(access, requestId), label: parsed.label });
+    if (!parsed || !only(parsed, ["label", "vehicleIds"])) return response({ code: "INVALID_INPUT" }, 400, requestId);
+    const issued = await createFeedToken(prisma, { ...operation(access, requestId), label: parsed.label,
+      vehicleIds: parsed.vehicleIds });
     return response(withSecret(request, issued), 201, requestId);
   } catch (error) { return failure(error, requestId); }
 }
