@@ -44,6 +44,14 @@
       "testPaths": ["tests/unit/password-policy.test.tsx", "tests/e2e/account-ui.spec.ts", "tests/e2e/company-activation-ui.spec.ts"]
     },
     {
+      "issue": 337,
+      "scope": "Lista pojazdów ADM-05 (panel firmy i flota superadmina) po D-42: podsumowanie statusów w nagłówku (statusCounts), filtry Kategoria i Ostatnia zmiana (od/do, LocalDate), sortowanie, stan filtrów w adresie URL (odświeżenie zachowuje, zmiana filtra wraca na stronę 1, loading bez starego wyniku), mobilny układ kart Edytuj · Terminy · Więcej z arkuszami Filtry/Sortuj (Dialog Radix: pułapka i powrót fokusu). Kolejność strzałkami tylko przy sort=order i bez filtrów. Zależy od API #336 (PR #352). Eksport makiety ma tylko wariant D; układ mobilny wg SPEC 9.12.",
+      "relatedRequirementIds": ["C-F095", "C-F097", "FR-ADM-021", "FR-ADM-022"],
+      "referenceScreenIds": ["ADM-05"],
+      "codePaths": ["src/components/admin/vehicle-list.tsx", "src/components/admin/fleet-api.ts", "src/components/admin/admin.module.css"],
+      "testPaths": ["tests/unit/admin-fleet.test.ts", "tests/unit/platform-fleet.test.tsx", "tests/e2e/admin-fleet.spec.ts", "tests/e2e/platform-company-fleet.spec.ts"]
+    },
+    {
       "issue": 336,
       "scope": "API listy pojazdów firmy (panel i superadmin w kontekście firmy) po decyzji D-42: filtr kategorii (categoryId, już istniał), filtr ostatniej zmiany updatedFrom/updatedTo (dni Europe/Warsaw, włącznie), sortowanie sort=order|updatedDesc|updatedAsc oraz statusCounts (all/published/draft/unpublished/archived) niezależne od paginacji i filtra status. UI (ADM-05) to osobne issue Frontend #337.",
       "relatedRequirementIds": ["C-F095", "C-F097", "FR-ADM-021", "FR-ADM-022"],

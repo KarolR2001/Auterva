@@ -87,6 +87,51 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
     await expect(page.getByRole("heading", { level: 3 })).toHaveText(["Alfa Trzecia"]);
     await page.getByLabel("Dostępność dziś").selectOption("");
 
+    // D-42: status summary, category / last-change filters and sort live in the address and survive a reload.
+    await expect(page.getByText("3 pojazdy · 2 opublikowane · 1 szkic")).toBeVisible();
+    await page.getByLabel("Kategoria", { exact: true }).selectOption({ label: "Osobowe" });
+    await expect(page.getByRole("heading", { level: 3 })).toHaveCount(3);
+    await expect(page).toHaveURL(new RegExp(`categoryId=${cat}`));
+    await page.getByLabel("Ostatnia zmiana od").fill(day(1));
+    await expect(page.getByRole("heading", { name: "Brak wyników" })).toBeVisible();
+    await expect(page.getByText("pojazdy ·")).toHaveCount(0);
+    await page.getByLabel("Ostatnia zmiana od").fill(day(0));
+    await expect(page.getByRole("heading", { level: 3 })).toHaveCount(3);
+    await page.getByLabel("Ostatnia zmiana do").fill(day(-3));
+    await expect(page.getByText("Data „od” nie może być późniejsza niż „do”.")).toBeVisible();
+    await expect(page.locator("tbody tr")).toHaveCount(0);
+    await page.getByLabel("Ostatnia zmiana do").fill("");
+    await page.getByLabel("Sortuj").selectOption("updatedDesc");
+    await expect(page.getByRole("button", { name: /Przesuń/ })).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByLabel("Sortuj")).toHaveValue("updatedDesc");
+    await expect(page.getByLabel("Kategoria", { exact: true })).toHaveValue(cat);
+    await expect(page.getByLabel("Ostatnia zmiana od")).toHaveValue(day(0));
+    await expect(page.getByRole("heading", { level: 3 })).toHaveCount(3);
+    // Mobile: filters and sort open in a sheet that traps focus and gives it back; cards keep Edytuj, Terminy, Więcej.
+    await page.setViewportSize({ width: 390, height: 844 });
+    const filters = page.getByRole("button", { name: /^Filtry/ });
+    await expect(filters).toBeVisible();
+    await expect(page.getByRole("link", { name: /^Terminy/ }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /^Edytuj/ }).first()).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await filters.click();
+    const sheet = page.getByRole("dialog", { name: "Filtry listy pojazdów" });
+    await expect(sheet.getByLabel("Kategoria")).toBeVisible();
+    for (let n = 0; n < 12; n += 1) {
+      await page.keyboard.press("Tab");
+      expect(await page.evaluate(() => !!document.activeElement?.closest("[role=dialog]"))).toBe(true);
+    }
+    await page.keyboard.press("Escape");
+    await expect(sheet).toHaveCount(0);
+    await expect(filters).toBeFocused();
+    await page.getByRole("button", { name: /^Sortuj/ }).click();
+    await page.getByRole("dialog", { name: "Sortowanie listy pojazdów" }).getByLabel("Sortuj").selectOption("order");
+    await page.getByRole("button", { name: "Pokaż wyniki" }).click();
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.goto(`${base}/admin/pojazdy/`);
+    await expect(page.getByRole("heading", { level: 3 })).toHaveCount(3);
+
     // Keyboard order: focus the button, press Enter; the order is the server one after a reload.
     const down = page.getByRole("button", { name: "Przesuń „Alfa Pierwsza” w dół" });
     await down.focus();

@@ -72,6 +72,13 @@ test("company fleet by the superadmin: card -> fleet -> form -> photos -> calend
     await expect(page.getByText("Auto Beta")).toHaveCount(0);
     await expect(page.getByText(`Firma: Firma Floty A ${tag}`)).toBeVisible();
     await noOverflow("fleet list");
+    // D-42: the superadmin list has the same summary, category filter and sort.
+    await expect(page.getByText(/^\d+ pojazd/).first()).toBeVisible();
+    await expect(page.getByLabel("Kategoria", { exact: true })).toBeVisible();
+    await page.getByLabel("Sortuj").selectOption("updatedAsc");
+    await expect(page).toHaveURL(/sort=updatedAsc/);
+    await expect(page.getByText("Auto Alfa").first()).toBeVisible();
+    await page.getByLabel("Sortuj").selectOption("order");
 
     // Form: a save is the superadmin's own and belongs to company A.
     await page.getByRole("link", { name: /Edytuj\s*Auto Alfa/ }).click();
