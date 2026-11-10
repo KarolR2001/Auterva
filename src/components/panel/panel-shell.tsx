@@ -3,6 +3,7 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
   Building2,
+  CalendarRange,
   CarFront,
   CircleUserRound,
   LayoutDashboard,
@@ -34,6 +35,7 @@ import styles from "./panel.module.css";
 const companyDesktop = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { label: "Pojazdy", href: "/admin/pojazdy", icon: CarFront },
+  { label: "Kalendarz floty", href: "/admin/kalendarz", icon: CalendarRange },
   { label: "Czat z Autervą", href: "/admin/czat", icon: MessageCircle },
   { label: "Ustawienia", href: "/admin/ustawienia", icon: Settings },
   { label: "Konto", href: "/admin/konto", icon: CircleUserRound },
@@ -255,6 +257,7 @@ function AvailablePanelShell({
   const menuLinks =
     area === "company"
       ? [
+          { label: "Kalendarz floty", href: "/admin/kalendarz" },
           { label: "Status usługi", href: "/admin/usluga" },
           { label: "Ustawienia", href: "/admin/ustawienia" },
           { label: "Konto", href: "/admin/konto" },
