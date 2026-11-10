@@ -201,7 +201,7 @@ export function SetNewPasswordForm({
             : "Ustaw nowe hasło"
       }
       context={area === "company" ? "Panel administratora" : "Panel Auterva"}
-      footer={state === "form" ? "Token aktywny • po zapisie wrócisz do logowania" : undefined}
+      footer={state === "form" ? "Link jednorazowy • po zapisie wrócisz do logowania" : undefined}
     >
       {state === "success" && (
         <div className={styles.notices}>
@@ -281,7 +281,7 @@ export function SetNewPasswordForm({
             id="reset-confirmation"
             label="Powtórz hasło"
             autoComplete="new-password"
-            hint="Po zmianie hasła wylogujemy Cię ze wszystkich urządzeń."
+            hint="Po zmianie hasła wylogujemy Cię ze wszystkich urządzeń. Zalogujesz się nowym hasłem i kodem MFA."
             visibility={visibility}
             onVisibilityChange={setVisibility}
             disabled={request.loading}

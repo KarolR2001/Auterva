@@ -119,8 +119,9 @@ describe("ustawienie nowego hasła", () => {
   it("pokazuje wstęp, ostrzeżenie o wylogowaniu i stopkę z makiety ADM-03", () => {
     render(<SetNewPasswordForm area="company" token={token} />);
     expect(screen.getByText("Użyj unikalnego hasła i zapisz je w bezpiecznym menedżerze.")).toBeVisible();
-    expect(screen.getByText("Po zmianie hasła wylogujemy Cię ze wszystkich urządzeń.")).toBeVisible();
-    expect(screen.getByText("Token aktywny • po zapisie wrócisz do logowania")).toBeVisible();
+    expect(screen.getByText("Po zmianie hasła wylogujemy Cię ze wszystkich urządzeń. Zalogujesz się nowym hasłem i kodem MFA.")).toBeVisible();
+    expect(screen.queryByText(/Token aktywny/)).toBeNull();
+    expect(screen.getByText("Link jednorazowy • po zapisie wrócisz do logowania")).toBeVisible();
   });
 
   it("blokuje zbyt krótkie i niezgodne hasło przed wysłaniem", async () => {
