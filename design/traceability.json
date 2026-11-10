@@ -605,6 +605,14 @@
       ]
     },
     {
+      "issue": 304,
+      "scope": "PLT-04: odrzucenie z czyszczeniem klucza idempotencji tylko dla 503 z kodem HOST_DOMAINS_NOT_CONFIGURED lub INGRESS_NOT_CONFIGURED (oba przed zapisem); każde inne 503 to wynik niepewny z zachowaniem klucza i bez fałszywego sukcesu/odrzucenia. Bez zmian wyglądu ani API.",
+      "relatedRequirementIds": ["C-F022", "C-F024"],
+      "referenceScreenIds": ["PLT-04"],
+      "codePaths": ["src/modules/organizations/new-company-form.ts", "src/components/platform/new-company-form.tsx"],
+      "testPaths": ["tests/unit/new-company-form.test.ts"]
+    },
+    {
       "issue": 289,
       "scope": "Serwerowe 404 dla obcego lub nieistniejącego pojazdu na trasach floty platformy /firmy/{id}/pojazdy/{id}/ i .../kalendarz/ (po autoryzacji superadmina i weryfikacji firmy, zapytanie zawężone do firmy z URL); wspólny helper requireVehicleInCompany z #284.",
       "relatedRequirementIds": ["FR-ADM-030", "FR-ADM-050"],

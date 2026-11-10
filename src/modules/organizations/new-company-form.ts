@@ -115,8 +115,10 @@ export function classifyCreateResponse(status: number, body: unknown, retryAfter
   }
   if (status === 403 || status === 404) return { kind: "rejected",
     message: "Nie masz uprawnień do tej operacji albo sesja wygasła. Zaloguj się ponownie." };
-  if (status === 503) return { kind: "rejected",
-    message: "Konfiguracja domen Autervy jest niekompletna. Skontaktuj się z operatorem." };
+  // Only the two pre-write configuration codes are a definite refusal; any other 503 (proxy, overload
+  // after commit) has an unknown outcome and falls through to "uncertain" with the same key.
+  if (status === 503 && (code === "HOST_DOMAINS_NOT_CONFIGURED" || code === "INGRESS_NOT_CONFIGURED"))
+    return { kind: "rejected", message: "Konfiguracja Autervy jest niekompletna. Skontaktuj się z operatorem." };
   return { kind: "uncertain" };
 }
 
