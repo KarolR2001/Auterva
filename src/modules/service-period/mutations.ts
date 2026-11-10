@@ -12,7 +12,16 @@ type PlatformOperation = {
   requestId: string;
   /** Controlled clock for the reminder schedule (tests); defaults to the real time. */
   now?: Date;
+  /** Interactive-transaction limits; tests shorten them, production uses PERIOD_TX. */
+  transaction?: { maxWait: number; timeout: number };
 };
+
+/**
+ * Explicit limits, as in the other write modules. The default Prisma budget (2 s maxWait, 5 s timeout)
+ * is too tight here: the organization row lock queues behind concurrent period/restore/archive
+ * writers, and that wait counts against the timeout.
+ */
+const PERIOD_TX = { maxWait: 5_000, timeout: 20_000 } as const;
 
 function localDate(value: Date | null): string | null {
   return value?.toISOString().slice(0, 10) ?? null;
@@ -64,7 +73,7 @@ export async function changePaidThrough(db: PrismaClient, input: PlatformOperati
         before: { paidThrough: oldPaid, periodVersion: oldVersion },
         after: { paidThrough: input.paidThrough, periodVersion: oldVersion + 1 } } });
     return { paidThrough: input.paidThrough, periodVersion: oldVersion + 1 };
-  });
+  }, input.transaction ?? PERIOD_TX);
 }
 
 export async function unlockPublicAfterRestore(db: PrismaClient, input: PlatformOperation & {
@@ -74,6 +83,14 @@ export async function unlockPublicAfterRestore(db: PrismaClient, input: Platform
   if (!validVersion(input.expectedOrganizationVersion)) throw new Error("PERIOD_VERSION_CONFLICT");
   const now = input.now ?? new Date();
   if (!Number.isFinite(now.getTime())) throw new Error("INVALID_DATE_RANGE");
+  // Business refusal first, without the row lock: an archived company must not queue behind writers
+  // for a transaction that can only refuse. The locked check below stays authoritative.
+  const early = await requireAuditActor(db, input.actorId, input.sessionId);
+  if (early.role !== "SUPERADMIN_AUTERVA") throw new Error("FORBIDDEN");
+  const seen = await db.organization.findUnique({ where: { id: input.organizationId },
+    select: { archivedAt: true } });
+  if (!seen) throw new Error("PERIOD_COMPANY_NOT_FOUND");
+  if (seen.archivedAt) throw new Error("PERIOD_ARCHIVED");
   return db.$transaction(async (tx) => {
     const actor = await requireAuditActor(tx, input.actorId, input.sessionId);
     if (actor.role !== "SUPERADMIN_AUTERVA") throw new Error("FORBIDDEN");
@@ -98,5 +115,5 @@ export async function unlockPublicAfterRestore(db: PrismaClient, input: Platform
         after: { publicUnlockRequired: false, version: input.expectedOrganizationVersion + 1 } } });
     return { publicUnlockRequired: false, publicRequiresPaid: true,
       version: input.expectedOrganizationVersion + 1 };
-  });
+  }, input.transaction ?? PERIOD_TX);
 }
