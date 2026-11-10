@@ -103,7 +103,7 @@ export async function generateData(db: PrismaClient, options: GenerateOptions) {
       const published = v % 10 !== 9; // 90% PUBLISHED, 10% DRAFT
       return { id: vehicleId(options.prefix, options.seed, n, v), organizationId: ids.organizationId,
         slug: vehicleSlug(options.prefix, n, v), name: `Auto ${v}`, brand: "Perf", model: `M${v % 7}`, seats: 2 + (v % 7),
-        transmission: v % 2 ? "MANUAL" : "AUTOMATIC", price: (100 + Math.floor(rand() * 400)).toFixed(2), priceUnit: "DAY",
+        transmission: v % 2 ? "MANUAL" : "AUTOMATIC", price: (100 + Math.floor(rand() * 400)).toFixed(2), priceUnit: "doba",
         status: published ? "PUBLISHED" : "DRAFT", sortOrder: v, categoryId: category.id,
         availableFrom: sqlDate(activityFrom), availableTo: sqlDate(activityTo) };
     });

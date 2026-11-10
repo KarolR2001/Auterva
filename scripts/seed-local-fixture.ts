@@ -13,12 +13,12 @@ const organizationRows = [
   [FIXTURE.organizations[1], "fixture-b", "Fixture B"],
 ] as const;
 const vehicleRows = [
-  [FIXTURE.vehicles[0], 0, "bus-9", "Bus 9", id(31), "PUBLISHED", "490.00", "DAY", "2026-03-28", "2026-11-03"],
-  [FIXTURE.vehicles[1], 0, "auto-blokowane", "Auto blokowane", id(32), "PUBLISHED", "190.00", "DAY", "2026-10-25", "2026-10-25"],
-  [FIXTURE.vehicles[2], 0, "szkic-a", "Szkic A", id(32), "DRAFT", "140.00", "DAY", "2026-10-23", null],
-  [FIXTURE.vehicles[3], 1, "auto-wolne", "Auto wolne", id(32), "PUBLISHED", "210.00", "DAY", "2026-03-29", "2026-11-01"],
-  [FIXTURE.vehicles[4], 1, "ukryte-b", "Ukryte B", id(32), "UNPUBLISHED", "120.00", "DAY", "2026-10-23", null],
-  [FIXTURE.vehicles[5], 1, "archiwalne-b", "Archiwalne B", id(31), "ARCHIVED", "390.00", "DAY", "2026-10-23", null],
+  [FIXTURE.vehicles[0], 0, "bus-9", "Bus 9", id(31), "PUBLISHED", "490.00", "doba", "2026-03-28", "2026-11-03"],
+  [FIXTURE.vehicles[1], 0, "auto-blokowane", "Auto blokowane", id(32), "PUBLISHED", "190.00", "doba", "2026-10-25", "2026-10-25"],
+  [FIXTURE.vehicles[2], 0, "szkic-a", "Szkic A", id(32), "DRAFT", "140.00", "doba", "2026-10-23", null],
+  [FIXTURE.vehicles[3], 1, "auto-wolne", "Auto wolne", id(32), "PUBLISHED", "210.00", "doba", "2026-03-29", "2026-11-01"],
+  [FIXTURE.vehicles[4], 1, "ukryte-b", "Ukryte B", id(32), "UNPUBLISHED", "120.00", "doba", "2026-10-23", null],
+  [FIXTURE.vehicles[5], 1, "archiwalne-b", "Archiwalne B", id(31), "ARCHIVED", "390.00", "doba", "2026-10-23", null],
 ] as const;
 
 // Every deterministic ID that reset deletes (or reuses with ON CONFLICT) must

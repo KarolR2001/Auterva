@@ -22,6 +22,18 @@
       "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
     },
     {
+      "issue": 320,
+      "scope": "Kosmetyka z odbioru #263: teksty ADM-02 (tekst pomocniczy pola, przycisk „Wyślij link resetujący”, strzałka w linku powrotu, stopka o neutralnym potwierdzeniu) i ADM-03 (etykieta „Powtórz hasło”, przycisk „Ustaw nowe hasło”, krótki wstęp, ostrzeżenie o wylogowaniu jako podpowiedź pola, stopka „Link jednorazowy” (bez twierdzenia o aktywności tokenu)); jednostka ceny w fixture „doba” zamiast „DAY” (jednostka to tekst wpisywany przez firmę, wyświetlanie bez zmian). Logika resetu i lista siły hasła (#22/#252) bez zmian. Pozycje PUB-03 (chipy, tytuł, nawigacja, stopka) przeniesione do #319.",
+      "relatedRequirementIds": ["C-F041", "C-F042", "C-F044"],
+      "referenceScreenIds": ["ADM-02", "ADM-03"],
+      "codePaths": [
+        "src/components/auth/reset-flow.tsx",
+        "src/components/auth/auth-flow.tsx",
+        "scripts/seed-local-fixture.ts"
+      ],
+      "testPaths": ["tests/unit/reset-flow.test.tsx", "tests/e2e/account-ui.spec.ts"]
+    },
+    {
       "issue": 319,
       "scope": "PUB-03 desktop z odbioru #263: siatka 7/5 z obszarami (galeria | tytuł, cena, parametry, opis krótki i panel dostępności; pod nimi opis, wyposażenie i warunki | kalendarz), kalendarz jako obramowana karta z podsumowaniem „Wybrany zakres … · N dni”; galeria jako karta z czterema równymi miniaturami w rzędzie, etykietą „Wybrane” i przyciskiem „Zobacz wszystkie zdjęcia”; render shortDescription. Mobile zachowuje kolejność galeria, panel, kalendarz, opis. Dostępność (#43/#251) bez zmian logiki. Poza zakresem: najbliższy wolny termin (#218), elementy opisane w #263 jako pominięte. Porównanie z Penpotem: eksport 10.11, VoiceOver DEFERRED (#97).",
       "referenceScreenIds": ["PUB-03"],
