@@ -416,9 +416,11 @@ export function buildLegal(context: Context, kind: LegalKind) {
   const s = context.settings;
   const text = (kind === "privacy" ? s?.privacyText : s?.termsText) ?? null;
   const url = (kind === "privacy" ? s?.privacyUrl : s?.termsUrl) ?? null;
+  // D-36: UTC instant of the last change of this text (ISO 8601, null when unknown or no text); the client shows it as a LocalDate in Europe/Warsaw.
+  const updatedAt = text ? ((kind === "privacy" ? s?.privacyTextUpdatedAt : s?.termsTextUpdatedAt) ?? null)?.toISOString() ?? null : null;
   const title = pageTitle(kind === "privacy" ? "Polityka prywatności" : "Regulamin", context.name);
   return { kind, status: text ? "TEXT" as const : url ? "LINK" as const : "MISSING" as const,
     // Plain text of this company, not the platform document; render escaped.
-    text, url, seo: buildSeo({ origin: context.origin, path: legalPaths[kind], title,
+    text, url, updatedAt, seo: buildSeo({ origin: context.origin, path: legalPaths[kind], title,
       description: clip(text, 160), siteName: context.name, index: text !== null }) };
 }

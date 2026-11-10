@@ -44,6 +44,23 @@
       "testPaths": ["tests/unit/password-policy.test.tsx", "tests/e2e/account-ui.spec.ts", "tests/e2e/company-activation-ui.spec.ts"]
     },
     {
+      "issue": 325,
+      "scope": "Backend D-36 dla PUB-05/06 (#232): data ostatniej zmiany tekstu polityki prywatności i regulaminu firmy (privacyTextUpdatedAt, termsTextUpdatedAt; UTC, ustawiana przez serwer tylko przy zmienionym tekście) w ustawieniach (odczyt admin i platforma) oraz w publicznym DTO strony prawnej (updatedAt, ISO 8601). Wartość początkowa istniejących dokumentów: NULL (UI bez daty). Brak zmian UI.",
+      "relatedRequirementIds": ["FR-PUB-041", "FR-PUB-042"],
+      "referenceScreenIds": ["PUB-05", "PUB-06"],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261110120000_legal_text_updated_at_issue_325/migration.sql",
+        "src/modules/settings/mutations.ts",
+        "src/modules/settings/read.ts",
+        "src/modules/public-offer/read.ts",
+        "docs/contracts/company-settings-and-vehicle-publication.md",
+        "docs/contracts/public-offer-seo.md"
+      ],
+      "testPaths": ["tests/integration/company-settings.test.ts", "tests/integration/legal-updated-at-migration.test.ts"],
+      "sharedWith": "Frontend #232 używa pola updatedAt do wiersza „Ostatnia aktualizacja”."
+    },
+    {
       "issue": 323,
       "scope": "PUB-03 po #319 (QA #322) i pozycje PUB-03 z #320: podsumowanie „Wybrany zakres … · N dni” tylko po werdykcie (nie w ładowaniu i błędzie); pola dat bez obcięcia przy 1024 px (wiersz Od/Do, przycisk poniżej do 1280 px); dialog galerii wyśrodkowany; scroll-margin chroniący fokus przed przyklejonym CTA na mobile; karta kalendarza bezpośrednio pod kartą sprawdzania (bez pustej przestrzeni przy wysokiej galerii); chipy w kształcie pigułki, tytuł bez etykiety kategorii (kategoria zostaje w chipach), nagłówek desktop bez linku Kontakt (jest przycisk Skontaktuj się), stopka z „© rok nazwa”. Poza zakresem: hasło firmy w stopce (brak pola danych), reszta #320 (ADM-02/03).",
       "referenceScreenIds": ["PUB-03"],
@@ -1939,6 +1956,21 @@
         "src/modules/public-offer/contact-presentation.ts"
       ],
       "testPaths": ["tests/unit/contact-legal.test.tsx", "tests/e2e/public-contact.spec.ts"]
+    },
+    {
+      "issue": 232,
+      "scope": "PUB-05/06 struktura dokumentu prawnego (D-36): eyebrow (INFORMACJE PRAWNE / ZASADY WYNAJMU) i lead, lekka konwencja treści (linia zaczynająca się od `## ` to numerowany nagłówek h2 z kotwicą i pozycją spisu treści, reszta akapity; tekst escapowany, bez HTML i markdownu, brak nagłówków = brak spisu), link powrotny do pojazdu przez ?vehicle=<slug> tylko dla opublikowanego pojazdu tej firmy (walidacja serwerowa), wiersz „Ostatnia aktualizacja” renderowany tylko, gdy DTO ma pole updatedAt (zależność: Backend #325, pole podłączone po jego scaleniu), podpowiedź o konwencji w podglądzie ustawień. Penpot nieodczytany w tym przebiegu (karta współdzielona, brief zakazał wywołań): porównanie oparte na SPEC 9.5/9.6 i opisie rozbieżności z #44; porównanie wizualne z planszami PUB-05/06 do odbioru QA.",
+      "relatedRequirementIds": ["FR-PUB-041", "FR-PUB-042"],
+      "referenceScreenIds": ["PUB-05", "PUB-06"],
+      "codePaths": [
+        "src/components/public/legal-page.tsx",
+        "src/components/public/contact.module.css",
+        "src/components/settings/settings-extras.tsx",
+        "src/modules/public-offer/legal-structure.ts",
+        "src/app/polityka-prywatnosci/page.tsx",
+        "src/app/regulamin/page.tsx"
+      ],
+      "testPaths": ["tests/unit/legal-structure.test.ts", "tests/unit/contact-legal.test.tsx", "tests/e2e/public-legal-structure.spec.ts"]
     },
     {
       "issue": 235,
