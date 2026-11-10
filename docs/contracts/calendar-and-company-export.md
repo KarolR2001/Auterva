@@ -36,7 +36,7 @@ Domyślna zasada: eksport zawiera dane **wprowadzone przez firmę i jej własne*
 | Flota | pola pojazdu (nazwa, opis, parametry, kategoria/cechy, status, daty aktywności, kolejność, slug) | TAK |
 | Zdjęcia pojazdów | metadane (kolejność, cover, alt) w JSON; same pliki jako **osobna opcjonalna paczka** (wariant 1.3) | metadane TAK, pliki wariantowo |
 | Blokady dostępności | `from`, `to`, typ, `reference`, `internalNote`, źródło, wersja | TAK (to dane firmy; plik trafia wyłącznie do jej admina, nie jest publiczny) |
-| Okres usługi | daty trialu i `paidThrough`, bez `periodVersion` i wewnętrznych flag publikacji | do decyzji (E4) |
+| Okres usługi | daty trialu i `paidThrough`, bez `periodVersion` i wewnętrznych flag publikacji | zatwierdzone: TAK, daty (E4) |
 | Konto administratora | e-mail, imię, rola, data utworzenia, status MFA (tak/nie) | minimalnie TAK (to dane osobowe osoby żądającej; art. 15/20 RODO) |
 | Audyt firmy | bezpieczna projekcja allowlisty (jak panel audytu) za ostatnie 365 dni | wariantowo (E4) |
 | Czat superadmin–firma | wiadomości firmy z tej konwersacji | wariantowo (E4); rozmowa jest wspólna ze stroną platformy |
@@ -81,7 +81,7 @@ Plik eksportu leży w prywatnym storage z prefiksem firmy i nie wchodzi do kopii
 | Zarchiwizowana | Admin: brak (sesja i login zablokowane, `requireAuditActor` odmawia); superadmin: może zażądać eksportu w kontekście archiwum jako własny aktor, z `context: "ARCHIVED_COMPANY"` (spójne z D-23) | Dane nie są usuwane (brak ścieżki purge); to ścieżka obsługi praw do danych po zamknięciu konta |
 | Przywrócona z archiwum (#48) | Eksporty `READY` z czasu archiwum wygasają wg terminu; nowy eksport wymaga zalogowania z MFA | Przywrócenie nie przywraca sesji ani challenge |
 | Odtworzona z kopii (#60 `restore-company`) | Otwarte eksporty `EXPIRED`; konta zablokowane do odblokowania operatora | Brak wskrzeszenia wygasłych danych |
-| Po „zakończeniu współpracy” | Retencja danych firmy po zakończeniu nie jest zdefiniowana (brak operacji kasowania); historyczna liczba v2 „eksport min. 30 dni po zakończeniu” jest niezatwierdzona i tu jest wyłącznie propozycją | wymaga decyzji (E8) |
+| Po „zakończeniu współpracy” | Zatwierdzone 10.11.2026 (E8): superadmin eksportuje na prośbę przez 30 dni po archiwizacji lub zakończeniu współpracy. Retencja i kasowanie danych firmy nadal nie są zdefiniowane w tym kontrakcie (osobny otwarty temat) | **zatwierdzone: 30 dni** (E8) |
 
 ## 2. Subskrypcja kalendarza (b)
 
