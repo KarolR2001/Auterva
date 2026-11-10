@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addDays, blocksWithin, nearestBlocks, warsawToday } from "../../src/components/admin/dashboard";
-import { errorMessage, isUncertain, readErrorMessage, rowActions } from "../../src/components/admin/fleet-api";
+import { emptyQuery, errorMessage, isUncertain, queryFromSearch, readErrorMessage, rowActions, searchFromQuery, statusSummary } from "../../src/components/admin/fleet-api";
 import type { FleetItem } from "../../src/components/admin/fleet-api";
 import { filtersActive, REORDER_LIMIT, reorderPayload } from "../../src/components/admin/vehicle-list";
 
@@ -69,10 +69,12 @@ describe("#34 fleet list", () => {
   });
 
   it("tells active filters from an unfiltered list, so an empty fleet is not a no-results state", () => {
-    const empty = { search: "", status: "" as const, activeToday: "" as const, availableToday: "" as const, page: 1, pageSize: 20 };
+    const empty = emptyQuery;
     expect(filtersActive(empty)).toBe(false);
     expect(filtersActive({ ...empty, search: "  " })).toBe(false);
     expect(filtersActive({ ...empty, availableToday: "false" })).toBe(true);
+    expect(filtersActive({ ...empty, categoryId: "c" })).toBe(true);
+    expect(filtersActive({ ...empty, sort: "updatedDesc" })).toBe(false);
   });
 
   it("shows stable error codes as safe Polish messages, never raw codes", () => {
@@ -96,5 +98,24 @@ describe("#34 dashboard", () => {
     ], "2026-10-29", 2);
     expect(blocks.map((row) => row.id)).toEqual(["b2", "b3"]);
     expect(blocks[0].vehicleName).toBe("Pojazd bez nazwy");
+  });
+
+  it("keeps list filters in the address and falls back to defaults for malformed values (D-42)", () => {
+    const category = "3f2b8c1e-5a4d-4e6f-9a1b-2c3d4e5f6a7b";
+    const query = { ...emptyQuery, search: "van", status: "PUBLISHED" as const, categoryId: category,
+      sort: "updatedDesc" as const, page: 3 };
+    expect(queryFromSearch(searchFromQuery(query))).toEqual(query);
+    expect(searchFromQuery(emptyQuery)).toBe("");
+    expect(queryFromSearch("?status=HIDDEN&categoryId=x&updatedFrom=2026-11-01&sort=price&page=-2&activeToday=maybe")).toEqual(emptyQuery);
+  });
+
+  it("summarises statuses like the mockup, with Polish plurals and no zero parts", () => {
+    expect(statusSummary({ all: 6, published: 5, draft: 0, unpublished: 1, archived: 0 })).toBe("6 pojazdów • 5 opublikowanych • 1 ukryty");
+    expect(statusSummary({ all: 1, published: 0, draft: 1, unpublished: 0, archived: 0 })).toBe("1 pojazd • 1 szkic");
+    expect(statusSummary({ all: 12, published: 2, draft: 3, unpublished: 2, archived: 5 })).toBe("12 pojazdów • 2 opublikowane • 3 szkice • 2 ukryte • 5 zarchiwizowanych");
+    expect(statusSummary({ all: 0, published: 0, draft: 0, unpublished: 0, archived: 0 })).toBe("0 pojazdów");
+    // Compact (mobile) line like the mockup "6 pojazdów • 1 ukryty": published are implied, all-published fleet names them.
+    expect(statusSummary({ all: 6, published: 5, draft: 0, unpublished: 1, archived: 0 }, true)).toBe("6 pojazdów • 1 ukryty");
+    expect(statusSummary({ all: 3, published: 3, draft: 0, unpublished: 0, archived: 0 }, true)).toBe("3 pojazdy • 3 opublikowane");
   });
 });
