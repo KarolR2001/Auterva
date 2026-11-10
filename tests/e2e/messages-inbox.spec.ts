@@ -83,7 +83,7 @@ test("skrzynka superadmina: lista, przełączanie rozmów ze szkicami, wysyłka 
 
     // Entry from the company card opens exactly that company's conversation.
     await page.goto(`${origin}/firmy/${ids.b}/`);
-    await page.getByRole("link", { name: "Otwórz wiadomości" }).click();
+    await page.getByRole("main").getByRole("link", { name: /^(Wiadomości|Napisz do firmy)$/ }).click();
     await expect(page).toHaveURL(new RegExp(`/wiadomosci/\\?firma=${ids.b}`));
     await expect(page.getByRole("heading", { level: 2, name: names.b, exact: true })).toBeVisible();
     await expect(composer(names.b)).toBeVisible();

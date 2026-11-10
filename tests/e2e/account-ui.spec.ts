@@ -100,8 +100,12 @@ test("company admin: reset, account, password change, logout and expired service
     for (const address of [`nobody-${randomUUID()}@example.test`, email]) {
       await page.goto(`${origin}/admin/reset-hasla`);
       await page.getByRole("textbox", { name: /Adres e-mail/ }).fill(address);
+      // The back arrow sits on the same line as the link text.
+      const back = page.getByRole("link", { name: "Wróć do logowania" });
+      const [arrow, link] = await Promise.all([back.locator("svg").boundingBox(), back.boundingBox()]);
+      expect(arrow && link && arrow.y >= link.y && arrow.y + arrow.height <= link.y + link.height + 1 && link.height < 32).toBe(true);
       const answered = page.waitForResponse((r) => r.url().includes("/api/auth/password/request-reset"));
-      await page.getByRole("button", { name: "Wyślij instrukcję" }).click();
+      await page.getByRole("button", { name: "Wyślij link resetujący" }).click();
       const answer = await answered;
       expect(answer.status(), `request-reset answered ${await answer.text()}`).toBe(200);
       await expect(page.getByRole("status").filter({ hasText: neutral })).toBeVisible({ timeout: 20_000 });
@@ -117,21 +121,21 @@ test("company admin: reset, account, password change, logout and expired service
     await expect(page.getByRole("heading", { name: "Ustaw nowe hasło" })).toBeVisible();
     await page.getByLabel("Nowe hasło", { exact: true }).fill("krotkie");
     await expect(page.getByText("Siła hasła: Słabe")).toBeVisible();
-    await page.getByLabel("Potwierdź nowe hasło").fill("inne");
-    await page.getByRole("button", { name: "Zapisz nowe hasło" }).click();
+    await page.getByLabel("Powtórz hasło").fill("inne");
+    await page.getByRole("button", { name: "Ustaw nowe hasło" }).click();
     await expect(page.getByText("Hasło musi mieć od 12 do 256 znaków")).toBeVisible();
     await expect(page.getByText("Hasła muszą być identyczne")).toBeVisible();
     await snap(page, "reset-invalid");
     await page.getByLabel("Nowe hasło", { exact: true }).fill(resetPassword);
-    await page.getByLabel("Potwierdź nowe hasło").fill(resetPassword);
-    await page.getByRole("button", { name: "Zapisz nowe hasło" }).click();
+    await page.getByLabel("Powtórz hasło").fill(resetPassword);
+    await page.getByRole("button", { name: "Ustaw nowe hasło" }).click();
     await expect(page.getByRole("heading", { name: "Hasło zostało zmienione" })).toBeFocused();
     await expect(page.getByRole("link", { name: "Przejdź do logowania" })).toHaveAttribute("href", /^\/admin\/login\/?$/);
     await snap(page, "reset-success");
     await page.goto(`${origin}/admin/reset-hasla/${token}`);
     await page.getByLabel("Nowe hasło", { exact: true }).fill(finalPassword);
-    await page.getByLabel("Potwierdź nowe hasło").fill(finalPassword);
-    await page.getByRole("button", { name: "Zapisz nowe hasło" }).click();
+    await page.getByLabel("Powtórz hasło").fill(finalPassword);
+    await page.getByRole("button", { name: "Ustaw nowe hasło" }).click();
     await expect(page.getByRole("heading", { name: "Link nie działa" })).toBeVisible();
     await expect(page.getByLabel("Nowe hasło", { exact: true })).toHaveCount(0);
     await snap(page, "reset-used");
@@ -149,7 +153,11 @@ test("company admin: reset, account, password change, logout and expired service
     await expect(page).toHaveURL(urlAt(origin, "/admin"));
 
     await page.goto(`${origin}/admin/konto`);
-    await expect(page.getByRole("heading", { name: "Konto", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Konto", exact: true })).toBeVisible();
+    // ADM-15: inside the panel shell (Konto active in the sidebar), tabs for the two account routes, two columns on desktop.
+    // This run is 390 px wide: the bottom navigation is the visible one (the sidebar is checked on the platform at 1440 px).
+    await expect(page.getByRole("navigation", { name: "Nawigacja mobilna" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Sekcje konta" }).getByRole("link", { name: "Profil i hasło" })).toHaveAttribute("aria-current", "page");
     await expect(page.getByText(email)).toBeVisible();
     await expect(page.getByText("Administrator firmy")).toBeVisible();
     await expect(page.getByRole("button", { name: /wyłącz/i })).toHaveCount(0);
@@ -261,6 +269,8 @@ test("superadmin: account on the platform host only, name saved, MFA actions wit
     await page.getByRole("textbox", { name: "Kod MFA" }).fill(totp.generate());
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(urlAt(origin, "/konto"));
+    await expect(page.getByRole("heading", { level: 1, name: "Konto superadmina" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Nawigacja panelu" }).getByRole("link", { name: "Firmy" })).toBeVisible();
     await expect(page.getByText("Superadmin", { exact: true })).toBeVisible();
     await expect(page.getByText(account.email)).toBeVisible();
     await expect(page.getByRole("button", { name: /wyłącz/i })).toHaveCount(0);
@@ -294,7 +304,7 @@ test("superadmin: account on the platform host only, name saved, MFA actions wit
     await expect(page.getByRole("button", { name: /Zakończ sesję:/ })).toHaveCount(0);
     expect(await db.session.count({ where: { userId: superadminId } })).toBe(before - 1);
     await other.dispose();
-    await page.getByRole("link", { name: "Konto", exact: true }).click();
+    await page.getByRole("link", { name: "Wróć do konta" }).click();
     await page.getByRole("button", { name: "Wyloguj" }).click();
     await expect(page).toHaveURL(urlAt(origin, "/login"));
   } finally {

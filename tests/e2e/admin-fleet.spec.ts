@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { availabilityToday, sqlDate } from "../../src/modules/availability/dates";
+import { expectDesktopRowLayout } from "../fixtures/fleet-row-layout";
 import { verifiedFixtureSession } from "../fixtures/verified-session";
 
 // #34: fleet list and dashboard of the company admin against the real API of the built ingress.
@@ -47,6 +48,8 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
 
     // Dashboard: today statistics of the published fleet and the nearest block with a link to that vehicle calendar.
     await page.goto(`${base}/admin/`);
+    // #298: quick actions in the mockup order: secondary "Dodaj blokadę" first, primary "Dodaj pojazd" second.
+    await expect(page.locator("header").getByRole("link", { name: /^Dodaj (blokadę|pojazd)$/ })).toHaveText(["Dodaj blokadę", "Dodaj pojazd"]);
     const stats = page.getByRole("list", { name: "Statystyki floty na dziś" });
     await expect(stats.getByRole("listitem").filter({ hasText: "Opublikowane" })).toContainText("2");
     await expect(stats.getByRole("listitem").filter({ hasText: "Niedostępne dziś" })).toContainText("1");
@@ -69,6 +72,8 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
     await expect(rows.nth(2)).toContainText("Niedostępny dziś");
     await expect(rows.nth(1)).toContainText("Szkic");
     await expect(rows.nth(1)).toContainText("— Niepubliczny");
+    await expectDesktopRowLayout(page);
+    await page.setViewportSize({ width: 1280, height: 720 });
 
     // Filters: search, no results and reset.
     await page.getByLabel("Szukaj").fill("alfa");

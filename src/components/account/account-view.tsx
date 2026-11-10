@@ -21,6 +21,7 @@ import { Button } from "../ui/button";
 import { FormField } from "../ui/form-field";
 import { PasswordInput } from "../ui/password-input";
 import { TextInput } from "../ui/text-input";
+import { AccountTabs } from "./account-tabs";
 import styles from "./account.module.css";
 
 export type AccountData = { name: string; email: string; role: string };
@@ -138,9 +139,9 @@ export function AccountView({
 
   if (signedOut)
     return (
-      <main className={styles.page}>
+      <div className={styles.account}>
         <p role="status">Przekierowanie do logowania…</p>
-      </main>
+      </div>
     );
 
   const logout = async () => {
@@ -165,33 +166,20 @@ export function AccountView({
   };
 
   return (
-    <main className={styles.page} data-area={area}>
-      <header className={styles.header}>
-        <p className={styles.brand}>{area === "platform" ? "A AUTERVA" : "AUTERVA"}</p>
-        <nav aria-label="Konto" className={styles.nav}>
-          <Link href={where.home}>
-            {area === "platform" ? "Platforma" : "Panel"}
-          </Link>
-          <Button
-            variant="secondary"
-            size="sm"
-            loading={loggingOut}
-            loadingLabel="Wylogowywanie…"
-            onClick={logout}
-          >
-            Wyloguj
-          </Button>
-        </nav>
-      </header>
-      <h1 id="account-title" className={styles.title}>
-        Konto
-      </h1>
+    <div className={styles.account} data-area={area}>
+      <p className={styles.lead}>
+        {area === "platform"
+          ? "Własne dane, hasło i obowiązkowe MFA platformy."
+          : "Profil administratora, hasło, MFA i aktywne sesje."}
+      </p>
+      {area === "company" && <AccountTabs current="profile" />}
       {logoutError && (
         <div className={styles.notice}>
           <Alert tone="error" title={logoutError} />
         </div>
       )}
 
+      <div className={styles.columns}>
       <section className={styles.card} aria-labelledby="account-data">
         <h2 id="account-data">Dane konta</h2>
         <form
@@ -257,13 +245,23 @@ export function AccountView({
             Zapisz nazwę
           </Button>
         </form>
+        <Button
+          variant="secondary"
+          loading={loggingOut}
+          loadingLabel="Wylogowywanie…"
+          onClick={logout}
+        >
+          Wyloguj
+        </Button>
       </section>
 
-      <section className={styles.card} aria-labelledby="account-password">
-        <h2 id="account-password">Zmień hasło</h2>
+      <section className={styles.card} aria-labelledby="account-security">
+        <h2 id="account-security">Bezpieczeństwo</h2>
+        <h3 id="account-password">Zmień hasło</h3>
         <form
           className={styles.form}
           noValidate
+          aria-labelledby="account-password"
           aria-busy={change.loading || undefined}
           onSubmit={passwordForm.handleSubmit(({ current, next: value }) =>
             change.run(
@@ -345,18 +343,9 @@ export function AccountView({
             Zmień hasło
           </Button>
         </form>
-      </section>
 
-      <section className={styles.card} aria-labelledby="account-sessions">
-        <h2 id="account-sessions">Sesje</h2>
-        <p>Zobacz, gdzie konto jest zalogowane, i zakończ wybraną sesję albo wszystkie pozostałe.</p>
-        <Link className={styles.linkButton} href={`${where.account}/sesje/`} prefetch={false}>
-          Aktywne sesje
-        </Link>
-      </section>
-
-      <section className={styles.card} aria-labelledby="account-mfa">
-        <h2 id="account-mfa">MFA</h2>
+        <hr className={styles.divider} />
+        <h3 id="account-mfa">Uwierzytelnianie MFA</h3>
         <p className={styles.pill}>
           <CircleCheck aria-hidden="true" size={16} />
           <span>Włączone</span>
@@ -369,7 +358,7 @@ export function AccountView({
         </p>
         <div className={styles.actions}>
           <Link
-            className={styles.linkButton}
+            className={styles.secondaryLink}
             href={`${where.mfa}?returnTo=${encodeURIComponent(where.account)}&recoverCodes=1`}
           >
             Wydaj nowe kody
@@ -392,7 +381,13 @@ export function AccountView({
             </Alert>
           </div>
         )}
+        {area === "platform" && (
+          <Link className={styles.secondaryLink} href={`${where.account}/sesje/`} prefetch={false}>
+            Aktywne sesje
+          </Link>
+        )}
       </section>
-    </main>
+      </div>
+    </div>
   );
 }

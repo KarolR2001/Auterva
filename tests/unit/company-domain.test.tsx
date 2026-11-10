@@ -107,6 +107,20 @@ describe("domena własna na karcie firmy (#25 / API #23)", () => {
     expect(api.calls).toHaveLength(1);
   });
 
+  it("503 (bez kodu i z kodem) to niepewny wynik: odświeżenie, bez fałszywego sukcesu ani odrzucenia", async () => {
+    const user = userEvent.setup();
+    const api = mockApi((_call, n) => n === 1 ? new Response(null, { status: 503 })
+      : Response.json({ code: "MAIL_NOT_CONFIGURED" }, { status: 503 }), domain("READY"));
+    shell();
+    await user.click(await screen.findByRole("button", { name: "Aktywuj domenę" }));
+    await screen.findByText("Nie wiemy, czy operacja została wykonana.");
+    await user.click(await screen.findByRole("button", { name: "Aktywuj domenę" }));
+    await waitFor(() => expect(api.calls).toHaveLength(2));
+    await screen.findByText("Nie wiemy, czy operacja została wykonana.");
+    expect(screen.queryByText("Domena aktywna.")).toBeNull();
+    expect(screen.queryByText("Nie wykonano operacji.")).toBeNull();
+  });
+
   it("błąd sieci przy usuwaniu to także niepewny wynik", async () => {
     const user = userEvent.setup();
     const original = vi.spyOn(globalThis, "fetch");

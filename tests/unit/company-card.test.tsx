@@ -34,6 +34,25 @@ describe("karta firmy i zaproszenie (#25)", () => {
     expect(screen.queryByText("Opublikowana")).toBeNull();
   });
 
+  it("nagłówek karty ma nazwę firmy, kontekst adresów i główne akcje (#295)", () => {
+    const hosts = [{ hostname: "alfa.sites.test", area: "COMPANY_ADMIN", kind: "PROVIDER", status: "ACTIVE" }] as unknown as CompanyCardDto["hosts"];
+    shell(<CompanyCard initial={{ ...base, hosts }} justSaved={false} />);
+    expect(screen.getByRole("heading", { level: 2, name: "Alfa" })).toBeInTheDocument();
+    expect(screen.getByText(/Panel: alfa\.sites\.test/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Napisz do firmy" }).getAttribute("href")).toMatch(new RegExp(`/wiadomosci/?\\?firma=${base.organizationId}`));
+    expect(screen.getByRole("link", { name: "Zarządzaj flotą" }).getAttribute("href")).toContain(`/firmy/${base.organizationId}/pojazdy`);
+    expect(screen.getByRole("heading", { name: "Status firmy" })).toBeInTheDocument();
+  });
+
+  it("formularz nowej firmy ma nagłówek z akcjami i panel przed wysłaniem zaproszenia (#295)", () => {
+    shell(<NewCompanyForm adminBaseDomain={null} publicBaseDomain={null} />);
+    expect(screen.getByRole("heading", { level: 2, name: "Dodaj firmę" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Zapisz firmę" })).toHaveLength(1);
+    expect(screen.getByRole("link", { name: "Anuluj" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Przed wysłaniem zaproszenia" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Trial/)).toBeInTheDocument();
+  });
+
   it("karta prowadzi do materiałów publicznych i ustawień tej firmy (#37)", () => {
     shell(<CompanyCard initial={base} justSaved={false} />);
     expect(screen.getByRole("link", { name: "Edytuj logo i materiały publiczne" }).getAttribute("href")).toMatch(new RegExp(`^/firmy/${base.organizationId}/ustawienia/?\\?sekcja=wyglad$`));
@@ -65,6 +84,45 @@ describe("karta firmy i zaproszenie (#25)", () => {
     await user.click(screen.getByRole("button", { name: "Wyślij zaproszenie" }));
     await waitFor(() => expect(keys).toHaveLength(2));
     expect(keys[1]).toBe(keys[0]);
+  });
+
+  it("503 bez kodu przy wydaniu to wynik niepewny z tym samym kluczem; 503 z kodem konfiguracji to odrzucenie", async () => {
+    const user = userEvent.setup();
+    const keys: string[] = [];
+    let answer: () => Response = () => new Response(null, { status: 503 });
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+      if (init?.method === "POST") { keys.push(JSON.parse(String(init.body)).idempotencyKey); return answer(); }
+      return Response.json(base);
+    });
+    shell(<CompanyCard initial={base} justSaved={false} />);
+    await user.click(screen.getByRole("button", { name: "Wyślij zaproszenie" }));
+    await screen.findByText("Nie wiemy, czy zaproszenie zostało wydane.");
+    answer = () => Response.json({ code: "OTHER" }, { status: 503 });
+    await user.click(screen.getByRole("button", { name: "Wyślij zaproszenie" }));
+    await waitFor(() => expect(keys).toHaveLength(2));
+    expect(keys[1]).toBe(keys[0]);
+    await screen.findByText("Nie wiemy, czy zaproszenie zostało wydane.");
+    for (const code of ["HOST_DOMAINS_NOT_CONFIGURED", "MAIL_NOT_CONFIGURED", "INGRESS_NOT_CONFIGURED"]) {
+      answer = () => Response.json({ code }, { status: 503 });
+      await user.click(screen.getByRole("button", { name: "Wyślij zaproszenie" }));
+      await screen.findByText("Nie wykonano operacji.");
+      answer = () => new Response(null, { status: 503 });
+      await user.click(screen.getByRole("button", { name: "Wyślij zaproszenie" }));
+      await screen.findByText("Nie wiemy, czy zaproszenie zostało wydane.");
+    }
+    // A definite refusal spends the key; the next attempt after it starts a new one.
+    expect(new Set(keys).size).toBeGreaterThan(1);
+  });
+
+  it("503 bez kodu przy cofnięciu to wynik niepewny", async () => {
+    const user = userEvent.setup();
+    const invitation = { id: "i", recipientEmail: "a@b.pl", issuedHost: "h", issuedAt: "2026-11-08T10:00:00Z",
+      expiresAt: "2099-01-01T00:00:00Z", usedAt: null, revokedAt: null, deliveryStatus: "UNCERTAIN" };
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) =>
+      init?.method === "DELETE" ? new Response(null, { status: 503 }) : Response.json({ ...base, invitation }));
+    shell(<CompanyCard initial={{ ...base, invitation }} justSaved={false} />);
+    await user.click(screen.getByRole("button", { name: "Cofnij zaproszenie" }));
+    await screen.findByText("Nie wiemy, czy zaproszenie zostało cofnięte.");
   });
 
   it("błąd cofnięcia ma własny komunikat, nie o wydawaniu", async () => {

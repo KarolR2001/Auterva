@@ -17,6 +17,8 @@ export function LinkButton({ href, children, variant = "primary", fill = false, 
     fill && styles.fill, className].filter(Boolean).join(" ")}>{children}</a>;
 }
 
+const warsawYear = () => new Intl.DateTimeFormat("pl-PL", { year: "numeric", timeZone: "Europe/Warsaw" }).format(new Date());
+
 /** Header, content and footer of a public company page. `range` keeps the chosen dates in navigation (C-F092). */
 export function PublicPage({ brand, contact, range, children }:
   { brand: PublicBrand; contact: PublicContact; range?: Range; children: ReactNode }) {
@@ -39,7 +41,6 @@ export function PublicPage({ brand, contact, range, children }:
           </Link>
           <nav aria-label="Główna nawigacja" id="main-navigation" className={styles.nav}>
             <a href={catalogHref} className={styles.navLink}>Pojazdy</a>
-            <a href={contactHref} className={styles.navLink}>Kontakt</a>
             <LinkButton href={contactHref} className={styles.desktopOnly}>Skontaktuj się</LinkButton>
           </nav>
           <div className={`${styles.headerActions} ${styles.mobileOnly}`}>
@@ -70,6 +71,7 @@ export function PublicPage({ brand, contact, range, children }:
               <li><a href="/polityka-prywatnosci/" className={styles.navLink}>Polityka prywatności</a></li>
             </ul>
           </nav>
+          <p className={styles.footerCopy}>© {warsawYear()} {brand.name}</p>
         </div>
       </footer>
     </div>

@@ -3,6 +3,7 @@ import { request as httpRequest } from "node:http";
 import { expect, test } from "@playwright/test";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { availabilityToday, sqlDate } from "../../src/modules/availability/dates";
+import { formatRangeShort } from "../../src/modules/public-offer/presentation";
 
 // #42: public vehicle detail as a visitor sees it (gallery, availability check, calendar, optional data).
 test.use({ launchOptions: { args: ["--host-resolver-rules=MAP *.example.test 127.0.0.1"] } });
@@ -70,7 +71,9 @@ test("vehicle detail: gallery by mouse and keyboard, availability result, calend
     await expect(page.getByRole("img", { name: "Alfa Atlas, zdjęcie 3" })).toBeVisible();
     await page.getByRole("button", { name: "Pokaż zdjęcie 1 z 3" }).click();
     await expect(page.getByRole("button", { name: "Pokaż zdjęcie 1 z 3" })).toHaveAttribute("aria-current", "true");
-    const opener = page.getByRole("button", { name: "Otwórz galerię pełnoekranową" });
+    // #319: the selected thumbnail is labelled in text; the "see all" button opens the full-screen view.
+    await expect(page.getByRole("button", { name: "Pokaż zdjęcie 1 z 3" }).getByText("Wybrane")).toBeVisible();
+    const opener = page.getByRole("button", { name: "Zobacz wszystkie zdjęcia" });
     await opener.click();
     const lightbox = page.getByRole("dialog", { name: /Galeria: Alfa Atlas/ });
     await expect(lightbox).toBeVisible();
@@ -79,6 +82,53 @@ test("vehicle detail: gallery by mouse and keyboard, availability result, calend
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(opener).toBeFocused();
+
+    // #319 (PUB-03 desktop): description and equipment sit under the gallery, the calendar is its own card beside them,
+    // the short description shows under the parameters.
+    await page.setViewportSize({ width: 1440, height: 1024 });
+    await expect(page.getByTestId("short-description")).toHaveText("Krótki");
+    const box = async (locator: ReturnType<typeof page.locator>) => (await locator.boundingBox())!;
+    const gallery = await box(page.getByRole("region", { name: /Zdjęcia/ }));
+    const describe = await box(page.getByRole("heading", { name: "Opis pojazdu" }));
+    const card = await box(page.locator("#kalendarz"));
+    const panel = await box(page.locator("#check-title"));
+    expect(describe.y).toBeGreaterThanOrEqual(gallery.y + gallery.height - 1);
+    expect(card.x).toBeGreaterThan(gallery.x + gallery.width);
+    // #323: the calendar card follows the check panel directly (no gap left by a tall gallery).
+    const result = await box(page.locator("#check-title").locator("xpath=ancestor::section[1]"));
+    expect(card.y).toBeGreaterThan(panel.y);
+    expect(card.y - (result.y + result.height)).toBeLessThanOrEqual(40);
+    expect(await page.getByRole("heading", { level: 1 }).evaluate((node) => node.previousElementSibling === null || node.previousElementSibling.tagName !== "P")).toBe(true);
+    await expect(page.getByRole("navigation", { name: "Główna nawigacja" }).getByRole("link", { name: "Kontakt", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("contentinfo").getByText(/^© \d{4} Firma Detalu E2E$/)).toBeVisible();
+    expect(await page.locator("ul[aria-label='Najważniejsze parametry'] li").first().evaluate((node) => getComputedStyle(node).borderTopLeftRadius)).not.toBe("8px");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+    // #323: at 1024 px the date fields are not clipped and nothing scrolls sideways.
+    await page.setViewportSize({ width: 1024, height: 900 });
+    const card1024 = await box(page.locator("#check-title").locator("xpath=ancestor::section[1]"));
+    for (const label of ["Od", "Do"]) {
+      const field = await box(page.getByLabel(label, { exact: true }));
+      expect(field.width).toBeGreaterThanOrEqual(140);
+      expect(field.x + field.width).toBeLessThanOrEqual(card1024.x + card1024.width);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.setViewportSize({ width: 1440, height: 1024 });
+
+    // #323: the full-screen dialog is centred in the window.
+    await page.getByRole("button", { name: "Zobacz wszystkie zdjęcia" }).click();
+    const dialog = await box(page.getByRole("dialog", { name: /Galeria: Alfa Atlas/ }));
+    expect(Math.abs(dialog.x + dialog.width / 2 - 720)).toBeLessThanOrEqual(2);
+    expect(Math.abs(dialog.y + dialog.height / 2 - 512)).toBeLessThanOrEqual(2);
+    await page.keyboard.press("Escape");
+
+    // #323: on a phone the sticky contact bar does not cover a focused field (WCAG 2.4.11).
+    await page.setViewportSize({ width: 390, height: 600 });
+    await page.getByLabel("Do", { exact: true }).focus();
+    const focused = await box(page.getByLabel("Do", { exact: true }));
+    const sticky = await box(page.locator("[class*='stickyAction']"));
+    expect(focused.y + focused.height).toBeLessThanOrEqual(sticky.y);
+    await page.setViewportSize({ width: 1440, height: 1024 });
 
     // Untrusted description is text, never markup; optional sections that have data are shown.
     await expect(page.getByText("<b>pogrubienie</b>", { exact: false })).toBeVisible();
@@ -91,6 +141,7 @@ test("vehicle detail: gallery by mouse and keyboard, availability result, calend
     await page.getByLabel("Do", { exact: true }).fill(day(2));
     await page.getByRole("button", { name: "Sprawdź" }).click();
     await expect(page.getByText("Pojazd jest dostępny")).toBeVisible();
+    await expect(page.getByTestId("calendar-range")).toHaveText(`Wybrany zakres: ${formatRangeShort(day(1), day(2))} · 2 dni`);
     await expect(page.getByRole("link", { name: "Skontaktuj się", exact: true }).last())
       .toHaveAttribute("href", `/kontakt/?vehicle=${slug}&from=${day(1)}&to=${day(2)}`);
     await page.getByLabel("Od", { exact: true }).fill(day(4));

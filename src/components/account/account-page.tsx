@@ -6,6 +6,7 @@ import { requireAuthorizedActor } from "@/modules/auth/authorization";
 
 import type { AuthArea } from "../auth/auth-destination";
 import { requireAreaHost } from "../auth/auth-host";
+import { renderAccountFrame } from "./account-frame";
 import { AccountView } from "./account-view";
 
 // Account works for a full session only; an expired service period does not matter here,
@@ -21,5 +22,6 @@ export async function AccountPage({ area }: { area: AuthArea }) {
     select: { name: true, email: true, role: true },
   });
   if (!user) redirect(`${login}?returnTo=${encodeURIComponent(here)}`);
-  return <AccountView area={area} account={{ ...user, role: user.role ?? "" }} />;
+  return renderAccountFrame(area, actor, here,
+    <AccountView area={area} account={{ ...user, role: user.role ?? "" }} />);
 }

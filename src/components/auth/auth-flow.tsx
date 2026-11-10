@@ -218,7 +218,7 @@ export function AuthFrame({
           {title}
         </h1>
         {children}
-        {(area === "platform" || (view === "mfa" && step !== "challenge")) && footer && <p className={styles.footer}>{footer}</p>}
+        {(area === "platform" || view === "reset" || (view === "mfa" && step !== "challenge")) && footer && <p className={styles.footer}>{footer}</p>}
       </section>
       {area === "company" && (view === "login" || step === "challenge") && footer && <p className={styles.footer}>{footer}</p>}
     </main>

@@ -8,7 +8,7 @@ import { resolveRequestArea } from "@/modules/tenancy/request-context";
 import { ChatError } from "./errors";
 import { findConversation, listMessages, listPlatformConversations, openConversation, sendMessage,
   type ChatScope } from "./service";
-import { reportInternalError } from "@/modules/observability/http-observe";
+import { reportInternalError, transientDbResponse } from "@/modules/observability/http-observe";
 
 type Area = "COMPANY_ADMIN" | "PLATFORM";
 const MAX_BODY_BYTES = 65_536;
@@ -30,6 +30,8 @@ function failure(error: unknown, requestId: string) {
       case "RATE_LIMITED": return response({ code: "RATE_LIMITED" }, 429, requestId, error.retryAfter ?? 1);
     }
   }
+  const busy = transientDbResponse(error, requestId, "chat");
+  if (busy) return busy;
   return response({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "chat"));
 }
 

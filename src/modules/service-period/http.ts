@@ -5,7 +5,7 @@ import { parseHostAuthority } from "@/modules/tenancy/host-registry";
 import { readJsonObject } from "@/modules/tenancy/json-body";
 import { takeAuthenticatedApiLimit } from "@/modules/tenancy/api-rate-limit";
 import { requireRequestContext, resolveRequestArea } from "@/modules/tenancy/request-context";
-import { reportInternalError } from "@/modules/observability/http-observe";
+import { reportInternalError, transientDbResponse } from "@/modules/observability/http-observe";
 
 function sameCanonicalOrigin(raw: string | null, expected: URL): boolean {
   if (!raw) return false;
@@ -73,6 +73,9 @@ export function periodFailure(error: unknown, requestId: string): Response {
   // A reused audit event key rolls back the whole mutation; never report it as idempotent success.
   if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002")
     return periodResponse({ code: "EVENT_KEY_CONFLICT" }, 409, requestId);
+  // Expired transaction budget, lock wait or statement timeout: nothing committed, outcome uncertain (#310, #314).
+  const busy = transientDbResponse(error, requestId, "service-period");
+  if (busy) return busy;
   return periodResponse({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "service-period"));
 }
 

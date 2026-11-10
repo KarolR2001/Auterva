@@ -85,8 +85,8 @@ export function Dashboard({ context = companyContext, title }: { context?: Panel
       <header className={styles.pageHead}>
         <h2 id="dash-title" className={styles.title}>Panel</h2>
         <div className={styles.quick}>
-          {routes.vehicleForm && <a className={styles.primaryLink} href={`${context.hrefBase}/pojazdy/nowy/`}><Plus aria-hidden="true" size={20} />Dodaj pojazd</a>}
           {routes.vehicleCalendar && <a className={styles.secondaryLink} href={`${context.hrefBase}/pojazdy/`}><CalendarPlus aria-hidden="true" size={20} />Dodaj blokadę</a>}
+          {routes.vehicleForm && <a className={styles.primaryLink} href={`${context.hrefBase}/pojazdy/nowy/`}><Plus aria-hidden="true" size={20} />Dodaj pojazd</a>}
         </div>
       </header>
       {service?.expiredNotice && <Alert tone="warning" title={service.expiredNotice} />}

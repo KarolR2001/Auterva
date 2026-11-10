@@ -22,6 +22,76 @@
       "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
     },
     {
+      "issue": 323,
+      "scope": "PUB-03 po #319 (QA #322) i pozycje PUB-03 z #320: podsumowanie „Wybrany zakres … · N dni” tylko po werdykcie (nie w ładowaniu i błędzie); pola dat bez obcięcia przy 1024 px (wiersz Od/Do, przycisk poniżej do 1280 px); dialog galerii wyśrodkowany; scroll-margin chroniący fokus przed przyklejonym CTA na mobile; karta kalendarza bezpośrednio pod kartą sprawdzania (bez pustej przestrzeni przy wysokiej galerii); chipy w kształcie pigułki, tytuł bez etykiety kategorii (kategoria zostaje w chipach), nagłówek desktop bez linku Kontakt (jest przycisk Skontaktuj się), stopka z „© rok nazwa”. Poza zakresem: hasło firmy w stopce (brak pola danych), reszta #320 (ADM-02/03).",
+      "referenceScreenIds": ["PUB-03"],
+      "codePaths": [
+        "src/app/pojazdy/[slug]/page.tsx",
+        "src/components/public/availability-panel.tsx",
+        "src/components/public/public-chrome.tsx",
+        "src/components/public/public.module.css"
+      ],
+      "testPaths": ["tests/e2e/public-vehicle.spec.ts", "tests/e2e/public-site.spec.ts", "tests/unit/vehicle-gallery.test.tsx"]
+    },
+    {
+      "issue": 320,
+      "scope": "Kosmetyka z odbioru #263: teksty ADM-02 (tekst pomocniczy pola, przycisk „Wyślij link resetujący”, strzałka w linku powrotu, stopka o neutralnym potwierdzeniu) i ADM-03 (etykieta „Powtórz hasło”, przycisk „Ustaw nowe hasło”, krótki wstęp, ostrzeżenie o wylogowaniu jako podpowiedź pola, stopka „Link jednorazowy” (bez twierdzenia o aktywności tokenu)); jednostka ceny w fixture „doba” zamiast „DAY” (jednostka to tekst wpisywany przez firmę, wyświetlanie bez zmian). Logika resetu i lista siły hasła (#22/#252) bez zmian. Pozycje PUB-03 (chipy, tytuł, nawigacja, stopka) przeniesione do #319.",
+      "relatedRequirementIds": ["C-F041", "C-F042", "C-F044"],
+      "referenceScreenIds": ["ADM-02", "ADM-03"],
+      "codePaths": [
+        "src/components/auth/reset-flow.tsx",
+        "src/components/auth/auth-flow.tsx",
+        "scripts/seed-local-fixture.ts"
+      ],
+      "testPaths": ["tests/unit/reset-flow.test.tsx", "tests/e2e/account-ui.spec.ts"]
+    },
+    {
+      "issue": 319,
+      "scope": "PUB-03 desktop z odbioru #263: siatka 7/5 z obszarami (galeria | tytuł, cena, parametry, opis krótki i panel dostępności; pod nimi opis, wyposażenie i warunki | kalendarz), kalendarz jako obramowana karta z podsumowaniem „Wybrany zakres … · N dni”; galeria jako karta z czterema równymi miniaturami w rzędzie, etykietą „Wybrane” i przyciskiem „Zobacz wszystkie zdjęcia”; render shortDescription. Mobile zachowuje kolejność galeria, panel, kalendarz, opis. Dostępność (#43/#251) bez zmian logiki. Poza zakresem: najbliższy wolny termin (#218), elementy opisane w #263 jako pominięte. Porównanie z Penpotem: eksport 10.11, VoiceOver DEFERRED (#97).",
+      "referenceScreenIds": ["PUB-03"],
+      "codePaths": [
+        "src/app/pojazdy/[slug]/page.tsx",
+        "src/components/public/availability-panel.tsx",
+        "src/components/public/vehicle-gallery.tsx",
+        "src/components/public/public.module.css"
+      ],
+      "testPaths": ["tests/e2e/public-vehicle.spec.ts", "tests/unit/vehicle-gallery.test.tsx"]
+    },
+    {
+      "issue": 313,
+      "scope": "Stabilny E2E konfliktu wersji okresu na karcie firmy: test czeka na odświeżenie karty po pierwszym zapisie (nowa data w wierszu Opłata), zanim druga sesja zmieni okres. Bez zmian w UI i API: konflikt był wykrywany zawsze, gdy karta miała wersję sprzed zapisu drugiej sesji.",
+      "relatedRequirementIds": ["C-F045", "C-F046"],
+      "referenceScreenIds": ["PLT-03"],
+      "codePaths": ["src/components/platform/company-ops.tsx"],
+      "testPaths": ["tests/e2e/platform-companies.spec.ts"]
+    },
+    {
+      "issue": 298,
+      "scope": "Kosmetyka z odbiorów #263/#291/#303: kolejność szybkich akcji panelu (Dodaj blokadę, Dodaj pojazd) jak w ADM-04; wiersz kalendarza floty bez blokad bez linii dni i bez dublowanego opisu (ADM-10); polskie etykiety ISSUE_INVITATION i VERIFY_DOMAIN oraz tłumaczenie wartości status/visibility przed/po w dzienniku zmian (ADM-17). Poza zakresem: 'Jakość danych' i kafelki ADM-04, 'Obszar odbioru' PUB-04 (#257), teksty makiet sprzeczne z PRD, strony konta (#294). Dodatkowo (#296): usunięta martwa reguła .actionsWide >=1240 px, zawijanie akcji bez zmian.",
+      "relatedRequirementIds": ["FR-ADM-057", "C-F101", "FR-ADM-070", "FR-ADM-071", "C-F151"],
+      "referenceScreenIds": ["ADM-04", "ADM-10", "ADM-17"],
+      "codePaths": [
+        "src/components/admin/dashboard.tsx",
+        "src/components/admin/admin.module.css",
+        "src/components/admin/fleet-calendar.tsx",
+        "src/components/admin/fleet-calendar.module.css",
+        "src/components/audit/audit-log.tsx",
+        "src/modules/audit/view.ts"
+      ],
+      "testPaths": ["tests/unit/audit-view.test.ts", "tests/unit/fleet-calendar.test.tsx", "tests/e2e/admin-fleet.spec.ts", "tests/e2e/audit-log-ui.spec.ts"]
+    },
+    {
+      "issue": 293,
+      "scope": "Lista firm PLT-01-02: tabela (Firma, Okres usługi, Widoczność, Rejestracja, Akcje) na desktopie i karty na mobile, chipy statusu z ikoną i tekstem, akcje Otwórz i Czat (do /wiadomosci/?firma=, C-F135) w wierszu, akcje Wiadomości i Dodaj firmę w nagłówku. Bez licznika nieprzeczytanych (lista API go nie zwraca); H1 pozostaje w PanelShell (#66/#75).",
+      "relatedRequirementIds": ["C-F015", "C-F045", "C-F135"],
+      "referenceScreenIds": ["PLT-01-02"],
+      "codePaths": [
+        "src/components/platform/company-list.tsx",
+        "src/components/platform/platform.module.css"
+      ],
+      "testPaths": ["tests/unit/platform-companies.test.tsx", "tests/e2e/platform-companies.spec.ts"]
+    },
+    {
       "issue": 265,
       "scope": "Poprawki z QA #27: po niepewnym wyniku zapisu okresu (5xx, brak odpowiedzi) najpierw odczyt stanu, potem komunikat zgodny z faktem (zapisano / nie zapisano / zmieniono w innej sesji); lista firm `/firmy/` z tą samą polityką hosta co `/` i `/firmy/{id}/` (anonim do loginu platformy, inna sesja 404); ikona statusu w wierszu obok tekstu.",
       "relatedRequirementIds": ["C-F045", "C-F046", "C-F068", "C-F069"],
@@ -182,6 +252,25 @@
       ]
     },
     {
+      "issue": 68,
+      "scope": "Wyróżnieni na home firmy (FR-PUB-002, D-22): wybór featured i pozycji w formularzu pojazdu (panel firmy i superadmin we własnym kontekście) odzwierciedla zapis API; publiczny home pokazuje tylko PUBLISHED w kolejności firmy kartą DS-DAT-003 large (DS-DAT-002 layout=featured); brak wyróżnionych ukrywa sekcję bez placeholderów, w HTML i RSC props; niepewny wynik zapisu to komunikat, nie sukces.",
+      "relatedRequirementIds": ["FR-PUB-002", "D-22", "D-23"],
+      "referenceScreenIds": ["PUB-01", "ADM-07"],
+      "codePaths": [
+        "src/components/admin/vehicle-form.tsx",
+        "src/components/admin/vehicle-form-model.ts",
+        "src/components/public/public-home.tsx",
+        "src/components/public/vehicle-card.tsx",
+        "src/components/public/public.module.css"
+      ],
+      "testPaths": [
+        "tests/unit/public-home-visual.test.tsx",
+        "tests/unit/vehicle-form-model.test.ts",
+        "tests/e2e/featured-vehicles-ui.spec.ts",
+        "tests/integration/featured-vehicles.test.ts"
+      ]
+    },
+    {
       "issue": 74,
       "scope": "Opcjonalny prywatny odczyt audytu do paneli: admin firmy tylko własna firma (ADM-17), superadmin firma wybrana w ścieżce, także archiwalna; filtry czasu/aktora/działania/obiektu w granicach firmy, kursor (createdAt z mikrosekundami, id), redakcja jak przy zapisie, tylko GET; bez audytu platformy i bez UI.",
       "relatedRequirementIds": ["C-F151", "C-N019", "C-N037", "C-N040", "FR-ADM-070", "FR-ADM-071", "D-10", "D-30"],
@@ -197,6 +286,29 @@
         "docs/contracts/audit-append-and-access.md"
       ],
       "testPaths": ["tests/integration/audit-read-http.test.ts", "tests/unit/audit-cursor.test.ts"]
+    },
+    {
+      "issue": 75,
+      "scope": "Dziennik zmian ADM-17 (opcjonalny): /admin/logi dla administratora firmy i /firmy/{id}/logi dla superadmina w kontekście wybranej firmy (także archiwalnej), na filtrowanym odczycie audytu z #74. Czas lokalny (Europe/Warsaw) z danych UTC, filtry zakres dat/administrator/akcja/obiekt, kursor „Pokaż starsze”, bezpieczne podsumowanie i szczegóły przed/po bez identyfikatorów kont (aktor jako rola, superadmin widoczny jako on sam), loading/empty/error, filtry w arkuszu na wąskim ekranie.",
+      "relatedRequirementIds": ["FR-ADM-070", "FR-ADM-071", "C-F151", "D-10", "D-30"],
+      "referenceScreenIds": ["ADM-17", "OVR-18"],
+      "scenarioStates": {
+        "list": "AuditLogRow lista z filtrami (ADM-17 desktop a4abf4c9-2e1f-80fd-8008-affca1f45000, mobile 1e066793-8858-8051-8008-cf3e9586dd76)",
+        "details": "Szczegóły wpisu rozwijane w wierszu (zamiast OVR-18)",
+        "empty": "Brak wpisów / brak wyników filtra",
+        "error": "Błąd odczytu z ponowieniem"
+      },
+      "unmappedStates": ["Porównanie z makietą ADM-17: tylko eksport 10.11 (Penpot nie wywoływany).", "Przejście do ADM-07/ADM-09 z wpisu (SPEC 9.19): pominięte, brak sprawdzenia istnienia encji w odczycie audytu; wpis pokazuje bezpieczne podsumowanie historyczne.", "Makieta pokazuje techniczne kody akcji i ID AUD-…; aplikacja używa polskich nazw i końcówki identyfikatora obiektu."],
+      "codePaths": [
+        "src/components/audit/audit-log.tsx",
+        "src/components/audit/audit-log.module.css",
+        "src/modules/audit/view.ts",
+        "src/app/admin/logi/page.tsx",
+        "src/app/firmy/[organizationId]/logi/page.tsx",
+        "src/components/panel/panel-shell.tsx",
+        "src/components/platform/company-card.tsx"
+      ],
+      "testPaths": ["tests/unit/audit-view.test.ts", "tests/unit/panel-shell.test.tsx", "tests/e2e/audit-log-ui.spec.ts"]
     },
     {
       "issue": 70,
@@ -603,6 +715,52 @@
         "tests/integration/media-http.test.ts",
         "tests/integration/media-process-lifecycle.test.ts"
       ]
+    },
+    {
+      "issue": 307,
+      "scope": "Platforma i media: 503 jest odrzuceniem tylko z jawnym kodem sprzed zapisu (zaproszenie: HOST_DOMAINS_NOT_CONFIGURED, MAIL_NOT_CONFIGURED, INGRESS_NOT_CONFIGURED; upload: MEDIA_BUSY, MEDIA_DECODER_UNAVAILABLE); każde inne 503 to wynik niepewny (odczyt stanu, ten sam klucz idempotencji, bez fałszywego sukcesu). Trasy domen nie zwracają 503, więc każde 503 jest tam niepewne. Bez zmian wyglądu ani API.",
+      "relatedRequirementIds": ["C-F022", "C-F034", "C-F086"],
+      "referenceScreenIds": ["PLT-04", "ADM-06"],
+      "codePaths": [
+        "src/components/platform/company-card.tsx",
+        "src/components/platform/company-domain.tsx",
+        "src/components/media/upload-core.ts",
+        "src/modules/invitations/view-state.ts"
+      ],
+      "testPaths": ["tests/unit/company-card.test.tsx", "tests/unit/company-domain.test.tsx", "tests/unit/upload-core.test.ts"]
+    },
+    {
+      "issue": 296,
+      "scope": "Lista pojazdów ADM-05 (panel firmy i flota superadmina w /firmy/{id}/pojazdy): komórki Pojazd i Akcje nie są już display:flex na td, więc separatory wierszy są ciągłe, a akcje desktopu 1440 leżą w jednym wierszu. Poza zakresem: filtr kategorii i ostatniej zmiany oraz podsumowanie statusów w nagłówku (brak w API floty).",
+      "relatedRequirementIds": ["FR-ADM-050", "FR-ADM-051", "FR-ADM-052"],
+      "referenceScreenIds": ["ADM-05"],
+      "codePaths": ["src/components/admin/vehicle-list.tsx", "src/components/admin/admin.module.css"],
+      "testPaths": ["tests/e2e/admin-fleet.spec.ts", "tests/e2e/platform-company-fleet.spec.ts", "tests/fixtures/fleet-row-layout.ts"]
+    },
+    {
+      "issue": 304,
+      "scope": "PLT-04: odrzucenie z czyszczeniem klucza idempotencji tylko dla 503 z kodem HOST_DOMAINS_NOT_CONFIGURED lub INGRESS_NOT_CONFIGURED (oba przed zapisem); każde inne 503 to wynik niepewny z zachowaniem klucza i bez fałszywego sukcesu/odrzucenia. Bez zmian wyglądu ani API.",
+      "relatedRequirementIds": ["C-F022", "C-F024"],
+      "referenceScreenIds": ["PLT-04"],
+      "codePaths": ["src/modules/organizations/new-company-form.ts", "src/components/platform/new-company-form.tsx"],
+      "testPaths": ["tests/unit/new-company-form.test.ts"]
+    },
+    {
+      "issue": 294,
+      "scope": "PLT-10 i ADM-15 Konto wewnątrz powłoki panelu (sidebar z aktywnym Kontem, górny pasek, dolna nawigacja na mobile): tytuł powłoki „Konto superadmina” / „Konto”, opis, układ dwukolumnowy od 1024 px (Dane konta | Bezpieczeństwo ze zmianą hasła i MFA), zakładki „Profil i hasło” / „Aktywne sesje” w ADM-15 (dwie trasy tego samego konta), „Aktywne sesje” i „Wydaj nowe kody” jako akcje drugorzędne. Logika (profil, hasło, MFA, ADM-16, reauth) bez zmian. Poza makietą zostaje: licznik sesji w zakładce (wymagałby dodatkowego odczytu), pozycja „Konto” w sidebarze platformy (nawigacja #66/#75), wiersz „Bieżąca sesja” i awatar w karcie profilu ADM-15. Karta Sesje w PLT-10 jest wejściem do ADM-16 (handoff platform-account.md wyklucza listę sesji z PLT-10; kontrakt #72 ją wymaga). Porównanie z Penpotem DEFERRED (#263).",
+      "relatedRequirementIds": ["C-F041", "C-F042", "C-F044", "FR-ADM-080", "FR-ADM-082"],
+      "referenceScreenIds": ["PLT-10", "ADM-15"],
+      "codePaths": [
+        "src/components/account/account-frame.tsx",
+        "src/components/account/account-page.tsx",
+        "src/components/account/sessions-page.tsx",
+        "src/components/account/account-tabs.tsx",
+        "src/components/account/account-view.tsx",
+        "src/components/account/sessions-view.tsx",
+        "src/components/account/account.module.css",
+        "src/app/admin/company-panel.tsx"
+      ],
+      "testPaths": ["tests/unit/account-page.test.tsx", "tests/unit/account-view.test.tsx", "tests/unit/account-tabs.test.tsx", "tests/e2e/account-ui.spec.ts"]
     },
     {
       "issue": 289,
@@ -1910,6 +2068,20 @@
         "src/components/panel/panel-shell.tsx"
       ],
       "testPaths": ["tests/unit/chat-panel.test.tsx"]
+    },
+    {
+      "issue": 295,
+      "scope": "Układ i nagłówek PLT-03 (karta firmy) i PLT-04 (formularz nowej firmy) według makiety: duży tytuł z kontekstem i akcjami w nagłówku, dwie kolumny od 1024 px z kartą statusu po prawej (karta) i panelem „Przed wysłaniem zaproszenia” (formularz), pola w siatce dwukolumnowej, wybór okresu jako kafelki. Zakres pól bez zmian (PRD 3.1): telefon, publiczny e-mail i treści strony edytuje superadmin w ustawieniach firmy (#31, C-F023), nie w formularzu; trial 336 godzin (U4) zamiast „14 dni” z makiety. Brak tekstu „Trial 14 dni” i pól spoza PRD.",
+      "relatedRequirementIds": ["C-F022", "C-F024", "C-F034", "C-F035"],
+      "referenceScreenIds": ["PLT-03", "PLT-04"],
+      "codePaths": [
+        "src/components/platform/page-header.tsx",
+        "src/components/platform/company-card.tsx",
+        "src/components/platform/company-ops.tsx",
+        "src/components/platform/new-company-form.tsx",
+        "src/components/platform/platform.module.css"
+      ],
+      "testPaths": ["tests/unit/company-card.test.tsx", "tests/e2e/platform-company-form.spec.ts", "tests/e2e/messages-inbox.spec.ts"]
     }
   ],
   "sources": [

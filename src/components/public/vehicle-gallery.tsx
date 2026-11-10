@@ -56,7 +56,6 @@ export function VehicleGallery({ images, name }: { images: GalleryImage[]; name:
             <button type="button" className={styles.iconButton} onClick={() => go(1)} aria-label="Następne zdjęcie"><ChevronRight aria-hidden="true" size={20} /></button>
           </>
         ) : null}
-        <button type="button" className={styles.iconButton} onClick={() => setOpen(true)} aria-label="Otwórz galerię pełnoekranową"><Maximize2 aria-hidden="true" size={20} /></button>
       </div>
       {count > 1 ? (
         <ul className={styles.thumbs} aria-label="Miniatury zdjęć">
@@ -66,11 +65,15 @@ export function VehicleGallery({ images, name }: { images: GalleryImage[]; name:
                 data-selected={position === index ? "true" : undefined} onClick={() => setIndex(position)}>
                 {/* eslint-disable-next-line @next/next/no-img-element -- public media variants are served by our own API route */}
                 <img src={image.urls.thumb} alt="" width={104} height={69} loading="lazy" className={styles.thumbImage} />
+                {position === index ? <span className={styles.thumbLabel} aria-hidden="true">Wybrane</span> : null}
               </button>
             </li>
           ))}
         </ul>
       ) : null}
+      <button type="button" className={`${styles.linkButton} ${styles.linkButtonSecondary} ${styles.fill}`} onClick={() => setOpen(true)}>
+        <Maximize2 aria-hidden="true" size={18} />Zobacz wszystkie zdjęcia
+      </button>
       {open ? (
         // showModal() traps focus, closes on Escape and returns focus to the button that opened it.
         <dialog ref={dialogRef} className={styles.lightbox} aria-label={`Galeria: ${name}`} onClose={() => setOpen(false)} onKeyDown={onKeyDown}>
