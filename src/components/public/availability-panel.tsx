@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarSearch, Check, CircleSlash, LoaderCircle, TriangleAlert, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { createLatest, problemMessages, validateRange, type RangeProblem } from "@/modules/public-offer/availability-client";
 import { addDays, calendarRange, catalogHref, catalogPath, contactHref, formatRangeShort, longDate, monthDays, monthLabel, pluralDays, shiftMonth, type DayState } from "@/modules/public-offer/presentation";
@@ -32,6 +32,8 @@ type Props = {
   initial: PanelInitial; others: { slug: string; name: string }[];
   /** False when the candidates are only part of the fleet (or the catalog failed): "none available" must not be claimed. */
   othersComplete: boolean;
+  /** Server-rendered header of the info column (title, price, parameters); the result panel follows it, the calendar card is its own grid area. */
+  children?: ReactNode;
 };
 
 async function request<T>(url: string, init?: RequestInit): Promise<{ status: number; body: T | null; code: string | null }> {
@@ -55,7 +57,7 @@ function invalidProblem(initial: { from: string | null; to: string | null; inval
   return checked.ok ? "INVALID" : checked.problem;
 }
 
-export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth, initial, others, othersComplete }: Props) {
+export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth, initial, others, othersComplete, children }: Props) {
   const initialRange = initial.from && initial.to ? validateRange(initial.from, initial.to, today) : null;
   const [from, setFrom] = useState(initial.from ?? "");
   const [to, setTo] = useState(initial.to ?? "");
@@ -218,7 +220,9 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
   const alternativesRange = check.status === "done" && !check.available ? check.range : null;
 
   return (
-    <>
+    <div className={styles.panelRoot}>
+      <div className={styles.infoCol}>
+      {children}
       <section className={styles.result} aria-labelledby="check-title">
         <h2 id="check-title" className={styles.panelTitle}>Sprawdź termin</h2>
         <form action={`${catalogPath}${slug}/`} method="get" id="sprawdz-termin" noValidate
@@ -294,6 +298,7 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
           </section>
         ) : null}
       </section>
+      </div>
 
       <section className={styles.calendar} id="kalendarz" aria-labelledby="calendar-title" aria-busy={calendar.status === "loading"}>
         <div className={styles.calendarHead}>
@@ -311,6 +316,7 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
           {calendar.status === "loading" ? <p className={styles.small}>Ładujemy kalendarz…</p> : null}
           {pickingEnd ? <p className={styles.small}>Wybrano początek: {longDate(from)}. Wybierz dzień końca terminu.</p> : null}
         </div>
+        {result ? <p className={styles.calendarRange} data-testid="calendar-range">Wybrany zakres: {formatRangeShort(result.from, result.to)} · {pluralDays(result.days)}</p> : null}
         {calendar.status === "error" ? <div role="alert" className={styles.notice}><TriangleAlert aria-hidden="true" size={18} />
           <span>Nie udało się wczytać kalendarza. Stany dni nie są aktualne.{" "}
             <button type="button" className={styles.link} onClick={() => void loadMonth(month)}>Spróbuj ponownie</button></span></div> : null}
@@ -350,6 +356,6 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
           <li><span className={`${styles.legendMark} ${styles.daySelected}`} aria-hidden="true" />Wybrany zakres</li>
         </ul>
       </section>
-    </>
+    </div>
   );
 }

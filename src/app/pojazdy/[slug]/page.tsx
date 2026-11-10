@@ -74,31 +74,32 @@ export default async function VehiclePage({ params, searchParams }: Props) {
         <a href={backHref} className={`${styles.link} ${styles.back}`}>Powrót do listy pojazdów</a>
         <div className={styles.detailGrid}>
           <VehicleGallery images={vehicle.gallery} name={vehicle.name ?? "Pojazd"} />
-          <div>
+          <AvailabilityPanel slug={slug} vehicleName={vehicle.name ?? "Pojazd"} today={today} minMonth={minMonth} maxMonth={maxMonth}
+            others={others} othersComplete={othersComplete} initial={{ from: range.from ?? (picked.kind === "INVALID" ? first(raw.from) ?? null : null), to: range.to ?? (picked.kind === "INVALID" ? first(raw.to) ?? null : null), invalid: picked.kind === "INVALID" ? picked.reason : null,
+              available: availability?.available ?? null, month, days: Object.fromEntries(calendar.days.map((day) => [day.date, day.available])) }}>
             {vehicle.category ? <p className={styles.category}>{vehicle.category.name}</p> : null}
             <h1 className={styles.pageTitle}>{vehicle.name ?? "Pojazd"}</h1>
             <p className={styles.detailPrice}>{hasPrice ? formatPrice(vehicle.price) : "Cena na zapytanie"}</p>
             {specs.length ? <ul className={styles.specs} aria-label="Najważniejsze parametry">{specs.map((spec) => <li key={spec} className={styles.chip}>{spec}</li>)}</ul> : null}
+            {vehicle.shortDescription?.trim() ? <p className={styles.lead} data-testid="short-description">{vehicle.shortDescription}</p> : null}
+          </AvailabilityPanel>
 
-            <AvailabilityPanel slug={slug} vehicleName={vehicle.name ?? "Pojazd"} today={today} minMonth={minMonth} maxMonth={maxMonth}
-              others={others} othersComplete={othersComplete} initial={{ from: range.from ?? (picked.kind === "INVALID" ? first(raw.from) ?? null : null), to: range.to ?? (picked.kind === "INVALID" ? first(raw.to) ?? null : null), invalid: picked.kind === "INVALID" ? picked.reason : null,
-                available: availability?.available ?? null, month, days: Object.fromEntries(calendar.days.map((day) => [day.date, day.available])) }} />
+          <div className={styles.detailBody}>
+            {vehicle.description?.trim() ? (<><h2 className={styles.h3}>Opis pojazdu</h2><p className={styles.prose}>{vehicle.description}</p></>) : null}
+            {features.length ? (
+              <>
+                <h2 className={styles.h3}>Wyposażenie</h2>
+                <ul className={styles.features}>{features.map((feature) => (
+                  <li key={feature.code} className={styles.chip}><Check aria-hidden="true" size={16} />{feature.value ? `${feature.code}: ${feature.value}` : feature.code}</li>
+                ))}</ul>
+              </>
+            ) : null}
+            <h2 className={styles.h3}>Warunki dodatkowe</h2>
+            <p className={styles.prose}>Zapytaj o wymagane dokumenty, minimalny wiek kierowcy i warunki odbioru pojazdu.</p>
+            {result.availabilityNotice?.trim() ? <p className={styles.prose}>{result.availabilityNotice}</p> : null}
+            <p className={styles.small}>Dostępność jest informacyjna i nie stanowi rezerwacji terminu.</p>
           </div>
         </div>
-
-        {vehicle.description?.trim() ? (<><h2 className={styles.h3}>Opis pojazdu</h2><p className={styles.prose}>{vehicle.description}</p></>) : null}
-        {features.length ? (
-          <>
-            <h2 className={styles.h3}>Wyposażenie</h2>
-            <ul className={styles.features}>{features.map((feature) => (
-              <li key={feature.code} className={styles.chip}><Check aria-hidden="true" size={16} />{feature.value ? `${feature.code}: ${feature.value}` : feature.code}</li>
-            ))}</ul>
-          </>
-        ) : null}
-        <h2 className={styles.h3}>Warunki dodatkowe</h2>
-        <p className={styles.prose}>Zapytaj o wymagane dokumenty, minimalny wiek kierowcy i warunki odbioru pojazdu.</p>
-        {result.availabilityNotice?.trim() ? <p className={styles.prose}>{result.availabilityNotice}</p> : null}
-        <p className={styles.small}>Dostępność jest informacyjna i nie stanowi rezerwacji terminu.</p>
         <div className={styles.stickyAction}><ContactCta slug={slug} initial={availability && range.from && range.to ? { from: range.from, to: range.to } : null} /></div>
       </div>
       {result.seo.jsonLd.map((entry, index) => <script key={index} type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(entry) }} />)}
