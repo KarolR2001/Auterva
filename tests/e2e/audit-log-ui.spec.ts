@@ -115,7 +115,7 @@ test("change log: local time from UTC, filters, cursor, superadmin as themselves
     await superContext.addCookies([{ name: sName, value: sRest.join("="), url: origin }]);
     const mobile = await superContext.newPage();
     await mobile.goto(`${origin}/firmy/${orgA}/logi/`);
-    await expect(mobile.getByRole("heading", { name: "Firma jest zarchiwizowana" })).toBeVisible();
+    await expect(mobile.getByText("Firma jest zarchiwizowana", { exact: true })).toBeVisible();
     const mobileList = mobile.getByRole("list", { name: "Wpisy dziennika zmian" });
     await expect(mobileList.getByRole("listitem")).toHaveCount(30);
     await expect(mobileList).toContainText("Superadmin Autervy");
