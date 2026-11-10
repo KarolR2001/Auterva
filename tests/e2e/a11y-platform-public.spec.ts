@@ -2,7 +2,7 @@ import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { availabilityToday, sqlDate } from "../../src/modules/availability/dates";
-import { auditScreen } from "../fixtures/a11y";
+import { auditScreen, focusAudit } from "../fixtures/a11y";
 import { FIXTURE } from "../../scripts/fixture-ids";
 import { ensureControlledSuperadminMfa, resetPlatformApiBudget, verifiedFixtureSession } from "../fixtures/verified-session";
 
@@ -24,7 +24,7 @@ test("platform panel screens pass the accessibility audit and the dialog traps a
   const port = Number(new URL(baseURL).port);
   const db = createPrismaClient(process.env.DATABASE_URL ?? "");
   const tag = randomUUID().slice(0, 8);
-  const [org, car, cat] = Array.from({ length: 3 }, () => randomUUID());
+  const [org, car, cat, adminId] = Array.from({ length: 4 }, () => randomUUID());
   const platformHost = `a11y-platform-${tag}.example.test`;
   const origin = `http://${platformHost}:${port}`;
   const today = availabilityToday();
@@ -39,7 +39,6 @@ test("platform panel screens pass the accessibility audit and the dialog traps a
     await db.vehicleCategory.create({ data: { id: cat, code: `a11y-${cat.slice(0, 8)}`, name: "Sedan" } });
     await db.vehicle.create({ data: { id: car, organizationId: org, slug: `a11y-${car}`, name: "Auto A11y", status: "PUBLISHED", categoryId: cat,
       availableFrom: sqlDate(today), seats: 5, transmission: "Automatyczna", description: "Opis pojazdu do audytu dostępności.", shortDescription: "Krótki opis" } });
-    const adminId = randomUUID();
     await db.user.create({ data: { id: adminId, name: "A11y admin", email: `a11y-${tag}@example.test`, emailVerified: true, twoFactorEnabled: true, role: "ADMIN_FIRMY", organizationId: org } });
     const conversation = await db.conversation.create({ data: { organizationId: org, lastSeq: 1, activityAt: new Date() } });
     await db.chatMessage.create({ data: { organizationId: org, conversationId: conversation.id, senderId: adminId, seq: 1, clientMessageId: randomUUID(), body: "Pytanie do audytu", createdAt: new Date() } });
@@ -85,6 +84,34 @@ test("platform panel screens pass the accessibility audit and the dialog traps a
     for (const [label, path] of screens) {
       await open(page, `${origin}${path}`);
       await auditScreen(page, label);
+    }
+
+    // The fixed action bar of the vehicle form and calendar must not cover focused controls, sidebar links included (#342, QA re-run):
+    // the company panel (admin of the same company) and the superadmin on the same screens at tablet and desktop width.
+    const adminSession = await verifiedFixtureSession(db, adminId);
+    const adminOrigin = `http://a11y-admin-${tag}.example.test:${port}`;
+    const adminContext = await page.context().browser()!.newContext({ viewport: { width: 1440, height: 900 } });
+    try {
+      await adminContext.addCookies([{ name: "better-auth.session_token", value: adminSession.cookie.slice(adminSession.cookie.indexOf("=") + 1), url: adminOrigin }]);
+      const adminPage = await adminContext.newPage();
+      const barScreens: [string, string, string][] = [
+        ["nowy pojazd", `/admin/pojazdy/nowy/`, `/firmy/${org}/pojazdy/nowy/`],
+        ["edycja pojazdu", `/admin/pojazdy/${car}/`, `/firmy/${org}/pojazdy/${car}/`],
+        ["kalendarz pojazdu", `/admin/pojazdy/${car}/kalendarz/`, `/firmy/${org}/pojazdy/${car}/kalendarz/`],
+      ];
+      for (const width of [390, 768, 1024, 1440]) {
+        for (const [label, adminPath, platformPath] of barScreens) {
+          await adminPage.setViewportSize({ width, height: 900 });
+          await open(adminPage, `${adminOrigin}${adminPath}`);
+          await focusAudit(adminPage, `panel firmy ${label} ${width}px`, 250);
+          await page.setViewportSize({ width, height: 900 });
+          await open(page, `${origin}${platformPath}`);
+          await focusAudit(page, `superadmin ${label} ${width}px`, 250);
+        }
+      }
+    } finally {
+      await adminContext.close();
+      await adminSession.dispose();
     }
 
     // Dialog: archive confirmation traps focus, Escape closes it and focus returns to the trigger.
