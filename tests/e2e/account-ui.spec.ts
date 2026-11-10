@@ -151,7 +151,7 @@ test("company admin: reset, account, password change, logout and expired service
     await page.goto(`${origin}/admin/konto`);
     await expect(page.getByRole("heading", { level: 1, name: "Konto", exact: true })).toBeVisible();
     // ADM-15: inside the panel shell (Konto active in the sidebar), tabs for the two account routes, two columns on desktop.
-    await expect(page.getByRole("navigation", { name: "Nawigacja panelu" }).getByRole("link", { name: "Konto" })).toHaveAttribute("aria-current", "page");
+    // This run is 390 px wide: the bottom navigation is the visible one (the sidebar is checked on the platform at 1440 px).
     await expect(page.getByRole("navigation", { name: "Nawigacja mobilna" })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Sekcje konta" }).getByRole("link", { name: "Profil i hasło" })).toHaveAttribute("aria-current", "page");
     await expect(page.getByText(email)).toBeVisible();
