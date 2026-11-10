@@ -586,6 +586,23 @@
       ]
     },
     {
+      "issue": 294,
+      "scope": "PLT-10 i ADM-15 Konto wewnątrz powłoki panelu (sidebar z aktywnym Kontem, górny pasek, dolna nawigacja na mobile): tytuł powłoki „Konto superadmina” / „Konto”, opis, układ dwukolumnowy od 1024 px (Dane konta | Bezpieczeństwo ze zmianą hasła i MFA), zakładki „Profil i hasło” / „Aktywne sesje” w ADM-15 (dwie trasy tego samego konta), „Aktywne sesje” i „Wydaj nowe kody” jako akcje drugorzędne. Logika (profil, hasło, MFA, ADM-16, reauth) bez zmian. Poza makietą zostaje: licznik sesji w zakładce (wymagałby dodatkowego odczytu), pozycja „Konto” w sidebarze platformy (nawigacja #66/#75), wiersz „Bieżąca sesja” i awatar w karcie profilu ADM-15. Karta Sesje w PLT-10 jest wejściem do ADM-16 (handoff platform-account.md wyklucza listę sesji z PLT-10; kontrakt #72 ją wymaga). Porównanie z Penpotem DEFERRED (#263).",
+      "relatedRequirementIds": ["C-F041", "C-F042", "C-F044", "FR-ADM-080", "FR-ADM-082"],
+      "referenceScreenIds": ["PLT-10", "ADM-15"],
+      "codePaths": [
+        "src/components/account/account-frame.tsx",
+        "src/components/account/account-page.tsx",
+        "src/components/account/sessions-page.tsx",
+        "src/components/account/account-tabs.tsx",
+        "src/components/account/account-view.tsx",
+        "src/components/account/sessions-view.tsx",
+        "src/components/account/account.module.css",
+        "src/app/admin/company-panel.tsx"
+      ],
+      "testPaths": ["tests/unit/account-page.test.tsx", "tests/unit/account-view.test.tsx", "tests/unit/account-tabs.test.tsx", "tests/e2e/account-ui.spec.ts"]
+    },
+    {
       "issue": 289,
       "scope": "Serwerowe 404 dla obcego lub nieistniejącego pojazdu na trasach floty platformy /firmy/{id}/pojazdy/{id}/ i .../kalendarz/ (po autoryzacji superadmina i weryfikacji firmy, zapytanie zawężone do firmy z URL); wspólny helper requireVehicleInCompany z #284.",
       "relatedRequirementIds": ["FR-ADM-030", "FR-ADM-050"],
