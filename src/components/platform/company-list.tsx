@@ -156,23 +156,25 @@ export function CompanyListView() {
       )}
 
       {items.length > 0 && (
-        <table className={styles.companyTable}>
-          <caption className={styles.srOnly}>Lista firm</caption>
-          <thead>
-            <tr>
-              <th scope="col">Firma</th>
-              <th scope="col">Okres usługi</th>
-              <th scope="col">Widoczność</th>
-              <th scope="col">Rejestracja</th>
-              <th scope="col">Akcje</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((company) => (
-              <CompanyRow key={company.organizationId} company={company} />
-            ))}
-          </tbody>
-        </table>
+        <div className={styles.listContainer}>
+          <table className={styles.companyTable}>
+            <caption className={styles.srOnly}>Lista firm</caption>
+            <thead>
+              <tr>
+                <th scope="col">Firma</th>
+                <th scope="col">Okres usługi</th>
+                <th scope="col">Widoczność</th>
+                <th scope="col">Rejestracja</th>
+                <th scope="col">Akcje</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((company) => (
+                <CompanyRow key={company.organizationId} company={company} />
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {hasMore && state !== "error" && (

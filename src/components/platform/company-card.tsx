@@ -8,7 +8,8 @@ import { useUnsavedChanges } from "../panel/unsaved-changes-guard";
 import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
 import { CompanyDomain } from "./company-domain";
-import { ArchiveSection, CompanyStatus, PeriodSection } from "./company-ops";
+import { ArchiveSection, CompanyStatus, PeriodSection, companyHostLine } from "./company-ops";
+import { PlatformPageHeader } from "./page-header";
 import type { CompanyCardData } from "./platform-api";
 import {
   canIssueInvitation, canRevokeInvitation, classifyInvitationError, invitationView,
@@ -157,24 +158,29 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
   const revocable = canRevokeInvitation(view, registered);
 
   return (
-    <div className={styles.card}>
+    <div className={styles.page}>
+      <PlatformPageHeader
+        trail={`Firmy / ${company.name}`}
+        title={company.name ?? "Firma"}
+        subtitle={<>{companyHostLine(company)}<br />Działasz jako superadmin w kontekście firmy {company.name}. Nie przejmujesz konta administratora.</>}
+        actions={<>
+          {(company.conversationId || !archived) && (
+            <Link className={styles.openLink} href={`/wiadomosci/?firma=${encodeURIComponent(company.organizationId)}`} prefetch={false}>
+              {company.conversationId ? "Wiadomości" : "Napisz do firmy"}</Link>
+          )}
+          <Link className={styles.linkButton} href={`/firmy/${encodeURIComponent(company.organizationId)}/pojazdy/`} prefetch={false}>Zarządzaj flotą</Link>
+        </>}
+      />
       <div ref={status} tabIndex={-1} className={styles.summary}>
         {busy === "issue" && <Alert tone="info" title="Wydawanie zaproszenia… Poczekaj na potwierdzenie." />}
         {busy !== "issue" && notice && <Alert tone={notice.tone} title={notice.title}>{notice.text}</Alert>}
       </div>
-
-      <CompanyStatus company={company} />
-      <section className={styles.panelCard} aria-labelledby="company-messages">
-        <h2 id="company-messages" className={styles.sectionTitle}>Wiadomości</h2>
-        <p className={styles.opsHint}>
-          {archived ? "Firma jest zarchiwizowana: historia rozmowy jest dostępna tylko do odczytu." : `Rozmowa z firmą ${company.name}: tylko ta firma jest odbiorcą.`}
-        </p>
-        {(company.conversationId || !archived) && (
-          <Link className={styles.openLink} href={`/wiadomosci/?firma=${encodeURIComponent(company.organizationId)}`} prefetch={false}>
-            {company.conversationId ? "Otwórz wiadomości" : "Napisz do firmy"}
-          </Link>
-        )}
-      </section>
+      <div className={styles.layout}>
+      <div className={styles.layoutAside}>
+        <CompanyStatus company={company} />
+        <ArchiveSection company={company} base={opsBase} reload={() => refresh(true)} />
+      </div>
+      <div className={styles.layoutMain}>
       <PeriodSection company={company} base={opsBase} reload={() => refresh(true)} />
 
       <section className={styles.section} aria-labelledby="company-data">
@@ -196,7 +202,6 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
         <h2 id="company-public">Flota, podgląd i materiały publiczne</h2>
         <p className={styles.hint}>Flota, zdjęcia pojazdów i blokady terminów są zarządzane tu jako superadmin, w kontekście tej firmy (nie jako klient i nie jako administrator firmy), także gdy firma jest zarchiwizowana. Logo, zdjęcie hero, zdjęcia marki, teksty strony, kontakt, SEO i treści prawne ustawia tylko superadmin. Zapis dotyczy wyłącznie tej firmy; administrator firmy widzi je w trybie odczytu.</p>
         <div className={styles.actions}>
-          <Link className={styles.cancel} href={`/firmy/${encodeURIComponent(company.organizationId)}/pojazdy/`} prefetch={false}>Zarządzaj flotą</Link>
           <Link className={styles.cancel} href={`/firmy/${encodeURIComponent(company.organizationId)}/kalendarz/`} prefetch={false}>Kalendarz floty</Link>
           <Link className={styles.cancel} href={`/firmy/${encodeURIComponent(company.organizationId)}/podglad/`} prefetch={false}>Podgląd strony (chroniony)</Link>
           <Link className={styles.cancel} href={`/firmy/${encodeURIComponent(company.organizationId)}/ustawienia/?sekcja=wyglad`} prefetch={false}>Edytuj logo i materiały publiczne</Link>
@@ -235,8 +240,9 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
         {view.kind === "uncertain" && <p className={styles.hint}>Nowe zaproszenie jest zablokowane, dopóki nie cofniesz niepewnego.</p>}
       </section>
       {!archived && <CompanyDomain organizationId={company.organizationId} archived={archived} />}
-      <ArchiveSection company={company} base={opsBase} reload={() => refresh(true)} />
       <Link className={styles.cancel} href="/firmy/" prefetch={false}>Wróć do firm</Link>
+      </div>
+      </div>
     </div>
   );
 }
