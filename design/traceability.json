@@ -22,6 +22,28 @@
       "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
     },
     {
+      "issue": 339,
+      "scope": "Miernik „Siła hasła” (D-45, D-46) w aktywacji (ACC-04), resecie (ADM-03) i zmianie hasła: poniżej 12 znaków stan „Za krótkie” (pusty pasek, bez poziomu); od 12 znaków poziom słabe/średnie/mocne z punktów: małe i wielkie litery, cyfra, znak specjalny (po 1) oraz długość 16+ (dodatkowy 1); 3+ mocne, 2 średnie, reszta słabe. Miernik jest informacyjny: nie zmienia walidacji serwera (12–256) ani blokady zapisu; aria-live obejmuje tylko etykietę poziomu. Hasło nie jest logowane ani wysyłane.",
+      "relatedRequirementIds": ["FR-ADM-006", "FR-ADM-007", "FR-ADM-080", "FR-ADM-082"],
+      "referenceScreenIds": ["ADM-03", "PLT-10"],
+      "scenarioStates": {
+        "passwordStrength": "PasswordStrength weak/medium/strong (DS-AUT-004); stan „Za krótkie” bez odpowiednika w makiecie (do ustalenia)"
+      },
+      "unmappedStates": ["Porównanie z planszami DS-AUT-004 i ACC-04 w Penpocie: DEFERRED (#263); stan „Za krótkie” dodany w aplikacji."],
+      "components": [
+        { "itemId": "DS-AUT-004", "codePath": "src/components/auth/password-strength.tsx" }
+      ],
+      "codePaths": [
+        "src/components/auth/password-strength.tsx",
+        "src/components/auth/password-policy.ts",
+        "src/components/auth/auth.module.css",
+        "src/components/auth/reset-flow.tsx",
+        "src/components/auth/activation-flow.tsx",
+        "src/components/account/account-view.tsx"
+      ],
+      "testPaths": ["tests/unit/password-policy.test.tsx", "tests/e2e/account-ui.spec.ts", "tests/e2e/company-activation-ui.spec.ts"]
+    },
+    {
       "issue": 323,
       "scope": "PUB-03 po #319 (QA #322) i pozycje PUB-03 z #320: podsumowanie „Wybrany zakres … · N dni” tylko po werdykcie (nie w ładowaniu i błędzie); pola dat bez obcięcia przy 1024 px (wiersz Od/Do, przycisk poniżej do 1280 px); dialog galerii wyśrodkowany; scroll-margin chroniący fokus przed przyklejonym CTA na mobile; karta kalendarza bezpośrednio pod kartą sprawdzania (bez pustej przestrzeni przy wysokiej galerii); chipy w kształcie pigułki, tytuł bez etykiety kategorii (kategoria zostaje w chipach), nagłówek desktop bez linku Kontakt (jest przycisk Skontaktuj się), stopka z „© rok nazwa”. Poza zakresem: hasło firmy w stopce (brak pola danych), reszta #320 (ADM-02/03).",
       "referenceScreenIds": ["PUB-03"],

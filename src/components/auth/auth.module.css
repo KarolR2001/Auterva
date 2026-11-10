@@ -288,6 +288,9 @@
   height: 100%;
   background: var(--text-primary);
 }
+.strength[data-level="short"] .strengthTrack {
+  border-style: dashed;
+}
 .strengthList {
   display: grid;
   gap: var(--space-2);

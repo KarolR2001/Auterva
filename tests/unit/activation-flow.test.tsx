@@ -85,8 +85,8 @@ describe("aktywacja konta: wskaźnik siły hasła (DS-AUT-004)", () => {
     const user = userEvent.setup();
     render(<ActivationFlow token={token} />);
     await screen.findByRole("heading", { name: "Aktywuj konto" });
-    expect(screen.getByText("Siła hasła: Słabe")).toBeVisible();
-    expect(screen.getByLabelText("Nowe hasło")).toHaveAccessibleDescription(/Siła hasła: Słabe/);
+    expect(screen.getByText("Siła hasła: Za krótkie")).toBeVisible();
+    expect(screen.getByLabelText("Nowe hasło")).toHaveAccessibleDescription(/Siła hasła: Za krótkie/);
     const items = screen.getAllByRole("listitem");
     expect(items[0]).toHaveTextContent("Co najmniej 12 znaków (wymagane): oczekuje");
     for (const item of items.slice(1)) expect(item).toHaveTextContent("(zalecane)");
