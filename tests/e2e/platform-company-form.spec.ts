@@ -6,6 +6,18 @@ import { ensureControlledSuperadminMfa, resetPlatformApiBudget, verifiedFixtureS
 // #25: PLT-04 in a real browser: validation, save, the separate invitation step, UNCERTAIN-free happy path, revoke.
 test.use({ launchOptions: { args: ["--host-resolver-rules=MAP *.example.test 127.0.0.1"] } });
 
+
+// #295: PLT-03/PLT-04 keep one column on small screens and never scroll the page sideways at any reference width.
+const widths = [320, 768, 1024, 1440, 1920];
+async function expectNoHorizontalScroll(page: import("@playwright/test").Page) {
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 900 });
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow, `poziome przewijanie przy ${width} px`).toBeLessThanOrEqual(0);
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
+}
+
 test("superadmin dodaje firmę, widzi zapis osobno od zaproszenia i cofa zaproszenie", async ({ page, context, baseURL }) => {
   if (!baseURL) throw new Error("Missing trusted ingress URL");
   const db = createPrismaClient(process.env.DATABASE_URL ?? "");
@@ -28,6 +40,8 @@ test("superadmin dodaje firmę, widzi zapis osobno od zaproszenia i cofa zaprosz
 
     await page.goto(`${origin}/firmy/nowa/`);
     await expect(page.getByRole("heading", { name: "Dodaj firmę" }).first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Przed wysłaniem zaproszenia" })).toBeVisible();
+    await expectNoHorizontalScroll(page);
     // Empty submit: precise errors, focus on the first field, nothing saved.
     await page.getByRole("button", { name: "Zapisz firmę" }).click();
     await expect(page.getByText("Wpisz nazwę firmy.")).toBeVisible();
@@ -52,6 +66,9 @@ test("superadmin dodaje firmę, widzi zapis osobno od zaproszenia i cofa zaprosz
     await expect(page.getByText(/Zapisano firmę\./)).toBeVisible();
     await expect(page.getByText(/Strona nie jest opublikowana/)).toBeVisible();
     await expect(page.getByText("Zaproszenie nie zostało wydane")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Plt04 Wypożyczalnia Łódź" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Status firmy" })).toBeVisible();
+    await expectNoHorizontalScroll(page);
     expect(await db.invitation.count({ where: { organizationId } })).toBe(0);
 
     await page.getByRole("button", { name: "Wyślij zaproszenie" }).click();
