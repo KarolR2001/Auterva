@@ -56,7 +56,7 @@ export function PublicHome({ home, today }: { home: Home; today: string }) {
             <p className={styles.sectionLead}>Porównaj pojazdy i sprawdź dostępność w wybranym terminie.</p>
             {home.availabilityNotice ? <p className={styles.hint}>{home.availabilityNotice}</p> : null}
             <ul className={`${styles.grid} ${styles.grid3}`}>
-              {home.featured.map((vehicle) => <li key={vehicle.slug}><VehicleCard vehicle={vehicle} range={none} /></li>)}
+              {home.featured.map((vehicle) => <li key={vehicle.slug}><VehicleCard vehicle={vehicle} range={none} layout="featured" /></li>)}
             </ul>
             <div className={styles.pager}><LinkButton href="/pojazdy/" variant="secondary">Zobacz wszystkie pojazdy</LinkButton></div>
           </div>

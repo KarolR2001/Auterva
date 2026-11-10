@@ -486,6 +486,7 @@ export function VehicleForm({ context = companyContext, vehicleId, title }: { co
                       <input type="checkbox" checked={values.featured} disabled={disabled} onChange={(event) => set("featured", event.target.checked)} />
                       Wyróżnij na stronie głównej firmy
                     </label>
+                    <p className={styles.hint}>Wyróżniony pojazd pojawia się na stronie głównej tylko wtedy, gdy jest opublikowany i mieści się w liczbie wyróżnionych z ustawień firmy; kolejność wyznacza pozycja na liście.</p>
                     {text("sortOrder", "Pozycja na liście", { optional: true, inputMode: "numeric", hint: "Liczba od 0 do 2 147 483 647; mniejsza wyświetla się wyżej. Kolejność zmienisz też na liście pojazdów." })}
                     <p className={styles.hint}>Tytuł i opis SEO ustawia Auterva; w panelu firmy są tylko do odczytu.</p>
                   </>}

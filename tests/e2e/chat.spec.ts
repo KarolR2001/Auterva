@@ -3,6 +3,7 @@ import { request as httpRequest, type IncomingHttpHeaders } from "node:http";
 import { expect, test } from "@playwright/test";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { ensureControlledSuperadminMfa, verifiedFixtureSession } from "../fixtures/verified-session";
+import { expiredTrial } from "../fixtures/expired-trial";
 
 type Reply = { status: number; body: Record<string, unknown>; headers: IncomingHttpHeaders };
 
@@ -48,8 +49,7 @@ test("built app: admin A writes, superadmin reads conversation A, admin B sees n
     ] });
     // Both companies have an expired trial and no paid period: chat must work regardless.
     for (const [id, organizationId] of [[userA, orgA], [userB, orgB]] as const) {
-      await db.serviceAccess.create({ data: { organizationId, trialGranted: true,
-        trialStartedAt: new Date(Date.now() - 500 * 3_600_000), trialEndsAt: new Date(Date.now() - 164 * 3_600_000) } });
+      await db.serviceAccess.create({ data: { organizationId, ...expiredTrial({ endedHoursAgo: 164 }) } });
       await db.user.create({ data: { id, name: "Chat E2E admin", email: `chat-e2e-${id}@example.test`, emailVerified: true,
         twoFactorEnabled: true, role: "ADMIN_FIRMY", organizationId } });
     }

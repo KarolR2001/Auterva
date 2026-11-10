@@ -10,6 +10,7 @@ import { runWithTrustedClientAddress } from "../../src/modules/ingress/client-ad
 import { END_SESSIONS_PURPOSE, deviceLabel } from "../../src/modules/auth/sessions";
 import { refusedStatus, TestSocket } from "../fixtures/realtime-client";
 import { ensureControlledSuperadminMfa, verifiedFixtureSession } from "../fixtures/verified-session";
+import { expiredTrial } from "../fixtures/expired-trial";
 
 // #72 (FR-ADM-081, C-F043): list and consciously end the caller's own sessions. Real PostgreSQL, companies A/B.
 const db = createPrismaClient(process.env.DATABASE_URL ?? "");
@@ -221,8 +222,7 @@ test("an ended session loses its WebSocket (code 4401) and API access while the 
 test("the end of the service period does not end sessions; archiving the company blocks the list", async () => {
   const current = await session(users[0]);
   const other = await session(users[0]);
-  await db.serviceAccess.create({ data: { organizationId: organizations[0], trialGranted: true,
-    trialStartedAt: new Date(Date.now() - 337 * 3_600_000), trialEndsAt: new Date(Date.now() - 3_600_000) } });
+  await db.serviceAccess.create({ data: { organizationId: organizations[0], ...expiredTrial({ endedHoursAgo: 1 }) } });
   expect((await list(hosts[0], current.cookie))).toHaveLength(2);
   expect(await present(current.id, other.id)).toHaveLength(2);
   expect((await end(hosts[0], current.cookie, { proof: await proofFor(users[0], current.id) })).status).toBe(200);
