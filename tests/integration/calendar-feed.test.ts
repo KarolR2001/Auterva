@@ -25,6 +25,9 @@ const adminA = randomUUID();
 const adminB = randomUUID();
 const vehicleA = randomUUID();
 const vehicleA2 = randomUUID();
+const draftBlocked = randomUUID();
+const hiddenBlocked = randomUUID();
+const archivedBlocked = randomUUID();
 const vehicleB = randomUUID();
 const hostA = `feed-a-${orgA}.example.test`;
 const hostB = `feed-b-${orgB}.example.test`;
@@ -67,6 +70,12 @@ beforeAll(async () => {
       availableFrom: sqlDate(day(-10)), availableTo: sqlDate(day(20)) },
     { id: vehicleA2, organizationId: orgA, slug: `feed-a2-${vehicleA2}`, name: "Drugi", status: "DRAFT",
       availableFrom: sqlDate(day(-10)) },
+    { id: draftBlocked, organizationId: orgA, slug: `feed-d-${draftBlocked}`, name: "Szkic z blokadą", status: "DRAFT",
+      availableFrom: sqlDate(day(-10)), availableTo: sqlDate(day(30)) },
+    { id: hiddenBlocked, organizationId: orgA, slug: `feed-h-${hiddenBlocked}`, name: "Wycofany z blokadą", status: "UNPUBLISHED",
+      availableFrom: sqlDate(day(-10)), availableTo: sqlDate(day(30)) },
+    { id: archivedBlocked, organizationId: orgA, slug: `feed-r-${archivedBlocked}`, name: "Archiwalny z blokadą", status: "ARCHIVED",
+      availableFrom: sqlDate(day(-10)), availableTo: sqlDate(day(30)) },
     { id: vehicleB, organizationId: orgB, slug: `feed-b-${vehicleB}`, name: "Cudzy pojazd B", status: "PUBLISHED",
       availableFrom: sqlDate(day(-10)) },
   ] });
@@ -75,6 +84,8 @@ beforeAll(async () => {
       reference: "SEKRET-REF-1", internalNote: "SEKRET-NOTATKA-1" },
     { organizationId: orgA, vehicleId: vehicleA, from: sqlDate(day(4)), to: sqlDate(day(5)), type: "RESERVED",
       reference: "SEKRET-REF-2", internalNote: "SEKRET-NOTATKA-2" },
+    ...[draftBlocked, hiddenBlocked, archivedBlocked].map((vehicleId) => ({ organizationId: orgA, vehicleId,
+      from: sqlDate(day(7)), to: sqlDate(day(8)), type: "BLOCKED" as const })),
     { organizationId: orgB, vehicleId: vehicleB, from: sqlDate(day(1)), to: sqlDate(day(1)), type: "BLOCKED" },
   ] });
   const a = await verifiedFixtureSession(db, adminA);
@@ -226,6 +237,9 @@ test("feed shows only unavailability ranges: no type, reference, note or block i
   expect(dates).toContainEqual({ start: compact(day(3)), end: compact(day(6)) });
   expect(dates).toContainEqual({ start: compact(day(21)), end: compact(day(366)) });
   expect(events.filter((event) => event.includes("SUMMARY:Niedostępny: Drugi"))).toHaveLength(0);
+  // D-47: only PUBLISHED vehicles; a draft, unpublished or archived vehicle with a block never appears.
+  for (const name of ["Szkic z blokadą", "Wycofany z blokadą", "Archiwalny z blokadą", "Drugi"]) expect(text).not.toContain(name);
+  expect(text).not.toContain(`DTSTART;VALUE=DATE:${day(7).replaceAll("-", "")}`);
   expect(events.some((event) => /UID:[0-9a-f]{40}@auterva/.test(event))).toBe(true);
   // The company's second vehicle has no unavailable day; the other company's vehicle never appears.
   expect(text).not.toContain("Cudzy");

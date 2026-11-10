@@ -13,7 +13,7 @@ Status: **wdrożone w #327** (Backend). Źródłem decyzji jest kontrakt discove
 
 ## Zawartość pliku
 
-Okno: od dziś (Europe/Warsaw) do dziś + 365 dni włącznie. Dla każdego pojazdu niearchiwalnego z ustawioną aktywnością: dni poza aktywnością oraz dni z blokadą (reguła #33), sąsiednie i nakładające się zakresy połączone. Pojazdy bez okresu aktywności są pomijane. `DTSTART;VALUE=DATE` = pierwszy dzień, `DTEND;VALUE=DATE` = dzień po ostatnim (RFC 5545), `SUMMARY:Niedostępny: {nazwa}`, `UID` = HMAC (BETTER_AUTH_SECRET) z firmy, pojazdu i dnia początku, `TRANSP:OPAQUE`, bez `SEQUENCE`. Linie składane do 75 oktetów, tekst escapowany (`\ ; ,` i łamania wierszy zamieniane na `\n`, inne znaki sterujące usuwane). Limit 5000 zdarzeń; przy przekroczeniu nagłówek `X-Auterva-Feed-Truncated: true`. Z jednej migawki `REPEATABLE READ`, bez cache aplikacyjnego. Wyłącznie GET; brak ETag/304 w tym kroku. Zdarzenie audytu `CALENDAR_FEED_EXPIRED` (sweep) nie jest wdrożone: wygaśnięcie widać po `status: EXPIRED` na liście.
+Okno: od dziś (Europe/Warsaw) do dziś + 365 dni włącznie. Decyzja D-47: tylko pojazdy `PUBLISHED` (szkice, wycofane i archiwalne są pominięte, także z blokadami). Dla każdego takiego pojazdu z ustawioną aktywnością: dni poza aktywnością oraz dni z blokadą (reguła #33), sąsiednie i nakładające się zakresy połączone. Pojazdy bez okresu aktywności są pomijane. `DTSTART;VALUE=DATE` = pierwszy dzień, `DTEND;VALUE=DATE` = dzień po ostatnim (RFC 5545), `SUMMARY:Niedostępny: {nazwa}`, `UID` = HMAC (BETTER_AUTH_SECRET) z firmy, pojazdu i dnia początku, `TRANSP:OPAQUE`, bez `SEQUENCE`. Linie składane do 75 oktetów, tekst escapowany (`\ ; ,` i łamania wierszy zamieniane na `\n`, inne znaki sterujące usuwane). Limit 5000 zdarzeń; przy przekroczeniu nagłówek `X-Auterva-Feed-Truncated: true`. Z jednej migawki `REPEATABLE READ`, bez cache aplikacyjnego. Wyłącznie GET; brak ETag/304 w tym kroku. Zdarzenie audytu `CALENDAR_FEED_EXPIRED` (sweep) nie jest wdrożone: wygaśnięcie widać po `status: EXPIRED` na liście.
 
 ## Odpowiedzi publicznego endpointu
 
@@ -28,6 +28,6 @@ Admin firmy (host panelu, pełne MFA, `Origin` przy mutacjach):
 - `POST /api/admin/calendar-feeds/{id}/rotate` → `200` jak wyżej (nowe `id`, ta sama etykieta); stary token odwołany atomowo. `404` dla nieznanego, odwołanego, wygasłego lub cudzego.
 - `DELETE /api/admin/calendar-feeds/{id}` → `200` z pozycją w stanie `REVOKED` (powtórzenie jest bezpieczne).
 
-Superadmin: `GET /api/platform/companies/{organizationId}/calendar-feeds` i `DELETE .../calendar-feeds/{id}`; utworzenie i rotacja zwracają `403`.
+Superadmin: `GET /api/platform/companies/{organizationId}/calendar-feeds` i `DELETE .../calendar-feeds/{id}`. Tras tworzenia i rotacji w obszarze platformy nie ma (metoda niewspierana, `405`); superadmin nie tworzy feedu. Warstwa domenowa dodatkowo odmawia takiemu aktorowi (`FEED_FORBIDDEN`), co chroni przed przyszłym dodaniem trasy.
 
 Audyt: `CALENDAR_FEED_CREATED`, `CALENDAR_FEED_ROTATED`, `CALENDAR_FEED_REVOKED` (encja `CalendarFeedToken`, `entityId` = id wiersza, `safeChanges: { count }`), bez tokena, hasha i adresu.

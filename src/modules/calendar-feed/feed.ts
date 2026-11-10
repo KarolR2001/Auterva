@@ -37,7 +37,7 @@ export async function touchFeedToken(db: PrismaClient, tokenId: string, now: Dat
 }
 
 /**
- * Whole fleet of the company (ARCHIVED vehicles excluded; vehicles without any activity period are skipped), read
+ * Published vehicles of the company only (D-47: draft, unpublished and archived are excluded; vehicles without any activity period are skipped), read
  * from one RepeatableRead snapshot at request time: nothing is cached. Only dates leave the database for blocks:
  * type, reference, note and block id are never selected.
  */
@@ -45,7 +45,7 @@ export async function buildFeed(db: PrismaClient, organizationId: string, now: D
   const windowFrom = availabilityToday(now);
   const windowTo = addLocalDays(windowFrom, FEED_WINDOW_DAYS);
   const [vehicles, blocks] = await db.$transaction([
-    db.vehicle.findMany({ where: { organizationId, status: { not: "ARCHIVED" }, availableFrom: { not: null } },
+    db.vehicle.findMany({ where: { organizationId, status: "PUBLISHED", availableFrom: { not: null } },
       orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
       select: { id: true, name: true, availableFrom: true, availableTo: true } }),
     db.availabilityBlock.findMany({ where: { organizationId, from: { lte: sqlDate(windowTo) }, to: { gte: sqlDate(windowFrom) } },
