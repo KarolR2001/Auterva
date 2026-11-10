@@ -210,11 +210,8 @@
 .h3 { margin: 0 0 var(--space-3); font-size: var(--font-size-22); line-height: var(--line-height-28); font-weight: var(--font-weight-semibold); }
 .features { display: grid; gap: var(--space-2); grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); list-style: none; margin: 0 0 var(--space-6); padding: 0; }
 .stickyAction { position: sticky; bottom: 0; z-index: var(--z-sticky); padding: var(--space-3) 0; background: var(--surface-canvas); border-top: var(--border-width-hairline) solid var(--border-subtle); }
-.checkerRow { display: grid; gap: var(--space-3); margin-bottom: var(--space-4); }
 @media (min-width: 768px) {
   .stickyAction .fill { width: auto; }
-  .checkerRow { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; }
-  .checkerRow > button { grid-column: 1 / -1; }
   .stickyAction { position: static; border-top: 0; padding: 0; background: transparent; }
 }
 @media (min-width: 1024px) {
@@ -223,10 +220,6 @@
   .infoCol { grid-area: info; }
   .detailBody { grid-area: body; }
   .calendar { grid-area: calendar; }
-}
-@media (min-width: 1280px) {
-  .checkerRow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
-  .checkerRow > button { grid-column: auto; }
 }
 /* Mobile: the sticky contact bar must not hide a focused control (WCAG 2.4.11). */
 @media (max-width: 767px) {
@@ -243,6 +236,7 @@
 /* #43: interactive calendar days and alternative vehicles */
 .dayButton { all: unset; box-sizing: border-box; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; min-height: 44px; cursor: pointer; border-radius: var(--radius-sm); position: relative; }
 .dayIcon { position: absolute; top: 3px; right: 3px; }
+.dayButton[aria-disabled="true"] { cursor: default; }
 .dayButton:focus-visible { outline: var(--border-width-active) solid var(--focus-ring); outline-offset: var(--focus-offset); }
 .alternatives { margin-top: var(--space-4); }
 .altList { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
