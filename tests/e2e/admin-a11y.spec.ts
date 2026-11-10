@@ -85,7 +85,7 @@ test("panel firmy: skan axe, nagłówek h1, landmarki i reflow 320 px na każdym
     const signedIn = [
       ["dashboard", "/admin/"], ["pojazdy", "/admin/pojazdy/"], ["nowy pojazd", "/admin/pojazdy/nowy/"], ["formularz pojazdu", `/admin/pojazdy/${car}/`],
       ["kalendarz pojazdu", `/admin/pojazdy/${car}/kalendarz/`], ["kalendarz floty", "/admin/kalendarz/"], ["dziennik zmian", "/admin/logi/"], ["czat", "/admin/czat/"],
-      ["ustawienia", "/admin/ustawienia/"], ["konto", "/admin/konto/"], ["sesje", "/admin/konto/sesje/"], ["status usługi", "/admin/usluga/"],
+      ["ustawienia", "/admin/ustawienia/"], ["kalendarz zewnętrzny", "/admin/ustawienia/kalendarz-zewnetrzny/"], ["konto", "/admin/konto/"], ["sesje", "/admin/konto/sesje/"], ["status usługi", "/admin/usluga/"],
       ["404 w shellu", "/admin/nieznana-sciezka/"], ["pojazd nieistniejący", `/admin/pojazdy/${randomUUID()}/`],
     ] as const;
     for (const width of [1440, 320]) {
@@ -274,7 +274,7 @@ test("panel firmy: fokus, dialogi, menu Więcej, błędy pól, reduced motion i 
     try {
       await narrow.addCookies([{ name, value, domain: host, path: "/" }]);
       const narrowPage = await narrow.newPage();
-      for (const path of ["/admin/", "/admin/pojazdy/", `/admin/pojazdy/${car}/`, `/admin/pojazdy/${car}/kalendarz/`, "/admin/kalendarz/", "/admin/czat/", "/admin/ustawienia/", "/admin/konto/", "/admin/logi/", "/admin/usluga/"]) {
+      for (const path of ["/admin/", "/admin/pojazdy/", `/admin/pojazdy/${car}/`, `/admin/pojazdy/${car}/kalendarz/`, "/admin/kalendarz/", "/admin/czat/", "/admin/ustawienia/", "/admin/ustawienia/kalendarz-zewnetrzny/", "/admin/konto/", "/admin/logi/", "/admin/usluga/"]) {
         await narrowPage.goto(`${origin}${path}`);
         await narrowPage.waitForLoadState("networkidle").catch(() => undefined);
         // The page CSP forbids inline <style>: the spacing is applied through the CSSOM instead.

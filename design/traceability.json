@@ -75,7 +75,7 @@
         "src/app/admin/ustawienia/kalendarz-zewnetrzny/page.tsx",
         "src/app/firmy/[organizationId]/ustawienia/kalendarz-zewnetrzny/page.tsx"
       ],
-      "testPaths": ["tests/unit/calendar-feeds.test.tsx", "tests/unit/settings-routes.test.tsx", "tests/e2e/calendar-feeds-ui.spec.ts"],
+      "testPaths": ["tests/unit/calendar-feeds.test.tsx", "tests/unit/settings-routes.test.tsx", "tests/e2e/calendar-feeds-ui.spec.ts", "tests/e2e/admin-a11y.spec.ts"],
       "sharedWith": "API: docs/contracts/calendar-feed-implementation.md (#327); decyzje: docs/contracts/calendar-and-company-export.md (D-40, D-47)."
     },
     {
