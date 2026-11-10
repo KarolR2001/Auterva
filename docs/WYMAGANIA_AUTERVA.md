@@ -626,7 +626,7 @@ Rozstrzygają pytania zebrane podczas CR/QA Stage 3. Gdy decyzja zmienia zachowa
 - **Najpierw: diagnostyka uruchomienia firmy.** Na karcie firmy czytelne przyczyny problemów DNS/TLS i niedostarczenia zaproszenia/przypomnienia; dane techniczne wyłącznie dla operatora. Rozwija istniejące statusy, bez nowego panelu integracji.
 - **Następnie: najbliższy wolny termin.** Po negatywnym sprawdzeniu pokazać kolejny dostępny zakres z ustalonym horyzontem; nadal wyłącznie informacja i kontakt. Alternatywne dostępne pojazdy są już częścią bazowego flow.
 - **Następnie: kopiowanie i zbiorcze blokowanie aut.** Przydatne przy serwisie/urlopie; podsumowanie konfliktów i jednoznaczna polityka częściowego zapisu przed wdrożeniem.
-- **Następnie: eksport kalendarza oraz danych firmy.** Ułatwia pracę poza Autervą i przenoszenie danych; osobne zakresy publiczne/prywatne, kontrola uprawnień i termin ważności linku.
+- **Następnie: eksport kalendarza oraz danych firmy.** Ułatwia pracę poza Autervą i przenoszenie danych; osobne zakresy publiczne/prywatne, kontrola uprawnień i termin ważności linku. Discovery #79 (propozycje i pytania E1–E14, bez decyzji): [kontrakt](contracts/calendar-and-company-export.md).
 - **Później: dodatkowy język publicznej oferty.** Korzysta z przygotowanej lokalizacji; wymaga tłumaczeń rzeczywistych treści i SEO, bez przebudowy paneli.
 - Rezerwacje online, płatności, CRM i zespoły wymagają osobnej decyzji produktowej; nie są drobnym dodatkiem do obecnego modelu.
 
