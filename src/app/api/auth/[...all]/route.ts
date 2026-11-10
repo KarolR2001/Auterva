@@ -19,6 +19,7 @@ import { apiRateLimitResponse, takeAuthenticatedApiLimit } from "@/modules/tenan
 import { bodyExceeds, MAX_AUTH_BODY_BYTES } from "@/modules/tenancy/json-body";
 import { withErrorRequestId } from "@/modules/tenancy/request-id";
 import { END_SESSIONS_PURPOSE, endOwnSessions, listOwnSessions } from "@/modules/auth/sessions";
+import { EXPORT_COMPANY_DATA_PURPOSE } from "@/modules/auth/reauth-proof";
 import { changeAccountPassword, requestPasswordReset, resetPassword, updateAccountProfile } from "@/modules/auth/account-operations";
 import { parseMailPayloadKey } from "@/modules/jobs/config";
 import { z } from "zod";
@@ -125,7 +126,7 @@ async function handleMfaManagement(request: Request, pathname: string, instance:
           return neutral();
         }
         const purpose = body.purpose === undefined ? "rotate-backup-codes" : body.purpose;
-        if (purpose !== "rotate-backup-codes" && purpose !== END_SESSIONS_PURPOSE) return neutral();
+        if (purpose !== "rotate-backup-codes" && purpose !== END_SESSIONS_PURPOSE && purpose !== EXPORT_COMPANY_DATA_PURPOSE) return neutral();
         let valid = false;
         try {
           if (body.method === "totp" && /^\d{6}$/.test(body.code)) {

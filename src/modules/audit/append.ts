@@ -12,6 +12,9 @@ const actionEntity = {
   BLOCK_CREATED: "AvailabilityBlock", BLOCK_UPDATED: "AvailabilityBlock", BLOCK_DELETED: "AvailabilityBlock",
   MFA_RECOVERY_CODE_USED: "User",
   MFA_BACKUP_CODES_ROTATED: "User", MFA_RECOVERY_STARTED: "User",
+  // #328: company data export; field names and counts only, never file content or names.
+  EXPORT_REQUESTED: "CompanyExport", EXPORT_READY: "CompanyExport", EXPORT_FAILED: "CompanyExport",
+  EXPORT_DOWNLOADED: "CompanyExport", EXPORT_EXPIRED: "CompanyExport",
 } as const;
 
 export const safeAuditFieldNames = new Set([
@@ -64,7 +67,7 @@ const platformOnly = new Set<AuditAction>([
 export const ARCHIVED_COMPANY_CONTEXT = "ARCHIVED_COMPANY";
 const archiveWriteActions = new Set<AuditAction>(["SETTINGS_CHANGED", "BRANDING_CHANGED", "VEHICLE_CREATED",
   "VEHICLE_UPDATED", "VEHICLE_PUBLISHED", "VEHICLE_HIDDEN", "VEHICLE_ARCHIVED", "MEDIA_CHANGED",
-  "BLOCK_CREATED", "BLOCK_UPDATED", "BLOCK_DELETED"]);
+  "BLOCK_CREATED", "BLOCK_UPDATED", "BLOCK_DELETED", "EXPORT_REQUESTED", "EXPORT_DOWNLOADED"]);
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type AuditAction = keyof typeof actionEntity;
