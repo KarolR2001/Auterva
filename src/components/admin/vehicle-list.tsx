@@ -249,6 +249,8 @@ function VehicleRow({ item, index, first, last, context, reorder, saving, onMove
   const name = item.name ?? "Pojazd bez nazwy";
   const base = `${context.hrefBase}/pojazdy/${item.id}`;
   const Status = item.status === "PUBLISHED" ? CircleCheck : item.status === "DRAFT" ? FileText : item.status === "UNPUBLISHED" ? EyeOff : Archive;
+  // Arrows, Edytuj, Podgląd, Kalendarz and Więcej together need a wider column than the table has below ~1220 px.
+  const wideActions = reorder && !!context.previewBase && item.status !== "ARCHIVED";
   const imageBase = `${context.apiBase}/vehicles/${item.id}/images`;
   // aria-disabled instead of disabled: a disabled button drops keyboard focus, and the focus must stay on the control.
   const arrow = (direction: -1 | 1, unavailable: boolean) => {
@@ -261,7 +263,8 @@ function VehicleRow({ item, index, first, last, context, reorder, saving, onMove
   };
   return (
     <tr className={styles.row} role="row" data-vehicle={item.id}>
-      <td className={styles.cellVehicle} role="cell">
+      <td role="cell">
+        <div className={styles.cellVehicle}>
         <div className={styles.thumb}>
           {item.cover ? <img src={`${imageBase}/${item.cover.id}/thumb/`} alt={item.cover.alt} loading="lazy" width={96} height={64} />
             : <span className={styles.noPhoto}>Brak zdjęcia</span>}
@@ -269,6 +272,7 @@ function VehicleRow({ item, index, first, last, context, reorder, saving, onMove
         <h3 className={styles.rowTitle}>{routes.vehicleForm
           ? <a href={`${base}/`} data-focus={`row:${item.id}`}>{name}</a>
           : <span tabIndex={-1} data-focus={`row:${item.id}`}>{name}</span>}</h3>
+        </div>
       </td>
       <td className={styles.cellCategory} role="cell" data-label="Kategoria">{item.category?.name ?? "Bez kategorii"}</td>
       <td role="cell" data-label="Publikacja"><span className={styles.badge}><Status aria-hidden="true" size={16} />{statusLabels[item.status]}</span></td>
@@ -280,7 +284,7 @@ function VehicleRow({ item, index, first, last, context, reorder, saving, onMove
           : <span className={styles.muted}>{item.status === "ARCHIVED" ? "—" : "— Niepubliczny"}</span>}
       </td>
       <td role="cell" data-label="Ostatnia zmiana">{updated(item.updatedAt)}</td>
-      <td className={styles.actions} role="cell">
+      <td role="cell"><div className={`${styles.actions} ${wideActions ? styles.actionsWide : ""}`}>
         {reorder && <>{arrow(-1, first)}{arrow(1, last)}</>}
         {routes.vehicleForm && <a className={styles.actionLink} href={`${base}/`}><Pencil aria-hidden="true" size={18} />Edytuj<span className={styles.visuallyHidden}> {name}</span></a>}
         {context.previewBase && item.status !== "ARCHIVED" && <a className={styles.actionLink} href={`${context.previewBase}/pojazdy/${item.id}/`}><Eye aria-hidden="true" size={18} />Podgląd<span className={styles.visuallyHidden}> {name}</span></a>}
@@ -303,7 +307,7 @@ function VehicleRow({ item, index, first, last, context, reorder, saving, onMove
             )}
           </div>
         )}
-      </td>
+      </div></td>
     </tr>
   );
 }

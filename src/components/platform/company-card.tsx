@@ -12,7 +12,7 @@ import { ArchiveSection, CompanyStatus, PeriodSection, companyHostLine } from ".
 import { PlatformPageHeader } from "./page-header";
 import type { CompanyCardData } from "./platform-api";
 import {
-  canIssueInvitation, canRevokeInvitation, classifyInvitationError, invitationView,
+  canIssueInvitation, canRevokeInvitation, classifyInvitationError, invitationView, isConfigurationRefusal,
   type InvitationDto, type InvitationView,
 } from "@/modules/invitations/view-state";
 import { newIdempotencyKey } from "@/modules/organizations/new-company-form";
@@ -75,8 +75,10 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
   const info = viewText[view.kind];
 
   async function fail(response: Response | null, operation: "issue" | "revoke" = "issue") {
+    const code = response ? ((await response.json().catch(() => null)) as { code?: string } | null)?.code ?? null : null;
     // 5xx or network: the outcome is unknown, so the key stays and a retry cannot issue a second link.
-    if (!response || response.status >= 500 && response.status !== 503) {
+    // Only a 503 with an explicit pre-write configuration code is a definite refusal.
+    if (!response || (response.status >= 500 && !isConfigurationRefusal(response.status, code))) {
       if (operation === "revoke") {
         setNotice({ tone: "error", title: "Nie wiemy, czy zaproszenie zostało cofnięte.",
           text: "Odświeżyliśmy status. Jeśli zaproszenie nadal jest aktywne, cofnij je ponownie." });
@@ -101,7 +103,6 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
     }
     issueKey.current = null;
     uncertainAttempt.current = false;
-    const code = ((await response.json().catch(() => null)) as { code?: string } | null)?.code ?? null;
     const failure = classifyInvitationError(response.status, code, response.headers.get("Retry-After"));
     setNotice({ tone: "error", title: "Nie wykonano operacji.", text: failure.message });
     if (failure.refresh) void refresh(true);

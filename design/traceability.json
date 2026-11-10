@@ -22,6 +22,25 @@
       "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
     },
     {
+      "issue": 313,
+      "scope": "Stabilny E2E konfliktu wersji okresu na karcie firmy: test czeka na odświeżenie karty po pierwszym zapisie (nowa data w wierszu Opłata), zanim druga sesja zmieni okres. Bez zmian w UI i API: konflikt był wykrywany zawsze, gdy karta miała wersję sprzed zapisu drugiej sesji.",
+      "relatedRequirementIds": ["C-F045", "C-F046"],
+      "referenceScreenIds": ["PLT-03"],
+      "codePaths": ["src/components/platform/company-ops.tsx"],
+      "testPaths": ["tests/e2e/platform-companies.spec.ts"]
+    },
+    {
+      "issue": 293,
+      "scope": "Lista firm PLT-01-02: tabela (Firma, Okres usługi, Widoczność, Rejestracja, Akcje) na desktopie i karty na mobile, chipy statusu z ikoną i tekstem, akcje Otwórz i Czat (do /wiadomosci/?firma=, C-F135) w wierszu, akcje Wiadomości i Dodaj firmę w nagłówku. Bez licznika nieprzeczytanych (lista API go nie zwraca); H1 pozostaje w PanelShell (#66/#75).",
+      "relatedRequirementIds": ["C-F015", "C-F045", "C-F135"],
+      "referenceScreenIds": ["PLT-01-02"],
+      "codePaths": [
+        "src/components/platform/company-list.tsx",
+        "src/components/platform/platform.module.css"
+      ],
+      "testPaths": ["tests/unit/platform-companies.test.tsx", "tests/e2e/platform-companies.spec.ts"]
+    },
+    {
       "issue": 265,
       "scope": "Poprawki z QA #27: po niepewnym wyniku zapisu okresu (5xx, brak odpowiedzi) najpierw odczyt stanu, potem komunikat zgodny z faktem (zapisano / nie zapisano / zmieniono w innej sesji); lista firm `/firmy/` z tą samą polityką hosta co `/` i `/firmy/{id}/` (anonim do loginu platformy, inna sesja 404); ikona statusu w wierszu obok tekstu.",
       "relatedRequirementIds": ["C-F045", "C-F046", "C-F068", "C-F069"],
@@ -645,6 +664,27 @@
         "tests/integration/media-http.test.ts",
         "tests/integration/media-process-lifecycle.test.ts"
       ]
+    },
+    {
+      "issue": 307,
+      "scope": "Platforma i media: 503 jest odrzuceniem tylko z jawnym kodem sprzed zapisu (zaproszenie: HOST_DOMAINS_NOT_CONFIGURED, MAIL_NOT_CONFIGURED, INGRESS_NOT_CONFIGURED; upload: MEDIA_BUSY, MEDIA_DECODER_UNAVAILABLE); każde inne 503 to wynik niepewny (odczyt stanu, ten sam klucz idempotencji, bez fałszywego sukcesu). Trasy domen nie zwracają 503, więc każde 503 jest tam niepewne. Bez zmian wyglądu ani API.",
+      "relatedRequirementIds": ["C-F022", "C-F034", "C-F086"],
+      "referenceScreenIds": ["PLT-04", "ADM-06"],
+      "codePaths": [
+        "src/components/platform/company-card.tsx",
+        "src/components/platform/company-domain.tsx",
+        "src/components/media/upload-core.ts",
+        "src/modules/invitations/view-state.ts"
+      ],
+      "testPaths": ["tests/unit/company-card.test.tsx", "tests/unit/company-domain.test.tsx", "tests/unit/upload-core.test.ts"]
+    },
+    {
+      "issue": 296,
+      "scope": "Lista pojazdów ADM-05 (panel firmy i flota superadmina w /firmy/{id}/pojazdy): komórki Pojazd i Akcje nie są już display:flex na td, więc separatory wierszy są ciągłe, a akcje desktopu 1440 leżą w jednym wierszu. Poza zakresem: filtr kategorii i ostatniej zmiany oraz podsumowanie statusów w nagłówku (brak w API floty).",
+      "relatedRequirementIds": ["FR-ADM-050", "FR-ADM-051", "FR-ADM-052"],
+      "referenceScreenIds": ["ADM-05"],
+      "codePaths": ["src/components/admin/vehicle-list.tsx", "src/components/admin/admin.module.css"],
+      "testPaths": ["tests/e2e/admin-fleet.spec.ts", "tests/e2e/platform-company-fleet.spec.ts", "tests/fixtures/fleet-row-layout.ts"]
     },
     {
       "issue": 304,

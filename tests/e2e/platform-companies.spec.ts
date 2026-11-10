@@ -26,8 +26,8 @@ test("superadmin: search, card, period save, version conflict and archive keep o
     await db.organization.create({ data: { id: org, slug: `plt27-${org}`, name: marker, firstAdminRegisteredAt: registered } });
     await db.hostMapping.createMany({ data: [
       { hostname: platformHost, area: "PLATFORM", status: "ACTIVE" },
-      { hostname: `plt27-a-${org}.example.test`, area: "COMPANY_ADMIN", organizationId: org, status: "ACTIVE" },
-      { hostname: `plt27-p-${org}.example.test`, area: "COMPANY_PUBLIC", organizationId: org, status: "ACTIVE" },
+      { hostname: `plt27-a-${org}-long-host.example.test`, area: "COMPANY_ADMIN", organizationId: org, status: "ACTIVE" },
+      { hostname: `plt27-p-${org}-long-host.example.test`, area: "COMPANY_PUBLIC", organizationId: org, status: "ACTIVE" },
     ] });
     await db.serviceAccess.create({ data: { organizationId: org, paidThrough: new Date(`${day(30)}T00:00:00.000Z`) } });
     await db.user.create({ data: { id: randomUUID(), name: "Plt27 admin", email: `plt27-${org}@example.test`,
@@ -45,9 +45,16 @@ test("superadmin: search, card, period save, version conflict and archive keep o
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`${origin}/firmy/`);
     await page.getByRole("searchbox").fill(marker);
-    const card = page.getByRole("article").filter({ hasText: marker });
+    const card = page.getByRole("row").filter({ hasText: marker });
     await expect(card).toBeVisible();
     await expect(card.getByText(/Opłacona do/)).toBeVisible();
+    // #293: table or cards, the list never scrolls the page sideways (table only when its container fits 5 columns).
+    for (const width of [390, 768, 900, 1023, 1024, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect(card).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), `viewport ${width}`).toBeLessThanOrEqual(0);
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
     await card.getByRole("link", { name: /Otwórz firmę/ }).click();
     await expect(page.getByRole("heading", { name: "Status firmy" })).toBeVisible();
     await expect(page.getByText("Działasz jako superadmin w kontekście firmy")).toBeVisible();
@@ -60,6 +67,11 @@ test("superadmin: search, card, period save, version conflict and archive keep o
     await page.getByRole("button", { name: "Zapisz zmiany" }).click();
     await expect(page.getByText("Okres usługi został zapisany.")).toBeVisible();
     expect((await db.serviceAccess.findUniqueOrThrow({ where: { organizationId: org } })).paidThrough?.toISOString().slice(0, 10)).toBe(day(60));
+    // The success notice appears before the card reloads; the status row shows the new date only after the reload has
+    // delivered the saved periodVersion. Without waiting, the other session's write could land first and the page would
+    // then load (and save with) its version, so no conflict would exist (#313).
+    const [savedYear, savedMonth, savedDay] = day(60).split("-");
+    await expect(page.getByText(`Do ${savedDay}.${savedMonth}.${savedYear} włącznie`, { exact: true })).toBeVisible();
 
     // Another session changes the period: this save must conflict, not overwrite silently.
     await db.serviceAccess.update({ where: { organizationId: org }, data: { paidThrough: new Date(`${day(90)}T00:00:00.000Z`), periodVersion: { increment: 1 } } });
@@ -100,7 +112,7 @@ test("superadmin: search, card, period save, version conflict and archive keep o
     await page.getByRole("searchbox").fill(marker);
     await expect(page.getByText("Brak firm dla wybranych kryteriów.")).toBeVisible();
     await page.getByRole("checkbox", { name: "Pokaż zarchiwizowane" }).check();
-    await expect(page.getByRole("article").filter({ hasText: marker }).getByText(/Zarchiwizowana \d{2}\.\d{2}\.\d{4}/)).toBeVisible();
+    await expect(page.getByRole("row").filter({ hasText: marker }).getByText(/Zarchiwizowana \d{2}\.\d{2}\.\d{4}/)).toBeVisible();
 
     // Same host policy as `/` and `/firmy/{id}/` (#14/#15): without a session the list goes to the platform login, never private HTML.
     await page.context().clearCookies();
