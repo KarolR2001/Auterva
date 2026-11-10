@@ -575,7 +575,7 @@ Historyczne scenariusze v2 (15): UC-SAS-01 assisted startup; 02 multi-company; 0
 - Decyzje właściciela z 23.10.2026 rozstrzygają D-01, D-02, D-04 i D-05. Szczegóły macierzy, publikacji, limitów i bootstrapu są kanoniczne dla implementacji MVP 3.1.
 - Decyzje właściciela z 27.10.2026 rozstrzygają D-16–D-27 (środowiska, materiały, limity, preview, archiwum, przypomnienia, SEO, hosty i przekierowania).
 - Decyzje właściciela z 28.10.2026 rozstrzygają D-28–D-32 (profil bez zakupu, kontrole lokalne, retencja podstawy odblokowania, wielu wykonawców w roli, najbliższy wolny termin i zbiorcze blokady).
-- Decyzje właściciela z 10.11.2026 rozstrzygają D-33–D-49 (TOTP, makiety PUB, TEN, PLT i ADM, dokumenty prawne, hasło, opis trialu, eksport kalendarza i danych, wejścia do blokad zbiorczych i ekran kalendarza zewnętrznego) i potwierdzają D-28.
+- Decyzje właściciela z 10.11.2026 rozstrzygają D-33–D-50 (TOTP, makiety PUB, TEN, PLT i ADM, dokumenty prawne, hasło, opis trialu, eksport kalendarza i danych, wejścia do blokad zbiorczych i ekran kalendarza zewnętrznego) i potwierdzają D-28.
 
 ### Do ustalenia przed implementacją danego obszaru
 
@@ -641,6 +641,7 @@ Rozstrzygają pytania zebrane podczas CR/QA Stage 3. Gdy decyzja zmienia zachowa
 - **D-47 — zakres prywatnego feedu (#327):** prywatny feed iCal obejmuje wyłącznie pojazdy `PUBLISHED`; szkice, nieopublikowane i zarchiwizowane są pominięte. Zob. [kontrakt](contracts/calendar-and-company-export.md).
 - **D-48 — wejście do zbiorczego blokowania (#217):** w nagłówku kalendarza floty (ADM-10) obok „Szybka blokada” jest przycisk „Blokada zbiorcza”, a w szczegółach pojedynczej blokady akcja „Kopiuj na inne auta” (te same daty). Stany zbiorczego blokowania są w makietach (ADM-10 `state=bulk-*`); wejścia dorysuje agent Penpota. Zob. [kontrakt](contracts/availability-nearest-and-bulk-blocks.md).
 - **D-49 — ekran „Kalendarz zewnętrzny” (ADM-22, #355):** ekran jest pozycją w nawigacji Ustawień firmy. Zawiera objaśnienie, że Kalendarz Google odświeża subskrypcję co kilka godzin, Apple co 5–60 minut, a o dostępności rozstrzyga panel. Zob. [wdrożenie feedu](contracts/calendar-feed-implementation.md).
+- **D-50 — „Ostatnia zmiana” na liście pojazdów (ADM-05, #337, doprecyzowanie D-42):** przycisk sortowania jak w makiecie — „Ostatnia zmiana ↓” przełącza kolejność (najnowsze / najstarsze), bez pól dat w pasku narzędzi; pasek w jednym rzędzie. Parametry API `updatedFrom/updatedTo` z #336 pozostają, bez UI.
 
 ## 10. Co warto dodać — propozycje, poza obowiązkowym zakresem
 
@@ -656,6 +657,6 @@ Rozstrzygają pytania zebrane podczas CR/QA Stage 3. Gdy decyzja zmienia zachowa
 
 - Analiza źródłowa objęła pięć plików PRD, z czterema różnymi treściami. Repozytorium zachowuje kanoniczny V31 i BASELINE_FLEET; historia V2/V30 nie jest zależnością implementacji. Zachowane i wycofane wymagania są rozliczone w tym dokumencie.
 - Katalog zachowuje 71 identyfikatorów bazowych FR, 10 UC, 4 NFR-PERF oraz odniesienia do 31 REQ-MVP i 55 scenariuszy TEST-MVP z V31 §20. Scenariusze testowe są planem odbioru, nie wynikami testów.
-- Pełne pokrycie katalogu nie oznacza gotowości wszystkich kontraktów do implementacji: D-12, D-13 i D-15 pozostają ustaleniami projektowymi i mapowaniem. D-01–D-11 i D-14 mają rozstrzygnięcie z 23.10.2026, D-16–D-27 z 27.10.2026, D-28–D-32 z 28.10.2026, a D-33–D-49 (oraz potwierdzenie D-28) z 10.11.2026.
+- Pełne pokrycie katalogu nie oznacza gotowości wszystkich kontraktów do implementacji: D-12, D-13 i D-15 pozostają ustaleniami projektowymi i mapowaniem. D-01–D-11 i D-14 mają rozstrzygnięcie z 23.10.2026, D-16–D-27 z 27.10.2026, D-28–D-32 z 28.10.2026, a D-33–D-50 (oraz potwierdzenie D-28) z 10.11.2026.
 - Dla każdego wdrażanego przekroju uzupełnić mapowanie wymaganie → board Penpota → kod → trwały test w `design/traceability.json`. Aktualny dokument nie dopisuje fikcyjnych ścieżek kodu ani zaliczonych testów.
 - Odbiór aplikacji wymaga [quality gates](quality-gates.md), w tym rzeczywistego PostgreSQL, izolacji firm, współbieżności, MFA, poczty, WebSocket, hostów i PWA production build.
