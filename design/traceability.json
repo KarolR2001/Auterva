@@ -455,6 +455,45 @@
       ]
     },
     {
+      "issue": 217,
+      "scope": "Zbiorcze blokowanie i kopia blokady z kalendarza floty ADM-10 (D-32; wejścia wg decyzji D-48 z #217) na API #215: widok w miejscu siatki (?zbiorcza=1, ?kopiuj=&pojazd=&od=), wybór do 50 pojazdów (bez archiwalnych i auta źródłowego), Od/Do jako LocalDate z końcami włącznie (jeden dzień poprawny), typ, numer odniesienia, notatka wewnętrzna, tryb „Wszystko albo nic (domyślnie)”/„Pomiń konflikty”; podgląd dryRun „nic nie zapisano” z wynikiem przy każdym pojeździe, wynik ABORT (409, nic nie zapisano) i SKIP (zapisane i odrzucone z przyczyną, tekst + ikona), kopia na te same daty z notatką tylko jawnie; 5xx/sieć = wynik nieznany bez pozornego sukcesu, ponowienie z tym samym idempotencyKey, zmiana danych = nowy klucz; po zapisie i po wyniku nieznanym kalendarz floty czyta stan ponownie. Wejścia: „Blokada zbiorcza” w nagłówku ADM-10 obok „Szybka blokada”, „Kopiuj na inne auta” w szczegółach blokady (OVR-07).",
+      "relatedRequirementIds": [
+        "C-F104",
+        "C-N027",
+        "FR-ADM-055",
+        "FR-ADM-057",
+        "FR-ADM-058",
+        "D-32",
+        "D-48"
+      ],
+      "referenceScreenIds": [
+        "ADM-10",
+        "OVR-07"
+      ],
+      "unmappedStates": [
+        "Penpot ADM-10 state=bulk-select/preview-abort/result-skip/error-uncertain/copy Desktop (b9c729c0-a810-8029-8008-ecdb2b7268f6, -ecdb9c0490eb, -ecdbfd2c30e2, -ecdc8c4d57a6, -ecdcb662e2c0) i bulk-select Mobile (6a2f4f9d-714c-8062-8008-ecddd851e5cd) porównane z eksportu 10.11; preview-skip, result-abort i pozostałe plansze mobile wg tabeli w #217.",
+        "Poza makietą: wyszukiwarka oraz „Zaznacz widoczne (do 50)”/„Wyczyść wybór” przy flocie powyżej 8 pojazdów; „Zmień dane (nowe żądanie)” w stanie wyniku nieznanego.",
+        "„Kopiuj na inne auta” w OVR-07 stoi przy „Usuń blokadę” w treści okna (wspólny Dialog nie ma akcji w nagłówku); makieta desktop ma go w nagłówku obok „Zamknij”.",
+        "Przesunięcie dat kopii (shiftDays, P6) poza zakresem."
+      ],
+      "codePaths": [
+        "src/components/admin/bulk-blocks.tsx",
+        "src/components/admin/bulk-blocks.module.css",
+        "src/components/admin/bulk-blocks-model.ts",
+        "src/components/admin/bulk-blocks-api.ts",
+        "src/components/admin/fleet-calendar.tsx",
+        "src/components/admin/fleet-calendar-model.ts",
+        "src/components/admin/fleet-calendar.module.css",
+        "src/components/admin/vehicle-calendar.tsx",
+        "src/components/admin/vehicle-calendar.module.css",
+        "docs/contracts/availability-nearest-and-bulk-blocks.md"
+      ],
+      "testPaths": [
+        "tests/unit/bulk-blocks.test.tsx",
+        "tests/e2e/bulk-blocks.spec.ts"
+      ]
+    },
+    {
       "issue": 230,
       "scope": "Spójny zakres sortOrder 0..2147483647 włącznie w PATCH i reorder floty (jedna stała i walidacja w mutations.ts); test graniczny dla obu ścieżek.",
       "relatedRequirementIds": ["FR-ADM-022"],
