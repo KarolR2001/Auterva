@@ -508,12 +508,13 @@ function AvailablePanelShell({
             </button>
           </header>
           {area === "platform" && companyContext && (
-            <div className={styles.shellContext}>
+            // A named region keeps the bar inside a landmark (axe "region", #342).
+            <section className={styles.shellContext} aria-label="Kontekst firmy">
               <span>Firma: {companyContext.name}</span>
               <a href={`/firmy/${encodeURIComponent(companyContext.id)}`}>
                 Wróć do karty firmy {companyContext.name}
               </a>
-            </div>
+            </section>
           )}
           <main id="main-content" className={styles.shellMain} tabIndex={-1}>
             {busyNotice && (
