@@ -8,6 +8,7 @@ import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
 import { FormField } from "../ui/form-field";
 import { TextInput } from "../ui/text-input";
+import { PlatformPageHeader } from "./page-header";
 import {
   classifyCreateResponse, emptyCompanyForm, formFingerprint, isCompanyFormDirty, newIdempotencyKey, slugFromName,
   toCreateBody, validateCompanyForm, type CompanyField, type CompanyFormValues, type FieldErrors,
@@ -171,10 +172,18 @@ export function NewCompanyForm({ adminBaseDomain, publicBaseDomain }: Props) {
   const retry = status === "uncertain";
 
   return (
-    <>
-      <form className={styles.form} noValidate onSubmit={onSubmit} aria-labelledby={`${formId}-title`} aria-busy={saving || undefined}>
-        <h2 id={`${formId}-title`} className={styles.srOnly}>Dodaj firmę</h2>
-        <p className={styles.lead}>Przygotuj stronę i dostęp dla nowej wypożyczalni. Zapis firmy nie wysyła zaproszenia ani nie publikuje strony.</p>
+    <div className={styles.page}>
+      <PlatformPageHeader
+        trail="Firmy / Dodaj firmę"
+        title="Dodaj firmę"
+        subtitle="Przygotuj stronę i dostęp dla nowej wypożyczalni. Zapis firmy nie wysyła zaproszenia ani nie publikuje strony."
+        actions={<>
+          <Link className={styles.openLink} href="/firmy/" prefetch={false}>Anuluj</Link>
+          <Button type="submit" form={formId} loading={saving} loadingLabel="Zapisywanie firmy">{retry ? "Ponów zapis" : "Zapisz firmę"}</Button>
+        </>}
+      />
+      <form id={formId} className={styles.layout} noValidate onSubmit={onSubmit} aria-label="Dodaj firmę" aria-busy={saving || undefined}>
+        <div className={styles.layoutMain}>
         <div ref={summary} tabIndex={-1} className={styles.summary}>
           {saving && <Alert tone="info" title="Zapisywanie firmy… Poczekaj na potwierdzenie.">Trwa zapisywanie danych firmy. Zaproszenie wyślesz osobno po zapisie.</Alert>}
           {!saving && notice && <Alert tone={notice.tone} title={notice.title}>{notice.text}</Alert>}
@@ -183,6 +192,7 @@ export function NewCompanyForm({ adminBaseDomain, publicBaseDomain }: Props) {
         <fieldset className={styles.section} disabled={saving}>
           <legend>Firma i administrator</legend>
           <p className={styles.hint}>Jedna firma i jedno konto administratora. Dane kontaktowe strony uzupełnisz w ustawieniach firmy po zapisie.</p>
+          <div className={styles.fieldGrid}>
           <FormField id={fieldIds.name} label="Nazwa firmy" required hint="Nazwa widoczna w panelu." error={errors.name}>
             <TextInput value={values.name} maxLength={120} placeholder="np. Alfa Campers" autoComplete="organization"
               onChange={(event) => update({ name: event.target.value }, "name")} />
@@ -193,11 +203,13 @@ export function NewCompanyForm({ adminBaseDomain, publicBaseDomain }: Props) {
             <TextInput type="email" inputMode="email" value={values.adminEmail} maxLength={254} placeholder="np. admin@alfarent.pl"
               autoComplete="off" onChange={(event) => update({ adminEmail: event.target.value }, "adminEmail")} />
           </FormField>
+          </div>
         </fieldset>
 
         <fieldset className={styles.section} disabled={saving}>
           <legend>Adresy</legend>
           <p className={styles.hint}>Panel administratora i publiczna oferta mają osobne adresy. Własną domenę dodasz po zapisie, po weryfikacji DNS i TLS.</p>
+          <div className={styles.fieldGrid}>
           <FormField id={fieldIds.slug} label="Slug panelu" required error={errors.slug}
             hint="Krótka nazwa w adresie. Po zapisie nie zmienia się razem z nazwą firmy.">
             <TextInput value={values.slug} maxLength={40} placeholder="np. alfa" autoCapitalize="none" spellCheck={false}
@@ -207,20 +219,21 @@ export function NewCompanyForm({ adminBaseDomain, publicBaseDomain }: Props) {
             <div><dt>Adres panelu — podgląd</dt><dd>{slugPreview(adminBaseDomain)}</dd></div>
             <div><dt>Publiczny adres Autervy</dt><dd>{slugPreview(publicBaseDomain)}</dd></div>
           </dl>
+          </div>
           <p className={styles.hint}>Adres publiczny nie oznacza publikacji: strona działa dopiero po rejestracji administratora, przy ważnym okresie.</p>
         </fieldset>
 
         <fieldset className={styles.section} disabled={saving} aria-describedby={`${formId}-period-hint`}>
           <legend>Okres usługi</legend>
           <p id={`${formId}-period-hint`} className={styles.hint}>Opłacony okres albo jeden trial.</p>
-          <div role="radiogroup" aria-label="Rodzaj okresu" className={styles.radios}>
-            <label className={styles.radio}>
+          <div role="radiogroup" aria-label="Rodzaj okresu" className={styles.segments}>
+            <label className={styles.segment}>
               <input id="company-period-trial" type="radio" name="periodKind" checked={values.periodKind === "trial"}
                 aria-describedby={errors.periodKind ? "company-period-error" : undefined}
                 onChange={() => update({ periodKind: "trial", paidThrough: "" }, "periodKind")} />
-              <span>Trial — dokładnie 336 godzin od rejestracji administratora</span>
+              <span>Trial — 336 godzin od rejestracji administratora</span>
             </label>
-            <label className={styles.radio}>
+            <label className={styles.segment}>
               <input id="company-period-paid" type="radio" name="periodKind" checked={values.periodKind === "paid"}
                 aria-describedby={errors.periodKind ? "company-period-error" : undefined}
                 onChange={() => update({ periodKind: "paid" }, "periodKind")} />
@@ -236,14 +249,20 @@ export function NewCompanyForm({ adminBaseDomain, publicBaseDomain }: Props) {
           )}
           <p className={styles.hint}>Trial nie startuje przy zapisie firmy, wysyłce ani ponowieniu — dopiero po rejestracji administratora.</p>
         </fieldset>
-
-        <div className={styles.actions}>
-          <Button type="submit" loading={saving} loadingLabel="Zapisywanie firmy">{retry ? "Ponów zapis" : status === "failed" ? "Zapisz firmę" : "Zapisz firmę"}</Button>
-          <Link className={styles.cancel} href="/firmy/" prefetch={false}>Anuluj</Link>
         </div>
-        <p className={styles.hint}>Najpierw zapisz firmę. Zaproszenie wyślesz z jej karty, po sprawdzeniu adresu e-mail i konfiguracji.</p>
-      </form>
 
-    </>
+        <div className={styles.layoutAside}>
+          <section className={styles.panelCard} aria-labelledby={`${formId}-before`}>
+            <h3 id={`${formId}-before`} className={styles.sectionTitle}>Przed wysłaniem zaproszenia</h3>
+            <p className={styles.opsHint}>Najpierw zapisz firmę. Zaproszenie wyślesz z jej karty, po sprawdzeniu adresu e-mail i konfiguracji.</p>
+            <dl className={styles.statusList}>
+              <div className={styles.statusRow}><dt>Konfiguracja</dt><dd>Szkic</dd></div>
+              <div className={styles.statusRow}><dt>Konto administratora</dt><dd>Jeszcze niezarejestrowane</dd></div>
+              <div className={styles.statusRow}><dt>Strona publiczna</dt><dd>Jeszcze niewidoczna</dd></div>
+            </dl>
+          </section>
+        </div>
+      </form>
+    </div>
   );
 }
