@@ -11,6 +11,8 @@ test("a page sends one privacy-preserving Web Vitals report to its own endpoint"
   const hostname = `vitals-e2e-${randomUUID().slice(0, 8)}.localhost`;
   try {
     await db.hostMapping.create({ data: { hostname, area: "MARKETING", status: "ACTIVE" } });
+    // Playwright cannot read a Blob beacon body; with sendBeacon refused the reporter's keepalive fetch carries the same JSON.
+    await page.addInitScript(() => { navigator.sendBeacon = () => false; });
     await page.goto(`http://${hostname}:${port}/?utm_source=secret-campaign&token=SECRETTOKEN#section`);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await page.waitForTimeout(500);
