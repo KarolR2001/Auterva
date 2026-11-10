@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { expect as baseExpect, test } from "@playwright/test";
+import { request as httpRequest } from "node:http";
+import { expect as baseExpect, test, type Request } from "@playwright/test";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { availabilityToday, sqlDate } from "../../src/modules/availability/dates";
 import { ensureControlledSuperadminMfa, resetPlatformApiBudget, verifiedFixtureSession } from "../fixtures/verified-session";
@@ -7,6 +8,18 @@ import { ensureControlledSuperadminMfa, resetPlatformApiBudget, verifiedFixtureS
 // #217 (ADM-10 state=bulk-*, D-32, D-48): bulk block and copy of a block from the fleet calendar on the real API (#215).
 test.use({ launchOptions: { args: ["--host-resolver-rules=MAP *.example.test 127.0.0.1"] }, actionTimeout: 15_000, navigationTimeout: 30_000 });
 const expect = baseExpect.configure({ timeout: 15_000 });
+
+/** Replays a browser request from Node to the local ingress (127.0.0.1) with its headers and Host; resolves the status. */
+async function sendDirect(request: Request): Promise<number> {
+  const url = new URL(request.url());
+  const headers = Object.fromEntries(Object.entries(await request.allHeaders()).filter(([name]) => !name.startsWith(":")));
+  return new Promise((resolve, reject) => {
+    const outgoing = httpRequest({ host: "127.0.0.1", port: Number(url.port), path: `${url.pathname}${url.search}`, method: request.method(),
+      headers: { ...headers, host: url.host } }, (response) => { response.resume(); response.on("end", () => resolve(response.statusCode ?? 0)); });
+    outgoing.on("error", reject);
+    outgoing.end(request.postData() ?? "");
+  });
+}
 
 test("bulk block: dryRun preview saves nothing, ABORT/SKIP report, copy, unknown outcome retried with the same key, keyboard, 320-1920, superadmin", async ({ baseURL, browser }) => {
   test.setTimeout(300_000);
@@ -129,17 +142,22 @@ test("bulk block: dryRun preview saves nothing, ABORT/SKIP report, copy, unknown
     await expect(page.getByText("Podgląd konfliktów — nic nie zapisano")).toBeVisible();
     const keys: string[] = [];
     let lose = true;
+    let committed = 0;
     await page.route("**/api/admin/blocks/copy/", async (route) => {
       const body = route.request().postDataJSON() as { dryRun: boolean; idempotencyKey?: string };
       if (!body.dryRun && body.idempotencyKey) keys.push(body.idempotencyKey);
-      const response = await route.fetch();
-      if (!body.dryRun && lose) { lose = false; await route.fulfill({ status: 502, body: "" }); return; }
-      await route.fulfill({ response });
+      if (body.dryRun || !lose) { await route.continue(); return; }
+      // The request reaches the server and commits; only its answer is lost (gateway 502). Sent from Node straight to the
+      // ingress with the browser's own headers, because the *.example.test names resolve only inside the browser.
+      lose = false;
+      committed = await sendDirect(route.request());
+      await route.fulfill({ status: 502, body: "" });
     });
     await page.getByRole("button", { name: "Kopiuj blokadę" }).click();
     await expect(page.getByText("Nie wiemy, czy blokady zostały zapisane")).toBeVisible();
     await expect(page.getByText(/^Zapisano/)).toHaveCount(0);
     await expect(row("Auto Delta")).toContainText("Wynik nieznany — nie potwierdzono zapisu");
+    expect(committed).toBe(201);
     expect(await blocksOf(carDelta)).toHaveLength(1);
     await page.getByRole("button", { name: "Ponów wysyłkę (ten sam klucz)" }).click();
     await expect(page.getByText("Zapisano 1 z 1 pojazdu")).toBeVisible();

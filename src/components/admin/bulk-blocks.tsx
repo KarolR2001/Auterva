@@ -250,7 +250,7 @@ export function BulkBlocks({ context, mode, source, today, calendarHref, onClose
       <p className={styles.sub}>{mode === "copy" ? "Skopiuj blokadę na inne pojazdy na te same daty. To nie jest rezerwacja terminu."
         : `Do ${MAX_BULK_VEHICLES} pojazdów i jeden zakres dat (Europe/Warsaw, obie daty wliczone). Blokada nie jest rezerwacją terminu.`}</p>
 
-      <div ref={banner} tabIndex={-1} className={styles.banner} aria-live="polite">{bannerNode}</div>
+      <div ref={banner} tabIndex={-1} className={styles.banner}>{bannerNode}</div>
       {summary.length > 0 && (
         <div id="bulk-summary" tabIndex={-1} className={styles.banner}>
           <Alert tone="error" title={`Do poprawy: ${summary.length}`}>
