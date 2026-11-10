@@ -101,8 +101,8 @@ test("change log: local time from UTC, filters, cursor, superadmin as themselves
     await page.getByLabel("Od dnia").focus();
     await expect(page.getByLabel("Od dnia")).toBeFocused();
     // A foreign company id is never a filter: the API refuses unknown query keys.
-    const response = await page.request.get(`${adminBase}/api/admin/audit/?organizationId=${orgB}`);
-    expect(response.status()).toBe(400);
+    const status = await page.evaluate(async (id) => (await fetch(`/api/admin/audit/?organizationId=${id}`, { credentials: "same-origin" })).status, orgB);
+    expect(status).toBe(400);
     // A company admin has no way into the platform route.
     expect((await page.goto(`${adminBase}/firmy/${orgA}/logi/`))?.status()).toBe(404);
 
