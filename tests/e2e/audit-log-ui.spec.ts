@@ -44,7 +44,7 @@ test("change log: local time from UTC, filters, cursor, superadmin as themselves
     const recent = Date.now() - 20 * 86_400_000;
     await db.auditLog.createMany({ data: [
       { eventKey: randomUUID(), organizationId: orgA, actorId: adminA, actorRole: "ADMIN_FIRMY", action: "SETTINGS_CHANGED", entityType: "SiteSettings", entityId: orgA,
-        requestId: randomUUID(), createdAt: new Date(recent), safeChanges: { changedFields: ["phone"], before: { phone: "+48 600 100 200" }, after: { phone: "+48 600 100 300" } } },
+        requestId: randomUUID(), createdAt: new Date(recent), safeChanges: { changedFields: ["phone", "status"], before: { phone: "+48 600 100 200", status: "DRAFT" }, after: { phone: "+48 600 100 300", status: "PUBLISHED" } } },
       { eventKey: randomUUID(), organizationId: orgA, actorId: superId, actorRole: "SUPERADMIN_AUTERVA", action: "PERIOD_CHANGED", entityType: "ServicePeriod", entityId: orgA,
         requestId: randomUUID(), createdAt: new Date(recent - 60_000) },
       ...Array.from({ length: 29 }, (_, index) => ({ eventKey: randomUUID(), organizationId: orgA, actorId: adminA, actorRole: "ADMIN_FIRMY", action: "VEHICLE_UPDATED",
@@ -84,7 +84,10 @@ test("change log: local time from UTC, filters, cursor, superadmin as themselves
     await page.getByLabel("Akcja").selectOption("SETTINGS_CHANGED");
     await page.getByRole("button", { name: "Zastosuj" }).click();
     await page.getByRole("button", { name: /Szczegóły/ }).click();
-    await expect(page.getByRole("row", { name: /Telefon/ })).toContainText("+48 600 100 300");
+    await expect(page.getByRole("row", { name: /Status/ })).toContainText("PUBLISHED");
+    // Redaction by the server: the phone number never reaches the page, only the changed field's name.
+    await expect(page.getByRole("row", { name: /Telefon/ })).not.toContainText("+48");
+    await expect(page.locator("body")).not.toContainText("+48 600");
     await page.getByRole("button", { name: "Wyczyść", exact: true }).click();
     // Empty result and inverted range.
     await page.getByLabel("Od dnia").fill("2026-02-10");
