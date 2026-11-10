@@ -518,6 +518,18 @@
       ]
     },
     {
+      "issue": 218,
+      "scope": "PUB-03 po wyniku „niedostępny”: najbliższy wolny termin dla tej samej długości zakresu (POST /api/public/availability/next #216, horyzont serwera 180 dni, D-32): „Najbliższy wolny termin: 24–26.11.2026” z notą „To informacja, nie rezerwacja”, przycisk „Ustaw ten termin w kalendarzu” (zakres w kalendarzu i URL, uruchamia sprawdzenie, fokus na wyniku) albo „Brak wolnego terminu w ciągu 180 dni”; ładowanie bez starego terminu, błąd/404/429/5xx pomija sekcję bez fałszywej informacji, zmiana zakresu unieważnia późną odpowiedź; wynik dostępny nie pokazuje sekcji; bez typu i przyczyny blokady. Penpot PUB-03 state=unavailable-nearest (D b20632b5-747a-80ca-8008-ecd19533db94, M 213df950-26c7-80ef-8008-ecd84b67f3ce) i unavailable-no-nearest (D 213df950-26c7-80ef-8008-ecd77605e183, M 213df950-26c7-80ef-8008-ecd86d2eb5e4).",
+      "relatedRequirementIds": ["C-F102", "C-F103", "C-F104", "FR-PUB-023", "FR-PUB-024", "D-15"],
+      "referenceScreenIds": ["PUB-03"],
+      "codePaths": [
+        "src/components/public/availability-panel.tsx",
+        "src/components/public/public.module.css",
+        "src/modules/public-offer/availability-client.ts"
+      ],
+      "testPaths": ["tests/unit/availability-panel-nearest.test.tsx", "tests/e2e/public-availability.spec.ts"]
+    },
+    {
       "issue": 230,
       "scope": "Spójny zakres sortOrder 0..2147483647 włącznie w PATCH i reorder floty (jedna stała i walidacja w mutations.ts); test graniczny dla obu ścieżek.",
       "relatedRequirementIds": ["FR-ADM-022"],

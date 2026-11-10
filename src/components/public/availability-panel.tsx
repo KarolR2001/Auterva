@@ -1,9 +1,9 @@
 "use client";
 
-import { Check, CircleSlash, LoaderCircle, TriangleAlert, X } from "lucide-react";
+import { CalendarCheck, Check, CircleSlash, LoaderCircle, TriangleAlert, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-import { createLatest, problemMessages, validateRange, type RangeProblem } from "@/modules/public-offer/availability-client";
+import { createLatest, NEAREST_HORIZON_DAYS, problemMessages, validateRange, type RangeProblem } from "@/modules/public-offer/availability-client";
 import { addDays, calendarRange, catalogHref, catalogPath, contactHref, formatRangeShort, longDate, monthDays, monthLabel, pluralDays, shiftMonth, type DayState } from "@/modules/public-offer/presentation";
 
 import { rangeEvent } from "./contact-cta";
@@ -21,6 +21,8 @@ type Check =
   | { status: "done"; range: Range; available: boolean }
   | { status: "error"; range: Range };
 type Alternatives = { status: "idle" | "loading" | "error" } | { status: "ready"; items: { slug: string; name: string }[] };
+/** Nearest free term for the same length (D-32): "hidden" (error, 4xx, 429, 5xx, unreadable answer) shows nothing, never a made-up term. */
+type Nearest = { status: "idle" | "loading" | "none" | "hidden" } | { status: "found"; range: Range };
 type Calendar = { status: "loading" | "error" } | { status: "ready"; days: Record<string, boolean> };
 
 export type PanelInitial = {
@@ -75,6 +77,9 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
   const [calendar, setCalendar] = useState<Calendar>({ status: "ready", days: initial.days });
   const checks = useRef(createLatest());
   const alts = useRef(createLatest());
+  const nearestTicket = useRef(createLatest());
+  const [nearest, setNearest] = useState<Nearest>(() => (initialRange?.ok && initial.available === false ? { status: "loading" } : { status: "idle" }));
+  const resultRef = useRef<HTMLDivElement>(null);
   const months = useRef(createLatest());
   const [pickingEnd, setPickingEnd] = useState(false);
 
@@ -106,15 +111,47 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
     if (alts.current.isCurrent(ticket)) setAlternatives(answer);
   }
 
-  async function runCheck(nextFrom: string, nextTo: string) {
+  /** The nearest free term of the same length from the start day on (server horizon, #216); only informational, a late answer is dropped. */
+  async function fetchNearest(range: Range): Promise<Nearest> {
+    try {
+      const { body } = await request<{ found?: unknown; from?: unknown; to?: unknown }>("/api/public/availability/next",
+        { method: "POST", body: JSON.stringify({ slug, from: range.from, to: range.to }) });
+      if (!body) return { status: "hidden" };
+      if (body.found === false) return { status: "none" };
+      const slot = body.found === true && typeof body.from === "string" && typeof body.to === "string" ? validateRange(body.from, body.to, today) : null;
+      return slot?.ok && slot.from >= range.from ? { status: "found", range: { from: slot.from, to: slot.to, days: slot.days } } : { status: "hidden" };
+    } catch {
+      return { status: "hidden" };
+    }
+  }
+
+  async function loadNearest(range: Range) {
+    const ticket = nearestTicket.current.next();
+    setNearest({ status: "loading" });
+    const answer = await fetchNearest(range);
+    if (nearestTicket.current.isCurrent(ticket)) setNearest(answer);
+  }
+
+  /** Puts the suggested term in the calendar (its month, the URL) and checks it like a chosen range. */
+  function applyNearest(slot: Range) {
+    setFrom(slot.from); setTo(slot.to); setPickingEnd(false);
+    const target = slot.from.slice(0, 7);
+    if (target !== monthRef.current) void loadMonth(target, false, false);
+    void runCheck(slot.from, slot.to, target);
+    resultRef.current?.focus();
+  }
+
+  async function runCheck(nextFrom: string, nextTo: string, shown = month) {
     const checked = validateRange(nextFrom, nextTo, today);
     alts.current.invalidate();
+    nearestTicket.current.invalidate();
     setAlternatives({ status: "idle" });
+    setNearest({ status: "idle" });
     if (!checked.ok) { checks.current.invalidate(); setCheck({ status: "invalid", message: problemMessages[checked.problem] }); return; }
     const range = { from: checked.from, to: checked.to, days: checked.days };
     const ticket = checks.current.next();
     setCheck({ status: "loading", range });
-    syncUrl(range, month);
+    syncUrl(range, shown);
     try {
       const { status, body, code } = await request<{ available: boolean }>("/api/public/availability/check",
         { method: "POST", body: JSON.stringify({ slug, from: range.from, to: range.to }) });
@@ -124,19 +161,19 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
       if (!body || typeof body.available !== "boolean") { setCheck({ status: "error", range }); return; }
       setCheck({ status: "done", range, available: body.available });
       void loadMonth(monthRef.current, true);
-      if (!body.available) void loadAlternatives(range);
+      if (!body.available) { void loadAlternatives(range); void loadNearest(range); }
     } catch {
       if (checks.current.isCurrent(ticket)) setCheck({ status: "error", range });
     }
   }
 
   /** `silent` refreshes the shown month after a check (a block may have been saved since the page loaded) without a loading flash. */
-  async function loadMonth(target: string, silent = false) {
+  async function loadMonth(target: string, silent = false, sync = true) {
     const ticket = months.current.next();
     const span = calendarRange(target, today);
     if (!silent) {
       monthRef.current = target; setMonth(target);
-      syncUrl(check.status === "done" || check.status === "loading" ? check.range : null, target);
+      if (sync) syncUrl(check.status === "done" || check.status === "loading" ? check.range : null, target);
     }
     if (!span) { setCalendar({ status: "ready", days: {} }); return; }
     if (!silent) setCalendar({ status: "loading" });
@@ -154,8 +191,8 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
   // Choosing another start (or clearing) withdraws the earlier result: it described another term.
   function edit(nextFrom: string, nextTo: string, picking: boolean) {
     setFrom(nextFrom); setTo(nextTo);
-    checks.current.invalidate(); alts.current.invalidate();
-    setAlternatives({ status: "idle" }); setCheck({ status: "idle" }); setPickingEnd(picking);
+    checks.current.invalidate(); alts.current.invalidate(); nearestTicket.current.invalidate();
+    setAlternatives({ status: "idle" }); setNearest({ status: "idle" }); setCheck({ status: "idle" }); setPickingEnd(picking);
     syncUrl(null, month);
   }
 
@@ -213,6 +250,12 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
     void fetchAlternatives(initialRange).then((answer) => { if (alts.current.isCurrent(ticket)) setAlternatives(answer); });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, for the server-rendered result
   }, []);
+  useEffect(() => {
+    if (!(initialRange?.ok && initial.available === false)) return;
+    const ticket = nearestTicket.current.next();
+    void fetchNearest(initialRange).then((answer) => { if (nearestTicket.current.isCurrent(ticket)) setNearest(answer); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, for the server-rendered result
+  }, []);
   const checkedRange = check.status === "done" ? { from: check.range.from, to: check.range.to } : null;
   const checkedKey = checkedRange ? `${checkedRange.from}/${checkedRange.to}` : "";
   useEffect(() => {
@@ -228,7 +271,7 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
       <section className={styles.result} aria-labelledby="check-title">
         <h2 id="check-title" className={styles.panelTitle}>Sprawdź termin</h2>
         {check.status === "invalid" ? <div role="alert" className={styles.notice}><TriangleAlert aria-hidden="true" size={18} />{check.message}</div> : null}
-        <div role="status" aria-live="polite" data-testid="availability-result">
+        <div role="status" aria-live="polite" data-testid="availability-result" ref={resultRef} tabIndex={-1} className={styles.resultLive}>
           {check.status === "idle" ? <p className={styles.small}>Wybierz w kalendarzu dzień początku i dzień końca terminu (ten sam dzień dwa razy to jeden dzień). Dostępność jest informacyjna i nie stanowi rezerwacji terminu.</p> : null}
           {check.status === "loading" ? <p className={styles.small}><LoaderCircle aria-hidden="true" size={16} /> Sprawdzamy dostępność: {formatRangeShort(check.range.from, check.range.to)}…</p> : null}
           {check.status === "done" ? (
@@ -243,6 +286,25 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
                 : "Zmień termin albo skontaktuj się z firmą, aby poznać alternatywę."}</p>
               <p className={styles.small}>Informacja o dostępności nie jest rezerwacją terminu.</p>
             </>
+          ) : null}
+          {check.status === "done" && !check.available && nearest.status !== "idle" && nearest.status !== "hidden" ? (
+            <section className={styles.nearest} aria-labelledby="nearest-title" data-testid="nearest">
+              {nearest.status === "loading" ? <p className={styles.small}><LoaderCircle aria-hidden="true" size={16} /> Szukamy najbliższego wolnego terminu…</p> : null}
+              {nearest.status === "found" ? (
+                <>
+                  <h3 id="nearest-title" className={styles.nearestTitle}><CalendarCheck aria-hidden="true" size={18} />
+                    Najbliższy wolny termin: {formatRangeShort(nearest.range.from, nearest.range.to)}</h3>
+                  <p className={styles.small}>{pluralDays(nearest.range.days)} · koniec wliczony. To informacja, nie rezerwacja.</p>
+                  <button type="button" className={`${styles.linkButton} ${styles.linkButtonSecondary}`} onClick={() => applyNearest(nearest.range)}>Ustaw ten termin w kalendarzu</button>
+                </>
+              ) : null}
+              {nearest.status === "none" ? (
+                <>
+                  <h3 id="nearest-title" className={styles.nearestTitle}><CircleSlash aria-hidden="true" size={18} />Brak wolnego terminu w ciągu {NEAREST_HORIZON_DAYS} dni</h3>
+                  <p className={styles.small}>Wybierz w kalendarzu inny zakres albo skontaktuj się z firmą.</p>
+                </>
+              ) : null}
+            </section>
           ) : null}
         </div>
         {check.status === "error" ? (
