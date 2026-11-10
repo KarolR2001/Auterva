@@ -73,6 +73,14 @@ export function periodFailure(error: unknown, requestId: string): Response {
   // A reused audit event key rolls back the whole mutation; never report it as idempotent success.
   if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002")
     return periodResponse({ code: "EVENT_KEY_CONFLICT" }, 409, requestId);
+  // Interactive transaction expired or no pooled connection in time: nothing was committed, but the
+  // outcome is unknown to the client, so it is a retryable 503 rather than an application fault.
+  if (typeof error === "object" && error !== null && "code" in error
+    && (error.code === "P2028" || error.code === "P2024")) {
+    reportInternalError(error, requestId, "service-period");
+    return Response.json({ code: "TEMPORARILY_UNAVAILABLE" }, { status: 503, headers: {
+      "Cache-Control": "no-store", "Retry-After": "2", "X-Request-Id": requestId } });
+  }
   return periodResponse({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "service-period"));
 }
 
