@@ -66,7 +66,8 @@
   .table tbody { display: grid; gap: var(--space-3); }
   .row { display: grid; gap: var(--space-2); padding: var(--space-3); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-lg); }
   .table td { padding: 0; border: 0; }
-  .table td.actions { display: flex; }
   .table td[data-label]::before { content: attr(data-label) ": "; font-weight: var(--font-weight-semibold); }
 }
+@container (min-width: 1080px) { .actions:not(.actionsWide) { flex-wrap: nowrap; white-space: nowrap; } }
+@container (min-width: 1240px) { .actionsWide { flex-wrap: nowrap; white-space: nowrap; } }
 @container (min-width: 1040px) { .row:hover { background: var(--surface-subtle); } }

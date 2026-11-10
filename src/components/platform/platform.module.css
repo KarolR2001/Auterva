@@ -119,6 +119,7 @@
 
 /* #27: lista firm, okres, archiwum */
 .page { display: grid; gap: var(--space-5); max-width: var(--content-admin-max); }
+.listContainer { container-type: inline-size; min-width: 0; }
 .opsLead { margin: 0; color: var(--text-secondary); line-height: var(--line-height-24); }
 .opsHint { margin: 0; color: var(--text-secondary); font-size: var(--font-size-14); line-height: var(--line-height-20); }
 .mono { font-size: var(--font-size-14); overflow-wrap: anywhere; }
@@ -132,7 +133,20 @@
 .checkRow input { width: 20px; height: 20px; accent-color: var(--action-primary-default); }
 .sectionTitle { margin: 0; font-size: var(--font-size-20); line-height: var(--line-height-28); color: var(--text-primary); }
 .empty { margin: 0; padding: var(--space-6); border: var(--border-width-hairline) dashed var(--border-default); border-radius: var(--radius-lg); color: var(--text-secondary); }
-.companyList { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
+.listHeader { display: grid; gap: var(--space-4); }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.companyTable, .companyTable tbody { display: grid; gap: var(--space-4); width: 100%; }
+.companyTable thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.companyTable tr { display: grid; gap: var(--space-3); padding: var(--card-padding-mobile); border: var(--border-width-hairline) solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-default); }
+.companyTable th, .companyTable td { display: grid; gap: var(--space-1); justify-items: start; padding: 0; text-align: left; font-weight: var(--font-weight-regular); }
+.companyTable td[data-label]::before { content: attr(data-label); color: var(--text-secondary); font-size: var(--font-size-14); }
+.cellCompany { gap: var(--space-1); }
+.companyName { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--font-size-18); line-height: var(--line-height-26); font-weight: var(--font-weight-semibold); }
+.chip { display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-3); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-full); font-size: var(--font-size-14); line-height: var(--line-height-20); }
+.chip svg { flex: none; }
+.chipOk { border-color: var(--status-success-border); background: var(--status-success-surface); color: var(--status-success-text); }
+.chipOff { border-color: var(--status-unavailable-border); background: var(--status-unavailable-surface); color: var(--status-unavailable-text); }
+.rowActions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .companyCard, .panelCard { display: grid; gap: var(--space-3); padding: var(--card-padding-mobile); border: var(--border-width-hairline) solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-default); }
 .companyHead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .companyHead h3 { display: inline-flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--font-size-18); line-height: var(--line-height-26); }
@@ -171,8 +185,52 @@
 @media (min-width: 768px) {
   .companyCard, .panelCard { padding: var(--card-padding-desktop); }
   .toolbar { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
+  .listHeader { grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
   .toolbar .searchLabel { grid-column: 1 / -1; }
 }
 
 .subTitle { margin: var(--space-2) 0 0; font-size: var(--font-size-16); line-height: var(--line-height-24); color: var(--text-primary); }
 .stepList, .effectList { margin: 0; padding-left: var(--space-5); display: grid; gap: var(--space-1); color: var(--text-secondary); font-size: var(--font-size-14); line-height: var(--line-height-20); }
+
+/* #293: tabela tylko, gdy kontener listy (nie viewport, obok sidebara) pomieści 5 kolumn; niżej karty. */
+@container (min-width: 900px) {
+  .companyTable { display: table; border-collapse: separate; border-spacing: 0; border: var(--border-width-hairline) solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-default); overflow: hidden; }
+  .companyTable thead { position: static; width: auto; height: auto; overflow: visible; clip-path: none; display: table-header-group; }
+  .companyTable tbody { display: table-row-group; }
+  .companyTable tr { display: table-row; padding: 0; border: 0; border-radius: 0; background: transparent; }
+  .companyTable th, .companyTable td { display: table-cell; vertical-align: middle; padding: var(--space-4); border-top: var(--border-width-hairline) solid var(--border-subtle); }
+  .companyTable thead th { background: var(--action-primary-default); color: var(--action-primary-content); font-weight: var(--font-weight-semibold); font-size: var(--font-size-14); border-top: 0; }
+  .companyTable tbody th { font-weight: var(--font-weight-regular); }
+  .companyTable tbody tr:first-child th, .companyTable tbody tr:first-child td { border-top: 0; }
+  .companyTable td[data-label]::before { content: none; }
+  .cellCompany { display: table-cell; }
+  .cellCompany > span { display: flex; }
+  .companyTable .detail { margin-top: var(--space-1); max-width: 24ch; }
+  .cellCompany { min-width: 0; overflow-wrap: anywhere; }
+}
+
+/* #295: nagłówek strony i układ dwukolumnowy ekranów firmy (PLT-03, PLT-04) */
+.pageHeader { display: grid; gap: var(--space-4); }
+.pageHeaderText { display: grid; gap: var(--space-1); min-width: 0; }
+.pageTrail { margin: 0; color: var(--text-secondary); font-size: var(--font-size-14); line-height: var(--line-height-20); }
+.pageTitle { margin: 0; color: var(--text-primary); font-size: var(--font-size-32); line-height: var(--line-height-40); overflow-wrap: anywhere; }
+.pageSubtitle { margin: 0; color: var(--text-secondary); line-height: var(--line-height-24); overflow-wrap: anywhere; }
+.pageActions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.layout { display: grid; gap: var(--space-6); max-width: var(--content-admin-max, 1200px); }
+.layoutMain, .layoutAside { display: grid; gap: var(--space-5); align-content: start; min-width: 0; }
+.layout .section, .layout .panelCard { max-width: none; }
+.fieldGrid { display: grid; gap: var(--space-4); }
+.segments { display: grid; gap: var(--space-3); }
+.segment { display: flex; min-height: 44px; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-4); border: var(--border-width-hairline) solid var(--action-secondary-border); border-radius: var(--radius-md); cursor: pointer; }
+.segment:has(input:checked) { border-color: var(--action-primary-default); background: var(--surface-subtle); font-weight: var(--font-weight-semibold); }
+.segment:has(input:focus-visible) { outline: var(--border-width-active) solid var(--focus-ring); outline-offset: var(--focus-offset); }
+@media (min-width: 768px) {
+  .fieldGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .segments { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pageHeader { grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+}
+@media (min-width: 1024px) {
+  .layout { grid-template-columns: minmax(0, 1fr) 320px; align-items: start; }
+  .layoutMain { grid-column: 1; grid-row: 1; }
+  .layoutAside { grid-column: 2; grid-row: 1; position: sticky; top: var(--space-4); }
+}
