@@ -22,6 +22,19 @@
       "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
     },
     {
+      "issue": 358,
+      "scope": "Pasek „Sekcje ustawień” (panel firmy i superadmin w kontekście firmy): pełny obrys fokusu zakładek mimo overflow-x (padding paska z kompensującym ujemnym marginesem, wygląd bez zmian) oraz aktywna zakładka (aria-current) dosunięta do widoku po załadowaniu sekcji z dalszej części paska (scrollLeft paska, bez przesuwania strony w pionie, bez smooth scroll). WCAG 2.4.7/2.4.11.",
+      "relatedRequirementIds": ["FR-ADM-060", "FR-ADM-061", "FR-ADM-062", "FR-ADM-063"],
+      "referenceScreenIds": ["ADM-11", "ADM-12", "ADM-13", "ADM-14", "PLT-04"],
+      "unmappedStates": ["Porównanie z makietą w Penpocie: DEFERRED (#263); wygląd paska bez zmian."],
+      "codePaths": [
+        "src/components/settings/settings-nav.tsx",
+        "src/components/settings/settings.module.css"
+      ],
+      "testPaths": ["tests/e2e/settings-nav-focus.spec.ts"],
+      "sharedWith": "Rozszerza #351."
+    },
+    {
       "issue": 351,
       "scope": "Pasek „Sekcje ustawień” (panel firmy i superadmin w kontekście firmy): sfokusowana klawiaturą zakładka jest zawsze w całości widoczna w przewijanym pasku (scrollIntoView block/inline nearest na focus plus scroll-padding-inline), dla dowolnej liczby pozycji; bez zmiany wyglądu i logiki, bez smooth scroll (reduced motion). WCAG 2.4.11/2.4.7.",
       "relatedRequirementIds": ["FR-ADM-060", "FR-ADM-061", "FR-ADM-062", "FR-ADM-063"],
