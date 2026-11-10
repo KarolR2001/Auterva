@@ -19,7 +19,9 @@ Warstwa serwerowa dla stron #41–#44 oraz publiczne API JSON. Moduł: `src/modu
 | `/api/public/vehicles/` | katalog (poniżej) |
 | `/api/public/vehicles/{slug}/` | `{kind:"FOUND", vehicle, availabilityNotice, contact, display, seo}`; stary slug (zapisany przez #153 przy zmianie sluga opublikowanego pojazdu) prowadzący do pojazdu `PUBLISHED` `308` z `Location: /api/public/vehicles/{nowy}/` (query zachowane) i `body.path` = ścieżka strony; nieznany/obcy/nieopublikowany `404 {code:"NOT_FOUND", offerPath:"/"}` |
 | `/api/public/contact/?vehicle=&from=&to=` | kanały, godziny, adres, `message`, `seo` |
-| `/api/public/legal/{privacy|terms}/` | `status` `TEXT`/`LINK`/`MISSING`, `text`, `url`, `seo` |
+| `/api/public/legal/{privacy|terms}/` | `status` `TEXT`/`LINK`/`MISSING`, `text`, `url`, `updatedAt`, `seo` |
+
+`updatedAt` (D-36, #325): chwila ostatniej zmiany **tekstu** tego dokumentu firmy jako ISO 8601 UTC (`"2026-11-10T14:46:32.441Z"`) albo `null` (brak tekstu, status `LINK`/`MISSING`, albo dokument sprzed #325, którego tekst nie był jeszcze zmieniany). Serwer zwraca instant; **konwersję na `LocalDate` w `Europe/Warsaw` do wiersza „Ostatnia aktualizacja” robi klient/SSR** (Frontend #232); przy `null` wiersz się nie pokazuje. Pole nie niesie żadnych danych prywatnych; ta sama wartość jest w podglądzie `/legal/{privacy|terms}/` (preview).
 
 Błędy: `404 {code:"NOT_FOUND"}` (firma niepubliczna lub nieznany host; brak pojazdu dodaje `offerPath`, więc oba przypadki da się odróżnić tylko dla aktywnej firmy), `400 INVALID_QUERY|INVALID_CURSOR`, `422 PAST_DATE`, `429 RATE_LIMITED` + `Retry-After`, `503 TRUSTED_INGRESS_REQUIRED`, `500 INTERNAL_ERROR`. SSR wywołuje funkcje bezpośrednio i nie używa tych tras ani ich limitu.
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarSearch, Check, CircleSlash, LoaderCircle, TriangleAlert, X } from "lucide-react";
+import { Check, CircleSlash, LoaderCircle, TriangleAlert, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { createLatest, problemMessages, validateRange, type RangeProblem } from "@/modules/public-offer/availability-client";
@@ -11,7 +11,7 @@ import { LinkButton } from "./public-chrome";
 import styles from "./public.module.css";
 
 const weekdays = ["Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"];
-const dayText: Record<DayState, string> = { past: "minął", available: "dostępny", unavailable: "niedostępny" };
+const dayText: Record<DayState, string> = { past: "miniony", available: "dostępny", unavailable: "niedostępny" };
 
 type Range = { from: string; to: string; days: number };
 type Check =
@@ -44,10 +44,11 @@ async function request<T>(url: string, init?: RequestInit): Promise<{ status: nu
 }
 
 /**
- * Interactive availability of one vehicle (PUB-03, #43): the date fields and the month calendar share one range.
+ * Interactive availability of one vehicle (PUB-03, #43, D-44): the month calendar is the only way to choose the range
+ * (first pick = start, second = end; the same day twice is a one-day range).
  * Every answer is the public available/unavailable state only. While a request runs or after it fails the previous
- * positive result is gone, and a late answer is dropped when a newer request exists. The panel works as a plain GET
- * form without script (the server renders the same result), and it never writes anything: contact only receives the
+ * positive result is gone, and a late answer is dropped when a newer request exists. A range in the URL (?from&to) is
+ * rendered by the server with its result, and the panel never writes anything: contact only receives the
  * checked vehicle and dates.
  */
 /** Maps the server's verdict on a range from the URL to the matching message (reversed, unreadable, too long...). */
@@ -150,15 +151,16 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
     }
   }
 
-  // Changing a date field withdraws the earlier result: it described another term.
-  function edit(nextFrom: string, nextTo: string) {
+  // Choosing another start (or clearing) withdraws the earlier result: it described another term.
+  function edit(nextFrom: string, nextTo: string, picking: boolean) {
     setFrom(nextFrom); setTo(nextTo);
     checks.current.invalidate(); alts.current.invalidate();
-    setAlternatives({ status: "idle" }); setCheck({ status: "idle" }); setPickingEnd(false);
+    setAlternatives({ status: "idle" }); setCheck({ status: "idle" }); setPickingEnd(picking);
+    syncUrl(null, month);
   }
 
   function pick(date: string) {
-    if (!pickingEnd || date < from) { edit(date, ""); setPickingEnd(true); return; }
+    if (!pickingEnd || date < from) { edit(date, "", true); return; }
     setTo(date); setPickingEnd(false);
     void runCheck(from, date);
   }
@@ -225,27 +227,9 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
       {children}
       <section className={styles.result} aria-labelledby="check-title">
         <h2 id="check-title" className={styles.panelTitle}>Sprawdź termin</h2>
-        <form action={`${catalogPath}${slug}/`} method="get" id="sprawdz-termin" noValidate
-          onSubmit={(event) => { event.preventDefault(); void runCheck(from, to); }}>
-          <div className={styles.checkerRow}>
-            <div className={styles.field}>
-              <label className={styles.label} htmlFor="detail-from">Od</label>
-              <input id="detail-from" name="from" type="date" min={today} value={from} required className={styles.dateInput}
-                onChange={(event) => edit(event.target.value, to)} />
-            </div>
-            <div className={styles.field}>
-              <label className={styles.label} htmlFor="detail-to">Do</label>
-              <input id="detail-to" name="to" type="date" min={from || today} value={to} required className={styles.dateInput}
-                onChange={(event) => edit(from, event.target.value)} />
-            </div>
-            <button type="submit" className={`${styles.linkButton} ${styles.linkButtonPrimary}`} disabled={check.status === "loading"}>
-              <CalendarSearch aria-hidden="true" size={18} />Sprawdź
-            </button>
-          </div>
-        </form>
         {check.status === "invalid" ? <div role="alert" className={styles.notice}><TriangleAlert aria-hidden="true" size={18} />{check.message}</div> : null}
         <div role="status" aria-live="polite" data-testid="availability-result">
-          {check.status === "idle" ? <p className={styles.small}>Wybierz zakres dat w polach lub w kalendarzu. Dostępność jest informacyjna i nie stanowi rezerwacji terminu.</p> : null}
+          {check.status === "idle" ? <p className={styles.small}>Wybierz w kalendarzu dzień początku i dzień końca terminu (ten sam dzień dwa razy to jeden dzień). Dostępność jest informacyjna i nie stanowi rezerwacji terminu.</p> : null}
           {check.status === "loading" ? <p className={styles.small}><LoaderCircle aria-hidden="true" size={16} /> Sprawdzamy dostępność: {formatRangeShort(check.range.from, check.range.to)}…</p> : null}
           {check.status === "done" ? (
             <>
@@ -271,7 +255,7 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
         {result && check.status !== "loading" ? (
           <div className={styles.stateActions}>
             <LinkButton href={contactHref(slug, result)}>{check.status === "done" && !check.available ? "Skontaktuj się po alternatywę" : "Skontaktuj się"}</LinkButton>
-            {check.status === "done" && !check.available ? <LinkButton href="#sprawdz-termin" variant="secondary">Zmień termin</LinkButton> : null}
+            {check.status === "done" && !check.available ? <LinkButton href="#kalendarz" variant="secondary">Zmień termin</LinkButton> : null}
             {check.status === "done" && !check.available ? <LinkButton href={catalogHref({ from: check.range.from, to: check.range.to })} variant="secondary">Zobacz pojazdy dostępne w tym terminie</LinkButton> : null}
           </div>
         ) : null}
@@ -316,6 +300,12 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
           {calendar.status === "loading" ? <p className={styles.small}>Ładujemy kalendarz…</p> : null}
           {pickingEnd ? <p className={styles.small}>Wybrano początek: {longDate(from)}. Wybierz dzień końca terminu.</p> : null}
         </div>
+        {pickingEnd || from ? (
+          <div className={styles.stateActions}>
+            {pickingEnd ? <button type="button" className={`${styles.linkButton} ${styles.linkButtonSecondary}`} onClick={() => pick(from)}>Tylko ten dzień</button> : null}
+            <button type="button" className={`${styles.linkButton} ${styles.linkButtonSecondary}`} onClick={() => edit("", "", false)}>Wyczyść termin</button>
+          </div>
+        ) : null}
         {check.status === "done" ? <p className={styles.calendarRange} data-testid="calendar-range">Wybrany zakres: {formatRangeShort(check.range.from, check.range.to)} · {pluralDays(check.range.days)}</p> : null}
         {calendar.status === "error" ? <div role="alert" className={styles.notice}><TriangleAlert aria-hidden="true" size={18} />
           <span>Nie udało się wczytać kalendarza. Stany dni nie są aktualne.{" "}
@@ -334,13 +324,15 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
                     cell.date === today && styles.dayToday, selected && styles.daySelected].filter(Boolean).join(" ");
                   return (
                     <td key={column} className={classes} aria-current={cell.date === today ? "date" : undefined}>
-                      {state === "past" ? cell.day : (
+                      {state === "past" ? (
+                        <button type="button" className={styles.dayButton} aria-disabled="true" tabIndex={-1}
+                          aria-label={`${longDate(cell.date)}, ${dayText.past}`}>{cell.day}</button>
+                      ) : (
                         <button type="button" className={styles.dayButton} aria-pressed={selected} tabIndex={cell.date === tabStop ? 0 : -1}
                           ref={(node) => { if (node) buttons.current.set(cell.date, node); else buttons.current.delete(cell.date); }}
                           aria-label={`${longDate(cell.date)}, ${state === "unknown" ? "stan nieznany" : dayText[state]}${cell.date === today ? ", dzisiaj" : ""}${selected ? ", wybrany zakres" : ""}`}
                           onFocus={() => setFocusDate(cell.date)} onKeyDown={(event) => onDayKey(event, cell.date)} onClick={() => pick(cell.date)}>{cell.day}{state === "unavailable" ? <X aria-hidden="true" size={12} className={styles.dayIcon} /> : null}</button>
                       )}
-                      {state === "past" ? <span className={styles.srOnly}> minął</span> : null}
                     </td>
                   );
                 })}
@@ -351,7 +343,6 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
         <ul className={styles.legend} aria-label="Legenda kalendarza">
           <li><span className={`${styles.legendMark} ${styles.dayAvailable}`} aria-hidden="true" />Dostępny</li>
           <li><span className={`${styles.legendMark} ${styles.dayUnavailable}`} aria-hidden="true" />Niedostępny (przekreślony, z krzyżykiem)</li>
-          <li><span className={`${styles.legendMark} ${styles.dayPast}`} aria-hidden="true" />Minął (szary, bez wyboru)</li>
           <li><span className={`${styles.legendMark} ${styles.dayToday}`} aria-hidden="true" />Dzisiaj</li>
           <li><span className={`${styles.legendMark} ${styles.daySelected}`} aria-hidden="true" />Wybrany zakres</li>
         </ul>

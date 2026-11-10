@@ -21,6 +21,8 @@ const patterns: Array<[RegExp, string]> = [
   [/(\/(?:reset-password|verify-email|verify|activate)\/)[^/\s?#]+/gi, "$1[token]"],
   // W6 (OWASP_CONTROLS §6): a path carrying an invitation token must never be logged verbatim.
   [/\/api\/auth\/invitation\/[^/\s?#]+/gi, "/api/auth/invitation/[token]"],
+  // #327: the private calendar feed carries its secret in the path.
+  [/\/api\/calendar\/feed\/[^/\s?#]+/gi, "/api/calendar/feed/[token]"],
   [/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, "[email]"],
   [/\bBearer\s+[A-Za-z0-9._~+/=-]{8,}/gi, "Bearer [redacted]"],
   [/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}\b/g, "[jwt]"],

@@ -27,21 +27,23 @@ const items: Array<[keyof PasswordCriteria, string, "wymagane" | "zalecane"]> = 
 // DS-AUT-004: label, bar and checklist all carry the result; colour is never the only signal.
 export function PasswordStrength({
   level,
+  tooShort = false,
   criteria,
   id,
 }: {
   level: PasswordStrengthLevel;
+  tooShort?: boolean;
   criteria: PasswordCriteria;
   id: string;
 }) {
   return (
-    <div className={styles.strength} id={id} data-level={level}>
+    <div className={styles.strength} id={id} data-level={tooShort ? "short" : level}>
       {/* The live region announces only the level, not the checklist after every keystroke. */}
       <p className={styles.strengthLabel} aria-live="polite">
-        Siła hasła: {labels[level]}
+        Siła hasła: {tooShort ? "Za krótkie" : labels[level]}
       </p>
       <div className={styles.strengthTrack} aria-hidden="true">
-        <div className={styles.strengthBar} style={{ width: `${widths[level]}%` }} />
+        <div className={styles.strengthBar} style={{ width: `${tooShort ? 0 : widths[level]}%` }} />
       </div>
       <ul className={styles.strengthList}>
         {items.map(([key, text, kind]) => (

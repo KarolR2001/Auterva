@@ -183,7 +183,7 @@ async function snapshot() {
 }
 
 test("route inventory: every group is classified and the matrix covers every private handler", () => {
-  expect(new Set(routes.map((route) => route.group))).toEqual(new Set(["admin", "auth", "discovery", "health", "platform", "public", "vitals"]));
+  expect(new Set(routes.map((route) => route.group))).toEqual(new Set(["admin", "auth", "calendar", "discovery", "health", "platform", "public", "vitals"]));
   // #340: the Web Vitals beacon is the only anonymous write; it stores nothing per request (own suite: web-vitals-http.test.ts).
   expect(routes.filter((route) => route.group === "vitals").map((route) => [route.url, Object.keys(route.methods)])).toEqual([["/api/vitals/", ["POST"]]]);
   const handlers = privateRoutes().reduce((sum, route) => sum + Object.keys(route.methods).length, 0);
@@ -635,6 +635,7 @@ const mutationSamples = (): Record<string, Sample> => {
     "POST /chat/messages/": { body: () => ({ clientMessageId: randomUUID(), body: "Probe" }), text: ["body"] },
   };
   const samples: Record<string, Sample> = {};
+  samples["POST /api/admin/calendar-feeds/"] = { body: () => ({ label: "Probe" }), text: ["label"], reported: (path) => path };
   for (const [key, sample] of Object.entries(common)) {
     const [method, url] = key.split(" ");
     samples[`${method} /api/admin${url}`] = sample;
@@ -661,6 +662,8 @@ const mutationSamples = (): Record<string, Sample> => {
 // administrator's settings write is refused for the role (403) before any field is read; the platform one is probed.
 const withoutText = new Set([
   "PATCH /api/admin/settings/",
+  "DELETE /api/admin/calendar-feeds/[id]/", "POST /api/admin/calendar-feeds/[id]/rotate/",
+  "DELETE /api/platform/companies/[organizationId]/calendar-feeds/[id]/",
   "POST /api/admin/blocks/copy/", "POST /api/platform/companies/[organizationId]/blocks/copy/",
   "POST /api/admin/vehicles/[id]/[action]/", "DELETE /api/admin/vehicles/[id]/blocks/[blockId]/", "DELETE /api/admin/vehicles/[id]/images/[imageId]/",
   "PUT /api/admin/vehicles/[id]/images/order/", "POST /api/admin/vehicles/[id]/images/", "POST /api/admin/vehicles/reorder/", "POST /api/admin/chat/conversation/",
@@ -761,6 +764,7 @@ test("#176: NUL and control characters in the text of every authenticated mutati
     "domains/verify": () => ({ eventKey: uuidOne }), "invitations": () => ({ idempotencyKey: uuidOne }), "invitations/[invitationId]": () => ({}),
     "settings": () => ({ group: "profile", expectedVersion: neverMatches, eventKey: uuidOne, fields: { name: "Probe" } }),
     "public-media/[segment]": () => ({ expectedVersion: neverMatches, eventKey: uuidOne }),
+    "calendar-feeds/[id]": () => ({}), "calendar-feeds/[id]/rotate": () => ({}),
   };
   let untextProbes = 0;
   for (const { route, method, key } of mutations.filter((item) => withoutText.has(item.key))) {
