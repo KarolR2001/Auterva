@@ -59,6 +59,23 @@
       "testPaths": ["tests/e2e/settings-nav-focus.spec.ts"]
     },
     {
+      "issue": 366,
+      "scope": "Backend zakresu prywatnego feedu iCal (E11, D-47; rozszerzenie #327): przy tworzeniu opcjonalne vehicleIds (1–50 UUID bez powtórzeń, tylko pojazdy tej firmy opublikowane w chwili tworzenia; obcy i nieznany dają tę samą odmowę 400 INVALID_INPUT z fieldErrors.vehicleIds), jawna kolumna scope FLEET/VEHICLES i tabela CalendarFeedTokenVehicle ze złożonymi FK (firma) i ON DELETE CASCADE; rotacja zachowuje zakres atomowo; lista admina i superadmina zwraca scope i vehicles [{id, name}]; feed tylko z pojazdów zakresu PUBLISHED w chwili odczytu, bez pozostałych pusty kalendarz. Ekran ADM-22 state=create (wybór „Wybrane pojazdy (opublikowane)”) wdraża osobne zadanie Frontend.",
+      "referenceScreenIds": [],
+      "unmappedStates": ["Backend bez UI; stan create ekranu „Kalendarz zewnętrzny” (Penpot b4e99770-b096-80ee-8008-ece4de62b468 desktop, b4e99770-b096-80ee-8008-ece599d8ec7d mobile, komentarz #327) mapuje zadanie Frontend."],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261110230000_calendar_feed_vehicle_scope_issue_366/migration.sql",
+        "src/modules/calendar-feed/tokens.ts",
+        "src/modules/calendar-feed/feed.ts",
+        "src/modules/calendar-feed/feed-http.ts",
+        "src/modules/calendar-feed/http.ts",
+        "src/modules/backup/company.ts",
+        "docs/contracts/calendar-feed-implementation.md"
+      ],
+      "testPaths": ["tests/integration/calendar-feed-scope.test.ts", "tests/integration/calendar-feed.test.ts"]
+    },
+    {
       "issue": 342,
       "scope": "Audyt dostępności (część #61): panel platformy, strony publiczne firmy i marketing Autervy. Automatyczny skan axe (WCAG 2.2 AA, serious/critical = błąd) każdego ekranu przy 1440, 390 i 320 px oraz kontrole strukturalne: jeden h1 i main, lang, skip link jako pierwszy stop, kolejność i widoczność fokusu, fokus nieprzesłonięty, reflow 320/640 px, reduced motion; dialog archiwizacji (pułapka i powrót fokusu) i menu mobilne z klawiatury. Poprawki: nazwa linku Wiadomości/Czat z plakietką „Nowe” zgodna z widocznym tekstem (WCAG 2.5.3), scroll-padding chroniący fokus przed paskiem akcji (dolna nawigacja: reguła z #341) formularza/kalendarza pojazdu (WCAG 2.4.11). Bez zmian logiki. VoiceOver: DEFERRED (#97); strona logowania i MFA nie mają skip linku (brak bloków do pominięcia).",
       "relatedRequirementIds": ["C-N047", "C-N049", "C-N060"],

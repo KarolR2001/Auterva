@@ -42,7 +42,7 @@ export async function privateFeed(request: Request, rawToken: string, now = new 
     if (!area || area.area !== "COMPANY_ADMIN" || area.organizationId !== access.organizationId) return notFound(requestId);
     const byToken = await takeRateLimit(prisma, [{ key: `api:calendar-feed:token:${hashFeedToken(secret).slice(0, 32)}`, ...FEED_TOKEN_LIMIT }], now);
     if (!byToken.allowed) return limited(requestId, byToken.retryAfter);
-    const feed = await buildFeed(prisma, access.organizationId, now);
+    const feed = await buildFeed(prisma, access.organizationId, now, access.scope === "VEHICLES" ? access.tokenId : null);
     await touchFeedToken(prisma, access.tokenId, now);
     return new Response(feed.body, { status: 200, headers: { ...baseHeaders(requestId),
       "Content-Type": "text/calendar; charset=utf-8", "Content-Disposition": 'inline; filename="auterva-flota.ics"',
