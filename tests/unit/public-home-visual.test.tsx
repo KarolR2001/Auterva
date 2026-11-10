@@ -60,3 +60,20 @@ test("range field rejects a past start and a reversed range before navigation", 
   expect(range.validity.valid).toBe(false);
   expect(range.validationMessage).toContain("poprzedzać");
 });
+
+test("PUB-01 renders featured vehicles with the featured card and hides the section when there are none", () => {
+  const vehicle = (name: string, slug: string) => ({ name, slug, path: `/pojazdy/${slug}/`, category: null, seats: 5, transmission: "Manualna",
+    shortDescription: null, price: { kind: "none" }, cover: { urls: { thumb: "/t/", large: "/l/" }, alt: null, width: 600, height: 400 } });
+  const base = { offerState: "HAS_VEHICLES", company: { name: "Firma A", heroText: "W drogę", shortDescription: null, logo: null, hero: null },
+    contact: [], availabilityNotice: null, seo: { jsonLd: [] } };
+  const withCars = { ...base, featured: [vehicle("Alfa", "alfa"), vehicle("Beta", "beta")] } as unknown as Parameters<typeof PublicHome>[0]["home"];
+  const doc = new DOMParser().parseFromString(renderToStaticMarkup(<PublicHome home={withCars} today="2026-11-02" />), "text/html");
+  const section = doc.querySelector("section[aria-labelledby='featured-title']");
+  expect(section).not.toBeNull();
+  expect(section!.querySelectorAll("article[data-layout='featured']")).toHaveLength(2);
+  expect(section!.querySelector("img")?.getAttribute("src")).toBe("/l/");
+  const none = { ...base, featured: [] } as unknown as Parameters<typeof PublicHome>[0]["home"];
+  const empty = new DOMParser().parseFromString(renderToStaticMarkup(<PublicHome home={none} today="2026-11-02" />), "text/html");
+  expect(empty.querySelector("#featured-title")).toBeNull();
+  expect(empty.body.textContent).not.toContain("Pojazdy gotowe na Twoją trasę");
+});
