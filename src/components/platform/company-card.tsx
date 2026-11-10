@@ -202,6 +202,7 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
         <h2 id="company-public">Flota, podgląd i materiały publiczne</h2>
         <p className={styles.hint}>Flota, zdjęcia pojazdów i blokady terminów są zarządzane tu jako superadmin, w kontekście tej firmy (nie jako klient i nie jako administrator firmy), także gdy firma jest zarchiwizowana. Logo, zdjęcie hero, zdjęcia marki, teksty strony, kontakt, SEO i treści prawne ustawia tylko superadmin. Zapis dotyczy wyłącznie tej firmy; administrator firmy widzi je w trybie odczytu.</p>
         <div className={styles.actions}>
+          <Link className={styles.cancel} href={`/firmy/${encodeURIComponent(company.organizationId)}/kalendarz/`} prefetch={false}>Kalendarz floty</Link>
           <Link className={styles.cancel} href={`/firmy/${encodeURIComponent(company.organizationId)}/podglad/`} prefetch={false}>Podgląd strony (chroniony)</Link>
           <Link className={styles.cancel} href={`/firmy/${encodeURIComponent(company.organizationId)}/ustawienia/?sekcja=wyglad`} prefetch={false}>Edytuj logo i materiały publiczne</Link>
           <Link className={styles.cancel} href={`/firmy/${encodeURIComponent(company.organizationId)}/ustawienia/`} prefetch={false}>Ustawienia firmy</Link>

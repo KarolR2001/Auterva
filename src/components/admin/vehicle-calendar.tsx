@@ -98,16 +98,18 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
 
   // --- reading ---------------------------------------------------------------------------------------------------
 
-  async function loadMonth(target: string) {
+  async function loadMonth(target: string): Promise<CalendarBlock[] | null> {
     const ticket = monthTickets.current.next();
     monthRef.current = target;
     setMonth(target);
     setCal({ status: "loading" });
     const span = monthSpan(target);
     const result = await readCalendar(context, vehicleId, span.from, span.to);
-    if (!monthTickets.current.isCurrent(ticket)) return;
-    setCal(result.ok && Array.isArray(result.data.days) && Array.isArray(result.data.blocks) ? { status: "ready", read: result.data }
+    if (!monthTickets.current.isCurrent(ticket)) return null;
+    const ready = result.ok && Array.isArray(result.data.days) && Array.isArray(result.data.blocks);
+    setCal(ready ? { status: "ready", read: result.data }
       : { status: "error", code: result.ok ? "UNKNOWN" : result.code });
+    return ready ? result.data.blocks : null;
   }
   async function loadListing(kind: "upcoming" | "history") {
     const tickets = kind === "upcoming" ? listTickets : historyTickets;
@@ -128,8 +130,15 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
   }
   async function start() {
     setLoad({ state: "loading" });
-    const [ok] = await Promise.all([loadVehicle(), loadMonth(monthRef.current), loadListing("upcoming")]);
-    if (ok && new URLSearchParams(window.location.search).get("dodaj") === "1") openCreate();
+    // Deep links: ?dodaj=1 opens the quick block, ?blok=<id>&miesiac=YYYY-MM (from the fleet calendar, #66) opens that block.
+    const query = new URLSearchParams(window.location.search);
+    const wanted = query.get("miesiac");
+    if (wanted && /^\d{4}-(0[1-9]|1[0-2])$/.test(wanted)) { monthRef.current = clampMonth(wanted, today); setMonth(monthRef.current); }
+    const [ok, blocks] = await Promise.all([loadVehicle(), loadMonth(monthRef.current), loadListing("upcoming")]).then(([loaded, month]) => [loaded, month] as const);
+    if (ok && query.get("dodaj") === "1") openCreate();
+    const blockId = query.get("blok");
+    const target = ok && blockId ? blocks?.find((block) => block.id === blockId) : undefined;
+    if (target) openEdit(target);
   }
   /** After every change: nothing positive from before survives, all views are read again. */
   function refreshAll() {
