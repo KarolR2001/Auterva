@@ -23,11 +23,12 @@
     },
     {
       "issue": 298,
-      "scope": "Kosmetyka z odbiorów #263/#291/#303: kolejność szybkich akcji panelu (Dodaj blokadę, Dodaj pojazd) jak w ADM-04; wiersz kalendarza floty bez blokad bez linii dni i bez dublowanego opisu (ADM-10); polskie etykiety ISSUE_INVITATION i VERIFY_DOMAIN oraz tłumaczenie wartości status/visibility przed/po w dzienniku zmian (ADM-17). Poza zakresem: 'Jakość danych' i kafelki ADM-04, 'Obszar odbioru' PUB-04 (#257), teksty makiet sprzeczne z PRD, strony konta (#294), .actionsWide listy pojazdów (#296).",
+      "scope": "Kosmetyka z odbiorów #263/#291/#303: kolejność szybkich akcji panelu (Dodaj blokadę, Dodaj pojazd) jak w ADM-04; wiersz kalendarza floty bez blokad bez linii dni i bez dublowanego opisu (ADM-10); polskie etykiety ISSUE_INVITATION i VERIFY_DOMAIN oraz tłumaczenie wartości status/visibility przed/po w dzienniku zmian (ADM-17). Poza zakresem: 'Jakość danych' i kafelki ADM-04, 'Obszar odbioru' PUB-04 (#257), teksty makiet sprzeczne z PRD, strony konta (#294). Dodatkowo (#296): usunięta martwa reguła .actionsWide >=1240 px, zawijanie akcji bez zmian.",
       "relatedRequirementIds": ["FR-ADM-057", "C-F101", "FR-ADM-070", "FR-ADM-071", "C-F151"],
       "referenceScreenIds": ["ADM-04", "ADM-10", "ADM-17"],
       "codePaths": [
         "src/components/admin/dashboard.tsx",
+        "src/components/admin/admin.module.css",
         "src/components/admin/fleet-calendar.tsx",
         "src/components/admin/fleet-calendar.module.css",
         "src/components/audit/audit-log.tsx",
