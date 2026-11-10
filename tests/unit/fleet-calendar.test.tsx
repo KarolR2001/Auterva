@@ -55,6 +55,16 @@ describe("#66 model: okno, miejsce bloku, teksty", () => {
 });
 
 describe("#66 ekran: loading, dane, pusty, błąd, kontekst firmy", () => {
+  it("#298: pojazd bez blokad rysuje dni tylko gdy któryś jest poza aktywnością", async () => {
+    const outside = { vehicleId: "33333333-3333-4333-8333-333333333333", name: "Skoda Kodiaq", slug: "skoda", status: "PUBLISHED" as const, availableFrom: null, availableTo: "2026-11-14", days: days(TODAY, 14, ["2026-11-15", "2026-11-16"]), blocks: [] };
+    const base = grid();
+    vi.stubGlobal("fetch", vi.fn(async () => reply(200, grid({ items: [base.items[1], outside], total: 2 }))));
+    render(<FleetCalendar today={TODAY} title="Kalendarz floty · Firma" />);
+    const region = await screen.findByRole("region", { name: /Kalendarz floty, przewijany poziomo/ });
+    const trackOf = (name: string) => within(region).getByRole("link", { name }).closest("li")!.lastElementChild as HTMLElement;
+    expect(trackOf("Volkswagen California").querySelectorAll("div[aria-hidden]")).toHaveLength(0);
+    expect(trackOf("Skoda Kodiaq").querySelectorAll("div[aria-hidden]")).toHaveLength(14);
+  });
   it("pokazuje loading, potem pojazdy z blokadami i linkami do auta i bloku (firma)", async () => {
     const fetchMock = vi.fn(async (_url: string) => reply(200, grid()));
     vi.stubGlobal("fetch", fetchMock);
@@ -66,7 +76,8 @@ describe("#66 ekran: loading, dane, pusty, błąd, kontekst firmy", () => {
     expect(Object.fromEntries(url.searchParams)).toEqual({ from: TODAY, to: "2026-11-23", page: "1", pageSize: "20" });
     const blockLink = within(region).getByRole("link", { name: /Mercedes Klasa V: Serwis 12–13\.11\.2026/ });
     expect(blockLink).toHaveAttribute("href", `/admin/pojazdy/${CAR}/kalendarz/?blok=b1&miesiac=2026-11`);
-    expect(within(region).getAllByText("Brak blokad w wybranym zakresie")).toHaveLength(2);
+    // #298: the empty row says it once, in the vehicle column, and draws no day lines.
+    expect(within(region).getAllByText("Brak blokad w wybranym zakresie")).toHaveLength(1);
     expect(screen.getByText("2 pojazdy · horyzont 14 dni · Europe/Warsaw")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: /Kalendarz Volkswagen California/ })[0]).toHaveAttribute("href", `/admin/pojazdy/${EMPTY_CAR}/kalendarz/`);
   });

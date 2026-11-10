@@ -69,5 +69,5 @@
   .table td[data-label]::before { content: attr(data-label) ": "; font-weight: var(--font-weight-semibold); }
 }
 @container (min-width: 1080px) { .actions:not(.actionsWide) { flex-wrap: nowrap; white-space: nowrap; } }
-@container (min-width: 1240px) { .actionsWide { flex-wrap: nowrap; white-space: nowrap; } }
+/* #298: .actionsWide (full set: arrows, Edytuj, Podgląd, Kalendarz, Więcej) never fits one line in the ~1120 px container, so it keeps wrapping; the former >=1240 px nowrap rule could never apply. */
 @container (min-width: 1040px) { .row:hover { background: var(--surface-subtle); } }
