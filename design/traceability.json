@@ -22,6 +22,14 @@
       "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
     },
     {
+      "issue": 313,
+      "scope": "Stabilny E2E konfliktu wersji okresu na karcie firmy: test czeka na odświeżenie karty po pierwszym zapisie (nowa data w wierszu Opłata), zanim druga sesja zmieni okres. Bez zmian w UI i API: konflikt był wykrywany zawsze, gdy karta miała wersję sprzed zapisu drugiej sesji.",
+      "relatedRequirementIds": ["C-F045", "C-F046"],
+      "referenceScreenIds": ["PLT-03"],
+      "codePaths": ["src/components/platform/company-ops.tsx"],
+      "testPaths": ["tests/e2e/platform-companies.spec.ts"]
+    },
+    {
       "issue": 265,
       "scope": "Poprawki z QA #27: po niepewnym wyniku zapisu okresu (5xx, brak odpowiedzi) najpierw odczyt stanu, potem komunikat zgodny z faktem (zapisano / nie zapisano / zmieniono w innej sesji); lista firm `/firmy/` z tą samą polityką hosta co `/` i `/firmy/{id}/` (anonim do loginu platformy, inna sesja 404); ikona statusu w wierszu obok tekstu.",
       "relatedRequirementIds": ["C-F045", "C-F046", "C-F068", "C-F069"],
