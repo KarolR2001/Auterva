@@ -37,3 +37,8 @@ export function sqlDate(value: string): Date {
 export function localDate(value: Date): string {
   return value.toISOString().slice(0, 10);
 }
+
+/** Calendar-day arithmetic on LocalDate strings (no 24 h/DST drift: epoch of UTC midnight only). */
+export function addLocalDays(value: string, days: number): string {
+  return new Date(dayEpoch(value) + days * 86_400_000).toISOString().slice(0, 10);
+}
