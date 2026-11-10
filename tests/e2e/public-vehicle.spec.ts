@@ -4,6 +4,7 @@ import { expect, test } from "@playwright/test";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { availabilityToday, sqlDate } from "../../src/modules/availability/dates";
 import { formatRangeShort } from "../../src/modules/public-offer/presentation";
+import { pickRange } from "./public-calendar-helpers";
 
 // #42: public vehicle detail as a visitor sees it (gallery, availability check, calendar, optional data).
 test.use({ launchOptions: { args: ["--host-resolver-rules=MAP *.example.test 127.0.0.1"] } });
@@ -104,14 +105,13 @@ test("vehicle detail: gallery by mouse and keyboard, availability result, calend
     expect(await page.locator("ul[aria-label='Najważniejsze parametry'] li").first().evaluate((node) => getComputedStyle(node).borderTopLeftRadius)).not.toBe("8px");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
-    // #323: at 1024 px the date fields are not clipped and nothing scrolls sideways.
+    // D-44: no Od/Do fields; at 1024 px the calendar fits its card and nothing scrolls sideways.
+    await expect(page.getByLabel("Od", { exact: true })).toHaveCount(0);
+    await expect(page.getByLabel("Do", { exact: true })).toHaveCount(0);
     await page.setViewportSize({ width: 1024, height: 900 });
-    const card1024 = await box(page.locator("#check-title").locator("xpath=ancestor::section[1]"));
-    for (const label of ["Od", "Do"]) {
-      const field = await box(page.getByLabel(label, { exact: true }));
-      expect(field.width).toBeGreaterThanOrEqual(140);
-      expect(field.x + field.width).toBeLessThanOrEqual(card1024.x + card1024.width);
-    }
+    const card1024 = await box(page.locator("#kalendarz"));
+    const table1024 = await box(page.locator("#kalendarz table"));
+    expect(table1024.x + table1024.width).toBeLessThanOrEqual(card1024.x + card1024.width);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await page.setViewportSize({ width: 1440, height: 1024 });
 
@@ -124,8 +124,9 @@ test("vehicle detail: gallery by mouse and keyboard, availability result, calend
 
     // #323: on a phone the sticky contact bar does not cover a focused field (WCAG 2.4.11).
     await page.setViewportSize({ width: 390, height: 600 });
-    await page.getByLabel("Do", { exact: true }).focus();
-    const focused = await box(page.getByLabel("Do", { exact: true }));
+    const dayStop = page.locator("#kalendarz table button[tabindex='0']");
+    await dayStop.focus();
+    const focused = await box(dayStop);
     const sticky = await box(page.locator("[class*='stickyAction']"));
     expect(focused.y + focused.height).toBeLessThanOrEqual(sticky.y);
     await page.setViewportSize({ width: 1440, height: 1024 });
@@ -137,16 +138,13 @@ test("vehicle detail: gallery by mouse and keyboard, availability result, calend
     await expect(page.getByText("Kuchnia: 2 palniki")).toBeVisible();
 
     // Availability: a free range, then a blocked one; the reason of the block never appears.
-    await page.getByLabel("Od", { exact: true }).fill(day(1));
-    await page.getByLabel("Do", { exact: true }).fill(day(2));
-    await page.getByRole("button", { name: "Sprawdź" }).click();
+    await page.setViewportSize({ width: 1440, height: 1024 });
+    await pickRange(page, day(1), day(2));
     await expect(page.getByText("Pojazd jest dostępny")).toBeVisible();
     await expect(page.getByTestId("calendar-range")).toHaveText(`Wybrany zakres: ${formatRangeShort(day(1), day(2))} · 2 dni`);
     await expect(page.getByRole("link", { name: "Skontaktuj się", exact: true }).last())
       .toHaveAttribute("href", `/kontakt/?vehicle=${slug}&from=${day(1)}&to=${day(2)}`);
-    await page.getByLabel("Od", { exact: true }).fill(day(4));
-    await page.getByLabel("Do", { exact: true }).fill(day(6));
-    await page.getByRole("button", { name: "Sprawdź" }).click();
+    await pickRange(page, day(4), day(6));
     await expect(page.getByText("Pojazd jest niedostępny w tym terminie")).toBeVisible();
     await expect(page.getByRole("link", { name: "Skontaktuj się po alternatywę" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Zmień termin" })).toBeVisible();
