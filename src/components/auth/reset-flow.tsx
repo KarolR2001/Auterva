@@ -275,7 +275,7 @@ export function SetNewPasswordForm({
           />
           <PasswordStrength
             id="reset-strength"
-            level={strength.level}
+            level={strength.level} tooShort={strength.tooShort}
             criteria={strength.criteria}
           />
           <PasswordInput

@@ -493,11 +493,6 @@
 }
 
 @media (max-width: 767px) {
-  /* WCAG 2.4.11 (#342): a focused control scrolled to the bottom edge must not hide behind the fixed bottom navigation. */
-  :global(html):has(.shellMobileNav) {
-    scroll-padding-bottom: calc(64px + env(safe-area-inset-bottom) + var(--space-4));
-  }
-
   .shell {
     display: block;
   }
@@ -508,6 +503,11 @@
 
   .shellBody {
     padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+
+  /* WCAG 2.4.11: a focused control scrolls clear of the fixed bottom navigation instead of hiding behind it. */
+  :root:has(.shellMobileNav) {
+    scroll-padding-bottom: calc(72px + env(safe-area-inset-bottom));
   }
 
   /* li.class (0,2,1) beats ".shellBreadcrumbs li { display: flex }" (0,1,1): the root label really disappears. */

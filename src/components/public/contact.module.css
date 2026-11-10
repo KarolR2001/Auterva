@@ -47,7 +47,14 @@
 .docs { display: flex; flex-wrap: wrap; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
 
 .legal { max-width: 760px; }
-.legalText { white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--font-size-16); line-height: var(--line-height-26); }
+.legal .hero { margin: var(--space-4) 0 var(--space-6); }
+.legalText { overflow-wrap: anywhere; font-size: var(--font-size-16); line-height: var(--line-height-26); }
+.legalParagraph { margin: 0 0 var(--space-4); white-space: pre-wrap; }
+.legalSection { margin: 0 0 var(--space-6); scroll-margin-top: var(--space-6); }
+.sectionTitle { margin: 0 0 var(--space-3); font-size: var(--font-size-20); line-height: var(--line-height-28); font-weight: var(--font-weight-semibold); scroll-margin-top: var(--space-6); }
+.toc { margin: 0 0 var(--space-8); padding: var(--space-4); border: var(--border-width-hairline) solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-subtle); }
+.tocTitle { margin: 0 0 var(--space-2); font-size: var(--font-size-12); line-height: var(--line-height-16); font-weight: var(--font-weight-semibold); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-secondary); }
+.tocList { display: grid; gap: var(--space-1); margin: 0; padding: 0; list-style: none; font-size: var(--font-size-16); overflow-wrap: anywhere; }
 
 @media (min-width: 768px) {
   .container { padding: var(--space-12) var(--space-8) var(--space-16); }

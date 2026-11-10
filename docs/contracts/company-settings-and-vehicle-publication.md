@@ -23,6 +23,13 @@ Stan decyzji: zatwierdzone przez właściciela 23.10.2026 w [issue #1](https://g
 
 `R / —` oznacza odczyt dozwolony, zapis zabroniony. Domyślna reguła dla każdego pola ustawień, którego nie ma w tabeli lub jawnej decyzji właściciela, to odmowa zapisu; brak pola w formularzu nie jest mechanizmem autoryzacji. Odmowa dotyczy też zagnieżdżonych kluczy JSON, nazw alternatywnych i pól dołączonych do dozwolonej mutacji. Decyzja D-03 definiuje zawartość kategorii i publicznych pól, nie rozszerza uprawnień admina firmy.
 
+### Data aktualizacji dokumentów prawnych (D-36, #325)
+
+- Kolumny `SiteSettings.privacyTextUpdatedAt` i `termsTextUpdatedAt` (`TIMESTAMPTZ`, UTC, nullable), osobne dla polityki prywatności i regulaminu firmy. Nie są polami zapisu: `PATCH` grupy `legal` ich nie przyjmuje (pole spoza allowlisty to błąd walidacji jak dotąd), ustawia je wyłącznie serwer w tej samej transakcji co zapis tekstu.
+- Zasada: data to chwila zapisu, w którym znormalizowany `privacyText`/`termsText` różni się od zapisanego. Zapis identycznego tekstu (także razem ze zmianą innego pola grupy) nie zmienia daty ani wersji; zmiana samego linku (`privacyUrl`/`termsUrl`) nie zmienia daty; wyczyszczenie tekstu ustawia datę na `NULL`. Uprawnienia bez zmian (D-03: zapis tylko superadmin, jawna firma); audyt `SETTINGS_CHANGED` bez zmian semantyki (daty nie trafiają do `changedFields`, treści nie trafiają do audytu).
+- Migracja `20261110120000_legal_text_updated_at_issue_325` jest addytywna (dwie kolumny, bez zapisu danych). Istniejące dokumenty dostają `NULL` („data nieznana”): UI nie pokazuje wiersza „Ostatnia aktualizacja”, dopóki tekst nie zostanie zmieniony po raz pierwszy; nie podstawiamy daty utworzenia ani daty migracji. Rollback: `ALTER TABLE "SiteSettings" DROP COLUMN "privacyTextUpdatedAt", DROP COLUMN "termsTextUpdatedAt";`.
+- Odczyty: prywatny (`GET` admin i platforma) `settings.legal.privacyTextUpdatedAt` / `termsTextUpdatedAt`; publiczne `/api/public/settings/` `legal.*` oraz `/api/public/legal/{kind}/` `updatedAt` (zob. [oferta publiczna](public-offer-seo.md)). Format: ISO 8601 UTC albo `null`; konwersję na `LocalDate` w `Europe/Warsaw` wykonuje klient.
+
 ### Egzekwowanie na serwerze
 
 1. Każdy odczyt chroniony i zapis sprawdza sesję, aktualny stan konta, obszar hosta, rolę, ID firmy i własność zasobu. Superadmin wskazuje firmę jawnie, pozostaje aktorem zapisu; nie używa sesji firmy. Obce ID daje bezpieczną odmowę bez ujawniania danych. Archiwizacja blokuje aktywną sesję admina, lecz nie zapis superadmina w kontekście firmy (D-23, #151: ustawienia i media publiczne zapisuje jak w firmie aktywnej; dawny `409 SETTINGS_COMPANY_ARCHIVED` nie istnieje, audyt ma `context: "ARCHIVED_COMPANY"`); koniec okresu usługi sam nie blokuje panelu.

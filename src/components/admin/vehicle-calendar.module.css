@@ -44,7 +44,7 @@
   background: var(--surface-default); border-top: var(--border-width-hairline) solid var(--border-default); }
 @media (min-width: 1024px) { .stickyBar { display: none; } }
 /* WCAG 2.4.11 (#342): keep focused controls above the fixed bar. */
-@media (max-width: 1023px) { :global(html):has(.stickyBar) { scroll-padding-bottom: 208px !important; } }
+@media (max-width: 1023px) { :global(:root):global(:root):has(.stickyBar) { scroll-padding-bottom: 208px; } }
 @media (max-width: 1023px) { .asideHead > button { display: none; } }
 .form, .dialogStack { display: grid; gap: var(--space-4); }
 .dates { display: grid; gap: var(--space-4); }

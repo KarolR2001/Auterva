@@ -8,6 +8,7 @@ import { GET as adminGet, PATCH as adminPatch } from "../../src/app/api/admin/se
 import { GET as platformGet, PATCH as platformPatch } from "../../src/app/api/platform/companies/[organizationId]/settings/route";
 import { DELETE as mediaDelete, PATCH as mediaPatch, POST as mediaPost } from "../../src/app/api/platform/companies/[organizationId]/public-media/[segment]/route";
 import { GET as publicSettings } from "../../src/app/api/public/settings/route";
+import { readLegal } from "../../src/modules/public-offer/http";
 import { GET as publicMedia } from "../../src/app/api/public/media/[mediaId]/[variant]/route";
 import { runWithTrustedClientAddress } from "../../src/modules/ingress/client-address";
 import { claimNextJob } from "../../src/modules/jobs/queue";
@@ -473,4 +474,61 @@ test("company uploads inherit the fail-closed decoder: no RSS measurement gives 
   expect((await upload(orgA, "brand", bytes, superSession.cookie, platformHost, key)).status).toBe(202);
   await processAll(orgA);
   expect(await db.publicMedia.count({ where: { organizationId: orgA, kind: "BRAND", status: "READY" } })).toBe(1);
+});
+
+test("D-36: legal text date is set by the server only for a changed text, per company and per document", async () => {
+  const stored = () => db.siteSettings.findUniqueOrThrow({ where: { organizationId: orgA } });
+  const publicLegal = async (host: string, kind: string) => (await (await pub(host, (request) =>
+    readLegal(request, kind), `/api/public/legal/${kind}/`)).json()) as Json;
+  // Earlier tests archive and restore B: bring both companies back to a public state first.
+  await db.organization.updateMany({ where: { id: { in: [orgA, orgB] } },
+    data: { archivedAt: null, publicUnlockRequired: false, publicRequiresPaid: false } });
+  await db.serviceAccess.updateMany({ where: { organizationId: { in: [orgA, orgB] } },
+    data: { paidThrough: new Date(`${day(30)}T00:00:00.000Z`) } });
+  // A company that never wrote legal text: no date, no row for B.
+  expect((await publicLegal(publicHost[1], "privacy")).updatedAt).toBeNull();
+  // Both texts are cleared first so the test does not depend on earlier writes.
+  await write(orgA, "legal", { privacyText: null, termsText: null }, await version(orgA));
+  expect(await stored()).toMatchObject({ privacyTextUpdatedAt: null, termsTextUpdatedAt: null });
+  const t0 = Date.now();
+  expect((await write(orgA, "legal", { privacyText: "Wersja 1" }, await version(orgA))).status).toBe(200);
+  const first = await stored();
+  expect(first.privacyTextUpdatedAt!.getTime()).toBeGreaterThanOrEqual(t0 - 1000);
+  expect(first.privacyTextUpdatedAt!.getTime()).toBeLessThanOrEqual(Date.now() + 1000);
+  expect(first.termsTextUpdatedAt).toBeNull(); // the other document is untouched
+  // Identical text (also with other fields in the same group): no change, no new version, same date.
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const sameVersion = await version(orgA);
+  const same = await write(orgA, "legal", { privacyText: "Wersja 1" }, sameVersion);
+  expect(same.status).toBe(200);
+  expect(await version(orgA)).toBe(sameVersion);
+  expect((await write(orgA, "legal", { privacyText: "Wersja 1", privacyUrl: "https://example.test/p2" }, sameVersion)).status).toBe(200);
+  expect((await stored()).privacyTextUpdatedAt).toEqual(first.privacyTextUpdatedAt); // a link change is not a text change
+  // A changed text moves the date forward; terms get their own date.
+  expect((await write(orgA, "legal", { privacyText: "Wersja 2", termsText: "Regulamin 1" }, await version(orgA))).status).toBe(200);
+  const second = await stored();
+  expect(second.privacyTextUpdatedAt!.getTime()).toBeGreaterThan(first.privacyTextUpdatedAt!.getTime());
+  expect(second.termsTextUpdatedAt).not.toBeNull();
+  // Private read (admin and platform) and public DTOs return the ISO UTC instant.
+  const adminRead = await (await adminGet(admin(0, "GET"))).json() as Json;
+  expect(adminRead.settings.legal).toMatchObject({ privacyTextUpdatedAt: second.privacyTextUpdatedAt!.toISOString(),
+    termsTextUpdatedAt: second.termsTextUpdatedAt!.toISOString() });
+  const platformRead = await (await platformGet(platform("GET", settingsPath(orgA)), orgCtx(orgA))).json() as Json;
+  expect(platformRead.settings.legal.privacyTextUpdatedAt).toBe(second.privacyTextUpdatedAt!.toISOString());
+  const privacy = await publicLegal(publicHost[0], "privacy");
+  expect(privacy).toMatchObject({ status: "TEXT", text: "Wersja 2", updatedAt: second.privacyTextUpdatedAt!.toISOString() });
+  expect((await publicLegal(publicHost[0], "terms")).updatedAt).toBe(second.termsTextUpdatedAt!.toISOString());
+  const settingsDto = await (await pub(publicHost[0], publicSettings)).json() as Json;
+  expect(settingsDto.legal.privacyTextUpdatedAt).toBe(second.privacyTextUpdatedAt!.toISOString());
+  // Isolation: company B sees no date and none of A's data; the public DTO has no private fields.
+  const other = await publicLegal(publicHost[1], "privacy");
+  expect(other).toMatchObject({ status: "MISSING", text: null, updatedAt: null });
+  expect(await db.siteSettings.findUnique({ where: { organizationId: orgB } }))
+    .toMatchObject({ privacyText: null, privacyTextUpdatedAt: null, termsTextUpdatedAt: null });
+  const body = JSON.stringify(privacy);
+  for (const secret of ["operatorNote", "tajna notatka", "organizationId", "version"]) expect(body).not.toContain(secret);
+  // Clearing the text clears the date; a LINK-only document has no date.
+  expect((await write(orgA, "legal", { privacyText: null }, await version(orgA))).status).toBe(200);
+  expect((await stored()).privacyTextUpdatedAt).toBeNull();
+  expect(await publicLegal(publicHost[0], "privacy")).toMatchObject({ status: "LINK", updatedAt: null });
 });

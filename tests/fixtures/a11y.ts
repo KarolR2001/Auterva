@@ -1,19 +1,20 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page } from "@playwright/test";
 
-// #342 (part of #61): automatic WCAG 2.2 AA scan plus the structural checks that axe cannot make. Serious and critical
-// findings fail the test; moderate/minor ones are listed in the failure text of a later run only when they are blocking.
-// Documented, deliberate exceptions go into `allow` with the reason at the call site.
-const WCAG_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
+// Shared accessibility helpers for the e2e suites of #341 (company panel) and #342 (platform, public, marketing), part of #61.
+// One rule for every screen: WCAG 2.0/2.1/2.2 A and AA plus axe best practices, no rule switched off. Serious and critical
+// findings fail first (clear message); moderate and minor ones fail too, so they cannot creep in. A documented, deliberate
+// exception goes into `allow` with the reason at the call site. Soft assertions: one run lists every broken screen.
+export const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"];
 
 export async function axeScan(page: Page, label: string, options: { allow?: string[]; exclude?: string[] } = {}) {
-  let builder = new AxeBuilder({ page }).withTags(WCAG_TAGS);
+  let builder = new AxeBuilder({ page }).withTags(AXE_TAGS);
   for (const selector of options.exclude ?? []) builder = builder.exclude(selector);
   const results = await builder.analyze();
-  const blocking = results.violations
-    .filter((violation) => (violation.impact === "serious" || violation.impact === "critical") && !options.allow?.includes(violation.id))
-    .map((violation) => `${violation.id} (${violation.impact}): ${violation.help}\n  ${violation.nodes.slice(0, 4).map((node) => `${node.target.join(" ")} :: ${node.html.slice(0, 220)} :: ${(node.any[0]?.message ?? node.failureSummary ?? "").slice(0, 200)}`).join("\n  ")}`);
-  expect.soft(blocking, `axe ${label}`).toEqual([]);
+  const found = results.violations.filter((violation) => !options.allow?.includes(violation.id));
+  const describe = (violation: (typeof found)[number]) => `${violation.id} (${violation.impact}): ${violation.help}\n  ${violation.nodes.slice(0, 4).map((node) => `${node.target.join(" ")} :: ${node.html.slice(0, 220)} :: ${(node.any[0]?.message ?? node.failureSummary ?? "").slice(0, 200)}`).join("\n  ")}`;
+  expect.soft(found.filter((violation) => violation.impact === "serious" || violation.impact === "critical").map(describe), `axe ${label}`).toEqual([]);
+  expect.soft(found.filter((violation) => violation.impact !== "serious" && violation.impact !== "critical").map(describe), `axe (moderate/minor) ${label}`).toEqual([]);
 }
 
 /** One h1, one main landmark, document language, a skip link that is the first tab stop and moves focus to the content. */

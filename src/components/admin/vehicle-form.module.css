@@ -49,9 +49,9 @@ textarea.control { min-height: 120px; resize: vertical; }
   padding: var(--space-3) var(--space-4); background: var(--surface-default); border-top: var(--border-width-hairline) solid var(--border-default); }
 @media (max-width: 1023px) { .actionBar { padding-bottom: calc(var(--space-3) + 64px + env(safe-area-inset-bottom, 0px)); } }
 /* WCAG 2.4.11 (#342): a focused field must not end up behind the fixed action bar (it grows when its buttons wrap). */
-:global(html):has(.actionBar) { scroll-padding-bottom: 128px; }
-/* !important: the panel shell sets a smaller clearance for its own bottom navigation on the same element. */
-@media (max-width: 1023px) { :global(html):has(.actionBar) { scroll-padding-bottom: 208px !important; } }
+:global(:root):has(.actionBar) { scroll-padding-bottom: 128px; }
+/* The doubled :root raises specificity above the shell rule (:root:has(.shellMobileNav), smaller clearance) without !important. */
+@media (max-width: 1023px) { :global(:root):global(:root):has(.actionBar) { scroll-padding-bottom: 208px; } }
 .actionState { margin-right: auto; font-size: var(--font-size-14); color: var(--text-secondary); }
 .summary { display: grid; gap: var(--space-2); }
 .summaryList { margin: 0; padding-left: var(--space-5); }
