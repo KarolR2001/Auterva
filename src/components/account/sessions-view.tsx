@@ -15,13 +15,13 @@ import {
   classifyEnd, deviceLabel, endBody, endConfirmedByList, formatWhen, orderSessions, otherSessions, reauthBody,
   targetDescription, type EndTarget, type ProofMethod, type SessionDto,
 } from "./sessions-model";
+import { AccountTabs } from "./account-tabs";
 import styles from "./account.module.css";
 
 type Phase = "loading" | "error" | "ready";
 type Notice = { tone: "success" | "error" | "warning" | "info"; title: string; text?: string } | null;
 
 export function SessionsView({ area }: { area: AuthArea }) {
-  const home = area === "company" ? "/admin" : "/";
   const account = area === "company" ? "/admin/konto/" : "/konto/";
   const login = area === "company" ? "/admin/login" : "/login";
   const [phase, setPhase] = useState<Phase>("loading");
@@ -167,16 +167,15 @@ export function SessionsView({ area }: { area: AuthArea }) {
   const description = target ? targetDescription(target) : null;
 
   return (
-    <main className={styles.page} data-area={area}>
-      <header className={styles.header}>
-        <p className={styles.brand}>{area === "platform" ? "A AUTERVA" : "AUTERVA"}</p>
-        <nav aria-label="Konto" className={styles.nav}>
-          <Link href={account} prefetch={false}>Konto</Link>
-          <Link href={home} prefetch={false}>{area === "platform" ? "Platforma" : "Panel"}</Link>
-        </nav>
-      </header>
-      <h1 className={styles.title}>Aktywne sesje</h1>
-      <p>Widzisz wyłącznie sesje własnego konta. Adres IP i dane przeglądarki poza nazwą urządzenia nie są pokazywane.</p>
+    <div className={styles.account} data-area={area}>
+      <p className={styles.lead}>
+        Widzisz wyłącznie sesje własnego konta. Adres IP i dane przeglądarki poza nazwą urządzenia nie są pokazywane.
+      </p>
+      {area === "company" ? (
+        <AccountTabs current="sessions" />
+      ) : (
+        <Link className={styles.secondaryLink} href={account} prefetch={false}>Wróć do konta</Link>
+      )}
 
       <div ref={noticeRegion} tabIndex={-1} role="status" aria-live="polite">
         {notice && <Alert tone={notice.tone} title={notice.title}>{notice.text}</Alert>}
@@ -247,6 +246,6 @@ export function SessionsView({ area }: { area: AuthArea }) {
           </div>
         </section>
       )}
-    </main>
+    </div>
   );
 }
