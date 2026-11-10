@@ -42,6 +42,32 @@ export function reportInternalError<T extends string>(error: unknown, requestId:
   return requestId;
 }
 
+const transientSqlStates = new Set(["55P03", "57014", "40001", "40P01"]);
+const transientPrismaCodes = new Set(["P2028", "P2024", "P2034"]);
+
+/** Lock wait, statement or transaction budget exceeded, deadlock or serialization failure: nothing was committed. */
+export function isTransientDbError(error: unknown, depth = 0): boolean {
+  if (typeof error !== "object" || error === null || depth > 4) return false;
+  const e = error as { code?: unknown; meta?: unknown; cause?: unknown; originalCode?: unknown };
+  if (typeof e.code === "string" && (transientPrismaCodes.has(e.code) || transientSqlStates.has(e.code))) return true;
+  if (typeof e.originalCode === "string" && transientSqlStates.has(e.originalCode)) return true;
+  const meta = e.meta as { code?: unknown; driverAdapterError?: unknown } | undefined;
+  if (typeof meta?.code === "string" && transientSqlStates.has(meta.code)) return true;
+  return isTransientDbError(meta?.driverAdapterError, depth + 1) || isTransientDbError(e.cause, depth + 1);
+}
+
+/**
+ * For HTTP failure mappers: a transient database failure becomes a retryable 503 TEMPORARILY_UNAVAILABLE
+ * (the client treats the outcome as uncertain); the log and 5xx counter carry the real status. Otherwise null.
+ */
+export function transientDbResponse(error: unknown, requestId: string, operation: string): Response | null {
+  if (!isTransientDbError(error)) return null;
+  count5xx(requestId);
+  logFailure("http.service_unavailable", error, { requestId, operation, status: 503 });
+  return Response.json({ code: "TEMPORARILY_UNAVAILABLE" }, { status: 503, headers: {
+    "Cache-Control": "no-store", "Retry-After": "2", "X-Request-Id": requestId } });
+}
+
 const loginSteps: Record<string, string> = {
   "/api/auth/sign-in/email": "password",
   "/api/auth/two-factor/verify-totp": "mfa",

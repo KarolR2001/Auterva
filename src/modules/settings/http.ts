@@ -12,7 +12,7 @@ import { isSettingsGroup } from "./fields";
 import { deletePublicMedia, SettingsConflictError, SettingsValidationError, updateCompanySettings,
   updatePublicMedia } from "./mutations";
 import { getCompanySettings, getPublicCompanySettings, resolvePublicMediaVariant } from "./read";
-import { reportInternalError } from "@/modules/observability/http-observe";
+import { reportInternalError, transientDbResponse } from "@/modules/observability/http-observe";
 
 function failure(error: unknown, requestId: string) {
   if (error instanceof SettingsValidationError) return response({ code: "INVALID_INPUT",
@@ -25,6 +25,8 @@ function failure(error: unknown, requestId: string) {
   if (code === "FORBIDDEN" || code === "Audit actor is not authorized") return response({ code: "FORBIDDEN" }, 403, requestId);
   if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002")
     return response({ code: "EVENT_KEY_CONFLICT" }, 409, requestId);
+  const busy = transientDbResponse(error, requestId, "settings");
+  if (busy) return busy;
   return response({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "settings"));
 }
 
