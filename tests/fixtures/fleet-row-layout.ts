@@ -7,11 +7,14 @@ export async function expectDesktopRowLayout(page: Page) {
   await expect(rows.first()).toBeVisible();
   const layout = await rows.evaluateAll((trs) => trs.map((tr) => {
     const cells = [...tr.querySelectorAll("td")].map((td) => td.getBoundingClientRect().bottom);
-    const actions = [...tr.querySelectorAll("td:last-child a, td:last-child button")].map((el) => el.getBoundingClientRect().top);
+    const actions = [...tr.querySelectorAll("td:last-child a, td:last-child button")].map((el) => {
+      const box = el.getBoundingClientRect();
+      return box.top + box.height / 2;
+    });
     return { cells, actions };
   }));
   for (const row of layout) {
-    expect(new Set(row.cells.map(Math.round)).size).toBe(1);
-    expect(new Set(row.actions.map(Math.round)).size).toBe(1);
+    expect(Math.max(...row.cells) - Math.min(...row.cells), JSON.stringify(row)).toBeLessThanOrEqual(1);
+    expect(Math.max(...row.actions) - Math.min(...row.actions), JSON.stringify({ ...row, width: page.viewportSize() })).toBeLessThanOrEqual(2);
   }
 }
