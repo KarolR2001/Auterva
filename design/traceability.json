@@ -22,6 +22,14 @@
       "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
     },
     {
+      "issue": 313,
+      "scope": "Stabilny E2E konfliktu wersji okresu na karcie firmy: test czeka na odświeżenie karty po pierwszym zapisie (nowa data w wierszu Opłata), zanim druga sesja zmieni okres. Bez zmian w UI i API: konflikt był wykrywany zawsze, gdy karta miała wersję sprzed zapisu drugiej sesji.",
+      "relatedRequirementIds": ["C-F045", "C-F046"],
+      "referenceScreenIds": ["PLT-03"],
+      "codePaths": ["src/components/platform/company-ops.tsx"],
+      "testPaths": ["tests/e2e/platform-companies.spec.ts"]
+    },
+    {
       "issue": 293,
       "scope": "Lista firm PLT-01-02: tabela (Firma, Okres usługi, Widoczność, Rejestracja, Akcje) na desktopie i karty na mobile, chipy statusu z ikoną i tekstem, akcje Otwórz i Czat (do /wiadomosci/?firma=, C-F135) w wierszu, akcje Wiadomości i Dodaj firmę w nagłówku. Bez licznika nieprzeczytanych (lista API go nie zwraca); H1 pozostaje w PanelShell (#66/#75).",
       "relatedRequirementIds": ["C-F015", "C-F045", "C-F135"],
