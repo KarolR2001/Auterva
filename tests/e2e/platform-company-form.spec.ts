@@ -54,6 +54,20 @@ test("superadmin dodaje firmę, widzi zapis osobno od zaproszenia i cofa zaprosz
     await page.getByLabel(/E-mail administratora/).fill(email);
     await page.getByLabel(/^Trial/).check();
 
+    // D-41: the optional contact section validates like company settings and keeps the entries.
+    await expect(page.getByRole("group", { name: "Kontakt i adres (opcjonalnie)" })).toBeVisible();
+    await page.getByLabel("Telefon kontaktowy").fill("12");
+    await page.getByRole("button", { name: "Zapisz firmę" }).click();
+    await expect(page.getByText(/Podaj poprawny numer telefonu/).first()).toBeVisible();
+    await expect(page.getByLabel("Telefon kontaktowy")).toBeFocused();
+    await expectNoHorizontalScroll(page);
+    await page.getByLabel("Telefon kontaktowy").fill("+48 600 100 200");
+    await page.getByLabel("Publiczny e-mail kontaktowy").fill(`kontakt-${marker.slice(0, 8)}@example.test`);
+    await page.getByLabel("Ulica i numer").fill("ul. Przykładowa 12");
+    await page.getByLabel("Kod pocztowy").fill("30-001");
+    await page.getByLabel("Miejscowość").fill("Kraków");
+    await page.getByLabel("Kraj").fill("Polska");
+
     // Leaving the dirty form goes through the shell guard; Stay keeps the values.
     await page.getByRole("link", { name: "Anuluj" }).click();
     await expect(page.getByRole("alertdialog", { name: "Niezapisane zmiany" })).toBeVisible();
@@ -63,6 +77,12 @@ test("superadmin dodaje firmę, widzi zapis osobno od zaproszenia i cofa zaprosz
     await page.getByRole("button", { name: "Zapisz firmę" }).click();
     await expect(page).toHaveURL(new RegExp(`/firmy/[0-9a-f-]{36}/\\?zapisano=1`));
     organizationId = new URL(page.url()).pathname.split("/")[2];
+    const settings = await db.siteSettings.findUniqueOrThrow({ where: { organizationId } });
+    expect(settings).toMatchObject({ phone: "+48 600 100 200", email: `kontakt-${marker.slice(0, 8)}@example.test`,
+      addressLine: "ul. Przykładowa 12", postalCode: "30-001", city: "Kraków", country: "Polska" });
+    await page.goto(`${origin}/firmy/${organizationId}/ustawienia/?sekcja=kontakt`);
+    await expect(page.getByText("+48 600 100 200").first()).toBeVisible();
+    await page.goto(`${origin}/firmy/${organizationId}/?zapisano=1`);
     await expect(page.getByText(/Zapisano firmę\./)).toBeVisible();
     await expect(page.getByText(/Strona nie jest opublikowana/)).toBeVisible();
     await expect(page.getByText("Zaproszenie nie zostało wydane")).toBeVisible();
@@ -109,6 +129,7 @@ test("superadmin dodaje firmę, widzi zapis osobno od zaproszenia i cofa zaprosz
     if (organizationId) {
       await db.customDomain.deleteMany({ where: { organizationId } });
       await db.job.deleteMany({ where: { organizationId } });
+      await db.siteSettings.deleteMany({ where: { organizationId } });
       await db.invitation.deleteMany({ where: { organizationId } });
       await db.auditLog.deleteMany({ where: { organizationId } });
       await db.operationReceipt.deleteMany({ where: { organizationId } });

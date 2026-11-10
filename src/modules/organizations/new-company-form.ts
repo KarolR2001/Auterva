@@ -1,6 +1,8 @@
 // Pure client/server-neutral rules for the PLT-04 preregistration form (#25). They mirror
 // the server checks in onboarding.ts for fast feedback only; the server stays authoritative.
 
+import { serverErrorMessage, validate } from "@/components/settings/settings-model";
+
 export type PeriodKind = "trial" | "paid";
 export type CompanyFormValues = {
   name: string;
@@ -8,12 +10,22 @@ export type CompanyFormValues = {
   slug: string;
   periodKind: PeriodKind | "";
   paidThrough: string;
+  phone: string;
+  email: string;
+  addressLine: string;
+  postalCode: string;
+  city: string;
+  country: string;
 };
-export type CompanyField = "name" | "adminEmail" | "slug" | "periodKind" | "paidThrough";
+/** D-41: optional public contact and address; the same flat names the API and company settings use. */
+export const contactFields = ["phone", "email", "addressLine", "postalCode", "city", "country"] as const;
+export type ContactField = (typeof contactFields)[number];
+export type CompanyField = "name" | "adminEmail" | "slug" | "periodKind" | "paidThrough" | ContactField;
 export type FieldErrors = Partial<Record<CompanyField, string>>;
 
 export const emptyCompanyForm: CompanyFormValues = {
   name: "", adminEmail: "", slug: "", periodKind: "", paidThrough: "",
+  phone: "", email: "", addressLine: "", postalCode: "", city: "", country: "",
 };
 
 const slugPattern = /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$/;
@@ -34,7 +46,9 @@ export function slugFromName(name: string): string {
 
 export function normalizeCompanyForm(values: CompanyFormValues): CompanyFormValues {
   return { ...values, name: values.name.trim(), adminEmail: values.adminEmail.trim().toLowerCase(),
-    slug: values.slug.trim().toLowerCase() };
+    slug: values.slug.trim().toLowerCase(),
+    phone: values.phone.trim(), email: values.email.trim().toLowerCase(), addressLine: values.addressLine.trim(),
+    postalCode: values.postalCode.trim(), city: values.city.trim(), country: values.country.trim() };
 }
 
 export function validateCompanyForm(values: CompanyFormValues): FieldErrors {
@@ -58,26 +72,42 @@ export function validateCompanyForm(values: CompanyFormValues): FieldErrors {
       || new Date(`${v.paidThrough}T00:00:00Z`).toISOString().slice(0, 10) !== v.paidThrough)
       errors.paidThrough = "Podaj poprawną datę.";
   }
+  Object.assign(errors, validateContact(v));
+  return errors;
+}
+
+/** Contact rules are the company settings rules (#31): the same client validators, no new ones. */
+export function validateContact(values: Pick<CompanyFormValues, ContactField>): FieldErrors {
+  const filled = (names: readonly ContactField[]) =>
+    Object.fromEntries(names.filter((name) => values[name].trim() !== "").map((name) => [name, values[name]]));
+  const found = {
+    ...validate("kontakt", filled(["phone", "email"])),
+    ...validate("dane", filled(["addressLine", "postalCode", "city", "country"])),
+  };
+  const errors: FieldErrors = {};
+  for (const name of contactFields) if (found[name]) errors[name] = found[name];
   return errors;
 }
 
 export type CreateCompanyBody = {
   name: string; slug: string; adminEmail: string; trialGranted: boolean;
   paidThrough: string | null; idempotencyKey: string;
-};
+} & Partial<Record<ContactField, string>>;
 
 export function toCreateBody(values: CompanyFormValues, idempotencyKey: string): CreateCompanyBody {
   const v = normalizeCompanyForm(values);
+  // Empty optional fields are omitted: a form without contact data sends exactly the pre-D-41 body.
+  const contact = Object.fromEntries(contactFields.filter((name) => v[name] !== "").map((name) => [name, v[name]]));
   return { name: v.name, slug: v.slug, adminEmail: v.adminEmail,
     trialGranted: v.periodKind === "trial",
-    paidThrough: v.periodKind === "paid" ? v.paidThrough : null, idempotencyKey };
+    paidThrough: v.periodKind === "paid" ? v.paidThrough : null, ...contact, idempotencyKey };
 }
 
 /** Same normalized values must reuse one idempotency key; any change needs a new one. */
 export function formFingerprint(values: CompanyFormValues): string {
   const v = normalizeCompanyForm(values);
   return JSON.stringify([v.name, v.adminEmail, v.slug, v.periodKind,
-    v.periodKind === "paid" ? v.paidThrough : ""]);
+    v.periodKind === "paid" ? v.paidThrough : "", ...contactFields.map((name) => v[name])]);
 }
 
 export function isCompanyFormDirty(values: CompanyFormValues): boolean {
@@ -101,8 +131,13 @@ export function classifyCreateResponse(status: number, body: unknown, retryAfter
     return { kind: "saved", organizationId: record.organizationId };
   if (status === 400) {
     const fields = record.fieldErrors as Record<string, unknown> | undefined;
-    if (fields?.name === "INVALID_CHARACTERS") return { kind: "field-errors",
-      errors: { name: "Nazwa zawiera niedozwolone znaki." } };
+    const errors: FieldErrors = {};
+    if (fields?.name === "INVALID_CHARACTERS") errors.name = "Nazwa zawiera niedozwolone znaki.";
+    for (const name of contactFields) {
+      const code = fields?.[name];
+      if (typeof code === "string") errors[name] = serverErrorMessage(code);
+    }
+    if (Object.keys(errors).length > 0) return { kind: "field-errors", errors };
     return { kind: "rejected", message: "Serwer odrzucił dane formularza. Sprawdź pola i spróbuj ponownie." };
   }
   if (status === 422 && code === "INVALID_PAID_THROUGH") return { kind: "field-errors",

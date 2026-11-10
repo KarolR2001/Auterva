@@ -22,6 +22,17 @@
       "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
     },
     {
+      "issue": 335,
+      "scope": "D-41: PLT-04 (FLOW-MVP-02 D/01) ma opcjonalną sekcję „Kontakt i adres (opcjonalnie)”: telefon, publiczny e-mail, ulica i numer, kod pocztowy, miejscowość, kraj. Walidacja klienta to te same helpery co ustawienia firmy (#31), błędy serwera (400 fieldErrors) mapują się na pola z fokusem na pierwszym, body bez pustych pól, klucz idempotencji zależy od danych, niepewny wynik 5xx jak dotąd, guard niezapisanych zmian obejmuje nowe pola. Zależy od #334 (PR #343).",
+      "referenceScreenIds": ["PLT-04", "FLOW-MVP-02"],
+      "codePaths": [
+        "src/components/platform/new-company-form.tsx",
+        "src/modules/organizations/new-company-form.ts"
+      ],
+      "testPaths": ["tests/unit/new-company-form.test.ts", "tests/e2e/platform-company-form.spec.ts"],
+      "sharedWith": "Kontrakt API: docs/contracts/company-onboarding-invitations.md (#334); reguły pól: src/components/settings/settings-model.ts (#31)."
+    },
+    {
       "issue": 334,
       "scope": "D-41: POST /api/platform/companies przyjmuje opcjonalnie telefon, publiczny e-mail i adres (phone, email, addressLine, postalCode, city, country; reguły i schematy jak grupy contact/address ustawień firmy #31), zapisywane do SiteSettings w tej samej transakcji co utworzenie firmy, z audytem SETTINGS_CHANGED (same nazwy pól). Brak pól = zachowanie jak dotąd; nie publikuje strony i nie wysyła zaproszenia. UI formularza: #335.",
       "referenceScreenIds": ["PLT-04", "FLOW-MVP-02"],
