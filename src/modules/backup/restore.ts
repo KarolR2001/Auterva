@@ -112,7 +112,14 @@ export async function quarantineRestoredState(db: Queryable, input: { organizati
   const intents = (await db.query(`UPDATE "ReminderIntent" SET status = 'SKIPPED', "errorCode" = '${QUARANTINE_CODE}',
     "updatedAt" = $${scoped ? 2 : 1} WHERE (status IN ('QUEUED', 'UNCERTAIN') OR (status = 'PENDING' AND "slotAt" <= $${scoped ? 2 : 1}))${scoped ? ` AND "organizationId" = $1` : ""}`,
   scoped ? [org, input.now] : [input.now])).rowCount ?? 0;
-  return { sessions, challenges, resetRequests: resets, invitations, jobs, reminderIntents: intents };
+  // #327: no private calendar feed survives a restore. The table is absent from backups older than its migration.
+  let calendarFeeds = 0;
+  if ((await db.query(`SELECT to_regclass('"CalendarFeedToken"') IS NOT NULL AS present`)).rows[0]?.present) {
+    const at = scoped ? 2 : 1;
+    calendarFeeds = (await db.query(`UPDATE "CalendarFeedToken" SET "revokedAt" = $${at}, "revokedReason" = 'COMPANY_RESTORED'
+      WHERE "revokedAt" IS NULL${scoped ? ` AND "organizationId" = $1` : ""}`, scoped ? [org, input.now] : [input.now])).rowCount ?? 0;
+  }
+  return { sessions, challenges, resetRequests: resets, invitations, jobs, reminderIntents: intents, calendarFeeds };
 }
 
 export async function appendRestoreAudit(db: Queryable, input: {
