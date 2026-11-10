@@ -2274,6 +2274,14 @@
       "referenceScreenIds": ["ADM-01", "ADM-04", "ADM-19", "ADM-20", "ADM-21"],
       "codePaths": ["src/components/admin/fleet-calendar.tsx", "src/components/panel/panel.module.css", "src/components/ui/ui.module.css"],
       "testPaths": ["tests/e2e/admin-a11y.spec.ts", "tests/e2e/fleet-calendar.spec.ts"]
+    },
+    {
+      "issue": 359,
+      "scope": "Poprawka katalogu publicznego (#40): opcje filtra skrzyni biegów bez duplikatów wielkości liter mają deterministyczną pisownię (najmniejszy wariant w porównaniu kodów znaków, np. „Manualna” przed „manualna”), niezależną od kolejności wierszy i planu zapytania. API, kontrakt filtra (dopasowanie bez wielkości liter) i sortowanie listy bez zmian.",
+      "referenceScreenIds": ["PUB-02"],
+      "codePaths": ["src/modules/public-offer/query.ts", "src/modules/public-offer/read.ts"],
+      "testPaths": ["tests/unit/public-offer.test.ts", "tests/integration/public-offer.test.ts"],
+      "sharedWith": "Rozszerza katalog z #40; kontrakt: docs/contracts/public-offer-seo.md."
     }
   ],
   "sources": [
