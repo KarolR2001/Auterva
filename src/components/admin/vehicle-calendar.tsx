@@ -536,7 +536,7 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
       </div>
 
       {!archived && (
-        <div className={styles.stickyBar}>
+        <div className={styles.stickyBar} data-fixed-action-bar="">
           <Button width="fill" icon={<CalendarPlus aria-hidden="true" size={20} />} onClick={() => openCreate(pick ? { from: pick, to: pick } : undefined)}>Dodaj okres niedostępności</Button>
         </div>
       )}

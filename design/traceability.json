@@ -36,6 +36,31 @@
       "testPaths": ["tests/unit/ui-foundations.test.tsx", "tests/unit/vehicle-calendar.test.tsx", "tests/e2e/bulk-blocks.spec.ts"]
     },
     {
+      "issue": 363,
+      "scope": "PUB-03: karta „Najbliższy wolny termin” zgodna z makietą (obrys karty i przycisku #151515 1 px, promień 12, padding 16, odstęp 12 między tytułem, notą i przyciskiem); tylko CSS. Odczyt Penpota: karta #f2f2f2, tytuł 16/600, nota 13/400 #424242 (aplikacja 14 px: brak tokenu rozmiaru 13), przycisk 48 px, etykieta 15/600.",
+      "relatedRequirementIds": ["FR-PUB-023", "FR-PUB-024"],
+      "referenceScreenIds": ["PUB-03"],
+      "scenarioStates": {
+        "nearest": "PUB-03 / state=unavailable-nearest i unavailable-no-nearest (D b20632b5-747a-80ca-8008-ecd19533db94, M 213df950-26c7-80ef-8008-ecd84b67f3ce; D 213df950-26c7-80ef-8008-ecd77605e183, M 213df950-26c7-80ef-8008-ecd86d2eb5e4)"
+      },
+      "codePaths": ["src/components/public/public.module.css"],
+      "testPaths": ["tests/unit/availability-panel-nearest.test.tsx", "tests/e2e/public-availability.spec.ts"],
+      "sharedWith": "Zależy od #218 (PR #360)."
+    },
+    {
+      "issue": 358,
+      "scope": "Pasek „Sekcje ustawień” (panel firmy i superadmin w kontekście firmy): pełny obrys fokusu zakładek mimo overflow-x (padding paska z kompensującym ujemnym marginesem, wygląd bez zmian) oraz aktywna zakładka (aria-current) dosunięta do widoku po załadowaniu sekcji z dalszej części paska (scrollLeft paska, bez przesuwania strony w pionie, bez smooth scroll). WCAG 2.4.7/2.4.11.",
+      "relatedRequirementIds": ["FR-ADM-060", "FR-ADM-061", "FR-ADM-062", "FR-ADM-063"],
+      "referenceScreenIds": ["ADM-11", "ADM-12", "ADM-13", "ADM-14", "PLT-04"],
+      "unmappedStates": ["Porównanie z makietą w Penpocie: DEFERRED (#263); wygląd paska bez zmian."],
+      "codePaths": [
+        "src/components/settings/settings-nav.tsx",
+        "src/components/settings/settings.module.css"
+      ],
+      "testPaths": ["tests/e2e/settings-nav-focus.spec.ts"],
+      "sharedWith": "Rozszerza #351."
+    },
+    {
       "issue": 351,
       "scope": "Pasek „Sekcje ustawień” (panel firmy i superadmin w kontekście firmy): sfokusowana klawiaturą zakładka jest zawsze w całości widoczna w przewijanym pasku (scrollIntoView block/inline nearest na focus plus scroll-padding-inline), dla dowolnej liczby pozycji; bez zmiany wyglądu i logiki, bez smooth scroll (reduced motion). WCAG 2.4.11/2.4.7.",
       "relatedRequirementIds": ["FR-ADM-060", "FR-ADM-061", "FR-ADM-062", "FR-ADM-063"],
@@ -46,6 +71,36 @@
         "src/components/settings/settings.module.css"
       ],
       "testPaths": ["tests/e2e/settings-nav-focus.spec.ts"]
+    },
+    {
+      "issue": 366,
+      "scope": "Backend zakresu prywatnego feedu iCal (E11, D-47; rozszerzenie #327): przy tworzeniu opcjonalne vehicleIds (1–50 UUID bez powtórzeń, tylko pojazdy tej firmy opublikowane w chwili tworzenia; obcy i nieznany dają tę samą odmowę 400 INVALID_INPUT z fieldErrors.vehicleIds), jawna kolumna scope FLEET/VEHICLES i tabela CalendarFeedTokenVehicle ze złożonymi FK (firma) i ON DELETE CASCADE; rotacja zachowuje zakres atomowo; lista admina i superadmina zwraca scope i vehicles [{id, name}]; feed tylko z pojazdów zakresu PUBLISHED w chwili odczytu, bez pozostałych pusty kalendarz. Ekran ADM-22 state=create (wybór „Wybrane pojazdy (opublikowane)”) wdraża osobne zadanie Frontend.",
+      "referenceScreenIds": [],
+      "unmappedStates": ["Backend bez UI; stan create ekranu „Kalendarz zewnętrzny” (Penpot b4e99770-b096-80ee-8008-ece4de62b468 desktop, b4e99770-b096-80ee-8008-ece599d8ec7d mobile, komentarz #327) mapuje zadanie Frontend."],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261110230000_calendar_feed_vehicle_scope_issue_366/migration.sql",
+        "src/modules/calendar-feed/tokens.ts",
+        "src/modules/calendar-feed/feed.ts",
+        "src/modules/calendar-feed/feed-http.ts",
+        "src/modules/calendar-feed/http.ts",
+        "src/modules/backup/company.ts",
+        "docs/contracts/calendar-feed-implementation.md"
+      ],
+      "testPaths": ["tests/integration/calendar-feed-scope.test.ts", "tests/integration/calendar-feed.test.ts"]
+    },
+    {
+      "issue": 342,
+      "scope": "Audyt dostępności (część #61): panel platformy, strony publiczne firmy i marketing Autervy. Automatyczny skan axe (WCAG 2.2 AA, serious/critical = błąd) każdego ekranu przy 1440, 390 i 320 px oraz kontrole strukturalne: jeden h1 i main, lang, skip link jako pierwszy stop, kolejność i widoczność fokusu, fokus nieprzesłonięty, reflow 320/640 px, reduced motion; dialog archiwizacji (pułapka i powrót fokusu) i menu mobilne z klawiatury. Poprawki: nazwa linku Wiadomości/Czat z plakietką „Nowe” zgodna z widocznym tekstem (WCAG 2.5.3), scroll-padding chroniący fokus przed paskiem akcji (dolna nawigacja: reguła z #341) formularza/kalendarza pojazdu (WCAG 2.4.11). Bez zmian logiki. VoiceOver: DEFERRED (#97); strona logowania i MFA nie mają skip linku (brak bloków do pominięcia).",
+      "relatedRequirementIds": ["C-N047", "C-N049", "C-N060"],
+      "referenceScreenIds": ["PLT-01", "PLT-03", "PLT-09", "PUB-01", "PUB-02", "PUB-03", "PUB-04", "MKT-01"],
+      "codePaths": [
+        "src/components/panel/panel-shell.tsx",
+        "src/components/admin/vehicle-form.module.css",
+        "src/components/admin/vehicle-calendar.module.css"
+      ],
+      "testPaths": ["tests/e2e/a11y-platform-public.spec.ts", "tests/fixtures/a11y.ts", "tests/unit/panel-shell.test.tsx"],
+      "sharedWith": "Wspólny helper axe (tests/fixtures/a11y.ts) i zależność @axe-core/playwright; panel firmy audytuje #341."
     },
     {
       "issue": 339,
@@ -68,6 +123,28 @@
         "src/components/account/account-view.tsx"
       ],
       "testPaths": ["tests/unit/password-policy.test.tsx", "tests/e2e/account-ui.spec.ts", "tests/e2e/company-activation-ui.spec.ts"]
+    },
+    {
+      "issue": 337,
+      "scope": "Lista pojazdów ADM-05 (panel firmy i flota superadmina) po D-42: podsumowanie statusów w nagłówku (statusCounts), filtr Kategoria, „Ostatnia zmiana” jako przycisk sortowania (D-50: najnowsze ↓ / najstarsze ↑ / kolejność w ofercie; bez pól dat, API updatedFrom/To nieużywane w UI), toolbar desktop w jednym rzędzie wg makiety, stan filtrów w adresie URL (odświeżenie zachowuje, zmiana filtra wraca na stronę 1, loading bez starego wyniku), mobilny układ kart Edytuj · Terminy · Więcej z arkuszami Filtry/Sortuj (Dialog Radix: pułapka i powrót fokusu). Kolejność strzałkami tylko przy sort=order i bez filtrów. Zależy od API #336 (PR #352). Mobile: akcje tekstowe w jednym wierszu, arkusz Filtry/Sortuj przy dole. Plansze Penpota: Desktop a4abf4c9-2e1f-80fd-8008-afeba8dd6131, Mobile 1e066793-8858-8051-8008-cf3e7dc97aa7.",
+      "relatedRequirementIds": ["C-F095", "C-F097", "FR-ADM-021", "FR-ADM-022"],
+      "referenceScreenIds": ["ADM-05"],
+      "codePaths": ["src/components/admin/vehicle-list.tsx", "src/components/admin/fleet-api.ts", "src/components/admin/admin.module.css"],
+      "testPaths": ["tests/unit/admin-fleet.test.ts", "tests/unit/platform-fleet.test.tsx", "tests/e2e/admin-fleet.spec.ts", "tests/e2e/platform-company-fleet.spec.ts"]
+    },
+    {
+      "issue": 336,
+      "scope": "API listy pojazdów firmy (panel i superadmin w kontekście firmy) po decyzji D-42: filtr kategorii (categoryId, już istniał), filtr ostatniej zmiany updatedFrom/updatedTo (dni Europe/Warsaw, włącznie), sortowanie sort=order|updatedDesc|updatedAsc oraz statusCounts (all/published/draft/unpublished/archived) niezależne od paginacji i filtra status. UI (ADM-05) to osobne issue Frontend #337.",
+      "relatedRequirementIds": ["C-F095", "C-F097", "FR-ADM-021", "FR-ADM-022"],
+      "referenceScreenIds": ["ADM-05"],
+      "codePaths": [
+        "src/modules/fleet/read.ts",
+        "src/modules/fleet/http.ts",
+        "prisma/schema.prisma",
+        "prisma/migrations/20261110170000_vehicle_updated_at_index_issue_336/migration.sql",
+        "docs/contracts/fleet-crud-publication.md"
+      ],
+      "testPaths": ["tests/integration/fleet-list-filters.test.ts", "tests/integration/fleet-list-http.test.ts", "tests/integration/fleet-list.test.ts"]
     },
     {
       "issue": 335,
@@ -195,6 +272,29 @@
         "tests/integration/company-export.test.ts",
         "tests/integration/account-sessions-reauth.test.ts",
         "tests/unit/company-export-files.test.ts"
+      ]
+    },
+    {
+      "issue": 340,
+      "scope": "Wydajność interfejsu i prywatnościowe pomiary Web Vitals (część #61): pierwszy obraz listy i hero strony firmy ładowane z priorytetem (bez lazy dla kandydata LCP), pomiar LCP/INP/CLS w przeglądarce bez dostawcy zewnętrznego, wysyłka paczki z wzorcami tras (bez URL, ID, tokenów i kont) do POST /api/vitals/ z limitem, ścisłą walidacją i no-store, agregacja do metryk auterva_web_vital_* bez zapisu zdarzeń; Do Not Track i Global Privacy Control wyłączają pomiar. Pomiar lab przed/po skryptem Playwright. Bez zmiany wyglądu i funkcji.",
+      "relatedRequirementIds": ["NFR-PERF-001", "NFR-PERF-003", "NFR-PERF-004", "C-N020", "C-N060"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/lib/web-vitals.ts",
+        "src/components/vitals/web-vitals-reporter.tsx",
+        "src/modules/observability/web-vitals.ts",
+        "src/modules/observability/web-vitals-http.ts",
+        "src/app/api/vitals/route.ts",
+        "src/app/layout.tsx",
+        "src/components/public/vehicle-card.tsx",
+        "src/components/public/public-home.tsx",
+        "scripts/perf/web-vitals-lab.ts",
+        "docs/contracts/monitoring-alerts.md"
+      ],
+      "testPaths": [
+        "tests/unit/web-vitals.test.ts",
+        "tests/unit/host-route-policy.test.ts",
+        "tests/integration/web-vitals-http.test.ts"
       ]
     },
     {
@@ -569,6 +669,18 @@
         "tests/unit/bulk-blocks.test.tsx",
         "tests/e2e/bulk-blocks.spec.ts"
       ]
+    },
+    {
+      "issue": 218,
+      "scope": "PUB-03 po wyniku „niedostępny”: najbliższy wolny termin dla tej samej długości zakresu (POST /api/public/availability/next #216, horyzont serwera 180 dni, D-32): „Najbliższy wolny termin: 24–26.11.2026” z notą „To informacja, nie rezerwacja”, przycisk „Ustaw ten termin w kalendarzu” (zakres w kalendarzu i URL, uruchamia sprawdzenie, fokus na wyniku) albo „Brak wolnego terminu w ciągu 180 dni”; ładowanie bez starego terminu, błąd/404/429/5xx pomija sekcję bez fałszywej informacji, zmiana zakresu unieważnia późną odpowiedź; wynik dostępny nie pokazuje sekcji; bez typu i przyczyny blokady. Penpot PUB-03 state=unavailable-nearest (D b20632b5-747a-80ca-8008-ecd19533db94, M 213df950-26c7-80ef-8008-ecd84b67f3ce) i unavailable-no-nearest (D 213df950-26c7-80ef-8008-ecd77605e183, M 213df950-26c7-80ef-8008-ecd86d2eb5e4).",
+      "relatedRequirementIds": ["C-F102", "C-F103", "C-F104", "FR-PUB-023", "FR-PUB-024", "D-15"],
+      "referenceScreenIds": ["PUB-03"],
+      "codePaths": [
+        "src/components/public/availability-panel.tsx",
+        "src/components/public/public.module.css",
+        "src/modules/public-offer/availability-client.ts"
+      ],
+      "testPaths": ["tests/unit/availability-panel-nearest.test.tsx", "tests/e2e/public-availability.spec.ts"]
     },
     {
       "issue": 230,
@@ -2315,6 +2427,14 @@
       "referenceScreenIds": ["ADM-01", "ADM-04", "ADM-19", "ADM-20", "ADM-21"],
       "codePaths": ["src/components/admin/fleet-calendar.tsx", "src/components/panel/panel.module.css", "src/components/ui/ui.module.css"],
       "testPaths": ["tests/e2e/admin-a11y.spec.ts", "tests/e2e/fleet-calendar.spec.ts"]
+    },
+    {
+      "issue": 359,
+      "scope": "Poprawka katalogu publicznego (#40): opcje filtra skrzyni biegów bez duplikatów wielkości liter mają deterministyczną pisownię (najmniejszy wariant w porównaniu kodów znaków, np. „Manualna” przed „manualna”), niezależną od kolejności wierszy i planu zapytania. API, kontrakt filtra (dopasowanie bez wielkości liter) i sortowanie listy bez zmian.",
+      "referenceScreenIds": ["PUB-02"],
+      "codePaths": ["src/modules/public-offer/query.ts", "src/modules/public-offer/read.ts"],
+      "testPaths": ["tests/unit/public-offer.test.ts", "tests/integration/public-offer.test.ts"],
+      "sharedWith": "Rozszerza katalog z #40; kontrakt: docs/contracts/public-offer-seo.md."
     }
   ],
   "sources": [

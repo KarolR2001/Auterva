@@ -35,3 +35,9 @@ test("PWA offline screen and icons are served only on the company admin host", (
   }
   for (const area of ["MARKETING", "PLATFORM", "COMPANY_PUBLIC"] as const) expect(routeAllowedForArea(area, "/sw.js")).toBe(false);
 });
+
+test("the Web Vitals beacon is reachable from pages of every area and nothing else under /api/vitals", () => {
+  for (const area of ["MARKETING", "PLATFORM", "COMPANY_ADMIN", "COMPANY_PUBLIC"] as const) {
+    expect(routeAllowedForArea(area, "/api/vitals/")).toBe(true);
+  }
+});

@@ -26,7 +26,7 @@ describe("flota superadmina w kontekście firmy (#47)", () => {
     vi.stubGlobal("fetch", vi.fn((url: string) => { urls.push(url); return json({ total: 2, page: 1, pageSize: 20, items: [item("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "DRAFT"), item("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", "ARCHIVED")] }); }));
     render(<PlatformVehicleList organizationId={org} title="Flota" />);
     await waitFor(() => expect(screen.getAllByText("Auto DRAFT").length).toBeGreaterThan(0));
-    expect(urls[0]).toContain(`/api/platform/companies/${org}/vehicles/`);
+    expect(urls.find((url) => url.includes("/vehicles/?"))).toContain(`/api/platform/companies/${org}/vehicles/`);
     expect(screen.getByRole("link", { name: /Edytuj\s*Auto DRAFT/ }).getAttribute("href")).toBe(`/firmy/${org}/pojazdy/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/`);
     expect(screen.getByRole("link", { name: /Kalendarz\s*Auto DRAFT/ }).getAttribute("href")).toBe(`/firmy/${org}/pojazdy/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/kalendarz/`);
     expect(screen.getByRole("link", { name: /Podgląd\s*Auto DRAFT/ }).getAttribute("href")).toBe(`/firmy/${org}/podglad/pojazdy/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/`);

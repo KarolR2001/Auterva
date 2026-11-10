@@ -6,9 +6,10 @@ import { expectDesktopRowLayout } from "../fixtures/fleet-row-layout";
 import { verifiedFixtureSession } from "../fixtures/verified-session";
 
 // #34: fleet list and dashboard of the company admin against the real API of the built ingress.
-test.use({ launchOptions: { args: ["--host-resolver-rules=MAP *.example.test 127.0.0.1"] } });
+test.use({ launchOptions: { args: ["--host-resolver-rules=MAP *.example.test 127.0.0.1"] }, actionTimeout: 15_000 });
 
 test("fleet list and dashboard: empty states, filters, keyboard order, hide and archive, today statistics and nearest blocks", async ({ baseURL, browser }) => {
+  test.setTimeout(90_000);
   if (!baseURL) throw new Error("Missing trusted ingress URL");
   const port = Number(new URL(baseURL).port);
   const db = createPrismaClient(process.env.DATABASE_URL ?? "");
@@ -24,7 +25,7 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
       email: `admin-fleet-${user}@example.test`, emailVerified: true, twoFactorEnabled: true } });
     await db.hostMapping.create({ data: { hostname: host, organizationId: org, area: "COMPANY_ADMIN", status: "ACTIVE" } });
     await db.serviceAccess.create({ data: { organizationId: org, paidThrough: sqlDate(day(30)) } });
-    await db.vehicleCategory.create({ data: { id: cat, code: `af-${cat.slice(0, 8)}`, name: "Osobowe" } });
+    await db.vehicleCategory.create({ data: { id: cat, code: `af-${cat.slice(0, 8)}`, name: "Samochody osobowe klasy premium z długą nazwą" } });
     session = await verifiedFixtureSession(db, user);
     const [name, value] = session.cookie.split(/=(.*)/s);
     await context.addCookies([{ name, value, domain: host, path: "/" }]);
@@ -86,6 +87,70 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
     await page.getByLabel("Dostępność dziś").selectOption("false");
     await expect(page.getByRole("heading", { level: 3 })).toHaveText(["Alfa Trzecia"]);
     await page.getByLabel("Dostępność dziś").selectOption("");
+
+    // D-42/D-50: status summary, category filter and "Ostatnia zmiana" sort button in one toolbar row; state lives in the address.
+    await expect(page.getByText("3 pojazdy • 2 opublikowane • 1 szkic")).toBeVisible();
+    const pills = () => [page.getByLabel("Szukaj"), page.getByRole("combobox", { name: "Publikacja" }), page.getByRole("combobox", { name: "Kategoria" }),
+      page.getByRole("button", { name: /^Ostatnia zmiana/ }), page.getByRole("link", { name: "Dodaj pojazd" })];
+    for (const width of [1024, 1100, 1200, 1280, 1320, 1440, 1920]) {
+      await page.setViewportSize({ width, height: 800 });
+      await expect.poll(async () => new Set(await Promise.all(pills().map(async (pill) => Math.round((await pill.boundingBox())!.y / 8)))).size,
+        { message: `toolbar controls share one row at ${width} px` }).toBe(1);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `no overflow at ${width} px`).toBe(true);
+    }
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await expect(page.getByText("Ostatnia zmiana od")).toHaveCount(0);
+    await page.getByRole("combobox", { name: "Kategoria" }).selectOption(cat);
+    await expect(page.getByRole("heading", { level: 3 })).toHaveCount(3);
+    await expect(page).toHaveURL(new RegExp(`categoryId=${cat}`));
+    await page.getByRole("button", { name: /^Ostatnia zmiana/ }).click();
+    await expect(page).toHaveURL(/sort=updatedDesc/);
+    await expect(page.getByRole("button", { name: /^Ostatnia zmiana, sortowanie: najnowsze/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Przesuń/ })).toHaveCount(0);
+    await page.getByRole("button", { name: /^Ostatnia zmiana/ }).click();
+    await expect(page).toHaveURL(/sort=updatedAsc/);
+    await page.reload();
+    await expect(page.getByRole("button", { name: /^Ostatnia zmiana, sortowanie: najstarsze/ })).toBeVisible();
+    await expect(page.getByRole("combobox", { name: "Kategoria" })).toHaveValue(cat);
+    await expect(page.getByRole("heading", { level: 3 })).toHaveCount(3);
+    await page.getByRole("button", { name: /^Ostatnia zmiana/ }).click();
+    await expect(page).not.toHaveURL(/sort=/);
+    await page.getByRole("combobox", { name: "Kategoria" }).selectOption("");
+    // Mobile: filters and sort open in a sheet that traps focus and gives it back; cards keep Edytuj, Terminy, Więcej.
+    await page.setViewportSize({ width: 390, height: 844 });
+    const filters = page.getByRole("button", { name: /^Filtry/ });
+    await expect(filters).toBeVisible();
+    await expect(page.getByRole("link", { name: /^Terminy/ }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /^Edytuj/ }).first()).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await filters.click();
+    const sheet = page.getByRole("dialog", { name: "Filtry listy pojazdów" });
+    await expect(sheet.getByLabel("Kategoria")).toBeVisible();
+    for (let n = 0; n < 12; n += 1) {
+      await page.keyboard.press("Tab");
+      expect(await page.evaluate(() => !!document.activeElement?.closest("[role=dialog]"))).toBe(true);
+    }
+    await page.keyboard.press("Escape");
+    await expect(sheet).toHaveCount(0);
+    await expect(filters).toBeFocused();
+    await page.getByRole("button", { name: /^Sortuj/ }).click();
+    await page.getByRole("dialog", { name: "Sortowanie listy pojazdów" }).getByLabel("Sortuj").selectOption("order");
+    await page.getByRole("button", { name: "Pokaż wyniki" }).click();
+    // Mobile card: the text actions stay on one line with a visible "Więcej".
+    const card = page.locator("tbody tr").first();
+    await expect(card.getByRole("button", { name: /^Więcej/ })).toHaveText("Więcej");
+    const line = await Promise.all([card.getByRole("link", { name: /^Edytuj/ }), card.getByRole("link", { name: /^Terminy/ }), card.getByRole("button", { name: /^Więcej/ })]
+      .map(async (control) => Math.round((await control.boundingBox())!.y / 4)));
+    expect(new Set(line).size, "Edytuj, Terminy, Więcej share one line").toBe(1);
+    // The sheet is a bottom sheet also between 481 and 880 px.
+    await page.setViewportSize({ width: 600, height: 900 });
+    await page.getByRole("button", { name: /^Filtry/ }).click();
+    const sheetBox = await page.getByRole("dialog", { name: "Filtry listy pojazdów" }).boundingBox();
+    expect(Math.round(sheetBox!.y + sheetBox!.height)).toBe(900);
+    await page.keyboard.press("Escape");
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.goto(`${base}/admin/pojazdy/`);
+    await expect(page.getByRole("heading", { level: 3 })).toHaveCount(3);
 
     // Keyboard order: focus the button, press Enter; the order is the server one after a reload.
     const down = page.getByRole("button", { name: "Przesuń „Alfa Pierwsza” w dół" });

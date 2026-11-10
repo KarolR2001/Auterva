@@ -74,10 +74,12 @@ model Vehicle {
   images           VehicleImage[]
   imageUploads     ImageUpload[]
   redirects        SlugRedirect[]
+  feedScopes       CalendarFeedTokenVehicle[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, slug])
   @@index([organizationId, status, sortOrder])
+  @@index([organizationId, updatedAt(sort: Desc), id])
 }
 
 model AvailabilityBlock {
@@ -644,9 +646,27 @@ model CalendarFeedToken {
   lastUsedAt      DateTime?    @db.Timestamptz(6)
   revokedAt       DateTime?    @db.Timestamptz(6)
   revokedReason   String?
+  // #366 (E11): "FLEET" (every published vehicle) or "VEHICLES" (only the rows of CalendarFeedTokenVehicle). Stored
+  // explicitly, so a token whose selected vehicles all disappear stays narrow (empty calendar) instead of widening.
+  scope           String       @default("FLEET")
   organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   createdBy       User         @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
+  vehicles        CalendarFeedTokenVehicle[]
 
+  @@unique([organizationId, id])
   @@index([organizationId, revokedAt, expiresAt])
   @@index([createdByUserId])
+}
+
+// #366 (E11): vehicles selected for a token with scope VEHICLES. Composite keys keep the token and the vehicle in one
+// company; deleting either side removes the row. Never restored from a backup (the tokens are not).
+model CalendarFeedTokenVehicle {
+  organizationId String            @db.Uuid
+  tokenId        String            @db.Uuid
+  vehicleId      String            @db.Uuid
+  token          CalendarFeedToken @relation(fields: [organizationId, tokenId], references: [organizationId, id], onDelete: Cascade)
+  vehicle        Vehicle           @relation(fields: [organizationId, vehicleId], references: [organizationId, id], onDelete: Cascade)
+
+  @@id([tokenId, vehicleId])
+  @@index([organizationId, vehicleId])
 }

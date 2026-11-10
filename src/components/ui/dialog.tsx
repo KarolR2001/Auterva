@@ -12,6 +12,8 @@ type DialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   type?: "confirm" | "info" | "destructive" | "form";
+  /** Anchors the dialog to the bottom edge at every width (filters on compact layouts). */
+  sheet?: boolean;
   title: string;
   description?: string;
   children?: ReactNode;
@@ -25,6 +27,7 @@ export function Dialog({
   open,
   onOpenChange,
   type = "confirm",
+  sheet = false,
   title,
   description,
   children,
@@ -45,7 +48,7 @@ export function Dialog({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className={styles.dialogOverlay} />
         <DialogPrimitive.Content
-          className={styles.dialogContent}
+          className={sheet ? `${styles.dialogContent} ${styles.dialogSheet}` : styles.dialogContent}
           aria-modal="true"
           aria-describedby={description ? descriptionId : undefined}
           onOpenAutoFocus={(event) => {

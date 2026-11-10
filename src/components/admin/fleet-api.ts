@@ -5,9 +5,64 @@ export type FleetItem = {
   category: { id: string; name: string } | null; sortOrder: number; version: number; updatedAt: string;
   price: string | null; cover: { id: string; alt: string } | null; activeToday: boolean; availableToday: boolean;
 };
-export type FleetPage = { total: number; page: number; pageSize: number; items: FleetItem[] };
+/** Status counters of the whole fleet under the other filters (not `status`, not paging); `all` includes archived (#336). */
+export type StatusCounts = { all: number; published: number; draft: number; unpublished: number; archived: number };
+export type FleetPage = { total: number; page: number; pageSize: number; items: FleetItem[]; statusCounts?: StatusCounts };
+export type FleetSort = "order" | "updatedDesc" | "updatedAsc";
 export type FleetQuery = { search: string; status: VehicleStatus | ""; activeToday: "" | "true" | "false";
-  availableToday: "" | "true" | "false"; page: number; pageSize: number };
+  availableToday: "" | "true" | "false"; categoryId: string; sort: FleetSort;
+  page: number; pageSize: number };
+
+export const emptyQuery: FleetQuery = { search: "", status: "", activeToday: "", availableToday: "", categoryId: "", sort: "order", page: 1, pageSize: 20 };
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** The list filters live in the address so a refresh or a shared link keeps them; unknown or malformed values fall back to defaults. */
+export function queryFromSearch(search: string): FleetQuery {
+  const params = new URLSearchParams(search);
+  const pick = <T extends string>(key: string, allowed: readonly T[], fallback: T): T => {
+    const value = params.get(key) ?? "";
+    return (allowed as readonly string[]).includes(value) ? value as T : fallback;
+  };
+  const page = Number(params.get("page"));
+  const category = params.get("categoryId") ?? "";
+  return { ...emptyQuery,
+    search: (params.get("search") ?? "").slice(0, 120),
+    status: pick("status", ["DRAFT", "PUBLISHED", "UNPUBLISHED", "ARCHIVED"] as const, ""),
+    activeToday: pick("activeToday", ["true", "false"] as const, ""),
+    availableToday: pick("availableToday", ["true", "false"] as const, ""),
+    categoryId: UUID.test(category) ? category : "",
+    sort: pick("sort", ["order", "updatedDesc", "updatedAsc"] as const, "order"),
+    page: Number.isInteger(page) && page >= 1 && page <= 100000 ? page : 1 };
+}
+/** Non-default values only, so the default view keeps a clean address. */
+export function searchFromQuery(query: FleetQuery): string {
+  const params = new URLSearchParams();
+  if (query.search.trim()) params.set("search", query.search.trim());
+  if (query.status) params.set("status", query.status);
+  if (query.categoryId) params.set("categoryId", query.categoryId);
+  if (query.activeToday) params.set("activeToday", query.activeToday);
+  if (query.availableToday) params.set("availableToday", query.availableToday);
+  if (query.sort !== "order") params.set("sort", query.sort);
+  if (query.page > 1) params.set("page", String(query.page));
+  return params.toString();
+}
+
+const plural = (n: number, one: string, few: string, many: string) =>
+  n === 1 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many;
+/**
+ * "6 pojazdów • 5 opublikowanych • 1 ukryty" (mockup ADM-05 D). The compact (mobile) line is one short sentence like the
+ * mockup "6 pojazdów • 1 ukryty": published vehicles are the norm, so only the other statuses are named (all of them
+ * when none exist). Zero parts are left out.
+ */
+export function statusSummary(counts: StatusCounts, compact = false): string {
+  const parts = [`${counts.all} ${plural(counts.all, "pojazd", "pojazdy", "pojazdów")}`];
+  const others = counts.draft + counts.unpublished + counts.archived;
+  if (counts.published && !(compact && others > 0)) parts.push(`${counts.published} ${plural(counts.published, "opublikowany", "opublikowane", "opublikowanych")}`);
+  if (counts.draft) parts.push(`${counts.draft} ${plural(counts.draft, "szkic", "szkice", "szkiców")}`);
+  if (counts.unpublished) parts.push(`${counts.unpublished} ${plural(counts.unpublished, "ukryty", "ukryte", "ukrytych")}`);
+  if (counts.archived) parts.push(`${counts.archived} ${plural(counts.archived, "zarchiwizowany", "zarchiwizowane", "zarchiwizowanych")}`);
+  return parts.join(" • ");
+}
 export type FleetBlock = { id: string; from: string; to: string; type: string; typeLabel: string; version: number };
 export type FleetCalendar = { items: { vehicleId: string; name: string | null; status: VehicleStatus; blocks: FleetBlock[] }[] };
 export type ServiceStatus = { period: { headline: string; paidThrough: string | null; paidValid: boolean;
@@ -47,6 +102,8 @@ export function listFleet(context: PanelContext, query: FleetQuery, signal?: Abo
   if (query.status) params.set("status", query.status);
   if (query.activeToday) params.set("activeToday", query.activeToday);
   if (query.availableToday) params.set("availableToday", query.availableToday);
+  if (query.categoryId) params.set("categoryId", query.categoryId);
+  if (query.sort !== "order") params.set("sort", query.sort);
   return call<FleetPage>(`${context.apiBase}/vehicles/?${params}`, { signal });
 }
 
@@ -57,7 +114,7 @@ export function listFleet(context: PanelContext, query: FleetQuery, signal?: Abo
 export async function listWholeFleet(context: PanelContext, signal?: AbortSignal): Promise<ApiResult<FleetItem[]>> {
   const items: FleetItem[] = [];
   for (let page = 1; ; page += 1) {
-    const result = await listFleet(context, { search: "", status: "", activeToday: "", availableToday: "", page, pageSize: 100 }, signal);
+    const result = await listFleet(context, { ...emptyQuery, page, pageSize: 100 }, signal);
     if (!result.ok) return result;
     items.push(...result.data.items);
     if (page * result.data.pageSize >= result.data.total || result.data.items.length === 0) return { ok: true, data: items };
