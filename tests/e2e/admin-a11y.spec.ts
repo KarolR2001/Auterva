@@ -1,8 +1,8 @@
 import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { availabilityToday, sqlDate } from "../../src/modules/availability/dates";
+import { axeScan } from "../fixtures/a11y";
 import { verifiedFixtureSession } from "../fixtures/verified-session";
 
 // #341 (part of #61): accessibility regression of the company panel. Every screen gets an axe scan (WCAG 2.0/2.1/2.2 A and AA
@@ -11,15 +11,7 @@ import { verifiedFixtureSession } from "../fixtures/verified-session";
 // Real screen reader checks are DEFERRED (#97).
 test.use({ launchOptions: { args: ["--host-resolver-rules=MAP *.example.test 127.0.0.1"] }, actionTimeout: 15_000, navigationTimeout: 30_000 });
 
-const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"];
-
-async function scan(page: Page, label: string) {
-  const result = await new AxeBuilder({ page }).withTags(TAGS).analyze();
-  const blocking = result.violations.filter((violation) => violation.impact === "serious" || violation.impact === "critical");
-  expect.soft(blocking.map((violation) => ({ id: violation.id, impact: violation.impact, nodes: violation.nodes.slice(0, 3).map((node) => node.target.join(" ")) })), `axe ${label}`).toEqual([]);
-  // Moderate and minor findings do not fail the run but must not creep in either.
-  expect.soft(result.violations.map((violation) => `${violation.id}:${violation.nodes.length}`), `axe (all impacts) ${label}`).toEqual([]);
-}
+const scan = axeScan;
 
 async function structure(page: Page, label: string, options: { shell: boolean }) {
   await expect.soft(page.locator("h1:visible"), `${label}: exactly one visible h1`).toHaveCount(1);
