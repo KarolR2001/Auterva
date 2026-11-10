@@ -22,6 +22,18 @@
       "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
     },
     {
+      "issue": 363,
+      "scope": "PUB-03: karta „Najbliższy wolny termin” zgodna z makietą (obrys karty i przycisku #151515 1 px, promień 12, padding 16, odstęp 12 między tytułem, notą i przyciskiem); tylko CSS. Odczyt Penpota: karta #f2f2f2, tytuł 16/600, nota 13/400 #424242 (aplikacja 14 px: brak tokenu rozmiaru 13), przycisk 48 px, etykieta 15/600.",
+      "relatedRequirementIds": ["FR-PUB-023", "FR-PUB-024"],
+      "referenceScreenIds": ["PUB-03"],
+      "scenarioStates": {
+        "nearest": "PUB-03 / state=unavailable-nearest i unavailable-no-nearest (D b20632b5-747a-80ca-8008-ecd19533db94, M 213df950-26c7-80ef-8008-ecd84b67f3ce; D 213df950-26c7-80ef-8008-ecd77605e183, M 213df950-26c7-80ef-8008-ecd86d2eb5e4)"
+      },
+      "codePaths": ["src/components/public/public.module.css"],
+      "testPaths": ["tests/unit/availability-panel-nearest.test.tsx", "tests/e2e/public-availability.spec.ts"],
+      "sharedWith": "Zależy od #218 (PR #360)."
+    },
+    {
       "issue": 358,
       "scope": "Pasek „Sekcje ustawień” (panel firmy i superadmin w kontekście firmy): pełny obrys fokusu zakładek mimo overflow-x (padding paska z kompensującym ujemnym marginesem, wygląd bez zmian) oraz aktywna zakładka (aria-current) dosunięta do widoku po załadowaniu sekcji z dalszej części paska (scrollLeft paska, bez przesuwania strony w pionie, bez smooth scroll). WCAG 2.4.7/2.4.11.",
       "relatedRequirementIds": ["FR-ADM-060", "FR-ADM-061", "FR-ADM-062", "FR-ADM-063"],
