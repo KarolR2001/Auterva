@@ -376,6 +376,7 @@ test("availability nearest term (D-32): available shows no section; unavailable 
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     }
   } finally {
+    await db.availabilityBlock.deleteMany({ where: { organizationId: org } });
     await db.vehicle.deleteMany({ where: { organizationId: org } });
     await db.hostMapping.deleteMany({ where: { organizationId: org } });
     await db.siteSettings.deleteMany({ where: { organizationId: org } });
