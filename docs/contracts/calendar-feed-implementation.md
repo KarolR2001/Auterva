@@ -11,6 +11,10 @@ Status: **wdrożone w #327** (Backend). Źródłem decyzji jest kontrakt discove
 - Host: feed odpowiada tylko na hoście panelu (`COMPANY_ADMIN`) tej samej firmy co token (`/api/calendar/feed` w polityce tras tego obszaru); inny host, host publiczny lub platformy daje 404. Do potwierdzenia z operatorem: klient kalendarza musi sięgać hosta panelu firmy.
 - Tabela `CalendarFeedToken` nie jest odtwarzana z kopii (`COMPANY_EXCLUDED_TABLES`); wiersze użytkowników zastępowane przy restore firmy kaskadują na tokeny.
 
+## Ekran i odświeżanie przez klientów (D-49)
+
+Ekran „Kalendarz zewnętrzny” (ADM-22, #355) jest pozycją w nawigacji Ustawień firmy. Objaśnia, że Kalendarz Google odświeża subskrypcję co kilka godzin, Apple co 5–60 minut, więc feed może chwilę zostawać w tyle; o dostępności rozstrzyga panel.
+
 ## Zawartość pliku
 
 Okno: od dziś (Europe/Warsaw) do dziś + 365 dni włącznie. Decyzja D-47: tylko pojazdy `PUBLISHED` (szkice, wycofane i archiwalne są pominięte, także z blokadami). Dla każdego takiego pojazdu z ustawioną aktywnością: dni poza aktywnością oraz dni z blokadą (reguła #33), sąsiednie i nakładające się zakresy połączone. Pojazdy bez okresu aktywności są pomijane. `DTSTART;VALUE=DATE` = pierwszy dzień, `DTEND;VALUE=DATE` = dzień po ostatnim (RFC 5545), `SUMMARY:Niedostępny: {nazwa}`, `UID` = HMAC (BETTER_AUTH_SECRET) z firmy, pojazdu i dnia początku, `TRANSP:OPAQUE`, bez `SEQUENCE`. Linie składane do 75 oktetów, tekst escapowany (`\ ; ,` i łamania wierszy zamieniane na `\n`, inne znaki sterujące usuwane). Limit 5000 zdarzeń; przy przekroczeniu nagłówek `X-Auterva-Feed-Truncated: true`. Z jednej migawki `REPEATABLE READ`, bez cache aplikacyjnego. Wyłącznie GET; brak ETag/304 w tym kroku. Zdarzenie audytu `CALENDAR_FEED_EXPIRED` (sweep) nie jest wdrożone: wygaśnięcie widać po `status: EXPIRED` na liście.
