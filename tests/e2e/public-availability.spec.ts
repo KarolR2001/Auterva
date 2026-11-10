@@ -307,3 +307,80 @@ test("availability: range by keyboard only (no date fields), one day, URL range 
     await db.$disconnect();
   }
 });
+
+test("availability nearest term (D-32): available shows no section; unavailable offers the term, applies it; no term in 180 days; API error stays silent", async ({ baseURL, page }) => {
+  if (!baseURL) throw new Error("Missing trusted ingress URL");
+  const port = Number(new URL(baseURL).port);
+  const db = createPrismaClient(process.env.DATABASE_URL ?? "");
+  const [org, car, full] = Array.from({ length: 3 }, () => randomUUID());
+  const host = `avail-next-${org}.example.test`;
+  const today = availabilityToday();
+  const day = (offset: number) => new Date(sqlDate(today).getTime() + offset * 86_400_000).toISOString().slice(0, 10);
+  const now = new Date();
+  const slug = `n-${car}`;
+  const fullSlug = `pelny-${full}`;
+  try {
+    await db.organization.create({ data: { id: org, slug: `avail-next-${org}`, name: "Firma Najblizszy E2E", firstAdminRegisteredAt: now } });
+    await db.serviceAccess.create({ data: { organizationId: org, trialGranted: true, trialStartedAt: now, trialEndsAt: new Date(now.getTime() + 336 * 3_600_000) } });
+    await db.siteSettings.create({ data: { organizationId: org, publicName: "Firma Najblizszy E2E", phone: "+48 600 000 444" } });
+    await db.hostMapping.create({ data: { hostname: host, organizationId: org, area: "COMPANY_PUBLIC", status: "ACTIVE" } });
+    const base = { organizationId: org, status: "PUBLISHED", availableFrom: sqlDate(today) };
+    await db.vehicle.createMany({ data: [{ ...base, id: car, slug, name: "Auto Najblizsze" }, { ...base, id: full, slug: fullSlug, name: "Auto Pelne" }] });
+    await db.availabilityBlock.createMany({ data: [
+      { organizationId: org, vehicleId: car, from: sqlDate(day(3)), to: sqlDate(day(4)), type: "MAINTENANCE", reference: "NX-REF-SECRET", internalNote: "NX-NOTE-SECRET" },
+      { organizationId: org, vehicleId: full, from: sqlDate(day(1)), to: sqlDate(day(300)), type: "MAINTENANCE" },
+    ] });
+    const origin = `http://${host}:${port}`;
+    const result = page.getByTestId("availability-result");
+    const nearest = page.getByTestId("nearest");
+
+    await page.goto(`${origin}/pojazdy/${slug}/`);
+    await pickRange(page, day(1), day(2));
+    await expect(result.getByText("Pojazd jest dostępny")).toBeVisible();
+    await expect(nearest).toHaveCount(0);
+
+    await pickRange(page, day(3), day(5));
+    await expect(result.getByText("Pojazd jest niedostępny w tym terminie")).toBeVisible();
+    await expect(nearest).toContainText(`Najbliższy wolny termin: ${formatRangeShort(day(5), day(7))}`);
+    await expect(nearest).toContainText("3 dni · koniec wliczony. To informacja, nie rezerwacja.");
+    const html = await page.content();
+    for (const secret of ["NX-REF-SECRET", "NX-NOTE-SECRET", "MAINTENANCE"]) expect(html).not.toContain(secret);
+
+    // Keyboard: the button is reachable and applies the term to the calendar, the URL and the check.
+    const apply = nearest.getByRole("button", { name: "Ustaw ten termin w kalendarzu" });
+    await apply.focus();
+    await page.keyboard.press("Enter");
+    await expect(result.getByText("Pojazd jest dostępny")).toBeVisible();
+    await expect(nearest).toHaveCount(0);
+    await expect(page.getByTestId("calendar-range")).toHaveText(`Wybrany zakres: ${formatRangeShort(day(5), day(7))} · 3 dni`);
+    expect(new URL(page.url()).searchParams.get("from")).toBe(day(5));
+    expect(new URL(page.url()).searchParams.get("to")).toBe(day(7));
+
+    // API error: the unavailable verdict stays, no term is invented.
+    await page.route("**/api/public/availability/next", (route) => route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ code: "INTERNAL" }) }));
+    await pickRange(page, day(3), day(5));
+    await expect(result.getByText("Pojazd jest niedostępny w tym terminie")).toBeVisible();
+    await expect(nearest).toHaveCount(0);
+    await expect(page.getByText(/Najbliższy wolny termin/)).toHaveCount(0);
+    await page.unroute("**/api/public/availability/next");
+
+    // Nothing free within the horizon.
+    await page.goto(`${origin}/pojazdy/${fullSlug}/`);
+    await pickRange(page, day(1), day(2));
+    await expect(nearest).toContainText("Brak wolnego terminu w ciągu 180 dni");
+    await expect(nearest.getByRole("button")).toHaveCount(0);
+
+    // Narrow and wide viewports: no horizontal scroll.
+    for (const width of [320, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    }
+  } finally {
+    await db.vehicle.deleteMany({ where: { organizationId: org } });
+    await db.hostMapping.deleteMany({ where: { organizationId: org } });
+    await db.siteSettings.deleteMany({ where: { organizationId: org } });
+    await db.serviceAccess.deleteMany({ where: { organizationId: org } });
+    await db.organization.deleteMany({ where: { id: org } });
+    await db.$disconnect();
+  }
+});
