@@ -191,10 +191,10 @@ test("route inventory: every group is classified and the matrix covers every pri
   expect(routes.filter((route) => route.group === "discovery").map((route) => route.url).sort())
     .toEqual(["/.well-known/auterva-domain-check/", "/robots.txt/", "/sitemap.xml/"]);
   for (const route of routes.filter((item) => item.group === "discovery")) expect(Object.keys(route.methods), route.file).toEqual(["GET"]);
-  // Public data routes are read only except the two availability checks (POST, read-only semantics).
+  // Public data routes are read only except the availability reads (POST, read-only semantics).
   for (const route of routes.filter((item) => item.group === "public")) {
     const mutating = Object.keys(route.methods).filter((method) => MUTATING.has(method));
-    if (mutating.length) expect(route.url, route.file).toMatch(/\/api\/public\/availability\/(check|batch)\/$/);
+    if (mutating.length) expect(route.url, route.file).toMatch(/\/api\/public\/availability\/(check|batch|next)\/$/);
   }
 });
 
