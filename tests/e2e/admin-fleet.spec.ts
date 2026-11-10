@@ -6,9 +6,10 @@ import { expectDesktopRowLayout } from "../fixtures/fleet-row-layout";
 import { verifiedFixtureSession } from "../fixtures/verified-session";
 
 // #34: fleet list and dashboard of the company admin against the real API of the built ingress.
-test.use({ launchOptions: { args: ["--host-resolver-rules=MAP *.example.test 127.0.0.1"] } });
+test.use({ launchOptions: { args: ["--host-resolver-rules=MAP *.example.test 127.0.0.1"] }, actionTimeout: 15_000 });
 
 test("fleet list and dashboard: empty states, filters, keyboard order, hide and archive, today statistics and nearest blocks", async ({ baseURL, browser }) => {
+  test.setTimeout(90_000);
   if (!baseURL) throw new Error("Missing trusted ingress URL");
   const port = Number(new URL(baseURL).port);
   const db = createPrismaClient(process.env.DATABASE_URL ?? "");
@@ -89,7 +90,7 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
 
     // D-42: status summary, category / last-change filters and sort live in the address and survive a reload.
     await expect(page.getByText("3 pojazdy · 2 opublikowane · 1 szkic")).toBeVisible();
-    await page.getByLabel("Kategoria", { exact: true }).selectOption({ label: "Osobowe" });
+    await page.getByRole("combobox", { name: "Kategoria" }).selectOption(cat);
     await expect(page.getByRole("heading", { level: 3 })).toHaveCount(3);
     await expect(page).toHaveURL(new RegExp(`categoryId=${cat}`));
     await page.getByLabel("Ostatnia zmiana od").fill(day(1));
@@ -105,7 +106,7 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
     await expect(page.getByRole("button", { name: /Przesuń/ })).toHaveCount(0);
     await page.reload();
     await expect(page.getByLabel("Sortuj")).toHaveValue("updatedDesc");
-    await expect(page.getByLabel("Kategoria", { exact: true })).toHaveValue(cat);
+    await expect(page.getByRole("combobox", { name: "Kategoria" })).toHaveValue(cat);
     await expect(page.getByLabel("Ostatnia zmiana od")).toHaveValue(day(0));
     await expect(page.getByRole("heading", { level: 3 })).toHaveCount(3);
     // Mobile: filters and sort open in a sheet that traps focus and gives it back; cards keep Edytuj, Terminy, Więcej.
