@@ -30,6 +30,24 @@ export async function CompanyPanelPage({ currentPath, title, requireVehicleId, c
   const actor = await requireRequestContext(prisma, auth, incoming, area.organizationId);
   if (!actor) return denyPanel(prisma, auth, incoming, { area: "COMPANY_ADMIN", organizationId: area.organizationId });
   if (requireVehicleId) await requireVehicleInCompany(actor.organizationId, requireVehicleId);
+  return renderCompanyPanel({ actorId: actor.actorId, sessionId: actor.sessionId, organizationId: actor.organizationId },
+    { currentPath, title, children });
+}
+
+type Frame = {
+  currentPath: string;
+  title?: string;
+  children: ReactNode | ((context: { companyName: string }) => ReactNode);
+};
+
+/**
+ * Shell frame for an actor that a page has already authorized for the company (the account pages run their own
+ * gate, which keeps their own login return target). Reads only; nothing here widens access.
+ */
+export async function renderCompanyPanel(
+  actor: { actorId: string; sessionId: string; organizationId: string },
+  { currentPath, title, children }: Frame,
+) {
   const [organization, status, publicHost] = await Promise.all([
     prisma.organization.findUnique({ where: { id: actor.organizationId }, select: { name: true } }),
     getServiceStatus(prisma, actor.organizationId, new Date()),

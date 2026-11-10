@@ -215,3 +215,19 @@ describe("konto: MFA i wylogowanie", () => {
     expect(screen.queryByText("ola@example.test")).toBeNull();
   });
 });
+
+describe("konto: układ w powłoce panelu", () => {
+  it("firma ma zakładki zamiast karty sesji, własny nagłówek h1 należy do powłoki", () => {
+    render(<AccountView area="company" account={account} />);
+    expect(screen.getByRole("navigation", { name: "Sekcje konta" })).toBeVisible();
+    expect(screen.queryByRole("main")).toBeNull();
+    expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
+    expect(screen.getByRole("heading", { level: 2, name: "Bezpieczeństwo" })).toBeVisible();
+    expect(screen.getAllByRole("link", { name: "Aktywne sesje" })).toHaveLength(1);
+  });
+  it("platforma nie ma zakładek, ale zachowuje wejście do sesji jako akcję drugorzędną", () => {
+    render(<AccountView area="platform" account={{ ...account, role: "SUPERADMIN_AUTERVA" }} />);
+    expect(screen.queryByRole("navigation", { name: "Sekcje konta" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Aktywne sesje" })).toHaveAttribute("href", expect.stringMatching(/^\/konto\/sesje\/?$/));
+  });
+});
