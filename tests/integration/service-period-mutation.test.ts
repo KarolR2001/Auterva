@@ -1,6 +1,7 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { createPrismaClient } from "../../src/lib/prisma";
+import { periodFailure } from "../../src/modules/service-period/http";
 import { changePaidThrough, unlockPublicAfterRestore } from "../../src/modules/service-period/mutations";
 import { resolvePublicVisibility } from "../../src/modules/service-period/public";
 import { PATCH as patchPeriod } from "../../src/app/api/platform/companies/[organizationId]/period/route";
@@ -231,5 +232,70 @@ test("platform period transport enforces the shared 60-write moving-minute budge
     expect(blocked.headers.get("cache-control")).toBe("no-store");
   } finally {
     await db.rateLimitEvent.deleteMany({ where: { keyHash } });
+  }
+});
+
+// #310: under load the organization lock queues; the transaction must fail cleanly, not half-write.
+test("an expired period transaction rolls back completely and maps to a retryable 503", async () => {
+  const organizationId = companies[0];
+  const before = await db.serviceAccess.findUniqueOrThrow({ where: { organizationId } });
+  const auditBefore = await db.auditLog.count({ where: { organizationId } });
+  const holder = createPrismaClient(process.env.DATABASE_URL ?? "");
+  let release!: () => void;
+  const hold = new Promise<void>((resolve) => { release = resolve; });
+  let locked!: () => void;
+  const lockTaken = new Promise<void>((resolve) => { locked = resolve; });
+  const blocker = holder.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${organizationId}::uuid FOR UPDATE`;
+    locked();
+    await hold;
+  }, { timeout: 15_000 });
+  try {
+    await lockTaken;
+    // The blocked query only returns once the lock is freed; hold it past the 500 ms budget.
+    setTimeout(release, 1_200);
+    const error = await changePaidThrough(db, { ...actor(), organizationId, expectedVersion: before.periodVersion,
+      paidThrough: "2027-01-31", eventKey: randomUUID(), requestId: randomUUID(),
+      transaction: { maxWait: 2_000, timeout: 500 } }).catch((reason: unknown) => reason);
+    expect(error).toMatchObject({ code: "P2028" });
+    const response = periodFailure(error, randomUUID());
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ code: "TEMPORARILY_UNAVAILABLE" });
+  } finally {
+    release();
+    await blocker;
+    await holder.$disconnect();
+  }
+  expect(await db.serviceAccess.findUniqueOrThrow({ where: { organizationId } })).toMatchObject({
+    periodVersion: before.periodVersion, paidThrough: before.paidThrough });
+  expect(await db.auditLog.count({ where: { organizationId } })).toBe(auditBefore);
+});
+
+test("an archived company is refused before the organization lock is taken", async () => {
+  const organizationId = companies[1];
+  await db.organization.update({ where: { id: organizationId }, data: { archivedAt: new Date(),
+    publicUnlockRequired: true, publicRequiresPaid: true } });
+  const holder = createPrismaClient(process.env.DATABASE_URL ?? "");
+  let release!: () => void;
+  const hold = new Promise<void>((resolve) => { release = resolve; });
+  let locked!: () => void;
+  const lockTaken = new Promise<void>((resolve) => { locked = resolve; });
+  const blocker = holder.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${organizationId}::uuid FOR UPDATE`;
+    locked();
+    await hold;
+  }, { timeout: 15_000 });
+  try {
+    await lockTaken;
+    const started = Date.now();
+    await expect(unlockPublicAfterRestore(db, { ...actor(), organizationId, expectedOrganizationVersion: 1,
+      eventKey: randomUUID(), requestId: randomUUID(), transaction: { maxWait: 2_000, timeout: 500 } }))
+      .rejects.toThrow("PERIOD_ARCHIVED");
+    expect(Date.now() - started).toBeLessThan(400);
+  } finally {
+    release();
+    await blocker;
+    await holder.$disconnect();
+    await db.organization.update({ where: { id: organizationId }, data: { archivedAt: null } });
   }
 });
