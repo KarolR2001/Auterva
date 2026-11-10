@@ -647,11 +647,11 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
               <Textarea value={values.internalNote} maxLength={2000} rows={4} disabled={archived || busy || locked} onChange={(event) => set("internalNote", event.target.value)} />
             </FormField>
             {editor.mode === "edit" && dialogBlock && (
-              <div className={styles.inlineActions}>
-                {/* D-48: the copy opens over the fleet calendar (ADM-10 state=bulk-copy) with the saved block's dates. */}
-                <a className={styles.copyLink} href={copyHref(context.hrefBase, vehicleId, dialogBlock)}><Copy aria-hidden="true" size={16} />Kopiuj na inne auta</a>
-                <Button variant="destructive" size="sm" icon={<Trash2 aria-hidden="true" size={16} />} disabled={busy || locked} onClick={() => { setPanel("delete"); setDirectDelete(false); }}>Usuń blokadę</Button>
-              </div>
+              <>
+                {/* D-48: the copy opens over the fleet calendar (ADM-10 state=bulk-copy) with the saved block's dates; full width on mobile (OVR-07-mobile-edit). */}
+                <a className={styles.copyLink} href={copyHref(context.hrefBase, vehicleId, dialogBlock)}><Copy aria-hidden="true" size={18} />Kopiuj na inne auta</a>
+                <div><Button variant="destructive" size="sm" icon={<Trash2 aria-hidden="true" size={16} />} disabled={busy || locked} onClick={() => { setPanel("delete"); setDirectDelete(false); }}>Usuń blokadę</Button></div>
+              </>
             )}
           </form>
         )}

@@ -166,6 +166,46 @@ describe("#217 ekran: podgląd, tryby konfliktu, raport, wynik niepewny", () => 
     expect(screen.getByRole("checkbox", { name: /Auto Beta/ })).toBeChecked();
   });
 
+  it("SKIP z odrzuceniem wszystkich: podgląd blokuje zapis z powodem, a 200 z pustym `saved` to „Nic nie zapisano” bez sukcesu", async () => {
+    const user = userEvent.setup();
+    const rejected = [{ vehicleId: A, code: "BLOCK_OUTSIDE_ACTIVITY" }, { vehicleId: B, code: "BLOCK_OVERLAP", conflict: { id: "c1", from: "2027-03-14", to: "2027-03-16", type: "MAINTENANCE", version: 1 } }];
+    server([preview([], rejected, "SKIP"), reply(200, { saved: [], rejected })]);
+    const { onSaved } = renderBulk();
+    await fillCreate(user);
+    await user.click(screen.getByRole("radio", { name: /Pomiń konflikty/ }));
+    await user.click(screen.getByRole("button", { name: "Sprawdź konflikty" }));
+    expect(await screen.findByText(/Nic do zapisania: wszystkie wybrane pojazdy \(2\) mają konflikt/)).toBeInTheDocument();
+    const save = screen.getByRole("button", { name: "Zapisz blokadę (nic do zapisania)" });
+    expect(save).toBeDisabled();
+    expect(save).toHaveAccessibleDescription("Nic do zapisania: wszystkie wybrane pojazdy mają konflikt. Zmień wybór pojazdów albo daty.");
+    // The server can still answer 200 with an empty `saved` (state changed after the preview): never shown as a success.
+    await user.click(screen.getByRole("checkbox", { name: /Auto Gamma/ }));
+    await user.click(screen.getByRole("checkbox", { name: /Auto Gamma/ }));
+    await user.click(screen.getByRole("button", { name: "Zapisz blokadę" }));
+    expect(await screen.findByText("Nic nie zapisano")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(/odrzucono wszystkie wybrane pojazdy \(2\)/);
+    expect(screen.queryByText(/^Zapisano/)).toBeNull();
+    expect(within(row("Auto Alfa")).getByText(/Poza okresem aktywności/)).toBeInTheDocument();
+    expect(within(row("Auto Beta")).getByText("Konflikt: Serwis 14–16.03.2027")).toBeInTheDocument();
+    expect(screen.getByText("Wynik zapisu: nic nie zapisano, 2 odrzucone")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Kopiuj blokadę na inne pojazdy" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Zmień wybór" })).toBeInTheDocument();
+    expect(onSaved).not.toHaveBeenCalled();
+  });
+
+  it("po „Zmień dane” konflikt z blokadą może być własnym zapisem z wynikiem nieznanym: komunikat każe sprawdzić kalendarz", async () => {
+    const user = userEvent.setup();
+    const own = { vehicleId: A, code: "BLOCK_OVERLAP", conflict: { id: "n1", from: "2027-03-15", to: "2027-03-15", type: "MAINTENANCE", version: 1 } };
+    server([reply(502, {}), reply(409, { code: "BULK_CONFLICTS", saved: [], rejected: [own] })]);
+    renderBulk();
+    await fillCreate(user, ["Auto Alfa"]);
+    await user.click(screen.getByRole("button", { name: "Zapisz blokadę" }));
+    await user.click(await screen.findByRole("button", { name: "Zmień dane (nowe żądanie)" }));
+    await user.click(screen.getByRole("button", { name: "Zapisz blokadę" }));
+    expect(await screen.findByText("Nic nie zapisano")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Konflikt może dotyczyć blokady zapisanej poprzednim żądaniem, którego wynik był nieznany — sprawdź kalendarz floty.");
+  });
+
   it("5xx i brak sieci: brak pozornego sukcesu, ponowienie z tym samym kluczem, potem wynik serwera", async () => {
     const user = userEvent.setup();
     const { bulk } = server([

@@ -61,6 +61,8 @@ export function BulkBlocks({ context, mode, source, today, calendarHref, onClose
   const [vehicles, setVehicles] = useState<Vehicles>({ status: "loading" });
   const [search, setSearch] = useState("");
   const keyRef = useRef<{ signature: string; key: string } | null>(null);
+  /** A new request was sent after an unknown outcome: a conflict may then be the block that request already saved. */
+  const [afterUnknown, setAfterUnknown] = useState(false);
   const heading = useRef<HTMLHeadingElement | null>(null);
   const banner = useRef<HTMLDivElement | null>(null);
 
@@ -134,7 +136,7 @@ export function BulkBlocks({ context, mode, source, today, calendarHref, onClose
     if (answer.kind === "saved" || answer.kind === "aborted") {
       setStage({ kind: "result", answer });
       // The fleet calendar reads the server again: no old "free" answer stays behind.
-      if (answer.kind === "saved") onSaved();
+      if (answer.kind === "saved" && answer.saved.length > 0) onSaved();
     } else if (answer.kind === "uncertain") {
       setStage({ kind: "uncertain" }); onSaved();
     } else {
@@ -147,7 +149,7 @@ export function BulkBlocks({ context, mode, source, today, calendarHref, onClose
 
   function backToForm() { setStage({ kind: "form" }); requestAnimationFrame(() => document.getElementById(mode === "copy" ? "bulk-search" : "bulk-from")?.focus()); }
   /** New data after an unknown outcome is a new request with a new key; the earlier one may have been saved. */
-  function changeAfterUncertain() { keyRef.current = null; backToForm(); }
+  function changeAfterUncertain() { keyRef.current = null; setAfterUnknown(true); backToForm(); }
   function copyFirstSaved(answer: Result) {
     if (answer.kind !== "saved" || answer.saved.length === 0) return;
     const first = answer.saved[0];
@@ -167,7 +169,8 @@ export function BulkBlocks({ context, mode, source, today, calendarHref, onClose
     if (stage.kind === "result") {
       const rejected = rejectedOf(stage.answer.rejected).get(id);
       if (rejected) return why(rejected);
-      return stage.answer.kind === "saved" ? { tone: "ok", text: "Zapisano" } : { tone: "unknown", text: "Nie zapisano (wszystko albo nic)" };
+      return stage.answer.kind === "saved" && stage.answer.saved.some((entry) => entry.vehicleId === id) ? { tone: "ok", text: "Zapisano" }
+        : { tone: "unknown", text: "Nie zapisano (wszystko albo nic)" };
     }
     if (stage.kind === "uncertain") return { tone: "unknown", text: "Wynik nieznany — nie potwierdzono zapisu" };
     return null;
@@ -182,14 +185,20 @@ export function BulkBlocks({ context, mode, source, today, calendarHref, onClose
       <Alert tone="info" title="Podgląd konfliktów — nic nie zapisano">
         {rejected.length === 0 ? `${pluralVehicles(wouldSave.length)} bez konfliktu w tym terminie. `
           : onConflict === "ABORT" ? `Konflikty: ${pluralVehicles(rejected.length)}. W trybie „wszystko albo nic” zapis zostanie wstrzymany dla wszystkich pojazdów. `
-            : `Zapiszemy ${wouldSave.length}, pominiemy ${rejected.length}; pominięte pojazdy nie dostaną blokady. `}
+            : wouldSave.length === 0 ? `Nic do zapisania: wszystkie wybrane pojazdy (${rejected.length}) mają konflikt. `
+              : `Zapiszemy ${wouldSave.length}, pominiemy ${rejected.length}; pominięte pojazdy nie dostaną blokady. `}
         Wynik jest chwilowy i nie jest rezerwacją terminu.
       </Alert>
     );
   } else if (stage.kind === "result") {
     const answer = stage.answer;
+    const ownConflict = afterUnknown && answer.rejected.some((entry) => entry.code === "BLOCK_OVERLAP")
+      ? " Konflikt może dotyczyć blokady zapisanej poprzednim żądaniem, którego wynik był nieznany — sprawdź kalendarz floty." : "";
     bannerNode = answer.kind === "aborted"
-      ? <Alert tone="error" title="Nic nie zapisano">Wszystko albo nic: odrzucono {pluralVehicles(answer.rejected.length)}, więc żadna blokada nie powstała. Pełny raport poniżej.</Alert>
+      ? <Alert tone="error" title="Nic nie zapisano">Wszystko albo nic: odrzucono {pluralVehicles(answer.rejected.length)}, więc żadna blokada nie powstała. Pełny raport poniżej.{ownConflict}</Alert>
+      : answer.saved.length === 0
+        // SKIP with every vehicle refused is a 200 with an empty `saved`: nothing was saved, never a success.
+        ? <Alert tone="error" title="Nic nie zapisano">Pominięto konflikty, ale odrzucono wszystkie wybrane pojazdy ({answer.rejected.length}), więc żadna blokada nie powstała. Pełny raport poniżej.{ownConflict}</Alert>
       : <Alert tone="success" title={`Zapisano ${answer.saved.length} z ${ofVehicles(answer.saved.length + answer.rejected.length)}`}>
           {mode === "copy" ? "Kopia blokady" : `Blokada ${typeLabel(draft.type)} ${range}`} została zapisana dla {ofVehicles(answer.saved.length)}.
           {answer.rejected.length > 0 ? ` Odrzucono ${pluralVehicles(answer.rejected.length)}: dla nich nie powstała żadna blokada.` : ""} Pełny raport poniżej.
@@ -207,17 +216,20 @@ export function BulkBlocks({ context, mode, source, today, calendarHref, onClose
   const title = mode === "copy" ? "Kopiuj blokadę" : "Blokada zbiorcza";
   const pv = stage.kind === "preview" ? stage.answer : null;
   const held = pv !== null && pv.onConflict === "ABORT" && pv.rejected.length > 0;
+  // SKIP with nothing left to save: the save would only refuse every vehicle again.
+  const nothingToSave = pv !== null && !held && pv.wouldSave.length === 0;
   const saveLabel = held ? (mode === "copy" ? "Kopiuj blokadę (wstrzymane)" : "Zapisz blokadę (wstrzymane)")
+    : nothingToSave ? (mode === "copy" ? "Kopiuj blokadę (nic do zapisania)" : "Zapisz blokadę (nic do zapisania)")
     : pv && pv.rejected.length > 0 && pv.wouldSave.length > 0 ? `Zapisz ${pv.wouldSave.length}, pomiń ${pv.rejected.length}`
       : mode === "copy" ? "Kopiuj blokadę" : "Zapisz blokadę";
   const listLine = stage.kind === "preview" ? `Podgląd: nic nie zapisano · ${checkedVehicles(count)}`
-    : stage.kind === "result" ? stage.answer.kind === "saved" ? `Wynik zapisu: ${stage.answer.saved.length} zapisane, ${stage.answer.rejected.length} odrzucone` : `Wynik zapisu: nic nie zapisano, ${stage.answer.rejected.length} odrzucone`
+    : stage.kind === "result" ? stage.answer.kind === "saved" && stage.answer.saved.length > 0 ? `Wynik zapisu: ${stage.answer.saved.length} zapisane, ${stage.answer.rejected.length} odrzucone` : `Wynik zapisu: nic nie zapisano, ${stage.answer.rejected.length} odrzucone`
       : stage.kind === "uncertain" ? `Wynik zapisu nieznany · ${pluralVehicles(count)}`
         : `Zaznaczono ${count} z ${all.length} · limit ${MAX_BULK_VEHICLES} pojazdów w jednym żądaniu`;
 
   let actions: ReactNode;
   if (stage.kind === "result") {
-    actions = stage.answer.kind === "saved" ? <>
+    actions = stage.answer.kind === "saved" && stage.answer.saved.length > 0 ? <>
       <Button width="fill" onClick={onClose}>Wróć do kalendarza</Button>
       {mode === "create" && stage.answer.saved.length > 0 && <Button width="fill" variant="secondary" onClick={() => copyFirstSaved(stage.answer)}>Kopiuj blokadę na inne pojazdy</Button>}
     </> : <>
@@ -233,12 +245,14 @@ export function BulkBlocks({ context, mode, source, today, calendarHref, onClose
   } else {
     actions = <>
       <Button width="fill" variant="secondary" loading={busy === "preview"} loadingLabel="Sprawdzanie…" disabled={busy !== null} onClick={() => void preview()}>{pv ? "Sprawdź ponownie" : "Sprawdź konflikty"}</Button>
-      <Button width="fill" loading={busy === "save"} loadingLabel="Zapisywanie…" disabled={busy !== null || held} onClick={() => void save()}>{saveLabel}</Button>
+      <Button width="fill" loading={busy === "save"} loadingLabel="Zapisywanie…" disabled={busy !== null || held || nothingToSave}
+        aria-describedby="bulk-action-hint" onClick={() => void save()}>{saveLabel}</Button>
     </>;
   }
   const actionHint = stage.kind === "result" ? "To informacja o blokadzie, nie rezerwacja terminu."
     : stage.kind === "uncertain" ? "Ponowienie zwróci zapisany wynik, jeśli poprzednie żądanie się powiodło."
-      : held ? "Usuń kolidujące pojazdy z wyboru albo wybierz „Pomiń konflikty”." : "Podgląd nic nie zapisuje. Zapis sprawdzi stan ponownie.";
+      : held ? "Usuń kolidujące pojazdy z wyboru albo wybierz „Pomiń konflikty”."
+        : nothingToSave ? "Nic do zapisania: wszystkie wybrane pojazdy mają konflikt. Zmień wybór pojazdów albo daty." : "Podgląd nic nie zapisuje. Zapis sprawdzi stan ponownie.";
 
   return (
     <section className={styles.page} aria-labelledby="bulk-title" aria-busy={busy !== null}>
@@ -349,7 +363,7 @@ export function BulkBlocks({ context, mode, source, today, calendarHref, onClose
             </label>
           </fieldset>
           <div className={styles.actions}>{actions}</div>
-          <p className={styles.muted}>{actionHint}</p>
+          <p id="bulk-action-hint" className={styles.muted}>{actionHint}</p>
         </section>
       </form>
     </section>

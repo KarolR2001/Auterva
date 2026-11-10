@@ -536,7 +536,7 @@
       "unmappedStates": [
         "Penpot ADM-10 state=bulk-select/preview-abort/result-skip/error-uncertain/copy Desktop (b9c729c0-a810-8029-8008-ecdb2b7268f6, -ecdb9c0490eb, -ecdbfd2c30e2, -ecdc8c4d57a6, -ecdcb662e2c0) i bulk-select Mobile (6a2f4f9d-714c-8062-8008-ecddd851e5cd) porównane z eksportu 10.11; preview-skip, result-abort i pozostałe plansze mobile wg tabeli w #217.",
         "Poza makietą: wyszukiwarka oraz „Zaznacz widoczne (do 50)”/„Wyczyść wybór” przy flocie powyżej 8 pojazdów; „Zmień dane (nowe żądanie)” w stanie wyniku nieznanego.",
-        "„Kopiuj na inne auta” w OVR-07 stoi przy „Usuń blokadę” w treści okna (wspólny Dialog nie ma akcji w nagłówku); makieta desktop ma go w nagłówku obok „Zamknij”.",
+        "„Kopiuj na inne auta” w OVR-07: mobile jako przycisk pełnej szerokości nad „Usuń blokadę” (jak OVR-07-mobile-edit); desktop w treści okna zamiast w nagłówku obok „Zamknij”, bo wspólny Dialog nie ma akcji w nagłówku (P3).",
         "Przesunięcie dat kopii (shiftDays, P6) poza zakresem."
       ],
       "codePaths": [
