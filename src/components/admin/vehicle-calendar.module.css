@@ -60,5 +60,8 @@
   font-size: var(--font-size-15); font-weight: var(--font-weight-semibold); line-height: var(--line-height-20);
   color: var(--action-secondary-content); text-decoration: none; border: var(--border-width-hairline) solid var(--action-secondary-border); border-radius: var(--radius-md); }
 @media (max-width: 480px) { .copyLink { justify-self: stretch; width: 100%; box-sizing: border-box; } }
+.copyLinkHeader { justify-self: auto; }
+.copyLinkBody { display: none; }
+@media (max-width: 480px) { .copyLinkHeader { display: none; } .copyLinkBody { display: inline-flex; } }
 .copyLink:hover { background: var(--action-secondary-hover); }
 .copyLink:focus-visible { outline: var(--border-width-active) solid var(--focus-ring); outline-offset: var(--focus-offset); }

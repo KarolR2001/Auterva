@@ -549,7 +549,9 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
           ? { label: busy ? "Usuwanie…" : "Usuń blokadę", onClick: () => { if (uncertain) void checkUncertain(); else if (dialogBlock) void run({ action: "delete", editor, values }); } }
           : uncertain ? { label: busy ? "Sprawdzanie…" : "Sprawdź stan", onClick: () => void checkUncertain() }
             : { label: busy ? "Zapisywanie…" : editor.mode === "create" ? "Dodaj blokadę" : "Zapisz zmiany", onClick: () => void submit() }}
-        secondaryAction={{ label: panel === "delete" ? "Anuluj" : "Zamknij", onClick: requestClose }}>
+        secondaryAction={{ label: panel === "delete" ? "Anuluj" : "Zamknij", onClick: requestClose }}
+        headerAction={panel === "form" && editor.mode === "edit" && dialogBlock
+          ? <a className={`${styles.copyLink} ${styles.copyLinkHeader}`} href={copyHref(context.hrefBase, vehicleId, dialogBlock)}><Copy aria-hidden="true" size={18} />Kopiuj na inne auta</a> : undefined}>
         {panel === "delete" ? (
           <div className={styles.dialogStack}>
             {uncertain && <Alert tone="warning" title="Nie wiemy, czy blokada została usunięta.">Połączenie przerwało się w trakcie. Najpierw odczytamy aktualny stan z serwera.</Alert>}
@@ -649,7 +651,7 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
             {editor.mode === "edit" && dialogBlock && (
               <>
                 {/* D-48: the copy opens over the fleet calendar (ADM-10 state=bulk-copy) with the saved block's dates; full width on mobile (OVR-07-mobile-edit). */}
-                <a className={styles.copyLink} href={copyHref(context.hrefBase, vehicleId, dialogBlock)}><Copy aria-hidden="true" size={18} />Kopiuj na inne auta</a>
+                <a className={`${styles.copyLink} ${styles.copyLinkBody}`} href={copyHref(context.hrefBase, vehicleId, dialogBlock)}><Copy aria-hidden="true" size={18} />Kopiuj na inne auta</a>
                 <div><Button variant="destructive" size="sm" icon={<Trash2 aria-hidden="true" size={16} />} disabled={busy || locked} onClick={() => { setPanel("delete"); setDirectDelete(false); }}>Usuń blokadę</Button></div>
               </>
             )}

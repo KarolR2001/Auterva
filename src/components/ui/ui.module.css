@@ -341,6 +341,15 @@
   line-height: var(--line-height-32);
   font-weight: var(--font-weight-semibold);
 }
+.dialogHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+.dialogHeaderAction {
+  flex: none;
+}
 .dialogDescription {
   margin: var(--space-3) 0 0;
   color: var(--text-secondary);
