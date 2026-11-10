@@ -66,3 +66,8 @@ export function todayText(days: { date: string; available: boolean }[], today: s
 export const blockHref = (hrefBase: string, vehicleId: string, block: { id: string; from: string }) =>
   `${hrefBase}/pojazdy/${vehicleId}/kalendarz/?${new URLSearchParams({ blok: block.id, miesiac: block.from.slice(0, 7) })}`;
 export const vehicleHref = (hrefBase: string, vehicleId: string, query = "") => `${hrefBase}/pojazdy/${vehicleId}/kalendarz/${query}`;
+/** The fleet calendar itself; `zbiorcza` or `kopiuj`/`pojazd`/`od` open the bulk view (#217, D-48). */
+export function fleetCalendarHref(hrefBase: string, params: Record<string, string> = {}) {
+  const query = new URLSearchParams(params).toString();
+  return `${hrefBase}/kalendarz/${query ? `?${query}` : ""}`;
+}

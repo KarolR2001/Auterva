@@ -72,6 +72,20 @@ test("company fleet by the superadmin: card -> fleet -> form -> photos -> calend
     await expect(page.getByText("Auto Beta")).toHaveCount(0);
     await expect(page.getByText(`Firma: Firma Floty A ${tag}`)).toBeVisible();
     await noOverflow("fleet list");
+    // D-42: the superadmin list has the same summary; at 390 px filters and sort open in sheets.
+    await expect(page.getByText(/^\d+ pojazd/).first()).toBeVisible();
+    await page.getByRole("button", { name: /^Filtry/ }).click();
+    await expect(page.getByRole("dialog", { name: "Filtry listy pojazdów" }).getByLabel("Kategoria")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("button", { name: /^Filtry/ })).toBeFocused();
+    await page.getByRole("button", { name: /^Sortuj/ }).click();
+    await page.getByRole("dialog", { name: "Sortowanie listy pojazdów" }).getByLabel("Sortuj").selectOption("updatedAsc");
+    await expect(page).toHaveURL(/sort=updatedAsc/);
+    await page.getByRole("button", { name: "Pokaż wyniki" }).click();
+    await expect(page.getByText("Auto Alfa").first()).toBeVisible();
+    await page.getByRole("button", { name: /^Sortuj/ }).click();
+    await page.getByRole("dialog", { name: "Sortowanie listy pojazdów" }).getByLabel("Sortuj").selectOption("order");
+    await page.getByRole("button", { name: "Pokaż wyniki" }).click();
 
     // Form: a save is the superadmin's own and belongs to company A.
     await page.getByRole("link", { name: /Edytuj\s*Auto Alfa/ }).click();
