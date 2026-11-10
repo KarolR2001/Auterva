@@ -575,7 +575,7 @@ Historyczne scenariusze v2 (15): UC-SAS-01 assisted startup; 02 multi-company; 0
 - Decyzje właściciela z 23.10.2026 rozstrzygają D-01, D-02, D-04 i D-05. Szczegóły macierzy, publikacji, limitów i bootstrapu są kanoniczne dla implementacji MVP 3.1.
 - Decyzje właściciela z 27.10.2026 rozstrzygają D-16–D-27 (środowiska, materiały, limity, preview, archiwum, przypomnienia, SEO, hosty i przekierowania).
 - Decyzje właściciela z 28.10.2026 rozstrzygają D-28–D-32 (profil bez zakupu, kontrole lokalne, retencja podstawy odblokowania, wielu wykonawców w roli, najbliższy wolny termin i zbiorcze blokady).
-- Decyzje właściciela z 10.11.2026 rozstrzygają D-33–D-46 (TOTP, makiety PUB, TEN, PLT i ADM, dokumenty prawne, hasło, opis trialu, eksport kalendarza i danych) i potwierdzają D-28.
+- Decyzje właściciela z 10.11.2026 rozstrzygają D-33–D-47 (TOTP, makiety PUB, TEN, PLT i ADM, dokumenty prawne, hasło, opis trialu, eksport kalendarza i danych) i potwierdzają D-28.
 
 ### Do ustalenia przed implementacją danego obszaru
 
@@ -638,6 +638,7 @@ Rozstrzygają pytania zebrane podczas CR/QA Stage 3. Gdy decyzja zmienia zachowa
 - **D-44 — termin na PUB-03 (#338):** z aplikacji znikają pola dat „Od/Do” i stan „Minął” w legendzie; termin wybiera się wyłącznie w kalendarzu. [SPEC](design/SPEC.md) dostosowany.
 - **D-45 — siła hasła (#339):** miernik „Siła hasła” (słabe/średnie/silne) pozostaje w makietach i trafia do formularzy hasła w aplikacji; jest informacyjny i nie blokuje zapisu (D-37).
 - **D-46 — checklista hasła:** osobna zalecana pozycja „Małe i wielkie litery”; makiety do dostosowania.
+- **D-47 — zakres prywatnego feedu (#327):** prywatny feed iCal obejmuje wyłącznie pojazdy `PUBLISHED`; szkice, nieopublikowane i zarchiwizowane są pominięte. Zob. [kontrakt](contracts/calendar-and-company-export.md).
 
 ## 10. Co warto dodać — propozycje, poza obowiązkowym zakresem
 
@@ -653,6 +654,6 @@ Rozstrzygają pytania zebrane podczas CR/QA Stage 3. Gdy decyzja zmienia zachowa
 
 - Analiza źródłowa objęła pięć plików PRD, z czterema różnymi treściami. Repozytorium zachowuje kanoniczny V31 i BASELINE_FLEET; historia V2/V30 nie jest zależnością implementacji. Zachowane i wycofane wymagania są rozliczone w tym dokumencie.
 - Katalog zachowuje 71 identyfikatorów bazowych FR, 10 UC, 4 NFR-PERF oraz odniesienia do 31 REQ-MVP i 55 scenariuszy TEST-MVP z V31 §20. Scenariusze testowe są planem odbioru, nie wynikami testów.
-- Pełne pokrycie katalogu nie oznacza gotowości wszystkich kontraktów do implementacji: D-12, D-13 i D-15 pozostają ustaleniami projektowymi i mapowaniem. D-01–D-11 i D-14 mają rozstrzygnięcie z 23.10.2026, D-16–D-27 z 27.10.2026, D-28–D-32 z 28.10.2026, a D-33–D-46 (oraz potwierdzenie D-28) z 10.11.2026.
+- Pełne pokrycie katalogu nie oznacza gotowości wszystkich kontraktów do implementacji: D-12, D-13 i D-15 pozostają ustaleniami projektowymi i mapowaniem. D-01–D-11 i D-14 mają rozstrzygnięcie z 23.10.2026, D-16–D-27 z 27.10.2026, D-28–D-32 z 28.10.2026, a D-33–D-47 (oraz potwierdzenie D-28) z 10.11.2026.
 - Dla każdego wdrażanego przekroju uzupełnić mapowanie wymaganie → board Penpota → kod → trwały test w `design/traceability.json`. Aktualny dokument nie dopisuje fikcyjnych ścieżek kodu ani zaliczonych testów.
 - Odbiór aplikacji wymaga [quality gates](quality-gates.md), w tym rzeczywistego PostgreSQL, izolacji firm, współbieżności, MFA, poczty, WebSocket, hostów i PWA production build.
