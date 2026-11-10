@@ -22,6 +22,19 @@
       "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
     },
     {
+      "issue": 334,
+      "scope": "D-41: POST /api/platform/companies przyjmuje opcjonalnie telefon, publiczny e-mail i adres (phone, email, addressLine, postalCode, city, country; reguły i schematy jak grupy contact/address ustawień firmy #31), zapisywane do SiteSettings w tej samej transakcji co utworzenie firmy, z audytem SETTINGS_CHANGED (same nazwy pól). Brak pól = zachowanie jak dotąd; nie publikuje strony i nie wysyła zaproszenia. UI formularza: #335.",
+      "referenceScreenIds": ["PLT-04", "FLOW-MVP-02"],
+      "codePaths": [
+        "src/modules/organizations/onboarding.ts",
+        "src/modules/organizations/http.ts",
+        "src/modules/settings/fields.ts",
+        "src/app/api/platform/companies/route.ts"
+      ],
+      "testPaths": ["tests/integration/company-creation-contact.test.ts", "tests/integration/company-preregistration.test.ts"],
+      "sharedWith": "Kontrakt: docs/contracts/company-onboarding-invitations.md; reguły pól: docs/contracts/company-settings-and-vehicle-publication.md."
+    },
+    {
       "issue": 325,
       "scope": "Backend D-36 dla PUB-05/06 (#232): data ostatniej zmiany tekstu polityki prywatności i regulaminu firmy (privacyTextUpdatedAt, termsTextUpdatedAt; UTC, ustawiana przez serwer tylko przy zmienionym tekście) w ustawieniach (odczyt admin i platforma) oraz w publicznym DTO strony prawnej (updatedAt, ISO 8601). Wartość początkowa istniejących dokumentów: NULL (UI bez daty). Brak zmian UI.",
       "relatedRequirementIds": ["FR-PUB-041", "FR-PUB-042"],
