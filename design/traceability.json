@@ -2191,6 +2191,14 @@
         "src/components/platform/platform.module.css"
       ],
       "testPaths": ["tests/unit/company-card.test.tsx", "tests/e2e/platform-company-form.spec.ts", "tests/e2e/messages-inbox.spec.ts"]
+    },
+    {
+      "issue": 341,
+      "scope": "Audyt dostępności panelu firmy (część #61, WCAG 2.2 AA): skan axe każdego ekranu /admin przy 1440 i 320 px jako regresja e2e (bez wyłączonych reguł), kontrola h1/main/nawigacji i braku poziomego przewijania, pułapki fokusu i powrót fokusu w menu „Więcej”, dialogu kalendarza i dialogu niezapisanych zmian, widoczność i niezasłanianie fokusu, powiązanie błędów pól, reduced motion, odstępy tekstu. Poprawki: nazwa dostępna bloku w kalendarzu floty zawiera widoczny tekst (SC 2.5.3), brak przejść kolorów przy reduced motion, fokus przewija się nad dolną nawigację mobilną (SC 2.4.11). Rzeczywisty VoiceOver: DEFERRED (#97).",
+      "relatedRequirementIds": ["DS-N21"],
+      "referenceScreenIds": ["ADM-01", "ADM-04", "ADM-19", "ADM-20", "ADM-21"],
+      "codePaths": ["src/components/admin/fleet-calendar.tsx", "src/components/panel/panel.module.css", "src/components/ui/ui.module.css"],
+      "testPaths": ["tests/e2e/admin-a11y.spec.ts", "tests/e2e/fleet-calendar.spec.ts"]
     }
   ],
   "sources": [

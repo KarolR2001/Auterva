@@ -147,6 +147,9 @@
   .spinner {
     animation: none;
   }
+  .button {
+    transition: none;
+  }
 }
 
 .formField {
