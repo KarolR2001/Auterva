@@ -36,7 +36,7 @@ export function PublicHome({ home, today }: { home: Home; today: string }) {
         <div className={`${styles.container} ${styles.heroGrid}`}>
           {company.hero
             // eslint-disable-next-line @next/next/no-img-element -- public media variants are served by our own API route
-            ? <img src={company.hero.urls.large} alt={company.hero.alt ?? ""} width={company.hero.width ?? undefined} height={company.hero.height ?? undefined} className={styles.heroMedia} />
+            ? <img src={company.hero.urls.large} alt={company.hero.alt ?? ""} width={company.hero.width ?? undefined} height={company.hero.height ?? undefined} className={styles.heroMedia} fetchPriority="high" decoding="async" />
             : null}
           <div className={styles.heroCopy}>
             <p className={styles.eyebrow}>{company.name} · wynajem pojazdów</p>

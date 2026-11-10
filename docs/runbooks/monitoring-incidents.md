@@ -79,6 +79,10 @@ Klucze (`AUDIT_EXPORT_KEY`) i treść eksportu nigdy nie trafiają do logów ani
 ### realtime
 `WS_LISTENER_UNHEALTHY` (page; tłumiony przy awarii DB): serwer czatu stracił powiadomienia z DB (poll jako zapas). Sprawdź DB i zrestartuj realtime; klienci wznawiają połączenie z kursorem.
 
+### web-vitals
+
+Informacyjne, bez alertu (#340). Odczyt: `auterva_web_vital_lcp_seconds`, `auterva_web_vital_inp_seconds`, `auterva_web_vital_cls` w `/api/health/metrics/`; p75 z histogramu osobno dla `device="mobile"` i `"desktop"`, cele LCP ≤ 2,5 s, INP ≤ 200 ms, CLS ≤ 0,1. Nagły wzrost `auterva_web_vitals_reports_total{rating="rate_limited"}` albo `invalid` oznacza nadużycie lub zmianę kontraktu paczki, nie awarię użytkowników; endpoint niczego nie zapisuje, więc nie wymaga czyszczenia danych. Opis i prywatność: [kontrakt](../contracts/monitoring-alerts.md#web-vitals-340).
+
 ## Ochrona przed lawiną alertów
 
 Histereza (alert po kolejnych N naruszeniach, zamknięcie po M zdrowych), grupowanie po obszarze w oknie 60 s, limit 6 powiadomień na godzinę; nadmiar to jedna wiadomość `STORM-GUARD` z nazwami grup. Strony mają pierwszeństwo przed ticketami. Przypomnienie: page co 1 h, ticket co 12 h. Nieudane dostarczenie wraca do kolejki i nie zużywa limitu.

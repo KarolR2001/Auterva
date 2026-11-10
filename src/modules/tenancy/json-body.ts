@@ -20,6 +20,7 @@ export const MAX_VEHICLE_BODY_BYTES = 256 * 1024;
 /** The body limit of a path that passes through Proxy and a JSON handler. */
 export function bodyLimitForPath(pathname: string): number {
   const path = pathname.replace(/\/$/, "");
+  if (path === "/api/vitals") return 1024;
   if (path === "/api/auth" || path.startsWith("/api/auth/")) return MAX_AUTH_BODY_BYTES;
   if (/^\/api\/platform\/companies\/[^/]+\/settings$/.test(path)) return MAX_SETTINGS_BODY_BYTES;
   if (/^\/api\/(?:admin|platform\/companies\/[^/]+)\/vehicles(?:\/[^/]+)?$/.test(path)) return MAX_VEHICLE_BODY_BYTES;

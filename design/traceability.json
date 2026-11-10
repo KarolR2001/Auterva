@@ -197,6 +197,29 @@
       ]
     },
     {
+      "issue": 340,
+      "scope": "Wydajność interfejsu i prywatnościowe pomiary Web Vitals (część #61): pierwszy obraz listy i hero strony firmy ładowane z priorytetem (bez lazy dla kandydata LCP), pomiar LCP/INP/CLS w przeglądarce bez dostawcy zewnętrznego, wysyłka paczki z wzorcami tras (bez URL, ID, tokenów i kont) do POST /api/vitals/ z limitem, ścisłą walidacją i no-store, agregacja do metryk auterva_web_vital_* bez zapisu zdarzeń; Do Not Track i Global Privacy Control wyłączają pomiar. Pomiar lab przed/po skryptem Playwright. Bez zmiany wyglądu i funkcji.",
+      "relatedRequirementIds": ["NFR-PERF-001", "NFR-PERF-003", "NFR-PERF-004", "C-N020", "C-N060"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/lib/web-vitals.ts",
+        "src/components/vitals/web-vitals-reporter.tsx",
+        "src/modules/observability/web-vitals.ts",
+        "src/modules/observability/web-vitals-http.ts",
+        "src/app/api/vitals/route.ts",
+        "src/app/layout.tsx",
+        "src/components/public/vehicle-card.tsx",
+        "src/components/public/public-home.tsx",
+        "scripts/perf/web-vitals-lab.ts",
+        "docs/contracts/monitoring-alerts.md"
+      ],
+      "testPaths": [
+        "tests/unit/web-vitals.test.ts",
+        "tests/unit/host-route-policy.test.ts",
+        "tests/integration/web-vitals-http.test.ts"
+      ]
+    },
+    {
       "issue": 320,
       "scope": "Kosmetyka z odbioru #263: teksty ADM-02 (tekst pomocniczy pola, przycisk „Wyślij link resetujący”, strzałka w linku powrotu, stopka o neutralnym potwierdzeniu) i ADM-03 (etykieta „Powtórz hasło”, przycisk „Ustaw nowe hasło”, krótki wstęp, ostrzeżenie o wylogowaniu jako podpowiedź pola, stopka „Link jednorazowy” (bez twierdzenia o aktywności tokenu)); jednostka ceny w fixture „doba” zamiast „DAY” (jednostka to tekst wpisywany przez firmę, wyświetlanie bez zmian). Logika resetu i lista siły hasła (#22/#252) bez zmian. Pozycje PUB-03 (chipy, tytuł, nawigacja, stopka) przeniesione do #319.",
       "relatedRequirementIds": ["C-F041", "C-F042", "C-F044"],
