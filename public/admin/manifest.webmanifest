@@ -1,10 +1,19 @@
 {
+  "id": "/admin/",
   "name": "Auterva — panel firmy",
   "short_name": "Auterva",
+  "description": "Panel administratora firmy Auterva.",
+  "lang": "pl",
+  "dir": "ltr",
   "start_url": "/admin/",
   "scope": "/admin/",
   "display": "standalone",
   "background_color": "#f2f2f2",
   "theme_color": "#151515",
-  "icons": [{ "src": "/admin/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+  "icons": [
+    { "src": "/admin/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/admin/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/admin/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/admin/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
 }

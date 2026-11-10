@@ -3,6 +3,72 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 49,
+      "scope": "Karta firmy superadmina: potwierdzenia archiwizacji, przywrócenia i odblokowania z nazwą firmy, skutkami i zachowaniem danych (bez trwałego kasowania); restore konta rozdzielony od odblokowania strony publicznej z rzeczywistym stanem publikacji i dalszymi krokami; niepewny wynik (5xx, brak odpowiedzi) kończy się odczytem stanu i komunikatem zgodnym z faktem; data archiwizacji na liście. Otwarty panel firmy po archiwizacji kończy się stanem odebranego dostępu (sesja unieważniona), nie banerem wygaśnięcia usługi.",
+      "relatedRequirementIds": ["C-F069", "C-F073", "C-F074", "C-F075", "C-F076", "C-F077", "C-F078", "C-F079", "C-F080", "C-F147", "C-R015"],
+      "referenceScreenIds": ["PLT-03", "FLOW-MVP-10", "ADM-19"],
+      "scenarioStates": {
+        "beforeArchive": "FLOW-MVP-10 / M+D / 01 — Firma przed archiwizacją (ArchiveSection, dialog archive)",
+        "card": "PLT-03 / state=active i archived (ArchiveSection)",
+        "revokedPanel": "ADM-19 / state=session-expired (PanelShell po cofnięciu sesji)"
+      },
+      "codePaths": [
+        "src/components/platform/company-ops.tsx",
+        "src/components/platform/company-list.tsx",
+        "src/components/platform/platform.module.css",
+        "src/components/panel/panel-shell.tsx"
+      ],
+      "testPaths": ["tests/unit/platform-companies.test.tsx", "tests/unit/panel-shell.test.tsx", "tests/e2e/platform-companies.spec.ts"],
+      "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
+    },
+    {
+      "issue": 265,
+      "scope": "Poprawki z QA #27: po niepewnym wyniku zapisu okresu (5xx, brak odpowiedzi) najpierw odczyt stanu, potem komunikat zgodny z faktem (zapisano / nie zapisano / zmieniono w innej sesji); lista firm `/firmy/` z tą samą polityką hosta co `/` i `/firmy/{id}/` (anonim do loginu platformy, inna sesja 404); ikona statusu w wierszu obok tekstu.",
+      "relatedRequirementIds": ["C-F045", "C-F046", "C-F068", "C-F069"],
+      "referenceScreenIds": ["PLT-01-02", "PLT-03"],
+      "codePaths": [
+        "src/app/firmy/page.tsx",
+        "src/components/platform/company-ops.tsx",
+        "src/components/platform/company-list.tsx",
+        "src/components/platform/platform.module.css"
+      ],
+      "testPaths": ["tests/unit/platform-companies.test.tsx", "tests/unit/panel-routes.test.tsx", "tests/e2e/platform-companies.spec.ts"]
+    },
+    {
+      "issue": 27,
+      "scope": "Lista firm z wyszukiwaniem, filtrem archiwum i dwoma KPI, karta firmy z osobnymi stanami okresu, rejestracji, publikacji, konta i archiwum; zmiana okresu z wersją, podglądem skrócenia i zachowaniem danych po błędzie; domena własna z instrukcją DNS; zaproszenie i archiwizacja. Bez billingu i potwierdzenia przelewu.",
+      "relatedRequirementIds": ["C-F015", "C-F016", "C-F017", "C-F018", "C-F045", "C-F046", "C-F047", "C-F048", "C-F049", "C-F068", "C-F069", "C-F070", "C-F071", "C-F072", "C-F084", "C-F086", "C-F087", "C-F088", "C-F089", "C-R007", "C-R013"],
+      "referenceScreenIds": ["PLT-01-02", "PLT-03"],
+      "scenarioStates": {
+        "list": "CompanyListView (PLT-01-02)",
+        "card": "CompanyCardView (PLT-03)",
+        "periodUnsaved": "PeriodSection z niezapisaną zmianą (FLOW-MVP-07 01)"
+      },
+      "codePaths": [
+        "src/app/firmy/page.tsx",
+        "src/app/page.tsx",
+        "src/components/platform/company-list.tsx",
+        "src/components/platform/company-ops.tsx",
+        "src/components/platform/platform-api.ts"
+      ],
+      "testPaths": ["tests/unit/platform-companies.test.tsx", "tests/e2e/platform-companies.spec.ts"],
+      "sharedWith": "Karta firmy, zaproszenie i domena własna: #25 (company-card.tsx, company-domain.tsx, strona /firmy/[organizationId]); #27 dokłada do niej status, okres z wersją i archiwum (company-ops.tsx) oraz listę firm."
+    },
+    {
+      "issue": 227,
+      "scope": "Ograniczenie bazy sortOrder >= 0 dla pojazdów (z CR #67): migracja zatrzymuje się jawnym błędem przy istniejących wierszach ujemnych, naruszenie zapisu poza API mapuje się na FLEET_INVALID_INPUT bez treści wiersza; API bez zmian.",
+      "relatedRequirementIds": ["FR-PUB-002", "D-22"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "prisma/migrations/20261108110000_vehicle_sort_order_check_issue_227/migration.sql",
+        "src/modules/fleet/mutations.ts",
+        "docs/contracts/fleet-crud-publication.md"
+      ],
+      "testPaths": [
+        "tests/integration/vehicle-sort-order-migration.test.ts"
+      ]
+    },
+    {
       "issue": 15,
       "scope": "Logowanie obu ról, obowiązkowe MFA (enrollment, challenge, kod odzyskania z ponownym enrollmentem, ręczna procedura), niepewny wynik z odczytem sesji, ponowne wydanie kodów, neutralne odmowy (także archiwum/blokada konta), limit z pełnym Retry-After i wygaśnięcie challenge/sesji na hostach właściwego obszaru.",
       "relatedRequirementIds": ["C-F010", "C-F011", "C-F013", "C-F014", "C-F040", "C-F044", "FR-ADM-001", "FR-ADM-002", "FR-ADM-003", "FR-ADM-004", "FR-ADM-005", "FR-ADM-007"],
@@ -37,6 +103,68 @@
         "src/app/admin/mfa/page.tsx"
       ],
       "testPaths": ["tests/unit/auth-flow.test.tsx", "tests/unit/auth-page.test.tsx", "tests/unit/auth-destination.test.ts", "tests/unit/mfa-qr.test.tsx", "tests/e2e/auth-ui.spec.ts"]
+    },
+    {
+      "issue": 252,
+      "scope": "Wskaźnik siły hasła DS-AUT-004 (SPEC 6.10, handoff components.md): wspólny PasswordStrength z etykietą, paskiem i checklistą tekstową, aria-live tylko dla poziomu; w resecie i zmianie hasła z #19, aktywacja z #26 po merge PR #228. Polityka serwera 12–256 znaków; długość jest jedynym kryterium „wymagane”, litery, cyfra i znak specjalny są oznaczone „zalecane” (nie blokują wysłania).",
+      "relatedRequirementIds": ["FR-ADM-006", "FR-ADM-007", "FR-ADM-080", "FR-ADM-082"],
+      "referenceScreenIds": ["ADM-03", "PLT-10"],
+      "scenarioStates": {
+        "passwordStrength": "PasswordStrength weak/medium/strong (DS-AUT-004)"
+      },
+      "unmappedStates": ["Porównanie z planszami DS-AUT-004 i ACC-04 w Penpocie: blocked (wtyczka Penpota nie odpowiada po dwóch próbach 08.11).", "Aktywacja z #26: PasswordStrength podłączony w activation-flow."],
+      "components": [
+        { "itemId": "DS-AUT-004", "codePath": "src/components/auth/password-strength.tsx" }
+      ],
+      "codePaths": [
+        "src/components/auth/password-strength.tsx",
+        "src/components/auth/password-policy.ts",
+        "src/components/auth/reset-flow.tsx",
+        "src/components/auth/activation-flow.tsx",
+        "src/components/account/account-view.tsx"
+      ],
+      "testPaths": ["tests/unit/password-policy.test.tsx", "tests/unit/activation-flow.test.tsx", "tests/e2e/account-ui.spec.ts", "tests/e2e/company-activation-ui.spec.ts"]
+    },
+    {
+      "issue": 19,
+      "scope": "Reset hasła (prośba z neutralnym wynikiem, ustawienie nowego hasła z jednorazowym linkiem), konto obu ról (nazwa, e-mail i rola tylko do odczytu), zmiana hasła z cofnięciem sesji, wydanie nowych kodów przez świeżą weryfikację MFA, wylogowanie z potwierdzeniem serwera; PasswordStrength (DS-AUT-004) zgodny z polityką serwera 12–256 znaków.",
+      "relatedRequirementIds": ["C-F041", "C-F042", "C-F044", "FR-ADM-006", "FR-ADM-007", "FR-ADM-080", "FR-ADM-082"],
+      "referenceScreenIds": ["ADM-02", "ADM-03", "ADM-15", "PLT-10"],
+      "scenarioStates": {
+        "resetRequestNeutral": "ResetRequestForm sent (ADM-02)",
+        "resetRequestUncertain": "ResetRequestForm 5xx/utrata odpowiedzi, ponowienie z tym samym kluczem (ADM-02)",
+        "setNewPassword": "SetNewPasswordForm form/mismatch/loading/success/expired (ADM-03, DS-AUT-003)",
+        "setNewPasswordUncertain": "SetNewPasswordForm 5xx/utrata odpowiedzi, bez fałszywego sukcesu (ADM-03)",
+        "passwordStrength": "PasswordStrength weak/medium/strong (DS-AUT-004)",
+        "account": "AccountView: Dane konta, Zmień hasło, MFA (ADM-15 anatomia, PLT-10)",
+        "freshMfaForCodes": "AccountView → MfaFlow recoverCodes (PLT-10 → 07I)",
+        "manualRecovery": "AccountView Nie mam obu czynników (PLT-10 → 07C)"
+      },
+      "unmappedStates": ["Brak celu w makiecie dla 07D2 „Użyj kodu z aplikacji” (zgłoszone, bez zgadywania).", "PLT-10 D: ukryty slot Actions (Action / Primary → FLOW-MVP-02, Action / Secondary → FLOW-MVP-06) nie ma odpowiednika w kodzie konta; nie renderowany (odczyt Penpota 08.11).", "Rotacja TOTP w pełnej sesji (D-05 pkt 5): API nie ma endpointu; konto oferuje tylko ponowne wydanie kodów i odzyskanie kodem."],
+      "components": [
+        { "itemId": "DS-AUT-002", "codePath": "src/components/auth/reset-flow.tsx" },
+        { "itemId": "DS-AUT-003", "codePath": "src/components/auth/reset-flow.tsx" },
+        { "itemId": "DS-AUT-004", "codePath": "src/components/auth/password-strength.tsx" },
+        { "itemId": "DS-AUT-007", "codePath": "src/components/account/account-view.tsx" }
+      ],
+      "codePaths": [
+        "src/components/auth/reset-flow.tsx",
+        "src/components/auth/reset-page.tsx",
+        "src/components/auth/auth-host.ts",
+        "src/components/auth/password-policy.ts",
+        "src/components/auth/password-strength.tsx",
+        "src/components/account/account-view.tsx",
+        "src/components/account/account-page.tsx",
+        "src/components/account/account.module.css",
+        "src/app/admin/reset-hasla/page.tsx",
+        "src/app/admin/reset-hasla/[token]/page.tsx",
+        "src/app/reset-hasla/page.tsx",
+        "src/app/reset-hasla/[token]/page.tsx",
+        "src/app/admin/konto/page.tsx",
+        "src/app/konto/page.tsx",
+        "src/modules/tenancy/host-route-policy.ts"
+      ],
+      "testPaths": ["tests/unit/password-policy.test.tsx", "tests/unit/reset-flow.test.tsx", "tests/unit/account-view.test.tsx", "tests/unit/account-page.test.tsx", "tests/unit/host-route-policy.test.ts", "tests/e2e/account-ui.spec.ts"]
     },
     {
       "issue": 67,
@@ -166,6 +294,26 @@
       "testPaths": ["tests/integration/availability-query-regression.test.ts", "tests/unit/perf-generator.test.ts"]
     },
     {
+      "issue": 26,
+      "scope": "Ekran aktywacji zaproszenia /admin/zaproszenie/[token]: odczyt bez skutków, firma i adresat z serwera, hasło z potwierdzeniem, jeden POST, wszystkie stany tokenu/sieci/limitu, wynik publicznej strony z siteState serwera i przejście do logowania/MFA.",
+      "relatedRequirementIds": ["C-F026", "C-F027", "C-F028", "C-F029", "C-F030", "C-F031", "C-F032", "C-F033", "C-F037", "C-F038", "C-F039", "C-F052", "C-F108", "D-11"],
+      "referenceScreenIds": ["ACC-04"],
+      "scenarioStates": {
+        "valid": "ActivationFlow phase=ready (ACC-04 state=valid, M 1e066793-8858-8051-8008-cf3e9d891551, D 269b07ba-69e5-8066-8008-c84b98156520)",
+        "invalidUsedExpiredRevoked": "ActivationFlow phase=invalid (neutralne 404, bez formularza)",
+        "network": "POST bez odpowiedzi: ponowienie tym samym hasłem zwraca zapisany wynik; GET: phase=unavailable",
+        "limit": "429: phase=limited (GET) albo cooldown z Retry-After (POST)",
+        "success": "ActivationFlow phase=done; READY, DOMAIN_PENDING, PERIOD_EXPIRED, RESTORE_LOCKED"
+      },
+      "unmappedStates": ["Makieta ACC-04 ma miernik siły hasła i reguły wielkich liter, cyfry i znaku specjalnego; kontrakt #22 wymaga tylko 12–256 znaków, więc ekran pokazuje wyłącznie regułę długości, żeby nie obiecywać nieegzekwowanych reguł."],
+      "components": [],
+      "codePaths": [
+        "src/components/auth/activation-flow.tsx",
+        "src/app/admin/zaproszenie/[token]/page.tsx"
+      ],
+      "testPaths": ["tests/e2e/company-activation-ui.spec.ts"]
+    },
+    {
       "issue": 150,
       "scope": "Budżet odczytu superadmina (D-19): jeden klucz api:read:{actor}:platform we wszystkich firmach i w prywatnym kalendarzu, administratorzy z osobnymi licznikami oraz osobny konfigurowalny budżet pobierania bajtów zdjęć w panelu i preview (AUTERVA_MEDIA_RATE_LIMIT, domyślnie 600/min, błędna wartość to błąd startu).",
       "relatedRequirementIds": ["D-04", "D-19"],
@@ -250,6 +398,16 @@
         "tests/integration/service-reminders-process.test.ts",
         "tests/integration/service-reminders-migration.test.ts",
         "tests/e2e/service-reminders.spec.ts"
+      ]
+    },
+    {
+      "issue": 241,
+      "scope": "Deterministyczny test procesów workera przypomnień pod obciążeniem: jawny limit testu z procesami i ograniczone czekanie na gotowość workera, bez osłabiania asercji.",
+      "relatedRequirementIds": ["C-F067", "C-N004", "C-F058", "C-F062", "D-07", "D-14"],
+      "referenceScreenIds": [],
+      "codePaths": [],
+      "testPaths": [
+        "tests/integration/service-reminders-process.test.ts"
       ]
     },
     {
@@ -426,6 +584,59 @@
         "tests/integration/media-http.test.ts",
         "tests/integration/media-process-lifecycle.test.ts"
       ]
+    },
+    {
+      "issue": 289,
+      "scope": "Serwerowe 404 dla obcego lub nieistniejącego pojazdu na trasach floty platformy /firmy/{id}/pojazdy/{id}/ i .../kalendarz/ (po autoryzacji superadmina i weryfikacji firmy, zapytanie zawężone do firmy z URL); wspólny helper requireVehicleInCompany z #284.",
+      "relatedRequirementIds": ["FR-ADM-030", "FR-ADM-050"],
+      "referenceScreenIds": ["ADM-07", "ADM-09"],
+      "codePaths": [
+        "src/components/panel/require-vehicle.ts",
+        "src/app/firmy/[organizationId]/company-page.tsx",
+        "src/app/firmy/[organizationId]/pojazdy/[id]/page.tsx",
+        "src/app/firmy/[organizationId]/pojazdy/[id]/kalendarz/page.tsx",
+        "src/app/admin/company-panel.tsx"
+      ],
+      "testPaths": ["tests/e2e/platform-vehicle-404.spec.ts", "tests/e2e/admin-vehicle-404.spec.ts"]
+    },
+    {
+      "issue": 284,
+      "scope": "Pięć drobnych poprawek P3 z odbiorów QA: pole opisu zdjęcia pojazdu pokazuje opis domyślny jako placeholder (pole puste = opis domyślny, bez doklejania tekstu), rozmiar małych plików w KB zamiast 0,00 MB, serwerowe 404 dla obcego lub nieistniejącego pojazdu na trasach panelu firmy formularza i kalendarza, etykieta kontrolek materiału z opisu zamiast pozycji, jeden komunikat przy 401 na zmianie hasła (baner dopiero po rozstrzygnięciu sesji, potem tylko błąd pola). Poza zakresem: trasy platformy (#47).",
+      "relatedRequirementIds": ["FR-ADM-045", "FR-ADM-040", "FR-ADM-050"],
+      "referenceScreenIds": ["ADM-06", "ADM-07", "ADM-09"],
+      "codePaths": [
+        "src/modules/media/default-alt.ts",
+        "src/components/admin/vehicle-photos.tsx",
+        "src/components/settings/media-manager.tsx",
+        "src/app/admin/company-panel.tsx",
+        "src/app/admin/pojazdy/[id]/page.tsx",
+        "src/app/admin/pojazdy/[id]/kalendarz/page.tsx",
+        "src/components/auth/auth-flow.tsx",
+        "src/components/account/account-view.tsx"
+      ],
+      "testPaths": ["tests/unit/vehicle-photos.test.tsx", "tests/unit/settings-media.test.tsx", "tests/unit/account-view.test.tsx", "tests/e2e/admin-vehicle-404.spec.ts"]
+    },
+    {
+      "issue": 39,
+      "scope": "Kalendarz pojazdu ADM-09 i overlaye OVR-06/07/08 w panelu firmy na prawdziwym API blokad i odczytu prywatnego (kontekst superadmina przez PanelContext): miesiac z dniami z odpowiedzi serwera (wolny, zajety z typem i ikona, poza aktywnoscia, nieznany przy bledzie odczytu, nigdy stary wynik po zapisie), nawigacja strzalkami/Home/End/PageUp/PageDown z roving tabindex i pelnymi etykietami dat (DS-N16), skroty Dzisiaj i miesiace, wybor zakresu dwoma dniami albo polami dat, lista nadchodzacych blokad i historia na zadanie, dodanie/edycja/usuniecie (usuwanie po potwierdzeniu), jeden dzien i granice wlacznie, Serwis jako MAINTENANCE, prywatny numer i notatka tylko w panelu, konflikt BLOCK_OVERLAP z przejsciem do istniejacego wpisu bez utraty wpisanej tresci, konflikt wersji z trojstronnym scaleniem, ostrzezenie i potwierdzenie dla dat przeszlych, niepewny wynik 5xx/sieci rozstrzygany odczytem stanu bez drugiego zapisu, dirty guard, archiwum pojazdu (tylko usuwanie), sticky CTA mobile, flaga routes.vehicleCalendar wlaczona. Poza zakresem: trasa kalendarza po stronie superadmina (w src/app nie ma stron platformy dla floty; komponent przyjmuje PanelContext), kalendarz calej floty ADM-10 (#65/#66), wybor pojazdu w szybkim flow poza lista pojazdow, zbiorcze blokady (#215, FE opcjonalny).",
+      "relatedRequirementIds": ["C-F100", "C-F102", "C-F103", "C-F104", "C-F105", "FR-ADM-050", "FR-ADM-051", "FR-ADM-052", "FR-ADM-053", "FR-ADM-054", "FR-ADM-055", "FR-ADM-056", "DS-N16"],
+      "referenceScreenIds": ["ADM-09", "OVR-06", "OVR-07", "OVR-08"],
+      "unmappedStates": [
+        "Porownanie z Penpotem ADM-09 Mobile/Desktop (boardy z issue) odroczone: karta Penpota uspiona, #263.",
+        "Trasa kalendarza superadmina nie istnieje: strony platformy dla floty nie sa wdrozone, wiec nested superadmin ma tylko API i gotowy komponent z PanelContext.",
+        "Lista nadchodzacych blokad obejmuje 12 miesiecy (limit odczytu 365 dni); dalsze terminy widac w miesiacu kalendarza.",
+        "Szybki flow mobile zaczyna sie na liscie pojazdow lub na dashboardzie (wybor auta), potem dni, typ, zapis; osobny wybor auta w kalendarzu nie powstal."
+      ],
+      "codePaths": [
+        "src/app/admin/pojazdy/[id]/kalendarz/page.tsx",
+        "src/components/admin/vehicle-calendar.tsx",
+        "src/components/admin/vehicle-calendar-model.ts",
+        "src/components/admin/vehicle-calendar.module.css",
+        "src/components/admin/calendar-api.ts",
+        "src/components/admin/fleet-api.ts",
+        "docs/contracts/availability-blocks.md"
+      ],
+      "testPaths": ["tests/unit/vehicle-calendar.test.tsx", "tests/e2e/vehicle-calendar.spec.ts"]
     },
     {
       "issue": 38,
@@ -609,6 +820,45 @@
       ]
     },
     {
+      "issue": 55,
+      "scope": "Status okresu usługi, data, widoczność i adres strony publicznej oraz nieblokujące przypomnienia 7/1/0 w panelu firmy (TEN-04, ADM-04); po wygaśnięciu panel działa dalej, komunikat D-11 i link do czatu; firma niczego nie edytuje. Dane z prywatnego API #54, odświeżane po zmianie okresu.",
+      "relatedRequirementIds": ["C-F058", "C-F059", "C-F060", "C-F061", "C-F062", "C-F063", "C-F064", "C-F065", "C-F066", "C-F067", "C-F084", "C-F125", "C-N054"],
+      "referenceScreenIds": ["TEN-04", "ADM-04"],
+      "codePaths": [
+        "src/app/admin/company-panel.tsx",
+        "src/app/admin/page.tsx",
+        "src/app/admin/usluga/page.tsx",
+        "src/components/panel/service-status.tsx",
+        "src/components/panel/panel-states.tsx",
+        "src/components/panel/panel-shell.tsx"
+      ],
+      "stylePath": "src/components/panel/panel.module.css",
+      "testPaths": [
+        "tests/unit/service-status.test.tsx",
+        "tests/unit/panel-states.test.tsx",
+        "tests/e2e/service-status-panel.spec.ts"
+      ]
+    },
+    {
+      "issue": 260,
+      "scope": "Karta statusu usługi zgodna z TEN-04 w zakresie danych DTO #54: chip nagłówka \"Opłacony\", przycisk \"Napisz do Autervy\" zamiast linku w tekście. Wiersz \"Konto administratora\" pominięty: DTO nie zawiera danych konta administratora, a nowego API nie dodajemy. Przycisk prowadzi do /admin/czat (trasa z #52, merge po #52).",
+      "relatedRequirementIds": [
+        "C-F058",
+        "C-F084"
+      ],
+      "referenceScreenIds": [
+        "TEN-04"
+      ],
+      "codePaths": [
+        "src/components/panel/service-status.tsx"
+      ],
+      "stylePath": "src/components/panel/panel.module.css",
+      "testPaths": [
+        "tests/unit/service-status.test.tsx",
+        "tests/e2e/service-status-panel.spec.ts"
+      ]
+    },
+    {
       "issue": 14,
       "scope": "Shell firmy i platformy po serwerowej kontroli kontekstu #13, stany dostępu/błędów oraz ochrona niezapisanych zmian; treści modułów powstają w późniejszych issue.",
       "relatedRequirementIds": ["C-F018", "C-F147", "C-F148", "C-F149", "C-F150", "DS-N07", "DS-N08", "DS-N14"],
@@ -619,7 +869,15 @@
         "src/components/panel/panel-states.tsx",
         "src/components/panel/panel-shell.tsx",
         "src/components/panel/deny-panel.ts",
-        "src/components/panel/unsaved-changes-dialog.tsx"
+        "src/components/panel/unsaved-changes-dialog.tsx",
+        "src/components/panel/unsaved-changes-guard.tsx",
+        "src/app/not-found.tsx"
+      ],
+      "unmappedStates": [
+        "ADM-04 D: wyszukiwarka „Szukaj pojazdu lub blokady” w topbarze nie jest renderowana w shellu (martwa kontrolka bez trasy wyszukiwania); powstaje z listą floty i dashboardem w #34.",
+        "ADM-04 D/M: chip „Online/Offline” i instalacja PWA zostały dostarczone w #56 (src/components/pwa/pwa-provider.tsx, panel-shell.tsx).",
+        "ADM-04 stany service-expired i archived: komponent PanelAccess je obsługuje, ale trasa nie ma danych okresu usługi w shellu; baner „Usługa wygasła” i status usługi należą do #55. Archiwizacja blokuje sesję (neutralne 404 / Sesja wygasła), zgodnie z PRD 3.1.",
+        "ADM-04 awatar z inicjałami: shell nie ma imienia użytkownika, więc awatar pokazuje ikonę konta i nazwę dostępną „Menu użytkownika”."
       ],
       "stylePath": "src/components/panel/panel.module.css",
       "testPaths": [
@@ -633,6 +891,33 @@
         "tests/e2e/security-headers.spec.ts"
       ],
       "fixturePath": "tests/fixtures/panel-check.tsx"
+    },
+    {
+      "issue": 31,
+      "scope": "Ustawienia firmy w sekcjach (dane, kontakt, prezentacja i SEO, treści prawne TEXT/LINK/MISSING) według D-01: superadmin zapisuje w kontekście wybranej firmy z wersją, kluczem zdarzenia i obsługą konfliktu; admin firmy tylko czyta, logo do odczytu z przejściem do czatu. Bez motywu, opłaty i hosta. Sekcja „Wygląd publiczny” (tekst hero, logo, hero i zdjęcia marki: upload, opis, kolejność, usunięcie, podgląd) oraz publiczny telefon i e-mail z PLT-04/FLOW-MVP-02 (PRD §15.5) realizowane tu przez API ustawień i mediów, nie w formularzu #25; domena własna zostaje w #25; C-F037/C-F038 dotyczą aktywacji i nie są w tym zakresie. Porównanie z Penpotem ADM-11–14 niewykonane (wtyczka zawieszona).",
+      "relatedRequirementIds": ["C-F023", "C-F083", "C-F084", "C-F085", "C-F112", "FR-ADM-060", "FR-ADM-061", "FR-ADM-062", "FR-ADM-063", "FR-PUB-041", "FR-PUB-042", "D-01"],
+      "referenceScreenIds": ["ADM-11", "ADM-12", "ADM-13", "ADM-14", "PLT-04"],
+      "codePaths": [
+        "src/app/admin/ustawienia/page.tsx",
+        "src/app/firmy/[organizationId]/ustawienia/page.tsx",
+        "src/components/settings/settings-model.ts",
+        "src/components/settings/settings-form.tsx",
+        "src/components/settings/settings-readonly.tsx",
+        "src/components/settings/settings-extras.tsx",
+        "src/components/settings/settings-nav.tsx",
+        "src/components/settings/media-manager.tsx",
+        "src/components/ui/textarea.tsx",
+        "src/components/ui/select.tsx",
+        "src/components/ui/form-field.tsx"
+      ],
+      "stylePath": "src/components/settings/settings.module.css",
+      "testPaths": [
+        "tests/unit/settings-model.test.ts",
+        "tests/unit/settings-form.test.tsx",
+        "tests/unit/settings-routes.test.tsx",
+        "tests/unit/settings-media.test.tsx",
+        "tests/e2e/settings-ui.spec.ts"
+      ]
     },
     {
       "issue": 13,
@@ -740,6 +1025,19 @@
       "testPaths": ["tests/integration/password-reset.test.ts", "tests/integration/password-lock-order.test.ts", "tests/integration/password-change-limit.test.ts", "tests/integration/auth-login-neutral-work.test.ts", "tests/isolated/bootstrap-superadmin.test.ts"]
     },
     {
+      "issue": 253,
+      "scope": "Poprawki dostępności formularzy reset hasła i konta po CR #19: fokus na tytule po sukcesie prośby o reset i na polu po błędzie (reset, ustawienie hasła, nazwa, zmiana hasła), błędne aktualne hasło jako błąd pola z aria-invalid, 5xx przy zmianie hasła rozstrzyga odczyt sesji (komunikat bez pozornej pewności), usunięte martwe gałęzie 5xx, brak poziomego overflow konta przy 320/390/768/1024/1920. Miernik siły hasła poza zakresem (#252).",
+      "relatedRequirementIds": ["C-F041", "C-F042", "C-F044", "FR-ADM-006", "FR-ADM-080"],
+      "referenceScreenIds": ["ADM-02", "ADM-03", "ADM-15", "PLT-10"],
+      "codePaths": [
+        "src/components/auth/use-refocus.ts",
+        "src/components/auth/auth-flow.tsx",
+        "src/components/auth/reset-flow.tsx",
+        "src/components/account/account-view.tsx"
+      ],
+      "testPaths": ["tests/unit/reset-flow.test.tsx", "tests/unit/account-view.test.tsx", "tests/e2e/account-ui.spec.ts"]
+    },
+    {
       "issue": 20,
       "scope": "Prerejestracja firmy, jednorazowe zaproszenie i przypięcie aktywnego hosta; aktywacja konta i trialu należy do #22.",
       "relatedRequirementIds": ["C-F015", "C-F019", "C-F020", "C-F021", "C-F022", "C-F023", "C-F024", "C-F025", "C-F028", "C-F030", "C-F034", "C-F035", "C-F036", "C-N014", "C-N018"],
@@ -779,6 +1077,34 @@
         "src/app/api/platform/companies/[organizationId]/launch-diagnostics/route.ts"
       ],
       "testPaths": ["tests/integration/launch-diagnostics.test.ts"]
+    },
+    {
+      "issue": 247,
+      "scope": "Deterministyczne testy integracyjne z procesami potomnymi, serwerem HTTP/WebSocket i migracją pod obciążeniem: jawny, uzasadniony limit testów i hooków oraz ograniczone (30 s) oczekiwania wewnętrzne na gotowość, bez osłabiania asercji.",
+      "relatedRequirementIds": ["C-F067", "C-N004", "C-N019"],
+      "referenceScreenIds": [],
+      "codePaths": [],
+      "testPaths": [
+        "tests/integration/jobs-process.test.ts",
+        "tests/integration/audit-retention-process.test.ts",
+        "tests/integration/audit-export.test.ts",
+        "tests/integration/audit-retention.test.ts",
+        "tests/integration/media-decode.test.ts",
+        "tests/integration/auth-http.test.ts",
+        "tests/integration/chat-realtime.test.ts",
+        "tests/integration/backup-restore.test.ts"
+      ]
+    },
+    {
+      "issue": 242,
+      "scope": "Mutacje domeny własnej a stan archiwum (D-23): superadmin nie zmienia domeny zarchiwizowanej firmy; stabilna odmowa 409 DOMAIN_COMPANY_ARCHIVED w transakcji z aktorem, rolą, firmą i stanem.",
+      "relatedRequirementIds": ["D-23", "C-F086", "C-F089"],
+      "codePaths": [
+        "docs/contracts/custom-domain-lifecycle.md",
+        "src/modules/domains/lifecycle.ts",
+        "src/modules/domains/http.ts"
+      ],
+      "testPaths": ["tests/integration/custom-domain-lifecycle.test.ts"]
     },
     {
       "issue": 23,
@@ -1016,6 +1342,119 @@
       ]
     },
     {
+      "issue": 35,
+      "scope": "Formularz pojazdu ADM-06 i ADM-07 na prawdziwym API floty (hosty firmy, kontekst superadmina przez PanelContext): sekcje w akordeonach z licznikiem bledow i nawigacja, szkic bez kompletu danych (walidacja tylko techniczna), checklist wymagan D-02 i podsumowanie brakow bez pustego dialogu, publikacja z potwierdzeniem i bledami serwera w polach, ukrycie i archiwizacja po potwierdzeniu, potwierdzenie zmiany sluga opublikowanego pojazdu, dirty guard useUnsavedChanges, konflikt wersji z zachowaniem wpisow (merge trojstronny), niepewny wynik 5xx/sieci z ponowieniem po odczycie stanu, sortOrder 0..2147483647, odczyt kategorii z nowego GET vehicle-categories. Poza zakresem: zdjecia (osobne zadanie), pola SEO pojazdu (API ich nie przyjmuje, D-01), podglad ADM-08, formularz po stronie superadmina (strony platformy).",
+      "relatedRequirementIds": ["C-F095", "C-F096", "C-F097", "C-F104", "FR-ADM-030", "FR-ADM-031", "FR-ADM-032", "FR-ADM-033", "FR-ADM-034", "FR-ADM-035", "DS-N12", "DS-N13", "DS-N15"],
+      "referenceScreenIds": ["ADM-06", "ADM-07"],
+      "unmappedStates": ["Podglad ADM-08 jest SHOULD i nie jest akcja formularza MVP."],
+      "codePaths": [
+        "src/app/admin/pojazdy/nowy/page.tsx",
+        "src/app/admin/pojazdy/[id]/page.tsx",
+        "src/components/admin/vehicle-form.tsx",
+        "src/components/admin/vehicle-form-model.ts",
+        "src/components/admin/vehicle-form.module.css",
+        "src/components/admin/fleet-api.ts",
+        "src/modules/fleet/http.ts",
+        "src/app/api/admin/vehicle-categories/route.ts",
+        "src/app/api/platform/companies/[organizationId]/vehicle-categories/route.ts",
+        "docs/contracts/fleet-crud-publication.md"
+      ],
+      "testPaths": [
+        "tests/unit/vehicle-form-model.test.ts",
+        "tests/e2e/admin-vehicle-form.spec.ts"
+      ]
+    },
+    {
+      "issue": 36,
+      "scope": "Zdjęcia pojazdu w formularzu ADM-07 na prawdziwym API mediów i floty (#29/#32; kontekst firmy lub superadmina przez PanelContext): upload wieloplikowy z limitami typu, rozmiaru i liczby (30) pokazanymi przed wyborem i sprawdzanymi per plik, postęp XHR, kolejka z ponowieniem pojedynczego pliku (ten sam Idempotency-Key po niepewnym wyniku, nowy po odrzuceniu zużywającym klucz), odczyt listy po niepewnym wyniku, stany przetwarzania (polling aż worker zapisze READY, komunikat o dłuższym przetwarzaniu), zdjęcie główne, kolejność przyciskami (bez drag-only) z zachowaniem fokusu, opis alternatywny (pusty = domyślny), usuwanie po potwierdzeniu z wyborem zamiennika cover dla opublikowanego pojazdu i wariantem „jedyne zdjęcie”, konflikty wersji jawne, stan z odpowiedzi serwera po odczycie listy, szkice opisów chronione przez strażnik formularza, tylko odczyt dla zarchiwizowanego pojazdu. Wspólny rdzeń uploadu (src/components/media/upload-core.ts) używa też MediaManager #31 bez zmiany zachowania. Bez dedykowanej trasy: sekcja „Zdjęcia” formularza pojazdu, więc bez nowej flagi routes. Formularz po stronie superadmina (strony platformy) pozostaje poza zakresem #35. Porównanie z Penpotem ADM-07 odroczone (#263).",
+      "relatedRequirementIds": ["C-F098", "FR-ADM-040", "FR-ADM-041", "FR-ADM-042", "FR-ADM-043", "FR-ADM-044", "FR-ADM-045", "FR-ADM-046", "DS-N17", "DS-N19", "D-02", "D-23"],
+      "referenceScreenIds": ["ADM-07"],
+      "codePaths": [
+        "src/components/media/upload-core.ts",
+        "src/components/admin/vehicle-photos.tsx",
+        "src/components/admin/vehicle-photos.module.css",
+        "src/components/admin/vehicle-form.tsx",
+        "src/components/admin/vehicle-form-model.ts",
+        "src/components/admin/fleet-api.ts",
+        "src/components/settings/media-manager.tsx",
+        "src/modules/media/vehicle-images-http.ts",
+        "docs/contracts/media-upload-processing.md"
+      ],
+      "stylePath": "src/components/admin/vehicle-photos.module.css",
+      "testPaths": [
+        "tests/unit/vehicle-photos.test.tsx",
+        "tests/unit/settings-media.test.tsx",
+        "tests/e2e/vehicle-photos.spec.ts"
+      ]
+    },
+    {
+      "issue": 37,
+      "scope": "Edycja logo i materiałów publicznych przez superadmina w kontekście firmy (FLOW-MVP-09, PLT-03): wejście z karty firmy (sekcja „Treści i materiały publiczne” z linkami do ustawień i sekcji wyglądu), podgląd wyglądu podąża za listą zapisaną na serwerze (nie za wybranym plikiem), oznaczenie zapisane/niezapisane per materiał (tekst i ikona), błędy plików z nazwą pliku i zachowaniem pozostałych materiałów oraz wpisanej treści, konflikt wersji i strażnik opuszczenia z #31. Samo wgranie, przetwarzanie, alt, kolejność i usuwanie to MediaManager z #31 na wspólnym rdzeniu uploadu z #36; powrót do karty zapewnia link kontekstu firmy w powłoce. Admin firmy nie otrzymuje akcji (widok tylko do odczytu z #31). Porównanie z Penpotem FLOW-MVP-09 odroczone (#263).",
+      "relatedRequirementIds": ["C-F023", "C-F081", "C-F082", "C-N048", "DS-N22"],
+      "referenceScreenIds": ["PLT-03", "FLOW-MVP-09"],
+      "codePaths": [
+        "src/components/platform/company-card.tsx",
+        "src/components/settings/media-manager.tsx",
+        "src/components/settings/settings-form.tsx",
+        "src/components/media/upload-core.ts",
+        "src/app/firmy/[organizationId]/ustawienia/page.tsx"
+      ],
+      "stylePath": "src/components/settings/settings.module.css",
+      "testPaths": [
+        "tests/unit/settings-media.test.tsx",
+        "tests/unit/company-card.test.tsx",
+        "tests/e2e/platform-public-materials.spec.ts"
+      ]
+    },
+    {
+      "issue": 47,
+      "scope": "Pełne zarządzanie firmą przez superadmina pod kartą firmy i chroniony podgląd (ADM-08, FLOW-MVP-11, PLT-03): trasy /firmy/{id}/pojazdy (lista #34), pojazdy/nowy i pojazdy/{id} (formularz #35 ze zdjęciami #36), pojazdy/{id}/kalendarz (#39) na wspólnych komponentach przez PanelContext platformy i zagnieżdżone API firmy; wejścia „Zarządzaj flotą” i „Podgląd strony (chroniony)” z karty firmy, linki „Podgląd” w liście i formularzu tylko w kontekście platformy; /firmy/{id}/podglad (strona główna oferty) i podglad/pojazdy/{id} renderowane po stronie serwera z modułu preview #46 po bramce platformy (host, rola, MFA, firma z URL), z baner „to nie jest publiczny adres”, informacją o wyłączonej stronie publicznej (okres/archiwum), noindex (meta i X-Robots-Tag), bez linków na adres publiczny i bez SEO, opis jako tekst. Superadmin działa jako własny aktor (audyt), w archiwum D-23 nadal zarządza flotą (komunikat o archiwizacji), firma B nie dostaje danych A, anonim bez danych. Poprawka platformContext (trasy /firmy/{id}). Bez zmian backendu; podgląd po stronie admina firmy (ADM-08 w panelu firmy) poza zakresem. Porównanie z Penpotem odroczone (#263).",
+      "relatedRequirementIds": ["C-F016", "C-F017", "C-F018", "C-F058", "C-F099", "C-F104", "DS-N22"],
+      "referenceScreenIds": ["ADM-08", "PLT-03", "FLOW-MVP-11"],
+      "codePaths": [
+        "src/app/firmy/[organizationId]/company-page.tsx",
+        "src/app/firmy/[organizationId]/pojazdy/page.tsx",
+        "src/app/firmy/[organizationId]/pojazdy/nowy/page.tsx",
+        "src/app/firmy/[organizationId]/pojazdy/[id]/page.tsx",
+        "src/app/firmy/[organizationId]/pojazdy/[id]/kalendarz/page.tsx",
+        "src/app/firmy/[organizationId]/podglad/page.tsx",
+        "src/app/firmy/[organizationId]/podglad/pojazdy/[id]/page.tsx",
+        "src/components/platform/company-fleet.tsx",
+        "src/components/platform/company-preview.tsx",
+        "src/components/platform/company-preview.module.css",
+        "src/components/platform/company-card.tsx",
+        "src/components/admin/fleet-api.ts",
+        "src/components/admin/vehicle-list.tsx",
+        "src/components/admin/vehicle-form.tsx",
+        "docs/contracts/preview.md"
+      ],
+      "stylePath": "src/components/platform/company-preview.module.css",
+      "testPaths": [
+        "tests/unit/platform-fleet.test.tsx",
+        "tests/e2e/platform-company-fleet.spec.ts"
+      ]
+    },
+    {
+      "issue": 34,
+      "scope": "Panel firmy ADM-04 i ADM-05 na prawdziwym API floty (hosty firmy, kontekst superadmina przez PanelContext): lista z wyszukiwaniem, filtrem publikacji, aktywnosci i dostepnosci dzis, paginacja, kolejnosc przyciskami z klawiatury (zapis /vehicles/reorder), menu Wiecej z Ukryj i Archiwizuj po potwierdzeniu z wersja wiersza, stany loading, pusta flota, brak wynikow i blad. Dashboard: opublikowane, aktywne, dostepne i niedostepne dzis (data Warszawy), najblizsze blokady z linkiem do kalendarza pojazdu, status strony i okresu. Poza zakresem: nawigacja paneli i wspolne stany dostepu (#14), formularz #35, kalendarz #38, filtr kategorii (brak listy kategorii w API), ostrzezenia jakosci danych i status czatu.",
+      "relatedRequirementIds": ["C-F095", "C-F097", "FR-ADM-010", "FR-ADM-020", "FR-ADM-021", "FR-ADM-022"],
+      "referenceScreenIds": ["ADM-04", "ADM-05", "OVR-10", "OVR-11"],
+      "unmappedStates": ["Uklad listy i filtrow zalezy od szerokosci obszaru tresci (sidebar 240 px): karty do okolo 1200 px viewportu, tabela ADM-05 D od okolo 1280 px (prog kontenera 1040 px = 1280 px minus sidebar 240 px).", "Lista pojazdow nie ma sortowania kolumny Ostatnia zmiana z makiety ADM-05 D: API floty sortuje tylko po sortOrder (kolejnosc publiczna).", "Akcje Dodaj pojazd, Edytuj, Kalendarz i Dodaj blokade sa ukryte, dopoki ich strony nie istnieja (flagi routes w fleet-api.ts; #35 wlacza formularz, #38 kalendarz pojazdu), zeby nie bylo martwych linkow.", "Karta Blokady w 7 dni i najblizsze blokady licza pierwsze 100 pojazdow floty (odczyt kalendarza floty ma limit pageSize 100).", "Porownanie Mobile ADM-04/05 z Penpotem nie bylo powtorzone przy tej poprawce."],
+      "codePaths": [
+        "src/app/admin/page.tsx",
+        "src/app/admin/company-panel.tsx",
+        "src/app/admin/pojazdy/page.tsx",
+        "src/components/admin/dashboard.tsx",
+        "src/components/admin/vehicle-list.tsx",
+        "src/components/admin/fleet-api.ts",
+        "src/components/admin/admin.module.css"
+      ],
+      "testPaths": [
+        "tests/unit/admin-fleet.test.ts",
+        "tests/e2e/admin-fleet.spec.ts"
+      ]
+    },
+    {
       "issue": 41,
       "scope": "Publiczny home i katalog firmy (SSR, tylko PUBLISHED): pusta oferta, wyniki, brak wynikow, filtry kategoria/miejsca/skrzynia/daty/sortowanie w URL (formularz GET, Back odtwarza stan, daty w linkach kart i kontaktu), blad zapytania, 404 aktywnej firmy (PUB-07), blad (PUB-08), strona wylaczona (PUB-09) i nieznany adres (PUB-10) bez prywatnej przyczyny; kopie M/D wg Penpota; CSP z nonce. Szczegoly pojazdu, kontakt i prawo to #42-#44.",
       "relatedRequirementIds": ["C-F090", "C-F091", "C-F092", "C-F108", "C-F109", "C-F110", "C-F111", "C-F113", "C-F114", "FR-PUB-001", "FR-PUB-003", "FR-PUB-010", "FR-PUB-011", "FR-PUB-012", "FR-PUB-013", "FR-PUB-014", "FR-PUB-015"],
@@ -1049,13 +1488,49 @@
       "codePaths": [
         "src/app/pojazdy/[slug]/page.tsx",
         "src/components/public/vehicle-gallery.tsx",
-        "src/components/public/availability-calendar.tsx",
+        "src/components/public/availability-panel.tsx",
         "src/components/public/public.module.css",
         "src/modules/public-offer/page-data.ts",
         "src/modules/public-offer/presentation.ts"
       ],
       "testPaths": [
         "tests/unit/public-presentation.test.ts",
+        "tests/e2e/public-vehicle.spec.ts"
+      ]
+    },
+    {
+      "issue": 267,
+      "scope": "Projekt trusted-ingress w playwright.config.ts uruchamia wszystkie specyfikacje poza auth-production i auth-host (testIgnore zamiast listy testMatch), żeby dodanie e2e nie wymagało edycji configu i nie powodowało konfliktów; lista playwright --list per projekt identyczna przed i po.",
+      "relatedRequirementIds": [],
+      "referenceScreenIds": [],
+      "codePaths": ["playwright.config.ts", "docs/development/CI.md"],
+      "testPaths": []
+    },
+    {
+      "issue": 251,
+      "scope": "Korekty #43 z QA: odwrócony lub nierozpoznany zakres z URL pokazuje właściwy komunikat (kolejność, data, długość) zamiast braku dat; dni minione (szary tekst bez przekreślenia) odróżnione od niedostępnych (przekreślenie, ikona krzyżyka, obramowanie) z legendą (PUB-03, DS-AVL-004/005).",
+      "relatedRequirementIds": ["FR-PUB-023", "FR-PUB-024", "FR-PUB-025", "FR-PUB-026", "DS-N11", "DS-N16"],
+      "referenceScreenIds": ["PUB-03"],
+      "codePaths": ["src/components/public/availability-panel.tsx", "src/components/public/public.module.css"],
+      "stylePath": "src/components/public/public.module.css",
+      "testPaths": ["tests/e2e/public-availability.spec.ts"]
+    },
+    {
+      "issue": 43,
+      "scope": "Interaktywna dostepnosc na publicznej stronie pojazdu (PUB-03): kalendarz miesieczny z nawigacja do roku naprzod i wyborem zakresu klikiem, alternatywne pola dat, wynik dostepny/niedostepny bez przyczyny (check/calendar/batch API #33), walidacja zakresu (od dzisiaj Europe/Warsaw, konce wlacznie, 1-365 dni), loading i blad czyszcza poprzedni pozytywny wynik, spozniona odpowiedz nie nadpisuje nowszej (bilet najnowszego zadania), zmiana pol wycofuje wynik, inne auta dostepne w tych samych datach, kontakt dostaje dokladny pojazd i termin, dzialanie bez skryptu jako formularz GET, alternatywy z do 50 kandydatow bez falszywego zadne przy wiekszej flocie, kalendarz DS-N16 z roving tabindex, strzalkami i pelna nazwa daty. Penpot PUB-03 (390/1440): blocked, wtyczka zawieszona.",
+      "relatedRequirementIds": ["C-F094", "C-F102", "C-F105", "FR-PUB-023", "FR-PUB-024", "FR-PUB-025", "FR-PUB-026", "DS-N11", "DS-N16"],
+      "referenceScreenIds": ["PUB-02", "PUB-03"],
+      "codePaths": [
+        "src/app/pojazdy/[slug]/page.tsx",
+        "src/components/public/availability-panel.tsx",
+        "src/components/public/contact-cta.tsx",
+        "src/components/public/public.module.css",
+        "src/modules/public-offer/availability-client.ts",
+        "src/modules/public-offer/presentation.ts"
+      ],
+      "testPaths": [
+        "tests/unit/availability-client.test.ts",
+        "tests/e2e/public-availability.spec.ts",
         "tests/e2e/public-vehicle.spec.ts"
       ]
     },
@@ -1224,6 +1699,39 @@
       ]
     },
     {
+      "issue": 44,
+      "scope": "PUB-04 kontakt (kanały tel/WhatsApp/e-mail z kontekstem pojazdu i terminu, kopiowanie, godziny, adres, link do mapy, jawny stan braku kanału) oraz PUB-05/06 dokumenty firmy (tekst, link lub jawny stan braku). Strona niczego nie zapisuje; bramka całej strony przy każdym odczycie. Penpot PUB-04 M+D odczytany 08.11 (struktura i teksty): układ zgodny; treści DEMO makiety nie są kopiowane, aplikacja pokazuje dane firmy. PUB-05/06 odczytane przez CR 08.11 (struktura tekstów). Różnica wobec makiety: makieta ma eyebrow, lead, \"Ostatnia aktualizacja\", spis treści, numerowane nagłówki sekcji i link powrotny do pojazdu; aplikacja pokazuje plain text pre-wrap z h1 i linkiem kontaktowym (dane to plain text, brak pola daty aktualizacji w DTO) — pełna struktura wymaga decyzji produktowej, zapisana w osobnym issue rozbieżności. Regulamin jest opcjonalny (SPEC 9.6): bez treści i linku to 404 PUB-07, bez linku na kontakcie.",
+      "relatedRequirementIds": ["C-F006", "C-F106", "C-F107", "C-F112", "FR-PUB-030", "FR-PUB-031", "FR-PUB-032", "FR-PUB-033", "FR-PUB-034", "FR-PUB-035", "FR-PUB-036", "FR-PUB-037", "FR-PUB-038", "FR-PUB-039", "FR-PUB-040", "FR-PUB-041", "FR-PUB-042"],
+      "referenceScreenIds": ["PUB-04", "PUB-05", "PUB-06"],
+      "codePaths": [
+        "src/app/kontakt/page.tsx",
+        "src/app/polityka-prywatnosci/page.tsx",
+        "src/app/regulamin/page.tsx",
+        "src/components/public/contact-page.tsx",
+        "src/components/public/legal-page.tsx",
+        "src/components/public/copy-button.tsx",
+        "src/components/public/contact.module.css",
+        "src/modules/public-offer/contact-data.ts",
+        "src/modules/public-offer/contact-presentation.ts"
+      ],
+      "testPaths": ["tests/unit/contact-legal.test.tsx", "tests/e2e/public-contact.spec.ts"]
+    },
+    {
+      "issue": 235,
+      "scope": "PUB-04 wygląd po QA #44: hero z eyebrow, ciemna karta preferowanego kanału z nagłówkiem akcji, pozostałe kanały w kartach (desktop 2 kolumny pod pełnoszerokim preferowanym), pełnoszerokie przyciski na mobile, akcje „Zadzwoń teraz”/„Otwórz WhatsApp →”/„Otwórz w mapach”, dekoracyjna grafika mapy, blok „Przygotuj do rozmowy” bez kontekstu; komunikat po kopiowaniu i temat e-maila bez nowej linii. Logika kontaktu bez zmian. Porównanie z Penpotem PUB-04 M/D nie wykonane w tym przebiegu (wtyczka Penpot uśpiona, timeout); oparte na eksportach i opisie QA #44 oraz SPEC 9.4. Makieta ma też „Obszar odbioru” i obszar działania: brak pola w DTO, nie dodano (osobna decyzja).",
+      "relatedRequirementIds": ["C-F106", "FR-PUB-030", "FR-PUB-031", "FR-PUB-032"],
+      "referenceScreenIds": ["PUB-04"],
+      "codePaths": [
+        "src/components/public/contact-page.tsx",
+        "src/components/public/contact.module.css",
+        "src/components/public/copy-button.tsx",
+        "src/components/public/public-chrome.tsx",
+        "src/components/public/public.module.css",
+        "src/modules/public-offer/read.ts"
+      ],
+      "testPaths": ["tests/unit/contact-legal.test.tsx", "tests/e2e/public-contact.spec.ts"]
+    },
+    {
       "issue": 45,
       "scope": "MKT-01 marketingowy onepage Autervy na hoście MARKETING (SSR, metadane i canonical, kontakt nieaktywny do czasu prawdziwych danych); materiały AUT-01–05 jako DEMO (D-17).",
       "relatedRequirementIds": ["C-F001", "C-F019", "C-F020", "C-F021", "C-F138", "C-F139", "C-F140", "C-F141", "C-F142", "C-R018", "DS-N22", "DS-N23"],
@@ -1237,6 +1745,127 @@
         "src/modules/marketing/metadata.ts"
       ],
       "testPaths": ["tests/unit/marketing-page.test.tsx", "tests/e2e/marketing.spec.ts"]
+    },
+    {
+      "issue": 73,
+      "scope": "ADM-16 aktywne sesje konta (/admin/konto/sesje, /konto/sesje): własne sesje z nieprzejrzystą referencją, bieżąca oznaczona, bez IP i user agenta; zakończenie jednej albo pozostałych po świeżym reauth MFA z celem end-sessions (jeden dowód, ponowienie 503 MFA_RETRY z tym samym dowodem); niepewny wynik 5xx potwierdza dopiero odczyt listy z serwera; sukces tylko po potwierdzeniu serwera.",
+      "relatedRequirementIds": ["C-F043", "FR-ADM-081"],
+      "referenceScreenIds": ["ADM-16", "PLT-10"],
+      "codePaths": [
+        "src/app/admin/konto/sesje/page.tsx",
+        "src/app/konto/sesje/page.tsx",
+        "src/components/account/sessions-page.tsx",
+        "src/components/account/sessions-view.tsx",
+        "src/components/account/sessions-model.ts",
+        "src/components/account/account-view.tsx",
+        "src/components/account/account.module.css"
+      ],
+      "testPaths": ["tests/unit/sessions-view.test.tsx", "tests/e2e/account-ui.spec.ts"]
+    },
+    {
+      "issue": 53,
+      "scope": "PLT-09 skrzynka superadmina (/wiadomosci): lista rozmów (firma, ostatnia wiadomość, czas, nowe tekstem, filtr archiwum; bez wyszukiwania, bo kontrakt go nie przewiduje), jeden kanał platformy /ws/platform z regułą klucza (version, lastSeq, readSeq) i odświeżaniem co 30 s, wspólny widok rozmowy z #52 (ChatPanel) z jednoznacznym odbiorcą, osobne szkice i niewysłane wiadomości per (konto, rozmowa), przełączanie bez dialogu i bez utraty szkicu (remount per firma, wynik starego żądania zostaje przy swojej rozmowie), archiwum tylko do odczytu (409 CHAT_ORGANIZATION_ARCHIVED), split-view od 1024 px, osobne widoki i Wstecz poniżej, wejście z karty firmy (?firma=). Bez załączników i poczty. Porównanie z Penpotem DEFERRED (#263).",
+      "relatedRequirementIds": ["C-F121", "C-F122", "C-F123", "C-F124", "C-F134", "C-F135", "C-F136", "C-F137", "DS-N09"],
+      "referenceScreenIds": ["PLT-09"],
+      "scenarioStates": {
+        "mobile": "PLT-09 / Messages / Mobile / state=conversation",
+        "desktop": "PLT-09 / Messages / Desktop / state=split-view"
+      },
+      "codePaths": [
+        "src/app/wiadomosci/page.tsx",
+        "src/components/platform/message-inbox.tsx",
+        "src/components/platform/inbox-state.ts",
+        "src/components/platform/inbox.module.css",
+        "src/components/platform/company-card.tsx",
+        "src/components/chat/chat-panel.tsx",
+        "src/components/chat/chat.module.css",
+        "src/components/panel/panel-shell.tsx"
+      ],
+      "testPaths": ["tests/unit/inbox-state.test.ts", "tests/unit/message-inbox.test.tsx", "tests/unit/chat-panel.test.tsx", "tests/e2e/messages-inbox.spec.ts"]
+    },
+    {
+      "issue": 52,
+      "scope": "TEN-11 czat firmy z Autervą (/admin/czat): historia i starsze strony, wysyłka z trwałym potwierdzeniem i tym samym clientMessageId przy ponowieniu, statusy Wysłano/Przeczytano, pisanie, wznowienie połączenia od kursora, 4401 bez ponownego łączenia, read po ok. 500 ms widoczności, akcja Nowe wiadomości bez wymuszonego scrolla, szkic lokalny per (konto, rozmowa) usuwany przy wylogowaniu i wyjęty z guardu niezapisanych zmian, wskaźnik nowych wiadomości w nawigacji. Bez załączników i poczty. Widok superadmina (skrzynka, rozmowa w kontekście firmy) poza zakresem.",
+      "relatedRequirementIds": ["C-F115", "C-F116", "C-F117", "C-F118", "C-F119", "C-F120", "C-F121", "C-F122", "C-F123", "C-F124", "C-F125", "C-F126", "C-F127", "C-F128", "C-F129", "C-F130", "C-F131", "C-F132", "C-F133", "C-N051", "C-N054", "DS-N09"],
+      "referenceScreenIds": ["TEN-11"],
+      "codePaths": [
+        "src/app/admin/czat/page.tsx",
+        "src/app/admin/page.tsx",
+        "src/components/chat/chat-panel.tsx",
+        "src/components/chat/chat-protocol.ts",
+        "src/components/chat/draft-store.ts",
+        "src/components/chat/chat.module.css",
+        "src/components/panel/chat-unread.tsx",
+        "src/components/panel/panel-shell.tsx",
+        "src/lib/client-uuid.ts"
+      ],
+      "testPaths": ["tests/unit/chat-protocol.test.ts", "tests/unit/chat-panel.test.tsx", "tests/e2e/chat-ui.spec.ts"]
+    },
+    {
+      "issue": 56,
+      "scope": "Bezpieczna instalowalna PWA panelu firmy: manifest (id, start_url i scope /admin/), ikony PNG i maskable, service worker rejestrowany wyłącznie z layoutu /admin (host firmy; host platformy, marketingu i publiczny odpowiadają 404 na /sw.js, manifest i ekran offline), precache tylko /_next/static/ i neutralnego ekranu offline, nawigacje NetworkOnly z fallbackiem offline i ponowieniem, brak background sync i kolejki offline; aktualizacja workera czeka na zgodę użytkownika i przy niezapisanym formularzu przechodzi przez guard #14; wylogowanie i wygaśnięcie sesji usuwają cache inne niż wersjonowany precache; chip Online/Offline (tekst + ikona) i przycisk instalacji w shellu. Ekran offline jest statyczny (/admin/offline.html), bo wymaga działania bez sieci i bez aplikacji; trasa ADM-18 /admin/offline w SPEC odpowiada temu plikowi. Penpot ADM-18/ADM-19: DEFERRED (#263), nie próbowano porównania; rzeczywiste Android Chrome / iOS Safari i VoiceOver: DEFERRED (#97).",
+      "relatedRequirementIds": ["C-F143", "C-F144", "C-F145", "C-F146", "FR-PWA-001", "FR-PWA-002", "FR-PWA-003", "FR-PWA-004", "FR-PWA-005", "C-N031"],
+      "referenceScreenIds": ["ADM-18", "ADM-19", "OVR-16"],
+      "codePaths": [
+        "src/app/sw.ts",
+        "src/app/admin/layout.tsx",
+        "src/components/pwa/pwa-provider.tsx",
+        "src/components/panel/panel-shell.tsx",
+        "src/components/panel/panel.module.css",
+        "public/admin/manifest.webmanifest",
+        "public/admin/offline.html",
+        "public/admin/offline.css",
+        "next.config.mjs"
+      ],
+      "testPaths": [
+        "tests/unit/pwa-provider.test.tsx",
+        "tests/unit/host-route-policy.test.ts",
+        "tests/e2e/pwa.spec.ts"
+      ]
+    },
+    {
+      "issue": 234,
+      "scope": "Naruszenie CSP przez <style> wstrzykiwany przez blokadę przewijania Radix (menu panelu, OVR-13): nonce bieżącego dokumentu (odczyt z DOM, przyjęty raz, nie z propsa RSC) przekazany do runtime webpacka bez unsafe-inline; asercja e2e braku naruszeń przy otwartym menu na desktopie i mobile oraz po router.refresh().",
+      "relatedRequirementIds": ["C-F018", "DS-N07"],
+      "referenceScreenIds": ["OVR-13", "ADM-04"],
+      "codePaths": [
+        "src/app/layout.tsx",
+        "src/components/csp-nonce.tsx"
+      ],
+      "testPaths": ["tests/e2e/panel-shell.spec.ts"]
+    },
+    {
+      "issue": 25,
+      "scope": "PLT-04 formularz prerejestracji firmy (/firmy/nowa) i karta firmy z zaproszeniem administratora (/firmy/{id}): osobny wynik zapisu i wysyłki, resend, cofnięcie, UNCERTAIN wymaga cofnięcia przed nowym wydaniem, klucz idempotencji zachowany przy 5xx, ochrona niezapisanych zmian przez guard shellu (OVR-13). UI nie twierdzi o publikacji po zapisie. Lista firm (PLT-01/02) poza zakresem. Domena własna (opcjonalna, C-F086/087/089): po zapisie na karcie firmy przez API #23 (dodanie, weryfikacja, aktywacja, usunięcie), stany oczekiwania/gotowa/aktywna i niepewny wynik 5xx bez fałszywego sukcesu; nie jest publikacją. Poza zakresem: C-F020/021 (poza aplikacją), C-F023 i część C-R008/R011 (wygląd publiczny, telefon, publiczny e-mail, materiały) → #31; C-F037/C-F038 (ekran aktywacji) → #26.",
+      "relatedRequirementIds": ["C-F022", "C-F024", "C-F025", "C-F026", "C-F027", "C-F028", "C-F034", "C-F035", "C-F036", "C-F086", "C-F087", "C-F089", "C-R008", "C-R009", "C-R010", "C-R011", "C-R012"],
+      "referenceScreenIds": ["PLT-04", "OVR-13"],
+      "codePaths": [
+        "src/app/firmy/nowa/page.tsx",
+        "src/app/firmy/[organizationId]/page.tsx",
+        "src/components/platform/new-company-form.tsx",
+        "src/components/platform/company-card.tsx",
+        "src/components/platform/company-domain.tsx",
+        "src/components/platform/platform-gate.ts",
+        "src/components/platform/platform.module.css",
+        "src/modules/organizations/new-company-form.ts",
+        "src/modules/invitations/view-state.ts"
+      ],
+      "testPaths": ["tests/unit/new-company-form.test.ts", "tests/unit/company-card.test.tsx", "tests/unit/company-domain.test.tsx", "tests/e2e/platform-company-form.spec.ts"]
+    },
+    {
+      "issue": 249,
+      "scope": "Teksty czatu firmy według TEN-11 (podtytuł „Firma · kontakt z Autervą”, status Online, podpis własnych wiadomości nazwą firmy, podpowiedź szkicu) bez zmian logiki; guard niewysłanej wiadomości z etykietą „Wyjdź bez wysyłania”, bo wpis zostaje w storage (odstępstwo od stałych etykiet OVR-13 do decyzji agenta Penpota). Statusy wiadomości tylko Wysłano/Przeczytano (C-F121). Porównanie z Penpotem DEFERRED (#263).",
+      "relatedRequirementIds": ["C-F121", "C-F122", "C-F132", "C-F133", "DS-N09"],
+      "referenceScreenIds": ["TEN-11", "OVR-13"],
+      "codePaths": [
+        "src/components/chat/chat-panel.tsx",
+        "src/components/chat/chat.module.css",
+        "src/app/admin/czat/page.tsx",
+        "src/components/panel/unsaved-changes-dialog.tsx",
+        "src/components/panel/unsaved-changes-guard.tsx",
+        "src/components/panel/panel-shell.tsx"
+      ],
+      "testPaths": ["tests/unit/chat-panel.test.tsx"]
     }
   ],
   "sources": [

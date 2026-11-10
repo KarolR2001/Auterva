@@ -16,6 +16,7 @@ type SearchParams = Promise<{
   returnTo?: string | string[];
   recoverCodes?: string | string[];
   session?: string | string[];
+  password?: string | string[];
 }>;
 
 // Better Auth keeps a pending MFA challenge in a short-lived `*.two_factor` cookie.
@@ -109,6 +110,7 @@ export async function AuthPage({
         returnTo={returnTo}
         recoverCodes={recoverCodes}
         sessionExpired={params.session === "expired"}
+        passwordChanged={params.password === "changed"}
       />
     );
   return (

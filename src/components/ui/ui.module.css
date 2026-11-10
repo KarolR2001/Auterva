@@ -188,6 +188,11 @@
   font-size: var(--font-size-16);
   line-height: var(--line-height-24);
 }
+.textarea {
+  min-height: calc(var(--input-height) * 2);
+  padding-block: var(--space-3);
+  resize: vertical;
+}
 .textInput::placeholder {
   color: var(--text-secondary);
 }

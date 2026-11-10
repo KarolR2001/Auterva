@@ -1,10 +1,13 @@
-import {
-  cloneElement,
-  type InputHTMLAttributes,
-  type ReactElement,
-} from "react";
+import { cloneElement, type ReactElement } from "react";
 
 import styles from "./ui.module.css";
+
+export type ControlProps = {
+  id?: string;
+  required?: boolean;
+  "aria-describedby"?: string;
+  "aria-invalid"?: boolean | "true" | "false" | "grammar" | "spelling";
+};
 
 type FormFieldProps = {
   id: string;
@@ -13,7 +16,7 @@ type FormFieldProps = {
   optionalLabel?: string;
   hint?: string;
   error?: string;
-  children: ReactElement<InputHTMLAttributes<HTMLInputElement>>;
+  children: ReactElement<ControlProps>;
 };
 
 export function FormField({

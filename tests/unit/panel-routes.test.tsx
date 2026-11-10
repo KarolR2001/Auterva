@@ -8,6 +8,8 @@ const dependencies = vi.hoisted(() => ({
   requireAuthorizedActor: vi.fn(),
   requireScopedActor: vi.fn(),
   findOrganization: vi.fn(),
+  findHost: vi.fn(),
+  getServiceStatus: vi.fn(),
   getSession: vi.fn(),
   resolveHostMapping: vi.fn(),
 }));
@@ -25,8 +27,12 @@ vi.mock("@/lib/auth", () => ({
   auth: { api: { getSession: dependencies.getSession } },
 }));
 vi.mock("@/lib/prisma", () => ({
-  prisma: { organization: { findUnique: dependencies.findOrganization } },
+  prisma: {
+    organization: { findUnique: dependencies.findOrganization },
+    hostMapping: { findFirst: dependencies.findHost },
+  },
 }));
+vi.mock("@/modules/reminders/read", () => ({ getServiceStatus: dependencies.getServiceStatus }));
 vi.mock("@/modules/tenancy/request-context", () => ({
   resolveRequestArea: dependencies.resolveRequestArea,
   requireRequestContext: dependencies.requireRequestContext,
@@ -45,6 +51,7 @@ vi.mock("@/modules/auth/authorization", () => ({
 
 import AdminPage from "../../src/app/admin/page";
 import HomePage from "../../src/app/page";
+import CompaniesPage from "../../src/app/firmy/page";
 import NotFound from "../../src/app/not-found";
 
 beforeEach(() => {
@@ -100,11 +107,18 @@ describe("serwerowe wejścia paneli", () => {
       sessionId: "sesja-alfa",
     });
     dependencies.findOrganization.mockResolvedValue({ name: "Firma Alfa" });
+    dependencies.findHost.mockResolvedValue(null);
+    dependencies.getServiceStatus.mockResolvedValue({
+      organizationId: "firma-alfa", periodVersion: 1, serverTime: "2026-11-09T09:00:00.000Z",
+      period: { headline: "PAID", paidThrough: "2026-12-31", paidValid: true, trialEndsAt: null, trialValid: false,
+        effectiveEndsAt: null, effectiveSource: "PAID" },
+      site: { state: "VISIBLE", publicVisible: true }, expiredNotice: null, reminders: [],
+    });
 
     const html = renderToStaticMarkup(await AdminPage());
     expect(html).toContain("Firma Alfa");
     expect(html).toContain('aria-label="Nawigacja panelu"');
-    expect(html).toContain("Panel jest w przygotowaniu.");
+    expect(html).toContain("Ładowanie panelu");
     expect(dependencies.findOrganization).toHaveBeenCalledWith({
       where: { id: "firma-alfa" },
       select: { name: true },
@@ -235,5 +249,21 @@ describe("panelowe 404 (ADM-20)", () => {
       expect(html).toBe("<main><h1>Nie znaleziono strony</h1></main>");
     }
     expect(dependencies.findOrganization).not.toHaveBeenCalled();
+  });
+
+  it("/firmy ma tę samą politykę co `/`: anonim idzie do /login, admin firmy dostaje 404, host spoza platformy 404", async () => {
+    dependencies.resolveRequestArea.mockResolvedValue({ area: "PLATFORM", organizationId: null });
+    dependencies.requireAuthorizedActor.mockResolvedValue(null);
+    dependencies.getSession.mockResolvedValue(null);
+    await expect(CompaniesPage()).rejects.toThrow("REDIRECT:/login");
+    await expect(HomePage()).rejects.toThrow("REDIRECT:/login");
+
+    dependencies.getSession.mockResolvedValue({ user: { id: "admin-firmy" } });
+    dependencies.requireScopedActor.mockResolvedValue(null);
+    await expect(CompaniesPage()).rejects.toThrow("NOT_FOUND");
+    await expect(HomePage()).rejects.toThrow("NOT_FOUND");
+
+    dependencies.resolveRequestArea.mockResolvedValue({ area: "COMPANY_ADMIN", organizationId: "firma-alfa" });
+    await expect(CompaniesPage()).rejects.toThrow("NOT_FOUND");
   });
 });

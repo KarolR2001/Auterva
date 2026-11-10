@@ -3,7 +3,7 @@ import { routeAllowedForArea } from "../../src/modules/tenancy/host-route-policy
 
 test.each([
   ["MARKETING", "/", true], ["MARKETING", "/robots.txt", true], ["MARKETING", "/sitemap.xml", true], ["COMPANY_ADMIN", "/sitemap.xml", false], ["MARKETING", "/admin/", false], ["MARKETING", "/api/auth/get-session", false],
-  ["PLATFORM", "/", true], ["PLATFORM", "/firmy/123", true], ["PLATFORM", "/api/platform/organizations", true],
+  ["PLATFORM", "/", true], ["PLATFORM", "/reset-hasla/abc", true], ["COMPANY_ADMIN", "/reset-hasla", false], ["COMPANY_ADMIN", "/admin/reset-hasla/abc", true], ["PLATFORM", "/firmy/123", true], ["PLATFORM", "/api/platform/organizations", true],
   ["PLATFORM", "/api/auth/sign-in/email", true], ["PLATFORM", "/admin/", false],
   ["COMPANY_ADMIN", "/admin/", true], ["COMPANY_ADMIN", "/admin/pojazdy", true],
   ["COMPANY_ADMIN", "/api/auth/get-session", true], ["COMPANY_ADMIN", "/api/admin/vehicles", true],
@@ -26,4 +26,12 @@ test("PWA assets are scoped to the company admin host", () => {
   expect(routeAllowedForArea("COMPANY_ADMIN", "/admin/manifest.webmanifest")).toBe(true);
   expect(routeAllowedForArea("COMPANY_PUBLIC", "/sw.js")).toBe(false);
   expect(routeAllowedForArea("PLATFORM", "/admin/manifest.webmanifest")).toBe(false);
+});
+
+test("PWA offline screen and icons are served only on the company admin host", () => {
+  for (const path of ["/admin/offline.html", "/admin/offline.css", "/admin/icon-192.png", "/admin/icon-512.png", "/admin/icon-maskable-512.png"]) {
+    expect(routeAllowedForArea("COMPANY_ADMIN", path)).toBe(true);
+    for (const area of ["MARKETING", "PLATFORM", "COMPANY_PUBLIC"] as const) expect(routeAllowedForArea(area, path)).toBe(false);
+  }
+  for (const area of ["MARKETING", "PLATFORM", "COMPANY_PUBLIC"] as const) expect(routeAllowedForArea(area, "/sw.js")).toBe(false);
 });

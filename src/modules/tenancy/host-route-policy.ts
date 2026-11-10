@@ -2,7 +2,7 @@ import type { ActiveHost } from "./host-registry";
 
 const byArea: Record<ActiveHost["area"], readonly string[]> = {
   MARKETING: ["/", "/polityka-prywatnosci", "/regulamin", "/robots.txt", "/sitemap.xml"],
-  PLATFORM: ["/", "/login", "/mfa", "/firmy", "/wiadomosci", "/konto", "/api/platform", "/api/auth", "/robots.txt"],
+  PLATFORM: ["/", "/login", "/mfa", "/reset-hasla", "/firmy", "/wiadomosci", "/konto", "/api/platform", "/api/auth", "/robots.txt"],
   COMPANY_ADMIN: ["/admin", "/api/admin", "/api/auth", "/sw.js", "/robots.txt"],
   COMPANY_PUBLIC: ["/", "/pojazdy", "/kontakt", "/polityka-prywatnosci", "/regulamin", "/robots.txt", "/sitemap.xml", "/api/public"],
 };

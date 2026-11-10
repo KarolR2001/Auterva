@@ -94,7 +94,7 @@ function contactChannels(settings: Settings | null, message: string | null, subj
   const href = (kind: Channel, value: string) => {
     if (kind === "PHONE") return `tel:${value.replace(/[^\d+]/g, "")}`;
     if (kind === "WHATSAPP") return `https://wa.me/${value.replace(/\D/g, "")}${message ? `?text=${encodeURIComponent(message)}` : ""}`;
-    return `mailto:${value}${message ? `?subject=${encodeURIComponent(subject ?? "")}&body=${encodeURIComponent(message)}` : ""}`;
+    return `mailto:${value}${message ? `?subject=${encodeURIComponent((subject ?? "").replace(/\s+/g, " ").trim())}&body=${encodeURIComponent(message)}` : ""}`;
   };
   const preferred = settings?.contactChannel;
   return channelOrder.flatMap((kind) => values[kind] ? [{ kind, value: values[kind]!, href: href(kind, values[kind]!),
