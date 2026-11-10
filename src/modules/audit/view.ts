@@ -25,12 +25,15 @@ export const actionLabels: Record<string, string> = {
   MFA_BACKUP_CODES_ROTATED: "Nowa lista kodów odzyskiwania MFA", MFA_RECOVERY_STARTED: "Rozpoczęcie odzyskiwania MFA",
   MFA_OPERATOR_RECOVERY: "Odzyskanie MFA przez operatora", BACKUP_RESTORED: "Przywrócenie z kopii",
   COMPANY_RESTORED_FROM_BACKUP: "Przywrócenie firmy z kopii",
+  EXPORT_REQUESTED: "Zlecenie eksportu danych", EXPORT_READY: "Eksport danych gotowy", EXPORT_FAILED: "Eksport danych nieudany",
+  EXPORT_DOWNLOADED: "Pobranie eksportu danych", EXPORT_EXPIRED: "Eksport danych wygasł",
   CALENDAR_FEED_CREATED: "Utworzenie linku kalendarza", CALENDAR_FEED_ROTATED: "Odnowienie linku kalendarza",
   CALENDAR_FEED_REVOKED: "Odwołanie linku kalendarza",
 };
 export const entityLabels: Record<string, string> = {
   User: "Konto", Organization: "Firma", Invitation: "Zaproszenie", ServicePeriod: "Okres usługi", HostMapping: "Adres (domena)",
   SiteSettings: "Ustawienia strony", CalendarFeedToken: "Link kalendarza", Vehicle: "Pojazd", VehicleImage: "Zdjęcie pojazdu", AvailabilityBlock: "Blokada terminu",
+  CompanyExport: "Eksport danych",
 };
 export const roleLabels: Record<string, string> = {
   ADMIN_FIRMY: "Administrator firmy", SUPERADMIN_AUTERVA: "Superadmin Autervy", OPERATOR: "Operator Autervy",

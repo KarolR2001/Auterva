@@ -128,6 +128,39 @@
       ]
     },
     {
+      "issue": 328,
+      "scope": "Eksport danych firmy (D-40, E1-E8, E13): żądanie przez admina firmy i superadmina w kontekście firmy po świeżym reauth MFA (purpose export-company-data), job w tle, snapshot REPEATABLE READ, ZIP z JSON i CSV (ochrona przed formułami), blokady z notatkami, okres usługi, zdjęcia jako metadane, bez audytu i czatu; plik szyfrowany AES-256-GCM w prywatnym storage z prefiksem firmy, pobranie uwierzytelnionym GET przez 24 h, 1 aktywny i 3 na dobę, sweep po terminie, audyt EXPORT_*, superadmin w archiwum przez 30 dni, restore nie wskrzesza eksportów. Bez UI: ekran „Eksport danych” czeka na makietę Penpota (osobne zadania Penpot i Frontend); kształt API w docs/contracts/company-export-implementation.md.",
+      "relatedRequirementIds": [
+        "C-N006",
+        "C-N029",
+        "D-40",
+        "FR-SAS-024"
+      ],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261110170000_company_export_issue_328/migration.sql",
+        "src/modules/company-export/service.ts",
+        "src/modules/company-export/snapshot.ts",
+        "src/modules/company-export/worker.ts",
+        "src/modules/company-export/artifact.ts",
+        "src/modules/company-export/csv.ts",
+        "src/modules/company-export/zip.ts",
+        "src/modules/company-export/http.ts",
+        "src/modules/auth/reauth-proof.ts",
+        "src/app/api/admin/export/route.ts",
+        "src/app/api/platform/companies/[organizationId]/export/route.ts",
+        "src/modules/media/worker.ts",
+        "src/modules/backup/restore.ts",
+        "docs/contracts/company-export-implementation.md"
+      ],
+      "testPaths": [
+        "tests/integration/company-export.test.ts",
+        "tests/integration/account-sessions-reauth.test.ts",
+        "tests/unit/company-export-files.test.ts"
+      ]
+    },
+    {
       "issue": 320,
       "scope": "Kosmetyka z odbioru #263: teksty ADM-02 (tekst pomocniczy pola, przycisk „Wyślij link resetujący”, strzałka w linku powrotu, stopka o neutralnym potwierdzeniu) i ADM-03 (etykieta „Powtórz hasło”, przycisk „Ustaw nowe hasło”, krótki wstęp, ostrzeżenie o wylogowaniu jako podpowiedź pola, stopka „Link jednorazowy” (bez twierdzenia o aktywności tokenu)); jednostka ceny w fixture „doba” zamiast „DAY” (jednostka to tekst wpisywany przez firmę, wyświetlanie bez zmian). Logika resetu i lista siły hasła (#22/#252) bez zmian. Pozycje PUB-03 (chipy, tytuł, nawigacja, stopka) przeniesione do #319.",
       "relatedRequirementIds": ["C-F041", "C-F042", "C-F044"],

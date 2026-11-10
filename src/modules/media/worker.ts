@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { claimNextJob, type ClaimedJob } from "@/modules/jobs/queue";
+import { companyExportKey } from "@/modules/company-export/artifact";
+import { EXPORT_JOB_KIND, EXPORT_LEASE_MS, processCompanyExportClaim, sweepCompanyExports } from "@/modules/company-export/worker";
 import { decodeMedia } from "./decode";
 import { putImmutable, readLimited, removeObject, type MediaStorage } from "./storage";
 import type { LogContext } from "@/modules/observability/log";
@@ -217,6 +219,13 @@ export async function runMediaWorkerLoop(db: PrismaClient, storage: MediaStorage
       await cleanupExpiredImageUploads(db, storage, now);
       await cleanupDeletedPublicMedia(db, storage);
       await cleanupDeletedVehicleImages(db, storage);
+      // #328: company data exports share this worker (it owns the private object storage).
+      await sweepCompanyExports(db, storage, now);
+      const exportClaim = await claimNextJob(db, now, EXPORT_LEASE_MS, false, EXPORT_JOB_KIND);
+      if (exportClaim) {
+        await runWithLogContext({ operation: "company-export.process" }, () => processCompanyExportClaim(db, storage, exportClaim, companyExportKey(), clock));
+        continue;
+      }
       const claim = await claimNextJob(db, now, leaseMs, false, "MEDIA_PROCESS");
       iterationOutcome("media-worker", true);
       if (claim) {
