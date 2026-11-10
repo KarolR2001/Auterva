@@ -48,13 +48,37 @@ test("settings nav: Tab brings every section tab fully into view at 320 and 390 
           const bar = document.querySelector('nav[aria-label="Sekcje ustawień"]') as HTMLElement;
           const tab = bar.querySelectorAll("a")[i] as HTMLElement;
           const barRect = bar.getBoundingClientRect(); const tabRect = tab.getBoundingClientRect();
+          // Focus ring = 2 px outline + 2 px offset: must stay inside the scrollport on every side.
+          const ring = 4;
           return { left: tabRect.left - barRect.left, right: barRect.right - tabRect.right,
+            ringLeft: tabRect.left - ring - barRect.left, ringRight: barRect.right - tabRect.right - ring,
+            ringTop: tabRect.top - ring - barRect.top, ringBottom: barRect.bottom - tabRect.bottom - ring,
             behavior: getComputedStyle(bar).scrollBehavior };
         }, index);
         expect(box.left, `zakładka ${index} przy ${width}px: lewa krawędź`).toBeGreaterThanOrEqual(0);
         expect(box.right, `zakładka ${index} przy ${width}px: prawa krawędź`).toBeGreaterThanOrEqual(0);
         expect(box.behavior).toBe("auto");
+        expect(box.ringTop, `zakładka ${index} przy ${width}px: obrys u góry`).toBeGreaterThanOrEqual(0);
+        expect(box.ringBottom, `zakładka ${index} przy ${width}px: obrys u dołu`).toBeGreaterThanOrEqual(0);
+        expect(box.ringLeft, `zakładka ${index} przy ${width}px: obrys z lewej`).toBeGreaterThanOrEqual(0);
+        expect(box.ringRight, `zakładka ${index} przy ${width}px: obrys z prawej`).toBeGreaterThanOrEqual(0);
       }
+
+      // #358: opening a section from the far end of the bar brings its active tab into view without moving the page.
+      const lastHref = await links.nth(count - 1).getAttribute("href");
+      await page.goto(`${origin}${lastHref}`);
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+      const active = await page.evaluate(() => {
+        const bar = document.querySelector('nav[aria-label="Sekcje ustawień"]') as HTMLElement;
+        const tab = bar.querySelector('[aria-current="page"]') as HTMLElement;
+        const barRect = bar.getBoundingClientRect(); const tabRect = tab.getBoundingClientRect();
+        return { left: tabRect.left - barRect.left, right: barRect.right - tabRect.right, scrollY: window.scrollY,
+          scrollLeft: bar.scrollLeft, overflows: bar.scrollWidth > bar.clientWidth };
+      });
+      expect(active.left, `aktywna zakładka przy ${width}px: lewa krawędź`).toBeGreaterThanOrEqual(0);
+      expect(active.right, `aktywna zakładka przy ${width}px: prawa krawędź`).toBeGreaterThanOrEqual(0);
+      expect(active.scrollY).toBe(0);
+      if (active.overflows) expect(active.scrollLeft).toBeGreaterThan(0);
     }
   } finally {
     await session?.dispose();
