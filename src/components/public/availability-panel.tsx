@@ -316,7 +316,7 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
           {calendar.status === "loading" ? <p className={styles.small}>Ładujemy kalendarz…</p> : null}
           {pickingEnd ? <p className={styles.small}>Wybrano początek: {longDate(from)}. Wybierz dzień końca terminu.</p> : null}
         </div>
-        {result ? <p className={styles.calendarRange} data-testid="calendar-range">Wybrany zakres: {formatRangeShort(result.from, result.to)} · {pluralDays(result.days)}</p> : null}
+        {check.status === "done" ? <p className={styles.calendarRange} data-testid="calendar-range">Wybrany zakres: {formatRangeShort(check.range.from, check.range.to)} · {pluralDays(check.range.days)}</p> : null}
         {calendar.status === "error" ? <div role="alert" className={styles.notice}><TriangleAlert aria-hidden="true" size={18} />
           <span>Nie udało się wczytać kalendarza. Stany dni nie są aktualne.{" "}
             <button type="button" className={styles.link} onClick={() => void loadMonth(month)}>Spróbuj ponownie</button></span></div> : null}

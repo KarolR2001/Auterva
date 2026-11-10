@@ -77,7 +77,6 @@ export default async function VehiclePage({ params, searchParams }: Props) {
           <AvailabilityPanel slug={slug} vehicleName={vehicle.name ?? "Pojazd"} today={today} minMonth={minMonth} maxMonth={maxMonth}
             others={others} othersComplete={othersComplete} initial={{ from: range.from ?? (picked.kind === "INVALID" ? first(raw.from) ?? null : null), to: range.to ?? (picked.kind === "INVALID" ? first(raw.to) ?? null : null), invalid: picked.kind === "INVALID" ? picked.reason : null,
               available: availability?.available ?? null, month, days: Object.fromEntries(calendar.days.map((day) => [day.date, day.available])) }}>
-            {vehicle.category ? <p className={styles.category}>{vehicle.category.name}</p> : null}
             <h1 className={styles.pageTitle}>{vehicle.name ?? "Pojazd"}</h1>
             <p className={styles.detailPrice}>{hasPrice ? formatPrice(vehicle.price) : "Cena na zapytanie"}</p>
             {specs.length ? <ul className={styles.specs} aria-label="Najważniejsze parametry">{specs.map((spec) => <li key={spec} className={styles.chip}>{spec}</li>)}</ul> : null}

@@ -44,3 +44,21 @@ test("PUB-03 panel without a chosen range shows no range summary", () => {
     initial={{ from: null, to: null, invalid: null, available: null, month: "2026-11", days: {} }} />);
   expect(screen.queryByTestId("calendar-range")).toBeNull();
 });
+
+test("PUB-03 range summary shows only after a verdict, not while loading or after an error (#323)", async () => {
+  const user = userEvent.setup();
+  const props = { slug: "atlas", vehicleName: "Atlas", today: "2026-11-10", minMonth: "2026-11", maxMonth: "2027-11", others: [], othersComplete: true,
+    initial: { from: "2026-11-20", to: "2026-11-22", invalid: null, available: null, month: "2026-11", days: {} } } as const;
+  vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+  render(<AvailabilityPanel {...props} />);
+  await user.click(screen.getByRole("button", { name: "Sprawdź" }));
+  expect(screen.getByText(/Sprawdzamy dostępność/)).toBeTruthy();
+  expect(screen.queryByTestId("calendar-range")).toBeNull();
+  cleanup();
+  vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new Error("offline"))));
+  render(<AvailabilityPanel {...props} />);
+  await user.click(screen.getByRole("button", { name: "Sprawdź" }));
+  expect(await screen.findByText(/Nie udało się sprawdzić terminu/)).toBeTruthy();
+  expect(screen.queryByTestId("calendar-range")).toBeNull();
+  vi.unstubAllGlobals();
+});
