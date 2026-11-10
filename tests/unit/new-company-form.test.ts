@@ -26,6 +26,26 @@ describe("formularz nowej firmy (#25)", () => {
     expect(formFingerprint(a)).toBe(formFingerprint({ ...a, name: " A " }));
     expect(formFingerprint(a)).not.toBe(formFingerprint({ ...a, slug: "beta" }));
   });
+  it("kontakt (D-41): body bez pustych pól, walidacja jak w ustawieniach, klucz idempotencji zależy od danych", () => {
+    const a = { ...emptyCompanyForm, name: "A", slug: "alfa", adminEmail: "a@b.pl", periodKind: "trial" as const };
+    expect(Object.keys(toCreateBody(a, "k")).sort()).toEqual(["adminEmail", "idempotencyKey", "name", "paidThrough", "slug", "trialGranted"]);
+    const withContact = { ...a, phone: " +48 600 100 200 ", email: " Kontakt@Alfa.PL ", city: " Kraków ", country: "  " };
+    expect(toCreateBody(withContact, "k")).toMatchObject({ phone: "+48 600 100 200", email: "kontakt@alfa.pl", city: "Kraków" });
+    expect(toCreateBody(withContact, "k")).not.toHaveProperty("country");
+    expect(validateCompanyForm(withContact)).toEqual({});
+    expect(validateCompanyForm({ ...a, phone: "12", email: "zly", postalCode: "x".repeat(17) }))
+      .toEqual({ phone: expect.stringMatching(/telefon/), email: expect.stringMatching(/e-mail/), postalCode: expect.stringMatching(/16/) });
+    expect(formFingerprint(a)).not.toBe(formFingerprint({ ...a, phone: "+48 600 100 200" }));
+    expect(formFingerprint(withContact)).toBe(formFingerprint({ ...withContact, phone: "+48 600 100 200" }));
+  });
+  it("kontakt (D-41): 400 z fieldErrors mapuje się na pola, nieznane kody na ogólny komunikat", () => {
+    const outcome = classifyCreateResponse(400, { code: "INVALID_INPUT", fieldErrors: { phone: "INVALID_PHONE", city: "MARKUP_NOT_ALLOWED" } }, null);
+    expect(outcome).toEqual({ kind: "field-errors", errors: {
+      phone: "Podaj poprawny numer telefonu.", city: "Znaczniki HTML nie są dozwolone; wpisz zwykły tekst." } });
+    expect(classifyCreateResponse(400, { fieldErrors: { phone: "???" } }, null))
+      .toEqual({ kind: "field-errors", errors: { phone: "Wartość jest nieprawidłowa." } });
+    expect(classifyCreateResponse(400, { code: "INVALID_INPUT" }, null).kind).toBe("rejected");
+  });
   it("klasyfikuje odpowiedzi: tylko 5xx jest niepewne", () => {
     expect(classifyCreateResponse(200, { organizationId: "o" }, null)).toEqual({ kind: "saved", organizationId: "o" });
     expect(classifyCreateResponse(409, { code: "COMPANY_CONFLICT" }, null).kind).toBe("conflict");
