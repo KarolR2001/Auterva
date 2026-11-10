@@ -142,6 +142,10 @@ export const names = {
   alertsFiring: "auterva_alerts_firing",
   alertNotifications: "auterva_alert_notifications_total",
   alertSinkDeliveries: "auterva_alert_sink_deliveries_total",
+  vitalsReports: "auterva_web_vitals_reports_total",
+  vitalLcp: "auterva_web_vital_lcp_seconds",
+  vitalInp: "auterva_web_vital_inp_seconds",
+  vitalCls: "auterva_web_vital_cls",
 } as const;
 
 export function sumSamples(samples: Sample[], name: string, match: Labels = {}): number {

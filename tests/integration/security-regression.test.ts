@@ -183,7 +183,9 @@ async function snapshot() {
 }
 
 test("route inventory: every group is classified and the matrix covers every private handler", () => {
-  expect(new Set(routes.map((route) => route.group))).toEqual(new Set(["admin", "auth", "calendar", "discovery", "health", "platform", "public"]));
+  expect(new Set(routes.map((route) => route.group))).toEqual(new Set(["admin", "auth", "calendar", "discovery", "health", "platform", "public", "vitals"]));
+  // #340: the Web Vitals beacon is the only anonymous write; it stores nothing per request (own suite: web-vitals-http.test.ts).
+  expect(routes.filter((route) => route.group === "vitals").map((route) => [route.url, Object.keys(route.methods)])).toEqual([["/api/vitals/", ["POST"]]]);
   const handlers = privateRoutes().reduce((sum, route) => sum + Object.keys(route.methods).length, 0);
   expect(privateRoutes().length).toBeGreaterThanOrEqual(45);
   expect(handlers).toBeGreaterThanOrEqual(60);
