@@ -83,6 +83,17 @@ export function fleetCalendar(context: PanelContext, from: string, to: string, s
   return call<FleetCalendar>(`${context.apiBase}/availability/fleet/?${params}`, { signal });
 }
 
+/** One page of the fleet calendar (#65): per vehicle the server's day states and its blocks (no reference, note or source). */
+export type FleetGridItem = { vehicleId: string; name: string | null; slug: string | null; status: VehicleStatus;
+  availableFrom: string | null; availableTo: string | null; days: { date: string; available: boolean }[]; blocks: FleetBlock[] };
+export type FleetGrid = { from: string; to: string; total: number; page: number; pageSize: number; items: FleetGridItem[] };
+export function readFleetGrid(context: PanelContext, query: { from: string; to: string; page: number; pageSize: number; status?: VehicleStatus | "" },
+  signal?: AbortSignal) {
+  const params = new URLSearchParams({ from: query.from, to: query.to, page: String(query.page), pageSize: String(query.pageSize) });
+  if (query.status) params.set("status", query.status);
+  return call<FleetGrid>(`${context.apiBase}/availability/fleet/?${params}`, { signal });
+}
+
 export function readServiceStatus(context: PanelContext, signal?: AbortSignal) {
   return call<ServiceStatus>(`${context.apiBase}/service-period/`, { signal });
 }

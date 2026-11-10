@@ -617,6 +617,31 @@
       "testPaths": ["tests/unit/vehicle-photos.test.tsx", "tests/unit/settings-media.test.tsx", "tests/unit/account-view.test.tsx", "tests/e2e/admin-vehicle-404.spec.ts"]
     },
     {
+      "issue": 66,
+      "scope": "Ekran ADM-10 Kalendarz floty w panelu firmy (/admin/kalendarz) i superadmina w kontekscie firmy (/firmy/{id}/kalendarz) na API agregatu #65: pojazdy w wierszach, dni w kolumnach (14 dni lub miesiac, strzalki, Dzisiaj), blokady z odpowiedzi serwera jako linki z ikona i tekstem typu (przejscie do kalendarza pojazdu #39 z otwarta blokada przez ?blok=&miesiac=), filtr statusu (archiwalne tylko na zadanie), paginacja 20 pojazdow, kontrolowane przewijanie poziome w regionie z fokusem, na wasko karty pojazdow, loading/empty/error bez starego wyniku, Szybka blokada przez wybor pojazdu i istniejacy formularz #39 (?dodaj=1). Poza zakresem: zbiorcze blokowanie z siatki (#217), widok Wedlug daty z makiety mobile, pole wyszukiwania w naglowku makiety.",
+      "relatedRequirementIds": ["FR-ADM-057", "C-F101", "D-15"],
+      "referenceScreenIds": ["ADM-10"],
+      "unmappedStates": [
+        "Porownanie z Penpotem ADM-10 Desktop (a4abf4c9-2e1f-80fd-8008-aff53a38ed4e) i Mobile (1e066793-8858-8051-8008-cf3e8e94576a) tylko wg eksportu 10.11; zywe porownanie do QA (Penpot odroczony #263).",
+        "Mobile: tylko widok Wedlug pojazdu, przelacznik Wedlug daty nie powstal.",
+        "Mobile: pozycja Kalendarz w menu Wiecej zamiast piatej zakladki dolnego paska (makieta ma osobna zakladke Terminy).",
+        "Szybka blokada wybiera pojazd ssposrod pojazdow biezacej strony siatki (20), bez nowego API."
+      ],
+      "codePaths": [
+        "src/app/admin/kalendarz/page.tsx",
+        "src/app/firmy/[organizationId]/kalendarz/page.tsx",
+        "src/components/admin/fleet-calendar.tsx",
+        "src/components/admin/fleet-calendar-model.ts",
+        "src/components/admin/fleet-calendar.module.css",
+        "src/components/admin/fleet-api.ts",
+        "src/components/admin/vehicle-calendar.tsx",
+        "src/components/platform/company-fleet.tsx",
+        "src/components/platform/company-card.tsx",
+        "src/components/panel/panel-shell.tsx"
+      ],
+      "testPaths": ["tests/unit/fleet-calendar.test.tsx", "tests/unit/panel-shell.test.tsx", "tests/e2e/fleet-calendar.spec.ts"]
+    },
+    {
       "issue": 39,
       "scope": "Kalendarz pojazdu ADM-09 i overlaye OVR-06/07/08 w panelu firmy na prawdziwym API blokad i odczytu prywatnego (kontekst superadmina przez PanelContext): miesiac z dniami z odpowiedzi serwera (wolny, zajety z typem i ikona, poza aktywnoscia, nieznany przy bledzie odczytu, nigdy stary wynik po zapisie), nawigacja strzalkami/Home/End/PageUp/PageDown z roving tabindex i pelnymi etykietami dat (DS-N16), skroty Dzisiaj i miesiace, wybor zakresu dwoma dniami albo polami dat, lista nadchodzacych blokad i historia na zadanie, dodanie/edycja/usuniecie (usuwanie po potwierdzeniu), jeden dzien i granice wlacznie, Serwis jako MAINTENANCE, prywatny numer i notatka tylko w panelu, konflikt BLOCK_OVERLAP z przejsciem do istniejacego wpisu bez utraty wpisanej tresci, konflikt wersji z trojstronnym scaleniem, ostrzezenie i potwierdzenie dla dat przeszlych, niepewny wynik 5xx/sieci rozstrzygany odczytem stanu bez drugiego zapisu, dirty guard, archiwum pojazdu (tylko usuwanie), sticky CTA mobile, flaga routes.vehicleCalendar wlaczona. Poza zakresem: trasa kalendarza po stronie superadmina (w src/app nie ma stron platformy dla floty; komponent przyjmuje PanelContext), kalendarz calej floty ADM-10 (#65/#66), wybor pojazdu w szybkim flow poza lista pojazdow, zbiorcze blokady (#215, FE opcjonalny).",
       "relatedRequirementIds": ["C-F100", "C-F102", "C-F103", "C-F104", "C-F105", "FR-ADM-050", "FR-ADM-051", "FR-ADM-052", "FR-ADM-053", "FR-ADM-054", "FR-ADM-055", "FR-ADM-056", "DS-N16"],
