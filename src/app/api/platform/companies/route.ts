@@ -2,6 +2,7 @@ import { routeContext } from "@/modules/observability/route-context";
 import { prisma } from "@/lib/prisma";
 import { preregisterCompany } from "@/modules/organizations/onboarding";
 import { platformCompanyList } from "@/modules/organizations/read-http";
+import { creationContactFieldNames } from "@/modules/settings/fields";
 import { accessFailure, onboardingFailure, onboardingRequestId, onboardingResponse,
   platformOnboardingActor, readOnboardingBody, uuid } from "@/modules/organizations/http";
 
@@ -14,10 +15,11 @@ async function handlePOST(request: Request) {
     if (access.error) return accessFailure(access, requestId);
     const body = await readOnboardingBody(request);
     if (!body || Object.keys(body).some((key) => !["name", "slug", "adminEmail", "trialGranted",
-      "paidThrough", "idempotencyKey"].includes(key)) || typeof body.name !== "string"
+      "paidThrough", "idempotencyKey", ...creationContactFieldNames].includes(key)) || typeof body.name !== "string"
       || typeof body.slug !== "string" || typeof body.adminEmail !== "string"
       || typeof body.trialGranted !== "boolean" || !(body.paidThrough === null || typeof body.paidThrough === "string")
-      || typeof body.idempotencyKey !== "string" || !uuid.test(body.idempotencyKey))
+      || typeof body.idempotencyKey !== "string" || !uuid.test(body.idempotencyKey)
+      || creationContactFieldNames.some((key) => body[key] !== undefined && typeof body[key] !== "string"))
       return onboardingResponse({ code: "INVALID_INPUT" }, 400, requestId);
     const adminBaseDomain = process.env.AUTERVA_ADMIN_BASE_DOMAIN;
     const publicBaseDomain = process.env.AUTERVA_PUBLIC_BASE_DOMAIN;
@@ -25,7 +27,9 @@ async function handlePOST(request: Request) {
     const result = await preregisterCompany(prisma, { actorId: access.actorId!, sessionId: access.sessionId!,
       name: body.name, slug: body.slug, adminEmail: body.adminEmail,
       trialGranted: body.trialGranted, paidThrough: body.paidThrough,
-      idempotencyKey: body.idempotencyKey, adminBaseDomain, publicBaseDomain, requestId });
+      idempotencyKey: body.idempotencyKey,
+      contact: Object.fromEntries(creationContactFieldNames.map((key) => [key, body[key]])),
+      adminBaseDomain, publicBaseDomain, requestId });
     return onboardingResponse(result, 200, requestId);
   } catch (error) { return onboardingFailure(error, requestId); }
 }
