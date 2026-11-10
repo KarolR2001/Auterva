@@ -79,6 +79,7 @@ model Vehicle {
   @@unique([organizationId, id])
   @@unique([organizationId, slug])
   @@index([organizationId, status, sortOrder])
+  @@index([organizationId, updatedAt(sort: Desc), id])
 }
 
 model AvailabilityBlock {

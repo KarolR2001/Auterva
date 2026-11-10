@@ -80,7 +80,7 @@ function failure(error: unknown, requestId: string) {
 }
 
 function filters(url: URL): VehicleListFilters {
-  const allowed = new Set(["search", "status", "categoryId", "activeToday", "availableToday", "page", "pageSize"]);
+  const allowed = new Set(["search", "status", "categoryId", "activeToday", "availableToday", "updatedFrom", "updatedTo", "sort", "page", "pageSize"]);
   if ([...url.searchParams.keys()].some((key) => !allowed.has(key)) ||
     [...allowed].some((key) => url.searchParams.getAll(key).length > 1)) throw new Error("FLEET_INVALID_FILTER");
   const status = url.searchParams.get("status");
@@ -95,11 +95,20 @@ function filters(url: URL): VehicleListFilters {
     if (value !== "true" && value !== "false") throw new Error("FLEET_INVALID_FILTER");
     return value === "true";
   };
+  const day = (key: string) => {
+    const value = url.searchParams.get(key);
+    if (value !== null && !/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error("FLEET_INVALID_FILTER");
+    return value ?? undefined;
+  };
+  const sort = url.searchParams.get("sort");
+  if (sort !== null && !["order", "updatedDesc", "updatedAsc"].includes(sort)) throw new Error("FLEET_INVALID_FILTER");
   const page = Number(url.searchParams.get("page") ?? "1");
   const pageSize = Number(url.searchParams.get("pageSize") ?? "20");
   return { search: url.searchParams.get("search") ?? undefined,
     status: status as VehicleListFilters["status"], categoryId,
-    activeToday: boolean("activeToday"), availableToday: boolean("availableToday"), page, pageSize };
+    activeToday: boolean("activeToday"), availableToday: boolean("availableToday"),
+    updatedFrom: day("updatedFrom"), updatedTo: day("updatedTo"),
+    sort: (sort ?? undefined) as VehicleListFilters["sort"], page, pageSize };
 }
 
 export async function listVehicles(request: Request, area: Area, targetOrganizationId?: string) {

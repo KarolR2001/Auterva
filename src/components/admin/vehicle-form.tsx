@@ -523,7 +523,7 @@ export function VehicleForm({ context = companyContext, vehicleId, title }: { co
       </div>
 
       {!archived && (
-        <div className={styles.actionBar}>
+        <div className={styles.actionBar} data-fixed-action-bar="">
           <span className={styles.actionState} role="status">{busy ? "Zapisywanie…" : dirty ? "Niezapisane zmiany" : vehicleId ? "Zapisano" : ""}</span>
           <Button variant={status === "PUBLISHED" || !vehicleId ? "primary" : "secondary"} loading={busy} loadingLabel="Zapisywanie…" disabled={vehicleId ? !dirty : false} onClick={() => void saveDraft()}>
             {primaryLabel}
