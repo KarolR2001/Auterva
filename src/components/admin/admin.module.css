@@ -13,12 +13,25 @@
   outline: var(--border-width-active) solid var(--focus-ring); outline-offset: var(--focus-offset); }
 .toolbar { display: grid; gap: var(--space-3); grid-template-columns: 1fr; margin-bottom: var(--space-4); }
 /* Layout follows the width of the content area (the panel sidebar takes 240 px), not the viewport. */
-@container (min-width: 640px) { .toolbar { grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: end; } .toolbar > :first-child { grid-column: 1 / -1; } .rangeError { grid-column: 1 / -1; } }
+/* Desktop toolbar (mockup ADM-05 D): one row of compact pills, search takes the free width, nothing wraps until the container is narrow. */
+@container (min-width: 640px) { .toolbar { display: flex; flex-wrap: wrap; align-items: center; padding: var(--space-4); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-lg); } .searchInput { flex: 1 1 200px; min-width: 160px; } .pill { flex: 0 1 auto; } .addLink { margin-left: auto; white-space: nowrap; } }
+.rowBreak { flex-basis: 100%; height: 0; }
+.pill { width: auto; font-weight: var(--font-weight-medium); }
+.sortButton { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); cursor: pointer; white-space: nowrap; }
+.sortButton:hover { background: var(--action-secondary-hover); }
+.sortButton:focus-visible { outline: var(--border-width-active) solid var(--focus-ring); outline-offset: var(--focus-offset); }
 .sheetButtons { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
 .sheetFields { display: grid; gap: var(--space-3); }
 .summary { flex-basis: 100%; margin: 0; font-size: var(--font-size-16); color: var(--text-secondary); }
-.rangeError { display: flex; align-items: center; gap: var(--space-1); margin: 0; font-size: var(--font-size-14); font-weight: var(--font-weight-semibold); color: var(--status-error-content, var(--text-primary)); }
-.select[type="date"] { min-width: 0; width: 100%; }
+.actionsInline { display: contents; }
+/* Compact card (mockup ADM-05 M): the text actions "Edytuj · Terminy · Więcej" stay on one line, order arrows get their own row. */
+.actionsCompact { flex-direction: column; align-items: stretch; gap: var(--space-1); }
+.moveRow { display: flex; justify-content: flex-start; gap: var(--space-2); }
+.textActions { display: flex; flex-wrap: nowrap; justify-content: flex-start; align-items: center; gap: var(--space-2); }
+.textAction { display: inline-flex; align-items: center; min-height: var(--touch-target-mobile); padding: 0 var(--space-1); font: inherit; font-weight: var(--font-weight-semibold); color: var(--text-primary); background: transparent; border: 0; text-decoration: none; cursor: pointer; }
+.textAction:hover { text-decoration: underline; }
+.textAction:focus-visible { outline: var(--border-width-active) solid var(--focus-ring); outline-offset: var(--focus-offset); }
+.textActions > * + *::before { content: "·"; content: "·" / ""; margin-right: var(--space-2); font-weight: var(--font-weight-semibold); }
 .field { display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--font-size-14); font-weight: var(--font-weight-medium); }
 .select { min-height: var(--button-height-md); padding: 0 var(--space-3); font: inherit; color: var(--text-primary); background: var(--surface-default);
   border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-md); }

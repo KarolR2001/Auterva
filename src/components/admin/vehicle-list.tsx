@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { TextInput } from "@/components/ui/text-input";
 import { changeStatus, companyContext, emptyQuery, errorMessage, readErrorMessage, isUncertain, listCategories, listFleet, listWholeFleet, queryFromSearch,
-  rangeInvalid, reorderFleet, routes, rowActions, searchFromQuery, statusLabels, statusSummary,
+  reorderFleet, routes, rowActions, searchFromQuery, statusLabels, statusSummary,
   type FleetItem, type FleetPage, type FleetQuery, type FleetSort, type PanelContext, type VehicleCategory, type VehicleStatus } from "./fleet-api";
 import styles from "./admin.module.css";
 
@@ -29,7 +29,7 @@ export const UNCERTAIN_TEXT = "Nie wiadomo, czy zmiana została zapisana. Odświ
 export const REORDER_LIMIT = 100;
 
 export function filtersActive(query: FleetQuery) {
-  return !!(query.search.trim() || query.status || query.activeToday || query.availableToday || query.categoryId || query.updatedFrom || query.updatedTo);
+  return !!(query.search.trim() || query.status || query.activeToday || query.availableToday || query.categoryId);
 }
 
 /**
@@ -109,7 +109,7 @@ export function VehicleList({ context = companyContext, title }: { context?: Pan
   }, [searchText]);
 
   useEffect(() => {
-    if (!synced || rangeInvalid(query)) return;
+    if (!synced) return;
     // A changed filter, sort or search never shows the previous result while the new one loads; a page change or reload keeps the table.
     const key = JSON.stringify({ ...query, page: 0 });
     if (filterKey.current !== key) { filterKey.current = key; setView({ state: "loading" }); }
@@ -129,10 +129,9 @@ export function VehicleList({ context = companyContext, title }: { context?: Pan
   }, [view]);
 
   const refresh = useCallback(() => setReload((value) => value + 1), []);
-  const invalidRange = rangeInvalid(query);
-  const page = view.state === "ready" && !invalidRange ? view.page : null;
-  const canReorder = !!page && !invalidRange && !filtersActive(query) && query.sort === "order" && page.total > 1;
-  const filterCount = [query.status, query.categoryId, query.activeToday, query.availableToday, query.updatedFrom, query.updatedTo].filter(Boolean).length;
+  const page = view.state === "ready" ? view.page : null;
+  const canReorder = !!page && !filtersActive(query) && query.sort === "order" && page.total > 1;
+  const filterCount = [query.status, query.categoryId, query.activeToday, query.availableToday].filter(Boolean).length;
   const reset = () => { setSearchText(""); setQuery(emptyQuery); };
   const set = (patch: Partial<FleetQuery>) => setQuery((current) => ({ ...current, ...patch, page: 1 }));
 
@@ -198,41 +197,53 @@ export function VehicleList({ context = companyContext, title }: { context?: Pan
     refresh();
   }
 
+  /**
+   * One list control: a compact "Label ↓" pill in the desktop toolbar (the label is the first option, no text above the
+   * field, mockup ADM-05 D) and a labelled field inside the mobile sheet.
+   */
+  const choice = (label: string, value: string, onChange: (value: string) => void, blank: string, options: { value: string; label: string }[]) => (
+    compact
+      ? <label className={styles.field}><span>{label}</span>
+        <select className={styles.select} value={value} onChange={(event) => onChange(event.target.value)}>
+          <option value="">{blank}</option>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select></label>
+      : <select className={`${styles.select} ${styles.pill}`} aria-label={label} value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="">{label}</option>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+      </select>
+  );
   const filterFields = (
     <>
-      <label className={styles.field}><span>Publikacja</span>
-        <select className={styles.select} value={query.status} onChange={(event) => set({ status: event.target.value as VehicleStatus | "" })}>
-          <option value="">Wszystkie</option>
-          {(Object.keys(statusLabels) as VehicleStatus[]).map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}
-        </select></label>
-      <label className={styles.field}><span>Kategoria</span>
-        <select className={styles.select} value={query.categoryId} onChange={(event) => set({ categoryId: event.target.value })}>
-          <option value="">Wszystkie</option>
-          {query.categoryId && !categories.some((category) => category.id === query.categoryId) && <option value={query.categoryId}>Wybrana kategoria</option>}
-          {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-        </select></label>
-      <label className={styles.field}><span>Aktywność dziś</span>
-        <select className={styles.select} value={query.activeToday} onChange={(event) => set({ activeToday: event.target.value as FleetQuery["activeToday"] })}>
-          <option value="">Dowolna</option><option value="true">Aktywne dziś</option><option value="false">Nieaktywne dziś</option>
-        </select></label>
-      <label className={styles.field}><span>Dostępność dziś</span>
-        <select className={styles.select} value={query.availableToday} onChange={(event) => set({ availableToday: event.target.value as FleetQuery["availableToday"] })}>
-          <option value="">Dowolna</option><option value="true">Dostępne dziś</option><option value="false">Niedostępne dziś</option>
-        </select></label>
-      <label className={styles.field}><span>Ostatnia zmiana od</span>
-        <input type="date" className={styles.select} value={query.updatedFrom} max={query.updatedTo || undefined} aria-invalid={invalidRange || undefined}
-          aria-describedby={invalidRange ? "range-error" : undefined} onChange={(event) => set({ updatedFrom: event.target.value })} /></label>
-      <label className={styles.field}><span>Ostatnia zmiana do</span>
-        <input type="date" className={styles.select} value={query.updatedTo} min={query.updatedFrom || undefined} aria-invalid={invalidRange || undefined}
-          aria-describedby={invalidRange ? "range-error" : undefined} onChange={(event) => set({ updatedTo: event.target.value })} /></label>
-      {invalidRange && <p id="range-error" className={styles.rangeError} role="alert"><CircleOff aria-hidden="true" size={16} />Data „od” nie może być późniejsza niż „do”.</p>}
+      {choice("Publikacja", query.status, (value) => set({ status: value as VehicleStatus | "" }), "Wszystkie",
+        (Object.keys(statusLabels) as VehicleStatus[]).map((status) => ({ value: status, label: statusLabels[status] })))}
+      {choice("Kategoria", query.categoryId, (value) => set({ categoryId: value }), "Wszystkie", [
+        ...(query.categoryId && !categories.some((category) => category.id === query.categoryId) ? [{ value: query.categoryId, label: "Wybrana kategoria" }] : []),
+        ...categories.map((category) => ({ value: category.id, label: category.name }))])}
     </>
+  );
+  const todayFilters = (
+    <>
+      {choice("Aktywność dziś", query.activeToday, (value) => set({ activeToday: value as FleetQuery["activeToday"] }), "Dowolna",
+        [{ value: "true", label: "Aktywne dziś" }, { value: "false", label: "Nieaktywne dziś" }])}
+      {choice("Dostępność dziś", query.availableToday, (value) => set({ availableToday: value as FleetQuery["availableToday"] }), "Dowolna",
+        [{ value: "true", label: "Dostępne dziś" }, { value: "false", label: "Niedostępne dziś" }])}
+    </>
+  );
+  /** Desktop: "Ostatnia zmiana ↓" cycles newest first (↓), oldest first (↑) and back to the public order (D-50). */
+  const nextSort: Record<FleetSort, FleetSort> = { order: "updatedDesc", updatedDesc: "updatedAsc", updatedAsc: "order" };
+  const sortState: Record<FleetSort, string> = { order: "kolejność w ofercie", updatedDesc: "najnowsze najpierw", updatedAsc: "najstarsze najpierw" };
+  const SortIcon = query.sort === "updatedAsc" ? ArrowUp : query.sort === "updatedDesc" ? ArrowDown : ArrowUpDown;
+  const sortButton = (
+    <button type="button" className={`${styles.select} ${styles.pill} ${styles.sortButton}`} aria-label={`Ostatnia zmiana, sortowanie: ${sortState[query.sort]}. Kliknij, aby zmienić.`}
+      onClick={() => set({ sort: nextSort[query.sort] })}>Ostatnia zmiana<SortIcon aria-hidden="true" size={16} /></button>
   );
   const sortField = (
     <label className={styles.field}><span>Sortuj</span>
       <select className={styles.select} value={query.sort} onChange={(event) => set({ sort: event.target.value as FleetSort })}>
         {(Object.keys(sortLabels) as FleetSort[]).map((sort) => <option key={sort} value={sort}>{sortLabels[sort]}</option>)}
       </select></label>
+  );
+  const addLink = routes.vehicleForm && (
+    <a className={`${styles.primaryLink} ${styles.addLink}`} href={`${context.hrefBase}/pojazdy/nowy/`}><Plus aria-hidden="true" size={20} />{compact ? "Dodaj" : "Dodaj pojazd"}<span className={styles.visuallyHidden}>{compact ? " pojazd" : ""}</span></a>
   );
 
   const onAction = (item: FleetItem, action: "unpublish" | "archive") => { setDialogError(null); setPending({ item, action }); };
@@ -242,24 +253,23 @@ export function VehicleList({ context = companyContext, title }: { context?: Pan
       <title>{title}</title>
       <header className={styles.pageHead}>
         <h2 ref={heading} tabIndex={-1} className={styles.h2}>Pojazdy</h2>
-        {routes.vehicleForm && <a className={styles.primaryLink} href={`${context.hrefBase}/pojazdy/nowy/`}><Plus aria-hidden="true" size={20} />Dodaj pojazd</a>}
-        {page && page.statusCounts && <p className={styles.summary}>{statusSummary(page.statusCounts)}</p>}
+        {compact && addLink}
+        {page && page.statusCounts && <p className={styles.summary}>{statusSummary(page.statusCounts, compact)}</p>}
       </header>
       <form className={styles.toolbar} role="search" aria-label="Filtry listy pojazdów" onSubmit={(event) => { event.preventDefault(); set({ search: searchText }); }}>
-        <label className={styles.field}><span>Szukaj</span>
-          <TextInput type="search" value={searchText} placeholder="Nazwa, marka, model, slug" maxLength={120}
-            onChange={(event) => setSearchText(event.target.value)} /></label>
+        <TextInput type="search" aria-label="Szukaj" className={styles.searchInput} value={searchText} placeholder="Szukaj pojazdu…" maxLength={120}
+          onChange={(event) => setSearchText(event.target.value)} />
         {compact ? (
           <div className={styles.sheetButtons}>
             <Button variant="secondary" onClick={() => setSheet("filters")}><SlidersHorizontal aria-hidden="true" size={18} />Filtry{filterCount ? ` (${filterCount})` : ""}</Button>
-            <Button variant="secondary" onClick={() => setSheet("sort")}><ArrowUpDown aria-hidden="true" size={18} />Sortuj{query.sort !== "order" ? " (1)" : ""}</Button>
+            <Button variant="secondary" onClick={() => setSheet("sort")}><ArrowUpDown aria-hidden="true" size={18} />Sortuj{query.sort === "updatedDesc" ? " ↓" : query.sort === "updatedAsc" ? " ↑" : ""}</Button>
           </div>
-        ) : <>{filterFields}{sortField}</>}
+        ) : <>{filterFields}{sortButton}{addLink}<span className={styles.rowBreak} />{todayFilters}</>}
       </form>
       {notice && <div className={styles.notice}><Alert tone={notice.tone} title={notice.text} onDismiss={() => setNotice(null)} /></div>}
       <p className={styles.visuallyHidden} role="status" aria-live="polite">{announce}</p>
-      {view.state === "loading" && !invalidRange && <div className={styles.skeleton} role="status" aria-label="Ładowanie listy pojazdów"><span /><span /><span /></div>}
-      {view.state === "error" && !invalidRange && <Alert tone="error" title="Nie udało się wczytać listy pojazdów"
+      {view.state === "loading" && <div className={styles.skeleton} role="status" aria-label="Ładowanie listy pojazdów"><span /><span /><span /></div>}
+      {view.state === "error" && <Alert tone="error" title="Nie udało się wczytać listy pojazdów"
         action={{ label: "Spróbuj ponownie", onClick: () => { setView({ state: "loading" }); refresh(); } }}>{readErrorMessage(view.code)}</Alert>}
       {page && page.total === 0 && !filtersActive(query) && (
         <div className={styles.empty}><h3 className={styles.h2}>Flota jest pusta</h3>
@@ -301,10 +311,10 @@ export function VehicleList({ context = companyContext, title }: { context?: Pan
         </>
       )}
       {compact && sheet && (
-        <Dialog open type="form" onOpenChange={(open) => { if (!open) setSheet(null); }} title={sheet === "filters" ? "Filtry listy pojazdów" : "Sortowanie listy pojazdów"}
+        <Dialog open type="form" sheet onOpenChange={(open) => { if (!open) setSheet(null); }} title={sheet === "filters" ? "Filtry listy pojazdów" : "Sortowanie listy pojazdów"}
           primaryAction={{ label: "Pokaż wyniki", onClick: () => setSheet(null) }}
-          secondaryAction={{ label: sheet === "filters" ? "Wyczyść filtry" : "Kolejność w ofercie", onClick: () => { if (sheet === "filters") { reset(); } else set({ sort: "order" }); } }}>
-          <div className={styles.sheetFields}>{sheet === "filters" ? filterFields : sortField}</div>
+          secondaryAction={{ label: sheet === "filters" ? "Wyczyść filtry" : "Przywróć domyślne", onClick: () => { if (sheet === "filters") { reset(); } else set({ sort: "order" }); } }}>
+          <div className={styles.sheetFields}>{sheet === "filters" ? <>{filterFields}{todayFilters}</> : sortField}</div>
         </Dialog>
       )}
       {pending && (
@@ -366,17 +376,18 @@ function VehicleRow({ item, index, first, last, context, reorder, compact, savin
           : <span className={styles.muted}>{item.status === "ARCHIVED" ? "—" : "— Niepubliczny"}</span>}
       </td>
       <td role="cell" data-label="Ostatnia zmiana">{updated(item.updatedAt)}</td>
-      <td role="cell"><div className={`${styles.actions} ${wideActions ? styles.actionsWide : ""}`}>
-        {reorder && <>{arrow(-1, first)}{arrow(1, last)}</>}
-        {routes.vehicleForm && <a className={styles.actionLink} href={`${base}/`}><Pencil aria-hidden="true" size={18} />Edytuj<span className={styles.visuallyHidden}> {name}</span></a>}
+      <td role="cell"><div className={`${styles.actions} ${wideActions ? styles.actionsWide : ""} ${compact ? styles.actionsCompact : ""}`}>
+        {reorder && (compact ? <div className={styles.moveRow}>{arrow(-1, first)}{arrow(1, last)}</div> : <>{arrow(-1, first)}{arrow(1, last)}</>)}
+        <div className={compact ? styles.textActions : styles.actionsInline}>
+        {routes.vehicleForm && <a className={compact ? styles.textAction : styles.actionLink} href={`${base}/`}>{!compact && <Pencil aria-hidden="true" size={18} />}Edytuj<span className={styles.visuallyHidden}> {name}</span></a>}
         {!compact && context.previewBase && item.status !== "ARCHIVED" && <a className={styles.actionLink} href={`${context.previewBase}/pojazdy/${item.id}/`}><Eye aria-hidden="true" size={18} />Podgląd<span className={styles.visuallyHidden}> {name}</span></a>}
-        {routes.vehicleCalendar && <a className={styles.actionLink} href={`${base}/kalendarz/`}><CalendarDays aria-hidden="true" size={18} />{compact ? "Terminy" : "Kalendarz"}<span className={styles.visuallyHidden}> {name}</span></a>}
+        {routes.vehicleCalendar && <a className={compact ? styles.textAction : styles.actionLink} href={`${base}/kalendarz/`}>{!compact && <CalendarDays aria-hidden="true" size={18} />}{compact ? "Terminy" : "Kalendarz"}<span className={styles.visuallyHidden}> {name}</span></a>}
         {(actions.length > 0 || previewInMenu) && (
           <div className={styles.menuWrap}
             onKeyDown={(event) => { if (event.key === "Escape" && open) { event.stopPropagation(); setOpen(false); trigger.current?.focus(); } }}
             onBlur={(event) => { if (open && !event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}>
-            <button ref={trigger} type="button" className={styles.iconButton} data-focus={`menu:${item.id}`} aria-expanded={open} aria-controls={`menu-${item.id}`}
-              aria-label={`Więcej akcji dla „${name}”`} onClick={() => setOpen(!open)}><MoreHorizontal aria-hidden="true" size={20} /></button>
+            <button ref={trigger} type="button" className={compact ? styles.textAction : styles.iconButton} data-focus={`menu:${item.id}`} aria-expanded={open} aria-controls={`menu-${item.id}`}
+              aria-label={`Więcej akcji dla „${name}”`} onClick={() => setOpen(!open)}>{compact ? "Więcej" : <MoreHorizontal aria-hidden="true" size={20} />}</button>
             {open && (
               <ul id={`menu-${item.id}`} className={styles.menu}>
                 {previewInMenu && <li><a className={styles.menuItem} href={`${context.previewBase}/pojazdy/${item.id}/`}><Eye aria-hidden="true" size={18} />Podgląd<span className={styles.visuallyHidden}> {name}</span></a></li>}
@@ -390,6 +401,7 @@ function VehicleRow({ item, index, first, last, context, reorder, compact, savin
             )}
           </div>
         )}
+        </div>
       </div></td>
     </tr>
   );

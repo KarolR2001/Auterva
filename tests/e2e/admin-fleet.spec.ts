@@ -88,27 +88,29 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
     await expect(page.getByRole("heading", { level: 3 })).toHaveText(["Alfa Trzecia"]);
     await page.getByLabel("Dostępność dziś").selectOption("");
 
-    // D-42: status summary, category / last-change filters and sort live in the address and survive a reload.
-    await expect(page.getByText("3 pojazdy · 2 opublikowane · 1 szkic")).toBeVisible();
+    // D-42/D-50: status summary, category filter and "Ostatnia zmiana" sort button in one toolbar row; state lives in the address.
+    await expect(page.getByText("3 pojazdy • 2 opublikowane • 1 szkic")).toBeVisible();
+    const pills = [page.getByLabel("Szukaj"), page.getByRole("combobox", { name: "Publikacja" }), page.getByRole("combobox", { name: "Kategoria" }),
+      page.getByRole("button", { name: /^Ostatnia zmiana/ }), page.getByRole("link", { name: "Dodaj pojazd" })];
+    const tops = await Promise.all(pills.map(async (pill) => Math.round((await pill.boundingBox())!.y / 8)));
+    expect(new Set(tops).size, "toolbar controls share one row").toBe(1);
+    await expect(page.getByText("Ostatnia zmiana od")).toHaveCount(0);
     await page.getByRole("combobox", { name: "Kategoria" }).selectOption(cat);
     await expect(page.getByRole("heading", { level: 3 })).toHaveCount(3);
     await expect(page).toHaveURL(new RegExp(`categoryId=${cat}`));
-    await page.getByLabel("Ostatnia zmiana od").fill(day(1));
-    await expect(page.getByRole("heading", { name: "Brak wyników" })).toBeVisible();
-    await expect(page.getByText("pojazdy ·")).toHaveCount(0);
-    await page.getByLabel("Ostatnia zmiana od").fill(day(0));
-    await expect(page.getByRole("heading", { level: 3 })).toHaveCount(3);
-    await page.getByLabel("Ostatnia zmiana do").fill(day(-3));
-    await expect(page.getByText("Data „od” nie może być późniejsza niż „do”.")).toBeVisible();
-    await expect(page.locator("tbody tr")).toHaveCount(0);
-    await page.getByLabel("Ostatnia zmiana do").fill("");
-    await page.getByLabel("Sortuj").selectOption("updatedDesc");
+    await page.getByRole("button", { name: /^Ostatnia zmiana/ }).click();
+    await expect(page).toHaveURL(/sort=updatedDesc/);
+    await expect(page.getByRole("button", { name: /^Ostatnia zmiana, sortowanie: najnowsze/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /Przesuń/ })).toHaveCount(0);
+    await page.getByRole("button", { name: /^Ostatnia zmiana/ }).click();
+    await expect(page).toHaveURL(/sort=updatedAsc/);
     await page.reload();
-    await expect(page.getByLabel("Sortuj")).toHaveValue("updatedDesc");
+    await expect(page.getByRole("button", { name: /^Ostatnia zmiana, sortowanie: najstarsze/ })).toBeVisible();
     await expect(page.getByRole("combobox", { name: "Kategoria" })).toHaveValue(cat);
-    await expect(page.getByLabel("Ostatnia zmiana od")).toHaveValue(day(0));
     await expect(page.getByRole("heading", { level: 3 })).toHaveCount(3);
+    await page.getByRole("button", { name: /^Ostatnia zmiana/ }).click();
+    await expect(page).not.toHaveURL(/sort=/);
+    await page.getByRole("combobox", { name: "Kategoria" }).selectOption("");
     // Mobile: filters and sort open in a sheet that traps focus and gives it back; cards keep Edytuj, Terminy, Więcej.
     await page.setViewportSize({ width: 390, height: 844 });
     const filters = page.getByRole("button", { name: /^Filtry/ });
@@ -129,6 +131,18 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
     await page.getByRole("button", { name: /^Sortuj/ }).click();
     await page.getByRole("dialog", { name: "Sortowanie listy pojazdów" }).getByLabel("Sortuj").selectOption("order");
     await page.getByRole("button", { name: "Pokaż wyniki" }).click();
+    // Mobile card: the text actions stay on one line with a visible "Więcej".
+    const card = page.locator("tbody tr").first();
+    await expect(card.getByRole("button", { name: /^Więcej/ })).toHaveText("Więcej");
+    const line = await Promise.all([card.getByRole("link", { name: /^Edytuj/ }), card.getByRole("link", { name: /^Terminy/ }), card.getByRole("button", { name: /^Więcej/ })]
+      .map(async (control) => Math.round((await control.boundingBox())!.y / 4)));
+    expect(new Set(line).size, "Edytuj, Terminy, Więcej share one line").toBe(1);
+    // The sheet is a bottom sheet also between 481 and 880 px.
+    await page.setViewportSize({ width: 600, height: 900 });
+    await page.getByRole("button", { name: /^Filtry/ }).click();
+    const sheetBox = await page.getByRole("dialog", { name: "Filtry listy pojazdów" }).boundingBox();
+    expect(Math.round(sheetBox!.y + sheetBox!.height)).toBe(900);
+    await page.keyboard.press("Escape");
     await page.setViewportSize({ width: 1280, height: 720 });
     await page.goto(`${base}/admin/pojazdy/`);
     await expect(page.getByRole("heading", { level: 3 })).toHaveCount(3);

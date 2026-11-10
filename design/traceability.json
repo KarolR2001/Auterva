@@ -57,7 +57,7 @@
     },
     {
       "issue": 337,
-      "scope": "Lista pojazdów ADM-05 (panel firmy i flota superadmina) po D-42: podsumowanie statusów w nagłówku (statusCounts), filtry Kategoria i Ostatnia zmiana (od/do, LocalDate), sortowanie, stan filtrów w adresie URL (odświeżenie zachowuje, zmiana filtra wraca na stronę 1, loading bez starego wyniku), mobilny układ kart Edytuj · Terminy · Więcej z arkuszami Filtry/Sortuj (Dialog Radix: pułapka i powrót fokusu). Kolejność strzałkami tylko przy sort=order i bez filtrów. Zależy od API #336 (PR #352). Eksport makiety ma tylko wariant D; układ mobilny wg SPEC 9.12.",
+      "scope": "Lista pojazdów ADM-05 (panel firmy i flota superadmina) po D-42: podsumowanie statusów w nagłówku (statusCounts), filtr Kategoria, „Ostatnia zmiana” jako przycisk sortowania (D-50: najnowsze ↓ / najstarsze ↑ / kolejność w ofercie; bez pól dat, API updatedFrom/To nieużywane w UI), toolbar desktop w jednym rzędzie wg makiety, stan filtrów w adresie URL (odświeżenie zachowuje, zmiana filtra wraca na stronę 1, loading bez starego wyniku), mobilny układ kart Edytuj · Terminy · Więcej z arkuszami Filtry/Sortuj (Dialog Radix: pułapka i powrót fokusu). Kolejność strzałkami tylko przy sort=order i bez filtrów. Zależy od API #336 (PR #352). Mobile: akcje tekstowe w jednym wierszu, arkusz Filtry/Sortuj przy dole. Plansze Penpota: Desktop a4abf4c9-2e1f-80fd-8008-afeba8dd6131, Mobile 1e066793-8858-8051-8008-cf3e7dc97aa7.",
       "relatedRequirementIds": ["C-F095", "C-F097", "FR-ADM-021", "FR-ADM-022"],
       "referenceScreenIds": ["ADM-05"],
       "codePaths": ["src/components/admin/vehicle-list.tsx", "src/components/admin/fleet-api.ts", "src/components/admin/admin.module.css"],

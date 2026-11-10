@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addDays, blocksWithin, nearestBlocks, warsawToday } from "../../src/components/admin/dashboard";
-import { emptyQuery, errorMessage, isUncertain, queryFromSearch, rangeInvalid, readErrorMessage, rowActions, searchFromQuery, statusSummary } from "../../src/components/admin/fleet-api";
+import { emptyQuery, errorMessage, isUncertain, queryFromSearch, readErrorMessage, rowActions, searchFromQuery, statusSummary } from "../../src/components/admin/fleet-api";
 import type { FleetItem } from "../../src/components/admin/fleet-api";
 import { filtersActive, REORDER_LIMIT, reorderPayload } from "../../src/components/admin/vehicle-list";
 
@@ -74,7 +74,6 @@ describe("#34 fleet list", () => {
     expect(filtersActive({ ...empty, search: "  " })).toBe(false);
     expect(filtersActive({ ...empty, availableToday: "false" })).toBe(true);
     expect(filtersActive({ ...empty, categoryId: "c" })).toBe(true);
-    expect(filtersActive({ ...empty, updatedFrom: "2026-11-01" })).toBe(true);
     expect(filtersActive({ ...empty, sort: "updatedDesc" })).toBe(false);
   });
 
@@ -103,23 +102,20 @@ describe("#34 dashboard", () => {
 
   it("keeps list filters in the address and falls back to defaults for malformed values (D-42)", () => {
     const category = "3f2b8c1e-5a4d-4e6f-9a1b-2c3d4e5f6a7b";
-    const query = { ...emptyQuery, search: "van", status: "PUBLISHED" as const, categoryId: category, updatedFrom: "2026-11-01", updatedTo: "2026-11-10",
+    const query = { ...emptyQuery, search: "van", status: "PUBLISHED" as const, categoryId: category,
       sort: "updatedDesc" as const, page: 3 };
     expect(queryFromSearch(searchFromQuery(query))).toEqual(query);
     expect(searchFromQuery(emptyQuery)).toBe("");
-    expect(queryFromSearch("?status=HIDDEN&categoryId=x&updatedFrom=1.11&sort=price&page=-2&activeToday=maybe")).toEqual(emptyQuery);
-  });
-
-  it("detects an inverted change range but allows a single day", () => {
-    expect(rangeInvalid({ updatedFrom: "2026-11-10", updatedTo: "2026-11-09" })).toBe(true);
-    expect(rangeInvalid({ updatedFrom: "2026-11-10", updatedTo: "2026-11-10" })).toBe(false);
-    expect(rangeInvalid({ updatedFrom: "", updatedTo: "2026-11-09" })).toBe(false);
+    expect(queryFromSearch("?status=HIDDEN&categoryId=x&updatedFrom=2026-11-01&sort=price&page=-2&activeToday=maybe")).toEqual(emptyQuery);
   });
 
   it("summarises statuses like the mockup, with Polish plurals and no zero parts", () => {
-    expect(statusSummary({ all: 6, published: 5, draft: 0, unpublished: 1, archived: 0 })).toBe("6 pojazdów · 5 opublikowanych · 1 ukryty");
-    expect(statusSummary({ all: 1, published: 0, draft: 1, unpublished: 0, archived: 0 })).toBe("1 pojazd · 1 szkic");
-    expect(statusSummary({ all: 12, published: 2, draft: 3, unpublished: 2, archived: 5 })).toBe("12 pojazdów · 2 opublikowane · 3 szkice · 2 ukryte · 5 zarchiwizowanych");
+    expect(statusSummary({ all: 6, published: 5, draft: 0, unpublished: 1, archived: 0 })).toBe("6 pojazdów • 5 opublikowanych • 1 ukryty");
+    expect(statusSummary({ all: 1, published: 0, draft: 1, unpublished: 0, archived: 0 })).toBe("1 pojazd • 1 szkic");
+    expect(statusSummary({ all: 12, published: 2, draft: 3, unpublished: 2, archived: 5 })).toBe("12 pojazdów • 2 opublikowane • 3 szkice • 2 ukryte • 5 zarchiwizowanych");
     expect(statusSummary({ all: 0, published: 0, draft: 0, unpublished: 0, archived: 0 })).toBe("0 pojazdów");
+    // Compact (mobile) line like the mockup "6 pojazdów • 1 ukryty": published are implied, all-published fleet names them.
+    expect(statusSummary({ all: 6, published: 5, draft: 0, unpublished: 1, archived: 0 }, true)).toBe("6 pojazdów • 1 ukryty");
+    expect(statusSummary({ all: 3, published: 3, draft: 0, unpublished: 0, archived: 0 }, true)).toBe("3 pojazdy • 3 opublikowane");
   });
 });
