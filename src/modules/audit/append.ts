@@ -12,6 +12,9 @@ const actionEntity = {
   BLOCK_CREATED: "AvailabilityBlock", BLOCK_UPDATED: "AvailabilityBlock", BLOCK_DELETED: "AvailabilityBlock",
   MFA_RECOVERY_CODE_USED: "User",
   MFA_BACKUP_CODES_ROTATED: "User", MFA_RECOVERY_STARTED: "User",
+  // #327: private iCal feed; the token, its hash and the URL never enter an audit row (the entity id is the token row id).
+  CALENDAR_FEED_CREATED: "CalendarFeedToken", CALENDAR_FEED_ROTATED: "CalendarFeedToken",
+  CALENDAR_FEED_REVOKED: "CalendarFeedToken",
 } as const;
 
 export const safeAuditFieldNames = new Set([
@@ -82,6 +85,8 @@ export type AppendAuditInput = {
   changes?: { changedFields: string[]; before?: Record<string, string | number | boolean | null>;
     after?: Record<string, string | number | boolean | null> };
   revokedSessions?: number;
+  /** Number of feed tokens an action touched (CALENDAR_FEED_* only). */
+  count?: number;
 };
 
 /** Call in the exact transaction that mutates the domain row. Never accept role from a caller. */
@@ -118,7 +123,10 @@ export async function appendAudit(tx: Prisma.TransactionClient, input: AppendAud
       select: { archivedAt: true } });
     archivedContext = company?.archivedAt != null;
   }
-  const safeChanges = input.changes ?? (input.revokedSessions === undefined ? undefined : { revokedSessions: input.revokedSessions });
+  if (input.count !== undefined && (!Number.isSafeInteger(input.count) || input.count < 0 || input.changes !== undefined
+    || input.revokedSessions !== undefined || !input.action.startsWith("CALENDAR_FEED_"))) throw new Error("Invalid audit count");
+  const safeChanges = input.changes ?? (input.revokedSessions !== undefined ? { revokedSessions: input.revokedSessions }
+    : input.count !== undefined ? { count: input.count } : undefined);
   return tx.auditLog.create({ data: {
     eventKey: input.eventKey, organizationId: input.organizationId, actorId: input.actorId,
     actorRole: actor.role, action: input.action, entityType: actionEntity[input.action],

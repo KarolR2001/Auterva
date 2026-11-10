@@ -5,6 +5,7 @@ import { getServerEnv } from "@/lib/env";
 import { hasControlCharacter, INVALID_CHARACTERS, InvalidCharactersError } from "@/lib/text-policy";
 import { appendAudit } from "@/modules/audit/append";
 import { requireAuditActor } from "@/modules/audit/actor";
+import { parseCreationContact } from "@/modules/settings/fields";
 import { paidEndExclusive } from "@/modules/service-period/state";
 import { normalizeHostname } from "@/modules/tenancy/host-registry";
 
@@ -20,11 +21,17 @@ type PreregisterInput = {
   adminBaseDomain: string; publicBaseDomain: string;
   trialGranted: boolean; paidThrough: string | null;
   idempotencyKey: string; requestId: string;
+  /** D-41: optional public contact/address (settings `contact`/`address` rules), flat field names. */
+  contact?: Record<string, unknown>;
 };
 type PreregisterResult = {
   organizationId: string; adminHostname: string; publicHostname: string;
   invitationStatus: "NOT_ISSUED";
 };
+
+export class CompanyContactError extends Error {
+  constructor(readonly fieldErrors: Record<string, string>) { super("COMPANY_INVALID_CONTACT"); }
+}
 
 function keyed(value: string): string {
   return createHmac("sha256", getServerEnv().BETTER_AUTH_SECRET).update(value).digest("hex");
@@ -35,6 +42,8 @@ function normalizedInput(input: PreregisterInput) {
   const slug = input.slug.trim().toLowerCase();
   const adminEmail = input.adminEmail.trim().toLowerCase();
   if (hasControlCharacter(name)) throw new InvalidCharactersError({ name: INVALID_CHARACTERS });
+  const contact = parseCreationContact(input.contact ?? {});
+  if (!contact.ok) throw new CompanyContactError(contact.fieldErrors);
   const adminBase = normalizeHostname(input.adminBaseDomain);
   const publicBase = normalizeHostname(input.publicBaseDomain);
   if (!input.actorId || input.actorId.length > 128 || !input.sessionId || input.sessionId.length > 128
@@ -51,7 +60,9 @@ function normalizedInput(input: PreregisterInput) {
   const publicHostname = normalizeHostname(`${slug}.${publicBase}`);
   if (!adminHostname || !publicHostname) throw new Error("COMPANY_INVALID_HOST");
   return { name, slug, adminEmail, adminHostname, publicHostname,
-    trialGranted: input.trialGranted, paidThrough: input.paidThrough };
+    trialGranted: input.trialGranted, paidThrough: input.paidThrough,
+    // Absent when empty, so the idempotency hash of a request without contact data is unchanged.
+    ...(Object.keys(contact.data).length ? { contact: contact.data } : {}) };
 }
 
 async function authorizedReceipt(tx: Prisma.TransactionClient, input: PreregisterInput,
@@ -89,6 +100,9 @@ export async function preregisterCompany(db: PrismaClient, input: PreregisterInp
       trialGranted: normalized.trialGranted,
       paidThrough: normalized.paidThrough === null ? null : new Date(`${normalized.paidThrough}T00:00:00.000Z`),
       changedById: input.actorId } });
+    const contactFields = Object.keys(normalized.contact ?? {});
+    if (normalized.contact && contactFields.length) await tx.siteSettings.create({ data: {
+      organizationId, ...normalized.contact, version: 1 } });
     const result: PreregisterResult = { organizationId, adminHostname: normalized.adminHostname,
       publicHostname: normalized.publicHostname, invitationStatus: "NOT_ISSUED" };
     await tx.operationReceipt.create({ data: { organizationId, actorId: input.actorId,
@@ -97,6 +111,10 @@ export async function preregisterCompany(db: PrismaClient, input: PreregisterInp
     await appendAudit(tx, { actorId: input.actorId, sessionId: input.sessionId,
       organizationId, action: "COMPANY_CREATED", entityId: organizationId,
       eventKey: randomUUID(), requestId: input.requestId });
+    if (contactFields.length) await appendAudit(tx, { actorId: input.actorId, sessionId: input.sessionId,
+      organizationId, action: "SETTINGS_CHANGED", entityId: organizationId,
+      eventKey: randomUUID(), requestId: input.requestId,
+      changes: { changedFields: [...contactFields, "version"], before: { version: 0 }, after: { version: 1 } } });
     return result;
   });
   try { return await create(); }
