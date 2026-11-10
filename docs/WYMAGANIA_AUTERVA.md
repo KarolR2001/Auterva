@@ -575,6 +575,7 @@ Historyczne scenariusze v2 (15): UC-SAS-01 assisted startup; 02 multi-company; 0
 - Decyzje właściciela z 23.10.2026 rozstrzygają D-01, D-02, D-04 i D-05. Szczegóły macierzy, publikacji, limitów i bootstrapu są kanoniczne dla implementacji MVP 3.1.
 - Decyzje właściciela z 27.10.2026 rozstrzygają D-16–D-27 (środowiska, materiały, limity, preview, archiwum, przypomnienia, SEO, hosty i przekierowania).
 - Decyzje właściciela z 28.10.2026 rozstrzygają D-28–D-32 (profil bez zakupu, kontrole lokalne, retencja podstawy odblokowania, wielu wykonawców w roli, najbliższy wolny termin i zbiorcze blokady).
+- Decyzje właściciela z 10.11.2026 rozstrzygają D-33–D-47 (TOTP, makiety PUB, TEN, PLT i ADM, dokumenty prawne, hasło, opis trialu, eksport kalendarza i danych) i potwierdzają D-28.
 
 ### Do ustalenia przed implementacją danego obszaru
 
@@ -620,13 +621,32 @@ Rozstrzygają pytania zebrane podczas CR/QA Stage 3. Gdy decyzja zmienia zachowa
 
 - **D-32 — najbliższy wolny termin i zbiorcze blokady (#70, opcjonalne, poza obowiązkowym MVP):** właściciel zatwierdził 28.10.2026 rekomendacje P1–P7 z [kontraktu](contracts/availability-nearest-and-bulk-blocks.md): horyzont 180 dni (stała serwera); najbliższy termin publicznie, obliczany na żądanie dla jednego pojazdu, bez wsadu w pierwszym kroku; zapis zbiorczy domyślnie wszystko albo nic z `dryRun`, a częściowy zapis (`SKIP`) tylko jawnie, z dokładną listą zapisanych i odrzuconych aut; najwyżej 50 aut w żądaniu; `internalNote` nie jest kopiowana bez jawnego `copyNote`; kopiowanie z przesunięciem dat (`shiftDays`) w kolejnym kroku, najpierw zbiorcze utworzenie i kopia na te same daty; wymagany `idempotencyKey` (UUID) z receiptem ważnym 24 h. Implementacja w osobnych zadaniach API i FE; nowe stany UI wymagają makiety Penpota przed kodem. Bez rezerwacji online i zapisu offline.
 
+#### Decyzje właściciela z 10.11.2026
+
+- **D-28 — potwierdzenie (#90):** nadal bez zakupu płatnego stagingu i produkcji; prace lokalne trwają.
+- **D-33 — rotacja TOTP (#254):** samodzielna rotacja TOTP w pełnej sesji nie wchodzi do MVP 3.1. Obecne ścieżki to kody odzyskania i odzyskanie przez superadmina.
+- **D-34 — obszar odbioru (#257):** „Obszar odbioru” i obszar działania są usunięte z makiety PUB-04; adres i mapa (D-03) wystarczają. Bez nowych pól.
+- **D-35 — galeria na home (#209):** galeria redakcyjna jest usunięta z makiety PUB-01; strona główna pokazuje logo, hero, wyróżnione pojazdy i katalog. DTO bez zmian.
+- **D-36 — dokumenty prawne (#232):** w PUB-05/06 konwencja `## ` w treści plain text daje numerowane nagłówki i spis treści (z escapowaniem, bez HTML). Datę aktualizacji ustawia serwer, a strona pokazuje publiczne „Ostatnia aktualizacja” (#325). Eyebrow i lead są stałe; link powrotny do pojazdu działa przez `?vehicle`.
+- **D-37 — hasło (#240):** serwer egzekwuje wyłącznie długość 12–256 (#22); wielka litera, cyfra i znak specjalny są zalecane, nie blokujące (#252). Makieta do dostosowania.
+- **D-38 — opis okresu próbnego (#297):** ekrany opisują trial jako „14 dni”; logika bez zmian: dokładnie 336 h od rejestracji administratora (U4) (#326).
+- **D-39 — TEN-04 (#297):** wiersz „Konto administratora” jest usunięty z makiety TEN-04.
+- **D-40 — eksport kalendarza i danych firmy (#79, opcjonalne, COULD):** właściciel zatwierdził 10.11.2026 rekomendacje E1–E7, E9 i E11–E14 z [kontraktu](contracts/calendar-and-company-export.md). E8: okno eksportu na prośbę po archiwizacji lub zakończeniu współpracy wynosi **30 dni**. E10: prywatny feed **nigdy** nie zawiera typu blokady. Kolejność: prywatny feed (#327), potem eksport (#328). Nowe stany UI wymagają makiety Penpota przed kodem.
+- **D-41 — dane kontaktowe przy tworzeniu firmy (PLT-04, #334, #335):** formularz „Dodaj firmę” ma opcjonalne pola kontaktu (telefon, publiczny e-mail, adres), zapisywane do ustawień firmy w tej samej transakcji co firma. Makieta zostaje; Backend i Frontend rozszerzają aplikację.
+- **D-42 — lista pojazdów (ADM-05, #336, #337):** filtry „Kategoria” i „Ostatnia zmiana”, podsumowanie statusów w nagłówku oraz mobilny układ „Edytuj · Terminy · Więcej” z „Filtry/Sortuj” trafiają do API i aplikacji. Makieta zostaje.
+- **D-43 — sesje superadmina (PLT-10):** rządzi [kontrakt #72](contracts/account-operations.md): superadmin widzi i kończy swoje sesje. [Handoff konta platformy](../design/handoff/platform-account.md) opisuje kartę/link do sesji; makieta do dostosowania.
+- **D-44 — termin na PUB-03 (#338):** z aplikacji znikają pola dat „Od/Do” i stan „Minął” w legendzie; termin wybiera się wyłącznie w kalendarzu. [SPEC](design/SPEC.md) dostosowany.
+- **D-45 — siła hasła (#339):** miernik „Siła hasła” (słabe/średnie/silne) pozostaje w makietach i trafia do formularzy hasła w aplikacji; jest informacyjny i nie blokuje zapisu (D-37).
+- **D-46 — checklista hasła:** osobna zalecana pozycja „Małe i wielkie litery”; makiety do dostosowania.
+- **D-47 — zakres prywatnego feedu (#327):** prywatny feed iCal obejmuje wyłącznie pojazdy `PUBLISHED`; szkice, nieopublikowane i zarchiwizowane są pominięte. Zob. [kontrakt](contracts/calendar-and-company-export.md).
+
 ## 10. Co warto dodać — propozycje, poza obowiązkowym zakresem
 
 - **Najpierw: kontrola jakości oferty.** Lista brakujących zdjęć/opisów/kontaktu i przypomnienie o weryfikacji dostępności. Rozwija opcjonalny FR-ADM-011 i ogranicza błędne zapytania klientów.
 - **Najpierw: diagnostyka uruchomienia firmy.** Na karcie firmy czytelne przyczyny problemów DNS/TLS i niedostarczenia zaproszenia/przypomnienia; dane techniczne wyłącznie dla operatora. Rozwija istniejące statusy, bez nowego panelu integracji.
 - **Następnie: najbliższy wolny termin.** Po negatywnym sprawdzeniu pokazać kolejny dostępny zakres z ustalonym horyzontem; nadal wyłącznie informacja i kontakt. Alternatywne dostępne pojazdy są już częścią bazowego flow.
 - **Następnie: kopiowanie i zbiorcze blokowanie aut.** Przydatne przy serwisie/urlopie; podsumowanie konfliktów i jednoznaczna polityka częściowego zapisu przed wdrożeniem.
-- **Następnie: eksport kalendarza oraz danych firmy.** Ułatwia pracę poza Autervą i przenoszenie danych; osobne zakresy publiczne/prywatne, kontrola uprawnień i termin ważności linku.
+- **Następnie: eksport kalendarza oraz danych firmy.** Ułatwia pracę poza Autervą i przenoszenie danych; osobne zakresy publiczne/prywatne, kontrola uprawnień i termin ważności linku. Discovery #79 zatwierdzone jako D-40 ([kontrakt](contracts/calendar-and-company-export.md)).
 - **Później: dodatkowy język publicznej oferty.** Korzysta z przygotowanej lokalizacji; wymaga tłumaczeń rzeczywistych treści i SEO, bez przebudowy paneli.
 - Rezerwacje online, płatności, CRM i zespoły wymagają osobnej decyzji produktowej; nie są drobnym dodatkiem do obecnego modelu.
 
@@ -634,6 +654,6 @@ Rozstrzygają pytania zebrane podczas CR/QA Stage 3. Gdy decyzja zmienia zachowa
 
 - Analiza źródłowa objęła pięć plików PRD, z czterema różnymi treściami. Repozytorium zachowuje kanoniczny V31 i BASELINE_FLEET; historia V2/V30 nie jest zależnością implementacji. Zachowane i wycofane wymagania są rozliczone w tym dokumencie.
 - Katalog zachowuje 71 identyfikatorów bazowych FR, 10 UC, 4 NFR-PERF oraz odniesienia do 31 REQ-MVP i 55 scenariuszy TEST-MVP z V31 §20. Scenariusze testowe są planem odbioru, nie wynikami testów.
-- Pełne pokrycie katalogu nie oznacza gotowości wszystkich kontraktów do implementacji: D-12, D-13 i D-15 pozostają ustaleniami projektowymi i mapowaniem. D-01–D-11 i D-14 mają rozstrzygnięcie z 23.10.2026, D-16–D-27 z 27.10.2026, a D-28–D-32 z 28.10.2026.
+- Pełne pokrycie katalogu nie oznacza gotowości wszystkich kontraktów do implementacji: D-12, D-13 i D-15 pozostają ustaleniami projektowymi i mapowaniem. D-01–D-11 i D-14 mają rozstrzygnięcie z 23.10.2026, D-16–D-27 z 27.10.2026, D-28–D-32 z 28.10.2026, a D-33–D-47 (oraz potwierdzenie D-28) z 10.11.2026.
 - Dla każdego wdrażanego przekroju uzupełnić mapowanie wymaganie → board Penpota → kod → trwały test w `design/traceability.json`. Aktualny dokument nie dopisuje fikcyjnych ścieżek kodu ani zaliczonych testów.
 - Odbiór aplikacji wymaga [quality gates](quality-gates.md), w tym rzeczywistego PostgreSQL, izolacji firm, współbieżności, MFA, poczty, WebSocket, hostów i PWA production build.

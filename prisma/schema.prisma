@@ -386,6 +386,8 @@ model SiteSettings {
   seoDescription       String?
   privacyText          String?
   termsText            String?
+  privacyTextUpdatedAt DateTime?    @db.Timestamptz(6)
+  termsTextUpdatedAt   DateTime?    @db.Timestamptz(6)
   availabilityNotice   String?
   heroText             String?
   serviceArea          String?

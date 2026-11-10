@@ -25,8 +25,8 @@
       "path": "docs/design/SPEC.md",
       "role": "current-design-contract",
       "originalSha256": "57f6591f985e33c7ea225f84b9fa2ac298ff852c2843fb1c54994991608b2027",
-      "sha256": "6cbbc214b0458e5a3b8d90714254ba9bc11412d9a53a11c7aa7805bde3e78fea",
-      "transformation": "Dodano nadrzędny kontrakt 3.1 i DEC-013–020, aktualne strony Penpota, obowiązkowe MFA, granice ustawień i status prototypów; zachowano fundamenty/komponenty i przeniesiono reguły motion/copy bez historycznych wyników QA. Doprecyzowano nawigację panelu firmy w #94 i platformy w #102, a w #107 menu akcji pojazdu ADM-05 (publikacja tylko w formularzu)."
+      "sha256": "abc745ce8be9c71635af6559987fb27016004de0380e8b283a5cafecb2161c4b",
+      "transformation": "Dodano nadrzędny kontrakt 3.1 i DEC-013–020, aktualne strony Penpota, obowiązkowe MFA, granice ustawień i status prototypów; zachowano fundamenty/komponenty i przeniesiono reguły motion/copy bez historycznych wyników QA. Doprecyzowano nawigację panelu firmy w #94 i platformy w #102, a w #107 menu akcji pojazdu ADM-05 (publikacja tylko w formularzu). Od 10.11.2026 (D-44): PUB-03 bez pól Od/Do i stanu „Minął”, termin wybierany tylko w kalendarzu."
     }
   ],
   "derivedDocuments": [
