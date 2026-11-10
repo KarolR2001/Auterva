@@ -1936,6 +1936,21 @@
       "testPaths": ["tests/unit/contact-legal.test.tsx", "tests/e2e/public-contact.spec.ts"]
     },
     {
+      "issue": 232,
+      "scope": "PUB-05/06 struktura dokumentu prawnego (D-36): eyebrow (INFORMACJE PRAWNE / ZASADY WYNAJMU) i lead, lekka konwencja treści (linia zaczynająca się od `## ` to numerowany nagłówek h2 z kotwicą i pozycją spisu treści, reszta akapity; tekst escapowany, bez HTML i markdownu, brak nagłówków = brak spisu), link powrotny do pojazdu przez ?vehicle=<slug> tylko dla opublikowanego pojazdu tej firmy (walidacja serwerowa), wiersz „Ostatnia aktualizacja” renderowany tylko, gdy DTO ma pole updatedAt (zależność: Backend #325, pole podłączone po jego scaleniu), podpowiedź o konwencji w podglądzie ustawień. Penpot nieodczytany w tym przebiegu (karta współdzielona, brief zakazał wywołań): porównanie oparte na SPEC 9.5/9.6 i opisie rozbieżności z #44; porównanie wizualne z planszami PUB-05/06 do odbioru QA.",
+      "relatedRequirementIds": ["FR-PUB-041", "FR-PUB-042"],
+      "referenceScreenIds": ["PUB-05", "PUB-06"],
+      "codePaths": [
+        "src/components/public/legal-page.tsx",
+        "src/components/public/contact.module.css",
+        "src/components/settings/settings-extras.tsx",
+        "src/modules/public-offer/legal-structure.ts",
+        "src/app/polityka-prywatnosci/page.tsx",
+        "src/app/regulamin/page.tsx"
+      ],
+      "testPaths": ["tests/unit/legal-structure.test.ts", "tests/unit/contact-legal.test.tsx", "tests/e2e/public-legal-structure.spec.ts"]
+    },
+    {
       "issue": 235,
       "scope": "PUB-04 wygląd po QA #44: hero z eyebrow, ciemna karta preferowanego kanału z nagłówkiem akcji, pozostałe kanały w kartach (desktop 2 kolumny pod pełnoszerokim preferowanym), pełnoszerokie przyciski na mobile, akcje „Zadzwoń teraz”/„Otwórz WhatsApp →”/„Otwórz w mapach”, dekoracyjna grafika mapy, blok „Przygotuj do rozmowy” bez kontekstu; komunikat po kopiowaniu i temat e-maila bez nowej linii. Logika kontaktu bez zmian. Porównanie z Penpotem PUB-04 M/D nie wykonane w tym przebiegu (wtyczka Penpot uśpiona, timeout); oparte na eksportach i opisie QA #44 oraz SPEC 9.4. Makieta ma też „Obszar odbioru” i obszar działania: brak pola w DTO, nie dodano (osobna decyzja).",
       "relatedRequirementIds": ["C-F106", "FR-PUB-030", "FR-PUB-031", "FR-PUB-032"],
