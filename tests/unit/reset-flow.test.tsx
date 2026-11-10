@@ -21,6 +21,8 @@ describe("prośba o reset hasła", () => {
     const user = userEvent.setup();
     render(<ResetRequestForm area="company" />);
     expect(screen.getByText("Adres przypisany do konta")).toBeVisible();
+    expect(screen.getByText("Odzyskiwanie dostępu")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Wróć do logowania" }).querySelector("svg")).not.toBeNull();
     expect(screen.getByText("Po wysłaniu zawsze pokażemy neutralne potwierdzenie.")).toBeVisible();
     await user.type(screen.getByRole("textbox", { name: /Adres e-mail/ }), "a@example.test");
     await user.click(screen.getByRole("button", { name: "Wyślij link resetujący" }));

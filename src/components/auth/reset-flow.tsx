@@ -66,7 +66,7 @@ export function ResetRequestForm({ area }: AuthProps) {
       area={area}
       view="reset"
       title="Zresetuj hasło"
-      context={area === "company" ? "Panel administratora" : "Panel Auterva"}
+      context="Odzyskiwanie dostępu"
       footer={sent ? undefined : "Po wysłaniu zawsze pokażemy neutralne potwierdzenie."}
     >
       {sent ? (
@@ -137,7 +137,8 @@ export function ResetRequestForm({ area }: AuthProps) {
           </Button>
           <p className={styles.linkRow}>
             <Link href={where.login}>
-              <ArrowLeft aria-hidden="true" size={16} /> Wróć do logowania
+              <ArrowLeft aria-hidden="true" size={16} />
+              Wróć do logowania
             </Link>
           </p>
         </form>
@@ -200,7 +201,7 @@ export function SetNewPasswordForm({
             ? "Link nie działa"
             : "Ustaw nowe hasło"
       }
-      context={area === "company" ? "Panel administratora" : "Panel Auterva"}
+      context="Odzyskiwanie dostępu"
       footer={state === "form" ? "Link jednorazowy • po zapisie wrócisz do logowania" : undefined}
     >
       {state === "success" && (

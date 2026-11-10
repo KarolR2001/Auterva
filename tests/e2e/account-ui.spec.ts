@@ -100,6 +100,10 @@ test("company admin: reset, account, password change, logout and expired service
     for (const address of [`nobody-${randomUUID()}@example.test`, email]) {
       await page.goto(`${origin}/admin/reset-hasla`);
       await page.getByRole("textbox", { name: /Adres e-mail/ }).fill(address);
+      // The back arrow sits on the same line as the link text.
+      const back = page.getByRole("link", { name: "Wróć do logowania" });
+      const [arrow, link] = await Promise.all([back.locator("svg").boundingBox(), back.boundingBox()]);
+      expect(arrow && link && arrow.y >= link.y && arrow.y + arrow.height <= link.y + link.height + 1 && link.height < 32).toBe(true);
       const answered = page.waitForResponse((r) => r.url().includes("/api/auth/password/request-reset"));
       await page.getByRole("button", { name: "Wyślij link resetujący" }).click();
       const answer = await answered;
