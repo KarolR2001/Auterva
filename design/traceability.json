@@ -34,7 +34,7 @@
         "src/components/audit/audit-log.tsx",
         "src/modules/audit/view.ts"
       ],
-      "testPaths": ["tests/unit/audit-view.test.ts", "tests/unit/fleet-calendar.test.tsx", "tests/e2e/admin-fleet.spec.ts"]
+      "testPaths": ["tests/unit/audit-view.test.ts", "tests/unit/fleet-calendar.test.tsx", "tests/e2e/admin-fleet.spec.ts", "tests/e2e/audit-log-ui.spec.ts"]
     },
     {
       "issue": 293,

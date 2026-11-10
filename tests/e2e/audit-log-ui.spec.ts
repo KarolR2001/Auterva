@@ -95,7 +95,8 @@ test("change log: local time from UTC, filters, cursor, superadmin as themselves
     await page.getByLabel("Akcja").selectOption("SETTINGS_CHANGED");
     await page.getByRole("button", { name: "Zastosuj" }).click();
     await page.getByRole("button", { name: /Szczegóły/ }).click();
-    await expect(page.getByRole("row", { name: /Status/ })).toContainText("PUBLISHED");
+    // #298: status values are shown in Polish, not as raw enum names.
+    await expect(page.getByRole("row", { name: /Status/ })).toContainText("Opublikowany");
     // Redaction by the server: the phone number never reaches the page, only the changed field's name.
     await expect(page.getByRole("row", { name: /Telefon/ })).not.toContainText("+48");
     await expect(page.locator("body")).not.toContainText("+48 600");
