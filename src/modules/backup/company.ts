@@ -50,6 +50,7 @@ export const COMPANY_EXCLUDED_TABLES: Readonly<Record<string, string>> = {
   Job: "old jobs are quarantined, never replayed",
   AuditRetentionManifest: "belongs to the purge jobs of the live system",
   AuditOperatorExport: "operator artifact of the live system",
+  CalendarFeedToken: "never restored; live tokens of the company are revoked and the replaced user rows cascade to them (#327)",
   OperationReceipt: "this company's receipts are deleted on restore (no replayed success for rolled-back work); other companies keep theirs",
   PlatformLegalDocument: "platform-wide",
   VehicleCategory: "platform-wide catalogue",

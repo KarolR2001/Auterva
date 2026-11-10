@@ -4,6 +4,7 @@ import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { createAuth } from "@/lib/auth";
 import { getServerEnv } from "@/lib/env";
 import { appendAudit } from "@/modules/audit/append";
+import { revokeFeedTokensWithin } from "@/modules/calendar-feed/tokens";
 import { enqueueMail } from "@/modules/jobs/outbox";
 import { normalizeHostname } from "@/modules/tenancy/host-registry";
 import { requireAuthorizedActor, type AuthHost } from "./authorization";
@@ -142,6 +143,11 @@ export async function resetPassword(db: PrismaClient, input: {
     await tx.verification.deleteMany({ where: { identifier: `password-reset:${user.email.toLowerCase()}` } });
     await revokeMfaChallenges(tx, user.id);
     await tx.passwordResetRequest.update({ where: { id: receipt.id }, data: { consumedAt: input.now } });
+    // #327 (E12): a reset also revokes the private calendar feeds of this account (no session exists to append with).
+    const feeds = await revokeFeedTokensWithin(tx, { userId: user.id }, "PASSWORD_CHANGED", input.now);
+    if (feeds > 0) await tx.auditLog.create({ data: { eventKey: randomUUID(), actorId: user.id, actorRole: expectedRole,
+      organizationId: user.organizationId, action: "CALENDAR_FEED_REVOKED", entityType: "CalendarFeedToken",
+      entityId: user.id, requestId: input.requestId, safeChanges: { count: feeds } } });
     // The consumed proof is the actor authorization for this narrow unauthenticated
     // path. Do not synthesize a full-MFA session or weaken appendAudit.
     await tx.auditLog.createMany({ data: [
@@ -198,6 +204,11 @@ export async function changeAccountPassword(db: PrismaClient, input: {
     await appendAudit(tx, { actorId: actor.userId, sessionId: actor.sessionId,
       organizationId: actor.organizationId, action: "AUTH_PASSWORD_CHANGED", entityId: actor.userId,
       eventKey: randomUUID(), requestId: input.requestId });
+    // #327 (E12): the private calendar feeds this account created stop working with the old password.
+    const feeds = await revokeFeedTokensWithin(tx, { userId: actor.userId }, "PASSWORD_CHANGED");
+    if (feeds > 0) await appendAudit(tx, { actorId: actor.userId, sessionId: actor.sessionId,
+      organizationId: actor.organizationId, action: "CALENDAR_FEED_REVOKED", entityId: actor.userId,
+      eventKey: randomUUID(), requestId: input.requestId, count: feeds });
     const sessionCount = await tx.session.count({ where: { userId: actor.userId } });
     await appendAudit(tx, { actorId: actor.userId, sessionId: actor.sessionId,
       organizationId: actor.organizationId, action: "AUTH_SESSIONS_REVOKED", entityId: actor.userId,
