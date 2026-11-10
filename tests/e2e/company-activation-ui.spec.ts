@@ -50,6 +50,8 @@ async function fill(page: Page, password: string, confirm = password) {
 }
 
 const password = "Activation UI password 7731!";
+const weakPassword = "abcdefghijkl"; // 12 chars: meets the server rule, scores weak
+
 
 test("activation page: open does not activate, validation, double submit, lost response and spent link", async ({ page, baseURL }) => {
   if (!baseURL) throw new Error("Missing trusted ingress URL");
@@ -75,7 +77,7 @@ test("activation page: open does not activate, validation, double submit, lost r
     await page.getByRole("button", { name: "Aktywuj konto" }).click();
     await expect(page.getByText("Hasło musi mieć co najmniej 12 znaków")).toBeVisible();
     // DS-AUT-004: text level and a textual checklist; only the length is required.
-    await expect(page.getByText("Siła hasła: Słabe")).toBeVisible();
+    await expect(page.getByText("Siła hasła: Za krótkie")).toBeVisible();
     await expect(page.getByText(/Co najmniej 12 znaków \(wymagane\)/)).toContainText("oczekuje");
     await fill(page, password, `${password}x`);
     await page.getByRole("button", { name: "Aktywuj konto" }).click();
@@ -93,7 +95,9 @@ test("activation page: open does not activate, validation, double submit, lost r
       await route.fetch({ url: target.toString(), headers: { ...route.request().headers(), host: fixture.host + ":" + target.port } });
       await route.abort("failed");
     });
-    await fill(page, password);
+    // D-45: the meter is informational; a weak password of 12+ characters is still saved.
+    await fill(page, weakPassword);
+    await expect(page.getByText("Siła hasła: Słabe")).toBeVisible();
     await page.getByRole("button", { name: "Aktywuj konto" }).dblclick();
     await expect(page.getByText("Nie udało się połączyć.")).toBeVisible();
     expect(posts).toBe(1);

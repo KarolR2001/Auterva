@@ -205,7 +205,7 @@ export function ActivationFlow({ token }: { token: string }) {
         <PasswordInput id="activation-password" label="Nowe hasło" autoComplete="new-password" placeholder="Wpisz nowe hasło"
           hint="12–256 znaków" aria-describedby="activation-strength" visibility={visibility} onVisibilityChange={setVisibility}
           error={form.formState.errors.password?.message} readOnly={uncertain} {...form.register("password")} />
-        <PasswordStrength id="activation-strength" level={strength.level} criteria={strength.criteria} />
+        <PasswordStrength id="activation-strength" level={strength.level} tooShort={strength.tooShort} criteria={strength.criteria} />
         <PasswordInput id="activation-confirm" label="Powtórz hasło" autoComplete="new-password" placeholder="Wpisz hasło ponownie"
           hint="Oba hasła muszą być identyczne." visibility={visibility} onVisibilityChange={setVisibility}
           error={form.formState.errors.confirm?.message} readOnly={uncertain} {...form.register("confirm")} />
