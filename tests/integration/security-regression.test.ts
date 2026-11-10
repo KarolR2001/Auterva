@@ -633,6 +633,8 @@ const mutationSamples = (): Record<string, Sample> => {
       text: ["fields.reference", "fields.internalNote"], reported: underFields },
     "PATCH /vehicles/[id]/images/[imageId]/": { body: () => ({ expectedVersion: 0, alt: "Probe" }), text: ["alt"] },
     "POST /chat/messages/": { body: () => ({ clientMessageId: randomUUID(), body: "Probe" }), text: ["body"] },
+    // #328: proof and idempotencyKey are fixed-format tokens, not free text: any control character is a 400, never a 500.
+    "POST /export/": { body: () => ({ proof: "a".repeat(64), idempotencyKey: randomUUID() }), text: [] },
   };
   const samples: Record<string, Sample> = {};
   samples["POST /api/admin/calendar-feeds/"] = { body: () => ({ label: "Probe" }), text: ["label"], reported: (path) => path };
