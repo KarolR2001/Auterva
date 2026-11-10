@@ -16,6 +16,18 @@ afterEach(() => {
 const token = "A".repeat(43);
 
 describe("prośba o reset hasła", () => {
+  it("pokazuje tekst pomocniczy i stopkę z makiety ADM-02, a po wysłaniu je ukrywa", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ accepted: true }));
+    const user = userEvent.setup();
+    render(<ResetRequestForm area="company" />);
+    expect(screen.getByText("Adres przypisany do konta")).toBeVisible();
+    expect(screen.getByText("Po wysłaniu zawsze pokażemy neutralne potwierdzenie.")).toBeVisible();
+    await user.type(screen.getByRole("textbox", { name: /Adres e-mail/ }), "a@example.test");
+    await user.click(screen.getByRole("button", { name: "Wyślij link resetujący" }));
+    await screen.findByText("Jeśli konto z tym adresem istnieje, wyślemy instrukcję resetu hasła.");
+    expect(screen.queryByText("Po wysłaniu zawsze pokażemy neutralne potwierdzenie.")).toBeNull();
+  });
+
   it("pokazuje ten sam neutralny komunikat i link do logowania właściwego hosta", async () => {
     const request = vi
       .spyOn(globalThis, "fetch")
@@ -23,7 +35,7 @@ describe("prośba o reset hasła", () => {
     const user = userEvent.setup();
     render(<ResetRequestForm area="company" />);
     await user.type(screen.getByRole("textbox", { name: /Adres e-mail/ }), "Ktos@Example.test");
-    await user.click(screen.getByRole("button", { name: "Wyślij instrukcję" }));
+    await user.click(screen.getByRole("button", { name: "Wyślij link resetujący" }));
     expect(
       await screen.findByText(
         "Jeśli konto z tym adresem istnieje, wyślemy instrukcję resetu hasła.",
@@ -44,10 +56,10 @@ describe("prośba o reset hasła", () => {
     render(<ResetRequestForm area="company" />);
     const email = screen.getByRole("textbox", { name: /Adres e-mail/ });
     await user.type(email, "ktos@example.test");
-    await user.click(screen.getByRole("button", { name: "Wyślij instrukcję" }));
+    await user.click(screen.getByRole("button", { name: "Wyślij link resetujący" }));
     expect(await screen.findByRole("alert")).toBeVisible();
     await waitFor(() => expect(email).toHaveFocus());
-    await user.click(screen.getByRole("button", { name: "Wyślij instrukcję" }));
+    await user.click(screen.getByRole("button", { name: "Wyślij link resetujący" }));
     await screen.findByText(/Link jest ważny 30 minut/);
     await waitFor(() =>
       expect(screen.getByRole("heading", { level: 1 })).toHaveFocus(),
@@ -64,9 +76,9 @@ describe("prośba o reset hasła", () => {
     render(<ResetRequestForm area="platform" />);
     const field = screen.getByRole("textbox", { name: /Adres e-mail/ });
     await user.type(field, "a@example.test");
-    await user.click(screen.getByRole("button", { name: "Wyślij instrukcję" }));
+    await user.click(screen.getByRole("button", { name: "Wyślij link resetujący" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Nie wiemy, czy żądanie dotarło");
-    await user.click(screen.getByRole("button", { name: "Wyślij instrukcję" }));
+    await user.click(screen.getByRole("button", { name: "Wyślij link resetujący" }));
     await waitFor(() => expect(request).toHaveBeenCalledTimes(2));
     const keys = request.mock.calls.map((call) => JSON.parse(String(call[1]?.body)).idempotencyKey);
     expect(keys[0]).toBe(keys[1]);
@@ -81,9 +93,9 @@ describe("prośba o reset hasła", () => {
     const user = userEvent.setup();
     render(<ResetRequestForm area="company" />);
     await user.type(screen.getByRole("textbox", { name: /Adres e-mail/ }), "a@example.test");
-    await user.click(screen.getByRole("button", { name: "Wyślij instrukcję" }));
+    await user.click(screen.getByRole("button", { name: "Wyślij link resetujący" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Nie wiemy, czy żądanie dotarło");
-    await user.click(screen.getByRole("button", { name: "Wyślij instrukcję" }));
+    await user.click(screen.getByRole("button", { name: "Wyślij link resetujący" }));
     await waitFor(() => expect(request).toHaveBeenCalledTimes(2));
     expect(JSON.parse(String(request.mock.calls[0][1]?.body)).idempotencyKey)
       .toBe(JSON.parse(String(request.mock.calls[1][1]?.body)).idempotencyKey);
@@ -96,7 +108,7 @@ describe("prośba o reset hasła", () => {
     const user = userEvent.setup();
     render(<ResetRequestForm area="company" />);
     await user.type(screen.getByRole("textbox", { name: /Adres e-mail/ }), "a@example.test");
-    await user.click(screen.getByRole("button", { name: "Wyślij instrukcję" }));
+    await user.click(screen.getByRole("button", { name: "Wyślij link resetujący" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Limit prób");
     expect(screen.getByRole("button", { name: "Ponów po limicie" })).toBeDisabled();
     expect(screen.queryByRole("status")).toBeNull();
@@ -104,13 +116,20 @@ describe("prośba o reset hasła", () => {
 });
 
 describe("ustawienie nowego hasła", () => {
+  it("pokazuje wstęp, ostrzeżenie o wylogowaniu i stopkę z makiety ADM-03", () => {
+    render(<SetNewPasswordForm area="company" token={token} />);
+    expect(screen.getByText("Użyj unikalnego hasła i zapisz je w bezpiecznym menedżerze.")).toBeVisible();
+    expect(screen.getByText("Po zmianie hasła wylogujemy Cię ze wszystkich urządzeń.")).toBeVisible();
+    expect(screen.getByText("Token aktywny • po zapisie wrócisz do logowania")).toBeVisible();
+  });
+
   it("blokuje zbyt krótkie i niezgodne hasło przed wysłaniem", async () => {
     const request = vi.spyOn(globalThis, "fetch");
     const user = userEvent.setup();
     render(<SetNewPasswordForm area="company" token={token} />);
     await user.type(screen.getByLabelText("Nowe hasło"), "krotkie");
-    await user.type(screen.getByLabelText("Potwierdź nowe hasło"), "inne");
-    await user.click(screen.getByRole("button", { name: "Zapisz nowe hasło" }));
+    await user.type(screen.getByLabelText("Powtórz hasło"), "inne");
+    await user.click(screen.getByRole("button", { name: "Ustaw nowe hasło" }));
     expect(await screen.findByText("Hasło musi mieć od 12 do 256 znaków")).toBeVisible();
     expect(screen.getByText("Hasła muszą być identyczne")).toBeVisible();
     expect(request).not.toHaveBeenCalled();
@@ -124,8 +143,8 @@ describe("ustawienie nowego hasła", () => {
     const user = userEvent.setup();
     render(<SetNewPasswordForm area="platform" token={token} />);
     await user.type(screen.getByLabelText("Nowe hasło"), "Dlugie haslo 12345!");
-    await user.type(screen.getByLabelText("Potwierdź nowe hasło"), "Dlugie haslo 12345!");
-    await user.click(screen.getByRole("button", { name: "Zapisz nowe hasło" }));
+    await user.type(screen.getByLabelText("Powtórz hasło"), "Dlugie haslo 12345!");
+    await user.click(screen.getByRole("button", { name: "Ustaw nowe hasło" }));
     expect(await screen.findByRole("heading", { name: "Hasło zostało zmienione" })).toHaveFocus();
     expect(screen.getByRole("link", { name: "Przejdź do logowania" })).toHaveAttribute("href", "/login");
     expect(JSON.parse(String(request.mock.calls[0][1]?.body))).toEqual({
@@ -141,8 +160,8 @@ describe("ustawienie nowego hasła", () => {
     const user = userEvent.setup();
     render(<SetNewPasswordForm area="company" token={token} />);
     await user.type(screen.getByLabelText("Nowe hasło"), "Dlugie haslo 12345!");
-    await user.type(screen.getByLabelText("Potwierdź nowe hasło"), "Dlugie haslo 12345!");
-    await user.click(screen.getByRole("button", { name: "Zapisz nowe hasło" }));
+    await user.type(screen.getByLabelText("Powtórz hasło"), "Dlugie haslo 12345!");
+    await user.click(screen.getByRole("button", { name: "Ustaw nowe hasło" }));
     expect(await screen.findByRole("heading", { name: "Link nie działa" })).toBeVisible();
     expect(screen.queryByLabelText("Nowe hasło")).toBeNull();
     expect(screen.getByRole("link", { name: "Poproś o nowy link" })).toHaveAttribute("href", "/admin/reset-hasla");
@@ -158,8 +177,8 @@ describe("ustawienie nowego hasła", () => {
     const user = userEvent.setup();
     render(<SetNewPasswordForm area="company" token={token} />);
     await user.type(screen.getByLabelText("Nowe hasło"), "Dlugie haslo 12345!");
-    await user.type(screen.getByLabelText("Potwierdź nowe hasło"), "Dlugie haslo 12345!");
-    await user.click(screen.getByRole("button", { name: "Zapisz nowe hasło" }));
+    await user.type(screen.getByLabelText("Powtórz hasło"), "Dlugie haslo 12345!");
+    await user.click(screen.getByRole("button", { name: "Ustaw nowe hasło" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Nie wiemy, czy hasło zostało zmienione");
     expect(screen.getByLabelText("Nowe hasło")).toHaveValue("Dlugie haslo 12345!");
   });
@@ -169,8 +188,8 @@ describe("ustawienie nowego hasła", () => {
     const user = userEvent.setup();
     render(<SetNewPasswordForm area="company" token={token} />);
     await user.type(screen.getByLabelText("Nowe hasło"), "Dlugie haslo 12345!");
-    await user.type(screen.getByLabelText("Potwierdź nowe hasło"), "Dlugie haslo 12345!");
-    await user.click(screen.getByRole("button", { name: "Zapisz nowe hasło" }));
+    await user.type(screen.getByLabelText("Powtórz hasło"), "Dlugie haslo 12345!");
+    await user.click(screen.getByRole("button", { name: "Ustaw nowe hasło" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Nie wiemy, czy hasło zostało zmienione");
     expect(screen.getByLabelText("Nowe hasło")).toHaveValue("Dlugie haslo 12345!");
     await waitFor(() => expect(screen.getByLabelText("Nowe hasło")).toHaveFocus());

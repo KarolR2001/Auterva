@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
@@ -66,6 +67,7 @@ export function ResetRequestForm({ area }: AuthProps) {
       view="reset"
       title="Zresetuj hasło"
       context={area === "company" ? "Panel administratora" : "Panel Auterva"}
+      footer={sent ? undefined : "Po wysłaniu zawsze pokażemy neutralne potwierdzenie."}
     >
       {sent ? (
         <div className={styles.notices}>
@@ -112,6 +114,7 @@ export function ResetRequestForm({ area }: AuthProps) {
             id="reset-email"
             label="Adres e-mail"
             required
+            hint="Adres przypisany do konta"
             error={form.formState.errors.email?.message}
           >
             <TextInput
@@ -130,10 +133,12 @@ export function ResetRequestForm({ area }: AuthProps) {
             loadingLabel="Wysyłanie…"
             disabled={request.cooldown > 0}
           >
-            {request.cooldown > 0 ? "Ponów po limicie" : "Wyślij instrukcję"}
+            {request.cooldown > 0 ? "Ponów po limicie" : "Wyślij link resetujący"}
           </Button>
           <p className={styles.linkRow}>
-            <Link href={where.login}>Wróć do logowania</Link>
+            <Link href={where.login}>
+              <ArrowLeft aria-hidden="true" size={16} /> Wróć do logowania
+            </Link>
           </p>
         </form>
       )}
@@ -196,6 +201,7 @@ export function SetNewPasswordForm({
             : "Ustaw nowe hasło"
       }
       context={area === "company" ? "Panel administratora" : "Panel Auterva"}
+      footer={state === "form" ? "Token aktywny • po zapisie wrócisz do logowania" : undefined}
     >
       {state === "success" && (
         <div className={styles.notices}>
@@ -252,8 +258,7 @@ export function SetNewPasswordForm({
           )}
         >
           <p className={styles.intro}>
-            Po zmianie hasła wylogujemy Cię ze wszystkich urządzeń. Potem
-            zalogujesz się nowym hasłem i kodem MFA.
+            Użyj unikalnego hasła i zapisz je w bezpiecznym menedżerze.
           </p>
           <PasswordInput
             id="reset-password"
@@ -274,8 +279,9 @@ export function SetNewPasswordForm({
           />
           <PasswordInput
             id="reset-confirmation"
-            label="Potwierdź nowe hasło"
+            label="Powtórz hasło"
             autoComplete="new-password"
+            hint="Po zmianie hasła wylogujemy Cię ze wszystkich urządzeń."
             visibility={visibility}
             onVisibilityChange={setVisibility}
             disabled={request.loading}
@@ -293,7 +299,7 @@ export function SetNewPasswordForm({
             loadingLabel="Zapisywanie…"
             disabled={request.cooldown > 0}
           >
-            {request.cooldown > 0 ? "Ponów po limicie" : "Zapisz nowe hasło"}
+            {request.cooldown > 0 ? "Ponów po limicie" : "Ustaw nowe hasło"}
           </Button>
         </form>
       )}
