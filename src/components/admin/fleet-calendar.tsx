@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarCheck, CalendarDays, ChevronLeft, ChevronRight, CircleEllipsis, Lock, Plus, Wrench, type LucideIcon } from "lucide-react";
+import { CalendarCheck, CalendarDays, ChevronLeft, ChevronRight, CircleEllipsis, Layers, Lock, Plus, Wrench, type LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { createLatest } from "@/modules/public-offer/availability-client";
@@ -14,7 +14,10 @@ import {
   blockHref, blockLabel, blockShortRange, blocksCountText, FLEET_PAGE_SIZE, placeBlock, shiftWindow, todayText, vehicleHref,
   vehiclesText, windowDates, windowOf, windowTitle, type FleetMode,
 } from "./fleet-calendar-model";
-import { companyContext, readErrorMessage, readFleetGrid, type FleetBlock, type FleetGrid, type PanelContext, type VehicleStatus } from "./fleet-api";
+import { BulkBlocks } from "./bulk-blocks";
+import type { BulkMode, BulkSource } from "./bulk-blocks-model";
+import { readCalendar } from "./calendar-api";
+import { companyContext, readErrorMessage, readFleetGrid, readVehicle, type FleetBlock, type FleetGrid, type PanelContext, type VehicleStatus } from "./fleet-api";
 import { warsawDate } from "./vehicle-calendar-model";
 import styles from "./fleet-calendar.module.css";
 
@@ -48,6 +51,8 @@ export function FleetCalendar({ context = companyContext, today: initialToday, t
   const [reload, setReload] = useState(0);
   const [quickOpen, setQuickOpen] = useState(false);
   const [quickVehicle, setQuickVehicle] = useState("");
+  const [bulk, setBulk] = useState<{ mode: BulkMode; source: BulkSource | null } | null>(null);
+  const [copyError, setCopyError] = useState<string | null>(null);
   const tickets = useRef(createLatest());
   const heading = useRef<HTMLHeadingElement | null>(null);
   const { from, to } = useMemo(() => windowOf(mode, anchor), [mode, anchor]);
@@ -59,6 +64,22 @@ export function FleetCalendar({ context = companyContext, today: initialToday, t
     document.addEventListener("visibilitychange", tick);
     return () => { clearInterval(timer); document.removeEventListener("visibilitychange", tick); };
   }, []);
+
+  // D-48: "Kopiuj na inne auta" in a block's details opens the copy over this calendar (?kopiuj=<block>&pojazd=<vehicle>&od=<date>).
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    const blockId = query.get("kopiuj"), vehicleId = query.get("pojazd"), from = query.get("od");
+    if (!blockId || !vehicleId || !from || !/^\d{4}-\d{2}-\d{2}$/.test(from)) return;
+    let live = true;
+    void Promise.all([readCalendar(context, vehicleId, from, from), readVehicle(context, vehicleId)]).then(([read, vehicle]) => {
+      if (!live) return;
+      const block = read.ok && Array.isArray(read.data.blocks) ? read.data.blocks.find((entry) => entry.id === blockId) : undefined;
+      if (!block || !vehicle.ok) { setCopyError("Nie znaleźliśmy blokady do skopiowania. Mogła zostać zmieniona albo usunięta; otwórz ją ponownie w kalendarzu pojazdu."); return; }
+      setBulk({ mode: "copy", source: { blockId: block.id, vehicleId, vehicleName: vehicle.data.name ?? "Pojazd bez nazwy", from: block.from, to: block.to,
+        type: block.type, reference: block.reference, hasNote: Boolean(block.internalNote) } });
+    }, () => undefined);
+    return () => { live = false; };
+  }, [context]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -83,6 +104,12 @@ export function FleetCalendar({ context = companyContext, today: initialToday, t
   const horizon = mode === "14" ? "horyzont 14 dni" : "widok miesiąca";
 
   function openQuick() { setQuickVehicle(quickChoices[0]?.vehicleId ?? ""); setQuickOpen(true); }
+  function closeBulk() {
+    setBulk(null);
+    // The copy link is used once: a reload must not reopen the copy of a block that may have changed.
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("kopiuj")) { ["kopiuj", "pojazd", "od"].forEach((key) => url.searchParams.delete(key)); window.history.replaceState(null, "", url); }
+  }
   function continueQuick() {
     if (!quickVehicle) return;
     window.location.assign(vehicleHref(context.hrefBase, quickVehicle, "?dodaj=1"));
@@ -96,8 +123,12 @@ export function FleetCalendar({ context = companyContext, today: initialToday, t
           <h2 className={styles.title} ref={heading} tabIndex={-1}>Kalendarz floty</h2>
           <p className={styles.sub}>{view.state === "ready" ? `${vehiclesText(total)} · ` : ""}{horizon} · Europe/Warsaw</p>
         </div>
-        <Button variant="primary" icon={<Plus aria-hidden="true" size={20} />} onClick={openQuick} disabled={view.state !== "ready" || quickChoices.length === 0}>Szybka blokada</Button>
+        <div className={styles.headActions}>
+          <Button variant="secondary" icon={<Layers aria-hidden="true" size={20} />} onClick={() => { setCopyError(null); setBulk({ mode: "create", source: null }); }}>Blokada zbiorcza</Button>
+          <Button variant="primary" icon={<Plus aria-hidden="true" size={20} />} onClick={openQuick} disabled={view.state !== "ready" || quickChoices.length === 0}>Szybka blokada</Button>
+        </div>
       </header>
+      {copyError && <div className={styles.notice}><Alert tone="error" title="Nie można skopiować blokady." onDismiss={() => setCopyError(null)}>{copyError}</Alert></div>}
 
       <div className={styles.controls}>
         <div className={styles.nav} role="group" aria-label="Zakres kalendarza">
@@ -216,6 +247,9 @@ export function FleetCalendar({ context = companyContext, today: initialToday, t
           )}
         </>
       )}
+
+      <BulkBlocks context={context} open={bulk !== null} mode={bulk?.mode ?? "create"} source={bulk?.source ?? null}
+        onClose={closeBulk} onSaved={() => setReload((value) => value + 1)} />
 
       <Dialog open={quickOpen} onOpenChange={setQuickOpen} type="form" title="Szybka blokada"
         description="Wybierz pojazd, a otworzymy jego kalendarz z formularzem nowej blokady."
