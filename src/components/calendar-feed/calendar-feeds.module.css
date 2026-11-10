@@ -13,6 +13,7 @@
   margin: 0;
   font-size: var(--font-size-32);
   line-height: var(--line-height-40);
+  font-weight: var(--font-weight-bold);
   letter-spacing: -0.01em;
 }
 .header h2:focus {
@@ -51,6 +52,7 @@ form.card {
 }
 .card h3 {
   margin: 0;
+  font-weight: var(--font-weight-semibold);
   font-size: var(--font-size-20);
   line-height: var(--line-height-28);
 }
@@ -77,6 +79,7 @@ form.card {
   overflow-wrap: anywhere;
   word-break: break-all;
   resize: none;
+  field-sizing: content;
 }
 .url:focus-visible {
   outline: var(--border-width-active) solid var(--focus-ring);

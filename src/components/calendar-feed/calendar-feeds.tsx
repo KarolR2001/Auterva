@@ -266,7 +266,7 @@ export function CalendarFeeds({ context, companyName, now: fixedNow }: Props) {
           <section className={styles.card} aria-labelledby="feed-url-heading">
             <h3 id="feed-url-heading">Twój adres kalendarza</h3>
             <label className={styles.visuallyHidden} htmlFor="feed-url">Adres kalendarza (iCal)</label>
-            <textarea id="feed-url" className={styles.url} readOnly rows={2} value={issued.feed.url}
+            <textarea id="feed-url" className={styles.url} readOnly rows={3} value={issued.feed.url}
               spellCheck={false} autoComplete="off" onFocus={(event) => event.currentTarget.select()} />
             <div className={styles.actions}>
               <Button icon={copy === "copied" ? <Check size={16} /> : <Copy size={16} />} onClick={() => void copyAddress()}>
