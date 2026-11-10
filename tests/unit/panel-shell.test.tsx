@@ -70,7 +70,7 @@ describe("nawigacja panelu", () => {
     expect(within(crumbs).getByRole("heading", { level: 1, name: "Firma Alfa" })).toBeVisible();
     const sidebar = screen.getByRole("navigation", { name: "Nawigacja panelu" });
     const labels = within(sidebar).getAllByRole("link").map((link) => link.textContent);
-    expect(labels).toEqual(["Auterva", "Dashboard", "Pojazdy", "Czat z Autervą", "Ustawienia", "Konto"]);
+    expect(labels).toEqual(["Auterva", "Dashboard", "Pojazdy", "Kalendarz floty", "Czat z Autervą", "Ustawienia", "Konto"]);
     expect(screen.getByRole("button", { name: "Menu użytkownika" })).toBeVisible();
   });
 
