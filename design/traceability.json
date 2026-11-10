@@ -586,6 +586,14 @@
       ]
     },
     {
+      "issue": 296,
+      "scope": "Lista pojazdów ADM-05 (panel firmy i flota superadmina w /firmy/{id}/pojazdy): komórki Pojazd i Akcje nie są już display:flex na td, więc separatory wierszy są ciągłe, a akcje desktopu 1440 leżą w jednym wierszu. Poza zakresem: filtr kategorii i ostatniej zmiany oraz podsumowanie statusów w nagłówku (brak w API floty).",
+      "relatedRequirementIds": ["FR-ADM-050", "FR-ADM-051", "FR-ADM-052"],
+      "referenceScreenIds": ["ADM-05"],
+      "codePaths": ["src/components/admin/vehicle-list.tsx", "src/components/admin/admin.module.css"],
+      "testPaths": ["tests/e2e/admin-fleet.spec.ts", "tests/e2e/platform-company-fleet.spec.ts", "tests/fixtures/fleet-row-layout.ts"]
+    },
+    {
       "issue": 289,
       "scope": "Serwerowe 404 dla obcego lub nieistniejącego pojazdu na trasach floty platformy /firmy/{id}/pojazdy/{id}/ i .../kalendarz/ (po autoryzacji superadmina i weryfikacji firmy, zapytanie zawężone do firmy z URL); wspólny helper requireVehicleInCompany z #284.",
       "relatedRequirementIds": ["FR-ADM-030", "FR-ADM-050"],
