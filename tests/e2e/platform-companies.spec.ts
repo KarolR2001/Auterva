@@ -45,7 +45,7 @@ test("superadmin: search, card, period save, version conflict and archive keep o
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`${origin}/firmy/`);
     await page.getByRole("searchbox").fill(marker);
-    const card = page.getByRole("article").filter({ hasText: marker });
+    const card = page.getByRole("row").filter({ hasText: marker });
     await expect(card).toBeVisible();
     await expect(card.getByText(/Opłacona do/)).toBeVisible();
     await card.getByRole("link", { name: /Otwórz firmę/ }).click();
@@ -100,7 +100,7 @@ test("superadmin: search, card, period save, version conflict and archive keep o
     await page.getByRole("searchbox").fill(marker);
     await expect(page.getByText("Brak firm dla wybranych kryteriów.")).toBeVisible();
     await page.getByRole("checkbox", { name: "Pokaż zarchiwizowane" }).check();
-    await expect(page.getByRole("article").filter({ hasText: marker }).getByText(/Zarchiwizowana \d{2}\.\d{2}\.\d{4}/)).toBeVisible();
+    await expect(page.getByRole("row").filter({ hasText: marker }).getByText(/Zarchiwizowana \d{2}\.\d{2}\.\d{4}/)).toBeVisible();
 
     // Same host policy as `/` and `/firmy/{id}/` (#14/#15): without a session the list goes to the platform login, never private HTML.
     await page.context().clearCookies();

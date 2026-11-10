@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, Building2, CircleAlert, CircleCheck, CircleSlash, Plus } from "lucide-react";
+import { Archive, Building2, CalendarCheck, CalendarX, CircleAlert, CircleCheck, CircleSlash, MessageCircle, Plus } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -68,7 +68,17 @@ export function CompanyListView() {
 
   return (
     <div className={styles.page}>
-      <p className={styles.opsLead}>Zarządzaj firmami i dostępem do usługi.</p>
+      <div className={styles.listHeader}>
+        <p className={styles.opsLead}>Zarządzaj firmami i dostępem do usługi.</p>
+        <div className={styles.actionsRow}>
+          <Link className={styles.linkButtonSecondary} href="/wiadomosci/" prefetch={false}>
+            <MessageCircle size={20} aria-hidden="true" /> Wiadomości
+          </Link>
+          <Link className={styles.linkButton} href="/firmy/nowa/" prefetch={false}>
+            <Plus size={20} aria-hidden="true" /> Dodaj firmę
+          </Link>
+        </div>
+      </div>
       <section aria-label="Podsumowanie okresów" className={styles.kpis}>
         <div className={styles.kpi}>
           <span className={styles.kpiLabel}>Opłacone</span>
@@ -84,12 +94,6 @@ export function CompanyListView() {
         </div>
       </section>
       <p className={styles.opsHint}>Liczniki obejmują całą platformę, bez firm zarchiwizowanych.</p>
-
-      <div className={styles.actionsRow}>
-        <Link className={styles.linkButton} href="/firmy/nowa/" prefetch={false}>
-          <Plus size={20} aria-hidden="true" /> Dodaj firmę
-        </Link>
-      </div>
 
       <form className={styles.toolbar} role="search" onSubmit={(event) => event.preventDefault()}>
         <label className={styles.searchLabel} htmlFor="company-search">
@@ -151,13 +155,25 @@ export function CompanyListView() {
         </p>
       )}
 
-      <ul className={styles.companyList}>
-        {items.map((company) => (
-          <li key={company.organizationId} className={styles.companyItem}>
-            <CompanyRow company={company} />
-          </li>
-        ))}
-      </ul>
+      {items.length > 0 && (
+        <table className={styles.companyTable}>
+          <caption className={styles.srOnly}>Lista firm</caption>
+          <thead>
+            <tr>
+              <th scope="col">Firma</th>
+              <th scope="col">Okres usługi</th>
+              <th scope="col">Widoczność</th>
+              <th scope="col">Rejestracja</th>
+              <th scope="col">Akcje</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((company) => (
+              <CompanyRow key={company.organizationId} company={company} />
+            ))}
+          </tbody>
+        </table>
+      )}
 
       {hasMore && state !== "error" && (
         <Button
@@ -181,51 +197,54 @@ function CompanyRow({ company }: { company: PlatformCompany }) {
       (host) => host.area === "COMPANY_PUBLIC" && host.kind === "CUSTOM" && host.status === "ACTIVE",
     ) ?? company.hosts.find((host) => host.area === "COMPANY_PUBLIC" && host.kind === "PROVIDER");
   const visible = company.publication.visible;
+  const periodOk = company.period.paidValid || company.period.trialValid;
   return (
-    <article className={styles.companyCard} aria-labelledby={`company-${company.organizationId}`}>
-      <div className={styles.companyHead}>
-        <h3 id={`company-${company.organizationId}`}>
+    <tr>
+      <th scope="row" className={styles.cellCompany}>
+        <span className={styles.companyName} id={`company-${company.organizationId}`}>
           <Building2 size={20} aria-hidden="true" /> {company.name}
-        </h3>
+        </span>
         {company.archivedAt && (
           <span className={styles.badgeArchived}>
             <Archive size={16} aria-hidden="true" /> Zarchiwizowana {formatInstantDate(company.archivedAt)}
           </span>
         )}
-      </div>
-      <p className={styles.hostLine}>
-        Panel: {panelHost?.hostname ?? "brak"} · Strona: {publicHost?.hostname ?? "brak"}
-      </p>
-      <p className={styles.period}>{periodLabel(company)}</p>
-      <dl className={styles.opsFacts}>
-        <div>
-          <dt>Widoczność</dt>
-          <dd className={visible ? styles.ok : styles.off}>
-            <span className={styles.statusLine}>
-              {visible ? (
-                <CircleCheck size={16} aria-hidden="true" />
-              ) : (
-                <CircleSlash size={16} aria-hidden="true" />
-              )}
-              <span>
-                {visible ? "Widoczna" : "Wyłączona"}
-                {!visible && <span className={styles.detail}>{visibilityReason(company)}</span>}
-              </span>
-            </span>
-          </dd>
+        <span className={styles.hostLine}>Panel: {panelHost?.hostname ?? "brak"}</span>
+        <span className={styles.hostLine}>Strona: {publicHost?.hostname ?? "brak"}</span>
+      </th>
+      <td data-label="Okres usługi">
+        <span className={`${styles.chip} ${periodOk ? styles.chipOk : styles.chipOff}`}>
+          {periodOk ? <CalendarCheck size={16} aria-hidden="true" /> : <CalendarX size={16} aria-hidden="true" />}
+          <span>{periodLabel(company)}</span>
+        </span>
+      </td>
+      <td data-label="Widoczność">
+        <span className={`${styles.chip} ${visible ? styles.chipOk : styles.chipOff}`}>
+          {visible ? <CircleCheck size={16} aria-hidden="true" /> : <CircleSlash size={16} aria-hidden="true" />}
+          <span>{visible ? "Widoczna" : "Wyłączona"}</span>
+        </span>
+        {!visible && <span className={styles.detail}>{visibilityReason(company)}</span>}
+      </td>
+      <td data-label="Rejestracja">{company.registration.status === "REGISTERED" ? "Zakończona" : "Oczekuje"}</td>
+      <td data-label="Akcje">
+        <div className={styles.rowActions}>
+          <a
+            className={styles.openLink}
+            href={`/firmy/${encodeURIComponent(company.organizationId)}`}
+            aria-label={`Otwórz firmę ${company.name}`}
+          >
+            Otwórz firmę
+          </a>
+          <Link
+            className={styles.openLink}
+            href={`/wiadomosci/?firma=${encodeURIComponent(company.organizationId)}`}
+            prefetch={false}
+            aria-label={`Czat z firmą ${company.name}`}
+          >
+            <MessageCircle size={20} aria-hidden="true" /> Czat
+          </Link>
         </div>
-        <div>
-          <dt>Rejestracja</dt>
-          <dd>{company.registration.status === "REGISTERED" ? "Zakończona" : "Oczekuje"}</dd>
-        </div>
-      </dl>
-      <a
-        className={styles.openLink}
-        href={`/firmy/${encodeURIComponent(company.organizationId)}`}
-        aria-label={`Otwórz firmę ${company.name}`}
-      >
-        Otwórz firmę
-      </a>
-    </article>
+      </td>
+    </tr>
   );
 }
