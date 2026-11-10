@@ -38,7 +38,7 @@ const results: Record<string, Record<string, unknown>> = {};
 try {
   for (const profile of ["mobile", "desktop"] as const) {
     for (const target of pages) {
-      const samples: { lcp: number | null; cls: number; tbt: number; jsKb: number; requests: number; status: number }[] = [];
+      const samples: { lcp: number | null; cls: number; tbt: number; jsKb: number; jsRawKb: number; requests: number; status: number; lcpElement: string }[] = [];
       for (let run = 0; run < runs; run += 1) {
         const context = await browser.newContext(profile === "mobile"
           ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true } : { viewport: { width: 1440, height: 900 } });
@@ -54,24 +54,26 @@ try {
           await cdp.send("Network.emulateNetworkConditions", { offline: false, latency: 150, downloadThroughput: (1.6 * 1024 * 1024) / 8, uploadThroughput: (750 * 1024) / 8 });
         }
         await page.addInitScript(() => {
-          const w = window as unknown as { __v: { lcp: number | null; cls: number; tbt: number } };
-          w.__v = { lcp: null, cls: 0, tbt: 0 };
-          new PerformanceObserver((list) => { const e = list.getEntries(); w.__v.lcp = e[e.length - 1].startTime; }).observe({ type: "largest-contentful-paint", buffered: true });
+          const w = window as unknown as { __v: { lcp: number | null; cls: number; tbt: number; el: string } };
+          w.__v = { lcp: null, cls: 0, tbt: 0, el: "" };
+          new PerformanceObserver((list) => {
+            const e = list.getEntries(); w.__v.lcp = e[e.length - 1].startTime;
+            const node = (e[e.length - 1] as unknown as { element?: Element }).element;
+            w.__v.el = node ? `${node.tagName.toLowerCase()}${node.id ? `#${node.id}` : ""}` : "";
+          }).observe({ type: "largest-contentful-paint", buffered: true });
           new PerformanceObserver((list) => { for (const e of list.getEntries() as unknown as { value: number; hadRecentInput: boolean }[]) if (!e.hadRecentInput) w.__v.cls += e.value; }).observe({ type: "layout-shift", buffered: true });
           new PerformanceObserver((list) => { for (const e of list.getEntries()) if (e.duration > 50) w.__v.tbt += e.duration - 50; }).observe({ type: "longtask", buffered: true });
         });
         let requests = 0;
-        let jsBytes = 0;
-        page.on("response", async (response) => {
-          requests += 1;
-          if (/\.js(?:\?|$)/.test(response.url())) {
-            try { jsBytes += Number((await response.allHeaders())["content-length"] ?? (await response.body()).length); } catch { /* aborted */ }
-          }
-        });
+        page.on("response", () => { requests += 1; });
         const response = await page.goto(`http://${target.host}:${port}${target.path}`, { waitUntil: "load", timeout: 60_000 });
         await page.waitForTimeout(2500);
-        const v = await page.evaluate(() => (window as unknown as { __v: { lcp: number | null; cls: number; tbt: number } }).__v);
-        samples.push({ ...v, jsKb: Math.round(jsBytes / 1024), requests, status: response?.status() ?? 0 });
+        const v = await page.evaluate(() => {
+          const scripts = performance.getEntriesByType("resource").filter((e) => /\.js(?:\?|$)/.test(e.name)) as PerformanceResourceTiming[];
+          return { ...(window as unknown as { __v: { lcp: number | null; cls: number; tbt: number; el: string } }).__v,
+            transfer: scripts.reduce((sum, e) => sum + e.transferSize, 0), raw: scripts.reduce((sum, e) => sum + e.decodedBodySize, 0) };
+        });
+        samples.push({ lcp: v.lcp, cls: v.cls, tbt: v.tbt, lcpElement: v.el, jsKb: Math.round(v.transfer / 1024), jsRawKb: Math.round(v.raw / 1024), requests, status: response?.status() ?? 0 });
         await context.close();
       }
       results[`${profile} / ${target.name}`] = {
@@ -79,7 +81,7 @@ try {
         lcpMs: median(samples.flatMap((s) => s.lcp === null ? [] : [Math.round(s.lcp)])),
         cls: median(samples.map((s) => Math.round(s.cls * 1000) / 1000)),
         tbtMs: median(samples.map((s) => Math.round(s.tbt))),
-        jsKb: median(samples.map((s) => s.jsKb)),
+        jsTransferKb: median(samples.map((s) => s.jsKb)), jsRawKb: median(samples.map((s) => s.jsRawKb)), lcpElement: samples[0].lcpElement,
         requests: median(samples.map((s) => s.requests)),
       };
       process.stdout.write(`${profile} / ${target.name}: ${JSON.stringify(results[`${profile} / ${target.name}`])}\n`);
