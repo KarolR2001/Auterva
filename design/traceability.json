@@ -69,6 +69,20 @@
       "testPaths": ["tests/unit/password-policy.test.tsx", "tests/e2e/account-ui.spec.ts", "tests/e2e/company-activation-ui.spec.ts"]
     },
     {
+      "issue": 336,
+      "scope": "API listy pojazdów firmy (panel i superadmin w kontekście firmy) po decyzji D-42: filtr kategorii (categoryId, już istniał), filtr ostatniej zmiany updatedFrom/updatedTo (dni Europe/Warsaw, włącznie), sortowanie sort=order|updatedDesc|updatedAsc oraz statusCounts (all/published/draft/unpublished/archived) niezależne od paginacji i filtra status. UI (ADM-05) to osobne issue Frontend #337.",
+      "relatedRequirementIds": ["C-F095", "C-F097", "FR-ADM-021", "FR-ADM-022"],
+      "referenceScreenIds": ["ADM-05"],
+      "codePaths": [
+        "src/modules/fleet/read.ts",
+        "src/modules/fleet/http.ts",
+        "prisma/schema.prisma",
+        "prisma/migrations/20261110170000_vehicle_updated_at_index_issue_336/migration.sql",
+        "docs/contracts/fleet-crud-publication.md"
+      ],
+      "testPaths": ["tests/integration/fleet-list-filters.test.ts", "tests/integration/fleet-list-http.test.ts", "tests/integration/fleet-list.test.ts"]
+    },
+    {
       "issue": 335,
       "scope": "D-41: PLT-04 (FLOW-MVP-02 D/01) ma opcjonalny telefon kontaktowy i publiczny e-mail w sekcji „Firma i administrator” (siatka 2×2 obok nazwy i e-maila administratora, jak w makiecie) oraz osobną grupę „Adres (opcjonalnie)”: ulica i numer, kod pocztowy, miejscowość, kraj. Walidacja klienta to te same helpery co ustawienia firmy (#31), błędy serwera (400 fieldErrors) mapują się na pola z fokusem na pierwszym, body bez pustych pól, klucz idempotencji zależy od danych, niepewny wynik 5xx jak dotąd, guard niezapisanych zmian obejmuje nowe pola. Zależy od #334 (PR #343).",
       "referenceScreenIds": ["PLT-04", "FLOW-MVP-02"],
