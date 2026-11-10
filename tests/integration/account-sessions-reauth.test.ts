@@ -5,6 +5,8 @@ import { GET, POST } from "../../src/app/api/auth/[...all]/route";
 import { createAuth } from "../../src/lib/auth";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { runWithTrustedClientAddress } from "../../src/modules/ingress/client-address";
+import * as exportRoute from "../../src/app/api/admin/export/route";
+import { EXPORT_COMPANY_DATA_PURPOSE } from "../../src/modules/auth/reauth-proof";
 
 // #72: the real reauth path with a real TOTP (producer in /mfa/reauth, consumer in /sessions/end and /mfa/rotate-backup-codes).
 const db = createPrismaClient(process.env.DATABASE_URL ?? "");
@@ -64,6 +66,8 @@ beforeAll(async () => {
 afterAll(async () => {
   await db.rateLimitEvent.deleteMany();
   await db.verification.deleteMany({ where: { OR: [{ value: userId }, { value: { contains: `"userId":"${userId}"` } }] } });
+  await db.job.deleteMany({ where: { organizationId } });
+  await db.companyExport.deleteMany({ where: { organizationId } });
   await db.auditLog.deleteMany({ where: { OR: [{ organizationId }, { actorId: userId }] } });
   await db.user.deleteMany({ where: { id: userId } });
   await db.hostMapping.deleteMany({ where: { hostname: { in: [host, otherHost] } } });
@@ -131,4 +135,30 @@ test("sessions/end refuses a foreign Origin, and sessions refuses a session with
   expect((await call("POST", "sessions/end", pendingCookie, { proof })).status).toBe(401);
   // The proof was not consumed by the refused calls.
   expect((await call("POST", "sessions/end", cookie, { proof })).status).toBe(200);
+});
+
+// #328: the real producer of the export proof (TOTP -> /mfa/reauth) and its consumer (POST /api/admin/export).
+// The auth route issued https cookies (`__Secure-` prefix); the shared `auth` instance of the admin API reads the plain name.
+const requestExport = (jar: string, body: object) => exportRoute.POST(new Request(`https://${host}/api/admin/export`, { method: "POST",
+  headers: { host, origin: `https://${host}`, "content-type": "application/json", cookie: jar.replaceAll("__Secure-", "") }, body: JSON.stringify(body) }));
+
+test("an export-company-data proof starts an export once, and is refused by sessions/end and backup-code rotation", async () => {
+  await db.rateLimitEvent.deleteMany();
+  const proof = await proofOf(await reauth(cookie, { purpose: EXPORT_COMPANY_DATA_PURPOSE }));
+  expect(proof).toMatch(/^[a-f0-9]{64}$/);
+  const sessionsBefore = await sessionCount();
+  expect((await call("POST", "sessions/end", cookie, { proof })).status).toBe(401);
+  expect((await call("POST", "mfa/rotate-backup-codes", cookie, { password, proof })).status).toBe(401);
+  expect(await sessionCount()).toBe(sessionsBefore);
+  const started = await requestExport(cookie, { proof, idempotencyKey: randomUUID() });
+  expect(started.status).toBe(202);
+  expect((await started.json() as { export: { status: string } }).export.status).toBe("PENDING");
+  await db.companyExport.deleteMany({ where: { organizationId } }); // free the one-in-progress slot so only the proof decides
+  await db.job.deleteMany({ where: { organizationId } });
+  expect((await requestExport(cookie, { proof, idempotencyKey: randomUUID() })).status).toBe(401); // single use
+  // Proofs of the other purposes do not start an export.
+  const other = await proofOf(await reauth(cookie, { purpose: "end-sessions" }));
+  expect((await requestExport(cookie, { proof: other, idempotencyKey: randomUUID() })).status).toBe(401);
+  // A pending-MFA session cannot even ask.
+  expect((await requestExport(pendingCookie, { proof: other, idempotencyKey: randomUUID() })).status).toBe(403);
 });

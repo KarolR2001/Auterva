@@ -44,7 +44,7 @@ describe("nawigacja panelu", () => {
       within(desktop).getByRole("link", { name: "Pojazdy" }),
     ).toHaveAttribute("aria-current", "page");
     expect(
-      within(mobile).getByRole("link", { name: "Czat, nowe wiadomości" }),
+      within(mobile).getByRole("link", { name: "Czat Nowe" }),
     ).toHaveAttribute("href", "/admin/czat");
     expect(within(mobile).getAllByRole("link")).toHaveLength(3);
     expect(

@@ -76,8 +76,8 @@ export default async function CatalogPage({ searchParams }: Props) {
                 <>
                   <h2 className={styles.srOnly}>Lista pojazdów</h2>
                   <ul className={`${styles.grid} ${styles.grid3}`}>
-                    {result.items.map((vehicle) => (
-                      <li key={vehicle.slug}><VehicleCard vehicle={vehicle} range={range} headingLevel={3} /></li>
+                    {result.items.map((vehicle, index) => (
+                      <li key={vehicle.slug}><VehicleCard vehicle={vehicle} range={range} headingLevel={3} priority={index === 0} /></li>
                     ))}
                   </ul>
                   {result.nextCursor ? (

@@ -109,6 +109,10 @@ export async function quarantineRestoredState(db: Queryable, input: { organizati
       THEN jsonb_build_object('digest', payload->>'digest') ELSE payload END
     WHERE status IN ('PENDING', 'RUNNING', 'UNCERTAIN') AND kind <> 'AUDIT_RETENTION'${scoped ? ` AND "organizationId" = $1` : ""}`,
   params)).rowCount ?? 0;
+  // #328: an export file made before the restore must not outlive it. Rows only change state here; the sweep removes bytes.
+  const exportTable = (await db.query(`SELECT to_regclass('"CompanyExport"') IS NOT NULL AS present`)).rows[0]?.present === true;
+  const exports = exportTable ? (await db.query(`UPDATE "CompanyExport" SET status = 'EXPIRED', "expiresAt" = LEAST(COALESCE("expiresAt", $${scoped ? 2 : 1}), $${scoped ? 2 : 1})
+    WHERE status IN ('PENDING', 'READY')${scoped ? ` AND "organizationId" = $1` : ""}`, scoped ? [org, input.now] : [input.now])).rowCount ?? 0 : 0;
   const intents = (await db.query(`UPDATE "ReminderIntent" SET status = 'SKIPPED', "errorCode" = '${QUARANTINE_CODE}',
     "updatedAt" = $${scoped ? 2 : 1} WHERE (status IN ('QUEUED', 'UNCERTAIN') OR (status = 'PENDING' AND "slotAt" <= $${scoped ? 2 : 1}))${scoped ? ` AND "organizationId" = $1` : ""}`,
   scoped ? [org, input.now] : [input.now])).rowCount ?? 0;
@@ -119,7 +123,7 @@ export async function quarantineRestoredState(db: Queryable, input: { organizati
     calendarFeeds = (await db.query(`UPDATE "CalendarFeedToken" SET "revokedAt" = $${at}, "revokedReason" = 'COMPANY_RESTORED'
       WHERE "revokedAt" IS NULL${scoped ? ` AND "organizationId" = $1` : ""}`, scoped ? [org, input.now] : [input.now])).rowCount ?? 0;
   }
-  return { sessions, challenges, resetRequests: resets, invitations, jobs, reminderIntents: intents, calendarFeeds };
+  return { sessions, challenges, resetRequests: resets, invitations, jobs, reminderIntents: intents, calendarFeeds, companyExports: exports };
 }
 
 export async function appendRestoreAudit(db: Queryable, input: {
