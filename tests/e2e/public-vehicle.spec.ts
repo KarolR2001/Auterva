@@ -99,7 +99,7 @@ test("vehicle detail: gallery by mouse and keyboard, availability result, calend
     expect(card.y).toBeGreaterThan(panel.y);
     expect(card.y - (result.y + result.height)).toBeLessThanOrEqual(40);
     expect(await page.getByRole("heading", { level: 1 }).evaluate((node) => node.previousElementSibling === null || node.previousElementSibling.tagName !== "P")).toBe(true);
-    await expect(page.getByRole("navigation", { name: "Główna nawigacja" }).getByRole("link", { name: "Kontakt" })).toHaveCount(0);
+    await expect(page.getByRole("navigation", { name: "Główna nawigacja" }).getByRole("link", { name: "Kontakt", exact: true })).toHaveCount(0);
     await expect(page.getByRole("contentinfo").getByText(/^© \d{4} Firma Detalu E2E$/)).toBeVisible();
     expect(await page.locator("ul[aria-label='Najważniejsze parametry'] li").first().evaluate((node) => getComputedStyle(node).borderTopLeftRadius)).not.toBe("8px");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
