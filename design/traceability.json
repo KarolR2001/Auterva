@@ -22,6 +22,14 @@
       "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
     },
     {
+      "issue": 313,
+      "scope": "Stabilny E2E konfliktu wersji okresu na karcie firmy: test czeka na odświeżenie karty po pierwszym zapisie (nowa data w wierszu Opłata), zanim druga sesja zmieni okres. Bez zmian w UI i API: konflikt był wykrywany zawsze, gdy karta miała wersję sprzed zapisu drugiej sesji.",
+      "relatedRequirementIds": ["C-F045", "C-F046"],
+      "referenceScreenIds": ["PLT-03"],
+      "codePaths": ["src/components/platform/company-ops.tsx"],
+      "testPaths": ["tests/e2e/platform-companies.spec.ts"]
+    },
+    {
       "issue": 298,
       "scope": "Kosmetyka z odbiorów #263/#291/#303: kolejność szybkich akcji panelu (Dodaj blokadę, Dodaj pojazd) jak w ADM-04; wiersz kalendarza floty bez blokad bez linii dni i bez dublowanego opisu (ADM-10); polskie etykiety ISSUE_INVITATION i VERIFY_DOMAIN oraz tłumaczenie wartości status/visibility przed/po w dzienniku zmian (ADM-17). Poza zakresem: 'Jakość danych' i kafelki ADM-04, 'Obszar odbioru' PUB-04 (#257), teksty makiet sprzeczne z PRD, strony konta (#294). Dodatkowo (#296): usunięta martwa reguła .actionsWide >=1240 px, zawijanie akcji bez zmian.",
       "relatedRequirementIds": ["FR-ADM-057", "C-F101", "FR-ADM-070", "FR-ADM-071", "C-F151"],
@@ -671,6 +679,19 @@
         "tests/integration/media-http.test.ts",
         "tests/integration/media-process-lifecycle.test.ts"
       ]
+    },
+    {
+      "issue": 307,
+      "scope": "Platforma i media: 503 jest odrzuceniem tylko z jawnym kodem sprzed zapisu (zaproszenie: HOST_DOMAINS_NOT_CONFIGURED, MAIL_NOT_CONFIGURED, INGRESS_NOT_CONFIGURED; upload: MEDIA_BUSY, MEDIA_DECODER_UNAVAILABLE); każde inne 503 to wynik niepewny (odczyt stanu, ten sam klucz idempotencji, bez fałszywego sukcesu). Trasy domen nie zwracają 503, więc każde 503 jest tam niepewne. Bez zmian wyglądu ani API.",
+      "relatedRequirementIds": ["C-F022", "C-F034", "C-F086"],
+      "referenceScreenIds": ["PLT-04", "ADM-06"],
+      "codePaths": [
+        "src/components/platform/company-card.tsx",
+        "src/components/platform/company-domain.tsx",
+        "src/components/media/upload-core.ts",
+        "src/modules/invitations/view-state.ts"
+      ],
+      "testPaths": ["tests/unit/company-card.test.tsx", "tests/unit/company-domain.test.tsx", "tests/unit/upload-core.test.ts"]
     },
     {
       "issue": 296,

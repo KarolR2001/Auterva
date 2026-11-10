@@ -40,6 +40,11 @@ export function canRevokeInvitation(view: InvitationView, registered: boolean): 
 
 export type InvitationFailure = { message: string; refresh: boolean };
 
+/** The only 503 answers the invitation routes return before any write; every other 5xx has an unknown outcome. */
+export const invitationConfigurationCodes = ["HOST_DOMAINS_NOT_CONFIGURED", "MAIL_NOT_CONFIGURED", "INGRESS_NOT_CONFIGURED"];
+export const isConfigurationRefusal = (status: number, code: string | null) =>
+  status === 503 && code !== null && invitationConfigurationCodes.includes(code);
+
 export function classifyInvitationError(status: number, code: string | null, retryAfter: string | null): InvitationFailure {
   if (status === 409) {
     if (code === "INVITATION_DELIVERY_UNCERTAIN") return { refresh: true,

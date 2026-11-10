@@ -7,7 +7,7 @@ import { parseHostAuthority } from "@/modules/tenancy/host-registry";
 import { resolveRequestArea } from "@/modules/tenancy/request-context";
 import { readJsonObject } from "@/modules/tenancy/json-body";
 import { takeAuthenticatedApiLimit } from "@/modules/tenancy/api-rate-limit";
-import { reportInternalError } from "@/modules/observability/http-observe";
+import { reportInternalError, transientDbResponse } from "@/modules/observability/http-observe";
 
 export const onboardingRequestId = randomUUID;
 export const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -59,6 +59,8 @@ export function onboardingFailure(error: unknown, requestId: string): Response {
   if (code === "INVITATION_COMPANY_NOT_FOUND") return onboardingResponse({ code: "NOT_FOUND" }, 404, requestId);
   if (code === "Missing trusted client address") return onboardingResponse({ code: "INGRESS_NOT_CONFIGURED" }, 503, requestId);
   if (code === "FORBIDDEN") return onboardingResponse({ code: "FORBIDDEN" }, 403, requestId);
+  const busy = transientDbResponse(error, requestId, "onboarding");
+  if (busy) return busy;
   return onboardingResponse({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "onboarding"));
 }
 

@@ -67,6 +67,11 @@ test("superadmin: search, card, period save, version conflict and archive keep o
     await page.getByRole("button", { name: "Zapisz zmiany" }).click();
     await expect(page.getByText("Okres usługi został zapisany.")).toBeVisible();
     expect((await db.serviceAccess.findUniqueOrThrow({ where: { organizationId: org } })).paidThrough?.toISOString().slice(0, 10)).toBe(day(60));
+    // The success notice appears before the card reloads; the status row shows the new date only after the reload has
+    // delivered the saved periodVersion. Without waiting, the other session's write could land first and the page would
+    // then load (and save with) its version, so no conflict would exist (#313).
+    const [savedYear, savedMonth, savedDay] = day(60).split("-");
+    await expect(page.getByText(`Do ${savedDay}.${savedMonth}.${savedYear} włącznie`, { exact: true })).toBeVisible();
 
     // Another session changes the period: this save must conflict, not overwrite silently.
     await db.serviceAccess.update({ where: { organizationId: org }, data: { paidThrough: new Date(`${day(90)}T00:00:00.000Z`), periodVersion: { increment: 1 } } });

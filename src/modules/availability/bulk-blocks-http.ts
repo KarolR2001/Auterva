@@ -4,7 +4,7 @@ import { InvalidCharactersError } from "@/lib/text-policy";
 import { actor, body, response } from "@/modules/fleet/http";
 import { BlockOverlapError } from "./blocks";
 import { bulkCopyBlock, bulkCreateBlocks, BulkConflictsError, type BulkOutcome } from "./bulk-blocks";
-import { reportInternalError } from "@/modules/observability/http-observe";
+import { reportInternalError, transientDbResponse } from "@/modules/observability/http-observe";
 
 type Area = "COMPANY_ADMIN" | "PLATFORM";
 
@@ -21,6 +21,8 @@ function failure(error: unknown, requestId: string) {
   if (code === "BLOCK_DATA_INVALID") return response({ code }, 422, requestId);
   if (code === "IDEMPOTENCY_KEY_CONFLICT") return response({ code }, 409, requestId);
   if (code === "Audit actor is not authorized") return response({ code: "FORBIDDEN" }, 403, requestId);
+  const busy = transientDbResponse(error, requestId, "availability.bulk-blocks");
+  if (busy) return busy;
   return response({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "availability.bulk-blocks"));
 }
 

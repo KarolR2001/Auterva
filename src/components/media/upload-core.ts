@@ -68,7 +68,9 @@ export function sendImage(input: { url: string; file: File; key: string; onProgr
       let body: Record<string, unknown> = {};
       try { body = JSON.parse(xhr.responseText) as Record<string, unknown>; } catch { /* no JSON body */ }
       if (xhr.status >= 200 && xhr.status < 300) return resolve({ kind: "accepted", status: xhr.status, body });
-      if (isUncertainStatus(xhr.status) && xhr.status !== 503) return resolve({ kind: "uncertain", status: xhr.status });
+      // Only these 503 codes are raised by the decoder before anything is committed; any other 503 may follow a commit.
+      const refusal503 = xhr.status === 503 && (body.code === "MEDIA_BUSY" || body.code === "MEDIA_DECODER_UNAVAILABLE");
+      if (isUncertainStatus(xhr.status) && !refusal503) return resolve({ kind: "uncertain", status: xhr.status });
       const retry = Number(xhr.getResponseHeader("Retry-After"));
       resolve({ kind: "rejected", status: xhr.status, code: typeof body.code === "string" ? body.code : "UNKNOWN", ...(retry > 0 ? { retryAfter: retry } : {}) });
     };
