@@ -22,6 +22,20 @@
       "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
     },
     {
+      "issue": 336,
+      "scope": "API listy pojazdów firmy (panel i superadmin w kontekście firmy) po decyzji D-42: filtr kategorii (categoryId, już istniał), filtr ostatniej zmiany updatedFrom/updatedTo (dni Europe/Warsaw, włącznie), sortowanie sort=order|updatedDesc|updatedAsc oraz statusCounts (all/published/draft/unpublished/archived) niezależne od paginacji i filtra status. UI (ADM-05) to osobne issue Frontend #337.",
+      "relatedRequirementIds": ["C-F095", "C-F097", "FR-ADM-021", "FR-ADM-022"],
+      "referenceScreenIds": ["ADM-05"],
+      "codePaths": [
+        "src/modules/fleet/read.ts",
+        "src/modules/fleet/http.ts",
+        "prisma/schema.prisma",
+        "prisma/migrations/20261110170000_vehicle_updated_at_index_issue_336/migration.sql",
+        "docs/contracts/fleet-crud-publication.md"
+      ],
+      "testPaths": ["tests/integration/fleet-list-filters.test.ts", "tests/integration/fleet-list-http.test.ts", "tests/integration/fleet-list.test.ts"]
+    },
+    {
       "issue": 323,
       "scope": "PUB-03 po #319 (QA #322) i pozycje PUB-03 z #320: podsumowanie „Wybrany zakres … · N dni” tylko po werdykcie (nie w ładowaniu i błędzie); pola dat bez obcięcia przy 1024 px (wiersz Od/Do, przycisk poniżej do 1280 px); dialog galerii wyśrodkowany; scroll-margin chroniący fokus przed przyklejonym CTA na mobile; karta kalendarza bezpośrednio pod kartą sprawdzania (bez pustej przestrzeni przy wysokiej galerii); chipy w kształcie pigułki, tytuł bez etykiety kategorii (kategoria zostaje w chipach), nagłówek desktop bez linku Kontakt (jest przycisk Skontaktuj się), stopka z „© rok nazwa”. Poza zakresem: hasło firmy w stopce (brak pola danych), reszta #320 (ADM-02/03).",
       "referenceScreenIds": ["PUB-03"],
