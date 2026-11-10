@@ -22,6 +22,15 @@
       "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
     },
     {
+      "issue": 375,
+      "scope": "ADM-05 toolbar listy pojazdów na wąskim desktopie (1024-1200 px): zamknięte pola Publikacja i Kategoria mają co najmniej 120 px (min-width pigułek, węższe minimum Szukaj, krótka widoczna etykieta „Zmiana” przycisku sortowania poniżej 900 px kontenera; nazwa dostępna „Ostatnia zmiana, sortowanie: …” bez zmian), a Szukaj, Publikacja, Kategoria, sortowanie i „Dodaj pojazd” zostają w jednym rzędzie. Tylko CSS i etykieta; bez zmian logiki. Plansza Penpota: Desktop a4abf4c9-2e1f-80fd-8008-afeba8dd6131.",
+      "relatedRequirementIds": ["C-F095", "C-F097", "FR-ADM-021", "FR-ADM-022"],
+      "referenceScreenIds": ["ADM-05"],
+      "codePaths": ["src/components/admin/vehicle-list.tsx", "src/components/admin/admin.module.css"],
+      "testPaths": ["tests/e2e/admin-fleet.spec.ts"],
+      "sharedWith": "Rozszerza toolbar z #337."
+    },
+    {
       "issue": 363,
       "scope": "PUB-03: karta „Najbliższy wolny termin” zgodna z makietą (obrys karty i przycisku #151515 1 px, promień 12, padding 16, odstęp 12 między tytułem, notą i przyciskiem); tylko CSS. Odczyt Penpota: karta #f2f2f2, tytuł 16/600, nota 13/400 #424242 (aplikacja 14 px: brak tokenu rozmiaru 13), przycisk 48 px, etykieta 15/600.",
       "relatedRequirementIds": ["FR-PUB-023", "FR-PUB-024"],
