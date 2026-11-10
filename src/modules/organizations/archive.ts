@@ -3,6 +3,7 @@ import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { appendAudit } from "@/modules/audit/append";
 import { requireAuditActor } from "@/modules/audit/actor";
 import { revokeMfaChallenges } from "@/modules/auth/account-operations";
+import { revokeFeedTokensWithin } from "@/modules/calendar-feed/tokens";
 import { notifyChat } from "@/modules/chat/signal";
 import { reconcileReminders } from "@/modules/reminders/reconcile";
 
@@ -75,6 +76,11 @@ export async function archiveCompany(db: PrismaClient, input: CompanyArchiveOper
     if (changed.count !== 1) throw new Error("COMPANY_VERSION_CONFLICT");
     const period = await bumpPeriodVersion(tx, input.organizationId, input.actorId);
     await reconcileReminders(tx, input.organizationId, { now });
+    // #327: a bearer feed outlives no session, so archiving revokes every private calendar feed of the company.
+    const feeds = await revokeFeedTokensWithin(tx, { organizationId: input.organizationId }, "COMPANY_ARCHIVED", now);
+    if (feeds > 0) await appendAudit(tx, { actorId: input.actorId, sessionId: input.sessionId,
+      organizationId: input.organizationId, action: "CALENDAR_FEED_REVOKED", entityId: input.organizationId,
+      eventKey: randomUUID(), requestId: input.requestId, count: feeds });
     const users = await tx.user.findMany({ where: { organizationId: input.organizationId },
       select: { id: true, email: true }, orderBy: { id: "asc" } });
     let revokedSessions = 0;

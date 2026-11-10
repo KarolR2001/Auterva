@@ -27,10 +27,12 @@ export const actionLabels: Record<string, string> = {
   COMPANY_RESTORED_FROM_BACKUP: "Przywrócenie firmy z kopii",
   EXPORT_REQUESTED: "Zlecenie eksportu danych", EXPORT_READY: "Eksport danych gotowy", EXPORT_FAILED: "Eksport danych nieudany",
   EXPORT_DOWNLOADED: "Pobranie eksportu danych", EXPORT_EXPIRED: "Eksport danych wygasł",
+  CALENDAR_FEED_CREATED: "Utworzenie linku kalendarza", CALENDAR_FEED_ROTATED: "Odnowienie linku kalendarza",
+  CALENDAR_FEED_REVOKED: "Odwołanie linku kalendarza",
 };
 export const entityLabels: Record<string, string> = {
   User: "Konto", Organization: "Firma", Invitation: "Zaproszenie", ServicePeriod: "Okres usługi", HostMapping: "Adres (domena)",
-  SiteSettings: "Ustawienia strony", Vehicle: "Pojazd", VehicleImage: "Zdjęcie pojazdu", AvailabilityBlock: "Blokada terminu",
+  SiteSettings: "Ustawienia strony", CalendarFeedToken: "Link kalendarza", Vehicle: "Pojazd", VehicleImage: "Zdjęcie pojazdu", AvailabilityBlock: "Blokada terminu",
   CompanyExport: "Eksport danych",
 };
 export const roleLabels: Record<string, string> = {
