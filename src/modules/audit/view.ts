@@ -50,13 +50,27 @@ export const actorRoleOptions: AuditActorRole[] = ["ADMIN_FIRMY", "SUPERADMIN_AU
 
 /** Never the raw id: a role, and for unknown values a neutral word. */
 export const actorLabel = (role: string) => roleLabels[role] ?? "Nieznany aktor";
-export const actionLabel = (action: string) => actionLabels[action] ?? "Inna operacja";
+// Emitted by the launch diagnostics (#17/#20) but not part of the API allowlist, so they stay out of `actionLabels`.
+const extraActionLabels: Record<string, string> = { ISSUE_INVITATION: "Ponowne wydanie zaproszenia", VERIFY_DOMAIN: "Sprawdzenie domeny" };
+export const actionLabel = (action: string) => actionLabels[action] ?? extraActionLabels[action] ?? "Inna operacja";
 export const entityLabel = (type: string) => entityLabels[type] ?? "Obiekt";
 /** The tail of an object id is enough to tell two objects apart without printing the whole identifier. */
 export const shortId = (id: string) => (id.length > 8 ? `…${id.slice(-8)}` : id);
 export const fieldLabel = (field: string) => fieldLabels[field] ?? "Pole";
 
-export function formatValue(value: unknown): string {
+// Closed value sets of the allowlisted `status` and `visibility` fields; any other string stays as stored.
+const statusValueLabels: Record<string, string> = {
+  DRAFT: "Szkic", PUBLISHED: "Opublikowany", UNPUBLISHED: "Wycofany", ARCHIVED: "Archiwalny",
+  PENDING_OWNERSHIP: "Oczekuje na potwierdzenie własności", PENDING_ROUTING: "Oczekuje na routing i certyfikat",
+  READY: "Gotowa do aktywacji", ACTIVE: "Aktywna",
+};
+const visibilityValueLabels: Record<string, string> = { PUBLIC: "Publiczna", PRIVATE: "Prywatna", HIDDEN: "Ukryta" };
+
+export function formatValue(value: unknown, field?: string): string {
+  if (typeof value === "string") {
+    const label = field === "status" ? statusValueLabels[value] : field === "visibility" ? visibilityValueLabels[value] : undefined;
+    if (label) return label;
+  }
   if (value === null || value === undefined) return "brak";
   if (typeof value === "boolean") return value ? "tak" : "nie";
   if (typeof value === "object") return JSON.stringify(value);

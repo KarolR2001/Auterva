@@ -156,7 +156,7 @@ export function FleetCalendar({ context = companyContext, today: initialToday, t
                         <span className={styles.meta}>{blocksCountText(item.blocks.length)}{item.status === "ARCHIVED" ? " · archiwalny" : ""}</span>
                       </div>
                       <div className={styles.track}>
-                        {item.days.map((day, index) => (
+                        {item.blocks.length > 0 && item.days.map((day, index) => (
                           <div key={day.date} aria-hidden="true" style={{ gridColumn: index + 1 }}
                             className={`${styles.cell} ${day.available ? "" : styles.cellOff} ${day.date === today ? styles.todayCell : ""}`} />
                         ))}
@@ -172,7 +172,6 @@ export function FleetCalendar({ context = companyContext, today: initialToday, t
                             </a>
                           );
                         })}
-                        {item.blocks.length === 0 && <p className={styles.noBlocks}>Brak blokad w wybranym zakresie</p>}
                       </div>
                     </li>
                   );

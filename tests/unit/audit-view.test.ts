@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { actionLabels, auditQuery, emptyAuditFilters, entityLabels, summarize, warsawDayStartUtc } from "@/modules/audit/view";
+import { actionLabel, actionLabels, formatValue, auditQuery, emptyAuditFilters, entityLabels, summarize, warsawDayStartUtc } from "@/modules/audit/view";
 import { auditReadActions, auditReadEntityTypes } from "@/modules/audit/read";
 import { formatAuditTime } from "@/components/audit/audit-log";
 
@@ -9,6 +9,18 @@ describe("audit view (ADM-17)", () => {
     for (const key of Object.keys(entityLabels)) expect(auditReadEntityTypes).toContain(key);
     for (const action of auditReadActions) expect(actionLabels).toHaveProperty(action);
     for (const type of auditReadEntityTypes) expect(entityLabels).toHaveProperty(type);
+  });
+  it("names the launch actions and translates status and visibility values (#298)", () => {
+    expect(actionLabel("ISSUE_INVITATION")).toBe("Ponowne wydanie zaproszenia");
+    expect(actionLabel("VERIFY_DOMAIN")).toBe("Sprawdzenie domeny");
+    expect(actionLabel("NO_SUCH_ACTION")).toBe("Inna operacja");
+    expect(formatValue("PUBLISHED", "status")).toBe("Opublikowany");
+    expect(formatValue("PENDING_OWNERSHIP", "status")).toBe("Oczekuje na potwierdzenie własności");
+    expect(formatValue("HIDDEN", "visibility")).toBe("Ukryta");
+    // Free text and other fields stay as stored; a status-like word in a name is not translated.
+    expect(formatValue("PUBLISHED", "name")).toBe("PUBLISHED");
+    expect(formatValue("Moja firma", "status")).toBe("Moja firma");
+    expect(formatValue(null, "status")).toBe("brak");
   });
   it("shows UTC instants in Warsaw local time (summer and winter)", () => {
     expect(formatAuditTime("2026-07-15T10:30:00.000Z")).toBe("15.07.2026, 12:30:00");

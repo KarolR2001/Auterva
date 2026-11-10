@@ -208,8 +208,8 @@ function AuditRow({ entry }: { entry: AuditEntryDto }) {
               <thead><tr><th scope="col">Pole</th><th scope="col">Przed</th><th scope="col">Po</th></tr></thead>
               <tbody>{rows.map((field) => (
                 <tr key={field}><th scope="row">{fieldLabel(field)}</th>
-                  <td>{changes?.before && field in changes.before ? formatValue(changes.before[field]) : "—"}</td>
-                  <td>{changes?.after && field in changes.after ? formatValue(changes.after[field]) : "—"}</td></tr>))}</tbody>
+                  <td>{changes?.before && field in changes.before ? formatValue(changes.before[field], field) : "—"}</td>
+                  <td>{changes?.after && field in changes.after ? formatValue(changes.after[field], field) : "—"}</td></tr>))}</tbody>
             </table>
           )}
           <div className={styles.copyRow}>

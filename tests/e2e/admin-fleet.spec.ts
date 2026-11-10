@@ -47,6 +47,8 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
 
     // Dashboard: today statistics of the published fleet and the nearest block with a link to that vehicle calendar.
     await page.goto(`${base}/admin/`);
+    // #298: quick actions in the mockup order: secondary "Dodaj blokadę" first, primary "Dodaj pojazd" second.
+    await expect(page.locator("header").getByRole("link", { name: /^Dodaj (blokadę|pojazd)$/ })).toHaveText(["Dodaj blokadę", "Dodaj pojazd"]);
     const stats = page.getByRole("list", { name: "Statystyki floty na dziś" });
     await expect(stats.getByRole("listitem").filter({ hasText: "Opublikowane" })).toContainText("2");
     await expect(stats.getByRole("listitem").filter({ hasText: "Niedostępne dziś" })).toContainText("1");

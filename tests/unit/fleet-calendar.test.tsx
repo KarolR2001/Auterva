@@ -66,7 +66,8 @@ describe("#66 ekran: loading, dane, pusty, błąd, kontekst firmy", () => {
     expect(Object.fromEntries(url.searchParams)).toEqual({ from: TODAY, to: "2026-11-23", page: "1", pageSize: "20" });
     const blockLink = within(region).getByRole("link", { name: /Mercedes Klasa V: Serwis 12–13\.11\.2026/ });
     expect(blockLink).toHaveAttribute("href", `/admin/pojazdy/${CAR}/kalendarz/?blok=b1&miesiac=2026-11`);
-    expect(within(region).getAllByText("Brak blokad w wybranym zakresie")).toHaveLength(2);
+    // #298: the empty row says it once, in the vehicle column, and draws no day lines.
+    expect(within(region).getAllByText("Brak blokad w wybranym zakresie")).toHaveLength(1);
     expect(screen.getByText("2 pojazdy · horyzont 14 dni · Europe/Warsaw")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: /Kalendarz Volkswagen California/ })[0]).toHaveAttribute("href", `/admin/pojazdy/${EMPTY_CAR}/kalendarz/`);
   });
