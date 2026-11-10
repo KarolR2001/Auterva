@@ -493,6 +493,11 @@
 }
 
 @media (max-width: 767px) {
+  /* WCAG 2.4.11 (#342): a focused control scrolled to the bottom edge must not hide behind the fixed bottom navigation. */
+  :global(html):has(.shellMobileNav) {
+    scroll-padding-bottom: calc(64px + env(safe-area-inset-bottom) + var(--space-4));
+  }
+
   .shell {
     display: block;
   }

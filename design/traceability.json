@@ -34,6 +34,20 @@
       "testPaths": ["tests/e2e/public-vehicle.spec.ts", "tests/e2e/public-site.spec.ts", "tests/unit/vehicle-gallery.test.tsx"]
     },
     {
+      "issue": 342,
+      "scope": "Audyt dostępności (część #61): panel platformy, strony publiczne firmy i marketing Autervy. Automatyczny skan axe (WCAG 2.2 AA, serious/critical = błąd) każdego ekranu przy 1440, 390 i 320 px oraz kontrole strukturalne: jeden h1 i main, lang, skip link jako pierwszy stop, kolejność i widoczność fokusu, fokus nieprzesłonięty, reflow 320/640 px, reduced motion; dialog archiwizacji (pułapka i powrót fokusu) i menu mobilne z klawiatury. Poprawki: nazwa linku Wiadomości/Czat z plakietką „Nowe” zgodna z widocznym tekstem (WCAG 2.5.3), scroll-padding chroniący fokus przed dolną nawigacją i paskiem akcji formularza/kalendarza pojazdu (WCAG 2.4.11). Bez zmian logiki. VoiceOver: DEFERRED (#97); strona logowania i MFA nie mają skip linku (brak bloków do pominięcia).",
+      "relatedRequirementIds": ["C-N047", "C-N049", "C-N060"],
+      "referenceScreenIds": ["PLT-01", "PLT-03", "PLT-09", "PUB-01", "PUB-02", "PUB-03", "PUB-04", "MKT-01"],
+      "codePaths": [
+        "src/components/panel/panel-shell.tsx",
+        "src/components/panel/panel.module.css",
+        "src/components/admin/vehicle-form.module.css",
+        "src/components/admin/vehicle-calendar.module.css"
+      ],
+      "testPaths": ["tests/e2e/a11y-platform-public.spec.ts", "tests/fixtures/a11y.ts", "tests/unit/panel-shell.test.tsx"],
+      "sharedWith": "Wspólny helper axe (tests/fixtures/a11y.ts) i zależność @axe-core/playwright; panel firmy audytuje #341."
+    },
+    {
       "issue": 320,
       "scope": "Kosmetyka z odbioru #263: teksty ADM-02 (tekst pomocniczy pola, przycisk „Wyślij link resetujący”, strzałka w linku powrotu, stopka o neutralnym potwierdzeniu) i ADM-03 (etykieta „Powtórz hasło”, przycisk „Ustaw nowe hasło”, krótki wstęp, ostrzeżenie o wylogowaniu jako podpowiedź pola, stopka „Link jednorazowy” (bez twierdzenia o aktywności tokenu)); jednostka ceny w fixture „doba” zamiast „DAY” (jednostka to tekst wpisywany przez firmę, wyświetlanie bez zmian). Logika resetu i lista siły hasła (#22/#252) bez zmian. Pozycje PUB-03 (chipy, tytuł, nawigacja, stopka) przeniesione do #319.",
       "relatedRequirementIds": ["C-F041", "C-F042", "C-F044"],

@@ -415,16 +415,13 @@ function AvailablePanelShell({
         className={styles.shellNavLink}
         href={item.href}
         aria-current={current ? "page" : undefined}
-        aria-label={chat ? `${item.label}, nowe wiadomości` : undefined}
         data-current={current || undefined}
       >
         <Icon size={20} aria-hidden="true" />
         <span>{item.label}</span>
-        {chat && (
-          <span className={styles.shellUnread} aria-hidden="true">
-            Nowe
-          </span>
-        )}
+        {/* WCAG 2.5.3 (#342): the visible badge is part of the name ("Czat Nowe"), so the label matches what is seen. */}
+        {chat && " "}
+        {chat && <span className={styles.shellUnread}>Nowe</span>}
       </a>
     );
   }
