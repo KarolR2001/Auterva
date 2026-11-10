@@ -624,6 +624,19 @@
       ]
     },
     {
+      "issue": 307,
+      "scope": "Platforma i media: 503 jest odrzuceniem tylko z jawnym kodem sprzed zapisu (zaproszenie: HOST_DOMAINS_NOT_CONFIGURED, MAIL_NOT_CONFIGURED, INGRESS_NOT_CONFIGURED; upload: MEDIA_BUSY, MEDIA_DECODER_UNAVAILABLE); każde inne 503 to wynik niepewny (odczyt stanu, ten sam klucz idempotencji, bez fałszywego sukcesu). Trasy domen nie zwracają 503, więc każde 503 jest tam niepewne. Bez zmian wyglądu ani API.",
+      "relatedRequirementIds": ["C-F022", "C-F034", "C-F086"],
+      "referenceScreenIds": ["PLT-04", "ADM-06"],
+      "codePaths": [
+        "src/components/platform/company-card.tsx",
+        "src/components/platform/company-domain.tsx",
+        "src/components/media/upload-core.ts",
+        "src/modules/invitations/view-state.ts"
+      ],
+      "testPaths": ["tests/unit/company-card.test.tsx", "tests/unit/company-domain.test.tsx", "tests/unit/upload-core.test.ts"]
+    },
+    {
       "issue": 289,
       "scope": "Serwerowe 404 dla obcego lub nieistniejącego pojazdu na trasach floty platformy /firmy/{id}/pojazdy/{id}/ i .../kalendarz/ (po autoryzacji superadmina i weryfikacji firmy, zapytanie zawężone do firmy z URL); wspólny helper requireVehicleInCompany z #284.",
       "relatedRequirementIds": ["FR-ADM-030", "FR-ADM-050"],
