@@ -140,6 +140,13 @@
       "testPaths": ["tests/unit/reset-flow.test.tsx", "tests/e2e/account-ui.spec.ts"]
     },
     {
+      "issue": 349,
+      "scope": "Stabilny E2E zdjęć firmy: po „Odśwież listę” stary komunikat o konflikcie wersji znika dopiero po odebraniu odświeżonej listy (udane odświeżenie), więc test i użytkownik zapisują już z aktualną wersją; nieudane odświeżenie zachowuje komunikat. Bez zmian API ani reguł zapisu.",
+      "referenceScreenIds": ["PLT-04"],
+      "codePaths": ["src/components/settings/media-manager.tsx"],
+      "testPaths": ["tests/e2e/platform-public-materials.spec.ts"]
+    },
+    {
       "issue": 319,
       "scope": "PUB-03 desktop z odbioru #263: siatka 7/5 z obszarami (galeria | tytuł, cena, parametry, opis krótki i panel dostępności; pod nimi opis, wyposażenie i warunki | kalendarz), kalendarz jako obramowana karta z podsumowaniem „Wybrany zakres … · N dni”; galeria jako karta z czterema równymi miniaturami w rzędzie, etykietą „Wybrane” i przyciskiem „Zobacz wszystkie zdjęcia”; render shortDescription. Mobile zachowuje kolejność galeria, panel, kalendarz, opis. Dostępność (#43/#251) bez zmian logiki. Poza zakresem: najbliższy wolny termin (#218), elementy opisane w #263 jako pominięte. Porównanie z Penpotem: eksport 10.11, VoiceOver DEFERRED (#97).",
       "referenceScreenIds": ["PUB-03"],
