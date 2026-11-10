@@ -32,6 +32,11 @@ describe("formularz nowej firmy (#25)", () => {
     expect(classifyCreateResponse(429, {}, "30")).toEqual({ kind: "rate-limited", retryAfter: 30 });
     expect(classifyCreateResponse(500, null, null).kind).toBe("uncertain");
     expect(classifyCreateResponse(502, null, null).kind).toBe("uncertain");
+    expect(classifyCreateResponse(503, { code: "HOST_DOMAINS_NOT_CONFIGURED" }, null).kind).toBe("rejected");
+    expect(classifyCreateResponse(503, { code: "INGRESS_NOT_CONFIGURED" }, null).kind).toBe("rejected");
+    expect(classifyCreateResponse(503, {}, null).kind).toBe("uncertain");
+    expect(classifyCreateResponse(503, null, null).kind).toBe("uncertain");
+    expect(classifyCreateResponse(503, { code: "OTHER" }, null).kind).toBe("uncertain");
   });
   it("widok zaproszenia: UNCERTAIN blokuje nowe wydanie do cofnięcia", () => {
     const uncertain = invitationView(inv({ deliveryStatus: "UNCERTAIN" }), now);
