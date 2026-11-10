@@ -190,7 +190,7 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
           <div><dt>Slug</dt><dd>{company.slug}</dd></div>
           <div><dt>Konto administratora (nie publiczny e-mail firmy)</dt><dd>{company.account?.email ?? "—"}</dd></div>
           <div><dt>Rejestracja administratora</dt><dd>{registered ? "Zarejestrowany" : "Oczekuje na zaproszenie"}</dd></div>
-          <div><dt>Okres usługi</dt><dd>{company.period.paidThrough ? `Opłacony do ${company.period.paidThrough} włącznie` : company.period.trialGranted ? "Trial (336 godzin od rejestracji administratora)" : "—"}</dd></div>
+          <div><dt>Okres usługi</dt><dd>{company.period.paidThrough ? `Opłacony do ${company.period.paidThrough} włącznie` : company.period.trialGranted ? "Trial (14 dni od rejestracji administratora)" : "—"}</dd></div>
           <div><dt>Strona publiczna</dt><dd>{company.publication.visible ? "Opublikowana" : "Nieopublikowana — działa po rejestracji administratora, przy ważnym okresie i gotowym adresie"}</dd></div>
           {company.hosts.map((host) => (
             <div key={host.hostname}><dt>{host.area === "COMPANY_ADMIN" ? "Adres panelu" : host.area === "COMPANY_PUBLIC" ? "Adres publiczny" : host.area}</dt>
