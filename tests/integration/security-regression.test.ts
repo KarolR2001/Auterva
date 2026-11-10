@@ -191,10 +191,10 @@ test("route inventory: every group is classified and the matrix covers every pri
   expect(routes.filter((route) => route.group === "discovery").map((route) => route.url).sort())
     .toEqual(["/.well-known/auterva-domain-check/", "/robots.txt/", "/sitemap.xml/"]);
   for (const route of routes.filter((item) => item.group === "discovery")) expect(Object.keys(route.methods), route.file).toEqual(["GET"]);
-  // Public data routes are read only except the two availability checks (POST, read-only semantics).
+  // Public data routes are read only except the availability reads (POST, read-only semantics).
   for (const route of routes.filter((item) => item.group === "public")) {
     const mutating = Object.keys(route.methods).filter((method) => MUTATING.has(method));
-    if (mutating.length) expect(route.url, route.file).toMatch(/\/api\/public\/availability\/(check|batch)\/$/);
+    if (mutating.length) expect(route.url, route.file).toMatch(/\/api\/public\/availability\/(check|batch|next)\/$/);
   }
 });
 
@@ -547,8 +547,9 @@ test("every public route with a path parameter or a slug in the body answers NUL
   }
   const check = routes.find((route) => route.url === "/api/public/availability/check/")!;
   const batch = routes.find((route) => route.url === "/api/public/availability/batch/")!;
+  const nearest = routes.find((route) => route.url === "/api/public/availability/next/")!;
   for (const value of hostile) {
-    for (const [route, body] of [[check, { slug: value, from: day, to: day }], [batch, { slugs: [value], from: day, to: day }], [batch, { slugs: [`slug-${tag}`, value], from: day, to: day }]] as const) {
+    for (const [route, body] of [[check, { slug: value, from: day, to: day }], [nearest, { slug: value, from: day, to: day }], [batch, { slugs: [value], from: day, to: day }], [batch, { slugs: [`slug-${tag}`, value], from: day, to: day }]] as const) {
       const reply = await runWithTrustedClientAddress(`10.${randomBytes(3).join(".")}`, async () => route.methods.POST!(new Request(`http://${host.publicA}${route.url}`,
         { method: "POST", headers: { host: host.publicA, "content-type": "application/json" }, body: JSON.stringify(body) }), { params: Promise.resolve({}) }));
       if (reply.status !== 400 && reply.status !== 404) failures.push(`POST ${route.url} ${JSON.stringify(value).slice(0, 12)} -> ${reply.status}`);

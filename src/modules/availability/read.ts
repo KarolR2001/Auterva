@@ -2,7 +2,7 @@ import { Prisma } from "@/generated/prisma/client";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { resolvePublicVisibility } from "@/modules/service-period/public";
 import { blockTypeLabels, type BlockType } from "./block-types";
-import { enumerateAvailabilityDays, localDate, sqlDate, type AvailabilityRange } from "./dates";
+import { addLocalDays, enumerateAvailabilityDays, localDate, sqlDate, type AvailabilityRange } from "./dates";
 
 /** Reusable before list pagination and count; all dates are inclusive SQL DATE values. */
 export function availabilityVehicleWhere(
@@ -165,4 +165,49 @@ export async function getPrivateFleetCalendar(
       blocks: vehicle.blocks.map((block) => ({ id: block.id, from: localDate(block.from), to: localDate(block.to),
         type: block.type, typeLabel: blockTypeLabels[block.type as BlockType] ?? block.type,
         version: block.version })) })) };
+}
+
+/** Server constant (D-32 P1): the nearest-slot search never looks further than this many days from its start. */
+export const NEAREST_HORIZON_DAYS = 180;
+
+/**
+ * Earliest `[a, a + days - 1]` with `a >= searchFrom` inside the activity, clear of every block and ending no later
+ * than `searchFrom + horizon - 1`; null when none. `blocks` are LocalDate spans sorted by `from` (they never overlap).
+ * Pure: the same rule as `availableVehicleIds`, evaluated by walking the gaps instead of testing one range.
+ */
+export function findNearestSlot(input: { searchFrom: string; days: number; horizon: number;
+  availableFrom: string | null; availableTo: string | null; blocks: { from: string; to: string }[] }):
+  { from: string; to: string } | null {
+  if (input.availableFrom === null) return null;
+  const limit = addLocalDays(input.searchFrom, input.horizon - 1);
+  const last = input.availableTo !== null && input.availableTo < limit ? input.availableTo : limit;
+  let start = input.availableFrom > input.searchFrom ? input.availableFrom : input.searchFrom;
+  for (const block of input.blocks) {
+    if (block.to < start) continue;
+    if (block.from > addLocalDays(start, input.days - 1)) break;
+    start = addLocalDays(block.to, 1);
+  }
+  const end = addLocalDays(start, input.days - 1);
+  return end <= last ? { from: start, to: end } : null;
+}
+
+/**
+ * Public nearest free slot (#216, D-32): one published vehicle of the host's company, computed per request from
+ * current rows (no cache). Null means no public resource; `{found:false}` never says why.
+ */
+export async function getPublicNearestSlot(
+  db: PrismaClient, authority: string, slug: string, range: AvailabilityRange, today: string, now = new Date(),
+): Promise<{ found: true; from: string; to: string } | { found: false } | null> {
+  const vehicle = await publicVehicle(db, authority, slug, now);
+  if (!vehicle) return null;
+  const searchFrom = range.from > today ? range.from : today;
+  const windowEnd = addLocalDays(searchFrom, NEAREST_HORIZON_DAYS - 1);
+  const blocks = await db.availabilityBlock.findMany({ where: { organizationId: vehicle.organizationId,
+    vehicleId: vehicle.id, from: { lte: sqlDate(windowEnd) }, to: { gte: sqlDate(searchFrom) } },
+    select: { from: true, to: true }, orderBy: { from: "asc" } });
+  const slot = findNearestSlot({ searchFrom, days: range.days, horizon: NEAREST_HORIZON_DAYS,
+    availableFrom: vehicle.availableFrom ? localDate(vehicle.availableFrom) : null,
+    availableTo: vehicle.availableTo ? localDate(vehicle.availableTo) : null,
+    blocks: blocks.map((block) => ({ from: localDate(block.from), to: localDate(block.to) })) });
+  return slot ? { found: true, ...slot } : { found: false };
 }
