@@ -59,6 +59,7 @@ export const fieldLabel = (field: string) => fieldLabels[field] ?? "Pole";
 export function formatValue(value: unknown): string {
   if (value === null || value === undefined) return "brak";
   if (typeof value === "boolean") return value ? "tak" : "nie";
+  if (typeof value === "object") return JSON.stringify(value);
   return String(value);
 }
 
@@ -112,4 +113,14 @@ export function auditQuery(filters: AuditFilters, cursor: string | null, limit =
 
 export function hasActiveFilters(filters: AuditFilters): boolean {
   return Object.values(filters).some(Boolean);
+}
+
+/** One-line description of the applied filters for the collapsed filter bar. */
+export function summarize(filters: AuditFilters): string {
+  const parts: string[] = [];
+  if (filters.fromDay || filters.toDay) parts.push(`Zakres: ${filters.fromDay || "…"} – ${filters.toDay || "…"}`);
+  if (filters.actorRole) parts.push(actorLabel(filters.actorRole));
+  if (filters.action) parts.push(actionLabel(filters.action));
+  if (filters.entityType) parts.push(entityLabel(filters.entityType));
+  return parts.join(" • ");
 }
