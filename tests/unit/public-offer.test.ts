@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { readPublicTrafficLimits } from "../../src/modules/public-offer/config";
 import { resolveImageAlt } from "../../src/modules/media/vehicle-images";
-import { decodeCursor, encodeCursor, filterFingerprint, parseCatalogQuery } from "../../src/modules/public-offer/query";
+import { decodeCursor, distinctOptions, encodeCursor, filterFingerprint, parseCatalogQuery } from "../../src/modules/public-offer/query";
 import { clip, publicOrigin, robotsTxt, serializeJsonLd, sitemapXml } from "../../src/modules/public-offer/seo";
 
 const now = new Date("2026-11-10T12:00:00Z");
@@ -14,6 +14,16 @@ test("traffic budgets live in one place; media has its own and is configurable",
   for (const bad of ["0", "-1", "1.5", "abc", "10001"]) {
     expect(readPublicTrafficLimits({ AUTERVA_PUBLIC_MEDIA_RATE_LIMIT: bad }).media.limit).toBe(600);
   }
+});
+
+test("filter options: case duplicates collapse to one spelling that does not depend on row order (#359)", () => {
+  const rows = ["manualna", "Automatyczna", null, " Manualna ", "", "MANUALNA", "automatyczna"];
+  expect(distinctOptions(rows)).toEqual(["Automatyczna", "MANUALNA"]);
+  expect(distinctOptions([...rows].reverse())).toEqual(["Automatyczna", "MANUALNA"]);
+  expect(distinctOptions(["manualna", "Manualna"])).toEqual(["Manualna"]);
+  expect(distinctOptions(["Manualna", "manualna"])).toEqual(["Manualna"]);
+  expect(distinctOptions(["Półautomatyczna", "Automatyczna", "Manualna"])).toEqual(["Automatyczna", "Manualna", "Półautomatyczna"]);
+  expect(distinctOptions([])).toEqual([]);
 });
 
 test("catalog query: LocalDate bounds are inclusive, one day is valid, today is Warsaw", () => {

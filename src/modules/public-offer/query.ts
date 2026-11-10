@@ -53,6 +53,22 @@ export function parseCatalogQuery(params: URLSearchParams, now = new Date()):
     sort: data.sort ?? "recommended", limit: data.limit ?? catalogPageSize.default, cursor: data.cursor ?? null } };
 }
 
+/**
+ * Filter options without case duplicates (#359). The filter matches case-insensitively, so "Manualna" and
+ * "manualna" are one option; the shown spelling is the code-unit smallest one ("Manualna"), never the first
+ * row the database happens to return, so the list does not depend on the query plan.
+ */
+export function distinctOptions(values: readonly (string | null)[]): string[] {
+  const seen = new Map<string, string>();
+  for (const value of values) {
+    const text = value?.trim();
+    if (!text) continue;
+    const kept = seen.get(text.toLowerCase());
+    if (kept === undefined || text < kept) seen.set(text.toLowerCase(), text);
+  }
+  return [...seen.values()].sort((a, b) => a.localeCompare(b, "pl"));
+}
+
 /** The cursor is only valid for the filters and sort it was issued for. */
 export function filterFingerprint(filters: CatalogFilters, sort: CatalogSort): string {
   return createHash("sha256").update(JSON.stringify([filters.category, filters.minSeats,

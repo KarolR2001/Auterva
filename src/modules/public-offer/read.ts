@@ -6,7 +6,7 @@ import { resolvePublicVisibility } from "@/modules/service-period/public";
 import { parseHostAuthority, resolveHostMapping } from "@/modules/tenancy/host-registry";
 import { resolveImageAlt } from "@/modules/media/vehicle-images";
 import { hasBothVariants, mediaUrls, type MediaUrls } from "./images";
-import { decodeCursor, encodeCursor, filterFingerprint, parseCatalogQuery, type CatalogCursor,
+import { decodeCursor, distinctOptions, encodeCursor, filterFingerprint, parseCatalogQuery, type CatalogCursor,
   type CatalogSort, type QueryError } from "./query";
 import { buildSeo, clip, compact, pageTitle, publicOrigin, type PublicSeo } from "./seo";
 
@@ -265,11 +265,6 @@ export async function buildCatalog(db: PrismaClient, context: Context, params: U
 
   const page = rows.slice(0, limit);
   const last = page.at(-1);
-  const seen = new Map<string, string>();
-  for (const { transmission } of options) {
-    const text = transmission?.trim();
-    if (text && !seen.has(text.toLowerCase())) seen.set(text.toLowerCase(), text);
-  }
   const state: CatalogState = publishedCount === 0 ? "EMPTY_OFFER" : total === 0 ? "NO_RESULTS" : "RESULTS";
   const filtered = Boolean(filters.category || filters.minSeats !== null || filters.transmission || filters.range
     || sort !== "recommended" || parsed.query.cursor !== null || params.has("limit"));
@@ -280,7 +275,7 @@ export async function buildCatalog(db: PrismaClient, context: Context, params: U
     nextCursor: rows.length > limit && last ? encodeCursor({ v: 1, f: fingerprint, k: keyOf(sort, last), i: last.id }) : null,
     applied: { category: filters.category, seats: filters.minSeats, transmission: filters.transmission,
       from: filters.range?.from ?? null, to: filters.range?.to ?? null, sort },
-    filters: { categories, transmissions: [...seen.values()].sort((a, b) => a.localeCompare(b, "pl")),
+    filters: { categories, transmissions: distinctOptions(options.map((option) => option.transmission)),
       seats: seatBounds._min.seats !== null && seatBounds._max.seats !== null
         ? { min: seatBounds._min.seats, max: seatBounds._max.seats } : null,
       sorts: showPrices ? [...Object.keys(sortField)] as CatalogSort[] : ["recommended", "name"] },

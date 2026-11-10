@@ -22,6 +22,31 @@
       "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
     },
     {
+      "issue": 358,
+      "scope": "Pasek „Sekcje ustawień” (panel firmy i superadmin w kontekście firmy): pełny obrys fokusu zakładek mimo overflow-x (padding paska z kompensującym ujemnym marginesem, wygląd bez zmian) oraz aktywna zakładka (aria-current) dosunięta do widoku po załadowaniu sekcji z dalszej części paska (scrollLeft paska, bez przesuwania strony w pionie, bez smooth scroll). WCAG 2.4.7/2.4.11.",
+      "relatedRequirementIds": ["FR-ADM-060", "FR-ADM-061", "FR-ADM-062", "FR-ADM-063"],
+      "referenceScreenIds": ["ADM-11", "ADM-12", "ADM-13", "ADM-14", "PLT-04"],
+      "unmappedStates": ["Porównanie z makietą w Penpocie: DEFERRED (#263); wygląd paska bez zmian."],
+      "codePaths": [
+        "src/components/settings/settings-nav.tsx",
+        "src/components/settings/settings.module.css"
+      ],
+      "testPaths": ["tests/e2e/settings-nav-focus.spec.ts"],
+      "sharedWith": "Rozszerza #351."
+    },
+    {
+      "issue": 351,
+      "scope": "Pasek „Sekcje ustawień” (panel firmy i superadmin w kontekście firmy): sfokusowana klawiaturą zakładka jest zawsze w całości widoczna w przewijanym pasku (scrollIntoView block/inline nearest na focus plus scroll-padding-inline), dla dowolnej liczby pozycji; bez zmiany wyglądu i logiki, bez smooth scroll (reduced motion). WCAG 2.4.11/2.4.7.",
+      "relatedRequirementIds": ["FR-ADM-060", "FR-ADM-061", "FR-ADM-062", "FR-ADM-063"],
+      "referenceScreenIds": ["ADM-11", "ADM-12", "ADM-13", "ADM-14", "PLT-04"],
+      "unmappedStates": ["Porównanie z makietą w Penpocie: DEFERRED (#263); zmiana nie modyfikuje wyglądu, tylko przewijanie fokusu."],
+      "codePaths": [
+        "src/components/settings/settings-nav.tsx",
+        "src/components/settings/settings.module.css"
+      ],
+      "testPaths": ["tests/e2e/settings-nav-focus.spec.ts"]
+    },
+    {
       "issue": 339,
       "scope": "Miernik „Siła hasła” (D-45, D-46) w aktywacji (ACC-04), resecie (ADM-03) i zmianie hasła: poniżej 12 znaków stan „Za krótkie” (pusty pasek, bez poziomu); od 12 znaków poziom słabe/średnie/mocne z punktów: małe i wielkie litery, cyfra, znak specjalny (po 1) oraz długość 16+ (dodatkowy 1); 3+ mocne, 2 średnie, reszta słabe. Miernik jest informacyjny: nie zmienia walidacji serwera (12–256) ani blokady zapisu; aria-live obejmuje tylko etykietę poziomu. Hasło nie jest logowane ani wysyłane.",
       "relatedRequirementIds": ["FR-ADM-006", "FR-ADM-007", "FR-ADM-080", "FR-ADM-082"],
@@ -77,6 +102,31 @@
       ],
       "testPaths": ["tests/unit/calendar-feeds.test.tsx", "tests/unit/settings-routes.test.tsx", "tests/e2e/calendar-feeds-ui.spec.ts", "tests/e2e/admin-a11y.spec.ts"],
       "sharedWith": "API: docs/contracts/calendar-feed-implementation.md (#327); decyzje: docs/contracts/calendar-and-company-export.md (D-40, D-47)."
+    },
+    {
+      "issue": 336,
+      "scope": "API listy pojazdów firmy (panel i superadmin w kontekście firmy) po decyzji D-42: filtr kategorii (categoryId, już istniał), filtr ostatniej zmiany updatedFrom/updatedTo (dni Europe/Warsaw, włącznie), sortowanie sort=order|updatedDesc|updatedAsc oraz statusCounts (all/published/draft/unpublished/archived) niezależne od paginacji i filtra status. UI (ADM-05) to osobne issue Frontend #337.",
+      "relatedRequirementIds": ["C-F095", "C-F097", "FR-ADM-021", "FR-ADM-022"],
+      "referenceScreenIds": ["ADM-05"],
+      "codePaths": [
+        "src/modules/fleet/read.ts",
+        "src/modules/fleet/http.ts",
+        "prisma/schema.prisma",
+        "prisma/migrations/20261110170000_vehicle_updated_at_index_issue_336/migration.sql",
+        "docs/contracts/fleet-crud-publication.md"
+      ],
+      "testPaths": ["tests/integration/fleet-list-filters.test.ts", "tests/integration/fleet-list-http.test.ts", "tests/integration/fleet-list.test.ts"]
+    },
+    {
+      "issue": 335,
+      "scope": "D-41: PLT-04 (FLOW-MVP-02 D/01) ma opcjonalny telefon kontaktowy i publiczny e-mail w sekcji „Firma i administrator” (siatka 2×2 obok nazwy i e-maila administratora, jak w makiecie) oraz osobną grupę „Adres (opcjonalnie)”: ulica i numer, kod pocztowy, miejscowość, kraj. Walidacja klienta to te same helpery co ustawienia firmy (#31), błędy serwera (400 fieldErrors) mapują się na pola z fokusem na pierwszym, body bez pustych pól, klucz idempotencji zależy od danych, niepewny wynik 5xx jak dotąd, guard niezapisanych zmian obejmuje nowe pola. Zależy od #334 (PR #343).",
+      "referenceScreenIds": ["PLT-04", "FLOW-MVP-02"],
+      "codePaths": [
+        "src/components/platform/new-company-form.tsx",
+        "src/modules/organizations/new-company-form.ts"
+      ],
+      "testPaths": ["tests/unit/new-company-form.test.ts", "tests/e2e/platform-company-form.spec.ts"],
+      "sharedWith": "Kontrakt API: docs/contracts/company-onboarding-invitations.md (#334); reguły pól: src/components/settings/settings-model.ts (#31)."
     },
     {
       "issue": 334,
@@ -163,6 +213,62 @@
       ]
     },
     {
+      "issue": 328,
+      "scope": "Eksport danych firmy (D-40, E1-E8, E13): żądanie przez admina firmy i superadmina w kontekście firmy po świeżym reauth MFA (purpose export-company-data), job w tle, snapshot REPEATABLE READ, ZIP z JSON i CSV (ochrona przed formułami), blokady z notatkami, okres usługi, zdjęcia jako metadane, bez audytu i czatu; plik szyfrowany AES-256-GCM w prywatnym storage z prefiksem firmy, pobranie uwierzytelnionym GET przez 24 h, 1 aktywny i 3 na dobę, sweep po terminie, audyt EXPORT_*, superadmin w archiwum przez 30 dni, restore nie wskrzesza eksportów. Bez UI: ekran „Eksport danych” czeka na makietę Penpota (osobne zadania Penpot i Frontend); kształt API w docs/contracts/company-export-implementation.md.",
+      "relatedRequirementIds": [
+        "C-N006",
+        "C-N029",
+        "D-40",
+        "FR-SAS-024"
+      ],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261110170000_company_export_issue_328/migration.sql",
+        "src/modules/company-export/service.ts",
+        "src/modules/company-export/snapshot.ts",
+        "src/modules/company-export/worker.ts",
+        "src/modules/company-export/artifact.ts",
+        "src/modules/company-export/csv.ts",
+        "src/modules/company-export/zip.ts",
+        "src/modules/company-export/http.ts",
+        "src/modules/auth/reauth-proof.ts",
+        "src/app/api/admin/export/route.ts",
+        "src/app/api/platform/companies/[organizationId]/export/route.ts",
+        "src/modules/media/worker.ts",
+        "src/modules/backup/restore.ts",
+        "docs/contracts/company-export-implementation.md"
+      ],
+      "testPaths": [
+        "tests/integration/company-export.test.ts",
+        "tests/integration/account-sessions-reauth.test.ts",
+        "tests/unit/company-export-files.test.ts"
+      ]
+    },
+    {
+      "issue": 340,
+      "scope": "Wydajność interfejsu i prywatnościowe pomiary Web Vitals (część #61): pierwszy obraz listy i hero strony firmy ładowane z priorytetem (bez lazy dla kandydata LCP), pomiar LCP/INP/CLS w przeglądarce bez dostawcy zewnętrznego, wysyłka paczki z wzorcami tras (bez URL, ID, tokenów i kont) do POST /api/vitals/ z limitem, ścisłą walidacją i no-store, agregacja do metryk auterva_web_vital_* bez zapisu zdarzeń; Do Not Track i Global Privacy Control wyłączają pomiar. Pomiar lab przed/po skryptem Playwright. Bez zmiany wyglądu i funkcji.",
+      "relatedRequirementIds": ["NFR-PERF-001", "NFR-PERF-003", "NFR-PERF-004", "C-N020", "C-N060"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/lib/web-vitals.ts",
+        "src/components/vitals/web-vitals-reporter.tsx",
+        "src/modules/observability/web-vitals.ts",
+        "src/modules/observability/web-vitals-http.ts",
+        "src/app/api/vitals/route.ts",
+        "src/app/layout.tsx",
+        "src/components/public/vehicle-card.tsx",
+        "src/components/public/public-home.tsx",
+        "scripts/perf/web-vitals-lab.ts",
+        "docs/contracts/monitoring-alerts.md"
+      ],
+      "testPaths": [
+        "tests/unit/web-vitals.test.ts",
+        "tests/unit/host-route-policy.test.ts",
+        "tests/integration/web-vitals-http.test.ts"
+      ]
+    },
+    {
       "issue": 320,
       "scope": "Kosmetyka z odbioru #263: teksty ADM-02 (tekst pomocniczy pola, przycisk „Wyślij link resetujący”, strzałka w linku powrotu, stopka o neutralnym potwierdzeniu) i ADM-03 (etykieta „Powtórz hasło”, przycisk „Ustaw nowe hasło”, krótki wstęp, ostrzeżenie o wylogowaniu jako podpowiedź pola, stopka „Link jednorazowy” (bez twierdzenia o aktywności tokenu)); jednostka ceny w fixture „doba” zamiast „DAY” (jednostka to tekst wpisywany przez firmę, wyświetlanie bez zmian). Logika resetu i lista siły hasła (#22/#252) bez zmian. Pozycje PUB-03 (chipy, tytuł, nawigacja, stopka) przeniesione do #319.",
       "relatedRequirementIds": ["C-F041", "C-F042", "C-F044"],
@@ -173,6 +279,13 @@
         "scripts/seed-local-fixture.ts"
       ],
       "testPaths": ["tests/unit/reset-flow.test.tsx", "tests/e2e/account-ui.spec.ts"]
+    },
+    {
+      "issue": 349,
+      "scope": "Stabilny E2E zdjęć firmy: po „Odśwież listę” stary komunikat o konflikcie wersji znika dopiero po odebraniu odświeżonej listy (udane odświeżenie), więc test i użytkownik zapisują już z aktualną wersją; nieudane odświeżenie zachowuje komunikat. Bez zmian API ani reguł zapisu.",
+      "referenceScreenIds": ["PLT-04"],
+      "codePaths": ["src/components/settings/media-manager.tsx"],
+      "testPaths": ["tests/e2e/platform-public-materials.spec.ts"]
     },
     {
       "issue": 319,
@@ -488,6 +601,18 @@
         "tests/integration/availability-nearest.test.ts",
         "tests/integration/security-regression.test.ts"
       ]
+    },
+    {
+      "issue": 218,
+      "scope": "PUB-03 po wyniku „niedostępny”: najbliższy wolny termin dla tej samej długości zakresu (POST /api/public/availability/next #216, horyzont serwera 180 dni, D-32): „Najbliższy wolny termin: 24–26.11.2026” z notą „To informacja, nie rezerwacja”, przycisk „Ustaw ten termin w kalendarzu” (zakres w kalendarzu i URL, uruchamia sprawdzenie, fokus na wyniku) albo „Brak wolnego terminu w ciągu 180 dni”; ładowanie bez starego terminu, błąd/404/429/5xx pomija sekcję bez fałszywej informacji, zmiana zakresu unieważnia późną odpowiedź; wynik dostępny nie pokazuje sekcji; bez typu i przyczyny blokady. Penpot PUB-03 state=unavailable-nearest (D b20632b5-747a-80ca-8008-ecd19533db94, M 213df950-26c7-80ef-8008-ecd84b67f3ce) i unavailable-no-nearest (D 213df950-26c7-80ef-8008-ecd77605e183, M 213df950-26c7-80ef-8008-ecd86d2eb5e4).",
+      "relatedRequirementIds": ["C-F102", "C-F103", "C-F104", "FR-PUB-023", "FR-PUB-024", "D-15"],
+      "referenceScreenIds": ["PUB-03"],
+      "codePaths": [
+        "src/components/public/availability-panel.tsx",
+        "src/components/public/public.module.css",
+        "src/modules/public-offer/availability-client.ts"
+      ],
+      "testPaths": ["tests/unit/availability-panel-nearest.test.tsx", "tests/e2e/public-availability.spec.ts"]
     },
     {
       "issue": 230,
@@ -2234,6 +2359,14 @@
       "referenceScreenIds": ["ADM-01", "ADM-04", "ADM-19", "ADM-20", "ADM-21"],
       "codePaths": ["src/components/admin/fleet-calendar.tsx", "src/components/panel/panel.module.css", "src/components/ui/ui.module.css"],
       "testPaths": ["tests/e2e/admin-a11y.spec.ts", "tests/e2e/fleet-calendar.spec.ts"]
+    },
+    {
+      "issue": 359,
+      "scope": "Poprawka katalogu publicznego (#40): opcje filtra skrzyni biegów bez duplikatów wielkości liter mają deterministyczną pisownię (najmniejszy wariant w porównaniu kodów znaków, np. „Manualna” przed „manualna”), niezależną od kolejności wierszy i planu zapytania. API, kontrakt filtra (dopasowanie bez wielkości liter) i sortowanie listy bez zmian.",
+      "referenceScreenIds": ["PUB-02"],
+      "codePaths": ["src/modules/public-offer/query.ts", "src/modules/public-offer/read.ts"],
+      "testPaths": ["tests/unit/public-offer.test.ts", "tests/integration/public-offer.test.ts"],
+      "sharedWith": "Rozszerza katalog z #40; kontrakt: docs/contracts/public-offer-seo.md."
     }
   ],
   "sources": [
