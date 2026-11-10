@@ -11,7 +11,7 @@ Ekran `/konto` należy wyłącznie do hosta platformy i tożsamości superadmina
 | MFA        | Obowiązkowy TOTP i jednorazowe kody odzyskania, bez akcji wyłączenia        | Ponowne wydanie kodów wymaga świeżego TOTP lub zużytego kodu odzyskania oraz hasła; aktualna pełna sesja nie wystarcza. Utrata obu czynników prowadzi do ręcznej procedury właściciela, bez samodzielnego obejścia.        |
 | Wyloguj    | Akcja w menu użytkownika                                                    | Aplikacja czeka na serwerowe unieważnienie sesji przed przejściem do logowania; samo przejście prototypowe nie dowodzi wylogowania.                                                                                        |
 
-Zarządzanie zespołem, drugie konto superadmina, wyłączenie MFA, zaufane urządzenie i ustawienia firmy pozostają poza tym ekranem. Sesje superadmina (D-43, kontrakt #72): ekran ma kartę z linkiem do listy własnych sesji, na której superadmin widzi je i kończy; makieta do dostosowania. Nie pokazujemy sekretu TOTP ani istniejącej listy kodów odzyskania. Nowa lista jest jednorazowa; utrata odpowiedzi wymaga świeżej weryfikacji według D-05.
+Zarządzanie zespołem, drugie konto superadmina, wyłączenie MFA, zaufane urządzenie i ustawienia firmy pozostają poza tym ekranem. Sesje superadmina (D-43, [kontrakt #72](../../docs/contracts/account-operations.md)): ekran ma kartę z linkiem do listy własnych sesji, na której superadmin widzi je i kończy; makieta do dostosowania. Nie pokazujemy sekretu TOTP ani istniejącej listy kodów odzyskania. Nowa lista jest jednorazowa; utrata odpowiedzi wymaga świeżej weryfikacji według D-05.
 
 ## Stany formularzy do #19
 
