@@ -29,6 +29,9 @@ vi.mock("@/modules/settings/read", () => ({ getCompanySettings: dependencies.get
 
 import AdminSettingsPage from "../../src/app/admin/ustawienia/page";
 import CompanySettingsPage from "../../src/app/firmy/[organizationId]/ustawienia/page";
+import AdminExternalCalendarPage from "../../src/app/admin/ustawienia/kalendarz-zewnetrzny/page";
+import CompanyExternalCalendarPage from "../../src/app/firmy/[organizationId]/ustawienia/kalendarz-zewnetrzny/page";
+import { prisma } from "@/lib/prisma";
 
 const org = "11111111-1111-4111-8111-111111111111";
 
@@ -63,5 +66,34 @@ describe("trasy ustawień firmy", () => {
     await expect(CompanySettingsPage({ params: Promise.resolve({ organizationId: "x" }), searchParams: Promise.resolve({}) }))
       .rejects.toThrow("NOT_FOUND");
     expect(dependencies.getCompanySettings).not.toHaveBeenCalled();
+  });
+});
+
+describe("trasy kalendarza zewnętrznego (ADM-22, #355)", () => {
+  it("panel firmy bez kontekstu aktora nie renderuje ekranu", async () => {
+    dependencies.resolveRequestArea.mockResolvedValue({ area: "COMPANY_ADMIN", organizationId: org });
+    dependencies.requireRequestContext.mockResolvedValue(null);
+    dependencies.getSession.mockResolvedValue({ user: { id: "obcy" } });
+    await expect(AdminExternalCalendarPage()).rejects.toThrow("NOT_FOUND");
+    dependencies.resolveRequestArea.mockResolvedValue({ area: "PLATFORM", organizationId: null });
+    await expect(AdminExternalCalendarPage()).rejects.toThrow("NOT_FOUND");
+  });
+
+  it("ekran superadmina wymaga hosta platformy, poprawnego ID i superadmina; nie czyta firmy przed autoryzacją", async () => {
+    dependencies.resolveRequestArea.mockResolvedValue({ area: "COMPANY_ADMIN", organizationId: org });
+    await expect(CompanyExternalCalendarPage({ params: Promise.resolve({ organizationId: org }) })).rejects.toThrow("NOT_FOUND");
+    dependencies.resolveRequestArea.mockResolvedValue({ area: "PLATFORM", organizationId: null });
+    await expect(CompanyExternalCalendarPage({ params: Promise.resolve({ organizationId: "x" }) })).rejects.toThrow("NOT_FOUND");
+    dependencies.requireAuthorizedActor.mockResolvedValue(null);
+    dependencies.getSession.mockResolvedValue(null);
+    await expect(CompanyExternalCalendarPage({ params: Promise.resolve({ organizationId: org }) })).rejects.toThrow("REDIRECT:/login");
+    expect(prisma.organization.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("nieistniejąca firma daje 404 także superadminowi", async () => {
+    dependencies.resolveRequestArea.mockResolvedValue({ area: "PLATFORM", organizationId: null });
+    dependencies.requireAuthorizedActor.mockResolvedValue({ sessionId: "s1" });
+    vi.mocked(prisma.organization.findUnique).mockResolvedValue(null);
+    await expect(CompanyExternalCalendarPage({ params: Promise.resolve({ organizationId: org }) })).rejects.toThrow("NOT_FOUND");
   });
 });

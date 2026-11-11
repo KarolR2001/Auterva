@@ -111,6 +111,41 @@
       "testPaths": ["tests/unit/password-policy.test.tsx", "tests/e2e/account-ui.spec.ts", "tests/e2e/company-activation-ui.spec.ts"]
     },
     {
+      "issue": 355,
+      "scope": "Ekran „Kalendarz zewnętrzny” (ADM-22, D-40/D-47/D-49): nowa pozycja w nawigacji Ustawień; lista adresów iCal bez tokena (etykieta, status tekstem i ikoną Aktywny/Wygasły/Odwołany, zakres, utworzono, ostatnie użycie, wygasa/odwołano z powodem), ostrzeżenie 30 dni przed wygaśnięciem, limit 5 (przycisk nieaktywny z powodem), stan pusty; tworzenie z etykietą i jednorazowym pokazaniem adresu z „Kopiuj adres” (adres tylko w stanie komponentu: bez URL, storage, logów i RSC props; strażnik niezapisanych zmian do zamknięcia); rotacja i odwołanie z potwierdzeniem. 5xx/brak połączenia = wynik niepewny: bez sukcesu i bez adresu, rozstrzyga odczyt listy (nowy adres bez odebranego URL → propozycja rotacji; odwołanie ponawiane bezpiecznie). Superadmin w kontekście firmy: tylko lista i odwołanie. Objaśnienie: tylko „Niedostępny” dla pojazdów opublikowanych, Google odświeża co kilka godzin, Apple co 5–60 min, rozstrzyga panel.",
+      "relatedRequirementIds": ["C-N006", "C-N029"],
+      "referenceScreenIds": ["ADM-22"],
+      "scenarioStates": {
+        "list": "ADM-22 / list — desktop b4e99770-b096-80ee-8008-ece3be60ca2f, mobile b4e99770-b096-80ee-8008-ece44aca7386",
+        "empty": "ADM-22 / empty — desktop b4e99770-b096-80ee-8008-ece4bd2bb6c9, mobile b4e99770-b096-80ee-8008-ece592dc97af",
+        "create": "ADM-22 / create — desktop b4e99770-b096-80ee-8008-ece4de62b468, mobile b4e99770-b096-80ee-8008-ece599d8ec7d",
+        "createdOnce": "ADM-22 / created-once — desktop b4e99770-b096-80ee-8008-ece4f053a4d0, mobile b4e99770-b096-80ee-8008-ece5ac8efa69",
+        "createdCopied": "ADM-22 / created-copied — desktop b4e99770-b096-80ee-8008-ece501364e65, mobile b4e99770-b096-80ee-8008-ece5b77145b9",
+        "limit": "ADM-22 / limit — desktop b4e99770-b096-80ee-8008-ece4668644e9, mobile b4e99770-b096-80ee-8008-ece5447204b2",
+        "error": "ADM-22 / error — desktop b4e99770-b096-80ee-8008-ece484b5643c, mobile b4e99770-b096-80ee-8008-ece567dd9386",
+        "superadminContext": "ADM-22 / superadmin-context — desktop b4e99770-b096-80ee-8008-ece499aded04, mobile b4e99770-b096-80ee-8008-ece57983a50a",
+        "rotateDialog": "ADM-22 / dialog rotacji — desktop b4e99770-b096-80ee-8008-ece514281324, mobile b4e99770-b096-80ee-8008-ece51c790199",
+        "revokeDialog": "ADM-22 / dialog odwołania — desktop b4e99770-b096-80ee-8008-ece518495d6a, mobile b4e99770-b096-80ee-8008-ece521001e24"
+      },
+      "unmappedStates": [
+        "Zakres „Wybrane pojazdy” z makiety create: API #327 nie przyjmuje zakresu (POST tylko { label }), więc każdy adres obejmuje całą flotę (pojazdy opublikowane); wybór pojazdów wymaga zmiany Backend.",
+        "„Obróć” przy wygasłym adresie z makiety list: API rotacji zwraca 404 dla wygasłego, więc akcji nie ma; wygasły adres zastępuje nowy.",
+        "Okruszki „Ustawienia / Kalendarz zewnętrzny” w treści: aplikacja pokazuje tytuł powłoki „Ustawienia” i nawigację Ustawień z bieżącą pozycją."
+      ],
+      "codePaths": [
+        "src/components/calendar-feed/calendar-feeds.tsx",
+        "src/components/calendar-feed/calendar-feeds.module.css",
+        "src/components/calendar-feed/feed-api.ts",
+        "src/components/calendar-feed/feed-model.ts",
+        "src/components/settings/settings-nav.tsx",
+        "src/components/public/copy-button.tsx",
+        "src/app/admin/ustawienia/kalendarz-zewnetrzny/page.tsx",
+        "src/app/firmy/[organizationId]/ustawienia/kalendarz-zewnetrzny/page.tsx"
+      ],
+      "testPaths": ["tests/unit/calendar-feeds.test.tsx", "tests/unit/settings-routes.test.tsx", "tests/e2e/calendar-feeds-ui.spec.ts", "tests/e2e/admin-a11y.spec.ts"],
+      "sharedWith": "API: docs/contracts/calendar-feed-implementation.md (#327); decyzje: docs/contracts/calendar-and-company-export.md (D-40, D-47)."
+    },
+    {
       "issue": 337,
       "scope": "Lista pojazdów ADM-05 (panel firmy i flota superadmina) po D-42: podsumowanie statusów w nagłówku (statusCounts), filtr Kategoria, „Ostatnia zmiana” jako przycisk sortowania (D-50: najnowsze ↓ / najstarsze ↑ / kolejność w ofercie; bez pól dat, API updatedFrom/To nieużywane w UI), toolbar desktop w jednym rzędzie wg makiety, stan filtrów w adresie URL (odświeżenie zachowuje, zmiana filtra wraca na stronę 1, loading bez starego wyniku), mobilny układ kart Edytuj · Terminy · Więcej z arkuszami Filtry/Sortuj (Dialog Radix: pułapka i powrót fokusu). Kolejność strzałkami tylko przy sort=order i bez filtrów. Zależy od API #336 (PR #352). Mobile: akcje tekstowe w jednym wierszu, arkusz Filtry/Sortuj przy dole. Plansze Penpota: Desktop a4abf4c9-2e1f-80fd-8008-afeba8dd6131, Mobile 1e066793-8858-8051-8008-cf3e7dc97aa7.",
       "relatedRequirementIds": ["C-F095", "C-F097", "FR-ADM-021", "FR-ADM-022"],
