@@ -76,6 +76,27 @@
       "testPaths": ["tests/integration/calendar-feed-scope.test.ts", "tests/integration/calendar-feed.test.ts"]
     },
     {
+      "issue": 367,
+      "scope": "Zakres prywatnego adresu iCal na ekranie „Kalendarz zewnętrzny” (ADM-22 state=create, E11, D-47; API #366): grupa radio „Cała flota” (domyślnie) / „Wybrane pojazdy (opublikowane)”; przy wyborze lista opublikowanych pojazdów firmy z listy floty panelu (status=PUBLISHED, strony po 100), wyszukiwanie powyżej 8 pojazdów, limit 50 (pozostałe pola nieaktywne z objaśnieniem), min. 1 — komunikat przy polu, podsumowanie „Do poprawy” i fokus na grupie; vehicleIds wysyłane tylko dla wybranych pojazdów; 400 fieldErrors.vehicleIds (VEHICLE_NOT_PUBLISHED, VEHICLE_NOT_FOUND, OUT_OF_RANGE, DUPLICATE) jako zrozumiały komunikat przy polu, przy nieopublikowanym/nieistniejącym ponowny odczyt listy i usunięcie go z wyboru, bez sukcesu i bez utraty etykiety. Lista adresów (admin i superadmin, tylko odczyt): „Zakres: Cała flota” albo „Zakres: N pojazdów” z rozwijaną listą nazw; pusty zakres po usunięciu pojazdów objaśniony. Rotacja bez zmian (serwer zachowuje zakres); wynik niepewny jak w #355.",
+      "referenceScreenIds": ["ADM-22"],
+      "relatedRequirementIds": ["C-N006", "C-N029"],
+      "scenarioStates": {
+        "create": "ADM-22 / create — desktop b4e99770-b096-80ee-8008-ece4de62b468, mobile b4e99770-b096-80ee-8008-ece599d8ec7d (grupa „Zakres”)",
+        "list": "ADM-22 / list — desktop b4e99770-b096-80ee-8008-ece3be60ca2f, mobile b4e99770-b096-80ee-8008-ece44aca7386 („Zakres: 3 pojazdy”)"
+      },
+      "unmappedStates": ["Rozwinięta lista pojazdów przy „Wybrane pojazdy”, wyszukiwanie, limit 50, błędy wyboru i rozwijane nazwy na liście nie mają osobnych plansz w Penpocie (create pokazuje tylko obie opcje radio); wzorzec listy z checkboxami i wyszukiwaniem jak w ADM-10 bulk (#217)."],
+      "codePaths": [
+        "src/components/calendar-feed/feed-scope.tsx",
+        "src/components/calendar-feed/feed-scope.module.css",
+        "src/components/calendar-feed/calendar-feeds.tsx",
+        "src/components/calendar-feed/calendar-feeds.module.css",
+        "src/components/calendar-feed/feed-api.ts",
+        "src/components/calendar-feed/feed-model.ts"
+      ],
+      "sharedWith": "API: docs/contracts/calendar-feed-implementation.md, sekcja „Zakres pojazdów” (#366).",
+      "testPaths": ["tests/unit/calendar-feeds.test.tsx", "tests/e2e/calendar-feeds-ui.spec.ts"]
+    },
+    {
       "issue": 342,
       "scope": "Audyt dostępności (część #61): panel platformy, strony publiczne firmy i marketing Autervy. Automatyczny skan axe (WCAG 2.2 AA, serious/critical = błąd) każdego ekranu przy 1440, 390 i 320 px oraz kontrole strukturalne: jeden h1 i main, lang, skip link jako pierwszy stop, kolejność i widoczność fokusu, fokus nieprzesłonięty, reflow 320/640 px, reduced motion; dialog archiwizacji (pułapka i powrót fokusu) i menu mobilne z klawiatury. Poprawki: nazwa linku Wiadomości/Czat z plakietką „Nowe” zgodna z widocznym tekstem (WCAG 2.5.3), scroll-padding chroniący fokus przed paskiem akcji (dolna nawigacja: reguła z #341) formularza/kalendarza pojazdu (WCAG 2.4.11). Bez zmian logiki. VoiceOver: DEFERRED (#97); strona logowania i MFA nie mają skip linku (brak bloków do pominięcia).",
       "relatedRequirementIds": ["C-N047", "C-N049", "C-N060"],
