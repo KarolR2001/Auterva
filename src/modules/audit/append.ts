@@ -11,7 +11,7 @@ const actionEntity = {
   VEHICLE_PUBLISHED: "Vehicle", VEHICLE_HIDDEN: "Vehicle", VEHICLE_ARCHIVED: "Vehicle", MEDIA_CHANGED: "VehicleImage",
   BLOCK_CREATED: "AvailabilityBlock", BLOCK_UPDATED: "AvailabilityBlock", BLOCK_DELETED: "AvailabilityBlock",
   MFA_RECOVERY_CODE_USED: "User",
-  MFA_BACKUP_CODES_ROTATED: "User", MFA_RECOVERY_STARTED: "User",
+  MFA_BACKUP_CODES_ROTATED: "User", MFA_RECOVERY_STARTED: "User", MFA_RECOVERY_COMPLETED: "User",
   // #328: company data export; field names and counts only, never file content or names.
   EXPORT_REQUESTED: "CompanyExport", EXPORT_READY: "CompanyExport", EXPORT_FAILED: "CompanyExport",
   EXPORT_DOWNLOADED: "CompanyExport", EXPORT_EXPIRED: "CompanyExport",

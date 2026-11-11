@@ -110,6 +110,23 @@
       "testPaths": ["tests/integration/availability-bulk-blocks.test.ts"]
     },
     {
+      "issue": 387,
+      "scope": "Bezpieczeństwo MFA (D-05 pkt 4–5): po zalogowaniu kodem odzyskania konto ma trwały stan „odzyskanie w toku” (user.mfaRecoveryPendingAt + mfaRecoverySessionId). Do potwierdzenia nowego TOTP logowanie samym hasłem daje neutralne 401 bez sesji, a enable/verify-totp przyjmuje wyłącznie sesja, która zużyła kod; potwierdzenie czyści stan i dopisuje audyt MFA_RECOVERY_COMPLETED. Porzucone odzyskanie odblokowuje tylko procedura operatora. Obie role (admin firmy, superadmin). Bez zmian UI.",
+      "relatedRequirementIds": ["C-F011", "C-F013", "C-F014"],
+      "referenceScreenIds": [],
+      "unmappedStates": ["Backend bez UI."],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261111200000_mfa_recovery_pending_issue_387/migration.sql",
+        "src/app/api/auth/[...all]/route.ts",
+        "src/modules/audit/append.ts",
+        "src/modules/audit/view.ts",
+        "scripts/recover-mfa.ts",
+        "docs/contracts/technical-limits-and-mfa-bootstrap.md"
+      ],
+      "testPaths": ["tests/integration/mfa-recovery-pending.test.ts", "tests/integration/auth-http.test.ts"]
+    },
+    {
       "issue": 342,
       "scope": "Audyt dostępności (część #61): panel platformy, strony publiczne firmy i marketing Autervy. Automatyczny skan axe (WCAG 2.2 AA, serious/critical = błąd) każdego ekranu przy 1440, 390 i 320 px oraz kontrole strukturalne: jeden h1 i main, lang, skip link jako pierwszy stop, kolejność i widoczność fokusu, fokus nieprzesłonięty, reflow 320/640 px, reduced motion; dialog archiwizacji (pułapka i powrót fokusu) i menu mobilne z klawiatury. Poprawki: nazwa linku Wiadomości/Czat z plakietką „Nowe” zgodna z widocznym tekstem (WCAG 2.5.3), scroll-padding chroniący fokus przed paskiem akcji (dolna nawigacja: reguła z #341) formularza/kalendarza pojazdu (WCAG 2.4.11). Bez zmian logiki. VoiceOver: DEFERRED (#97); strona logowania i MFA nie mają skip linku (brak bloków do pominięcia).",
       "relatedRequirementIds": ["C-N047", "C-N049", "C-N060"],
