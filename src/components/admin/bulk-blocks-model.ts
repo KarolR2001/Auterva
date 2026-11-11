@@ -18,6 +18,12 @@ export type BulkErrorKey = "vehicles" | "from" | "to" | "type" | "reference" | "
 export const emptyDraft = (): BulkDraft => ({ from: "", to: "", type: "BLOCKED", reference: "", internalNote: "", vehicleIds: [],
   onConflict: "ABORT", copyNote: false });
 
+/** Anything typed or chosen that differs from the empty form: such a draft is lost on leaving, so the panel shell guards it (#378). */
+export function isDraftDirty(draft: BulkDraft): boolean {
+  const empty = emptyDraft();
+  return (Object.keys(empty) as (keyof BulkDraft)[]).some((key) => key === "vehicleIds" ? draft.vehicleIds.length > 0 : draft[key] !== empty[key]);
+}
+
 export function validateDraft(mode: BulkMode, draft: BulkDraft): Partial<Record<BulkErrorKey, string>> {
   const errors: Partial<Record<BulkErrorKey, string>> = mode === "create" ? { ...validateValues(draft).errors } : {};
   if (draft.vehicleIds.length === 0) errors.vehicles = mode === "copy" ? "Wybierz co najmniej jeden pojazd docelowy." : "Wybierz co najmniej jeden pojazd.";
