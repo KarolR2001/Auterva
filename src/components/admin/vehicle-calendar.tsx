@@ -86,6 +86,9 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
   const [versionConflict, setVersionConflict] = useState<{ current: CalendarBlock | null } | null>(null);
   /** True while the server's current version of a conflicting block is being read: saving then would send the stale version again. */
   const [resolving, setResolving] = useState(false);
+  /** The read of the current version failed (5xx, network, unreadable answer): that is not "the block is gone", and saving stays blocked until a read succeeds. */
+  const [readFailed, setReadFailed] = useState(false);
+  const conflictPending = useRef<Pending | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [uncertain, setUncertain] = useState<Pending | null>(null);
   const [candidates, setCandidates] = useState<{ blocks: CalendarBlock[]; values: BlockValues } | null>(null);
@@ -167,7 +170,7 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
 
   // --- editor ----------------------------------------------------------------------------------------------------
 
-  function resetFeedback() { setResolving(false); setErrors({}); setPastAck(false); setOverlap(null); setVersionConflict(null); setFailure(null); setUncertain(null); setCandidates(null); setDiscardAsk(false); }
+  function resetFeedback() { setResolving(false); setReadFailed(false); setErrors({}); setPastAck(false); setOverlap(null); setVersionConflict(null); setFailure(null); setUncertain(null); setCandidates(null); setDiscardAsk(false); }
   function openCreate(range?: { from: string; to: string }) {
     const initial = { ...emptyValues(), ...(range ?? {}) };
     resetFeedback(); setParked(null); setEditor({ mode: "create" }); setBaseline(emptyValues()); setValues(initial);
@@ -219,7 +222,7 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
     if (isUncertain(result)) { setUncertain(pending); return; }
     const { code } = result;
     if (code === "BLOCK_OVERLAP" && result.conflict) { setOverlap(result.conflict); refreshAll(); return; }
-    if (code === "BLOCK_VERSION_CONFLICT") { setVersionConflict({ current: null }); setResolving(true); void loadCurrentOf(pending); return; }
+    if (code === "BLOCK_VERSION_CONFLICT") { setVersionConflict({ current: null }); setResolving(true); setReadFailed(false); void loadCurrentOf(pending); return; }
     if (code === "BLOCK_OUTSIDE_ACTIVITY") { setErrors({ from: saveErrorText(code) }); setFailure(saveErrorText(code)); return; }
     if (code === "BLOCK_DATA_INVALID") { setFailure(saveErrorText(code)); return; }
     if (code === "INVALID_INPUT" && result.fieldErrors) {
@@ -237,18 +240,32 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
   /** Reads the block named by a version conflict afresh, so the screen can show what is on the server now. */
   async function loadCurrentOf(pending: Pending) {
     if (pending.editor.mode !== "edit") { setResolving(false); return; }
+    conflictPending.current = pending;
     const block = pending.editor.block;
     const range = surroundingRange(block);
+    let failed = false;
     try {
       const result = await readCalendar(context, vehicleId, range.from, range.to);
-      const current = result.ok ? result.data.blocks.find((entry) => entry.id === block.id) ?? null : null;
-      setVersionConflict({ current });
-    } finally { setResolving(false); }
-    refreshAll();
+      // Three outcomes: found / read fine but no entry (deleted by someone else) / read failed.
+      if (result.ok) setVersionConflict({ current: result.data.blocks.find((entry) => entry.id === block.id) ?? null });
+      else failed = true;
+    } catch { failed = true; }
+    finally { setResolving(false); setReadFailed(failed); }
+    if (!failed) refreshAll();
+  }
+
+  // The message and its retry button appear after the read; focus moves there so the failure is noticed and can be retried by keyboard.
+  useEffect(() => { if (readFailed && !resolving) document.getElementById("bc-read-retry")?.focus(); }, [readFailed, resolving]);
+
+  function retryRead() {
+    const pending = conflictPending.current;
+    if (!pending || resolving) return;
+    setReadFailed(false); setResolving(true);
+    void loadCurrentOf(pending);
   }
 
   async function submit() {
-    if (busyRef.current || resolving || panel !== "form") return;
+    if (busyRef.current || resolving || readFailed || panel !== "form") return;
     // After a lost response Enter and every other route to submit read the state first; a blind retry could save twice.
     if (uncertain) { void checkUncertain(); return; }
     if (candidates) return;
@@ -315,7 +332,7 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
 
   /** The server's current version of the block replaces the stored version number; the user's own entries stay. */
   function adoptCurrent() {
-    if (editor.mode !== "edit" || resolving) return;
+    if (editor.mode !== "edit" || resolving || readFailed) return;
     const current = versionConflict?.current;
     if (!current) { setVersionConflict(null); setFailure("Blokada już nie istnieje. Twoje wpisy zostały zachowane."); return; }
     // Three-way merge: a field the user changed keeps the user's value, every other field takes the server's current one.
@@ -552,9 +569,9 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
         description={panel === "delete" && dialogBlock ? `${typeLabel(dialogBlock.type)}, ${rangeText(dialogBlock.from, dialogBlock.to)}. Termin znów będzie wolny, jeśli nic innego go nie zajmuje. Tej operacji nie można cofnąć.`
           : `Pojazd: ${name}. Daty obejmują całe dni, obie wliczone; jeden dzień to ta sama data w obu polach.`}
         primaryAction={panel === "delete"
-          ? { label: busy ? "Usuwanie…" : "Usuń blokadę", onClick: () => { if (uncertain) void checkUncertain(); else if (dialogBlock) void run({ action: "delete", editor, values }); } }
+          ? { label: busy ? "Usuwanie…" : "Usuń blokadę", onClick: () => { if (uncertain) void checkUncertain(); else if (dialogBlock) void run({ action: "delete", editor, values }); }, disabled: resolving || readFailed }
           : uncertain ? { label: busy ? "Sprawdzanie…" : "Sprawdź stan", onClick: () => void checkUncertain() }
-            : { label: busy ? "Zapisywanie…" : editor.mode === "create" ? "Dodaj blokadę" : "Zapisz zmiany", onClick: () => void submit(), disabled: resolving }}
+            : { label: busy ? "Zapisywanie…" : editor.mode === "create" ? "Dodaj blokadę" : "Zapisz zmiany", onClick: () => void submit(), disabled: resolving || readFailed }}
         secondaryAction={{ label: panel === "delete" ? "Anuluj" : "Zamknij", onClick: requestClose }}
         headerAction={panel === "form" && editor.mode === "edit" && dialogBlock
           ? <a className={`${styles.copyLink} ${styles.copyLinkHeader}`} href={copyHref(context.hrefBase, vehicleId, dialogBlock)}><Copy aria-hidden="true" size={18} />Kopiuj na inne auta</a> : undefined}>
@@ -562,8 +579,8 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
           <div className={styles.dialogStack}>
             {uncertain && <Alert tone="warning" title="Nie wiemy, czy blokada została usunięta.">Połączenie przerwało się w trakcie. Najpierw odczytamy aktualny stan z serwera.</Alert>}
             {versionConflict && <Alert tone="warning" title={saveErrorText("BLOCK_VERSION_CONFLICT")}>
-              {versionConflict.current ? `Aktualnie: ${typeLabel(versionConflict.current.type)}, ${rangeText(versionConflict.current.from, versionConflict.current.to)}.` : "Blokada nie istnieje już na serwerze."}{" "}
-              Sprawdź aktualny stan przed usunięciem.{versionConflict.current ? <> <button type="button" className={styles.linkButton} onClick={() => { const current = versionConflict.current!; setEditor({ mode: "edit", block: current }); setVersionConflict(null); }}>Wczytaj aktualną wersję</button></> : null}
+              {versionConflict.current ? `Aktualnie: ${typeLabel(versionConflict.current.type)}, ${rangeText(versionConflict.current.from, versionConflict.current.to)}.` : resolving ? <span role="status">Wczytujemy aktualny stan blokady…</span> : readFailed ? "Nie udało się odczytać aktualnego stanu blokady." : "Blokada nie istnieje już na serwerze."}{" "}
+              Sprawdź aktualny stan przed usunięciem.{readFailed ? <> <button type="button" id="bc-read-retry" className={styles.linkButton} onClick={retryRead}>Spróbuj ponownie</button></> : null}{versionConflict.current ? <> <button type="button" className={styles.linkButton} onClick={() => { const current = versionConflict.current!; setEditor({ mode: "edit", block: current }); setVersionConflict(null); }}>Wczytaj aktualną wersję</button></> : null}
             </Alert>}
             {failure && !versionConflict && <Alert tone="error" title={failure} />}
           </div>
@@ -591,7 +608,15 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
                 </div>
               </Alert>
             )}
-            {versionConflict && (
+            {versionConflict && readFailed && !resolving && (
+              <Alert tone="error" title="Nie udało się odczytać aktualnej wersji blokady.">
+                Nie wiemy, co jest teraz na serwerze, więc zapis jest wstrzymany. To nie znaczy, że blokada została usunięta. Twoje wpisy zostały zachowane.
+                <div className={styles.inlineActions}>
+                  <Button id="bc-read-retry" variant="secondary" size="sm" onClick={retryRead}>Spróbuj ponownie</Button>
+                </div>
+              </Alert>
+            )}
+            {versionConflict && !readFailed && (
               <Alert tone="warning" title={saveErrorText("BLOCK_VERSION_CONFLICT")}>
                 {versionConflict.current ? `Aktualnie na serwerze: ${typeLabel(versionConflict.current.type)}, ${rangeText(versionConflict.current.from, versionConflict.current.to)}.` : resolving ? <span role="status">Wczytujemy aktualny stan blokady…</span> : "Blokada nie istnieje już na serwerze."}
                 {" "}Twoje wpisy zostały zachowane.

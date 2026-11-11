@@ -43,6 +43,16 @@
       "testPaths": ["tests/unit/vehicle-calendar.test.tsx", "tests/e2e/vehicle-calendar.spec.ts"]
     },
     {
+      "issue": 396,
+      "scope": "Kalendarz pojazdu: po konflikcie wersji odczyt aktualnej wersji ma trzy wyniki (znaleziona / blokada nie istnieje / błąd odczytu). Błąd odczytu (5xx, sieć, nieczytelna odpowiedź) pokazuje komunikat z ikoną „Nie udało się odczytać aktualnej wersji blokady.” i przycisk „Spróbuj ponownie” (fokus na nim, ponowienie wraca do stanu wczytywania); wpisy zostają, „Zapisz zmiany” jest zablokowany do czasu odczytu, bez informacji o usunięciu. To samo w oknie usuwania. Wygląd: istniejący Alert tone=error.",
+      "relatedRequirementIds": ["FR-ADM-055", "FR-ADM-057"],
+      "referenceScreenIds": ["OVR-07"],
+      "unmappedStates": ["Stan błędu odczytu aktualnej wersji nie ma osobnej planszy w Penpocie; wygląd bez zmian, wspólny Alert (porównanie: DEFERRED #263)."],
+      "codePaths": ["src/components/admin/vehicle-calendar.tsx"],
+      "testPaths": ["tests/unit/vehicle-calendar.test.tsx", "tests/e2e/vehicle-calendar.spec.ts"],
+      "sharedWith": "Zależy od #383 (PR #395)."
+    },
+    {
       "issue": 371,
       "scope": "OVR-07 desktop (D-48): „Kopiuj na inne auta” w nagłówku okna edycji blokady obok tytułu (wspólny Dialog dostaje opcjonalne headerAction, addytywnie; okna bez niego bez zmian). Na mobile (do 480 px) zostaje przycisk pełnej szerokości nad „Usuń blokadę” (OVR-07-mobile-edit); ten sam href, w danej szerokości widoczny jeden link. Kolejność Tab: nagłówek, pola, Zamknij, Zapisz; fokus początkowy, Escape i powrót fokusu bez zmian.",
       "relatedRequirementIds": ["FR-ADM-055", "FR-ADM-057", "D-48"],
