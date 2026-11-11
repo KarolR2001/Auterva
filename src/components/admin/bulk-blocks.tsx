@@ -294,7 +294,7 @@ export function BulkBlocks({ context, mode, source, today, calendarHref, onClose
           {vehicles.status === "error" && <Alert tone="error" title="Nie udało się wczytać pojazdów.">{readErrorMessage(vehicles.code)}</Alert>}
           {vehicles.status === "ready" && !settled && all.length > 8 && (
             <>
-              <TextInput id="bulk-search" type="search" aria-label="Szukaj pojazdu" placeholder="Szukaj pojazdu" value={search} disabled={locked} onChange={(event) => setSearch(event.target.value)} />
+              <TextInput id="bulk-search" type="search" aria-label="Szukaj pojazdu" placeholder="Szukaj pojazdu" value={search} disabled={locked} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") event.preventDefault(); }} />
               <div className={styles.inline}>
                 <Button variant="secondary" size="sm" onClick={selectShown} disabled={locked || shown.length === 0 || count >= MAX_BULK_VEHICLES}>Zaznacz widoczne (do {MAX_BULK_VEHICLES})</Button>
                 <Button variant="tertiary" size="sm" onClick={() => change("vehicleIds", [])} disabled={locked || count === 0}>Wyczyść wybór</Button>
