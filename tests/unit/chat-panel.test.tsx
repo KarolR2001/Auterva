@@ -395,7 +395,8 @@ describe("czat firmy (#52)", () => {
     failing = false;
     await user.click(screen.getByRole("button", { name: "Spróbuj ponownie" }));
     await waitFor(() => expect(order()).toEqual(["1", "2", "3", "4"]));
-    expect(screen.queryByText("Nie udało się wczytać wiadomości z czasu rozłączenia.")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByText("Uzupełniono wiadomości z czasu rozłączenia.")).toBeInTheDocument();
     act(() => socket.close(1006));
     await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
     expect(FakeSocket.instances[1].url).toContain("after=cur-4");

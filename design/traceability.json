@@ -110,6 +110,15 @@
       "testPaths": ["tests/integration/availability-bulk-blocks.test.ts"]
     },
     {
+      "issue": 393,
+      "scope": "Wznowienie czatu po ready z backlog \"refetch\" (ponad 200 wiadomości zaległości): klient zachowuje własny kursor sprzed ready (ready.cursor to głowa rozmowy), dociąga lukę przez HTTP after=<własny kursor> stronami do hasNewer:false, wiadomości na żywo z gniazda wstrzymuje do końca dociągania (kolejność, deduplikacja po id), dopiero potem przyjmuje kursor najnowszej wiadomości na liście. Błąd dociągania: komunikat z ponowieniem, kursor zostaje na ostatniej pełnej stronie, bez cichej utraty. Replay/none bez zmian. Porównanie z Penpotem DEFERRED (#263): stan błędu używa istniejącego wzorca Alert czatu.",
+      "relatedRequirementIds": ["C-F132", "C-N066"],
+      "referenceScreenIds": ["TEN-11"],
+      "unmappedStates": ["Stan „Wczytywanie wiadomości z czasu rozłączenia” i błąd dociągania luki bez osobnej planszy; wzorzec jak błąd wczytania rozmowy."],
+      "codePaths": ["src/components/chat/chat-panel.tsx"],
+      "testPaths": ["tests/unit/chat-panel.test.tsx", "tests/e2e/chat-refetch.spec.ts"]
+    },
+    {
       "issue": 342,
       "scope": "Audyt dostępności (część #61): panel platformy, strony publiczne firmy i marketing Autervy. Automatyczny skan axe (WCAG 2.2 AA, serious/critical = błąd) każdego ekranu przy 1440, 390 i 320 px oraz kontrole strukturalne: jeden h1 i main, lang, skip link jako pierwszy stop, kolejność i widoczność fokusu, fokus nieprzesłonięty, reflow 320/640 px, reduced motion; dialog archiwizacji (pułapka i powrót fokusu) i menu mobilne z klawiatury. Poprawki: nazwa linku Wiadomości/Czat z plakietką „Nowe” zgodna z widocznym tekstem (WCAG 2.5.3), scroll-padding chroniący fokus przed paskiem akcji (dolna nawigacja: reguła z #341) formularza/kalendarza pojazdu (WCAG 2.4.11). Bez zmian logiki. VoiceOver: DEFERRED (#97); strona logowania i MFA nie mają skip linku (brak bloków do pominięcia).",
       "relatedRequirementIds": ["C-N047", "C-N049", "C-N060"],
