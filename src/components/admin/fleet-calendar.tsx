@@ -72,6 +72,7 @@ export function FleetCalendar({ context = companyContext, today: initialToday, t
   useEffect(() => {
     let live = true;
     const sync = () => {
+      console.log("DIAGX sync", window.location.search);
       const query = new URLSearchParams(window.location.search);
       if (query.get("zbiorcza") === "1") { setBulk({ mode: "create", source: null }); return; }
       const blockId = query.get("kopiuj"), vehicleId = query.get("pojazd"), from = query.get("od");
