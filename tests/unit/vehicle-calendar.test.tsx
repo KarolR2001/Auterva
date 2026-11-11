@@ -331,6 +331,28 @@ describe("#39 kalendarz pojazdu", () => {
     expect(document.activeElement?.closest("table")).toBeNull();
   });
 
+  it("OVR-07 (D-48): „Kopiuj na inne auta” jest w nagłówku okna edycji przed polami i przyciskami, a w oknie dodawania go nie ma", async () => {
+    const user = userEvent.setup();
+    const server: Server = { blocks: [block({ version: 3 })], calls: [] };
+    install(server); mount();
+    await user.click(await screen.findByRole("button", { name: /Edytuj blokadę: Serwis, 12–14 listopada 2026/ }));
+    const dialog = await screen.findByRole("dialog");
+    const links = within(dialog).getAllByRole("link", { name: "Kopiuj na inne auta" });
+    // Header copy (desktop) and in-body copy (mobile, hidden by CSS above 480 px) share one href.
+    expect(links).toHaveLength(2);
+    expect(links[0]!.getAttribute("href")).toBe(links[1]!.getAttribute("href"));
+    const heading = within(dialog).getByRole("heading", { name: "Edytuj blokadę" });
+    expect(heading.parentElement).toContainElement(links[0]!);
+    expect(heading.parentElement).not.toContainElement(links[1]!);
+    const order = Array.from(dialog.querySelectorAll("a[href], button, input, textarea, select"));
+    expect(order.indexOf(links[0]!)).toBeLessThan(order.indexOf(within(dialog).getByLabelText(/^Od/)));
+    expect(order.indexOf(links[0]!)).toBeLessThan(order.indexOf(within(dialog).getByRole("button", { name: "Zamknij" })));
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await user.click(screen.getAllByRole("button", { name: "Dodaj okres niedostępności" })[0]!);
+    expect(within(await screen.findByRole("dialog")).queryByRole("link", { name: "Kopiuj na inne auta" })).not.toBeInTheDocument();
+  });
+
   it("usuwanie wymaga potwierdzenia i wysyła wersję", async () => {
     const user = userEvent.setup();
     const server: Server = { blocks: [block({ version: 3 })], calls: [] };
