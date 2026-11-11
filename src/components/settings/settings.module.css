@@ -15,6 +15,7 @@
   scroll-behavior: auto;
 }
 .navLink {
+  position: relative;
   display: inline-flex;
   min-height: var(--touch-target-mobile);
   align-items: center;
