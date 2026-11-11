@@ -7,10 +7,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { BulkBlocks } from "../../src/components/admin/bulk-blocks";
 import { readBulkAnswer } from "../../src/components/admin/bulk-blocks-api";
 import {
-  activityText, checkedVehicles, emptyDraft, keyFor, ofVehicles, rejectionText, requestOf, signatureOf, validateDraft, type BulkSource,
+  activityText, bulkStartsInPast, checkedVehicles, emptyDraft, keyFor, ofVehicles, rejectionText, requestOf, signatureOf, validateDraft, type BulkSource,
 } from "../../src/components/admin/bulk-blocks-model";
 import { FleetCalendar } from "../../src/components/admin/fleet-calendar";
 import { companyContext, platformContext } from "../../src/components/admin/fleet-api";
+import { warsawDate } from "../../src/components/admin/vehicle-calendar-model";
 import { copyHref } from "../../src/components/admin/vehicle-calendar";
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, "", "/"); });
@@ -350,5 +351,96 @@ describe("#217 kalendarz floty: wejścia D-48, adres widoku i odświeżenie po z
     render(<FleetCalendar today="2026-11-10" title="Kalendarz floty" />);
     expect(await screen.findByText(/Nie znaleźliśmy blokady do skopiowania/)).toBeInTheDocument();
     expect(window.location.search).toBe("");
+  });
+});
+
+describe("#379 okres z przeszłości: ostrzeżenie i potwierdzenie przed zapisem", () => {
+  const draftFrom = (from: string) => ({ ...emptyDraft(), from, to: from });
+  const pastSource: BulkSource = { blockId: BLOCK, vehicleId: C, vehicleName: "Auto Gamma", from: "2027-03-09", to: "2027-03-12", type: "MAINTENANCE", reference: null, hasNote: false };
+  const ack = () => screen.getByRole("checkbox", { name: "Rozumiem, zapisz okres z przeszłości" });
+
+  it("granica: dziś i przyszłość nie ostrzegają, wczoraj i dawniej tak; jeden dzień dziś jest poprawny; kopia czyta start źródła", () => {
+    expect(bulkStartsInPast("create", draftFrom(TODAY), null, TODAY)).toBe(false);
+    expect(bulkStartsInPast("create", draftFrom("2027-03-11"), null, TODAY)).toBe(false);
+    expect(bulkStartsInPast("create", draftFrom("2027-03-09"), null, TODAY)).toBe(true);
+    expect(bulkStartsInPast("create", draftFrom("2026-03-10"), null, TODAY)).toBe(true);
+    expect(bulkStartsInPast("create", draftFrom(""), null, TODAY)).toBe(false);
+    expect(bulkStartsInPast("copy", emptyDraft(), pastSource, TODAY)).toBe(true);
+    expect(bulkStartsInPast("copy", emptyDraft(), { ...pastSource, from: TODAY }, TODAY)).toBe(false);
+    expect(bulkStartsInPast("copy", emptyDraft(), null, TODAY)).toBe(false);
+  });
+
+  it("strefa: o 23:30 UTC 9 marca w Warszawie jest już 10 marca, więc 9 marca to przeszłość", () => {
+    const today = warsawDate(new Date("2027-03-09T23:30:00Z"));
+    expect(today).toBe("2027-03-10");
+    expect(bulkStartsInPast("create", draftFrom("2027-03-09"), null, today)).toBe(true);
+    expect(bulkStartsInPast("create", draftFrom("2027-03-10"), null, today)).toBe(false);
+  });
+
+  it("blokada zbiorcza: podgląd działa bez potwierdzenia, zapis go wymaga, zmiana daty je cofa", async () => {
+    const user = userEvent.setup();
+    const { bulk } = server([preview([A]), reply(201, { saved: [{ vehicleId: A, blockId: "n1", version: 1 }], rejected: [] })]);
+    renderBulk();
+    await screen.findByRole("checkbox", { name: /Auto Alfa/ });
+    await user.click(screen.getByRole("checkbox", { name: /Auto Alfa/ }));
+    await user.type(screen.getByLabelText(/^Od/), "2027-03-09");
+    expect(screen.getByText("Termin zaczyna się w przeszłości.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Sprawdź konflikty" }));
+    await screen.findByText("Podgląd konfliktów — nic nie zapisano");
+    expect(bulk()).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "Zapisz blokadę" }));
+    expect(bulk()).toHaveLength(1);
+    expect(screen.getByText("Potwierdź zapis okresu z przeszłości.")).toBeInTheDocument();
+    await waitFor(() => expect(ack()).toHaveFocus());
+    expect(ack()).toHaveAttribute("aria-invalid", "true");
+    // Space on the focused checkbox confirms; the date change withdraws the confirmation.
+    await user.keyboard(" ");
+    expect(ack()).toBeChecked();
+    expect(screen.queryByText("Potwierdź zapis okresu z przeszłości.")).toBeNull();
+    await user.clear(screen.getByLabelText(/^Do/));
+    await user.type(screen.getByLabelText(/^Do/), "2027-03-11");
+    expect(ack()).not.toBeChecked();
+    await user.click(ack());
+    await user.click(screen.getByRole("button", { name: "Zapisz blokadę" }));
+    await screen.findByText(/Zapisano 1 z 1/);
+    expect(bulk()).toHaveLength(2);
+    expect(bulk()[1].body).toMatchObject({ dryRun: false, fields: { from: "2027-03-09", to: "2027-03-11" } });
+  });
+
+  it("blokada zbiorcza: dziś albo później nie pokazuje ostrzeżenia i zapisuje bez potwierdzenia", async () => {
+    const user = userEvent.setup();
+    const { bulk } = server([reply(201, { saved: [{ vehicleId: A, blockId: "n1", version: 1 }], rejected: [] })]);
+    renderBulk();
+    await screen.findByRole("checkbox", { name: /Auto Alfa/ });
+    await user.click(screen.getByRole("checkbox", { name: /Auto Alfa/ }));
+    await user.type(screen.getByLabelText(/^Od/), TODAY);
+    expect(screen.queryByText("Termin zaczyna się w przeszłości.")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Zapisz blokadę" }));
+    await screen.findByText("Zapisano 1 z 1 pojazdu");
+    expect(bulk()).toHaveLength(1);
+  });
+
+  it("kopia: źródło z przeszłości ostrzega, zapis bez potwierdzenia nic nie wysyła, z potwierdzeniem zapisuje", async () => {
+    const user = userEvent.setup();
+    const { bulk } = server([reply(201, { saved: [{ vehicleId: A, blockId: "n1", version: 1 }], rejected: [] })]);
+    renderBulk({ mode: "copy", source: pastSource });
+    await screen.findByRole("checkbox", { name: /Auto Alfa/ });
+    expect(screen.getByText("Termin zaczyna się w przeszłości.")).toBeInTheDocument();
+    await user.click(screen.getByRole("checkbox", { name: /Auto Alfa/ }));
+    await user.click(screen.getByRole("button", { name: "Kopiuj blokadę" }));
+    expect(bulk()).toHaveLength(0);
+    await waitFor(() => expect(ack()).toHaveFocus());
+    await user.click(ack());
+    await user.click(screen.getByRole("button", { name: "Kopiuj blokadę" }));
+    await screen.findByText(/Zapisano 1 z 1/);
+    expect(bulk()).toHaveLength(1);
+    expect(bulk()[0].body).toMatchObject({ dryRun: false, sourceBlockId: BLOCK });
+  });
+
+  it("kopia: źródło od dziś nie ostrzega", async () => {
+    server([]);
+    renderBulk({ mode: "copy", source: { ...pastSource, from: TODAY } });
+    await screen.findByRole("checkbox", { name: /Auto Alfa/ });
+    expect(screen.queryByText("Termin zaczyna się w przeszłości.")).toBeNull();
   });
 });
