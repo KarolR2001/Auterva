@@ -10,6 +10,8 @@
   /* Miejsce na pełny obrys fokusu (2 px + offset 2 px) mimo overflow-x; ujemny margines zachowuje wygląd paska. */
   margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-1)) 0;
   padding: var(--space-1);
+  /* 1 px zapasu na ułamkową szerokość ostatniej zakładki (zaokrąglenie scrollLeft), by obrys nie był ucięty. */
+  padding-inline-end: calc(var(--space-1) + 1px);
   /* Fokus przewija zakładkę w całości z obrysem (WCAG 2.4.11); działa dla dowolnej liczby pozycji. */
   scroll-padding-inline: var(--space-2);
   scroll-behavior: auto;
