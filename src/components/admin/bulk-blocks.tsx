@@ -94,8 +94,10 @@ export function BulkBlocks({ context, mode, source, today, calendarHref, onClose
   const [backAsk, setBackAsk] = useState<"dirty" | "busy" | null>(null);
   const backState = useRef<"idle" | "restoring" | "leaving">("idle");
   useEffect(() => {
+    console.log("DIAGX effect guarded", guarded, savingNow);
     if (!guarded) return;
     function onPop(event: PopStateEvent) {
+      console.log("DIAGX onPop", backState.current);
       if (backState.current === "leaving") return;
       event.stopImmediatePropagation();
       if (backState.current === "restoring") { backState.current = "idle"; return; }

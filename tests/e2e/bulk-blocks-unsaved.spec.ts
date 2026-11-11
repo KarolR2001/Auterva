@@ -62,6 +62,7 @@ test.afterAll(async ({ baseURL }) => {
 test.only("a filled bulk block form survives a PWA update, a nav link, the breadcrumb, Back and tab close until the user confirms", async ({ page, baseURL }) => {
   test.setTimeout(120_000);
   if (!baseURL) throw new Error("Missing PWA fixture URL");
+  page.on("console", (m) => { if (m.text().startsWith("DIAGX")) console.log(m.text()); });
   await signIn(page, baseURL);
   await controlledAdminPage(page);
   await page.goto("/admin/kalendarz/");
