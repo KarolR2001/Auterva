@@ -296,6 +296,19 @@ describe("#217 ekran: podgląd, tryby konfliktu, raport, wynik niepewny", () => 
     await user.type(screen.getByRole("searchbox", { name: "Szukaj pojazdu" }), "Auto 54");
     expect(screen.getAllByRole("checkbox")).toHaveLength(1);
   });
+
+  it("#380: Enter w „Szukaj pojazdu” nie wysyła formularza (bez podglądu i podsumowania), fokus zostaje w polu", async () => {
+    const many = Array.from({ length: 9 }, (_, i) => item(`00000000-0000-4000-8000-${String(i).padStart(12, "0")}`, `Auto ${i}`));
+    const { bulk } = server([], vehicles(many));
+    const user = userEvent.setup();
+    renderBulk();
+    await screen.findByRole("checkbox", { name: /Auto 0/ });
+    const search = screen.getByRole("searchbox", { name: "Szukaj pojazdu" });
+    await user.type(search, "Auto{Enter}");
+    expect(search).toHaveFocus();
+    expect(bulk()).toHaveLength(0);
+    expect(screen.queryByText(/Do poprawy/)).not.toBeInTheDocument();
+  });
 });
 
 describe("#217 kalendarz floty: wejścia D-48, adres widoku i odświeżenie po zapisie", () => {
