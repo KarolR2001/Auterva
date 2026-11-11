@@ -103,8 +103,9 @@ export function BulkBlocks({ context, mode, source, today, calendarHref, onClose
       window.history.go(1);
       setBackAsk(savingNow ? "busy" : "dirty");
     }
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
+    // Capture: the fleet calendar's own popstate listener was registered first and would otherwise close the view before this one runs.
+    window.addEventListener("popstate", onPop, true);
+    return () => window.removeEventListener("popstate", onPop, true);
   }, [guarded, savingNow]);
   useEffect(() => {
     if (backAsk !== "busy") return;

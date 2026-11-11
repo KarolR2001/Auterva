@@ -441,10 +441,10 @@ describe("#378 ochrona niezapisanych zmian: blokada zbiorcza i kopia w powłoce 
     const user = userEvent.setup();
     server([]);
     const go = vi.spyOn(window.history, "go").mockImplementation(() => undefined);
+    const parent = vi.fn();
+    window.addEventListener("popstate", parent); // registered first, like the fleet calendar's own listener
     const { onClose } = guarded();
     await user.click(await screen.findByRole("checkbox", { name: /Auto Alfa/ }));
-    const parent = vi.fn();
-    window.addEventListener("popstate", parent);
     act(() => { window.dispatchEvent(new PopStateEvent("popstate")); });
     expect(parent).not.toHaveBeenCalled();
     expect(go).toHaveBeenCalledWith(1);
