@@ -26,6 +26,26 @@
   text-decoration: none;
   white-space: nowrap;
 }
+.navFull {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@media (min-width: 768px) {
+  .navShort {
+    display: none;
+  }
+  .navFull {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+  }
+}
 .navLink[aria-current="page"] {
   border-color: var(--text-primary);
   background: var(--surface-selected);
