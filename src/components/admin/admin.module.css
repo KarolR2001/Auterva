@@ -14,7 +14,10 @@
 .toolbar { display: grid; gap: var(--space-3); grid-template-columns: 1fr; margin-bottom: var(--space-4); }
 /* Layout follows the width of the content area (the panel sidebar takes 240 px), not the viewport. */
 /* Desktop toolbar (mockup ADM-05 D): one row of compact pills, search takes the free width, nothing wraps until the container is narrow. */
-@container (min-width: 640px) { .toolbar { display: flex; flex-wrap: wrap; align-items: center; padding: var(--space-4); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-lg); } /* Zero flex-basis: the row breaks on the minimum widths only, so long option names never push "Dodaj pojazd" to a new row (1024-1920 px). */ .searchInput { flex: 2 1 0; min-width: 104px; } .pill { flex: 1 1 0; min-width: 96px; max-width: 180px; text-overflow: ellipsis; } .sortButton { flex: 0 0 auto; } .addLink { flex: 0 0 auto; margin-left: auto; white-space: nowrap; } }
+@container (min-width: 640px) { .toolbar { display: flex; flex-wrap: wrap; align-items: center; padding: var(--space-4); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-lg); } /* Zero flex-basis: the row breaks on the minimum widths only, so long option names never push "Dodaj pojazd" to a new row (1024-1920 px). */ .searchInput { flex: 2 1 0; min-width: 72px; } .toolbar .pill { flex: 1 1 0; min-width: 120px; max-width: 180px; text-overflow: ellipsis; } .toolbar .sortButton { flex: 0 0 auto; } .addLink { flex: 0 0 auto; margin-left: auto; white-space: nowrap; } }
+/* ADM-05 on a narrow desktop (about 1024-1200 px): the sort button shows the short visible label "Zmiana" (its accessible name stays the full "Ostatnia zmiana, sortowanie: ...") so the closed Publikacja and Kategoria fields keep at least 120 px and stay readable. */
+.sortShort { display: none; }
+@container (min-width: 640px) and (max-width: 899px) { .sortLong { display: none; } .sortShort { display: inline; } }
 .rowBreak { flex-basis: 100%; height: 0; }
 .pill { width: auto; min-width: 0; font-weight: var(--font-weight-medium); }
 .sortButton { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); cursor: pointer; white-space: nowrap; }

@@ -22,6 +22,29 @@
       "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
     },
     {
+      "issue": 375,
+      "scope": "ADM-05 toolbar listy pojazdów na wąskim desktopie (1024-1200 px): zamknięte pola Publikacja i Kategoria mają co najmniej 120 px (min-width pigułek, węższe minimum Szukaj, krótka widoczna etykieta „Zmiana” przycisku sortowania poniżej 900 px kontenera; nazwa dostępna „Ostatnia zmiana, sortowanie: …” bez zmian), a Szukaj, Publikacja, Kategoria, sortowanie i „Dodaj pojazd” zostają w jednym rzędzie. Tylko CSS i etykieta; bez zmian logiki. Plansza Penpota: Desktop a4abf4c9-2e1f-80fd-8008-afeba8dd6131.",
+      "relatedRequirementIds": ["C-F095", "C-F097", "FR-ADM-021", "FR-ADM-022"],
+      "referenceScreenIds": ["ADM-05"],
+      "codePaths": ["src/components/admin/vehicle-list.tsx", "src/components/admin/admin.module.css"],
+      "testPaths": ["tests/e2e/admin-fleet.spec.ts"],
+      "sharedWith": "Rozszerza toolbar z #337."
+    },
+    {
+      "issue": 371,
+      "scope": "OVR-07 desktop (D-48): „Kopiuj na inne auta” w nagłówku okna edycji blokady obok tytułu (wspólny Dialog dostaje opcjonalne headerAction, addytywnie; okna bez niego bez zmian). Na mobile (do 480 px) zostaje przycisk pełnej szerokości nad „Usuń blokadę” (OVR-07-mobile-edit); ten sam href, w danej szerokości widoczny jeden link. Kolejność Tab: nagłówek, pola, Zamknij, Zapisz; fokus początkowy, Escape i powrót fokusu bez zmian.",
+      "relatedRequirementIds": ["FR-ADM-055", "FR-ADM-057", "D-48"],
+      "referenceScreenIds": ["OVR-07"],
+      "unmappedStates": ["Penpot OVR-07-desktop-edit (1e066793-8858-8051-8008-cf44132757ce), akcja b4e99770-b096-80ee-8008-ed0f079ae028: odczyt układu nagłówka w PR; w makiecie „Zamknij” stoi w nagłówku, w aplikacji pozostaje w stopce okna."],
+      "codePaths": [
+        "src/components/ui/dialog.tsx",
+        "src/components/ui/ui.module.css",
+        "src/components/admin/vehicle-calendar.tsx",
+        "src/components/admin/vehicle-calendar.module.css"
+      ],
+      "testPaths": ["tests/unit/ui-foundations.test.tsx", "tests/unit/vehicle-calendar.test.tsx", "tests/e2e/bulk-blocks.spec.ts"]
+    },
+    {
       "issue": 363,
       "scope": "PUB-03: karta „Najbliższy wolny termin” zgodna z makietą (obrys karty i przycisku #151515 1 px, promień 12, padding 16, odstęp 12 między tytułem, notą i przyciskiem); tylko CSS. Odczyt Penpota: karta #f2f2f2, tytuł 16/600, nota 13/400 #424242 (aplikacja 14 px: brak tokenu rozmiaru 13), przycisk 48 px, etykieta 15/600.",
       "relatedRequirementIds": ["FR-PUB-023", "FR-PUB-024"],
@@ -76,6 +99,17 @@
       "testPaths": ["tests/integration/calendar-feed-scope.test.ts", "tests/integration/calendar-feed.test.ts"]
     },
     {
+      "issue": 376,
+      "scope": "Backend zbiorczych blokad (#215, D-32): identyfikatory pojazdów, blokady źródłowej i klucz idempotencji są normalizowane do małych liter przy parsowaniu, więc UUID wielkimi literami nie daje 500, a ten sam pojazd w dwóch pisowniach to 400 INVALID_INPUT; skrót wejścia idempotencji liczony z wartości znormalizowanych. Bez zmian UI.",
+      "referenceScreenIds": [],
+      "unmappedStates": ["Backend bez UI."],
+      "codePaths": [
+        "src/modules/availability/bulk-blocks.ts",
+        "docs/contracts/availability-nearest-and-bulk-blocks.md"
+      ],
+      "testPaths": ["tests/integration/availability-bulk-blocks.test.ts"]
+    },
+    {
       "issue": 342,
       "scope": "Audyt dostępności (część #61): panel platformy, strony publiczne firmy i marketing Autervy. Automatyczny skan axe (WCAG 2.2 AA, serious/critical = błąd) każdego ekranu przy 1440, 390 i 320 px oraz kontrole strukturalne: jeden h1 i main, lang, skip link jako pierwszy stop, kolejność i widoczność fokusu, fokus nieprzesłonięty, reflow 320/640 px, reduced motion; dialog archiwizacji (pułapka i powrót fokusu) i menu mobilne z klawiatury. Poprawki: nazwa linku Wiadomości/Czat z plakietką „Nowe” zgodna z widocznym tekstem (WCAG 2.5.3), scroll-padding chroniący fokus przed paskiem akcji (dolna nawigacja: reguła z #341) formularza/kalendarza pojazdu (WCAG 2.4.11). Bez zmian logiki. VoiceOver: DEFERRED (#97); strona logowania i MFA nie mają skip linku (brak bloków do pominięcia).",
       "relatedRequirementIds": ["C-N047", "C-N049", "C-N060"],
@@ -109,6 +143,41 @@
         "src/components/account/account-view.tsx"
       ],
       "testPaths": ["tests/unit/password-policy.test.tsx", "tests/e2e/account-ui.spec.ts", "tests/e2e/company-activation-ui.spec.ts"]
+    },
+    {
+      "issue": 355,
+      "scope": "Ekran „Kalendarz zewnętrzny” (ADM-22, D-40/D-47/D-49): nowa pozycja w nawigacji Ustawień; lista adresów iCal bez tokena (etykieta, status tekstem i ikoną Aktywny/Wygasły/Odwołany, zakres, utworzono, ostatnie użycie, wygasa/odwołano z powodem), ostrzeżenie 30 dni przed wygaśnięciem, limit 5 (przycisk nieaktywny z powodem), stan pusty; tworzenie z etykietą i jednorazowym pokazaniem adresu z „Kopiuj adres” (adres tylko w stanie komponentu: bez URL, storage, logów i RSC props; strażnik niezapisanych zmian do zamknięcia); rotacja i odwołanie z potwierdzeniem. 5xx/brak połączenia = wynik niepewny: bez sukcesu i bez adresu, rozstrzyga odczyt listy (nowy adres bez odebranego URL → propozycja rotacji; odwołanie ponawiane bezpiecznie). Superadmin w kontekście firmy: tylko lista i odwołanie. Objaśnienie: tylko „Niedostępny” dla pojazdów opublikowanych, Google odświeża co kilka godzin, Apple co 5–60 min, rozstrzyga panel.",
+      "relatedRequirementIds": ["C-N006", "C-N029"],
+      "referenceScreenIds": ["ADM-22"],
+      "scenarioStates": {
+        "list": "ADM-22 / list — desktop b4e99770-b096-80ee-8008-ece3be60ca2f, mobile b4e99770-b096-80ee-8008-ece44aca7386",
+        "empty": "ADM-22 / empty — desktop b4e99770-b096-80ee-8008-ece4bd2bb6c9, mobile b4e99770-b096-80ee-8008-ece592dc97af",
+        "create": "ADM-22 / create — desktop b4e99770-b096-80ee-8008-ece4de62b468, mobile b4e99770-b096-80ee-8008-ece599d8ec7d",
+        "createdOnce": "ADM-22 / created-once — desktop b4e99770-b096-80ee-8008-ece4f053a4d0, mobile b4e99770-b096-80ee-8008-ece5ac8efa69",
+        "createdCopied": "ADM-22 / created-copied — desktop b4e99770-b096-80ee-8008-ece501364e65, mobile b4e99770-b096-80ee-8008-ece5b77145b9",
+        "limit": "ADM-22 / limit — desktop b4e99770-b096-80ee-8008-ece4668644e9, mobile b4e99770-b096-80ee-8008-ece5447204b2",
+        "error": "ADM-22 / error — desktop b4e99770-b096-80ee-8008-ece484b5643c, mobile b4e99770-b096-80ee-8008-ece567dd9386",
+        "superadminContext": "ADM-22 / superadmin-context — desktop b4e99770-b096-80ee-8008-ece499aded04, mobile b4e99770-b096-80ee-8008-ece57983a50a",
+        "rotateDialog": "ADM-22 / dialog rotacji — desktop b4e99770-b096-80ee-8008-ece514281324, mobile b4e99770-b096-80ee-8008-ece51c790199",
+        "revokeDialog": "ADM-22 / dialog odwołania — desktop b4e99770-b096-80ee-8008-ece518495d6a, mobile b4e99770-b096-80ee-8008-ece521001e24"
+      },
+      "unmappedStates": [
+        "Zakres „Wybrane pojazdy” z makiety create: API #327 nie przyjmuje zakresu (POST tylko { label }), więc każdy adres obejmuje całą flotę (pojazdy opublikowane); wybór pojazdów wymaga zmiany Backend.",
+        "„Obróć” przy wygasłym adresie z makiety list: API rotacji zwraca 404 dla wygasłego, więc akcji nie ma; wygasły adres zastępuje nowy.",
+        "Okruszki „Ustawienia / Kalendarz zewnętrzny” w treści: aplikacja pokazuje tytuł powłoki „Ustawienia” i nawigację Ustawień z bieżącą pozycją."
+      ],
+      "codePaths": [
+        "src/components/calendar-feed/calendar-feeds.tsx",
+        "src/components/calendar-feed/calendar-feeds.module.css",
+        "src/components/calendar-feed/feed-api.ts",
+        "src/components/calendar-feed/feed-model.ts",
+        "src/components/settings/settings-nav.tsx",
+        "src/components/public/copy-button.tsx",
+        "src/app/admin/ustawienia/kalendarz-zewnetrzny/page.tsx",
+        "src/app/firmy/[organizationId]/ustawienia/kalendarz-zewnetrzny/page.tsx"
+      ],
+      "testPaths": ["tests/unit/calendar-feeds.test.tsx", "tests/unit/settings-routes.test.tsx", "tests/e2e/calendar-feeds-ui.spec.ts", "tests/e2e/admin-a11y.spec.ts"],
+      "sharedWith": "API: docs/contracts/calendar-feed-implementation.md (#327); decyzje: docs/contracts/calendar-and-company-export.md (D-40, D-47)."
     },
     {
       "issue": 337,
@@ -636,7 +705,7 @@
       "unmappedStates": [
         "Penpot ADM-10 state=bulk-select/preview-abort/result-skip/error-uncertain/copy Desktop (b9c729c0-a810-8029-8008-ecdb2b7268f6, -ecdb9c0490eb, -ecdbfd2c30e2, -ecdc8c4d57a6, -ecdcb662e2c0) i bulk-select Mobile (6a2f4f9d-714c-8062-8008-ecddd851e5cd) porównane z eksportu 10.11; preview-skip, result-abort i pozostałe plansze mobile wg tabeli w #217.",
         "Poza makietą: wyszukiwarka oraz „Zaznacz widoczne (do 50)”/„Wyczyść wybór” przy flocie powyżej 8 pojazdów; „Zmień dane (nowe żądanie)” w stanie wyniku nieznanego.",
-        "„Kopiuj na inne auta” w OVR-07: mobile jako przycisk pełnej szerokości nad „Usuń blokadę” (jak OVR-07-mobile-edit); desktop w treści okna zamiast w nagłówku obok „Zamknij”, bo wspólny Dialog nie ma akcji w nagłówku (P3).",
+        "„Kopiuj na inne auta” w OVR-07: mobile jako przycisk pełnej szerokości nad „Usuń blokadę” (jak OVR-07-mobile-edit); desktop w nagłówku okna (#371, headerAction wspólnego Dialog).",
         "Przesunięcie dat kopii (shiftDays, P6) poza zakresem."
       ],
       "codePaths": [
