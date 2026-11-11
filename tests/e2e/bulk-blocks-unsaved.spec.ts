@@ -71,9 +71,9 @@ test("a filled bulk block form survives a PWA update, a nav link, the breadcrumb
   await page.getByLabel(/^Od/).fill("2031-05-10");
   await page.getByLabel(/^Numer odniesienia/).fill("SRV-378");
   const stays = async () => {
-    await expect(page.getByRole("dialog", { name: "Niezapisane zmiany" })).toBeVisible();
+    await expect(page.getByRole("alertdialog", { name: "Niezapisane zmiany" })).toBeVisible();
     await page.getByRole("button", { name: "Zostań" }).click();
-    await expect(page.getByRole("dialog", { name: "Niezapisane zmiany" })).toBeHidden();
+    await expect(page.getByRole("alertdialog", { name: "Niezapisane zmiany" })).toBeHidden();
     await expect(page).toHaveURL(/zbiorcza=1/);
     await expect(page.getByLabel(/^Numer odniesienia/)).toHaveValue("SRV-378");
     await expect(page.getByRole("checkbox", { name: /Auto Zbiorcze/ })).toBeChecked();
