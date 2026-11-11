@@ -1,13 +1,14 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, configure, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, configure, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CalendarFeeds } from "../../src/components/calendar-feed/calendar-feeds";
 import { adminFeedContext, platformFeedContext } from "../../src/components/calendar-feed/feed-api";
 import {
-  daysLeft, expiresSoon, findUnseenCreated, findUnseenRotated, labelError, metaLine, revokedOnList, type FeedItem, type FeedList,
+  daysLeft, expiresSoon, findUnseenCreated, findUnseenRotated, keepKnown, labelError, metaLine, revokedOnList, scopeText,
+  vehicleIdsErrorText, vehiclesText, vehicleSelectionError, type FeedItem, type FeedList,
 } from "../../src/components/calendar-feed/feed-model";
 
 configure({ asyncUtilTimeout: 10_000 });
@@ -121,7 +122,9 @@ describe("ekran kalendarza zewnętrznego", () => {
     await user.click(await screen.findByRole("button", { name: "Nowy adres kalendarza" }));
     await waitFor(() => expect(screen.getByLabelText(/Etykieta/)).toHaveFocus());
     await user.click(screen.getByRole("button", { name: "Utwórz adres" }));
-    expect(screen.getByText(/Podaj etykietę/)).toBeInTheDocument();
+    expect(screen.getByText(/Podaj etykietę/, { selector: "#feed-label-error" })).toBeInTheDocument();
+    expect(screen.getByText("Do poprawy: 1")).toBeInTheDocument();
+    expect(screen.getByLabelText(/Etykieta/)).toHaveFocus();
     expect(calls.filter((c) => c.method === "POST")).toHaveLength(0);
     await user.type(screen.getByLabelText(/Etykieta/), "Kalendarz zespołu");
     await user.click(screen.getByRole("button", { name: "Utwórz adres" }));
@@ -238,5 +241,146 @@ describe("ekran kalendarza zewnętrznego", () => {
     expect(await screen.findByText("Nie udało się wczytać adresów kalendarza.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Spróbuj ponownie" }));
     expect(await screen.findByText("Nie ma jeszcze adresów kalendarza.")).toBeInTheDocument();
+  });
+});
+
+// #367 (ADM-22 create, E11, D-47): scope "Cała flota" / "Wybrane pojazdy (opublikowane)" and the scope on the list.
+describe("zakres adresu kalendarza: model", () => {
+  it("odmienia liczbę pojazdów i opisuje zakres", () => {
+    expect([1, 2, 4, 5, 12, 13, 22, 25, 50].map(vehiclesText)).toEqual(
+      ["1 pojazd", "2 pojazdy", "4 pojazdy", "5 pojazdów", "12 pojazdów", "13 pojazdów", "22 pojazdy", "25 pojazdów", "50 pojazdów"]);
+    expect(scopeText({ scope: "FLEET" })).toBe("Cała flota");
+    expect(scopeText({})).toBe("Cała flota");
+    expect(scopeText({ scope: "VEHICLES", vehicles: [{ id: "a", name: "A" }, { id: "b", name: null }, { id: "c", name: "C" }] })).toBe("3 pojazdy");
+  });
+  it("waliduje wybór jak serwer: co najmniej 1, najwyżej 50, tylko dla wybranych pojazdów", () => {
+    expect(vehicleSelectionError("FLEET", [])).toBeNull();
+    expect(vehicleSelectionError("VEHICLES", [])).toMatch(/co najmniej jeden pojazd/);
+    expect(vehicleSelectionError("VEHICLES", Array.from({ length: 51 }, (_, i) => String(i)))).toMatch(/najwyżej 50/);
+    expect(vehicleSelectionError("VEHICLES", ["a"])).toBeNull();
+  });
+  it("tłumaczy kody fieldErrors.vehicleIds na zrozumiałe komunikaty", () => {
+    expect(vehicleIdsErrorText("VEHICLE_NOT_PUBLISHED")).toMatch(/nie jest już opublikowany/);
+    expect(vehicleIdsErrorText("VEHICLE_NOT_FOUND")).toMatch(/nie istnieje już we flocie/);
+    expect(vehicleIdsErrorText("OUT_OF_RANGE")).toMatch(/od 1 do 50/);
+    expect(vehicleIdsErrorText("DUPLICATE")).toMatch(/dwa razy/);
+    expect(vehicleIdsErrorText("INVALID_TYPE")).toMatch(/nie przyjął wyboru/);
+    expect(keepKnown(["a", "b", "c"], [{ id: "c" }, { id: "a" }])).toEqual(["a", "c"]);
+  });
+});
+
+const vehicle = (n: number) => ({ id: `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`, name: `Auto ${n}`, status: "PUBLISHED" });
+function mockScopeApi(fleets: ReturnType<typeof vehicle>[][], lists: FeedList[], post: Handler) {
+  let read = 0;
+  let fleetRead = 0;
+  const calls: { method: string; url: string; body?: string }[] = [];
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    const url = String(input);
+    const method = init?.method ?? "GET";
+    calls.push({ method, url, body: typeof init?.body === "string" ? init.body : undefined });
+    if (url.startsWith("/api/admin/vehicles/")) {
+      const items = fleets[Math.min(fleetRead, fleets.length - 1)];
+      fleetRead += 1;
+      return Response.json({ items, total: items.length, page: 1, pageSize: 100 });
+    }
+    if (method === "POST") return post(url, init);
+    const value = lists[Math.min(read, lists.length - 1)];
+    read += 1;
+    return Response.json(value);
+  });
+  return calls;
+}
+
+describe("zakres adresu kalendarza: tworzenie i lista", () => {
+  it("domyślnie cała flota; wybrane pojazdy: lista opublikowanych, min. 1 z komunikatem i podsumowaniem, wysyłka vehicleIds", { timeout: SLOW }, async () => {
+    const user = userEvent.setup();
+    const fleet = [vehicle(1), vehicle(2), vehicle(3)];
+    const created = { ...item("n", { label: "Dwa auta", scope: "VEHICLES", vehicles: [fleet[0], fleet[2]] }), token: secret, path: "/x", url: feedUrl };
+    const calls = mockScopeApi([fleet], [listOf([])], () => Response.json(created, { status: 201 }));
+    render(<CalendarFeeds context={adminFeedContext} now={now} />);
+    await user.click(await screen.findByRole("button", { name: "Nowy adres kalendarza" }));
+    const group = screen.getByRole("group", { name: "Zakres" });
+    expect(within(group).getByRole("radio", { name: /Cała flota/ })).toBeChecked();
+    expect(within(group).getByRole("radio", { name: /Cała flota/ })).toHaveAccessibleDescription("Wszystkie pojazdy opublikowane.");
+    // Nothing is read for the whole fleet; the list is read once the selection is chosen (arrow keys: E2E).
+    expect(calls.some((c) => c.url.startsWith("/api/admin/vehicles/"))).toBe(false);
+    await user.click(within(group).getByRole("radio", { name: /Wybrane pojazdy/ }));
+    expect(within(group).getByRole("radio", { name: /Wybrane pojazdy \(opublikowane\)/ })).toBeChecked();
+    expect(await screen.findByRole("checkbox", { name: "Auto 1" })).toBeInTheDocument();
+    expect(calls.find((c) => c.url.startsWith("/api/admin/vehicles/"))?.url).toContain("status=PUBLISHED");
+    expect(screen.queryByRole("searchbox", { name: "Szukaj pojazdu" })).toBeNull();
+    await user.type(screen.getByLabelText(/Etykieta/), "Dwa auta");
+    await user.click(screen.getByRole("button", { name: "Utwórz adres" }));
+    const vehiclesGroup = screen.getByRole("group", { name: "Pojazdy opublikowane" });
+    await waitFor(() => expect(vehiclesGroup).toHaveFocus());
+    expect(vehiclesGroup).toHaveAccessibleDescription(/Wybierz co najmniej jeden pojazd/);
+    expect(screen.getByText("Do poprawy: 1")).toBeInTheDocument();
+    expect(calls.filter((c) => c.method === "POST")).toHaveLength(0);
+    await user.click(screen.getByRole("checkbox", { name: "Auto 1" }));
+    await user.click(screen.getByRole("checkbox", { name: "Auto 3" }));
+    expect(screen.queryByText("Do poprawy: 1")).toBeNull();
+    expect(screen.getByText(/Wybrano 2 z 3/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Utwórz adres" }));
+    expect(await screen.findByText("Adres „Dwa auta” został utworzony")).toBeInTheDocument();
+    expect(JSON.parse(calls.find((c) => c.method === "POST")!.body!)).toEqual({ label: "Dwa auta", vehicleIds: [fleet[0].id, fleet[2].id] });
+  });
+
+  it("wyszukiwanie przy ponad 8 pojazdach i limit 50 zaznaczeń", { timeout: SLOW }, async () => {
+    const user = userEvent.setup();
+    const fleet = Array.from({ length: 52 }, (_, i) => vehicle(i + 1));
+    mockScopeApi([fleet], [listOf([])], () => Response.json({}, { status: 500 }));
+    render(<CalendarFeeds context={adminFeedContext} now={now} />);
+    await user.click(await screen.findByRole("button", { name: "Nowy adres kalendarza" }));
+    await user.click(screen.getByRole("radio", { name: /Wybrane pojazdy/ }));
+    const search = await screen.findByRole("searchbox", { name: "Szukaj pojazdu" });
+    await user.type(search, "Auto 52");
+    expect(screen.getAllByRole("checkbox")).toHaveLength(1);
+    await user.clear(search);
+    const boxes = screen.getAllByRole("checkbox");
+    for (const box of boxes.slice(0, 50)) fireEvent.click(box);
+    expect(screen.getByText(/Wybrano 50 z 52/)).toBeInTheDocument();
+    expect(boxes[50]).toBeDisabled();
+    expect(boxes[0]).toBeEnabled();
+    expect(screen.getByText(/Wybrano limit 50 pojazdów/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Wyczyść wybór" }));
+    expect(screen.getByText(/Wybrano 0 z 52/)).toBeInTheDocument();
+  });
+
+  it("400 VEHICLE_NOT_PUBLISHED: komunikat przy polu, odświeżona lista pojazdów, wybór bez nieopublikowanego, bez sukcesu", { timeout: SLOW }, async () => {
+    const user = userEvent.setup();
+    const fleet = [vehicle(1), vehicle(2)];
+    const calls = mockScopeApi([fleet, [fleet[1]]], [listOf([])],
+      () => Response.json({ code: "INVALID_INPUT", fieldErrors: { vehicleIds: "VEHICLE_NOT_PUBLISHED" } }, { status: 400 }));
+    render(<CalendarFeeds context={adminFeedContext} now={now} />);
+    await user.click(await screen.findByRole("button", { name: "Nowy adres kalendarza" }));
+    await user.type(screen.getByLabelText(/Etykieta/), "Biuro");
+    await user.click(screen.getByRole("radio", { name: /Wybrane pojazdy/ }));
+    await user.click(await screen.findByRole("checkbox", { name: "Auto 1" }));
+    await user.click(screen.getByRole("checkbox", { name: "Auto 2" }));
+    await user.click(screen.getByRole("button", { name: "Utwórz adres" }));
+    expect(await screen.findByText(/nie jest już opublikowany/, { selector: "#feed-vehicles-error" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("group", { name: "Pojazdy opublikowane" })).toHaveFocus());
+    expect(screen.queryByRole("checkbox", { name: "Auto 1" })).toBeNull();
+    expect(screen.getByRole("checkbox", { name: "Auto 2" })).toBeChecked();
+    expect(screen.getByText(/Wybrano 1 z 1/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Etykieta/)).toHaveValue("Biuro");
+    expect(screen.queryByLabelText("Adres kalendarza (iCal)")).toBeNull();
+    expect(calls.filter((c) => c.url.startsWith("/api/admin/vehicles/"))).toHaveLength(2);
+  });
+
+  it("lista pokazuje zakres: cała flota albo liczba pojazdów z nazwami (także superadmin, tylko odczyt)", async () => {
+    const scoped = item("a", { label: "Dwa auta", scope: "VEHICLES", vehicles: [{ id: "v1", name: "Fiat Ducato" }, { id: "v2", name: null }] });
+    const emptied = item("b", { label: "Pusty", scope: "VEHICLES", vehicles: [] });
+    mockApi([listOf([scoped, emptied, item("c", { label: "Flota", scope: "FLEET" })])]);
+    render(<CalendarFeeds context={platformFeedContext("11111111-1111-4111-8111-111111111111")} companyName="Alfa Rent" now={now} />);
+    const rows = (await screen.findAllByRole("listitem")).filter((row) => row.querySelector("h4"));
+    expect(within(rows[0]).getByText("Zakres: 2 pojazdy")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("Pojazdy w zakresie (2 pojazdy)")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("Fiat Ducato")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("Pojazd bez nazwy")).toBeInTheDocument();
+    expect(within(rows[1]).getByText("Zakres: 0 pojazdów")).toBeInTheDocument();
+    expect(within(rows[1]).getByText(/kalendarz jest pusty/)).toBeInTheDocument();
+    expect(within(rows[2]).getByText("Zakres: Cała flota")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Nowy adres/ })).toBeNull();
   });
 });
