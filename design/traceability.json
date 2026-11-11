@@ -99,6 +99,17 @@
       "testPaths": ["tests/integration/calendar-feed-scope.test.ts", "tests/integration/calendar-feed.test.ts"]
     },
     {
+      "issue": 376,
+      "scope": "Backend zbiorczych blokad (#215, D-32): identyfikatory pojazdów, blokady źródłowej i klucz idempotencji są normalizowane do małych liter przy parsowaniu, więc UUID wielkimi literami nie daje 500, a ten sam pojazd w dwóch pisowniach to 400 INVALID_INPUT; skrót wejścia idempotencji liczony z wartości znormalizowanych. Bez zmian UI.",
+      "referenceScreenIds": [],
+      "unmappedStates": ["Backend bez UI."],
+      "codePaths": [
+        "src/modules/availability/bulk-blocks.ts",
+        "docs/contracts/availability-nearest-and-bulk-blocks.md"
+      ],
+      "testPaths": ["tests/integration/availability-bulk-blocks.test.ts"]
+    },
+    {
       "issue": 342,
       "scope": "Audyt dostępności (część #61): panel platformy, strony publiczne firmy i marketing Autervy. Automatyczny skan axe (WCAG 2.2 AA, serious/critical = błąd) każdego ekranu przy 1440, 390 i 320 px oraz kontrole strukturalne: jeden h1 i main, lang, skip link jako pierwszy stop, kolejność i widoczność fokusu, fokus nieprzesłonięty, reflow 320/640 px, reduced motion; dialog archiwizacji (pułapka i powrót fokusu) i menu mobilne z klawiatury. Poprawki: nazwa linku Wiadomości/Czat z plakietką „Nowe” zgodna z widocznym tekstem (WCAG 2.5.3), scroll-padding chroniący fokus przed paskiem akcji (dolna nawigacja: reguła z #341) formularza/kalendarza pojazdu (WCAG 2.4.11). Bez zmian logiki. VoiceOver: DEFERRED (#97); strona logowania i MFA nie mają skip linku (brak bloków do pominięcia).",
       "relatedRequirementIds": ["C-N047", "C-N049", "C-N060"],
