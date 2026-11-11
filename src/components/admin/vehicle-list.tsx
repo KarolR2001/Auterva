@@ -132,7 +132,8 @@ export function VehicleList({ context = companyContext, title }: { context?: Pan
   const page = view.state === "ready" ? view.page : null;
   const canReorder = !!page && !filtersActive(query) && query.sort === "order" && page.total > 1;
   const filterCount = [query.status, query.categoryId, query.activeToday, query.availableToday].filter(Boolean).length;
-  const reset = () => { setSearchText(""); setQuery(emptyQuery); };
+  /** Clears search and filters and returns to page 1; the sort is not a filter and has its own "Przywróć domyślne". */
+  const reset = () => { setSearchText(""); setQuery((current) => ({ ...emptyQuery, sort: current.sort })); };
   const set = (patch: Partial<FleetQuery>) => setQuery((current) => ({ ...current, ...patch, page: 1 }));
 
   async function confirm() {
@@ -280,7 +281,7 @@ export function VehicleList({ context = companyContext, title }: { context?: Pan
       {page && page.total === 0 && filtersActive(query) && (
         <div className={styles.empty}><h3 className={styles.h2}>Brak wyników</h3>
           <p>Żaden pojazd nie pasuje do wybranych filtrów.</p>
-          <Button variant="secondary" onClick={() => { setSearchText(""); setQuery(emptyQuery); }}>Wyczyść filtry</Button></div>)}
+          <Button variant="secondary" onClick={reset}>Wyczyść filtry</Button></div>)}
       {page && page.items.length > 0 && (
         <>
           <p className={styles.count}>Pojazdy: {page.total}{canReorder ? ". Kolejność pojazdów zmienisz przyciskami „W górę” i „W dół”." : ""}</p>

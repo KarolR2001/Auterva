@@ -22,6 +22,17 @@
       "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
     },
     {
+      "issue": 381,
+      "scope": "Lista pojazdów: „Wyczyść filtry” (arkusz filtrów i stan „Brak wyników”) czyści wyszukiwanie, filtry i stronę, ale zachowuje sortowanie „Ostatnia zmiana”; sortowanie wraca do kolejności w ofercie wyłącznie przez „Przywróć domyślne” / przycisk sortowania (D-42, D-50). Zachowanie bez zmian wyglądu.",
+      "relatedRequirementIds": ["FR-ADM-020", "FR-ADM-021", "FR-ADM-022"],
+      "referenceScreenIds": ["ADM-04", "ADM-05"],
+      "scenarioStates": {
+        "list": "ADM-04 (mobile) i ADM-05 (desktop) / lista pojazdów z filtrami i sortowaniem; ID stanów w Penpocie bez zmian względem wpisów #34 i #337"
+      },
+      "codePaths": ["src/components/admin/vehicle-list.tsx"],
+      "testPaths": ["tests/unit/vehicle-list-reset.test.tsx", "tests/e2e/admin-fleet.spec.ts"]
+    },
+    {
       "issue": 363,
       "scope": "PUB-03: karta „Najbliższy wolny termin” zgodna z makietą (obrys karty i przycisku #151515 1 px, promień 12, padding 16, odstęp 12 między tytułem, notą i przyciskiem); tylko CSS. Odczyt Penpota: karta #f2f2f2, tytuł 16/600, nota 13/400 #424242 (aplikacja 14 px: brak tokenu rozmiaru 13), przycisk 48 px, etykieta 15/600.",
       "relatedRequirementIds": ["FR-PUB-023", "FR-PUB-024"],
