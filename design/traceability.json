@@ -76,6 +76,16 @@
       "testPaths": ["tests/integration/calendar-feed-scope.test.ts", "tests/integration/calendar-feed.test.ts"]
     },
     {
+      "issue": 380,
+      "scope": "Blokada zbiorcza: Enter w polu „Szukaj pojazdu” nie wysyła formularza (bez podglądu konfliktów, podsumowania błędów i przeniesienia fokusu); fokus zostaje w polu, konflikty sprawdza przycisk lub Enter w polach blokady. Bez zmiany wyglądu. Klawiatura i fokus: WCAG 2.4.3.",
+      "relatedRequirementIds": ["FR-ADM-055", "FR-ADM-057", "D-32", "D-48"],
+      "referenceScreenIds": ["ADM-10", "OVR-07"],
+      "unmappedStates": ["Porównanie z makietą w Penpocie: DEFERRED (#263); zmiana nie modyfikuje wyglądu."],
+      "codePaths": ["src/components/admin/bulk-blocks.tsx"],
+      "testPaths": ["tests/unit/bulk-blocks.test.tsx"],
+      "sharedWith": "Rozszerza #217."
+    },
+    {
       "issue": 342,
       "scope": "Audyt dostępności (część #61): panel platformy, strony publiczne firmy i marketing Autervy. Automatyczny skan axe (WCAG 2.2 AA, serious/critical = błąd) każdego ekranu przy 1440, 390 i 320 px oraz kontrole strukturalne: jeden h1 i main, lang, skip link jako pierwszy stop, kolejność i widoczność fokusu, fokus nieprzesłonięty, reflow 320/640 px, reduced motion; dialog archiwizacji (pułapka i powrót fokusu) i menu mobilne z klawiatury. Poprawki: nazwa linku Wiadomości/Czat z plakietką „Nowe” zgodna z widocznym tekstem (WCAG 2.5.3), scroll-padding chroniący fokus przed paskiem akcji (dolna nawigacja: reguła z #341) formularza/kalendarza pojazdu (WCAG 2.4.11). Bez zmian logiki. VoiceOver: DEFERRED (#97); strona logowania i MFA nie mają skip linku (brak bloków do pominięcia).",
       "relatedRequirementIds": ["C-N047", "C-N049", "C-N060"],
