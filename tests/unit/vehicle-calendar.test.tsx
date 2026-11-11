@@ -205,6 +205,32 @@ describe("#39 kalendarz pojazdu", () => {
     expect(second.body).toEqual({ expectedVersion: 4, fields: { type: "BLOCKED" } });
   });
 
+  it("w trakcie wczytywania aktualnej wersji po konflikcie zapis i „Wczytaj aktualną wersję” są zablokowane", async () => {
+    const user = userEvent.setup();
+    const server: Server = { blocks: [block({ version: 3 })], calls: [] };
+    let hold = false; let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    server.fail = async (call) => {
+      if (call.method === "PATCH") { server.blocks = [block({ version: 4 })]; hold = true; return reply(409, { code: "BLOCK_VERSION_CONFLICT" }); }
+      if (call.method === "GET" && hold) await gate;
+      return null;
+    };
+    install(server); mount();
+    await user.click(await day(/12 listopada 2026, zajęty, Serwis/));
+    const dialog = await screen.findByRole("dialog");
+    await user.selectOptions(within(dialog).getByLabelText(/^Typ/), "BLOCKED");
+    await user.click(within(dialog).getByRole("button", { name: "Zapisz zmiany" }));
+    expect(await within(dialog).findByText("Wczytujemy aktualny stan blokady…")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Zapisz zmiany" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "Wczytaj aktualną wersję" })).toBeDisabled();
+    expect(dialog.querySelector("form")).toHaveAttribute("aria-busy", "true");
+    release();
+    expect(await within(dialog).findByText(/Aktualnie na serwerze: Serwis/)).toBeInTheDocument();
+    await waitFor(() => expect(within(dialog).getByRole("button", { name: "Zapisz zmiany" })).toBeEnabled());
+    expect(within(dialog).getByRole("button", { name: "Wczytaj aktualną wersję" })).toBeEnabled();
+    expect(server.calls.filter((call) => call.method === "PATCH")).toHaveLength(1);
+  });
+
   it("data z przeszłości wymaga potwierdzenia, zanim zostanie wysłana", async () => {
     const user = userEvent.setup();
     const server: Server = { blocks: [], calls: [] };
