@@ -25,7 +25,9 @@ export class BulkConflictsError extends Error {
   constructor(rejected: Rejection[]) { super("BULK_CONFLICTS"); this.rejected = rejected; }
 }
 
-const uuid = z.uuid();
+// Ids are lowercased at parsing (as `parseFeedVehicleIds`): PostgreSQL matches `uuid` case-insensitively, while the
+// duplicate check, row maps and the idempotency input hash are keyed by string (#376).
+const uuid = z.uuid().transform((value) => value.toLowerCase());
 const common = { idempotencyKey: uuid.optional(), onConflict: z.enum(["ABORT", "SKIP"]).default("ABORT"),
   dryRun: z.boolean().default(false) };
 const idList = z.array(uuid).min(1).max(MAX_BULK_VEHICLES);
