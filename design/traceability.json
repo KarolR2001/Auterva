@@ -110,6 +110,19 @@
       "testPaths": ["tests/integration/availability-bulk-blocks.test.ts"]
     },
     {
+      "issue": 390,
+      "scope": "Poprawka publicznego API dostępności: data późniejsza niż 9998-12-31 to 400 INVALID_DATE_RANGE (nie 500 z przepełnienia roku 10000), arytmetyka najbliższego terminu nasyca się na 9999-12-31, a odczyty dostępności mają wspólny wrapper błędów (503 dla przejściowych błędów bazy, 500 INTERNAL_ERROR z X-Request-Id, no-store i reportInternalError). Bez zmian UI.",
+      "referenceScreenIds": [],
+      "unmappedStates": ["Backend bez UI."],
+      "codePaths": [
+        "src/modules/availability/dates.ts",
+        "src/modules/availability/read.ts",
+        "src/modules/availability/http.ts",
+        "docs/contracts/availability-reads.md"
+      ],
+      "testPaths": ["tests/unit/availability.test.ts", "tests/unit/availability-nearest.test.ts", "tests/integration/availability-public-errors.test.ts"]
+    },
+    {
       "issue": 342,
       "scope": "Audyt dostępności (część #61): panel platformy, strony publiczne firmy i marketing Autervy. Automatyczny skan axe (WCAG 2.2 AA, serious/critical = błąd) każdego ekranu przy 1440, 390 i 320 px oraz kontrole strukturalne: jeden h1 i main, lang, skip link jako pierwszy stop, kolejność i widoczność fokusu, fokus nieprzesłonięty, reflow 320/640 px, reduced motion; dialog archiwizacji (pułapka i powrót fokusu) i menu mobilne z klawiatury. Poprawki: nazwa linku Wiadomości/Czat z plakietką „Nowe” zgodna z widocznym tekstem (WCAG 2.5.3), scroll-padding chroniący fokus przed paskiem akcji (dolna nawigacja: reguła z #341) formularza/kalendarza pojazdu (WCAG 2.4.11). Bez zmian logiki. VoiceOver: DEFERRED (#97); strona logowania i MFA nie mają skip linku (brak bloków do pominięcia).",
       "relatedRequirementIds": ["C-N047", "C-N049", "C-N060"],
