@@ -235,7 +235,7 @@ export function VehicleList({ context = companyContext, title }: { context?: Pan
   const SortIcon = query.sort === "updatedAsc" ? ArrowUp : query.sort === "updatedDesc" ? ArrowDown : ArrowUpDown;
   const sortButton = (
     <button type="button" className={`${styles.select} ${styles.pill} ${styles.sortButton}`} aria-label={`Ostatnia zmiana, sortowanie: ${sortState[query.sort]}. Kliknij, aby zmienić.`}
-      onClick={() => set({ sort: nextSort[query.sort] })}>Ostatnia zmiana<SortIcon aria-hidden="true" size={16} /></button>
+      onClick={() => set({ sort: nextSort[query.sort] })}><span className={styles.sortLong}>Ostatnia zmiana</span><span className={styles.sortShort} aria-hidden="true">Zmiana</span><SortIcon aria-hidden="true" size={16} /></button>
   );
   const sortField = (
     <label className={styles.field}><span>Sortuj</span>

@@ -97,6 +97,10 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
       await expect.poll(async () => new Set(await Promise.all(pills().map(async (pill) => Math.round((await pill.boundingBox())!.y / 8)))).size,
         { message: `toolbar controls share one row at ${width} px` }).toBe(1);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `no overflow at ${width} px`).toBe(true);
+      // #375: the closed Publikacja and Kategoria fields stay readable (at least 120 px) on a narrow desktop.
+      for (const field of [page.getByRole("combobox", { name: "Publikacja" }), page.getByRole("combobox", { name: "Kategoria" })]) {
+        expect((await field.boundingBox())!.width, `field width at ${width} px`).toBeGreaterThanOrEqual(120);
+      }
     }
     await page.setViewportSize({ width: 1280, height: 720 });
     await expect(page.getByText("Ostatnia zmiana od")).toHaveCount(0);

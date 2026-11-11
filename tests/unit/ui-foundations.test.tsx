@@ -264,6 +264,46 @@ describe("wspólne komponenty", () => {
     expect(onDelete).not.toHaveBeenCalled();
   });
 
+  it("headerAction stoi w nagłówku obok tytułu, a bez niego nagłówek się nie zmienia", async () => {
+    const user = userEvent.setup();
+    function Example({ withAction }: { withAction: boolean }) {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button onClick={() => setOpen(true)}>Otwórz</button>
+          <Dialog
+            open={open}
+            onOpenChange={setOpen}
+            type="form"
+            title="Edytuj"
+            headerAction={withAction ? <a href="/kopia">Kopiuj</a> : undefined}
+            primaryAction={{ label: "Zapisz", onClick: vi.fn() }}
+            secondaryAction={{ label: "Zamknij", onClick: () => setOpen(false) }}
+          >
+            <input aria-label="Pole" />
+          </Dialog>
+        </>
+      );
+    }
+    const { unmount } = render(<Example withAction />);
+    const trigger = screen.getByRole("button", { name: "Otwórz" });
+    await user.click(trigger);
+    const dialog = screen.getByRole("dialog", { name: "Edytuj" });
+    const heading = within(dialog).getByRole("heading", { name: "Edytuj" });
+    const link = within(dialog).getByRole("link", { name: "Kopiuj" });
+    expect(heading.parentElement).toContainElement(link);
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(trigger).toHaveFocus();
+    unmount();
+    render(<Example withAction={false} />);
+    await user.click(screen.getByRole("button", { name: "Otwórz" }));
+    const plain = screen.getByRole("heading", { name: "Edytuj" });
+    expect(plain.parentElement).toBe(screen.getByRole("dialog"));
+    expect(screen.queryByRole("link", { name: "Kopiuj" })).not.toBeInTheDocument();
+  });
+
   it("ogłasza wynik zapisu bez przenoszenia fokusu", () => {
     render(
       <>

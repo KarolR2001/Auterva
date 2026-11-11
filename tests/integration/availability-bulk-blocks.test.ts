@@ -498,3 +498,30 @@ test("true parallel bulk and activity edits end consistent whichever wins", asyn
     await noBlockOutsideActivity(ids);
   }
 });
+
+test("#376 uppercase UUIDs behave like lowercase: no 500, same ids in the report, duplicates in two spellings are 400", async () => {
+  const cars = await fleet(2);
+  const ids = cars.map((car) => car.id);
+  const upper = ids.map((id) => id.toUpperCase());
+  const dry = await bulk({ vehicleIds: upper, fields: fields(30, 31), dryRun: true });
+  expect(dry.status).toBe(200);
+  expect((await json(dry)).wouldSave).toEqual(ids.map((vehicleId) => ({ vehicleId })));
+  const key = randomUUID();
+  const created = await bulk({ idempotencyKey: key.toUpperCase(), vehicleIds: upper, fields: fields(30, 31) });
+  expect(created.status).toBe(201);
+  expect((await json(created)).saved.map((row) => row.vehicleId)).toEqual(ids);
+  // the same key and the same ids in another spelling is the same input: the receipt is replayed, nothing new is written
+  const replay = await bulk({ idempotencyKey: key, vehicleIds: ids, fields: fields(30, 31) });
+  expect(replay.status).toBe(201);
+  expect(await blocksOf(ids)).toBe(2);
+  const [blockId] = (await db.availabilityBlock.findMany({ where: { vehicleId: ids[0] } })).map((row) => row.id);
+  const target = (await fleet(1))[0].id;
+  const copied = await copy({ idempotencyKey: randomUUID(), sourceBlockId: blockId.toUpperCase(), targetVehicleIds: [target.toUpperCase()] });
+  expect(copied.status).toBe(201);
+  expect((await json(copied)).saved.map((row) => row.vehicleId)).toEqual([target]);
+  const duplicate = await bulk({ idempotencyKey: randomUUID(), vehicleIds: [ids[0], upper[0]], fields: fields(40, 41) });
+  expect(duplicate.status).toBe(400);
+  expect((await json(duplicate)).code).toBe("INVALID_INPUT");
+  const duplicateCopy = await copy({ idempotencyKey: randomUUID(), sourceBlockId: blockId, targetVehicleIds: [target, target.toUpperCase()] });
+  expect(duplicateCopy.status).toBe(400);
+});
