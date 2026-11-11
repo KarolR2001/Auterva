@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import styles from "./contact.module.css";
 
 /** Fallback for pages without the async clipboard (insecure context, old browsers): a short-lived selected field. */
-function legacyCopy(value: string): boolean {
+export function legacyCopy(value: string): boolean {
   const field = document.createElement("textarea");
   field.value = value;
   field.setAttribute("readonly", "");

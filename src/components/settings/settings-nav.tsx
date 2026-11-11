@@ -6,7 +6,10 @@ import styles from "./settings.module.css";
 // Zapas na obrys fokusu (2 px + offset 2 px) po obu stronach zakładki.
 const EDGE = 4;
 
-export function SettingsNav({ base, current }: { base: string; current: SettingsSection }) {
+/** D-49 (#355): the private iCal screen is its own page under the settings, not a section of the settings form. */
+export const externalCalendarPath = "kalendarz-zewnetrzny";
+
+export function SettingsNav({ base, current }: { base: string; current: SettingsSection | "kalendarz" }) {
   const navRef = useRef<HTMLElement>(null);
   // Po załadowaniu sekcji z dalszej części paska aktywna zakładka ma być w widoku; przewijamy tylko pasek (scrollLeft),
   // żeby nie ruszać strony w pionie.
@@ -37,6 +40,13 @@ export function SettingsNav({ base, current }: { base: string; current: Settings
           {sectionTitles[section]}
         </a>
       ))}
+      <a
+        className={styles.navLink}
+        href={`${base}/${externalCalendarPath}/`}
+        aria-current={current === "kalendarz" ? "page" : undefined}
+      >
+        Kalendarz zewnętrzny
+      </a>
     </nav>
   );
 }
