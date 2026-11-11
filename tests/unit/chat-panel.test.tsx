@@ -316,6 +316,106 @@ describe("czat firmy (#52)", () => {
     expect(screen.queryByRole("button", { name: /Nowe wiadomości/ })).toBeNull();
   });
 
+  // #393: too far behind (backlog "refetch"), the socket lives from the server head; the gap after the client's own cursor
+  // comes over HTTP, page by page, before the cursor moves on.
+  const order = () => [...document.querySelectorAll("[data-message-id]")].map((node) => node.getAttribute("data-message-id"));
+  const gapPage = (ids: string[], newerCursor: string, hasNewer: boolean) => history(ids.map((id) => m(id, false)), { newerCursor, hasNewer });
+
+  it("ready z backlog refetch: dociąga lukę od własnego kursora stronami, bez duplikatów, potem przyjmuje nowy kursor", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const queries: string[] = [];
+    let releaseSecond: (() => void) | null = null;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const query = String(input).split("?")[1] ?? "";
+      queries.push(query);
+      if (query === "limit=30") return Response.json(history([m("1", false), m("2", false)], { newerCursor: "cur-2" }));
+      if (query === "limit=100&after=cur-2") return Response.json(gapPage(["3", "4"], "cur-4", true));
+      if (query === "limit=100&after=cur-4") {
+        await new Promise<void>((resolve) => { releaseSecond = resolve; });
+        return Response.json(gapPage(["5", "6"], "cur-6", false));
+      }
+      return Response.json(history([], { newerCursor: null }));
+    });
+    renderChat();
+    await waitFor(() => expect(FakeSocket.instances).toHaveLength(1));
+    const socket = FakeSocket.instances[0];
+    act(() => socket.emit({ type: "ready", protocol: 1, conversationId: "conv-1", cursor: "cur-head-6", backlog: "refetch", state }));
+    await waitFor(() => expect(releaseSecond).not.toBeNull());
+    // Live frames from the head arrive while the gap is still loading: they never land before it.
+    act(() => socket.emit({ type: "message", conversationId: "conv-1", message: m("6", false), cursor: "cur-6" }));
+    act(() => socket.emit({ type: "message", conversationId: "conv-1", message: m("7", false), cursor: "cur-7" }));
+    await act(async () => { releaseSecond?.(); });
+    await waitFor(() => expect(order()).toEqual(["1", "2", "3", "4", "5", "6", "7"]));
+    expect(queries).toEqual(["limit=30", "limit=100&after=cur-2", "limit=100&after=cur-4"]);
+    // The resume point is the newest message really on the list, not the head announced by ready.
+    act(() => socket.close(1006));
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+    expect(FakeSocket.instances[1].url).toContain("after=cur-7");
+  });
+
+  it("ready z backlog refetch bez nowszych wiadomości na żywo: kursor z ostatniej strony HTTP", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const query = String(input).split("?")[1] ?? "";
+      if (query === "limit=30") return Response.json(history([m("1", false)], { newerCursor: "cur-1" }));
+      if (query === "limit=100&after=cur-1") return Response.json(gapPage(["2", "3"], "cur-3", false));
+      return Response.json(history([], { newerCursor: null }));
+    });
+    renderChat();
+    await waitFor(() => expect(FakeSocket.instances).toHaveLength(1));
+    const socket = FakeSocket.instances[0];
+    act(() => socket.emit({ type: "ready", protocol: 1, conversationId: "conv-1", cursor: "cur-head-3", backlog: "refetch", state }));
+    await waitFor(() => expect(order()).toEqual(["1", "2", "3"]));
+    act(() => socket.close(1006));
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+    expect(FakeSocket.instances[1].url).toContain("after=cur-3");
+  });
+
+  it("błąd dociągania luki: komunikat, kursor bez zmian, ponowienie kończy uzupełnianie w dobrej kolejności", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    let failing = true;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const query = String(input).split("?")[1] ?? "";
+      if (query === "limit=30") return Response.json(history([m("1", false)], { newerCursor: "cur-1" }));
+      if (query === "limit=100&after=cur-1") {
+        if (failing) return new Response(null, { status: 503 });
+        return Response.json(gapPage(["2", "3"], "cur-3", false));
+      }
+      return Response.json(history([], { newerCursor: null }));
+    });
+    renderChat();
+    await waitFor(() => expect(FakeSocket.instances).toHaveLength(1));
+    const socket = FakeSocket.instances[0];
+    act(() => socket.emit({ type: "ready", protocol: 1, conversationId: "conv-1", cursor: "cur-head-3", backlog: "refetch", state }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Nie udało się wczytać wiadomości z czasu rozłączenia.");
+    act(() => socket.emit({ type: "message", conversationId: "conv-1", message: m("4", false), cursor: "cur-4" }));
+    expect(order()).toEqual(["1"]); // nothing after the gap is shown as if it were contiguous
+    failing = false;
+    await user.click(screen.getByRole("button", { name: "Spróbuj ponownie" }));
+    await waitFor(() => expect(order()).toEqual(["1", "2", "3", "4"]));
+    expect(screen.queryByText("Nie udało się wczytać wiadomości z czasu rozłączenia.")).toBeNull();
+    act(() => socket.close(1006));
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+    expect(FakeSocket.instances[1].url).toContain("after=cur-4");
+  });
+
+  it("ready z backlog replay nie dociąga przez HTTP i zachowuje kursor", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json(history([m("1", false)], { newerCursor: "cur-1" })));
+    renderChat();
+    await waitFor(() => expect(FakeSocket.instances).toHaveLength(1));
+    const socket = FakeSocket.instances[0];
+    act(() => socket.emit({ type: "ready", protocol: 1, conversationId: "conv-1", cursor: "cur-1", backlog: "replay", state }));
+    act(() => socket.emit({ type: "message", conversationId: "conv-1", message: m("2", false), cursor: "cur-2" }));
+    expect(order()).toEqual(["1", "2"]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    act(() => socket.close(1006));
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+    expect(FakeSocket.instances[1].url).toContain("after=cur-2");
+  });
+
   it("wylogowanie usuwa szkice czatu z przeglądarki", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json(history([])));
