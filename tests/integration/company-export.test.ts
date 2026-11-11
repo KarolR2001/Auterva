@@ -460,6 +460,40 @@ test("sweep: an abandoned pending export is failed, its job closed, late bytes u
   expect((await json(await ask({ kind: "admin", index: 0 }, "one", { exportId: staleRow.id }))).body.export).toMatchObject({ status: "FAILED", errorCode: "EXPORT_TIMEOUT" });
 });
 
+test("#377: a request housekeeps stale exports with the same audit and job closing as the sweep, also when it is refused", async () => {
+  const exportAudit = (id: string) => db.auditLog.findMany({ where: { organizationId: orgA, entityId: id,
+    action: { in: ["EXPORT_EXPIRED", "EXPORT_FAILED"] } } });
+  const ready = await exportReady({ kind: "admin", index: 0 }, orgA);
+  const readyRow = await db.companyExport.findUniqueOrThrow({ where: { id: ready } });
+  await db.companyExport.update({ where: { id: ready }, data: { expiresAt: new Date(Date.now() - 1000) } });
+  const stale = (await json(await ask({ kind: "admin", index: 0 }, "request"))).body.export.id as string;
+  await db.companyExport.update({ where: { id: stale }, data: { createdAt: new Date(Date.now() - 40 * 60_000) } });
+  // Refused request (no reauth proof): the state change is committed, so its audit must be too.
+  expect((await ask({ kind: "admin", index: 0 }, "request", { proof: "0".repeat(64) })).status).toBe(401);
+  expect(await db.companyExport.findUniqueOrThrow({ where: { id: ready } })).toMatchObject({ status: "EXPIRED" });
+  expect(await db.companyExport.findUniqueOrThrow({ where: { id: stale } })).toMatchObject({ status: "FAILED", errorCode: "EXPORT_TIMEOUT" });
+  const expiredAudit = await exportAudit(ready);
+  const failedAudit = await exportAudit(stale);
+  expect(expiredAudit.map((row) => [row.action, row.actorId, row.actorRole])).toEqual([["EXPORT_EXPIRED", "system:company-export", "OPERATOR"]]);
+  expect(failedAudit.map((row) => [row.action, row.actorId, row.actorRole])).toEqual([["EXPORT_FAILED", "system:company-export", "OPERATOR"]]);
+  for (const row of [...expiredAudit, ...failedAudit]) expect(row.safeChanges).toBeNull();
+  expect(JSON.stringify([...expiredAudit, ...failedAudit])).not.toMatch(/REF-A|Notatka|auterva-export/);
+  expect((await db.job.findFirstOrThrow({ where: { organizationId: orgA, dedupeKey: `COMPANY_EXPORT:${stale}` } }))
+    .status).toBe("FAILED");
+  // The sweep that runs later does not audit the same transitions a second time and still removes the bytes.
+  await sweepCompanyExports(db, storage, new Date());
+  await sweepCompanyExports(db, storage, new Date());
+  expect(await exportAudit(ready)).toHaveLength(1);
+  expect(await exportAudit(stale)).toHaveLength(1);
+  expect(await db.companyExport.findUniqueOrThrow({ where: { id: ready } })).toMatchObject({ status: "DELETED" });
+  await expect(getArtifact(storage, readyRow.artifactKey)).rejects.toBeTruthy();
+  // A successful request housekeeps the same way.
+  const ready2 = await exportReady({ kind: "admin", index: 0 }, orgA);
+  await db.companyExport.update({ where: { id: ready2 }, data: { expiresAt: new Date(Date.now() - 1000) } });
+  expect((await ask({ kind: "admin", index: 0 }, "request")).status).toBe(429); // daily limit refusal commits the housekeeping
+  expect(await exportAudit(ready2)).toHaveLength(1);
+});
+
 test("service period: an expired paid period or trial does not block the admin's export (E13)", async () => {
   expect((await db.serviceAccess.findUniqueOrThrow({ where: { organizationId: orgA } })).paidThrough?.toISOString().slice(0, 10)).toBe("2020-01-31");
   expect((await ask({ kind: "admin", index: 0 }, "request")).status).toBe(202);
