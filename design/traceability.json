@@ -22,6 +22,15 @@
       "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
     },
     {
+      "issue": 375,
+      "scope": "ADM-05 toolbar listy pojazdów na wąskim desktopie (1024-1200 px): zamknięte pola Publikacja i Kategoria mają co najmniej 120 px (min-width pigułek, węższe minimum Szukaj, krótka widoczna etykieta „Zmiana” przycisku sortowania poniżej 900 px kontenera; nazwa dostępna „Ostatnia zmiana, sortowanie: …” bez zmian), a Szukaj, Publikacja, Kategoria, sortowanie i „Dodaj pojazd” zostają w jednym rzędzie. Tylko CSS i etykieta; bez zmian logiki. Plansza Penpota: Desktop a4abf4c9-2e1f-80fd-8008-afeba8dd6131.",
+      "relatedRequirementIds": ["C-F095", "C-F097", "FR-ADM-021", "FR-ADM-022"],
+      "referenceScreenIds": ["ADM-05"],
+      "codePaths": ["src/components/admin/vehicle-list.tsx", "src/components/admin/admin.module.css"],
+      "testPaths": ["tests/e2e/admin-fleet.spec.ts"],
+      "sharedWith": "Rozszerza toolbar z #337."
+    },
+    {
       "issue": 371,
       "scope": "OVR-07 desktop (D-48): „Kopiuj na inne auta” w nagłówku okna edycji blokady obok tytułu (wspólny Dialog dostaje opcjonalne headerAction, addytywnie; okna bez niego bez zmian). Na mobile (do 480 px) zostaje przycisk pełnej szerokości nad „Usuń blokadę” (OVR-07-mobile-edit); ten sam href, w danej szerokości widoczny jeden link. Kolejność Tab: nagłówek, pola, Zamknij, Zapisz; fokus początkowy, Escape i powrót fokusu bez zmian.",
       "relatedRequirementIds": ["FR-ADM-055", "FR-ADM-057", "D-48"],
