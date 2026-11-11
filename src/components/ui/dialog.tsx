@@ -19,6 +19,8 @@ type DialogProps = {
   children?: ReactNode;
   primaryAction: DialogAction;
   secondaryAction?: DialogAction;
+  /** Optional control shown in the header next to the title (e.g. a secondary link); the caller hides it where it does not fit. */
+  headerAction?: ReactNode;
 };
 
 export function Dialog({
@@ -31,6 +33,7 @@ export function Dialog({
   children,
   primaryAction,
   secondaryAction,
+  headerAction,
 }: DialogProps) {
   const previousFocus = useRef<HTMLElement | null>(null);
   const actionsRef = useRef<HTMLDivElement | null>(null);
@@ -68,9 +71,18 @@ export function Dialog({
             }
           }}
         >
-          <DialogPrimitive.Title className={styles.dialogTitle}>
-            {title}
-          </DialogPrimitive.Title>
+          {headerAction ? (
+            <div className={styles.dialogHeader}>
+              <DialogPrimitive.Title className={styles.dialogTitle}>
+                {title}
+              </DialogPrimitive.Title>
+              <div className={styles.dialogHeaderAction}>{headerAction}</div>
+            </div>
+          ) : (
+            <DialogPrimitive.Title className={styles.dialogTitle}>
+              {title}
+            </DialogPrimitive.Title>
+          )}
           {description && (
             <DialogPrimitive.Description
               id={descriptionId}
