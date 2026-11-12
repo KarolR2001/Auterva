@@ -5,7 +5,7 @@
 ## Założenia i miejsca do uzupełnienia (usunąć przed publikacją)
 
 1. To dokument konkretnej firmy, nie Autervy. Administratorem jest firma: `{nazwa firmy}`, `{adres}`, `{NIP/KRS}`, `{kontakt}`. Auterva nie może być wpisana jako administrator tylko dlatego, że dostarcza panel i stronę.
-2. Wzór opisuje wyłącznie przetwarzanie widoczne w aplikacji: strona publiczna, kontakt telefoniczny, WhatsApp i e-mail oraz pomiar techniczny. Umowy najmu, rozliczenia, dokumenty kierowców i płatności odbywają się poza aplikacją; firma musi dodać własne informacje (sekcja „Wynajem poza stroną”).
+2. Wzór opisuje wyłącznie dane przetwarzane w Autervie: strona publiczna i pomiar techniczny (decyzja właściciela D-62). Kanały kontaktu (telefon, WhatsApp, e-mail) firma opisuje we własnych dokumentach. Umowy najmu, rozliczenia, dokumenty kierowców i płatności odbywają się poza aplikacją; firma musi dodać własne informacje (sekcja „Wynajem poza stroną”).
 3. Okresy w nawiasach to propozycje do decyzji firmy. Nie kopiować automatycznie okresów z polityki Autervy.
 4. Firma dostarcza prawdziwy telefon, WhatsApp, e-mail i adres; w przeciwnym razie nie publikować (PUBLICATION_MATERIALS.md).
 5. Umowa powierzenia między firmą a Autervą (art. 28 RODO) powinna istnieć przed publikacją `{do przygotowania}`.
@@ -18,14 +18,13 @@ Strona działa na platformie Auterva, która obsługuje ją od strony techniczne
 
 ## Jakie dane przetwarzamy i po co
 
-| Cel | Dane | Podstawa (do potwierdzenia) | Okres (do decyzji firmy) |
+| Cel | Dane | Podstawa (do potwierdzenia) | Okres |
 |---|---|---|---|
-| Odpowiedź na zapytanie telefoniczne, WhatsApp lub e-mail | dane, które podasz: imię, numer lub adres, pojazd, termin, miejsce odbioru | art. 6 ust. 1 lit. b lub f | `{np. do zakończenia sprawy + okres przedawnienia}` |
 | Pokazanie oferty i dostępności | dane pojazdów, zdjęcia, status dostępny/niedostępny (bez danych osobowych) | art. 6 ust. 1 lit. f | `{n/d}` |
 | Bezpieczne i poprawne działanie strony | adres IP i dane żądania przetwarzane przez dostawców infrastruktury; logi techniczne bez treści rozmów | lit. f | logi techniczne 30 dni, logi bezpieczeństwa 365 dni (według platformy) |
 | Pomiar szybkości strony | tylko zagregowane wartości LCP, INP, CLS i typ urządzenia; bez adresu IP, cookie i identyfikatora; wyłączony przy Do Not Track i Global Privacy Control; nie wymaga zgody (decyzja właściciela platformy) | lit. f | tylko zagregowane liczniki w pamięci serwera |
 
-Na stronie nie ma formularza zapytań ani konta klienta. Dane przekazujesz dopiero, gdy sam zadzwonisz lub napiszesz.
+Na stronie nie ma formularza zapytań ani konta klienta; strona nie zbiera danych o Twoim kontakcie z nami. Zasady dotyczące rozmów telefonicznych, WhatsApp i e-maili opisujemy w `{własnym dokumencie firmy / klauzuli}`.
 
 ## Cookies
 

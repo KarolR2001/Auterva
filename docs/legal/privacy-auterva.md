@@ -32,7 +32,7 @@ Auterva nie oferuje rezerwacji online ani płatności online i nie prowadzi kont
 | Zaproszenie firmy | adres e-mail administratora, nazwa firmy, jednorazowy token (przechowujemy tylko jego skrót) | lit. b | do wykorzystania lub wygaśnięcia zaproszenia; adres zostaje jako konto |
 | Konto administratora lub superadmina | imię, adres e-mail (unikalny w całej platformie), skrót hasła, status MFA, data utworzenia, powiązanie z firmą | lit. b, f | do archiwizacji; potem 12 miesięcy i trwałe usunięcie |
 | Uwierzytelnianie dwuskładnikowe | sekret TOTP i kody odzyskania (chronione, nigdy nie wyświetlane ponownie) | lit. f, c (bezpieczeństwo) | do zmiany lub usunięcia konta |
-| Sesje | identyfikator sesji, adres IP i opis urządzenia (user agent) zapisane przy sesji, czasy utworzenia i ostatniej aktywności, moment potwierdzenia MFA | lit. f | do wygaśnięcia lub zakończenia sesji; `{potwierdzić długość sesji w konfiguracji produkcyjnej}` |
+| Sesje | identyfikator sesji, adres IP i opis urządzenia (user agent) zapisane przy sesji, czasy utworzenia i ostatniej aktywności, moment potwierdzenia MFA | lit. f | sesja w panelach trwa 30 dni (decyzja właściciela D-61; wdrożenie w osobnym zadaniu); IP i dane przeglądarki są przechowywane do wygaśnięcia lub unieważnienia sesji |
 | Reset hasła | żądanie resetu, skrót tokenu; token ważny 30 minut | lit. b, f | krótko, do wygaśnięcia |
 | Limity żądań i ochrona przed nadużyciami | klucze liczników (skrót, nie jawny adres lub e-mail), znaczniki czasu | lit. f | do końca okna limitu (minuty do godziny) |
 | Dziennik audytu | kto (identyfikator i rola), kiedy, jaka operacja, której firmy; bez haseł, tokenów i treści notatek | lit. f, c | 365 dni |
@@ -86,7 +86,7 @@ Datę ostatniej zmiany pokazujemy na stronie. O istotnych zmianach informujemy a
 ## Pytania otwarte (usunąć przed publikacją)
 
 1. Dane identyfikacyjne administratora (właściciel) oraz umowa powierzenia przetwarzania z firmami (art. 28 RODO) i rola Autervy wobec stron publicznych.
-2. Długość sesji na produkcji (w konfiguracji kodu jawnej wartości nie ma; obowiązuje domyślna biblioteki Better Auth do potwierdzenia) i okres IP oraz user agent przy sesji.
+2. Wdrożenie 30-dniowej sesji (D-61) w kodzie; do czasu wdrożenia tekst o sesji nie odpowiada konfiguracji.
 3. Dostawcy (D-53), umowy powierzenia z nimi i transfery poza EOG.
 4. Czy IP w logach ingress dostawcy hostingu wymaga osobnej wzmianki?
 5. Czy wystarczy jedna polityka, czy osobna klauzula dla rozmów telefonicznych i WhatsApp?
