@@ -10,11 +10,14 @@
   /* Miejsce na pełny obrys fokusu (2 px + offset 2 px) mimo overflow-x; ujemny margines zachowuje wygląd paska. */
   margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-1)) 0;
   padding: var(--space-1);
+  /* 1 px zapasu na ułamkową szerokość ostatniej zakładki (zaokrąglenie scrollLeft), by obrys nie był ucięty. */
+  padding-inline-end: calc(var(--space-1) + 1px);
   /* Fokus przewija zakładkę w całości z obrysem (WCAG 2.4.11); działa dla dowolnej liczby pozycji. */
   scroll-padding-inline: var(--space-2);
   scroll-behavior: auto;
 }
 .navLink {
+  position: relative;
   display: inline-flex;
   min-height: var(--touch-target-mobile);
   align-items: center;
@@ -25,6 +28,26 @@
   font-weight: var(--font-weight-semibold);
   text-decoration: none;
   white-space: nowrap;
+}
+.navFull {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@media (min-width: 768px) {
+  .navShort {
+    display: none;
+  }
+  .navFull {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+  }
 }
 .navLink[aria-current="page"] {
   border-color: var(--text-primary);

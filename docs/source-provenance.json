@@ -32,7 +32,7 @@
   "derivedDocuments": [
     {
       "path": "docs/WYMAGANIA_AUTERVA.md",
-      "sha256": "04c5370fb0e59a464370df46655e9cbd9d26d9554b9aca868f96b23fd887497e"
+      "sha256": "9606857c3e716ddbbc472a68ea7cb922d00a9204f5cc0adaf46208b0b643bbfc"
     },
     {
       "path": "docs/ARCHITEKTURA_AUTERVA.md",
@@ -48,7 +48,7 @@
     },
     {
       "path": "docs/contracts/company-settings-and-vehicle-publication.md",
-      "sha256": "9d1fea239ba7fcb3d7c4c3447af42837fd7edc8a35596fc7dfd8652340efcacf"
+      "sha256": "a67a514ddb6ac959993a15e9b3fa9c1474606905c80764e0db82a9decaf1e259"
     },
     {
       "path": "docs/contracts/service-periods-kpi-reminders.md",
@@ -72,11 +72,11 @@
     },
     {
       "path": "docs/contracts/availability-reads.md",
-      "sha256": "4f8ec72b0c4462c6ea590f4a4db1f5201934d13c247f9022e0c65d4a5b0e7341"
+      "sha256": "35734a503f345916510972c93966f3bd2db6e2aa798871c1653903f9c9b10957"
     },
     {
       "path": "docs/contracts/fleet-crud-publication.md",
-      "sha256": "306f806b6e0b116253481a749451e27dd8999c19be68d3ac2c288be3b53a9063"
+      "sha256": "ef18b1bb6fa0fbae2423fa8260a4cca1a4609d6fa71ca6bdcb2cc288509e3020"
     },
     {
       "path": "docs/contracts/availability-blocks.md",
@@ -88,7 +88,7 @@
     },
     {
       "path": "docs/contracts/company-onboarding-invitations.md",
-      "sha256": "46e12daf26b48de6e9e502ed5b11b906709e8571b15d5fbd3a31575bf2e2798d"
+      "sha256": "4e7d4db7d806d5972c3ee4c2cd9ab01a0ff61bb4fa73ed7126321fc08d8854b4"
     },
     {
       "path": "docs/contracts/company-invitation-activation.md",
