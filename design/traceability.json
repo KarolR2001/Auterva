@@ -64,6 +64,26 @@
       "sharedWith": "Zależy od #383 (PR #395)."
     },
     {
+      "issue": 402,
+      "scope": "Lokalny test obciążenia przez prawdziwy HTTP (produkcyjny Next za ingressem pomiarowym), profil P2 (2 firmy x 100 aut x 100 000 okresów), profilowanie zapytań i EXPLAIN; zapytania listy floty (blokady dziś) i siatki floty czytają blokady przez GiST availability_no_overlap zamiast filtra relacji po wszystkich blokadach firmy (bez nowej migracji). Staging i profil zatwierdzony: not-run (#90).",
+      "relatedRequirementIds": ["NFR-PERF-002", "C-N060", "C-N062", "D-54"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "scripts/perf/http-load.ts",
+        "scripts/perf/load-ingress.ts",
+        "scripts/perf/pg-log-top.ts",
+        "scripts/perf/explain.ts",
+        "src/modules/availability/read.ts",
+        "src/modules/fleet/read.ts",
+        "docs/performance/local-load-2026-11.md"
+      ],
+      "testPaths": [
+        "tests/integration/availability-fleet-calendar.test.ts",
+        "tests/integration/fleet-list.test.ts",
+        "tests/integration/fleet-list-filters.test.ts"
+      ]
+    },
+    {
       "issue": 371,
       "scope": "OVR-07 desktop (D-48): „Kopiuj na inne auta” w nagłówku okna edycji blokady obok tytułu (wspólny Dialog dostaje opcjonalne headerAction, addytywnie; okna bez niego bez zmian). Na mobile (do 480 px) zostaje przycisk pełnej szerokości nad „Usuń blokadę” (OVR-07-mobile-edit); ten sam href, w danej szerokości widoczny jeden link. Kolejność Tab: nagłówek, pola, Zamknij, Zapisz; fokus początkowy, Escape i powrót fokusu bez zmian.",
       "relatedRequirementIds": ["FR-ADM-055", "FR-ADM-057", "D-48"],
