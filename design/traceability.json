@@ -22,6 +22,17 @@
       "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
     },
     {
+      "issue": 381,
+      "scope": "Lista pojazdów: „Wyczyść filtry” (arkusz filtrów i stan „Brak wyników”) czyści wyszukiwanie, filtry i stronę, ale zachowuje sortowanie „Ostatnia zmiana”; sortowanie wraca do kolejności w ofercie wyłącznie przez „Przywróć domyślne” / przycisk sortowania (D-42, D-50). Zachowanie bez zmian wyglądu.",
+      "relatedRequirementIds": ["FR-ADM-020", "FR-ADM-021", "FR-ADM-022"],
+      "referenceScreenIds": ["ADM-04", "ADM-05"],
+      "scenarioStates": {
+        "list": "ADM-04 (mobile) i ADM-05 (desktop) / lista pojazdów z filtrami i sortowaniem; ID stanów w Penpocie bez zmian względem wpisów #34 i #337"
+      },
+      "codePaths": ["src/components/admin/vehicle-list.tsx"],
+      "testPaths": ["tests/unit/vehicle-list-reset.test.tsx", "tests/e2e/admin-fleet.spec.ts"]
+    },
+    {
       "issue": 375,
       "scope": "ADM-05 toolbar listy pojazdów na wąskim desktopie (1024-1200 px): zamknięte pola Publikacja i Kategoria mają co najmniej 120 px (min-width pigułek, węższe minimum Szukaj, krótka widoczna etykieta „Zmiana” przycisku sortowania poniżej 900 px kontenera; nazwa dostępna „Ostatnia zmiana, sortowanie: …” bez zmian), a Szukaj, Publikacja, Kategoria, sortowanie i „Dodaj pojazd” zostają w jednym rzędzie. Tylko CSS i etykieta; bez zmian logiki. Plansza Penpota: Desktop a4abf4c9-2e1f-80fd-8008-afeba8dd6131.",
       "relatedRequirementIds": ["C-F095", "C-F097", "FR-ADM-021", "FR-ADM-022"],
@@ -29,6 +40,18 @@
       "codePaths": ["src/components/admin/vehicle-list.tsx", "src/components/admin/admin.module.css"],
       "testPaths": ["tests/e2e/admin-fleet.spec.ts"],
       "sharedWith": "Rozszerza toolbar z #337."
+    },
+    {
+      "issue": 383,
+      "scope": "Kalendarz pojazdu: po konflikcie wersji, gdy aktualna wersja blokady jest jeszcze wczytywana, „Zapisz zmiany” i „Wczytaj aktualną wersję” są zablokowane (disabled, aria-busy na formularzu, komunikat statusu), więc nie da się wysłać starej wersji; po wczytaniu fokus wraca na pierwsze pole. Wspólny Dialog dostaje opcjonalne primaryAction.disabled (addytywnie). Test E2E czeka na stan zamiast zakładać szybkie wczytanie.",
+      "relatedRequirementIds": ["FR-ADM-055", "FR-ADM-057"],
+      "referenceScreenIds": ["OVR-07"],
+      "unmappedStates": ["Stan wczytywania aktualnej wersji nie ma osobnej planszy w Penpocie; wygląd bez zmian (porównanie: DEFERRED #263)."],
+      "codePaths": [
+        "src/components/admin/vehicle-calendar.tsx",
+        "src/components/ui/dialog.tsx"
+      ],
+      "testPaths": ["tests/unit/vehicle-calendar.test.tsx", "tests/e2e/vehicle-calendar.spec.ts"]
     },
     {
       "issue": 371,
@@ -99,6 +122,27 @@
       "testPaths": ["tests/integration/calendar-feed-scope.test.ts", "tests/integration/calendar-feed.test.ts"]
     },
     {
+      "issue": 367,
+      "scope": "Zakres prywatnego adresu iCal na ekranie „Kalendarz zewnętrzny” (ADM-22 state=create, E11, D-47; API #366): grupa radio „Cała flota” (domyślnie) / „Wybrane pojazdy (opublikowane)”; przy wyborze lista opublikowanych pojazdów firmy z listy floty panelu (status=PUBLISHED, strony po 100), wyszukiwanie powyżej 8 pojazdów, limit 50 (pozostałe pola nieaktywne z objaśnieniem), min. 1 — komunikat przy polu, podsumowanie „Do poprawy” i fokus na grupie; vehicleIds wysyłane tylko dla wybranych pojazdów; 400 fieldErrors.vehicleIds (VEHICLE_NOT_PUBLISHED, VEHICLE_NOT_FOUND, OUT_OF_RANGE, DUPLICATE) jako zrozumiały komunikat przy polu, przy nieopublikowanym/nieistniejącym ponowny odczyt listy i usunięcie go z wyboru, bez sukcesu i bez utraty etykiety. Lista adresów (admin i superadmin, tylko odczyt): „Zakres: Cała flota” albo „Zakres: N pojazdów” z rozwijaną listą nazw; pusty zakres po usunięciu pojazdów objaśniony. Rotacja bez zmian (serwer zachowuje zakres); wynik niepewny jak w #355.",
+      "referenceScreenIds": ["ADM-22"],
+      "relatedRequirementIds": ["C-N006", "C-N029"],
+      "scenarioStates": {
+        "create": "ADM-22 / create — desktop b4e99770-b096-80ee-8008-ece4de62b468, mobile b4e99770-b096-80ee-8008-ece599d8ec7d (grupa „Zakres”)",
+        "list": "ADM-22 / list — desktop b4e99770-b096-80ee-8008-ece3be60ca2f, mobile b4e99770-b096-80ee-8008-ece44aca7386 („Zakres: 3 pojazdy”)"
+      },
+      "unmappedStates": ["Rozwinięta lista pojazdów przy „Wybrane pojazdy”, wyszukiwanie, limit 50, błędy wyboru i rozwijane nazwy na liście nie mają osobnych plansz w Penpocie (create pokazuje tylko obie opcje radio); wzorzec listy z checkboxami i wyszukiwaniem jak w ADM-10 bulk (#217)."],
+      "codePaths": [
+        "src/components/calendar-feed/feed-scope.tsx",
+        "src/components/calendar-feed/feed-scope.module.css",
+        "src/components/calendar-feed/calendar-feeds.tsx",
+        "src/components/calendar-feed/calendar-feeds.module.css",
+        "src/components/calendar-feed/feed-api.ts",
+        "src/components/calendar-feed/feed-model.ts"
+      ],
+      "sharedWith": "API: docs/contracts/calendar-feed-implementation.md, sekcja „Zakres pojazdów” (#366).",
+      "testPaths": ["tests/unit/calendar-feeds.test.tsx", "tests/e2e/calendar-feeds-ui.spec.ts"]
+    },
+    {
       "issue": 376,
       "scope": "Backend zbiorczych blokad (#215, D-32): identyfikatory pojazdów, blokady źródłowej i klucz idempotencji są normalizowane do małych liter przy parsowaniu, więc UUID wielkimi literami nie daje 500, a ten sam pojazd w dwóch pisowniach to 400 INVALID_INPUT; skrót wejścia idempotencji liczony z wartości znormalizowanych. Bez zmian UI.",
       "referenceScreenIds": [],
@@ -108,6 +152,33 @@
         "docs/contracts/availability-nearest-and-bulk-blocks.md"
       ],
       "testPaths": ["tests/integration/availability-bulk-blocks.test.ts"]
+    },
+    {
+      "issue": 380,
+      "scope": "Blokada zbiorcza: Enter w polu „Szukaj pojazdu” nie wysyła formularza (bez podglądu konfliktów, podsumowania błędów i przeniesienia fokusu); fokus zostaje w polu, konflikty sprawdza przycisk lub Enter w polach blokady. Bez zmiany wyglądu. Klawiatura i fokus: WCAG 2.4.3.",
+      "relatedRequirementIds": ["FR-ADM-055", "FR-ADM-057", "D-32", "D-48"],
+      "referenceScreenIds": ["ADM-10", "OVR-07"],
+      "unmappedStates": ["Porównanie z makietą w Penpocie: DEFERRED (#263); zmiana nie modyfikuje wyglądu."],
+      "codePaths": ["src/components/admin/bulk-blocks.tsx"],
+      "testPaths": ["tests/unit/bulk-blocks.test.tsx"],
+      "sharedWith": "Rozszerza #217."
+    },
+    {
+      "issue": 387,
+      "scope": "Bezpieczeństwo MFA (D-05 pkt 4–5): po zalogowaniu kodem odzyskania konto ma trwały stan „odzyskanie w toku” (user.mfaRecoveryPendingAt + mfaRecoverySessionId). Do potwierdzenia nowego TOTP logowanie samym hasłem daje neutralne 401 bez sesji, a enable/verify-totp przyjmuje wyłącznie sesja, która zużyła kod; potwierdzenie czyści stan i dopisuje audyt MFA_RECOVERY_COMPLETED. Porzucone odzyskanie odblokowuje tylko procedura operatora. Obie role (admin firmy, superadmin). Bez zmian UI.",
+      "relatedRequirementIds": ["C-F011", "C-F013", "C-F014"],
+      "referenceScreenIds": [],
+      "unmappedStates": ["Backend bez UI."],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261111200000_mfa_recovery_pending_issue_387/migration.sql",
+        "src/app/api/auth/[...all]/route.ts",
+        "src/modules/audit/append.ts",
+        "src/modules/audit/view.ts",
+        "scripts/recover-mfa.ts",
+        "docs/contracts/technical-limits-and-mfa-bootstrap.md"
+      ],
+      "testPaths": ["tests/integration/mfa-recovery-pending.test.ts", "tests/integration/auth-http.test.ts"]
     },
     {
       "issue": 342,
@@ -162,7 +233,7 @@
         "revokeDialog": "ADM-22 / dialog odwołania — desktop b4e99770-b096-80ee-8008-ece518495d6a, mobile b4e99770-b096-80ee-8008-ece521001e24"
       },
       "unmappedStates": [
-        "Zakres „Wybrane pojazdy” z makiety create: API #327 nie przyjmuje zakresu (POST tylko { label }), więc każdy adres obejmuje całą flotę (pojazdy opublikowane); wybór pojazdów wymaga zmiany Backend.",
+        "Zakres „Wybrane pojazdy” z makiety create: poza #355 (API #327 przyjmowało tylko { label }); zakres pojazdów przyjmuje API #366, a wybór przy tworzeniu i zakres na liście wdraża #367.",
         "„Obróć” przy wygasłym adresie z makiety list: API rotacji zwraca 404 dla wygasłego, więc akcji nie ma; wygasły adres zastępuje nowy.",
         "Okruszki „Ustawienia / Kalendarz zewnętrzny” w treści: aplikacja pokazuje tytuł powłoki „Ustawienia” i nawigację Ustawień z bieżącą pozycją."
       ],
@@ -2514,6 +2585,15 @@
       ],
       "testPaths": ["tests/unit/calendar-feeds.test.tsx", "tests/e2e/calendar-feeds-ui.spec.ts", "tests/e2e/settings-nav-focus.spec.ts"],
       "sharedWith": "Zależy od #355 (PR #365). Wybór pojazdów w stanie create: #367."
+    },
+    {
+      "issue": 379,
+      "scope": "Blokada zbiorcza i kopia (ADM-10): gdy okres zaczyna się przed dzisiaj (Europe/Warsaw; w kopii start blokady źródłowej), ten sam komunikat i potwierdzenie co przy pojedynczej blokadzie (DS-FRM-015, wariant administracyjny). Podgląd dryRun działa bez potwierdzenia, zapis bez niego nie wysyła żądania i ustawia fokus na potwierdzeniu; zmiana dat cofa potwierdzenie. Bez zmian API.",
+      "relatedRequirementIds": ["DS-FRM-015", "D-32", "D-48"],
+      "referenceScreenIds": ["ADM-10"],
+      "codePaths": ["src/components/admin/bulk-blocks.tsx", "src/components/admin/bulk-blocks-model.ts"],
+      "testPaths": ["tests/unit/bulk-blocks.test.tsx", "tests/e2e/bulk-blocks.spec.ts"],
+      "sharedWith": "Reguła startsInPast z src/components/admin/vehicle-calendar-model.ts (pojedyncza blokada, #217)."
     }
   ],
   "sources": [
