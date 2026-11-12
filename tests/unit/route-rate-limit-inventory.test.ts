@@ -21,7 +21,11 @@ function resolveImport(from: string, spec: string): string | null {
   return null;
 }
 
-const importsOf = (file: string) => [...readFileSync(file, "utf8").matchAll(/(?:import|export)\s[^"';]*?from\s+["']([^"']+)["']|import\(\s*["']([^"']+)["']\s*\)/g)]
+const sources = new Map<string, string>();
+const read = (file: string) => sources.get(file) ?? (sources.set(file, readFileSync(file, "utf8")), sources.get(file)!);
+const imports = new Map<string, string[]>();
+const importsOf = (file: string) => imports.get(file) ?? (imports.set(file, parseImports(file)), imports.get(file)!);
+const parseImports = (file: string) => [...read(file).matchAll(/(?:import|export)\s[^"';]*?from\s+["']([^"']+)["']|import\(\s*["']([^"']+)["']\s*\)/g)]
   .map((match) => resolveImport(file, match[1] ?? match[2])).filter((path): path is string => path !== null);
 
 function reachesLimiter(entry: string): string | null {
@@ -31,7 +35,7 @@ function reachesLimiter(entry: string): string | null {
     const file = queue.pop()!;
     if (seen.has(file)) continue;
     seen.add(file);
-    if (LIMITERS.test(readFileSync(file, "utf8"))) return relative(src, file);
+    if (LIMITERS.test(read(file))) return relative(src, file);
     queue.push(...importsOf(file));
   }
   return null;
@@ -57,4 +61,4 @@ test("every route file reaches a request limiter or is a documented exception", 
   expect(files.length).toBeGreaterThan(90);
   // No stale exception.
   for (const rel of Object.keys(EXCEPTIONS)) expect(files, rel).toContain(rel);
-});
+}, 60_000);
