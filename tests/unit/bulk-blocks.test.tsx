@@ -233,6 +233,30 @@ describe("#217 ekran: podgląd, tryby konfliktu, raport, wynik niepewny", () => 
     expect(bulk()[0].body).toEqual(bulk()[2].body);
   });
 
+  it("wynik nieznany ostrzega, że po opuszczeniu strony ponowienie tym samym kluczem znika (blokada i kopia)", async () => {
+    const warning = "Po opuszczeniu tej strony nie ponowisz wysyłki tym samym kluczem — sprawdź kalendarz floty.";
+    const user = userEvent.setup();
+    server([reply(502, {})]);
+    renderBulk();
+    await fillCreate(user);
+    await user.click(screen.getByRole("button", { name: "Zapisz blokadę" }));
+    expect(await screen.findByText("Nie wiemy, czy blokady zostały zapisane")).toBeInTheDocument();
+    expect(screen.getByText("Nie wiemy, czy blokady zostały zapisane").parentElement).toHaveTextContent(warning);
+  });
+
+  it("kopia: wynik nieznany niesie to samo ostrzeżenie", async () => {
+    const user = userEvent.setup();
+    server([preview([A]), reply(503, {})]);
+    const source: BulkSource = { blockId: BLOCK, vehicleId: C, vehicleName: "Auto Gamma", from: "2027-03-15", to: "2027-03-17", type: "MAINTENANCE", reference: "SRV-9", hasNote: true };
+    renderBulk({ mode: "copy", source });
+    await user.click(await screen.findByRole("checkbox", { name: /Auto Alfa/ }));
+    await user.click(screen.getByRole("button", { name: "Sprawdź konflikty" }));
+    await screen.findByText("Podgląd konfliktów — nic nie zapisano");
+    await user.click(screen.getByRole("button", { name: "Kopiuj blokadę" }));
+    expect(await screen.findByText("Nie wiemy, czy blokady zostały zapisane")).toBeInTheDocument();
+    expect(screen.getByText("Nie wiemy, czy blokady zostały zapisane").parentElement).toHaveTextContent("Po opuszczeniu tej strony nie ponowisz wysyłki tym samym kluczem — sprawdź kalendarz floty.");
+  });
+
   it("„Zmień dane” po wyniku nieznanym odblokowuje formularz, kolejny zapis ma nowy klucz", async () => {
     const user = userEvent.setup();
     const { bulk } = server([reply(500, { code: "INTERNAL_ERROR" }), reply(201, { saved: [{ vehicleId: A, blockId: "n1", version: 1 }], rejected: [] })]);

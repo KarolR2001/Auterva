@@ -237,6 +237,7 @@ export function BulkBlocks({ context, mode, source, today, calendarHref, onClose
       <Alert tone="warning" title="Nie wiemy, czy blokady zostały zapisane">
         Serwer nie odpowiedział poprawnie (błąd 5xx lub brak połączenia). Blokady mogły się zapisać albo nie. Nie pokazujemy sukcesu.
         Sprawdź kalendarz albo ponów wysyłkę: ten sam klucz w ciągu 24 godzin nie utworzy duplikatów.
+        Po opuszczeniu tej strony nie ponowisz wysyłki tym samym kluczem — sprawdź kalendarz floty.
       </Alert>
     );
   }
