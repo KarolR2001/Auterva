@@ -45,7 +45,9 @@ export function SettingsNav({ base, current }: { base: string; current: Settings
         href={`${base}/${externalCalendarPath}/`}
         aria-current={current === "kalendarz" ? "page" : undefined}
       >
-        Kalendarz zewnętrzny
+        {/* ADM-22 (#372): na wąskim ekranie krótka etykieta z makiety; pełna nazwa zostaje w nazwie dostępnej. */}
+        <span className={styles.navShort} aria-hidden="true">Kalendarz</span>
+        <span className={styles.navFull}>Kalendarz zewnętrzny</span>
       </a>
     </nav>
   );

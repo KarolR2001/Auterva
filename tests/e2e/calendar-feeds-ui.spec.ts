@@ -54,8 +54,9 @@ test("calendar feeds UI: one-time address, copy, rotate, revoke, uncertain creat
     await expect(page.getByText("Nie ma jeszcze adresów kalendarza.")).toBeVisible();
     await expect(page.getByText(/Kalendarz Google odświeża subskrypcję co kilka godzin, Apple co 5–60 minut/)).toBeVisible();
 
+    await expect(page.getByText("Adres działa 365 dni")).toBeVisible();
     // Create with the keyboard: the address appears once, copies and disappears after "Gotowe".
-    await page.getByRole("button", { name: "Nowy adres kalendarza" }).click();
+    await page.getByRole("button", { name: "Utwórz pierwszy adres" }).click();
     await expect(page.getByLabel(/Etykieta/)).toBeFocused();
     await page.keyboard.type("Kalendarz zespołu");
     await page.keyboard.press("Enter");
@@ -129,6 +130,7 @@ test("calendar feeds UI: one-time address, copy, rotate, revoke, uncertain creat
     await expect(page.getByText("Aktywne adresy: 5 z 5")).toBeVisible();
     await expect(page.getByRole("button", { name: "Nowy adres (limit 5)" })).toBeDisabled();
     await expect(page.getByText("Adres „Zapas 1” wygasa za 11 dni")).toBeVisible();
+    await expect(page.getByText(/Wygasłe i odwołane adresy nie wliczają się do limitu/)).toBeVisible();
 
     // No horizontal scroll from 320 to 1920 px.
     for (const width of [320, 390, 768, 1024, 1440, 1920]) {
@@ -196,7 +198,7 @@ test("calendar feeds UI: scope of selected published vehicles", async ({ page, c
     await context.addCookies([{ name, value: rest.join("="), url: origin }]);
 
     await page.goto(`${origin}/admin/ustawienia/kalendarz-zewnetrzny/`);
-    await page.getByRole("button", { name: "Nowy adres kalendarza" }).click();
+    await page.getByRole("button", { name: "Utwórz pierwszy adres" }).click();
     await expect(page.getByLabel(/Etykieta/)).toBeFocused();
     await page.keyboard.type("Wybrane auta");
     // Keyboard: the scope is a radio group; the arrow key moves from the default "Cała flota" to the selection.
