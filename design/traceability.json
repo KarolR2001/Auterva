@@ -2576,6 +2576,30 @@
       "sharedWith": "Rozszerza katalog z #40; kontrakt: docs/contracts/public-offer-seo.md."
     },
     {
+      "issue": 372,
+      "scope": "ADM-22 „Kalendarz zewnętrzny”: dopasowanie stanów do makiety (D-49), poprawka do #355. Limit: alert u góry z zastrzeżeniem, że wygasłe i odwołane adresy nie wliczają się do limitu; stan pusty z faktami (tylko pojazdy opublikowane, adres działa 365 dni, do 5 aktywnych adresów) i przyciskiem „Utwórz pierwszy adres”; objaśnienie D-47/D-49 w ramce informacyjnej z ikoną Info oraz stopka listy o braku typu blokady, numeru odniesienia i notatek; dialog odwołania z alertem „Tej operacji nie można cofnąć”; na wąskim ekranie pozycja nawigacji Ustawień ma krótką etykietę „Kalendarz” (pełna nazwa w nazwie dostępnej).",
+      "relatedRequirementIds": ["C-N006", "C-N029"],
+      "referenceScreenIds": ["ADM-22"],
+      "scenarioStates": {
+        "list": "ADM-22 / list — desktop b4e99770-b096-80ee-8008-ece3be60ca2f, mobile b4e99770-b096-80ee-8008-ece44aca7386",
+        "empty": "ADM-22 / empty — desktop b4e99770-b096-80ee-8008-ece4bd2bb6c9, mobile b4e99770-b096-80ee-8008-ece592dc97af",
+        "limit": "ADM-22 / limit — desktop b4e99770-b096-80ee-8008-ece4668644e9, mobile b4e99770-b096-80ee-8008-ece5447204b2",
+        "revokeDialog": "ADM-22 / dialog odwołania — desktop b4e99770-b096-80ee-8008-ece518495d6a, mobile b4e99770-b096-80ee-8008-ece521001e24"
+      },
+      "unmappedStates": [
+        "Pionowa karta nawigacji Ustawień na desktopie (makieta): aplikacja zachowuje poziome zakładki całych Ustawień.",
+        "Krótkie etykiety pozostałych zakładek mobilnych (Firma, Kontakt, SEO, Prawne): poza zakresem #372."
+      ],
+      "codePaths": [
+        "src/components/calendar-feed/calendar-feeds.tsx",
+        "src/components/calendar-feed/calendar-feeds.module.css",
+        "src/components/settings/settings-nav.tsx",
+        "src/components/settings/settings.module.css"
+      ],
+      "testPaths": ["tests/unit/calendar-feeds.test.tsx", "tests/e2e/calendar-feeds-ui.spec.ts", "tests/e2e/settings-nav-focus.spec.ts"],
+      "sharedWith": "Zależy od #355 (PR #365). Wybór pojazdów w stanie create: #367."
+    },
+    {
       "issue": 379,
       "scope": "Blokada zbiorcza i kopia (ADM-10): gdy okres zaczyna się przed dzisiaj (Europe/Warsaw; w kopii start blokady źródłowej), ten sam komunikat i potwierdzenie co przy pojedynczej blokadzie (DS-FRM-015, wariant administracyjny). Podgląd dryRun działa bez potwierdzenia, zapis bez niego nie wysyła żądania i ustawia fokus na potwierdzeniu; zmiana dat cofa potwierdzenie. Bez zmian API.",
       "relatedRequirementIds": ["DS-FRM-015", "D-32", "D-48"],
