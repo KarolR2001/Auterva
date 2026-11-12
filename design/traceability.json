@@ -141,6 +141,19 @@
       "sharedWith": "Rozszerza #217."
     },
     {
+      "issue": 404,
+      "scope": "Lokalna probe backupu i restore calego systemu oraz jednej firmy na fixture dwoch firm (blokady, feedy, eksporty, czat, media): kroki runbooka wykonane komendami CLI z pomiarem czasu, test integracyjny rozszerzony o bloki, feedy i eksporty, raport cwiczenia. Konfiguracja dostawcy, PITR i RTO na stagingu not-run (#90). Bez UI.",
+      "relatedRequirementIds": ["C-N041", "C-N042", "C-N046", "D-10", "D-16"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "docs/runbooks/backup-restore.md",
+        "docs/runbooks/backup-restore-drill-2026-11-12.md"
+      ],
+      "testPaths": [
+        "tests/integration/backup-restore.test.ts"
+      ]
+    },
+    {
       "issue": 342,
       "scope": "Audyt dostępności (część #61): panel platformy, strony publiczne firmy i marketing Autervy. Automatyczny skan axe (WCAG 2.2 AA, serious/critical = błąd) każdego ekranu przy 1440, 390 i 320 px oraz kontrole strukturalne: jeden h1 i main, lang, skip link jako pierwszy stop, kolejność i widoczność fokusu, fokus nieprzesłonięty, reflow 320/640 px, reduced motion; dialog archiwizacji (pułapka i powrót fokusu) i menu mobilne z klawiatury. Poprawki: nazwa linku Wiadomości/Czat z plakietką „Nowe” zgodna z widocznym tekstem (WCAG 2.5.3), scroll-padding chroniący fokus przed paskiem akcji (dolna nawigacja: reguła z #341) formularza/kalendarza pojazdu (WCAG 2.4.11). Bez zmian logiki. VoiceOver: DEFERRED (#97); strona logowania i MFA nie mają skip linku (brak bloków do pominięcia).",
       "relatedRequirementIds": ["C-N047", "C-N049", "C-N060"],

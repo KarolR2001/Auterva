@@ -78,7 +78,7 @@ Uwaga do pojęcia „generacji bezpieczeństwa” w kontrakcie środowisk: w tym
 
 ## Pomiar lokalny (fixture, nie produkcja)
 
-Test `tests/integration/backup-restore.test.ts` wypisuje czasy etapów. Wynik z przebiegu fixture (2 firmy, kilka wierszy, 3 małe obiekty): kopia około 0,1 s, restore pełny około 0,4 s, restore firmy około 0,3 s. To ma znaczenie tylko dla poprawności metody. RPO metody: kopia dzienna daje stratę do jednego okresu między kopiami, czyli do 24 h (kopia o 2:00 i awaria o 1:59 następnego dnia); PITR nie jest tu uruchomiony, więc dla strat mniejszych niż 24 h nie ma dowodu.
+Test `tests/integration/backup-restore.test.ts` wypisuje czasy etapów. Ćwiczenie D-54 na fixture (2 firmy, bloki, feedy, eksporty, 3 obiekty; komendy CLI): kopia 0,6 s, `verify` 0,5 s, restore pełny 1,0 s, restore firmy 0,6 s; szczegóły w [raporcie ćwiczenia](backup-restore-drill-2026-11-12.md). To ma znaczenie tylko dla poprawności metody. RPO metody: kopia dzienna daje stratę do jednego okresu między kopiami, czyli do 24 h (kopia o 2:00 i awaria o 1:59 następnego dnia); PITR nie jest tu uruchomiony, więc dla strat mniejszych niż 24 h nie ma dowodu.
 
 ## Not-run (zależne od #90, płatne środowiska)
 
