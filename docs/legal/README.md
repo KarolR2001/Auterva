@@ -2,7 +2,7 @@
 
 **SZKIC — do weryfikacji prawnej, nie publikować.** Ostatnia aktualizacja: 2026-11-12.
 
-Na podstawie decyzji właściciela D-55 (12.11.2026) agent przygotował trzy szkice oparte na faktycznym przetwarzaniu danych w kodzie i kontraktach repozytorium. Autor nie jest prawnikiem. Szkice nie są opinią prawną ani deklaracją zgodności z RODO, prawem konsumenckim ani przepisami o świadczeniu usług drogą elektroniczną. Publikacja wymaga akceptacji właściciela i weryfikacji prawnika.
+Na podstawie decyzji właściciela D-55 z 12.11.2026 (decyzje D-51–D-56 są w PR #406) agent przygotował trzy szkice oparte na faktycznym przetwarzaniu danych w kodzie i kontraktach repozytorium. Autor nie jest prawnikiem. Szkice nie są opinią prawną ani deklaracją zgodności z RODO, prawem konsumenckim ani przepisami o świadczeniu usług drogą elektroniczną. Publikacja wymaga akceptacji właściciela i weryfikacji prawnika.
 
 | Plik | Dokument | Odbiorca | Miejsce użycia po akceptacji |
 |---|---|---|---|

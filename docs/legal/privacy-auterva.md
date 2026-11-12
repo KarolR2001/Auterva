@@ -8,7 +8,7 @@
 2. Rola Autervy: wobec danych kont administratorów i superadmina oraz czatu Auterva jest administratorem. Wobec danych, które firma wprowadza o swojej ofercie, a także wobec danych odwiedzających jej stronę publiczną, Auterva działa najpewniej jako podmiot przetwarzający dla firmy. Wymaga to umowy powierzenia (art. 28 RODO) i oceny prawnika.
 3. Podstawy prawne poniżej to propozycje robocze (art. 6 ust. 1 lit. b, c, f), do potwierdzenia.
 4. Dostawcy są niezatwierdzeni (D-53). Lista poniżej to kategorie z placeholderami.
-5. Okresy przechowywania pochodzą z D-10 i kontraktów. Brak zatwierdzonego okresu dla treści czatu, kont po zakończeniu współpracy i danych firmy po archiwizacji (poza 30-dniowym oknem eksportu, E8). Oznaczone jako `{do decyzji}`.
+5. Okresy przechowywania pochodzą z D-10 i kontraktów. Brak zatwierdzonego okresu dla treści czatu, kont po zakończeniu współpracy i danych firmy po archiwizacji (poza 30-dniowym oknem eksportu, E8). Decyzje właścicielskie z 12.11.2026 (D-51–D-56, PR #406) należy uzgodnić z tym szkicem po ich wejściu do main. Oznaczone jako `{do decyzji}`.
 6. Czy powołano inspektora ochrony danych: `{tak/nie}`.
 
 ## Kim jesteśmy
@@ -42,8 +42,8 @@ Auterva nie oferuje rezerwacji online ani płatności online i nie prowadzi kont
 | Pomiar wydajności strony (Web Vitals) | typ urządzenia (mobile/desktop), wartości LCP, INP, CLS i wzorzec trasy z zamkniętej listy; bez adresu URL, identyfikatora, cookie i adresu IP; nic nie jest wysyłane przy włączonym Do Not Track lub Global Privacy Control | lit. f | wyłącznie zagregowane liczniki w pamięci serwera; restart je zeruje |
 | Logi techniczne | czas, identyfikator żądania, rola i identyfikator konta/firmy, operacja, wynik; bez haseł, tokenów, cookies, adresów e-mail i treści czatu | lit. f | 30 dni (logi bezpieczeństwa: 365 dni) |
 | Kopie zapasowe | kopia bazy i mediów (szyfrowana) | lit. f, c | 30 dni |
-| Eksport danych firmy | plik z danymi firmy dla jej administratora lub, na prośbę, przez superadmina | lit. b, c | okno 30 dni po archiwizacji lub zakończeniu współpracy; plik ma krótki termin ważności `{potwierdzić po wdrożeniu #328}` |
-| Prywatny kalendarz iCal | token w adresie (przechowujemy skrót), etykieta; w feedzie tylko daty niedostępności pojazdów opublikowanych, bez typu blokady | lit. b | do odwołania; wygasa po 365 dniach od utworzenia lub rotacji `{funkcja w trakcie wdrażania}` |
+| Eksport danych firmy | paczka ZIP (JSON i CSV): dane firmy i ustawienia, flota i metadane zdjęć (bez plików), blokady dostępności wraz z notatkami wewnętrznymi, okres usługi, konto administratora (e-mail, imię, rola, data, status MFA). Bez audytu, czatu, haseł, sesji i tokenów. Wymaga ponownego uwierzytelnienia | lit. b, c | gotowy plik ważny 24 godziny (kod: `EXPORT_TTL_MS`); do 3 żądań na firmę na dobę; po archiwizacji superadmin może wykonać eksport na prośbę przez 30 dni (D-40/E8) |
+| Prywatny kalendarz iCal | token w adresie (w bazie tylko skrót), etykieta, czas ostatniego użycia; w feedzie wyłącznie daty niedostępności opublikowanych pojazdów, bez typu blokady i notatek | lit. b | token ważny 365 dni od utworzenia lub rotacji, do 5 aktywnych tokenów na firmę, odwołanie natychmiast; po archiwizacji firmy tokeny są odwołane |
 
 Podanie danych do konta jest warunkiem korzystania z panelu. Nie prowadzimy profilowania ani zautomatyzowanych decyzji wywołujących skutki prawne.
 
