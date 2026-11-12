@@ -437,26 +437,28 @@ describe("#378 ochrona niezapisanych zmian: blokada zbiorcza i kopia w powłoce 
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("Wstecz przeglądarki z wpisanymi danymi pyta; „Zostań” zachowuje dane, „Odrzuć” zamyka widok", async () => {
+  it("Wstecz przeglądarki z wpisanymi danymi pyta (host oddaje popstate strażnikowi); „Zostań” zachowuje dane, „Odrzuć” zamyka widok", async () => {
     const user = userEvent.setup();
     server([]);
     const go = vi.spyOn(window.history, "go").mockImplementation(() => undefined);
-    const parent = vi.fn();
-    window.addEventListener("popstate", parent); // registered first, like the fleet calendar's own listener
-    const { onClose } = guarded();
+    const backGuard: { current: (() => boolean) | null } = { current: null };
+    const hostSync = vi.fn();
+    const host = () => { if (backGuard.current?.()) return; hostSync(); };
+    window.addEventListener("popstate", host);
+    const { onClose } = guarded({ backGuardRef: backGuard });
     await user.click(await screen.findByRole("checkbox", { name: /Auto Alfa/ }));
     act(() => { window.dispatchEvent(new PopStateEvent("popstate")); });
-    expect(parent).not.toHaveBeenCalled();
+    expect(hostSync).not.toHaveBeenCalled();
     expect(go).toHaveBeenCalledWith(1);
-    const dialog = await screen.findByRole("alertdialog");
-    await user.click(within(dialog).getByRole("button", { name: /Zostań|Wróć/ }));
+    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Zostań" }));
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByRole("checkbox", { name: /Auto Alfa/ })).toBeChecked();
     act(() => { window.dispatchEvent(new PopStateEvent("popstate")); }); // the restoring popstate
     act(() => { window.dispatchEvent(new PopStateEvent("popstate")); });
-    await user.click(await within(await screen.findByRole("alertdialog")).findByRole("button", { name: /Odrzuć/ }));
+    await user.click(await within(await screen.findByRole("alertdialog")).findByRole("button", { name: "Odrzuć zmiany" }));
     expect(onClose).toHaveBeenCalledTimes(1);
-    window.removeEventListener("popstate", parent);
+    expect(hostSync).not.toHaveBeenCalled();
+    window.removeEventListener("popstate", host);
     go.mockRestore();
   });
 });

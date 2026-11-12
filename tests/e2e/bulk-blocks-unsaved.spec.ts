@@ -59,10 +59,9 @@ test.afterAll(async ({ baseURL }) => {
 });
 
 // #378: the bulk block view registers its draft with the panel shell, so a PWA update, navigation, breadcrumb, Back and tab close ask first.
-test.only("a filled bulk block form survives a PWA update, a nav link, the breadcrumb, Back and tab close until the user confirms", async ({ page, baseURL }) => {
+test("a filled bulk block form survives a PWA update, a nav link, the breadcrumb, Back and tab close until the user confirms", async ({ page, baseURL }) => {
   test.setTimeout(120_000);
   if (!baseURL) throw new Error("Missing PWA fixture URL");
-  page.on("console", (m) => { if (m.text().startsWith("DIAGX")) console.log(m.text()); });
   await signIn(page, baseURL);
   await controlledAdminPage(page);
   await page.goto("/admin/kalendarz/");
@@ -93,16 +92,7 @@ test.only("a filled bulk block form survives a PWA update, a nav link, the bread
   await stays();
   await page.getByRole("navigation", { name: "Ścieżka" }).getByRole("link", { name: "Kalendarz floty" }).click();
   await stays();
-  await page.evaluate(() => {
-    const log: string[] = [];
-    (window as unknown as { __log: string[] }).__log = log;
-    window.addEventListener("popstate", () => log.push("capture"), true);
-    window.addEventListener("popstate", () => log.push("bubble"));
-    log.push(`len=${history.length} state=${JSON.stringify(history.state)}`);
-  });
   await page.goBack();
-  await page.waitForTimeout(1500);
-  console.log("DIAG", JSON.stringify(await page.evaluate(() => ({ log: (window as unknown as { __log: string[] }).__log, url: location.href, state: history.state }))));
   await stays();
   expect(await page.evaluate(() => {
     const event = new Event("beforeunload", { cancelable: true });

@@ -1,7 +1,7 @@
 "use client";
 
 import { Ban, CircleCheck, CircleHelp } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 
 import { newClientUuid } from "@/lib/client-uuid";
 import { formatRangeShort } from "@/modules/public-offer/presentation";
@@ -50,9 +50,11 @@ async function readVehicles(context: PanelContext, today: string, signal: AbortS
  * Every outcome is the server's: the preview is a dryRun that saves nothing, a save re-checks under locks, an unknown
  * outcome (5xx, lost connection) is never a success and is retried only with the same idempotency key; new data, new key.
  */
-export function BulkBlocks({ context, mode, source, today, calendarHref, onClose, onSaved, onCopy }: {
+export function BulkBlocks({ context, mode, source, today, calendarHref, onClose, onSaved, onCopy, backGuardRef }: {
   context: PanelContext; mode: BulkMode; source: BulkSource | null; today: string; calendarHref: string;
   onClose: () => void; onSaved: () => void; onCopy: (source: BulkSource) => void;
+  /** Set by the host while a draft is open: answers true when it took over a browser Back (see the host's popstate listener). */
+  backGuardRef?: MutableRefObject<(() => boolean) | null>;
 }) {
   const [draft, setDraft] = useState<BulkDraft>(emptyDraft);
   const [errors, setErrors] = useState<Partial<Record<BulkErrorKey, string>>>({});
@@ -94,22 +96,18 @@ export function BulkBlocks({ context, mode, source, today, calendarHref, onClose
   const [backAsk, setBackAsk] = useState<"dirty" | "busy" | null>(null);
   const backState = useRef<"idle" | "restoring" | "leaving">("idle");
   useEffect(() => {
-    console.log("DIAGX effect guarded", guarded, savingNow);
-    if (!guarded) return;
-    function onPop(event: PopStateEvent) {
-      console.log("DIAGX onPop", backState.current);
-      if (backState.current === "leaving") return;
-      event.stopImmediatePropagation();
-      if (backState.current === "restoring") { backState.current = "idle"; return; }
+    if (!guarded || !backGuardRef) return;
+    // The fleet calendar's popstate listener calls this first and does nothing when it answers true (listener order is not ours to rely on).
+    backGuardRef.current = () => {
+      if (backState.current === "leaving") return false;
+      if (backState.current === "restoring") { backState.current = "idle"; return true; }
       backState.current = "restoring";
       window.history.go(1);
       setBackAsk(savingNow ? "busy" : "dirty");
-    }
-    // Capture: the fleet calendar's own popstate listener was registered first and would otherwise close the view before this one runs.
-    window.addEventListener("popstate", onPop, true);
-    console.log("DIAGX added");
-    return () => { console.log("DIAGX cleanup"); window.removeEventListener("popstate", onPop, true); };
-  }, [guarded, savingNow]);
+      return true;
+    };
+    return () => { backGuardRef.current = null; };
+  }, [guarded, savingNow, backGuardRef]);
   useEffect(() => {
     if (backAsk !== "busy") return;
     const timer = window.setTimeout(() => setBackAsk(null), 6000);
