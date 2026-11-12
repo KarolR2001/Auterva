@@ -84,6 +84,8 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
   const busyRef = useRef(false);
   const [overlap, setOverlap] = useState<OverlapConflict | null>(null);
   const [versionConflict, setVersionConflict] = useState<{ current: CalendarBlock | null } | null>(null);
+  /** True while the server's current version of a conflicting block is being read: saving then would send the stale version again. */
+  const [resolving, setResolving] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [uncertain, setUncertain] = useState<Pending | null>(null);
   const [candidates, setCandidates] = useState<{ blocks: CalendarBlock[]; values: BlockValues } | null>(null);
@@ -165,7 +167,7 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
 
   // --- editor ----------------------------------------------------------------------------------------------------
 
-  function resetFeedback() { setErrors({}); setPastAck(false); setOverlap(null); setVersionConflict(null); setFailure(null); setUncertain(null); setCandidates(null); setDiscardAsk(false); }
+  function resetFeedback() { setResolving(false); setErrors({}); setPastAck(false); setOverlap(null); setVersionConflict(null); setFailure(null); setUncertain(null); setCandidates(null); setDiscardAsk(false); }
   function openCreate(range?: { from: string; to: string }) {
     const initial = { ...emptyValues(), ...(range ?? {}) };
     resetFeedback(); setParked(null); setEditor({ mode: "create" }); setBaseline(emptyValues()); setValues(initial);
@@ -217,7 +219,7 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
     if (isUncertain(result)) { setUncertain(pending); return; }
     const { code } = result;
     if (code === "BLOCK_OVERLAP" && result.conflict) { setOverlap(result.conflict); refreshAll(); return; }
-    if (code === "BLOCK_VERSION_CONFLICT") { setVersionConflict({ current: null }); void loadCurrentOf(pending); return; }
+    if (code === "BLOCK_VERSION_CONFLICT") { setVersionConflict({ current: null }); setResolving(true); void loadCurrentOf(pending); return; }
     if (code === "BLOCK_OUTSIDE_ACTIVITY") { setErrors({ from: saveErrorText(code) }); setFailure(saveErrorText(code)); return; }
     if (code === "BLOCK_DATA_INVALID") { setFailure(saveErrorText(code)); return; }
     if (code === "INVALID_INPUT" && result.fieldErrors) {
@@ -234,17 +236,19 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
 
   /** Reads the block named by a version conflict afresh, so the screen can show what is on the server now. */
   async function loadCurrentOf(pending: Pending) {
-    if (pending.editor.mode !== "edit") return;
+    if (pending.editor.mode !== "edit") { setResolving(false); return; }
     const block = pending.editor.block;
     const range = surroundingRange(block);
-    const result = await readCalendar(context, vehicleId, range.from, range.to);
-    const current = result.ok ? result.data.blocks.find((entry) => entry.id === block.id) ?? null : null;
-    setVersionConflict({ current });
+    try {
+      const result = await readCalendar(context, vehicleId, range.from, range.to);
+      const current = result.ok ? result.data.blocks.find((entry) => entry.id === block.id) ?? null : null;
+      setVersionConflict({ current });
+    } finally { setResolving(false); }
     refreshAll();
   }
 
   async function submit() {
-    if (busyRef.current || panel !== "form") return;
+    if (busyRef.current || resolving || panel !== "form") return;
     // After a lost response Enter and every other route to submit read the state first; a blind retry could save twice.
     if (uncertain) { void checkUncertain(); return; }
     if (candidates) return;
@@ -311,13 +315,15 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
 
   /** The server's current version of the block replaces the stored version number; the user's own entries stay. */
   function adoptCurrent() {
-    if (editor.mode !== "edit") return;
+    if (editor.mode !== "edit" || resolving) return;
     const current = versionConflict?.current;
     if (!current) { setVersionConflict(null); setFailure("Blokada już nie istnieje. Twoje wpisy zostały zachowane."); return; }
     // Three-way merge: a field the user changed keeps the user's value, every other field takes the server's current one.
     const server = valuesOf(current);
     const merged = Object.fromEntries((Object.keys(values) as (keyof BlockValues)[]).map((key) => [key, values[key] !== baseline[key] ? values[key] : server[key]])) as BlockValues;
     setEditor({ mode: "edit", block: current }); setBaseline(server); setValues(merged); setVersionConflict(null);
+    // The button that had the focus disappears with the conflict message; the first field is the natural place to continue.
+    requestAnimationFrame(() => document.getElementById("bc-from")?.focus());
     setNotice({ tone: "info", title: "Wczytano aktualną wersję blokady.", text: "Pola, które zmieniłeś, zachowały Twoje wartości; pozostałe pochodzą z serwera. Sprawdź daty przed zapisem." });
   }
 
@@ -548,7 +554,7 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
         primaryAction={panel === "delete"
           ? { label: busy ? "Usuwanie…" : "Usuń blokadę", onClick: () => { if (uncertain) void checkUncertain(); else if (dialogBlock) void run({ action: "delete", editor, values }); } }
           : uncertain ? { label: busy ? "Sprawdzanie…" : "Sprawdź stan", onClick: () => void checkUncertain() }
-            : { label: busy ? "Zapisywanie…" : editor.mode === "create" ? "Dodaj blokadę" : "Zapisz zmiany", onClick: () => void submit() }}
+            : { label: busy ? "Zapisywanie…" : editor.mode === "create" ? "Dodaj blokadę" : "Zapisz zmiany", onClick: () => void submit(), disabled: resolving }}
         secondaryAction={{ label: panel === "delete" ? "Anuluj" : "Zamknij", onClick: requestClose }}
         headerAction={panel === "form" && editor.mode === "edit" && dialogBlock
           ? <a className={`${styles.copyLink} ${styles.copyLinkHeader}`} href={copyHref(context.hrefBase, vehicleId, dialogBlock)}><Copy aria-hidden="true" size={18} />Kopiuj na inne auta</a> : undefined}>
@@ -562,7 +568,7 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
             {failure && !versionConflict && <Alert tone="error" title={failure} />}
           </div>
         ) : (
-          <form id="bc-form" noValidate className={styles.form} onSubmit={(event) => { event.preventDefault(); void submit(); }}>
+          <form id="bc-form" noValidate aria-busy={resolving || undefined} className={styles.form} onSubmit={(event) => { event.preventDefault(); void submit(); }}>
             <button type="submit" hidden tabIndex={-1} aria-hidden="true" />
             {discardAsk && (
               <Alert tone="warning" title="Odrzucić wpisane dane?">
@@ -587,10 +593,10 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
             )}
             {versionConflict && (
               <Alert tone="warning" title={saveErrorText("BLOCK_VERSION_CONFLICT")}>
-                {versionConflict.current ? `Aktualnie na serwerze: ${typeLabel(versionConflict.current.type)}, ${rangeText(versionConflict.current.from, versionConflict.current.to)}.` : "Wczytujemy aktualny stan blokady…"}
+                {versionConflict.current ? `Aktualnie na serwerze: ${typeLabel(versionConflict.current.type)}, ${rangeText(versionConflict.current.from, versionConflict.current.to)}.` : resolving ? <span role="status">Wczytujemy aktualny stan blokady…</span> : "Blokada nie istnieje już na serwerze."}
                 {" "}Twoje wpisy zostały zachowane.
                 <div className={styles.inlineActions}>
-                  <Button variant="secondary" size="sm" onClick={adoptCurrent}>Wczytaj aktualną wersję</Button>
+                  <Button variant="secondary" size="sm" disabled={resolving} onClick={adoptCurrent}>Wczytaj aktualną wersję</Button>
                 </div>
               </Alert>
             )}
