@@ -3,7 +3,8 @@ import type { routingProof } from "./proof";
 export type FailureCode = "OWNERSHIP_TXT_MISSING" | "OWNERSHIP_TXT_MISMATCH" | "CNAME_MISSING"
   | "CNAME_MISMATCH" | "ADDRESS_NOT_PUBLIC" | "DNS_ERROR" | "TLS_UNREACHABLE" | "TLS_INVALID"
   | "ROUTING_MISMATCH" | "DOMAIN_CONFIG_MISSING";
-export type CheckOutcome = { ok: true } | { ok: false; code: FailureCode };
+/** `tlsNotAfter` is the leaf certificate expiry read on the already verified routing connection (routing check only). */
+export type CheckOutcome = { ok: true; tlsNotAfter?: Date } | { ok: false; code: FailureCode };
 
 /** Network seam: production uses real DNS/TLS; tests inject a resolver or a fake. */
 export type DomainChecker = {
@@ -13,7 +14,7 @@ export type DomainChecker = {
 };
 
 export type DomainStage = "PENDING_OWNERSHIP" | "PENDING_ROUTING" | "READY";
-export type Evaluation = { status: DomainStage; failureCode: FailureCode | null };
+export type Evaluation = { status: DomainStage; failureCode: FailureCode | null; tlsNotAfter?: Date | null };
 
 export async function evaluateDomain(checker: DomainChecker, input: {
   hostname: string; token: string; proof: string; cnameTarget: string | null;
@@ -22,6 +23,6 @@ export async function evaluateDomain(checker: DomainChecker, input: {
   if (!ownership.ok) return { status: "PENDING_OWNERSHIP", failureCode: ownership.code };
   if (!input.cnameTarget) return { status: "PENDING_ROUTING", failureCode: "DOMAIN_CONFIG_MISSING" };
   const routing = await checker.checkRouting(input.hostname, { cnameTarget: input.cnameTarget, proof: input.proof });
-  return routing.ok ? { status: "READY", failureCode: null }
+  return routing.ok ? { status: "READY", failureCode: null, tlsNotAfter: routing.tlsNotAfter ?? null }
     : { status: "PENDING_ROUTING", failureCode: routing.code };
 }

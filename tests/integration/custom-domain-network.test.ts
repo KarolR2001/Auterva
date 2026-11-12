@@ -48,7 +48,10 @@ describe("ownership over real DNS", () => {
 describe("routing and TLS over a real handshake", () => {
   test("valid certificate, CNAME and proof is accepted and probes the exact host", async () => {
     const server = await serve(pki.issue(host));
-    expect(await routing(server.port)).toEqual({ ok: true });
+    const outcome = await routing(server.port);
+    expect(outcome).toMatchObject({ ok: true });
+    // The expiry comes from the verified connection itself (#417); no extra socket, no value from the DNS side.
+    expect(outcome.ok && outcome.tlsNotAfter instanceof Date && outcome.tlsNotAfter.getTime() > Date.now()).toBe(true);
     expect(server.hits).toEqual([`${host}/.well-known/auterva-domain-check/`]);
   });
 

@@ -249,6 +249,7 @@ model HostMapping {
   kind            String        @default("PROVIDER")
   status          String        @default("PENDING")
   canonicalTarget String?
+  checkedAt       DateTime?     @db.Timestamptz(6)
   createdAt       DateTime      @default(now()) @db.Timestamptz(6)
   organization    Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   customDomain    CustomDomain?
@@ -266,6 +267,7 @@ model CustomDomain {
   ownershipVerifiedAt DateTime?   @db.Timestamptz(6)
   routingVerifiedAt   DateTime?   @db.Timestamptz(6)
   tlsVerifiedAt       DateTime?   @db.Timestamptz(6)
+  tlsNotAfter         DateTime?   @db.Timestamptz(6)
   checkedAt           DateTime?   @db.Timestamptz(6)
   lastFailureCode     String?
   activatedAt         DateTime?   @db.Timestamptz(6)

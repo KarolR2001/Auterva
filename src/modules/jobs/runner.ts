@@ -2,6 +2,8 @@ import type { PrismaClient } from "@/generated/prisma/client";
 import { sweepExpiredRateLimits } from "./maintenance";
 import { processClaimedJob, type WorkerContext } from "./processor";
 import { processDueReminders } from "@/modules/reminders/deliver";
+import type { DomainDeps } from "@/modules/domains/config";
+import { recheckDueDomains } from "@/modules/domains/lifecycle";
 import { claimNextJob, type ClaimedJob } from "./queue";
 import { logFailure, runWithLogContext, type LogContext } from "@/modules/observability/log";
 import { iterationOutcome } from "@/modules/observability/worker-metrics";
@@ -14,6 +16,8 @@ export type RunnerOptions = {
   leaseMs?: number;
   pollMs?: number;
   afterClaim?: (claim: ClaimedJob) => Promise<void>;
+  /** #417: periodic re-check of ACTIVE custom domains (once per 24 h per domain). Omitted = no network checks. */
+  domains?: DomainDeps;
 };
 
 function wait(ms: number, signal: AbortSignal): Promise<void> {
@@ -32,6 +36,7 @@ export async function runWorkerLoop(options: RunnerOptions): Promise<void> {
   if (!Number.isSafeInteger(pollMs) || pollMs < 100 || pollMs > 60_000) throw new Error("Invalid worker poll interval");
   let nextSweepAt = 0;
   let nextReminderAt = 0;
+  let nextDomainAt = 0;
   while (!options.signal.aborted) {
     const now = clock();
     const jobCtx: LogContext = { operation: "jobs.process" };
@@ -44,6 +49,11 @@ export async function runWorkerLoop(options: RunnerOptions): Promise<void> {
         // At most once per poll interval, also while a backlog of jobs keeps the loop busy.
         nextReminderAt = now.getTime() + pollMs;
         await processDueReminders(options.db, now, options.context.key);
+      }
+      if (options.domains && now.getTime() >= nextDomainAt) {
+        nextDomainAt = now.getTime() + 60_000; // small batches keep mail polling responsive
+        await recheckDueDomains(options.db, options.domains.checker, options.domains.config, now,
+          { limit: 3, onError: (error) => logFailure("domains.recheck_failed", error, { operation: "domains.recheck" }) });
       }
       const claim = await claimNextJob(options.db, now, leaseMs, true);
       iterationOutcome("worker", true);

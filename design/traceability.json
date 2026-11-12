@@ -64,6 +64,15 @@
       "sharedWith": "Zależy od #383 (PR #395)."
     },
     {
+      "issue": 417,
+      "scope": "Backend diagnostyki uruchomienia firmy dla stanów z makiety #78 (D-52, D-63): data ważności certyfikatu TLS własnej domeny z progiem 21 dni (tlsExpiry), checkedAt adresów Autervy, jedno pole lastMail (zaproszenia i przypomnienia, bez resetu hasła) z ogólną przyczyną (cause) zamiast kodów, akcja „Sprawdź ponownie” (POST …/launch-diagnostics/recheck, limit 6/h na firmę, 5xx = wynik niepewny) i okresowe (24 h) ponowne sprawdzanie aktywnej domeny w workerze bez zmiany jej cyklu życia. Bez UI.",
+      "relatedRequirementIds": ["C-F035", "C-F089"],
+      "referenceScreenIds": ["PLT-03"],
+      "unmappedStates": ["Backend bez UI; stany diag-ok/warning/error/checking/uncertain/no-data (PLT-03) pokrywa Frontend #78 na tym API."],
+      "codePaths": ["docs/contracts/launch-diagnostics.md", "prisma/migrations/20261112120000_launch_diagnostics_checks_issue_417/migration.sql", "src/modules/organizations/launch-diagnostics.ts", "src/modules/domains/diagnostics-recheck.ts", "src/modules/domains/lifecycle.ts", "src/modules/domains/network-checker.ts", "src/modules/jobs/runner.ts", "src/app/api/platform/companies/[organizationId]/launch-diagnostics/recheck/route.ts"],
+      "testPaths": ["tests/integration/launch-diagnostics.test.ts", "tests/integration/launch-diagnostics-recheck.test.ts", "tests/integration/custom-domain-network.test.ts"]
+    },
+    {
       "issue": 371,
       "scope": "OVR-07 desktop (D-48): „Kopiuj na inne auta” w nagłówku okna edycji blokady obok tytułu (wspólny Dialog dostaje opcjonalne headerAction, addytywnie; okna bez niego bez zmian). Na mobile (do 480 px) zostaje przycisk pełnej szerokości nad „Usuń blokadę” (OVR-07-mobile-edit); ten sam href, w danej szerokości widoczny jeden link. Kolejność Tab: nagłówek, pola, Zamknij, Zapisz; fokus początkowy, Escape i powrót fokusu bez zmian.",
       "relatedRequirementIds": ["FR-ADM-055", "FR-ADM-057", "D-48"],

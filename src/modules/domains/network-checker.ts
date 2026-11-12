@@ -42,22 +42,32 @@ async function addressesOf(dns: DnsClient, hostname: string): Promise<string[] |
   return found;
 }
 
+function certificateExpiry(socket: unknown): Date | null {
+  try {
+    const cert = (socket as { getPeerCertificate?: () => { valid_to?: string } }).getPeerCertificate?.();
+    const parsed = cert?.valid_to ? new Date(cert.valid_to) : null;
+    return parsed && Number.isFinite(parsed.getTime()) ? parsed : null;
+  } catch { return null; }
+}
+
 function probe(address: string, hostname: string, tls: NetworkCheckerOptions["tls"]):
-  Promise<{ code: FailureCode } | { status: number; body: string }> {
+  Promise<{ code: FailureCode } | { status: number; body: string; notAfter: Date | null }> {
   return new Promise((resolve) => {
     const req = httpsRequest({
       host: address, port: tls.port, servername: hostname, path: WELL_KNOWN_CHECK_PATH, method: "GET",
       headers: { Host: hostname, Accept: "application/json" }, agent: false, ca: tls.ca,
       rejectUnauthorized: true, timeout: tls.timeoutMs,
     }, (response) => {
+      // Read on the connection that already passed rejectUnauthorized + the SSRF address policy: no extra socket.
+      const notAfter = certificateExpiry(response.socket);
       let body = "";
       let size = 0;
       response.on("data", (chunk: Buffer) => {
         size += chunk.length;
-        if (size > MAX_BODY) { response.destroy(); resolve({ status: response.statusCode ?? 0, body: "" }); return; }
+        if (size > MAX_BODY) { response.destroy(); resolve({ status: response.statusCode ?? 0, body: "", notAfter }); return; }
         body += chunk.toString("utf8");
       });
-      response.on("end", () => resolve({ status: response.statusCode ?? 0, body }));
+      response.on("end", () => resolve({ status: response.statusCode ?? 0, body, notAfter }));
       response.on("error", () => resolve({ code: "TLS_UNREACHABLE" }));
     });
     const deadline = setTimeout(() => req.destroy(new Error("deadline")), tls.timeoutMs);
@@ -112,7 +122,8 @@ export function createNetworkDomainChecker(options: NetworkCheckerOptions): Doma
         try {
           const parsed: unknown = JSON.parse(result.body);
           return typeof parsed === "object" && parsed !== null && "proof" in parsed && parsed.proof === expected.proof
-            ? { ok: true } : { ok: false, code: "ROUTING_MISMATCH" };
+            ? { ok: true, ...(result.notAfter ? { tlsNotAfter: result.notAfter } : {}) }
+            : { ok: false, code: "ROUTING_MISMATCH" };
         } catch { return { ok: false, code: "ROUTING_MISMATCH" }; }
       }
       return { ok: false, code: last };
