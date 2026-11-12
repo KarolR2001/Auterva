@@ -132,6 +132,81 @@ test("built ingress: security headers, nonce CSP, CSRF from a sibling host and b
   }
 });
 
+// #399: every kind of answer the built server gives carries the hardening set; every HTML document (any status, any area,
+// signed in or not) carries a fresh nonce policy, and every data answer (200, error, upload route) the closed one.
+test("built ingress: headers on panel, platform and public documents, authenticated data, errors and the Proxy-bypass upload route (#399)", async ({ baseURL }) => {
+  if (!baseURL) throw new Error("Missing trusted ingress URL");
+  const db = createPrismaClient(process.env.DATABASE_URL ?? "");
+  const port = Number(new URL(baseURL).port);
+  const organizationId = randomUUID();
+  const userId = randomUUID();
+  const host = { admin: `sec2-admin-${organizationId}.example.test`, publicSite: `sec2-public-${organizationId}.example.test`,
+    platform: `sec2-platform-${organizationId}.example.test` };
+  const authority = (name: keyof typeof host) => `${host[name]}:${port}`;
+  const closed = "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+  let session: Awaited<ReturnType<typeof verifiedFixtureSession>> | undefined;
+  try {
+    await db.organization.create({ data: { id: organizationId, slug: `sec2-${organizationId}` } });
+    await db.user.create({ data: { id: userId, name: "Security headers admin", role: "ADMIN_FIRMY", organizationId,
+      email: `sec2-${userId}@example.test`, emailVerified: true, twoFactorEnabled: true } });
+    await db.hostMapping.createMany({ data: [
+      { hostname: host.admin, area: "COMPANY_ADMIN", organizationId, status: "ACTIVE" },
+      { hostname: host.publicSite, area: "COMPANY_PUBLIC", organizationId, status: "ACTIVE" },
+      { hostname: host.platform, area: "PLATFORM", status: "ACTIVE" },
+    ] });
+    session = await verifiedFixtureSession(db, userId);
+    const cookie = { cookie: session.cookie };
+    const documents: Array<[string, string, Record<string, string>]> = [
+      ["admin", "/login/", {}], ["admin", "/admin/", cookie], ["admin", "/admin/pojazdy/", cookie], ["admin", "/admin/no-such-page/", cookie],
+      ["platform", "/login/", {}], ["platform", "/", {}], ["publicSite", "/", {}], ["publicSite", "/pojazdy/", {}], ["publicSite", "/kontakt/", {}],
+      ["publicSite", "/no-such-page/", {}],
+    ];
+    const nonces = new Set<string>();
+    for (const [name, path, headers] of documents) {
+      const reply = await send(port, authority(name as keyof typeof host), path, { headers });
+      const label = `${name} ${path} -> ${reply.status}`;
+      if (reply.status === 307 || reply.status === 308) { expectHardened(reply); continue; }
+      expectHardened(reply);
+      if (!/text\/html/.test(header(reply, "content-type"))) continue;
+      const csp = header(reply, "content-security-policy");
+      const nonce = /script-src 'self' 'nonce-([A-Za-z0-9+/=]+)' 'strict-dynamic'/.exec(csp)?.[1];
+      expect(nonce, label).toBeTruthy();
+      nonces.add(nonce!);
+      expect(csp, label).not.toMatch(/script-src[^;]*unsafe-(inline|eval)/);
+      expect(csp, label).toContain("frame-ancestors 'none'");
+      expect(csp, label).toContain("object-src 'none'");
+      for (const tag of reply.text.match(/<script\b[^>]*>/g) ?? []) expect(tag, label).toContain(`nonce="${nonce}"`);
+      if (name !== "publicSite") expect(header(reply, "cache-control"), label).toMatch(/no-store|private/);
+    }
+    expect(nonces.size, "a fresh nonce per document").toBeGreaterThan(3);
+
+    // Data answers: authenticated 200 JSON, validation error, not found and the upload route that bypasses Proxy.
+    const list = await send(port, authority("admin"), "/api/admin/vehicles/", { headers: cookie });
+    expect(list.status).toBe(200);
+    expectHardened(list);
+    expect(header(list, "content-security-policy")).toBe(closed);
+    expect(header(list, "cache-control")).toMatch(/no-store|private/);
+    const notFound = await send(port, authority("admin"), `/api/admin/vehicles/${randomUUID()}/`, { headers: cookie });
+    expect(notFound.status).toBe(404);
+    expectHardened(notFound);
+    expect(header(notFound, "content-security-policy")).toBe(closed);
+    const upload = await send(port, authority("admin"), `/api/admin/vehicles/${randomUUID()}/images/`, { method: "POST",
+      headers: { ...cookie, origin: `http://${authority("admin")}`, "content-type": "image/png", "content-length": "4" }, body: "nope" });
+    expect(upload.status).toBeGreaterThanOrEqual(400);
+    expect(upload.status).toBeLessThan(500);
+    expectHardened(upload);
+    expect(header(upload, "content-security-policy")).toBe(closed);
+    for (const reply of [list, notFound, upload]) expect(reply.text).not.toMatch(/\bat .*\(.*:\d+:\d+\)|node_modules|PrismaClient/);
+  } finally {
+    if (session) await session.dispose();
+    await db.auditLog.deleteMany({ where: { organizationId } });
+    await db.user.deleteMany({ where: { id: userId } });
+    await db.hostMapping.deleteMany({ where: { OR: [{ organizationId }, { hostname: host.platform }] } });
+    await db.organization.deleteMany({ where: { id: organizationId } });
+    await db.$disconnect();
+  }
+});
+
 function filesUnder(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
     const path = join(dir, entry);

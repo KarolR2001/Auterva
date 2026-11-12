@@ -2232,6 +2232,23 @@
       ]
     },
     {
+      "issue": 399,
+      "scope": "Lokalna regresja bezpieczeństwa i izolacji przed wydaniem (część #57, D-54): inwentarz limitów żądań (statyczny graf importów i zachowanie każdego handlera panelu), inwentarz Origin/CSRF mutacji poza panelem, nagłówki i CSP na dokumentach panelu, platformy i strony publicznej oraz na danych i trasie uploadu, redakcja błędów i logów przy awarii warstwy danych (poprawka: routeContext zamienia nieobsłużony wyjątek w neutralne 500), media innej firmy na hoście publicznym. Raport luk: docs/security/OWASP_CONTROLS.md. Staging i pentest: not-run (#90). Bez UI.",
+      "relatedRequirementIds": ["C-N001", "C-N006", "C-N007", "C-N017", "C-N029", "C-N032", "C-N036", "C-N044", "C-N057", "C-N061", "C-N062", "TEST-MVP-06", "TEST-MVP-33", "TEST-MVP-34"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/observability/route-context.ts",
+        "docs/security/OWASP_CONTROLS.md"
+      ],
+      "testPaths": [
+        "tests/unit/route-rate-limit-inventory.test.ts",
+        "tests/unit/route-context-errors.test.ts",
+        "tests/integration/error-redaction-5xx.test.ts",
+        "tests/integration/security-regression.test.ts",
+        "tests/e2e/security-headers.spec.ts"
+      ]
+    },
+    {
       "issue": 176,
       "scope": "Odrzucanie NUL i znakow sterujacych w polach tekstowych uwierzytelnionych mutacji (flota, blokady, firmy, profil konta) przez wspolna polityke tekstu; inwentarz mutacji z tras w security-regression pada dla nowej mutacji bez probki lub klasyfikacji. Bez UI.",
       "relatedRequirementIds": ["C-N001", "C-N006", "C-N007"],
