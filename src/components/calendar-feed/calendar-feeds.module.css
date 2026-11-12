@@ -255,3 +255,7 @@ form.card {
     flex: 1 1 100%;
   }
 }
+.summary {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-5);
+}

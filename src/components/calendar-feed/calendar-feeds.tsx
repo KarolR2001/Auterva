@@ -13,9 +13,10 @@ import { TextInput } from "../ui/text-input";
 import { createFeed, listFeeds, revokeFeed, rotateFeed, type FeedContext, type FeedResult } from "./feed-api";
 import {
   daysLeft, daysText, expiresSoon, findUnseenCreated, findUnseenRotated, formatDate, isUncertain, LABEL_MAX,
-  labelError, limitReached, metaLine, revokedOnList, SCOPE_TEXT, statusLabels,
-  type FeedItem, type FeedList, type FeedStatus, type IssuedFeed,
+  keepKnown, labelError, limitReached, metaLine, revokedOnList, scopeText, statusLabels, vehicleIdsErrorText,
+  vehicleSelectionError, type FeedItem, type FeedList, type FeedScope, type FeedStatus, type IssuedFeed,
 } from "./feed-model";
+import { FeedScopeFields, FeedScopeVehicles, usePublishedVehicles } from "./feed-scope";
 import styles from "./calendar-feeds.module.css";
 
 type Notice = { tone: "success" | "info" | "warning" | "error"; title: string; text?: string;
@@ -49,6 +50,9 @@ export function CalendarFeeds({ context, companyName, now: fixedNow }: Props) {
   const [view, setView] = useState<View>("list");
   const [label, setLabel] = useState("");
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const [scope, setScope] = useState<FeedScope>("FLEET");
+  const [selected, setSelected] = useState<string[]>([]);
+  const [scopeError, setScopeError] = useState<string | null>(null);
   const [issued, setIssued] = useState<{ feed: IssuedFeed; rotated: boolean } | null>(null);
   const [copy, setCopy] = useState<"idle" | "copied" | "failed">("idle");
   const [confirm, setConfirm] = useState<Confirm>(null);
@@ -58,8 +62,9 @@ export function CalendarFeeds({ context, companyName, now: fixedNow }: Props) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const now = fixedNow ?? new Date();
 
-  // Leaving with an address on screen loses it for good; a typed label is a draft. Both go through the shell guard.
-  useUnsavedChanges({ dirty: view === "issued" || (view === "create" && label.trim().length > 0), saving: pending !== null,
+  const published = usePublishedVehicles(view === "create" && scope === "VEHICLES");
+  // Leaving with an address on screen loses it for good; a typed label or a selection is a draft. Both go through the shell guard.
+  useUnsavedChanges({ dirty: view === "issued" || (view === "create" && (label.trim().length > 0 || selected.length > 0)), saving: pending !== null,
     contextLabel: view === "issued" ? "jednorazowo pokazany adres kalendarza" : "nowy adres kalendarza" });
 
   const load = useCallback(async () => {
@@ -102,8 +107,11 @@ export function CalendarFeeds({ context, companyName, now: fixedNow }: Props) {
     setNotice(null);
     focus(() => document.getElementById("feed-label"));
   }
+  function resetForm() {
+    setLabel(""); setFieldError(null); setScope("FLEET"); setSelected([]); setScopeError(null);
+  }
   function backToList() {
-    setView("list"); setLabel(""); setFieldError(null);
+    setView("list"); resetForm();
     focusNew();
   }
 
@@ -111,17 +119,31 @@ export function CalendarFeeds({ context, companyName, now: fixedNow }: Props) {
     event.preventDefault();
     if (pending) return;
     const error = labelError(label);
+    const selectionError = vehicleSelectionError(scope, selected);
     setFieldError(error);
-    if (error) { document.getElementById("feed-label")?.focus(); return; }
+    setScopeError(selectionError);
+    if (error || selectionError) { document.getElementById(error ? "feed-label" : "feed-vehicles")?.focus(); return; }
     const before = list?.items ?? [];
     setPending({ kind: "create" });
     setNotice(null);
     try {
-      const result = await createFeed(context, label);
+      // "Cała flota" sends no vehicleIds; only an explicit selection narrows the address (#366).
+      const result = await createFeed(context, label, scope === "VEHICLES" ? selected : null);
       if (result.ok) {
-        setLabel(""); setFieldError(null);
+        resetForm();
         reveal(result.data, false);
         void load();
+        return;
+      }
+      if (result.status === 400 && result.fieldErrors?.vehicleIds) {
+        const code = result.fieldErrors.vehicleIds;
+        // A vehicle unpublished or removed meanwhile: read the list again and keep only what is still there.
+        if (code === "VEHICLE_NOT_PUBLISHED" || code === "VEHICLE_NOT_FOUND") {
+          const fresh = await published.reload();
+          if (fresh) setSelected((current) => keepKnown(current, fresh));
+        }
+        setScopeError(vehicleIdsErrorText(code));
+        focus(() => document.getElementById("feed-vehicles"));
         return;
       }
       if (result.status === 400) {
@@ -142,7 +164,7 @@ export function CalendarFeeds({ context, companyName, now: fixedNow }: Props) {
       // Unknown outcome: never a success and never a blind second POST; the list decides what happened.
       const after = await load();
       const created = after ? findUnseenCreated(before, after.items, label) : null;
-      setView("list"); setLabel(""); setFieldError(null);
+      setView("list"); resetForm();
       if (created) {
         show({ tone: "warning", title: `Adres „${created.label}” powstał, ale nie dotarł do przeglądarki.`,
           text: "Nie można go odczytać ponownie. Obróć go, aby dostać nowy adres — nieodebrany przestanie działać.",
@@ -297,13 +319,22 @@ export function CalendarFeeds({ context, companyName, now: fixedNow }: Props) {
       {view === "create" && (
         <form className={styles.card} onSubmit={(event) => void submit(event)} noValidate aria-labelledby="feed-create">
           <h3 id="feed-create">Nowy adres kalendarza</h3>
+          {(fieldError || scopeError) && (
+            <Alert tone="error" title={`Do poprawy: ${[fieldError, scopeError].filter(Boolean).length}`}>
+              <ul className={styles.summary}>
+                {fieldError && <li><a href="#feed-label" onClick={(event) => { event.preventDefault(); document.getElementById("feed-label")?.focus(); }}>Etykieta</a>: {fieldError}</li>}
+                {scopeError && <li><a href="#feed-vehicles" onClick={(event) => { event.preventDefault(); document.getElementById("feed-vehicles")?.focus(); }}>Pojazdy</a>: {scopeError}</li>}
+              </ul>
+            </Alert>
+          )}
           <FormField id="feed-label" label="Etykieta" error={fieldError ?? undefined}
             hint={`Pomaga rozpoznać adres na liście. Do ${LABEL_MAX} znaków.`}>
             <TextInput value={label} required autoComplete="off" onChange={(event) => setLabel(event.target.value)} />
           </FormField>
-          <dl className={styles.facts}>
-            <div><dt>Zakres</dt><dd><strong>{SCOPE_TEXT}</strong> — wszystkie pojazdy opublikowane; szkice, ukryte i zarchiwizowane są pomijane.</dd></div>
-          </dl>
+          <FeedScopeFields scope={scope} selected={selected} vehicles={published.state} error={scopeError}
+            disabled={pending?.kind === "create"} onRetry={() => void published.reload()}
+            onScope={(next) => { setScope(next); setScopeError(null); }}
+            onSelected={(ids) => { setSelected(ids); setScopeError(null); }} />
           <p className={styles.hint}>
             Ważność: {list?.validityDays ?? 365} dni od utworzenia. Kalendarz pokazuje tylko „Niedostępny”: bez typu blokady,
             numeru odniesienia i notatek.
@@ -382,9 +413,10 @@ export function CalendarFeeds({ context, companyName, now: fixedNow }: Props) {
                               <Icon aria-hidden="true" size={16} />{statusLabels[item.status]}
                             </span>
                             <span aria-hidden="true">·</span>
-                            <span>Zakres: {SCOPE_TEXT}</span>
+                            <span>Zakres: {scopeText(item)}</span>
                           </p>
                           <p className={styles.meta}>{metaLine(item, now)}</p>
+                          <FeedScopeVehicles item={item} />
                         </div>
                         {item.status === "ACTIVE" && (
                           <div className={styles.itemActions}>
