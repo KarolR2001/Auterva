@@ -23,6 +23,7 @@ export const actionLabels: Record<string, string> = {
   MEDIA_CHANGED: "Zmiana zdjęć pojazdu", BLOCK_CREATED: "Dodanie blokady terminu", BLOCK_UPDATED: "Zmiana blokady terminu",
   BLOCK_DELETED: "Usunięcie blokady terminu", MFA_RECOVERY_CODE_USED: "Użycie kodu odzyskiwania MFA",
   MFA_BACKUP_CODES_ROTATED: "Nowa lista kodów odzyskiwania MFA", MFA_RECOVERY_STARTED: "Rozpoczęcie odzyskiwania MFA",
+  MFA_RECOVERY_COMPLETED: "Zakończenie odzyskiwania MFA",
   MFA_OPERATOR_RECOVERY: "Odzyskanie MFA przez operatora", BACKUP_RESTORED: "Przywrócenie z kopii",
   COMPANY_RESTORED_FROM_BACKUP: "Przywrócenie firmy z kopii",
   EXPORT_REQUESTED: "Zlecenie eksportu danych", EXPORT_READY: "Eksport danych gotowy", EXPORT_FAILED: "Eksport danych nieudany",

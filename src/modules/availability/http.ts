@@ -9,6 +9,7 @@ import { apiRateLimitResponse, takeAuthenticatedApiLimit } from "@/modules/tenan
 import { readJsonBody } from "@/modules/tenancy/json-body";
 import { resolveRequestArea, requireRequestContext } from "@/modules/tenancy/request-context";
 import { withErrorRequestId } from "@/modules/tenancy/request-id";
+import { reportInternalError, transientDbResponse } from "@/modules/observability/http-observe";
 import { availabilityToday, parseAvailabilityRange, type AvailabilityRange } from "./dates";
 import { getPrivateCalendar, getPrivateFleetCalendar, type VehicleStatus, getPublicAvailability, getPublicBatchAvailability, getPublicCalendar, getPublicNearestSlot } from "./read";
 
@@ -34,6 +35,15 @@ function rangeOrError(from: string, to: string, requestId: RequestId, publicRead
   return range;
 }
 
+/** One uncaught failure must never become a bare framework 500: transient DB errors are 503, the rest a reported 500 (#390). */
+async function guarded(requestId: RequestId, operation: string, run: () => Promise<Response>): Promise<Response> {
+  try { return await run(); }
+  catch (error) {
+    const busy = transientDbResponse(error, requestId, operation);
+    return busy ?? respond({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, operation));
+  }
+}
+
 async function publicLimit(requestId: RequestId): Promise<Response | null> {
   let address: string;
   try { address = trustedClientAddress(currentTrustedClientAddress()); }
@@ -47,8 +57,9 @@ async function jsonBody(request: Request): Promise<unknown> {
   return (await readJsonBody(request)) ?? null;
 }
 
-export async function publicCheck(request: Request): Promise<Response> {
+export function publicCheck(request: Request): Promise<Response> {
   const requestId = randomUUID();
+  return guarded(requestId, "availability.public", async () => {
   const limited = await publicLimit(requestId);
   if (limited) return limited;
   const parsed = checkBody.safeParse(await jsonBody(request));
@@ -57,10 +68,12 @@ export async function publicCheck(request: Request): Promise<Response> {
   if (range instanceof Response) return range;
   const result = await getPublicAvailability(prisma, request.headers.get("host") ?? "", parsed.data.slug, range);
   return result ? respond(result, 200, requestId) : respond({ code: "NOT_FOUND" }, 404, requestId);
+  });
 }
 
-export async function publicNext(request: Request): Promise<Response> {
+export function publicNext(request: Request): Promise<Response> {
   const requestId = randomUUID();
+  return guarded(requestId, "availability.public", async () => {
   const limited = await publicLimit(requestId);
   if (limited) return limited;
   const parsed = checkBody.safeParse(await jsonBody(request));
@@ -70,10 +83,12 @@ export async function publicNext(request: Request): Promise<Response> {
   const result = await getPublicNearestSlot(prisma, request.headers.get("host") ?? "", parsed.data.slug, range,
     availabilityToday());
   return result ? respond(result, 200, requestId) : respond({ code: "NOT_FOUND" }, 404, requestId);
+  });
 }
 
-export async function publicBatch(request: Request): Promise<Response> {
+export function publicBatch(request: Request): Promise<Response> {
   const requestId = randomUUID();
+  return guarded(requestId, "availability.public", async () => {
   const limited = await publicLimit(requestId);
   if (limited) return limited;
   const parsed = batchBody.safeParse(await jsonBody(request));
@@ -84,10 +99,12 @@ export async function publicBatch(request: Request): Promise<Response> {
   if (range instanceof Response) return range;
   const result = await getPublicBatchAvailability(prisma, request.headers.get("host") ?? "", parsed.data.slugs, range);
   return result ? respond(result, 200, requestId) : respond({ code: "NOT_FOUND" }, 404, requestId);
+  });
 }
 
-export async function publicCalendar(request: Request, slug: string): Promise<Response> {
+export function publicCalendar(request: Request, slug: string): Promise<Response> {
   const requestId = randomUUID();
+  return guarded(requestId, "availability.public", async () => {
   const limited = await publicLimit(requestId);
   if (limited) return limited;
   if (!slugText.safeParse(slug).success) return respond({ code: "NOT_FOUND" }, 404, requestId);
@@ -99,6 +116,7 @@ export async function publicCalendar(request: Request, slug: string): Promise<Re
   if (range instanceof Response) return range;
   const result = await getPublicCalendar(prisma, request.headers.get("host") ?? "", slug, range);
   return result ? respond(result, 200, requestId) : respond({ code: "NOT_FOUND" }, 404, requestId);
+  });
 }
 
 async function privateAccess(request: Request, expectedArea: "COMPANY_ADMIN" | "PLATFORM",
@@ -118,9 +136,10 @@ async function privateAccess(request: Request, expectedArea: "COMPANY_ADMIN" | "
 const intParam = /^[1-9]\d{0,6}$/;
 
 /** Fleet grid of one company (#65); the company comes from the host (admin) or the explicit platform context. */
-export async function privateFleetCalendar(request: Request, expectedArea: "COMPANY_ADMIN" | "PLATFORM",
+export function privateFleetCalendar(request: Request, expectedArea: "COMPANY_ADMIN" | "PLATFORM",
   targetOrganizationId?: string): Promise<Response> {
   const requestId = randomUUID();
+  return guarded(requestId, "availability.private", async () => {
   if (expectedArea === "PLATFORM" && !uuid.test(targetOrganizationId ?? "")) {
     return respond({ code: "INVALID_ID" }, 400, requestId);
   }
@@ -145,11 +164,13 @@ export async function privateFleetCalendar(request: Request, expectedArea: "COMP
   return respond(await getPrivateFleetCalendar(prisma, access.organizationId, range, Number(page), Number(pageSize),
     (status ?? undefined) as VehicleStatus | undefined),
     200, requestId);
+  });
 }
 
-export async function privateCalendar(request: Request, vehicleId: string,
+export function privateCalendar(request: Request, vehicleId: string,
   expectedArea: "COMPANY_ADMIN" | "PLATFORM", targetOrganizationId?: string): Promise<Response> {
   const requestId = randomUUID();
+  return guarded(requestId, "availability.private", async () => {
   if (!uuid.test(vehicleId) || (expectedArea === "PLATFORM" && !uuid.test(targetOrganizationId ?? ""))) {
     return respond({ code: "INVALID_ID" }, 400, requestId);
   }
@@ -164,4 +185,5 @@ export async function privateCalendar(request: Request, vehicleId: string,
   if (range instanceof Response) return range;
   const result = await getPrivateCalendar(prisma, organizationId, vehicleId, range);
   return result ? respond(result, 200, requestId) : respond({ code: "NOT_FOUND" }, 404, requestId);
+  });
 }

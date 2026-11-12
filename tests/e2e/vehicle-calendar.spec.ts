@@ -127,11 +127,24 @@ test("vehicle calendar: add, one day, overlap from two cards, version conflict, 
     await second.getByRole("button", { name: /Edytuj blokadę: Serwis/ }).first().click();
     await dialog(second).locator("#bc-type").selectOption({ label: "Inne" });
     await dialog(second).locator("#bc-internalNote").fill("Moja zmiana notatki");
+    // A failed read of the current version (500) is not "the block is gone": error with retry, entries kept, save blocked until a read succeeds.
+    await second.route(/\/availability\//, (route) => route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ code: "INTERNAL" }) }));
     await dialog(second).getByRole("button", { name: "Zapisz zmiany" }).click();
+    await expect(dialog(second).getByText("Nie udało się odczytać aktualnej wersji blokady.")).toBeVisible();
+    await expect(dialog(second).getByText("Blokada nie istnieje już na serwerze.")).toHaveCount(0);
+    await expect(dialog(second).locator("#bc-internalNote")).toHaveValue("Moja zmiana notatki");
+    await expect(dialog(second).getByRole("button", { name: "Zapisz zmiany" })).toBeDisabled();
+    await expect(dialog(second).getByRole("button", { name: "Spróbuj ponownie" })).toBeFocused();
+    await second.unroute(/\/availability\//);
+    await dialog(second).getByRole("button", { name: "Spróbuj ponownie" }).click();
     await expect(dialog(second).getByText("Blokada została zmieniona przez kogoś innego.")).toBeVisible();
     await expect(dialog(second).locator("#bc-internalNote")).toHaveValue("Moja zmiana notatki");
     expect((await db.availabilityBlock.findUniqueOrThrow({ where: { id: target.id } })).type).toBe("BLOCKED");
+    // The conflict message names the server's current state only once it is read; the load button and save are disabled until then.
+    await expect(dialog(second).getByText(/Aktualnie na serwerze:/)).toBeVisible();
     await dialog(second).getByRole("button", { name: "Wczytaj aktualną wersję" }).click();
+    await expect(dialog(second).getByText("Blokada została zmieniona przez kogoś innego.")).toHaveCount(0);
+    await expect(dialog(second).getByRole("button", { name: "Zapisz zmiany" })).toBeEnabled();
     await dialog(second).getByRole("button", { name: "Zapisz zmiany" }).click();
     await expect(second.getByText("Zmiany blokady zostały zapisane.")).toBeVisible();
     const merged = await db.availabilityBlock.findUniqueOrThrow({ where: { id: target.id } });
@@ -177,6 +190,7 @@ test("vehicle calendar: add, one day, overlap from two cards, version conflict, 
     // Archived vehicle: no new blocks, existing ones can still be deleted.
     await db.vehicle.update({ where: { id: car }, data: { status: "ARCHIVED" } });
     await page.goto(url);
+    await expect(page.getByRole("status", { name: "Ładowanie kalendarza pojazdu" })).toHaveCount(0);
     await expect(page.getByText("Pojazd jest zarchiwizowany.").first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Dodaj okres niedostępności" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Usuń blokadę/ }).first()).toBeVisible();

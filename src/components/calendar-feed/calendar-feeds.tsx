@@ -1,6 +1,6 @@
 "use client";
 
-import { Ban, Check, Circle, CircleCheck, Copy, RefreshCw } from "lucide-react";
+import { Ban, Check, Circle, CircleCheck, Copy, Info, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
 import { useUnsavedChanges } from "../panel/unsaved-changes-guard";
@@ -363,6 +363,12 @@ export function CalendarFeeds({ context, companyName, now: fixedNow }: Props) {
             </Alert>
           ))}
 
+          {phase === "ready" && list && atLimit && context.canManage && (
+            <Alert tone="warning" title={`Osiągnięto limit ${list.activeLimit} aktywnych adresów`}>
+              Odwołaj nieużywany adres, aby utworzyć nowy. Wygasłe i odwołane adresy nie wliczają się do limitu.
+            </Alert>
+          )}
+
           {phase === "loading" && <p role="status">Wczytywanie adresów…</p>}
           {phase === "error" && (
             <Alert tone="error" title="Nie udało się wczytać adresów kalendarza." action={{ label: "Spróbuj ponownie", onClick: () => void load() }}>
@@ -377,7 +383,7 @@ export function CalendarFeeds({ context, companyName, now: fixedNow }: Props) {
                   <h3 id="feed-list">Adresy kalendarza</h3>
                   <p className={styles.count}>Aktywne adresy: {list.activeCount} z {list.activeLimit}</p>
                 </div>
-                {context.canManage && (
+                {context.canManage && items.length > 0 && (
                   <div className={styles.createBar}>
                     <Button id="feed-new" onClick={openForm} disabled={atLimit} aria-describedby={atLimit ? "feed-limit" : undefined}>
                       {atLimit ? `Nowy adres (limit ${list.activeLimit})` : "Nowy adres kalendarza"}
@@ -398,6 +404,14 @@ export function CalendarFeeds({ context, companyName, now: fixedNow }: Props) {
                       ? "Utwórz adres i dodaj go w Kalendarzu Google, Apple lub Outlook, aby widzieć dni „Niedostępny” opublikowanych pojazdów."
                       : "Administrator firmy nie utworzył jeszcze żadnego adresu."}
                   </p>
+                  <ul className={styles.emptyFacts}>
+                    <li><Check aria-hidden="true" size={16} />Tylko pojazdy opublikowane</li>
+                    <li><Check aria-hidden="true" size={16} />Adres działa {list.validityDays} dni</li>
+                    <li><Check aria-hidden="true" size={16} />Do {list.activeLimit} aktywnych adresów</li>
+                  </ul>
+                  {context.canManage && (
+                    <Button id="feed-new" onClick={openForm} disabled={atLimit}>Utwórz pierwszy adres</Button>
+                  )}
                 </div>
               ) : (
                 <ul className={styles.list}>
@@ -442,11 +456,16 @@ export function CalendarFeeds({ context, companyName, now: fixedNow }: Props) {
             </section>
           )}
 
-          <p className={styles.hint}>
-            Kalendarz zawiera tylko daty zajętości i nazwy pojazdów opublikowanych, oznaczone jako „Niedostępny”. Bez typu
-            blokady, numeru odniesienia i notatek. Kalendarz Google odświeża subskrypcję co kilka godzin, Apple co 5–60 minut,
-            więc o dostępności zawsze rozstrzyga panel.
-          </p>
+          <div className={styles.info}>
+            <Info aria-hidden="true" size={20} />
+            <p>
+              Kalendarz Google odświeża subskrypcję co kilka godzin, Apple co 5–60 minut. O dostępności rozstrzyga panel.
+              Feed pokazuje tylko „Niedostępny” dla opublikowanych pojazdów.
+            </p>
+          </div>
+          {phase === "ready" && items.length > 0 && (
+            <p className={styles.hint}>Feed nie zawiera typu blokady, numeru odniesienia ani notatek.</p>
+          )}
         </>
       )}
 
@@ -464,9 +483,11 @@ export function CalendarFeeds({ context, companyName, now: fixedNow }: Props) {
         onOpenChange={(open) => { if (!open) setConfirm(null); }}
         type="destructive"
         title={`Odwołać adres „${confirm?.item.label ?? ""}”?`}
-        description="Adres przestanie działać od razu, a aplikacje kalendarza z tą subskrypcją przestaną się odświeżać. Tego nie można cofnąć."
+        description="Adres przestanie działać od razu, a aplikacje kalendarza z tą subskrypcją przestaną się odświeżać. Kopie w aplikacjach mogą pokazywać stare dane do czasu odświeżenia."
         primaryAction={{ label: "Odwołaj adres", onClick: confirmAction }}
-      />
+      >
+        <Alert tone="warning" title="Tej operacji nie można cofnąć">Nowy adres utworzysz osobno.</Alert>
+      </Dialog>
     </div>
   );
 }

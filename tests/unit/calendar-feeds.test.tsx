@@ -81,8 +81,13 @@ describe("ekran kalendarza zewnętrznego", () => {
     expect(await screen.findByText("Nie ma jeszcze adresów kalendarza.")).toBeInTheDocument();
     expect(screen.getByText("Aktywne adresy: 0 z 5")).toBeInTheDocument();
     expect(screen.getByText(/Kalendarz Google odświeża subskrypcję co kilka godzin, Apple co 5–60 minut/)).toBeInTheDocument();
-    expect(screen.getByText(/tylko daty zajętości i nazwy pojazdów opublikowanych/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Nowy adres kalendarza" })).toBeEnabled();
+    expect(screen.getByText(/Feed pokazuje tylko „Niedostępny” dla opublikowanych pojazdów/)).toBeInTheDocument();
+    expect(screen.getByText("Tylko pojazdy opublikowane")).toBeInTheDocument();
+    expect(screen.getByText("Adres działa 365 dni")).toBeInTheDocument();
+    expect(screen.getByText("Do 5 aktywnych adresów")).toBeInTheDocument();
+    expect(screen.queryByText("Feed nie zawiera typu blokady, numeru odniesienia ani notatek.")).toBeNull();
+    expect(screen.getByRole("button", { name: "Utwórz pierwszy adres" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Nowy adres kalendarza" })).toBeNull();
   });
 
   it("lista: status tekstem i ikoną, akcje tylko dla aktywnych, ostrzeżenie o wygasaniu, limit 5", async () => {
@@ -107,6 +112,9 @@ describe("ekran kalendarza zewnętrznego", () => {
     const create = screen.getByRole("button", { name: "Nowy adres (limit 5)" });
     expect(create).toBeDisabled();
     expect(create).toHaveAccessibleDescription(/5 z 5 aktywnych adresów/);
+    expect(screen.getByText("Osiągnięto limit 5 aktywnych adresów")).toBeInTheDocument();
+    expect(screen.getByText(/Wygasłe i odwołane adresy nie wliczają się do limitu/)).toBeInTheDocument();
+    expect(screen.getByText("Feed nie zawiera typu blokady, numeru odniesienia ani notatek.")).toBeInTheDocument();
     // The list answer never carries an address; nothing secret is rendered.
     expect(document.body.innerHTML).not.toContain("/api/calendar/feed/");
   });
@@ -119,7 +127,7 @@ describe("ekran kalendarza zewnętrznego", () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
     render(<CalendarFeeds context={adminFeedContext} now={now} />);
-    await user.click(await screen.findByRole("button", { name: "Nowy adres kalendarza" }));
+    await user.click(await screen.findByRole("button", { name: /Nowy adres kalendarza|Utwórz pierwszy adres/ }));
     await waitFor(() => expect(screen.getByLabelText(/Etykieta/)).toHaveFocus());
     await user.click(screen.getByRole("button", { name: "Utwórz adres" }));
     expect(screen.getByText(/Podaj etykietę/, { selector: "#feed-label-error" })).toBeInTheDocument();
@@ -148,7 +156,7 @@ describe("ekran kalendarza zewnętrznego", () => {
     const orphan = item("n", { label: "Telefon" });
     const calls = mockApi([listOf([]), listOf([orphan])], { post: () => Response.json({ code: "INTERNAL_ERROR" }, { status: 500 }) });
     render(<CalendarFeeds context={adminFeedContext} now={now} />);
-    await user.click(await screen.findByRole("button", { name: "Nowy adres kalendarza" }));
+    await user.click(await screen.findByRole("button", { name: /Nowy adres kalendarza|Utwórz pierwszy adres/ }));
     await user.type(screen.getByLabelText(/Etykieta/), "Telefon");
     await user.click(screen.getByRole("button", { name: "Utwórz adres" }));
     expect(await screen.findByText("Adres „Telefon” powstał, ale nie dotarł do przeglądarki.")).toBeInTheDocument();
@@ -163,7 +171,7 @@ describe("ekran kalendarza zewnętrznego", () => {
     const user = userEvent.setup();
     mockApi([listOf([])], { post: () => { throw new TypeError("Failed to fetch"); } });
     render(<CalendarFeeds context={adminFeedContext} now={now} />);
-    await user.click(await screen.findByRole("button", { name: "Nowy adres kalendarza" }));
+    await user.click(await screen.findByRole("button", { name: /Nowy adres kalendarza|Utwórz pierwszy adres/ }));
     await user.type(screen.getByLabelText(/Etykieta/), "Biuro");
     await user.click(screen.getByRole("button", { name: "Utwórz adres" }));
     expect(await screen.findByText("Nie wiemy, czy adres został utworzony.")).toBeInTheDocument();
@@ -176,7 +184,7 @@ describe("ekran kalendarza zewnętrznego", () => {
     const full = listOf([item("1"), item("2"), item("3"), item("4"), item("5")]);
     mockApi([listOf([item("1")]), full], { post: () => Response.json({ code: "FEED_LIMIT_REACHED" }, { status: 409 }) });
     render(<CalendarFeeds context={adminFeedContext} now={now} />);
-    await user.click(await screen.findByRole("button", { name: "Nowy adres kalendarza" }));
+    await user.click(await screen.findByRole("button", { name: /Nowy adres kalendarza|Utwórz pierwszy adres/ }));
     await user.type(screen.getByLabelText(/Etykieta/), "Szósty");
     await user.click(screen.getByRole("button", { name: "Utwórz adres" }));
     expect(await screen.findByText("Osiągnięto limit aktywnych adresów.")).toBeInTheDocument();
@@ -212,6 +220,7 @@ describe("ekran kalendarza zewnętrznego", () => {
     render(<CalendarFeeds context={adminFeedContext} now={now} />);
     await user.click(await screen.findByRole("button", { name: "Odwołaj adres Zespół" }));
     expect(screen.getByRole("button", { name: "Anuluj" })).toHaveFocus();
+    expect(screen.getByText("Tej operacji nie można cofnąć")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Odwołaj adres" }));
     expect(await screen.findByText("Nie wiemy, czy adres został odwołany.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Ponów odwołanie" }));
@@ -298,7 +307,7 @@ describe("zakres adresu kalendarza: tworzenie i lista", () => {
     const created = { ...item("n", { label: "Dwa auta", scope: "VEHICLES", vehicles: [fleet[0], fleet[2]] }), token: secret, path: "/x", url: feedUrl };
     const calls = mockScopeApi([fleet], [listOf([])], () => Response.json(created, { status: 201 }));
     render(<CalendarFeeds context={adminFeedContext} now={now} />);
-    await user.click(await screen.findByRole("button", { name: "Nowy adres kalendarza" }));
+    await user.click(await screen.findByRole("button", { name: "Utwórz pierwszy adres" }));
     const group = screen.getByRole("group", { name: "Zakres" });
     expect(within(group).getByRole("radio", { name: /Cała flota/ })).toBeChecked();
     expect(within(group).getByRole("radio", { name: /Cała flota/ })).toHaveAccessibleDescription("Wszystkie pojazdy opublikowane.");
@@ -330,7 +339,7 @@ describe("zakres adresu kalendarza: tworzenie i lista", () => {
     const fleet = Array.from({ length: 52 }, (_, i) => vehicle(i + 1));
     mockScopeApi([fleet], [listOf([])], () => Response.json({}, { status: 500 }));
     render(<CalendarFeeds context={adminFeedContext} now={now} />);
-    await user.click(await screen.findByRole("button", { name: "Nowy adres kalendarza" }));
+    await user.click(await screen.findByRole("button", { name: "Utwórz pierwszy adres" }));
     await user.click(screen.getByRole("radio", { name: /Wybrane pojazdy/ }));
     const search = await screen.findByRole("searchbox", { name: "Szukaj pojazdu" });
     await user.type(search, "Auto 52");
@@ -352,7 +361,7 @@ describe("zakres adresu kalendarza: tworzenie i lista", () => {
     const calls = mockScopeApi([fleet, [fleet[1]]], [listOf([])],
       () => Response.json({ code: "INVALID_INPUT", fieldErrors: { vehicleIds: "VEHICLE_NOT_PUBLISHED" } }, { status: 400 }));
     render(<CalendarFeeds context={adminFeedContext} now={now} />);
-    await user.click(await screen.findByRole("button", { name: "Nowy adres kalendarza" }));
+    await user.click(await screen.findByRole("button", { name: "Utwórz pierwszy adres" }));
     await user.type(screen.getByLabelText(/Etykieta/), "Biuro");
     await user.click(screen.getByRole("radio", { name: /Wybrane pojazdy/ }));
     await user.click(await screen.findByRole("checkbox", { name: "Auto 1" }));
