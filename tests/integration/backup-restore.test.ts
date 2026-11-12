@@ -207,6 +207,10 @@ test("full restore into a new database and bucket passes integrity, revokes cred
   } finally {
     await sourceClient.$disconnect();
   }
+  // #387: an account with a recovery in progress at backup time; its session id points at a session no restore keeps.
+  const pendingSession = randomUUID();
+  await live.query(`UPDATE "user" SET "mfaRecoveryPendingAt" = now(), "mfaRecoverySessionId" = $1 WHERE id = $2`, [pendingSession, ids.adminB]);
+  await live.query(`UPDATE "session" SET id = $1 WHERE "userId" = $2`, [pendingSession, ids.adminB]);
   const started = Date.now();
   const { dir, manifest } = await createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" });
   const backupMs = Date.now() - started;
@@ -240,6 +244,10 @@ test("full restore into a new database and bucket passes integrity, revokes cred
       expect(JSON.stringify(job.payload)).not.toContain("secret-mail-body");
     }
     expect((await restored.query(`SELECT count(*)::int AS n FROM "Job" WHERE status IN ('PENDING', 'RUNNING') AND kind LIKE 'MAIL%'`)).rows[0].n).toBe(0);
+    // #387: the pending recovery stays on the account, but its session is gone, so only the operator procedure (D-05) frees it.
+    expect((await restored.query(`SELECT "mfaRecoveryPendingAt" IS NOT NULL AS pending, "mfaRecoverySessionId" AS sid FROM "user" WHERE id = $1`, [ids.adminB])).rows)
+      .toEqual([{ pending: true, sid: pendingSession }]);
+    expect((await restored.query(`SELECT count(*)::int AS n FROM "session" WHERE id = $1`, [pendingSession])).rows[0].n).toBe(0);
     // D-54: blocks keep their data (a restore is a DB copy, nothing is published), feeds are revoked, exports expire.
     expect((await restored.query(`SELECT count(*)::int AS n FROM "AvailabilityBlock" WHERE "organizationId" = ANY($1::uuid[]) AND "internalNote" LIKE 'note-%'`, [[A, B]])).rows[0].n).toBe(2);
     expect((await restored.query(`SELECT count(*)::int AS n FROM "CalendarFeedToken" WHERE "revokedAt" IS NULL`)).rows[0].n).toBe(0);
@@ -267,6 +275,7 @@ test("full restore into a new database and bucket passes integrity, revokes cred
   }
   const mailAfter = await fetch(`${process.env.MAILPIT_URL}/api/v1/messages`).then((r) => r.json()).catch(() => null);
   expect(mailAfter?.total ?? 0).toBe(mailBefore?.total ?? 0);
+  await live.query(`UPDATE "user" SET "mfaRecoveryPendingAt" = NULL, "mfaRecoverySessionId" = NULL WHERE id = $1`, [ids.adminB]);
   // The source is untouched by a restore into another database.
   expect((await live.query(`SELECT count(*)::int AS n FROM "session" WHERE "userId" = $1`, [ids.adminA])).rows[0].n).toBe(1);
 }, TEST_TIMEOUT_MS);
@@ -357,6 +366,8 @@ test("restoring company A returns A to the backup state while B keeps its newer 
   // not the seed, must lock the recreated account.
   await live.query(`UPDATE "user" SET "disabledAt" = now() WHERE id = $1`, [ids.adminA]);
   await live.query(`UPDATE "user" SET "disabledAt" = NULL WHERE id = $1`, [ids.adminA2]);
+  // #387: the user that will be recreated was mid-recovery at backup time; its pending state must not come back.
+  await live.query(`UPDATE "user" SET "mfaRecoveryPendingAt" = now(), "mfaRecoverySessionId" = 'gone-session' WHERE id = $1`, [ids.adminA2]);
   const { dir } = await createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" });
   const aAtBackup = await company(live, A);
 
@@ -373,6 +384,9 @@ test("restoring company A returns A to the backup state while B keeps its newer 
   await live.query(`UPDATE "account" SET password = 'rotated-live-hash' WHERE "userId" = $1`, [ids.adminA]);
   await live.query(`UPDATE "twoFactor" SET secret = 'rotated-secret', "failedVerificationCount" = 3, "lockedUntil" = now() + interval '1 hour' WHERE "userId" = $1`, [ids.adminA]);
   await live.query(`DELETE FROM "user" WHERE id = $1`, [ids.adminA2]);
+  // #387: live recovery in progress for the kept user (started after the backup) must survive the restore.
+  const liveRecoverySession = randomUUID();
+  await live.query(`UPDATE "user" SET "mfaRecoveryPendingAt" = now(), "mfaRecoverySessionId" = $1 WHERE id = $2`, [liveRecoverySession, ids.adminA]);
   // B7: the payment change after the backup produced intents for the new boundary; they must outlive the restore.
   await live.query(`INSERT INTO "ReminderIntent" (id, "organizationId", "effectiveEndsAt", "offsetDays", channel, "slotAt", source, "periodVersion", status)
     VALUES ($1, $2, now() + interval '60 days', 7, 'EMAIL', now() + interval '53 days', 'PAID', 5, 'PENDING')`, [randomUUID(), A]);
@@ -420,6 +434,13 @@ test("restoring company A returns A to the backup state while B keeps its newer 
   expect((await live.query(`SELECT count(*)::int AS n FROM "account" WHERE "userId" = $1`, [ids.adminA2])).rows[0].n).toBe(0);
   expect((await live.query(`SELECT count(*)::int AS n FROM "twoFactor" WHERE "userId" = $1`, [ids.adminA2])).rows[0].n).toBe(0);
   expect(report.usersLocked).toEqual([ids.adminA2]);
+  // #387: pending recovery is live state of the kept factor; the recreated user has none. The recovery session is revoked.
+  expect((await live.query(`SELECT "mfaRecoverySessionId" AS sid, "mfaRecoveryPendingAt" IS NOT NULL AS pending FROM "user" WHERE id = $1`, [ids.adminA])).rows)
+    .toEqual([{ sid: liveRecoverySession, pending: true }]);
+  expect((await live.query(`SELECT "mfaRecoverySessionId" AS sid, "mfaRecoveryPendingAt" AS pending FROM "user" WHERE id = $1`, [ids.adminA2])).rows)
+    .toEqual([{ sid: null, pending: null }]);
+  expect((await live.query(`SELECT count(*)::int AS n FROM "session" WHERE id = $1`, [liveRecoverySession])).rows[0].n).toBe(0);
+  await live.query(`UPDATE "user" SET "mfaRecoveryPendingAt" = NULL, "mfaRecoverySessionId" = NULL WHERE id = $1`, [ids.adminA]);
   // B7: intents of the new boundary survive (plan stays live); the quarantine still skips the stale queued one.
   expect((await live.query(`SELECT status FROM "ReminderIntent" WHERE "organizationId" = $1 ORDER BY status`, [A])).rows)
     .toEqual([{ status: "PENDING" }, { status: "SKIPPED" }]);
