@@ -112,6 +112,27 @@
       "sharedWith": "Rozszerza #217; wzorzec useUnsavedChanges jak w vehicle-calendar i vehicle-form."
     },
     {
+      "issue": 367,
+      "scope": "Zakres prywatnego adresu iCal na ekranie „Kalendarz zewnętrzny” (ADM-22 state=create, E11, D-47; API #366): grupa radio „Cała flota” (domyślnie) / „Wybrane pojazdy (opublikowane)”; przy wyborze lista opublikowanych pojazdów firmy z listy floty panelu (status=PUBLISHED, strony po 100), wyszukiwanie powyżej 8 pojazdów, limit 50 (pozostałe pola nieaktywne z objaśnieniem), min. 1 — komunikat przy polu, podsumowanie „Do poprawy” i fokus na grupie; vehicleIds wysyłane tylko dla wybranych pojazdów; 400 fieldErrors.vehicleIds (VEHICLE_NOT_PUBLISHED, VEHICLE_NOT_FOUND, OUT_OF_RANGE, DUPLICATE) jako zrozumiały komunikat przy polu, przy nieopublikowanym/nieistniejącym ponowny odczyt listy i usunięcie go z wyboru, bez sukcesu i bez utraty etykiety. Lista adresów (admin i superadmin, tylko odczyt): „Zakres: Cała flota” albo „Zakres: N pojazdów” z rozwijaną listą nazw; pusty zakres po usunięciu pojazdów objaśniony. Rotacja bez zmian (serwer zachowuje zakres); wynik niepewny jak w #355.",
+      "referenceScreenIds": ["ADM-22"],
+      "relatedRequirementIds": ["C-N006", "C-N029"],
+      "scenarioStates": {
+        "create": "ADM-22 / create — desktop b4e99770-b096-80ee-8008-ece4de62b468, mobile b4e99770-b096-80ee-8008-ece599d8ec7d (grupa „Zakres”)",
+        "list": "ADM-22 / list — desktop b4e99770-b096-80ee-8008-ece3be60ca2f, mobile b4e99770-b096-80ee-8008-ece44aca7386 („Zakres: 3 pojazdy”)"
+      },
+      "unmappedStates": ["Rozwinięta lista pojazdów przy „Wybrane pojazdy”, wyszukiwanie, limit 50, błędy wyboru i rozwijane nazwy na liście nie mają osobnych plansz w Penpocie (create pokazuje tylko obie opcje radio); wzorzec listy z checkboxami i wyszukiwaniem jak w ADM-10 bulk (#217)."],
+      "codePaths": [
+        "src/components/calendar-feed/feed-scope.tsx",
+        "src/components/calendar-feed/feed-scope.module.css",
+        "src/components/calendar-feed/calendar-feeds.tsx",
+        "src/components/calendar-feed/calendar-feeds.module.css",
+        "src/components/calendar-feed/feed-api.ts",
+        "src/components/calendar-feed/feed-model.ts"
+      ],
+      "sharedWith": "API: docs/contracts/calendar-feed-implementation.md, sekcja „Zakres pojazdów” (#366).",
+      "testPaths": ["tests/unit/calendar-feeds.test.tsx", "tests/e2e/calendar-feeds-ui.spec.ts"]
+    },
+    {
       "issue": 376,
       "scope": "Backend zbiorczych blokad (#215, D-32): identyfikatory pojazdów, blokady źródłowej i klucz idempotencji są normalizowane do małych liter przy parsowaniu, więc UUID wielkimi literami nie daje 500, a ten sam pojazd w dwóch pisowniach to 400 INVALID_INPUT; skrót wejścia idempotencji liczony z wartości znormalizowanych. Bez zmian UI.",
       "referenceScreenIds": [],
@@ -121,6 +142,16 @@
         "docs/contracts/availability-nearest-and-bulk-blocks.md"
       ],
       "testPaths": ["tests/integration/availability-bulk-blocks.test.ts"]
+    },
+    {
+      "issue": 380,
+      "scope": "Blokada zbiorcza: Enter w polu „Szukaj pojazdu” nie wysyła formularza (bez podglądu konfliktów, podsumowania błędów i przeniesienia fokusu); fokus zostaje w polu, konflikty sprawdza przycisk lub Enter w polach blokady. Bez zmiany wyglądu. Klawiatura i fokus: WCAG 2.4.3.",
+      "relatedRequirementIds": ["FR-ADM-055", "FR-ADM-057", "D-32", "D-48"],
+      "referenceScreenIds": ["ADM-10", "OVR-07"],
+      "unmappedStates": ["Porównanie z makietą w Penpocie: DEFERRED (#263); zmiana nie modyfikuje wyglądu."],
+      "codePaths": ["src/components/admin/bulk-blocks.tsx"],
+      "testPaths": ["tests/unit/bulk-blocks.test.tsx"],
+      "sharedWith": "Rozszerza #217."
     },
     {
       "issue": 342,
@@ -175,7 +206,7 @@
         "revokeDialog": "ADM-22 / dialog odwołania — desktop b4e99770-b096-80ee-8008-ece518495d6a, mobile b4e99770-b096-80ee-8008-ece521001e24"
       },
       "unmappedStates": [
-        "Zakres „Wybrane pojazdy” z makiety create: API #327 nie przyjmuje zakresu (POST tylko { label }), więc każdy adres obejmuje całą flotę (pojazdy opublikowane); wybór pojazdów wymaga zmiany Backend.",
+        "Zakres „Wybrane pojazdy” z makiety create: poza #355 (API #327 przyjmowało tylko { label }); zakres pojazdów przyjmuje API #366, a wybór przy tworzeniu i zakres na liście wdraża #367.",
         "„Obróć” przy wygasłym adresie z makiety list: API rotacji zwraca 404 dla wygasłego, więc akcji nie ma; wygasły adres zastępuje nowy.",
         "Okruszki „Ustawienia / Kalendarz zewnętrzny” w treści: aplikacja pokazuje tytuł powłoki „Ustawienia” i nawigację Ustawień z bieżącą pozycją."
       ],
