@@ -38,6 +38,11 @@ test("settings nav: Tab brings every section tab fully into view at 320 and 390 
       const links = nav.getByRole("link");
       const count = await links.count();
       expect(count).toBeGreaterThan(1);
+      // #372: pełna nazwa w nazwie dostępnej, krótka etykieta „Kalendarz” widoczna na wąskim ekranie.
+      const calendar = nav.getByRole("link", { name: "Kalendarz zewnętrzny" });
+      await expect(calendar).toBeVisible();
+      await expect(calendar.getByText("Kalendarz", { exact: true })).toBeVisible();
+      expect((await calendar.locator("span").nth(1).boundingBox())?.width ?? 0).toBeLessThanOrEqual(1);
       await links.first().focus();
       for (let index = 0; index < count; index += 1) {
         if (index > 0) await page.keyboard.press("Tab");

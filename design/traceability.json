@@ -22,6 +22,17 @@
       "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
     },
     {
+      "issue": 381,
+      "scope": "Lista pojazdów: „Wyczyść filtry” (arkusz filtrów i stan „Brak wyników”) czyści wyszukiwanie, filtry i stronę, ale zachowuje sortowanie „Ostatnia zmiana”; sortowanie wraca do kolejności w ofercie wyłącznie przez „Przywróć domyślne” / przycisk sortowania (D-42, D-50). Zachowanie bez zmian wyglądu.",
+      "relatedRequirementIds": ["FR-ADM-020", "FR-ADM-021", "FR-ADM-022"],
+      "referenceScreenIds": ["ADM-04", "ADM-05"],
+      "scenarioStates": {
+        "list": "ADM-04 (mobile) i ADM-05 (desktop) / lista pojazdów z filtrami i sortowaniem; ID stanów w Penpocie bez zmian względem wpisów #34 i #337"
+      },
+      "codePaths": ["src/components/admin/vehicle-list.tsx"],
+      "testPaths": ["tests/unit/vehicle-list-reset.test.tsx", "tests/e2e/admin-fleet.spec.ts"]
+    },
+    {
       "issue": 375,
       "scope": "ADM-05 toolbar listy pojazdów na wąskim desktopie (1024-1200 px): zamknięte pola Publikacja i Kategoria mają co najmniej 120 px (min-width pigułek, węższe minimum Szukaj, krótka widoczna etykieta „Zmiana” przycisku sortowania poniżej 900 px kontenera; nazwa dostępna „Ostatnia zmiana, sortowanie: …” bez zmian), a Szukaj, Publikacja, Kategoria, sortowanie i „Dodaj pojazd” zostają w jednym rzędzie. Tylko CSS i etykieta; bez zmian logiki. Plansza Penpota: Desktop a4abf4c9-2e1f-80fd-8008-afeba8dd6131.",
       "relatedRequirementIds": ["C-F095", "C-F097", "FR-ADM-021", "FR-ADM-022"],
@@ -29,6 +40,28 @@
       "codePaths": ["src/components/admin/vehicle-list.tsx", "src/components/admin/admin.module.css"],
       "testPaths": ["tests/e2e/admin-fleet.spec.ts"],
       "sharedWith": "Rozszerza toolbar z #337."
+    },
+    {
+      "issue": 383,
+      "scope": "Kalendarz pojazdu: po konflikcie wersji, gdy aktualna wersja blokady jest jeszcze wczytywana, „Zapisz zmiany” i „Wczytaj aktualną wersję” są zablokowane (disabled, aria-busy na formularzu, komunikat statusu), więc nie da się wysłać starej wersji; po wczytaniu fokus wraca na pierwsze pole. Wspólny Dialog dostaje opcjonalne primaryAction.disabled (addytywnie). Test E2E czeka na stan zamiast zakładać szybkie wczytanie.",
+      "relatedRequirementIds": ["FR-ADM-055", "FR-ADM-057"],
+      "referenceScreenIds": ["OVR-07"],
+      "unmappedStates": ["Stan wczytywania aktualnej wersji nie ma osobnej planszy w Penpocie; wygląd bez zmian (porównanie: DEFERRED #263)."],
+      "codePaths": [
+        "src/components/admin/vehicle-calendar.tsx",
+        "src/components/ui/dialog.tsx"
+      ],
+      "testPaths": ["tests/unit/vehicle-calendar.test.tsx", "tests/e2e/vehicle-calendar.spec.ts"]
+    },
+    {
+      "issue": 396,
+      "scope": "Kalendarz pojazdu: po konflikcie wersji odczyt aktualnej wersji ma trzy wyniki (znaleziona / blokada nie istnieje / błąd odczytu). Błąd odczytu (5xx, sieć, nieczytelna odpowiedź) pokazuje komunikat z ikoną „Nie udało się odczytać aktualnej wersji blokady.” i przycisk „Spróbuj ponownie” (fokus na nim, ponowienie wraca do stanu wczytywania); wpisy zostają, „Zapisz zmiany” jest zablokowany do czasu odczytu, bez informacji o usunięciu. To samo w oknie usuwania. Wygląd: istniejący Alert tone=error.",
+      "relatedRequirementIds": ["FR-ADM-055", "FR-ADM-057"],
+      "referenceScreenIds": ["OVR-07"],
+      "unmappedStates": ["Stan błędu odczytu aktualnej wersji nie ma osobnej planszy w Penpocie; wygląd bez zmian, wspólny Alert (porównanie: DEFERRED #263)."],
+      "codePaths": ["src/components/admin/vehicle-calendar.tsx"],
+      "testPaths": ["tests/unit/vehicle-calendar.test.tsx", "tests/e2e/vehicle-calendar.spec.ts"],
+      "sharedWith": "Zależy od #383 (PR #395)."
     },
     {
       "issue": 371,
@@ -152,6 +185,58 @@
       "codePaths": ["src/components/admin/bulk-blocks.tsx"],
       "testPaths": ["tests/unit/bulk-blocks.test.tsx"],
       "sharedWith": "Rozszerza #217."
+    },
+    {
+      "issue": 387,
+      "scope": "Bezpieczeństwo MFA (D-05 pkt 4–5): po zalogowaniu kodem odzyskania konto ma trwały stan „odzyskanie w toku” (user.mfaRecoveryPendingAt + mfaRecoverySessionId). Do potwierdzenia nowego TOTP logowanie samym hasłem daje neutralne 401 bez sesji, a enable/verify-totp przyjmuje wyłącznie sesja, która zużyła kod; potwierdzenie czyści stan i dopisuje audyt MFA_RECOVERY_COMPLETED. Porzucone odzyskanie odblokowuje tylko procedura operatora. Obie role (admin firmy, superadmin). Bez zmian UI.",
+      "relatedRequirementIds": ["C-F011", "C-F013", "C-F014"],
+      "referenceScreenIds": [],
+      "unmappedStates": ["Backend bez UI."],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261111200000_mfa_recovery_pending_issue_387/migration.sql",
+        "src/app/api/auth/[...all]/route.ts",
+        "src/modules/audit/append.ts",
+        "src/modules/audit/view.ts",
+        "scripts/recover-mfa.ts",
+        "docs/contracts/technical-limits-and-mfa-bootstrap.md"
+      ],
+      "testPaths": ["tests/integration/mfa-recovery-pending.test.ts", "tests/integration/auth-http.test.ts"]
+    },
+    {
+      "issue": 393,
+      "scope": "Wznowienie czatu po ready z backlog \"refetch\" (ponad 200 wiadomości zaległości): klient zachowuje własny kursor sprzed ready (ready.cursor to głowa rozmowy), dociąga lukę przez HTTP after=<własny kursor> stronami do hasNewer:false, wiadomości na żywo z gniazda wstrzymuje do końca dociągania (kolejność, deduplikacja po id), dopiero potem przyjmuje kursor najnowszej wiadomości na liście. Błąd dociągania: komunikat z ponowieniem, kursor zostaje na ostatniej pełnej stronie, bez cichej utraty. Replay/none bez zmian. Porównanie z Penpotem DEFERRED (#263): stan błędu używa istniejącego wzorca Alert czatu.",
+      "relatedRequirementIds": ["C-F132", "C-N066"],
+      "referenceScreenIds": ["TEN-11"],
+      "unmappedStates": ["Stan „Wczytywanie wiadomości z czasu rozłączenia” i błąd dociągania luki bez osobnej planszy; wzorzec jak błąd wczytania rozmowy."],
+      "codePaths": ["src/components/chat/chat-panel.tsx"],
+      "testPaths": ["tests/unit/chat-panel.test.tsx", "tests/e2e/chat-refetch.spec.ts"]
+    },
+    {
+      "issue": 377,
+      "scope": "Backend eksportu danych firmy (D-40, poprawka #328): żądanie POST …/export wygasza READY po terminie i porzuca PENDING tą samą funkcją przejścia co sweep i worker (transitions.ts): w jednej transakcji audyt systemowy EXPORT_EXPIRED/EXPORT_FAILED (bez treści) i zamknięcie joba porzuconego eksportu (FAILED), także gdy żądanie jest odrzucone; sweep nie audytuje drugi raz.",
+      "referenceScreenIds": [],
+      "unmappedStates": ["Backend bez UI."],
+      "codePaths": [
+        "src/modules/company-export/transitions.ts",
+        "src/modules/company-export/service.ts",
+        "src/modules/company-export/worker.ts",
+        "docs/contracts/company-export-implementation.md"
+      ],
+      "testPaths": ["tests/integration/company-export.test.ts"]
+    },
+    {
+      "issue": 390,
+      "scope": "Poprawka publicznego API dostępności: data późniejsza niż 9998-12-31 to 400 INVALID_DATE_RANGE (nie 500 z przepełnienia roku 10000), arytmetyka najbliższego terminu nasyca się na 9999-12-31, a odczyty dostępności mają wspólny wrapper błędów (503 dla przejściowych błędów bazy, 500 INTERNAL_ERROR z X-Request-Id, no-store i reportInternalError). Bez zmian UI.",
+      "referenceScreenIds": [],
+      "unmappedStates": ["Backend bez UI."],
+      "codePaths": [
+        "src/modules/availability/dates.ts",
+        "src/modules/availability/read.ts",
+        "src/modules/availability/http.ts",
+        "docs/contracts/availability-reads.md"
+      ],
+      "testPaths": ["tests/unit/availability.test.ts", "tests/unit/availability-nearest.test.ts", "tests/integration/availability-public-errors.test.ts"]
     },
     {
       "issue": 342,
@@ -2534,6 +2619,39 @@
       "codePaths": ["src/modules/public-offer/query.ts", "src/modules/public-offer/read.ts"],
       "testPaths": ["tests/unit/public-offer.test.ts", "tests/integration/public-offer.test.ts"],
       "sharedWith": "Rozszerza katalog z #40; kontrakt: docs/contracts/public-offer-seo.md."
+    },
+    {
+      "issue": 372,
+      "scope": "ADM-22 „Kalendarz zewnętrzny”: dopasowanie stanów do makiety (D-49), poprawka do #355. Limit: alert u góry z zastrzeżeniem, że wygasłe i odwołane adresy nie wliczają się do limitu; stan pusty z faktami (tylko pojazdy opublikowane, adres działa 365 dni, do 5 aktywnych adresów) i przyciskiem „Utwórz pierwszy adres”; objaśnienie D-47/D-49 w ramce informacyjnej z ikoną Info oraz stopka listy o braku typu blokady, numeru odniesienia i notatek; dialog odwołania z alertem „Tej operacji nie można cofnąć”; na wąskim ekranie pozycja nawigacji Ustawień ma krótką etykietę „Kalendarz” (pełna nazwa w nazwie dostępnej).",
+      "relatedRequirementIds": ["C-N006", "C-N029"],
+      "referenceScreenIds": ["ADM-22"],
+      "scenarioStates": {
+        "list": "ADM-22 / list — desktop b4e99770-b096-80ee-8008-ece3be60ca2f, mobile b4e99770-b096-80ee-8008-ece44aca7386",
+        "empty": "ADM-22 / empty — desktop b4e99770-b096-80ee-8008-ece4bd2bb6c9, mobile b4e99770-b096-80ee-8008-ece592dc97af",
+        "limit": "ADM-22 / limit — desktop b4e99770-b096-80ee-8008-ece4668644e9, mobile b4e99770-b096-80ee-8008-ece5447204b2",
+        "revokeDialog": "ADM-22 / dialog odwołania — desktop b4e99770-b096-80ee-8008-ece518495d6a, mobile b4e99770-b096-80ee-8008-ece521001e24"
+      },
+      "unmappedStates": [
+        "Pionowa karta nawigacji Ustawień na desktopie (makieta): aplikacja zachowuje poziome zakładki całych Ustawień.",
+        "Krótkie etykiety pozostałych zakładek mobilnych (Firma, Kontakt, SEO, Prawne): poza zakresem #372."
+      ],
+      "codePaths": [
+        "src/components/calendar-feed/calendar-feeds.tsx",
+        "src/components/calendar-feed/calendar-feeds.module.css",
+        "src/components/settings/settings-nav.tsx",
+        "src/components/settings/settings.module.css"
+      ],
+      "testPaths": ["tests/unit/calendar-feeds.test.tsx", "tests/e2e/calendar-feeds-ui.spec.ts", "tests/e2e/settings-nav-focus.spec.ts"],
+      "sharedWith": "Zależy od #355 (PR #365). Wybór pojazdów w stanie create: #367."
+    },
+    {
+      "issue": 379,
+      "scope": "Blokada zbiorcza i kopia (ADM-10): gdy okres zaczyna się przed dzisiaj (Europe/Warsaw; w kopii start blokady źródłowej), ten sam komunikat i potwierdzenie co przy pojedynczej blokadzie (DS-FRM-015, wariant administracyjny). Podgląd dryRun działa bez potwierdzenia, zapis bez niego nie wysyła żądania i ustawia fokus na potwierdzeniu; zmiana dat cofa potwierdzenie. Bez zmian API.",
+      "relatedRequirementIds": ["DS-FRM-015", "D-32", "D-48"],
+      "referenceScreenIds": ["ADM-10"],
+      "codePaths": ["src/components/admin/bulk-blocks.tsx", "src/components/admin/bulk-blocks-model.ts"],
+      "testPaths": ["tests/unit/bulk-blocks.test.tsx", "tests/e2e/bulk-blocks.spec.ts"],
+      "sharedWith": "Reguła startsInPast z src/components/admin/vehicle-calendar-model.ts (pojedyncza blokada, #217)."
     }
   ],
   "sources": [
