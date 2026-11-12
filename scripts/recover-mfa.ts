@@ -33,7 +33,8 @@ export async function recoverMfaByOperator(db: PrismaClient, input: OperatorReco
     if (!current || (current.role !== "SUPERADMIN_AUTERVA" && current.role !== "ADMIN_FIRMY")) throw new Error("Recovery target is not an administrator");
     const revoked = await tx.session.deleteMany({ where: { userId: user.id } });
     await tx.twoFactor.deleteMany({ where: { userId: user.id } });
-    await tx.user.update({ where: { id: user.id }, data: { twoFactorEnabled: false } });
+    // Clears a pending self-service recovery too (#387): after this only a limited fresh enrollment remains.
+    await tx.user.update({ where: { id: user.id }, data: { twoFactorEnabled: false, mfaRecoveryPendingAt: null, mfaRecoverySessionId: null } });
     await tx.verification.deleteMany({ where: { identifier: { startsWith: "auterva:mfa:" }, value: { contains: `"userId":"${user.id}"` } } });
     // A backup restore leaves an administrator it had to recreate locked: disabled and without a credential
     // password. The same verified-identity procedure lifts exactly that state: the account is enabled with an
