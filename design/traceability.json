@@ -70,7 +70,7 @@
       "referenceScreenIds": ["ADM-11", "ADM-12", "ADM-13", "ADM-14", "ADM-22"],
       "unmappedStates": ["Sekcja „Wygląd publiczny” nie ma pozycji w makiecie nawigacji; w aplikacji zostaje z krótką etykietą „Wygląd”."],
       "codePaths": ["src/components/settings/settings-nav.tsx", "src/components/settings/settings.module.css"],
-      "testPaths": ["tests/e2e/settings-nav-focus.spec.ts", "tests/e2e/settings-routes.spec.ts", "tests/e2e/admin-a11y.spec.ts"],
+      "testPaths": ["tests/e2e/settings-nav-focus.spec.ts", "tests/unit/settings-routes.test.tsx", "tests/e2e/settings-ui.spec.ts", "tests/e2e/admin-a11y.spec.ts"],
       "sharedWith": "Zależy od #372."
     },
     {
