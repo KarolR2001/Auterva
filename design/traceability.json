@@ -42,6 +42,18 @@
       "sharedWith": "Rozszerza toolbar z #337."
     },
     {
+      "issue": 383,
+      "scope": "Kalendarz pojazdu: po konflikcie wersji, gdy aktualna wersja blokady jest jeszcze wczytywana, „Zapisz zmiany” i „Wczytaj aktualną wersję” są zablokowane (disabled, aria-busy na formularzu, komunikat statusu), więc nie da się wysłać starej wersji; po wczytaniu fokus wraca na pierwsze pole. Wspólny Dialog dostaje opcjonalne primaryAction.disabled (addytywnie). Test E2E czeka na stan zamiast zakładać szybkie wczytanie.",
+      "relatedRequirementIds": ["FR-ADM-055", "FR-ADM-057"],
+      "referenceScreenIds": ["OVR-07"],
+      "unmappedStates": ["Stan wczytywania aktualnej wersji nie ma osobnej planszy w Penpocie; wygląd bez zmian (porównanie: DEFERRED #263)."],
+      "codePaths": [
+        "src/components/admin/vehicle-calendar.tsx",
+        "src/components/ui/dialog.tsx"
+      ],
+      "testPaths": ["tests/unit/vehicle-calendar.test.tsx", "tests/e2e/vehicle-calendar.spec.ts"]
+    },
+    {
       "issue": 371,
       "scope": "OVR-07 desktop (D-48): „Kopiuj na inne auta” w nagłówku okna edycji blokady obok tytułu (wspólny Dialog dostaje opcjonalne headerAction, addytywnie; okna bez niego bez zmian). Na mobile (do 480 px) zostaje przycisk pełnej szerokości nad „Usuń blokadę” (OVR-07-mobile-edit); ten sam href, w danej szerokości widoczny jeden link. Kolejność Tab: nagłówek, pola, Zamknij, Zapisz; fokus początkowy, Escape i powrót fokusu bez zmian.",
       "relatedRequirementIds": ["FR-ADM-055", "FR-ADM-057", "D-48"],
