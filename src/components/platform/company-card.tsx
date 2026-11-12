@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useUnsavedChanges } from "../panel/unsaved-changes-guard";
 import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
+import { CompanyDiagnostics } from "./company-diagnostics";
 import { CompanyDomain } from "./company-domain";
 import { ArchiveSection, CompanyStatus, PeriodSection, companyHostLine } from "./company-ops";
 import { PlatformPageHeader } from "./page-header";
@@ -179,6 +180,7 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
       <div className={styles.layout}>
       <div className={styles.layoutAside}>
         <CompanyStatus company={company} />
+        <CompanyDiagnostics organizationId={company.organizationId} archived={archived} />
         <ArchiveSection company={company} base={opsBase} reload={() => refresh(true)} />
       </div>
       <div className={styles.layoutMain}>

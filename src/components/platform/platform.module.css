@@ -234,3 +234,21 @@
   .layoutMain { grid-column: 1; grid-row: 1; }
   .layoutAside { grid-column: 2; grid-row: 1; position: sticky; top: var(--space-4); }
 }
+
+/* #78: diagnostyka domeny i poczty na karcie firmy (PLT-03, statusy według SPEC 4.2.5) */
+.diagBlock { display: grid; gap: var(--space-3); padding-top: var(--space-4); border-top: var(--border-width-hairline) solid var(--border-subtle); }
+.panelCard > .diagBlock:first-of-type { border-top: 0; padding-top: 0; }
+.diagTitle { margin: 0; font-size: var(--font-size-18); line-height: var(--line-height-26); color: var(--text-primary); }
+.diagBadge { display: inline-flex; align-items: center; gap: var(--space-2); width: fit-content; max-width: 100%; margin: 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); color: var(--text-primary); font-weight: var(--font-weight-semibold); font-size: var(--font-size-14); line-height: var(--line-height-20); }
+.diagBadge svg { flex: none; }
+.diag_ok { border: var(--border-width-active) solid var(--status-success-border); background: var(--status-success-surface); }
+.diag_warning { border: var(--border-width-active) dashed var(--status-warning-border); background: var(--status-warning-surface); }
+.diag_error { border: var(--border-width-active) solid var(--status-error-border); background: repeating-linear-gradient(135deg, var(--status-error-surface) 0 2px, transparent 2px 8px); }
+.diag_waiting { border: var(--border-width-hairline) dashed var(--status-draft-border); background: transparent; }
+.diag_uncertain { border: var(--border-width-active) dashed var(--status-unavailable-border); background: var(--status-unavailable-surface); }
+.diag_info { border: var(--border-width-hairline) solid var(--status-info-border); background: transparent; color: var(--status-info-text); }
+.diagSubject { margin: 0; color: var(--text-primary); overflow-wrap: anywhere; }
+.diagDate { margin: 0; color: var(--text-secondary); font-size: var(--font-size-14); line-height: var(--line-height-20); }
+.diagLive { margin: 0; color: var(--text-primary); font-weight: var(--font-weight-semibold); }
+.diagNotice { display: flex; align-items: flex-start; gap: var(--space-2); margin: 0; color: var(--text-primary); font-size: var(--font-size-14); }
+.diagNotice svg { flex: none; margin-top: 2px; }

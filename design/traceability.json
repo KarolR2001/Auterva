@@ -2451,6 +2451,32 @@
       "testPaths": ["tests/unit/sessions-view.test.tsx", "tests/e2e/account-ui.spec.ts"]
     },
     {
+      "issue": 78,
+      "scope": "PLT-03 karta firmy (superadmin): sekcja Diagnostyka pod Statusem firmy (D-52, D-63) na API #77 — bloki Domena i Poczta, status tekstem + ikona Lucide + obramowanie (SPEC 4.2.5), ogólny opis i kolejny krok bez tokenów TXT, wartości DNS i kodów błędów, data ostatniego sprawdzenia. Sprawdź ponownie (48 px): domena = istniejące POST weryfikacji, poczta = ponowny odczyt; w trakcie komunikat aria-live i zablokowany przycisk, po wyniku fokus wraca na przycisk; 5xx/brak odpowiedzi = Wynik niepewny z ostatnim potwierdzonym wynikiem, bez fałszywego sukcesu. Poczta obejmuje tylko zaproszenia i przypomnienia (bez resetu hasła, D-63). Archiwum: Nie dotyczy, bez przycisków. Pola #417 (data ważności TLS, checkedAt adresu Autervy, jedno pole ostatniej wysyłki, kategoria przyczyny) są opcjonalne; bez nich stan nie zgaduje (np. brak ostrzeżenia o certyfikacie). Porównanie z Penpotem: Mobile 390 z eksportu, Desktop 1440 z eksportu sprzed poprawki przykładowej domeny (układ zgodny); rzeczywisty VoiceOver DEFERRED (#97).",
+      "relatedRequirementIds": ["C-F035", "C-F089", "D-52", "D-63"],
+      "referenceScreenIds": ["PLT-03"],
+      "scenarioStates": {
+        "diag-ok": "PLT-03 / state=diag-ok — desktop 342ca6e3-588e-80dd-8008-eeef8586ee6e, mobile 342ca6e3-588e-80dd-8008-eef22ba72f83",
+        "diag-warning": "PLT-03 / state=diag-warning — desktop 342ca6e3-588e-80dd-8008-eef0c2232155, mobile 342ca6e3-588e-80dd-8008-eef29911836e",
+        "diag-error": "PLT-03 / state=diag-error — desktop 342ca6e3-588e-80dd-8008-eef170b8c2d8, mobile 342ca6e3-588e-80dd-8008-eef2abae2adf",
+        "diag-checking": "PLT-03 / state=diag-checking — desktop 342ca6e3-588e-80dd-8008-eef18a02c294, mobile 342ca6e3-588e-80dd-8008-eef2dab45e44",
+        "diag-uncertain": "PLT-03 / state=diag-uncertain — desktop 342ca6e3-588e-80dd-8008-eef1bc7d7194, mobile 342ca6e3-588e-80dd-8008-eef2ed5336cc",
+        "diag-no-data": "PLT-03 / state=diag-no-data — desktop 342ca6e3-588e-80dd-8008-eef1d100de1b, mobile 342ca6e3-588e-80dd-8008-eef2ff4fba78"
+      },
+      "unmappedStates": [
+        "Stan diag-warning domeny (certyfikat wygasa wkrótce) wymaga pola daty ważności z #417; do czasu jego wejścia aplikacja go nie pokazuje.",
+        "Dawny tekst pola „Własna domena” w sklonowanym formularzu makiety: aplikacja używa tych samych danych co Diagnostyka."
+      ],
+      "codePaths": [
+        "src/components/platform/company-diagnostics.tsx",
+        "src/components/platform/launch-diagnostics-model.ts",
+        "src/components/platform/company-card.tsx",
+        "src/components/platform/platform.module.css"
+      ],
+      "testPaths": ["tests/unit/company-diagnostics.test.tsx", "tests/e2e/platform-company-diagnostics.spec.ts"],
+      "sharedWith": "API: #77 (docs/contracts/launch-diagnostics.md); pola opcjonalne z #417."
+    },
+    {
       "issue": 53,
       "scope": "PLT-09 skrzynka superadmina (/wiadomosci): lista rozmów (firma, ostatnia wiadomość, czas, nowe tekstem, filtr archiwum; bez wyszukiwania, bo kontrakt go nie przewiduje), jeden kanał platformy /ws/platform z regułą klucza (version, lastSeq, readSeq) i odświeżaniem co 30 s, wspólny widok rozmowy z #52 (ChatPanel) z jednoznacznym odbiorcą, osobne szkice i niewysłane wiadomości per (konto, rozmowa), przełączanie bez dialogu i bez utraty szkicu (remount per firma, wynik starego żądania zostaje przy swojej rozmowie), archiwum tylko do odczytu (409 CHAT_ORGANIZATION_ARCHIVED), split-view od 1024 px, osobne widoki i Wstecz poniżej, wejście z karty firmy (?firma=). Bez załączników i poczty. Porównanie z Penpotem DEFERRED (#263).",
       "relatedRequirementIds": ["C-F121", "C-F122", "C-F123", "C-F124", "C-F134", "C-F135", "C-F136", "C-F137", "DS-N09"],
