@@ -1,7 +1,7 @@
 import { formatRangeShort } from "@/modules/public-offer/presentation";
 import type { BulkCopyBody, BulkCreateBody, OnConflict, Rejection } from "./bulk-blocks-api";
 import type { BlockTypeCode } from "./calendar-api";
-import { typeLabel, validateValues, type BlockValues } from "./vehicle-calendar-model";
+import { startsInPast, typeLabel, validateValues, type BlockValues } from "./vehicle-calendar-model";
 
 // Pure rules of the bulk block screen (#217, D-32, D-48). Whether a vehicle collides or fits its activity is the server's
 // answer (dryRun or save); the screen only checks the technical shape of the input and keeps one idempotency key per input.
@@ -24,6 +24,14 @@ export function validateDraft(mode: BulkMode, draft: BulkDraft): Partial<Record<
   else if (draft.vehicleIds.length > MAX_BULK_VEHICLES) errors.vehicles = `Jedno żądanie obejmuje najwyżej ${MAX_BULK_VEHICLES} pojazdów. Odznacz część i zapisz resztę osobno.`;
   else if (new Set(draft.vehicleIds).size !== draft.vehicleIds.length) errors.vehicles = "Pojazd wybrano dwukrotnie.";
   return errors;
+}
+
+/**
+ * True when the period to save starts before today (Europe/Warsaw, `today` comes from the server): the same rule as the single block
+ * (`startsInPast`). Bulk takes the typed start; a copy takes the source block's start. A malformed date is left to validation.
+ */
+export function bulkStartsInPast(mode: BulkMode, draft: BulkDraft, source: BulkSource | null, today: string): boolean {
+  return startsInPast({ ...draft, from: mode === "copy" ? source?.from ?? "" : draft.from }, today);
 }
 
 /** The request without `dryRun` and key: equal inputs share one idempotency key, any change of data needs a new one. */

@@ -89,7 +89,7 @@ function challengeKey(cookie: string) {
 async function matchingMfaAccount(db: PrismaClient | Prisma.TransactionClient, userId: string, scope: NonNullable<Awaited<ReturnType<typeof resolveAuthHost>>>) {
   const user = await db.user.findUnique({ where: { id: userId }, select: {
     id: true, email: true, role: true, organizationId: true, disabledAt: true, emailVerified: true, twoFactorEnabled: true,
-    organization: { select: { archivedAt: true } },
+    mfaRecoveryPendingAt: true, organization: { select: { archivedAt: true } },
   } });
   if (!user || !user.emailVerified || user.disabledAt) return null;
   if (scope.area === "PLATFORM") return user.role === "SUPERADMIN_AUTERVA" && user.organizationId === null ? user : null;
@@ -100,6 +100,13 @@ async function lockCredentialAccount(tx: Prisma.TransactionClient, userId: strin
   const held = await tx.$queryRaw<Array<{ id: string }>>`
     SELECT id FROM "account" WHERE "userId" = ${userId} AND "providerId" = 'credential' FOR UPDATE`;
   return held.length === 1;
+}
+
+// #387: while a recovery is pending (old factor removed, new one not confirmed) only the session that consumed the
+// recovery code may enroll or confirm a factor. Any other session, e.g. one from a later password login, is refused.
+async function recoveryBlocksSession(tx: Prisma.TransactionClient, userId: string, sessionId: string) {
+  const user = await tx.user.findUnique({ where: { id: userId }, select: { mfaRecoverySessionId: true } });
+  return Boolean(user?.mfaRecoverySessionId) && user?.mfaRecoverySessionId !== sessionId;
 }
 
 async function handleMfaManagement(request: Request, pathname: string, instance: typeof auth, scope: NonNullable<Awaited<ReturnType<typeof resolveAuthHost>>>, sourceIp: string, baseURL: string, auditRequestId: string) {
@@ -400,6 +407,7 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
         const txInstance = createAuth(tx, false, externalUrl.origin);
         const current = await requireScopedActor(tx, txInstance, request.headers, scope!);
         if (current?.sessionId !== enableActor.sessionId || current.twoFactorEnabled) return neutral();
+        if (await recoveryBlocksSession(tx, enableActor.userId, enableActor.sessionId)) return neutral();
         const factor = await tx.twoFactor.findFirst({ where: { userId: enableActor.userId }, select: { verified: true } });
         if (factor?.verified) return neutral();
         return toNextJsHandler(txInstance)[method](authRequest());
@@ -423,7 +431,9 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
           revokedSessions: revoked.count,
         });
         await tx.twoFactor.deleteMany({ where: { userId: challengeUser.id } });
-        await tx.user.update({ where: { id: challengeUser.id }, data: { twoFactorEnabled: false } });
+        // The pending state is durable: until the new TOTP is confirmed a password alone opens no session (#387).
+        await tx.user.update({ where: { id: challengeUser.id }, data: { twoFactorEnabled: false,
+          mfaRecoveryPendingAt: new Date(), mfaRecoverySessionId: session.session.id } });
         await tx.verification.deleteMany({ where: { identifier: { startsWith: "auterva:mfa:" }, value: { contains: `"userId":"${challengeUser.id}"` } } });
         return Response.json({ enrollmentRequired: true }, { status: verified.status, headers: verified.headers });
       });
@@ -439,6 +449,7 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
         if (enrollmentActor) {
           const current = await requireScopedActor(tx, txInstance, request.headers, scope!);
           if (current?.sessionId !== enrollmentActor.sessionId || current.twoFactorEnabled !== enrollmentActor.twoFactorEnabled) return neutral();
+          if (await recoveryBlocksSession(tx, enrollmentActor.userId, enrollmentActor.sessionId)) return neutral();
           const proof = await tx.session.findUnique({ where: { id: enrollmentActor.sessionId }, select: { mfaVerifiedAt: true } });
           if (current.twoFactorEnabled && proof?.mfaVerifiedAt) return neutral();
         }
@@ -455,6 +466,16 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
         }
         if (verified.ok && challenge) await tx.verification.deleteMany({ where: { id: challenge.id } });
         if (verified.ok && enrollmentActor && !enrollmentActor.twoFactorEnabled) {
+          const finished = await tx.user.updateMany({ where: { id: enrollmentActor.userId, mfaRecoverySessionId: enrollmentActor.sessionId },
+            data: { mfaRecoveryPendingAt: null, mfaRecoverySessionId: null } });
+          if (finished.count) {
+            const fullSession = await sessionFromResponse(txInstance, request, verified);
+            if (!fullSession) throw new Error("Recovery enrollment has no session");
+            await appendAudit(tx, {
+              actorId: enrollmentActor.userId, sessionId: fullSession.session.id, organizationId: enrollmentActor.organizationId,
+              action: "MFA_RECOVERY_COMPLETED", entityId: enrollmentActor.userId, eventKey: randomUUID(), requestId: auditRequestId,
+            });
+          }
           const codes = await txInstance.api.viewBackupCodes({ body: { userId: enrollmentActor.userId } });
           return Response.json({ status: true, backupCodes: codes.backupCodes }, { status: verified.status, headers: verified.headers });
         }
@@ -499,6 +520,9 @@ async function guarded(request: Request, method: "GET" | "POST", auditRequestId:
         // our lookup and BA's read, its success still rolls back without a cookie.
         const signedIn = await toNextJsHandler(createAuth(tx, false, externalUrl.origin))[method](authRequest());
         if (!permitted) throw new SignInScopeDenied();
+        // #387: the old factor is gone until the recovery session confirms a new TOTP; a password alone must not
+        // open an enrollment session in that window. Neutral 401 after the same credential work as any other state.
+        if (permitted.mfaRecoveryPendingAt) throw new SignInScopeDenied();
         if (signedIn.ok) {
           const result = await signedIn.clone().json().catch(() => null) as { twoFactorRedirect?: boolean } | null;
           if (permitted.twoFactorEnabled && !result?.twoFactorRedirect) throw new SignInScopeDenied();

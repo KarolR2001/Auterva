@@ -172,6 +172,28 @@ test("bulk block: dryRun preview saves nothing, ABORT/SKIP report, copy, unknown
     await expect(page).toHaveURL(`${adminOrigin}/admin/kalendarz/`);
     await expect(region.getByRole("link", { name: /Auto Delta: Serwis/ })).toBeVisible();
 
+    // #379: a period that starts before today warns; the preview needs no confirmation, the save does (keyboard), and a date change withdraws it.
+    await open.click();
+    await page.getByLabel(/^Od/).fill(day(-3));
+    await page.getByLabel(/^Do/).fill(day(-2));
+    await page.getByRole("checkbox", { name: /Auto Delta/ }).check();
+    await expect(page.getByText("Termin zaczyna się w przeszłości.")).toBeVisible();
+    await page.getByRole("button", { name: "Sprawdź konflikty" }).click();
+    await expect(page.getByText("Podgląd konfliktów — nic nie zapisano")).toBeVisible();
+    await page.getByRole("button", { name: "Zapisz blokadę" }).click();
+    await expect(page.getByText("Potwierdź zapis okresu z przeszłości.")).toBeVisible();
+    await expect(page.getByRole("checkbox", { name: "Rozumiem, zapisz okres z przeszłości" })).toBeFocused();
+    expect(await blocksOf(carDelta)).toHaveLength(1);
+    await page.keyboard.press("Space");
+    await page.getByLabel(/^Do/).fill(day(-1));
+    await expect(page.getByRole("checkbox", { name: "Rozumiem, zapisz okres z przeszłości" })).not.toBeChecked();
+    await page.getByRole("checkbox", { name: "Rozumiem, zapisz okres z przeszłości" }).check();
+    await page.getByRole("button", { name: "Zapisz blokadę" }).click();
+    await expect(page.getByText("Zapisano 1 z 1 pojazdu")).toBeVisible();
+    expect(await blocksOf(carDelta)).toHaveLength(2);
+    await page.getByRole("button", { name: "Wróć do kalendarza" }).click();
+    await expect(open).toBeFocused();
+
     // Mobile and other widths: the bulk view keeps every function and the page never scrolls sideways.
     for (const width of [320, 390, 768, 1024, 1920]) {
       await page.setViewportSize({ width, height: width < 768 ? 844 : 900 });
