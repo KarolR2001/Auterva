@@ -191,6 +191,15 @@
       "testPaths": ["tests/integration/mfa-recovery-pending.test.ts", "tests/integration/auth-http.test.ts"]
     },
     {
+      "issue": 393,
+      "scope": "Wznowienie czatu po ready z backlog \"refetch\" (ponad 200 wiadomości zaległości): klient zachowuje własny kursor sprzed ready (ready.cursor to głowa rozmowy), dociąga lukę przez HTTP after=<własny kursor> stronami do hasNewer:false, wiadomości na żywo z gniazda wstrzymuje do końca dociągania (kolejność, deduplikacja po id), dopiero potem przyjmuje kursor najnowszej wiadomości na liście. Błąd dociągania: komunikat z ponowieniem, kursor zostaje na ostatniej pełnej stronie, bez cichej utraty. Replay/none bez zmian. Porównanie z Penpotem DEFERRED (#263): stan błędu używa istniejącego wzorca Alert czatu.",
+      "relatedRequirementIds": ["C-F132", "C-N066"],
+      "referenceScreenIds": ["TEN-11"],
+      "unmappedStates": ["Stan „Wczytywanie wiadomości z czasu rozłączenia” i błąd dociągania luki bez osobnej planszy; wzorzec jak błąd wczytania rozmowy."],
+      "codePaths": ["src/components/chat/chat-panel.tsx"],
+      "testPaths": ["tests/unit/chat-panel.test.tsx", "tests/e2e/chat-refetch.spec.ts"]
+    },
+    {
       "issue": 377,
       "scope": "Backend eksportu danych firmy (D-40, poprawka #328): żądanie POST …/export wygasza READY po terminie i porzuca PENDING tą samą funkcją przejścia co sweep i worker (transitions.ts): w jednej transakcji audyt systemowy EXPORT_EXPIRED/EXPORT_FAILED (bez treści) i zamknięcie joba porzuconego eksportu (FAILED), także gdy żądanie jest odrzucone; sweep nie audytuje drugi raz.",
       "referenceScreenIds": [],
