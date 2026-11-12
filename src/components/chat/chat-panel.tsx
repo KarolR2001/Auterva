@@ -517,11 +517,6 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
           );
         })}
         {gap === "loading" && <p className={styles.note}>Wczytywanie wiadomości z czasu rozłączenia…</p>}
-        {gap === "error" && (
-          <Alert tone="error" title="Nie udało się wczytać wiadomości z czasu rozłączenia." action={{ label: "Spróbuj ponownie", onClick: () => void catchUp() }}>
-            Nowsze wiadomości pokażemy po uzupełnieniu historii. Szkic zostaje w polu.
-          </Alert>
-        )}
         {pending && (
           <article className={styles.message} data-own data-pending={pending.status}>
             <p className={styles.sender}>{ownLabel ?? companyName}</p>
@@ -545,6 +540,15 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
         )}
         {peerTyping && <p className={styles.typing}>{peerLabel} pisze…</p>}
       </div>
+
+      {gap === "error" && (
+        // Pinned between the history and the composer (#411): visible without scrolling the list, composer stays reachable.
+        <div className={styles.pinnedAlert} data-testid="chat-gap-alert">
+          <Alert tone="error" title="Nie udało się wczytać wiadomości z czasu rozłączenia." action={{ label: "Spróbuj ponownie", onClick: () => void catchUp() }}>
+            Nowsze wiadomości pokażemy po uzupełnieniu historii. Szkic zostaje w polu.
+          </Alert>
+        </div>
+      )}
 
       {newBelow > 0 && (
         <button type="button" className={styles.newMessages} onClick={showNew}>

@@ -390,6 +390,8 @@ describe("czat firmy (#52)", () => {
     act(() => socket.emit({ type: "ready", protocol: 1, conversationId: "conv-1", cursor: "cur-head-3", backlog: "refetch", state }));
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Nie udało się wczytać wiadomości z czasu rozłączenia.");
+    // #411: pinned outside the scrolling history, so it never needs a scroll to be seen.
+    expect(screen.getByRole("log", { name: "Historia rozmowy" })).not.toContainElement(alert);
     act(() => socket.emit({ type: "message", conversationId: "conv-1", message: m("4", false), cursor: "cur-4" }));
     expect(order()).toEqual(["1"]); // nothing after the gap is shown as if it were contiguous
     failing = false;
