@@ -3,6 +3,8 @@ import { expect, test, type WebSocketRoute } from "@playwright/test";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { verifiedFixtureSession } from "../fixtures/verified-session";
 
+test.use({ launchOptions: { args: ["--host-resolver-rules=MAP *.example.test 127.0.0.1"] } });
+
 // #411: the gap-refetch error alert is pinned above the composer, so on a phone it is visible without scrolling the list.
 for (const width of [320, 390]) {
   test(`czat: alert błędu dociągania luki jest widoczny bez przewijania przy ${width} px`, async ({ page, context, baseURL }) => {
