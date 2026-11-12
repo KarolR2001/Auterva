@@ -127,7 +127,16 @@ test("vehicle calendar: add, one day, overlap from two cards, version conflict, 
     await second.getByRole("button", { name: /Edytuj blokadę: Serwis/ }).first().click();
     await dialog(second).locator("#bc-type").selectOption({ label: "Inne" });
     await dialog(second).locator("#bc-internalNote").fill("Moja zmiana notatki");
+    // A failed read of the current version (500) is not "the block is gone": error with retry, entries kept, save blocked until a read succeeds.
+    await second.route(/\/availability\//, (route) => route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ code: "INTERNAL" }) }));
     await dialog(second).getByRole("button", { name: "Zapisz zmiany" }).click();
+    await expect(dialog(second).getByText("Nie udało się odczytać aktualnej wersji blokady.")).toBeVisible();
+    await expect(dialog(second).getByText("Blokada nie istnieje już na serwerze.")).toHaveCount(0);
+    await expect(dialog(second).locator("#bc-internalNote")).toHaveValue("Moja zmiana notatki");
+    await expect(dialog(second).getByRole("button", { name: "Zapisz zmiany" })).toBeDisabled();
+    await expect(dialog(second).getByRole("button", { name: "Spróbuj ponownie" })).toBeFocused();
+    await second.unroute(/\/availability\//);
+    await dialog(second).getByRole("button", { name: "Spróbuj ponownie" }).click();
     await expect(dialog(second).getByText("Blokada została zmieniona przez kogoś innego.")).toBeVisible();
     await expect(dialog(second).locator("#bc-internalNote")).toHaveValue("Moja zmiana notatki");
     expect((await db.availabilityBlock.findUniqueOrThrow({ where: { id: target.id } })).type).toBe("BLOCKED");

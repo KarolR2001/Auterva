@@ -231,6 +231,43 @@ describe("#39 kalendarz pojazdu", () => {
     expect(server.calls.filter((call) => call.method === "PATCH")).toHaveLength(1);
   });
 
+  for (const [label, failRead] of [["500", () => reply(500, { code: "INTERNAL" })], ["brak sieci", () => { throw new TypeError("Failed to fetch"); }]] as const) {
+    it(`błąd odczytu po konflikcie wersji (${label}) to nie „blokada nie istnieje”: wpisy zostają, zapis zablokowany, ponowienie odczytu działa`, async () => {
+      const user = userEvent.setup();
+      const server: Server = { blocks: [block({ version: 3 })], calls: [] };
+      let conflicted = false; let failing = true;
+      server.fail = (call) => {
+        if (call.method === "PATCH") {
+          if (!conflicted) { conflicted = true; server.blocks = [block({ version: 4, to: "2026-11-16" })]; return reply(409, { code: "BLOCK_VERSION_CONFLICT" }); }
+          return reply(200, block({ version: 5, type: "BLOCKED", to: "2026-11-16" }));
+        }
+        if (call.method === "GET" && conflicted && failing) return failRead();
+        return null;
+      };
+      install(server); mount();
+      await user.click(await day(/12 listopada 2026, zajęty, Serwis/));
+      const dialog = await screen.findByRole("dialog");
+      await user.selectOptions(within(dialog).getByLabelText(/^Typ/), "BLOCKED");
+      await user.click(within(dialog).getByRole("button", { name: "Zapisz zmiany" }));
+      expect(await within(dialog).findByText("Nie udało się odczytać aktualnej wersji blokady.")).toBeInTheDocument();
+      expect(within(dialog).queryByText(/nie istnieje już na serwerze/)).not.toBeInTheDocument();
+      expect(within(dialog).queryByText(/Blokada nie istnieje/)).not.toBeInTheDocument();
+      expect(within(dialog).getByLabelText(/^Typ/)).toHaveValue("BLOCKED");
+      expect(within(dialog).getByRole("button", { name: "Zapisz zmiany" })).toBeDisabled();
+      expect(within(dialog).getByRole("button", { name: "Spróbuj ponownie" })).toHaveFocus();
+      // Retry still fails: the same error comes back, nothing was saved.
+      await user.click(within(dialog).getByRole("button", { name: "Spróbuj ponownie" }));
+      expect(await within(dialog).findByText("Nie udało się odczytać aktualnej wersji blokady.")).toBeInTheDocument();
+      expect(within(dialog).getByRole("button", { name: "Zapisz zmiany" })).toBeDisabled();
+      failing = false;
+      await user.click(within(dialog).getByRole("button", { name: "Spróbuj ponownie" }));
+      expect(await within(dialog).findByText(/Aktualnie na serwerze: Serwis, 12–16 listopada 2026/)).toBeInTheDocument();
+      expect(within(dialog).queryByText("Nie udało się odczytać aktualnej wersji blokady.")).not.toBeInTheDocument();
+      await waitFor(() => expect(within(dialog).getByRole("button", { name: "Zapisz zmiany" })).toBeEnabled());
+      expect(server.calls.filter((call) => call.method === "PATCH")).toHaveLength(1);
+    });
+  }
+
   it("data z przeszłości wymaga potwierdzenia, zanim zostanie wysłana", async () => {
     const user = userEvent.setup();
     const server: Server = { blocks: [], calls: [] };
