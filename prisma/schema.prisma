@@ -132,6 +132,10 @@ model User {
   organizationId   String?                  @db.Uuid
   role             String?
   disabledAt       DateTime?                @db.Timestamptz(6)
+  /// #387: set when a recovery code removed the old factor and cleared when the new TOTP is confirmed (or by the
+  /// operator procedure). While set, a password alone opens no session; only `mfaRecoverySessionId` may enroll.
+  mfaRecoveryPendingAt DateTime?            @db.Timestamptz(6)
+  mfaRecoverySessionId String?
   organization     Organization?            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   sessions         Session[]
   accounts         Account[]

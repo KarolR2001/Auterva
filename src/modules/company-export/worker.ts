@@ -1,29 +1,16 @@
-import { randomUUID } from "node:crypto";
-import type { Prisma, PrismaClient } from "@/generated/prisma/client";
+import type { PrismaClient } from "@/generated/prisma/client";
 import type { ClaimedJob } from "@/modules/jobs/queue";
 import type { MediaStorage } from "@/modules/media/storage";
 import { logFailure, currentLogContext } from "@/modules/observability/log";
 import { deleteArtifact, encryptArtifact, exportArtifactKey, putArtifact } from "./artifact";
 import { EXPORT_PENDING_TIMEOUT_MS, EXPORT_TTL_MS } from "./service";
 import { buildCompanyExport } from "./snapshot";
+import { EXPORT_JOB_KIND, expireReadyExport, failAbandonedExport, systemAudit } from "./transitions";
 
-export const EXPORT_JOB_KIND = "COMPANY_EXPORT";
+export { EXPORT_JOB_KIND };
 export const EXPORT_LEASE_MS = 300_000;
 const retryMs = (attempt: number) => Math.min(5_000 * 2 ** Math.min(attempt - 1, 6), 300_000);
 const permanent = new Set(["EXPORT_TOO_LARGE", "EXPORT_COMPANY_NOT_FOUND", "EXPORT_COMPANY_ARCHIVED"]);
-
-/** System events have no session: they are the operator-role rows of the audit, tied to the export id. */
-async function systemAudit(tx: Prisma.TransactionClient, input: {
-  organizationId: string; action: "EXPORT_READY" | "EXPORT_FAILED" | "EXPORT_EXPIRED"; exportId: string;
-  count?: number; evidenceDigest?: string; now: Date;
-}) {
-  const safeChanges: Prisma.JsonObject = {};
-  if (input.count !== undefined) safeChanges.count = input.count;
-  if (input.evidenceDigest) safeChanges.evidenceDigest = input.evidenceDigest;
-  await tx.auditLog.create({ data: { eventKey: randomUUID(), organizationId: input.organizationId, actorId: "system:company-export",
-    actorRole: "OPERATOR", action: input.action, entityType: "CompanyExport", entityId: input.exportId,
-    safeChanges: Object.keys(safeChanges).length ? safeChanges : undefined, requestId: randomUUID(), createdAt: input.now } });
-}
 
 async function failExport(db: PrismaClient, claim: ClaimedJob, exportId: string, organizationId: string, code: string, clock: () => Date) {
   const now = clock();
@@ -79,10 +66,7 @@ export async function processCompanyExportClaim(db: PrismaClient, storage: Media
       // The newest finished export replaces the older files of the company; they expire at once.
       const older = await tx.companyExport.findMany({ where: { organizationId: row.organizationId, status: "READY", id: { not: row.id } },
         select: { id: true } });
-      for (const previous of older) {
-        const changed = await tx.companyExport.updateMany({ where: { id: previous.id, status: "READY" }, data: { status: "EXPIRED", expiresAt: finished } });
-        if (changed.count === 1) await systemAudit(tx, { organizationId: row.organizationId, action: "EXPORT_EXPIRED", exportId: previous.id, now: finished });
-      }
+      for (const previous of older) await expireReadyExport(tx, { id: previous.id, organizationId: row.organizationId }, finished, finished);
       await systemAudit(tx, { organizationId: row.organizationId, action: "EXPORT_READY", exportId: row.id, count: total,
         evidenceDigest: sealed.digest, now: finished });
       return true;
@@ -106,23 +90,12 @@ export async function processCompanyExportClaim(db: PrismaClient, storage: Media
 export async function sweepCompanyExports(db: PrismaClient, storage: MediaStorage, now: Date = new Date()): Promise<number> {
   const expired = await db.companyExport.findMany({ where: { status: "READY", expiresAt: { lte: now } }, take: 100, select: { id: true, organizationId: true } });
   for (const row of expired) {
-    await db.$transaction(async (tx) => {
-      const changed = await tx.companyExport.updateMany({ where: { id: row.id, status: "READY", expiresAt: { lte: now } }, data: { status: "EXPIRED" } });
-      if (changed.count === 1) await systemAudit(tx, { organizationId: row.organizationId, action: "EXPORT_EXPIRED", exportId: row.id, now });
-    });
+    await db.$transaction((tx) => expireReadyExport(tx, row, now));
   }
   const stale = await db.companyExport.findMany({ where: { status: "PENDING", createdAt: { lte: new Date(now.getTime() - EXPORT_PENDING_TIMEOUT_MS) } },
     take: 100, select: { id: true, organizationId: true } });
-  for (const row of stale) {
-    await db.$transaction(async (tx) => {
-      const changed = await tx.companyExport.updateMany({ where: { id: row.id, status: "PENDING" },
-        data: { status: "FAILED", errorCode: "EXPORT_TIMEOUT", completedAt: now } });
-      if (changed.count !== 1) return;
-      await tx.job.updateMany({ where: { organizationId: row.organizationId, dedupeKey: `${EXPORT_JOB_KIND}:${row.id}`, status: { in: ["PENDING", "RUNNING"] } },
-        data: { status: "FAILED", errorCode: "EXPORT_TIMEOUT", leaseToken: null, lockedUntil: null } });
-      await systemAudit(tx, { organizationId: row.organizationId, action: "EXPORT_FAILED", exportId: row.id, now });
-    });
-  }
+  const cutoff = new Date(now.getTime() - EXPORT_PENDING_TIMEOUT_MS);
+  for (const row of stale) await db.$transaction((tx) => failAbandonedExport(tx, row, now, cutoff));
   await db.companyExport.updateMany({ where: { status: { in: ["EXPIRED", "FAILED"] }, deletedAt: null },
     data: { status: "DELETED", deletedAt: now } });
   const pendingBytes = await db.companyExport.findMany({ where: { status: "DELETED", storageCleanedAt: null }, take: 100,

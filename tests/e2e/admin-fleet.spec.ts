@@ -117,6 +117,13 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
     await expect(page.getByRole("button", { name: /^Ostatnia zmiana, sortowanie: najstarsze/ })).toBeVisible();
     await expect(page.getByRole("combobox", { name: "Kategoria" })).toHaveValue(cat);
     await expect(page.getByRole("heading", { level: 3 })).toHaveCount(3);
+    // #381: "Wyczyść filtry" clears search and filters but keeps the chosen sort.
+    await page.getByLabel("Szukaj").fill("brak-takiego-pojazdu");
+    await expect(page.getByRole("heading", { name: "Brak wyników" })).toBeVisible();
+    await page.getByRole("button", { name: "Wyczyść filtry" }).click();
+    await expect(page.getByRole("heading", { level: 3 })).toHaveCount(3);
+    await expect(page).toHaveURL(/sort=updatedAsc/);
+    await expect(page).not.toHaveURL(/search=/);
     await page.getByRole("button", { name: /^Ostatnia zmiana/ }).click();
     await expect(page).not.toHaveURL(/sort=/);
     await page.getByRole("combobox", { name: "Kategoria" }).selectOption("");

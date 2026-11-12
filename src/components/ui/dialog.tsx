@@ -6,7 +6,7 @@ import { useId, useRef, type ReactNode } from "react";
 import { Button } from "./button";
 import styles from "./ui.module.css";
 
-type DialogAction = { label: string; onClick: () => void };
+type DialogAction = { label: string; onClick: () => void; disabled?: boolean };
 
 type DialogProps = {
   open: boolean;
@@ -101,6 +101,7 @@ export function Dialog({
             <Button
               variant={type === "destructive" ? "destructive" : "primary"}
               onClick={primaryAction.onClick}
+              disabled={primaryAction.disabled}
             >
               {primaryAction.label}
             </Button>
