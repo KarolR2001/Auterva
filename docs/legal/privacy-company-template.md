@@ -23,7 +23,7 @@ Strona działa na platformie Auterva, która obsługuje ją od strony techniczne
 | Odpowiedź na zapytanie telefoniczne, WhatsApp lub e-mail | dane, które podasz: imię, numer lub adres, pojazd, termin, miejsce odbioru | art. 6 ust. 1 lit. b lub f | `{np. do zakończenia sprawy + okres przedawnienia}` |
 | Pokazanie oferty i dostępności | dane pojazdów, zdjęcia, status dostępny/niedostępny (bez danych osobowych) | art. 6 ust. 1 lit. f | `{n/d}` |
 | Bezpieczne i poprawne działanie strony | adres IP i dane żądania przetwarzane przez dostawców infrastruktury; logi techniczne bez treści rozmów | lit. f | logi techniczne 30 dni, logi bezpieczeństwa 365 dni (według platformy) |
-| Pomiar szybkości strony | tylko zagregowane wartości LCP, INP, CLS i typ urządzenia; bez adresu IP, cookie i identyfikatora; wyłączony przy Do Not Track i Global Privacy Control | lit. f | tylko zagregowane liczniki w pamięci serwera |
+| Pomiar szybkości strony | tylko zagregowane wartości LCP, INP, CLS i typ urządzenia; bez adresu IP, cookie i identyfikatora; wyłączony przy Do Not Track i Global Privacy Control; nie wymaga zgody (decyzja właściciela platformy) | lit. f | tylko zagregowane liczniki w pamięci serwera |
 
 Na stronie nie ma formularza zapytań ani konta klienta. Dane przekazujesz dopiero, gdy sam zadzwonisz lub napiszesz.
 
@@ -52,10 +52,9 @@ Przysługuje Ci prawo dostępu do danych, sprostowania, usunięcia, ograniczenia
 
 Aktualną datę zmiany pokazujemy na stronie.
 
-## Pytania do właściciela i prawnika
+## Pytania otwarte (usunąć przed publikacją)
 
-1. Czy firmy mogą używać jednego wzoru bez dostosowania, czy superadmin ma wymagać zatwierdzenia każdej firmy osobno (kto i w jakiej formie akceptuje)?
-2. Kto odpowiada za informację o logach infrastruktury i adresach IP odwiedzających? Czy potrzebna jest wzmianka o dostawcy DNS/CDN?
-3. Czy rozmowa telefoniczna jest nagrywana lub notowana przez firmę?
-4. Czy wzór ma zawierać gotowy blok „Wynajem poza stroną”, czy firmy dostarczają własny?
-5. Wzór umowy powierzenia z firmami (art. 28 RODO) i rola Autervy.
+1. Umowa powierzenia przetwarzania między firmą a Autervą (art. 28 RODO) i dane administratora Autervy.
+2. Czy superadmin ma wymagać osobnego zatwierdzenia wzoru przez każdą firmę (kto i w jakiej formie akceptuje)?
+3. Kto odpowiada za informację o logach infrastruktury i adresach IP odwiedzających; dostawcy (D-53)?
+4. Czy firma nagrywa lub notuje rozmowy telefoniczne i czy dodaje blok „Wynajem poza stroną” własnej treści?

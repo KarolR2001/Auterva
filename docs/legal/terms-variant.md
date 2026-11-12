@@ -6,7 +6,7 @@
 
 Platforma ma dwa różne poziomy, więc proponujemy dwa osobne dokumenty:
 
-1. **Regulamin platformy dla firm (warunki usługi Autervy)** — zalecany. Firma przyjmuje go przy zaproszeniu i okresie usługi. Nie ma publicznej rejestracji i płatności online, więc kluczowa jest umowa B2B uzgadniana poza aplikacją (telefon, prezentacja wyglądu, akceptacja), a regulamin ją uzupełnia. Bez takiego dokumentu nie ma zapisanych zasad okresu usługi, wyłączenia strony publicznej, archiwizacji, eksportu i odpowiedzialności.
+1. **Regulamin platformy dla firm (warunki usługi Autervy)** — zalecany. Zgodnie z decyzją właściciela z 12.11.2026 regulamin platformy jest umową zawieraną poza aplikacją; aplikacja najwyżej linkuje do dokumentu i nie przyjmuje go checkboxem. Nie ma publicznej rejestracji i płatności online, więc kluczowa jest umowa B2B uzgadniana poza aplikacją (telefon, prezentacja wyglądu, akceptacja), a regulamin ją uzupełnia. Bez takiego dokumentu nie ma zapisanych zasad okresu usługi, wyłączenia strony publicznej, archiwizacji, eksportu i odpowiedzialności.
 2. **Regulamin firmy dla jej klientów** — opcjonalny (PUB-06). Firma wybiera: brak, tekst albo odnośnik do własnego dokumentu (FIR-06). Strona nie przyjmuje rezerwacji ani płatności, więc nie zawiera umowy najmu z klientem; dokument firmy dotyczy co najwyżej zasad korzystania ze strony i warunków najmu poza aplikacją. Auterva nie dostarcza gotowej treści takiej firmie (nie jest jej doradcą prawnym); proponujemy tylko szkielet.
 3. Regulamin świadczenia usług drogą elektroniczną wobec odwiedzających (zasady korzystania ze strony) jest prawdopodobnie wymagany (ustawa o świadczeniu usług drogą elektroniczną); do oceny prawnika, czy wystarczy sekcja w dokumencie platformy.
 
@@ -48,7 +48,7 @@ Szczegóły w polityce prywatności platformy i umowie powierzenia przetwarzania
 
 ### Dane po zakończeniu współpracy
 
-Operator udostępnia eksport danych Firmy na prośbę w ciągu 30 dni po archiwizacji lub zakończeniu współpracy (D-40/E8). Retencja i kasowanie po tym okresie `{do decyzji}`. Kopie zapasowe są przechowywane 30 dni.
+Operator udostępnia eksport danych Firmy na prośbę w ciągu 30 dni po archiwizacji lub zakończeniu współpracy (D-40/E8). Czat i dane firmy są przechowywane 12 miesięcy po archiwizacji, potem trwale usuwane (decyzja właściciela z 12.11.2026); kopie zapasowe wygasają po 30 dniach.
 
 ### Dostępność usługi i odpowiedzialność
 
@@ -68,11 +68,10 @@ Do wypełnienia przez firmę, bez treści prawnej dostarczanej przez Autervę:
 - Reklamacje i prawa konsumenta `{firma}`.
 - Odsyłacz do polityki prywatności firmy.
 
-## Pytania do właściciela i prawnika
+## Pytania otwarte (usunąć przed publikacją)
 
-1. Czy akceptujemy podział na regulamin platformy (obowiązkowy dla firm) i opcjonalny regulamin firmy? Czy regulamin platformy ma być przyjmowany w aplikacji (checkbox przy aktywacji zaproszenia), czy umową poza nią?
-2. Czy potrzebny jest regulamin dla odwiedzających stronę Autervy (usługi elektroniczne)?
-3. Warunki trialu i opłaty, odpowiedzialność, SLA, kary, wypowiedzenie, prawo i sąd.
-4. Retencja i kasowanie danych firmy po 30 dniach od zakończenia współpracy.
-5. Czy Operator może wstrzymać treść firmy (zakres i tryb)?
-6. Czy firma jest przedsiębiorcą w każdym przypadku (B2B), co wyłącza część przepisów konsumenckich?
+1. Czy potrzebny jest regulamin usług elektronicznych dla odwiedzających stronę Autervy?
+2. Warunki trialu i opłaty, odpowiedzialność, SLA, wypowiedzenie, prawo i sąd (treść umowy poza aplikacją).
+3. Czy Operator może wstrzymać treść firmy (zakres i tryb)?
+4. Czy firma jest przedsiębiorcą w każdym przypadku (B2B)?
+5. Dane identyfikacyjne operatora (właściciel) i umowa powierzenia (art. 28 RODO).
