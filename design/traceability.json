@@ -201,7 +201,7 @@
     },
     {
       "issue": 411,
-      "scope": "Czat: alert błędu dociągania luki po ready z backlog \"refetch\" (#393) jest przypięty między historią a polem wiadomości zamiast na końcu przewijanej listy, więc przy 320 i 390 px jest widoczny bez przewijania wraz z „Spróbuj ponownie”; nie zasłania pola wpisywania (lista się kurczy), brak poziomego przewijania. Komunikat dla czytnika (status) bez zmian, obsługa klawiaturą i ponowienie bez zmian. Porównanie z Penpotem DEFERRED (#263): brak planszy stanu, używany istniejący wzorzec Alert czatu.",
+      "scope": "Czat: błąd dociągania luki po ready z backlog \"refetch\" (#393) to zwarty komunikat z „Spróbuj ponownie” przypięty między historią a polem wiadomości (nie na końcu przewijanej listy), więc akcja jest widoczna bez przewijania przy 320 i 390 px (firma i superadmin). Podczas błędu panel może urosnąć, a historia zachowuje min. 40dvh; brak poziomego przewijania. Jedno ogłoszenie dla czytnika: komunikat nie ma własnej roli alert, ogłasza go region status (także „Uzupełniono…” po ponowieniu). Klawiatura i ponowienie bez zmian. Porównanie z Penpotem DEFERRED (#263): brak planszy stanu, wzorzec Alert czatu w zwartej formie.",
       "relatedRequirementIds": ["C-F132", "C-N066"],
       "referenceScreenIds": ["TEN-11"],
       "unmappedStates": ["Błąd dociągania luki bez osobnej planszy; wzorzec Alert jak błąd wczytania rozmowy, pozycja przypięta nad polem wiadomości."],

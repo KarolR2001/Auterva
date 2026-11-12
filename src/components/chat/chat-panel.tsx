@@ -475,7 +475,7 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
     return headers;
   }, [messages]);
   return (
-    <section className={styles.chat} data-embedded={embedded || undefined} aria-labelledby="chat-title">
+    <section className={styles.chat} data-embedded={embedded || undefined} data-gap-error={gap === "error" || undefined} aria-labelledby="chat-title">
       <h2 id="chat-title" className={styles.srOnly}>Czat z {peerWith ?? peerLabel}</h2>
       <p className={styles.subtitle}>{subtitle ?? `${companyName} · kontakt z ${peerWith ?? peerLabel}`}</p>
       <div className={styles.status} role="status">
@@ -542,11 +542,11 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
       </div>
 
       {gap === "error" && (
-        // Pinned between the history and the composer (#411): visible without scrolling the list, composer stays reachable.
+        // Pinned between the history and the composer (#411) and kept compact so the action never needs a scroll. It has no
+        // role of its own: the one announcement is the polite status region below (no duplicate role="alert").
         <div className={styles.pinnedAlert} data-testid="chat-gap-alert">
-          <Alert tone="error" title="Nie udało się wczytać wiadomości z czasu rozłączenia." action={{ label: "Spróbuj ponownie", onClick: () => void catchUp() }}>
-            Nowsze wiadomości pokażemy po uzupełnieniu historii. Szkic zostaje w polu.
-          </Alert>
+          <p><CircleAlert size={16} aria-hidden="true" /> <span>Nie udało się wczytać wiadomości z czasu rozłączenia. Nowsze pokażemy po uzupełnieniu.</span></p>
+          <button type="button" className={styles.pinnedAlertAction} onClick={() => void catchUp()}>Spróbuj ponownie</button>
         </div>
       )}
 

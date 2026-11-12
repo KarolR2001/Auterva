@@ -388,8 +388,11 @@ describe("czat firmy (#52)", () => {
     await waitFor(() => expect(FakeSocket.instances).toHaveLength(1));
     const socket = FakeSocket.instances[0];
     act(() => socket.emit({ type: "ready", protocol: 1, conversationId: "conv-1", cursor: "cur-head-3", backlog: "refetch", state }));
-    const alert = await screen.findByRole("alert");
+    const alert = await screen.findByTestId("chat-gap-alert");
     expect(alert).toHaveTextContent("Nie udało się wczytać wiadomości z czasu rozłączenia.");
+    // One announcement only: the polite status region, not a second role="alert".
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getAllByRole("status").some((region) => region.textContent === "Nie udało się wczytać wiadomości z czasu rozłączenia.")).toBe(true);
     // #411: pinned outside the scrolling history, so it never needs a scroll to be seen.
     expect(screen.getByRole("log", { name: "Historia rozmowy" })).not.toContainElement(alert);
     act(() => socket.emit({ type: "message", conversationId: "conv-1", message: m("4", false), cursor: "cur-4" }));
@@ -397,7 +400,7 @@ describe("czat firmy (#52)", () => {
     failing = false;
     await user.click(screen.getByRole("button", { name: "Spróbuj ponownie" }));
     await waitFor(() => expect(order()).toEqual(["1", "2", "3", "4"]));
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByTestId("chat-gap-alert")).toBeNull();
     expect(screen.getByText("Uzupełniono wiadomości z czasu rozłączenia.")).toBeInTheDocument();
     act(() => socket.close(1006));
     await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
