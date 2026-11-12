@@ -64,6 +64,16 @@
       "sharedWith": "Zależy od #383 (PR #395)."
     },
     {
+      "issue": 405,
+      "scope": "Nawigacja Ustawień wg DS-SET-001 SettingsNavigation (ADM-11–14, ADM-22, superadmin w kontekście firmy): od 1024 px pionowy panel 240 px po lewej z pełnymi nazwami i treścią obok (aktywna pozycja odwrócona), poniżej poziomy pasek z krótkimi etykietami z makiety (Firma, Kontakt, SEO, Prawne, Kalendarz; dodatkowo Wygląd, bo makieta nie ma tej sekcji). Nazwa dostępna zawiera widoczny tekst (WCAG 2.5.3; „Firma” dopisane do „Dane firmy”). Zachowane dosuwanie aktywnej zakładki i pełny obrys fokusu (#351/#358/#372), brak poziomego przewijania 320–1920.",
+      "relatedRequirementIds": ["DS-SET-001", "D-49"],
+      "referenceScreenIds": ["ADM-11", "ADM-12", "ADM-13", "ADM-14", "ADM-22"],
+      "unmappedStates": ["Sekcja „Wygląd publiczny” nie ma pozycji w makiecie nawigacji; w aplikacji zostaje z krótką etykietą „Wygląd”."],
+      "codePaths": ["src/components/settings/settings-nav.tsx", "src/components/settings/settings.module.css"],
+      "testPaths": ["tests/e2e/settings-nav-focus.spec.ts", "tests/e2e/settings-routes.spec.ts", "tests/e2e/admin-a11y.spec.ts"],
+      "sharedWith": "Zależy od #372."
+    },
+    {
       "issue": 371,
       "scope": "OVR-07 desktop (D-48): „Kopiuj na inne auta” w nagłówku okna edycji blokady obok tytułu (wspólny Dialog dostaje opcjonalne headerAction, addytywnie; okna bez niego bez zmian). Na mobile (do 480 px) zostaje przycisk pełnej szerokości nad „Usuń blokadę” (OVR-07-mobile-edit); ten sam href, w danej szerokości widoczny jeden link. Kolejność Tab: nagłówek, pola, Zamknij, Zapisz; fokus początkowy, Escape i powrót fokusu bez zmian.",
       "relatedRequirementIds": ["FR-ADM-055", "FR-ADM-057", "D-48"],
