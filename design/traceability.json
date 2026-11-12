@@ -2538,6 +2538,15 @@
       "codePaths": ["src/modules/public-offer/query.ts", "src/modules/public-offer/read.ts"],
       "testPaths": ["tests/unit/public-offer.test.ts", "tests/integration/public-offer.test.ts"],
       "sharedWith": "Rozszerza katalog z #40; kontrakt: docs/contracts/public-offer-seo.md."
+    },
+    {
+      "issue": 379,
+      "scope": "Blokada zbiorcza i kopia (ADM-10): gdy okres zaczyna się przed dzisiaj (Europe/Warsaw; w kopii start blokady źródłowej), ten sam komunikat i potwierdzenie co przy pojedynczej blokadzie (DS-FRM-015, wariant administracyjny). Podgląd dryRun działa bez potwierdzenia, zapis bez niego nie wysyła żądania i ustawia fokus na potwierdzeniu; zmiana dat cofa potwierdzenie. Bez zmian API.",
+      "relatedRequirementIds": ["DS-FRM-015", "D-32", "D-48"],
+      "referenceScreenIds": ["ADM-10"],
+      "codePaths": ["src/components/admin/bulk-blocks.tsx", "src/components/admin/bulk-blocks-model.ts"],
+      "testPaths": ["tests/unit/bulk-blocks.test.tsx", "tests/e2e/bulk-blocks.spec.ts"],
+      "sharedWith": "Reguła startsInPast z src/components/admin/vehicle-calendar-model.ts (pojedyncza blokada, #217)."
     }
   ],
   "sources": [
