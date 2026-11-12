@@ -143,6 +143,8 @@ async function passwordOnlyIsRefused(host: string, email: string, userId: string
 }
 
 async function scenario(host: string, email: string, userId: string) {
+  // The audit log is immutable, so a reused database keeps events of earlier runs; assert only on this run's.
+  const [{ startedAt }] = await db.$queryRaw<{ startedAt: Date }[]>`SELECT clock_timestamp() AS "startedAt"`;
   await db.rateLimitEvent.deleteMany();
   const codes = await enroll(host, email);
   const recoveryCookie = await startRecovery(host, email, codes[0]);
@@ -176,7 +178,7 @@ async function scenario(host: string, email: string, userId: string) {
   expect((await GET(request(host, "get-session", undefined, cookies(completed)))).status).toBe(200);
   const cleared = await db.user.findUniqueOrThrow({ where: { id: userId }, select: { mfaRecoveryPendingAt: true, mfaRecoverySessionId: true, twoFactorEnabled: true } });
   expect(cleared).toEqual({ mfaRecoveryPendingAt: null, mfaRecoverySessionId: null, twoFactorEnabled: true });
-  const audit = await db.auditLog.findMany({ where: { actorId: userId, action: { in: ["MFA_RECOVERY_STARTED", "MFA_RECOVERY_COMPLETED"] } },
+  const audit = await db.auditLog.findMany({ where: { actorId: userId, createdAt: { gte: startedAt }, action: { in: ["MFA_RECOVERY_STARTED", "MFA_RECOVERY_COMPLETED"] } },
     orderBy: { createdAt: "asc" }, select: { action: true, safeChanges: true } });
   expect(audit.map((entry) => entry.action)).toEqual(["MFA_RECOVERY_STARTED", "MFA_RECOVERY_COMPLETED"]);
   expect(JSON.stringify(audit)).not.toMatch(new RegExp(`${codes[0]}|${totp.secret.base32}`));
