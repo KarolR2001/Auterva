@@ -307,7 +307,7 @@ describe("zakres adresu kalendarza: tworzenie i lista", () => {
     const created = { ...item("n", { label: "Dwa auta", scope: "VEHICLES", vehicles: [fleet[0], fleet[2]] }), token: secret, path: "/x", url: feedUrl };
     const calls = mockScopeApi([fleet], [listOf([])], () => Response.json(created, { status: 201 }));
     render(<CalendarFeeds context={adminFeedContext} now={now} />);
-    await user.click(await screen.findByRole("button", { name: "Nowy adres kalendarza" }));
+    await user.click(await screen.findByRole("button", { name: "Utwórz pierwszy adres" }));
     const group = screen.getByRole("group", { name: "Zakres" });
     expect(within(group).getByRole("radio", { name: /Cała flota/ })).toBeChecked();
     expect(within(group).getByRole("radio", { name: /Cała flota/ })).toHaveAccessibleDescription("Wszystkie pojazdy opublikowane.");
@@ -339,7 +339,7 @@ describe("zakres adresu kalendarza: tworzenie i lista", () => {
     const fleet = Array.from({ length: 52 }, (_, i) => vehicle(i + 1));
     mockScopeApi([fleet], [listOf([])], () => Response.json({}, { status: 500 }));
     render(<CalendarFeeds context={adminFeedContext} now={now} />);
-    await user.click(await screen.findByRole("button", { name: "Nowy adres kalendarza" }));
+    await user.click(await screen.findByRole("button", { name: "Utwórz pierwszy adres" }));
     await user.click(screen.getByRole("radio", { name: /Wybrane pojazdy/ }));
     const search = await screen.findByRole("searchbox", { name: "Szukaj pojazdu" });
     await user.type(search, "Auto 52");
@@ -361,7 +361,7 @@ describe("zakres adresu kalendarza: tworzenie i lista", () => {
     const calls = mockScopeApi([fleet, [fleet[1]]], [listOf([])],
       () => Response.json({ code: "INVALID_INPUT", fieldErrors: { vehicleIds: "VEHICLE_NOT_PUBLISHED" } }, { status: 400 }));
     render(<CalendarFeeds context={adminFeedContext} now={now} />);
-    await user.click(await screen.findByRole("button", { name: "Nowy adres kalendarza" }));
+    await user.click(await screen.findByRole("button", { name: "Utwórz pierwszy adres" }));
     await user.type(screen.getByLabelText(/Etykieta/), "Biuro");
     await user.click(screen.getByRole("radio", { name: /Wybrane pojazdy/ }));
     await user.click(await screen.findByRole("checkbox", { name: "Auto 1" }));

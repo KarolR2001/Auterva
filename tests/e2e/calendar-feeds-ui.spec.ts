@@ -198,7 +198,7 @@ test("calendar feeds UI: scope of selected published vehicles", async ({ page, c
     await context.addCookies([{ name, value: rest.join("="), url: origin }]);
 
     await page.goto(`${origin}/admin/ustawienia/kalendarz-zewnetrzny/`);
-    await page.getByRole("button", { name: "Nowy adres kalendarza" }).click();
+    await page.getByRole("button", { name: "Utwórz pierwszy adres" }).click();
     await expect(page.getByLabel(/Etykieta/)).toBeFocused();
     await page.keyboard.type("Wybrane auta");
     // Keyboard: the scope is a radio group; the arrow key moves from the default "Cała flota" to the selection.
