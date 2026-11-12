@@ -5,9 +5,15 @@
 export type FeedStatus = "ACTIVE" | "EXPIRED" | "REVOKED";
 export type FeedRevokeReason = "MANUAL" | "ROTATED" | "COMPANY_ARCHIVED" | "PASSWORD_CHANGED" | "COMPANY_RESTORED";
 
+export type FeedScope = "FLEET" | "VEHICLES";
+/** #366: id and name of a vehicle in a VEHICLES scope, listed whatever its status is now. */
+export type FeedScopeVehicle = { id: string; name: string | null };
+
 export type FeedItem = {
   id: string; label: string; status: FeedStatus; createdAt: string; expiresAt: string; lastUsedAt: string | null;
   revokedAt: string | null; revokedReason: FeedRevokeReason | string | null;
+  /** Absent in answers older than #366: the whole fleet. */
+  scope?: FeedScope; vehicles?: FeedScopeVehicle[];
 };
 export type FeedList = { items: FeedItem[]; activeCount: number; activeLimit: number; validityDays: number };
 /** The only answer that carries the address; it lives in component state and is dropped on "Gotowe". */
@@ -104,5 +110,51 @@ export function findUnseenRotated(before: FeedItem[], after: FeedItem[], old: Fe
 /** DELETE is safe to repeat; the list tells whether the link is revoked. */
 export const revokedOnList = (after: FeedItem[], id: string) => after.some((item) => item.id === id && item.status === "REVOKED");
 
-/** The API (#327) has no per-vehicle scope yet: every link covers the published vehicles of the whole fleet (D-47). */
+/** #366 (E11): a link covers the whole fleet or 1–50 selected vehicles; both only show published vehicles (D-47). */
 export const SCOPE_TEXT = "Cała flota";
+export const FEED_MAX_VEHICLES = 50;
+/** Above this many published vehicles the selection gets a search field. */
+export const VEHICLE_SEARCH_THRESHOLD = 8;
+
+export function vehiclesText(count: number): string {
+  const tens = count % 100;
+  const ones = count % 10;
+  if (count === 1) return "1 pojazd";
+  if (ones >= 2 && ones <= 4 && (tens < 12 || tens > 14)) return `${count} pojazdy`;
+  return `${count} pojazdów`;
+}
+
+export const isVehicleScope = (item: Pick<FeedItem, "scope">) => item.scope === "VEHICLES";
+export const scopeText = (item: Pick<FeedItem, "scope" | "vehicles">) =>
+  isVehicleScope(item) ? vehiclesText(item.vehicles?.length ?? 0) : SCOPE_TEXT;
+export const vehicleName = (vehicle: { name: string | null }) => vehicle.name?.trim() || "Pojazd bez nazwy";
+
+/** Client check of the selection; the server validates again (1–50 distinct published vehicles of the company). */
+export function vehicleSelectionError(scope: FeedScope, ids: string[]): string | null {
+  if (scope !== "VEHICLES") return null;
+  if (ids.length === 0) return "Wybierz co najmniej jeden pojazd albo zakres „Cała flota”.";
+  if (ids.length > FEED_MAX_VEHICLES) return `Możesz wybrać najwyżej ${FEED_MAX_VEHICLES} pojazdów.`;
+  return null;
+}
+
+/** `fieldErrors.vehicleIds` of a refused create (#366) as a message next to the selection. */
+export function vehicleIdsErrorText(code: string): string {
+  switch (code) {
+    case "VEHICLE_NOT_PUBLISHED":
+      return "Co najmniej jeden wybrany pojazd nie jest już opublikowany (szkic, ukryty albo zarchiwizowany). Lista pojazdów została odświeżona — sprawdź wybór i utwórz adres ponownie.";
+    case "VEHICLE_NOT_FOUND":
+      return "Co najmniej jeden wybrany pojazd nie istnieje już we flocie. Lista pojazdów została odświeżona — sprawdź wybór i utwórz adres ponownie.";
+    case "OUT_OF_RANGE":
+      return `Wybierz od 1 do ${FEED_MAX_VEHICLES} pojazdów.`;
+    case "DUPLICATE":
+      return "Ten sam pojazd jest w wyborze dwa razy. Sprawdź wybór i utwórz adres ponownie.";
+    default:
+      return "Serwer nie przyjął wyboru pojazdów. Odśwież listę pojazdów, wybierz je ponownie i utwórz adres.";
+  }
+}
+
+/** A selection reduced to vehicles that are still on a freshly read list (order of the selection kept). */
+export const keepKnown = (ids: string[], known: { id: string }[]) => {
+  const present = new Set(known.map((vehicle) => vehicle.id));
+  return ids.filter((id) => present.has(id));
+};
