@@ -181,6 +181,19 @@
       "testPaths": ["tests/integration/mfa-recovery-pending.test.ts", "tests/integration/auth-http.test.ts"]
     },
     {
+      "issue": 377,
+      "scope": "Backend eksportu danych firmy (D-40, poprawka #328): żądanie POST …/export wygasza READY po terminie i porzuca PENDING tą samą funkcją przejścia co sweep i worker (transitions.ts): w jednej transakcji audyt systemowy EXPORT_EXPIRED/EXPORT_FAILED (bez treści) i zamknięcie joba porzuconego eksportu (FAILED), także gdy żądanie jest odrzucone; sweep nie audytuje drugi raz.",
+      "referenceScreenIds": [],
+      "unmappedStates": ["Backend bez UI."],
+      "codePaths": [
+        "src/modules/company-export/transitions.ts",
+        "src/modules/company-export/service.ts",
+        "src/modules/company-export/worker.ts",
+        "docs/contracts/company-export-implementation.md"
+      ],
+      "testPaths": ["tests/integration/company-export.test.ts"]
+    },
+    {
       "issue": 342,
       "scope": "Audyt dostępności (część #61): panel platformy, strony publiczne firmy i marketing Autervy. Automatyczny skan axe (WCAG 2.2 AA, serious/critical = błąd) każdego ekranu przy 1440, 390 i 320 px oraz kontrole strukturalne: jeden h1 i main, lang, skip link jako pierwszy stop, kolejność i widoczność fokusu, fokus nieprzesłonięty, reflow 320/640 px, reduced motion; dialog archiwizacji (pułapka i powrót fokusu) i menu mobilne z klawiatury. Poprawki: nazwa linku Wiadomości/Czat z plakietką „Nowe” zgodna z widocznym tekstem (WCAG 2.5.3), scroll-padding chroniący fokus przed paskiem akcji (dolna nawigacja: reguła z #341) formularza/kalendarza pojazdu (WCAG 2.4.11). Bez zmian logiki. VoiceOver: DEFERRED (#97); strona logowania i MFA nie mają skip linku (brak bloków do pominięcia).",
       "relatedRequirementIds": ["C-N047", "C-N049", "C-N060"],
