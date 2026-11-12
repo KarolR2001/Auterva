@@ -22,6 +22,17 @@
       "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
     },
     {
+      "issue": 381,
+      "scope": "Lista pojazdów: „Wyczyść filtry” (arkusz filtrów i stan „Brak wyników”) czyści wyszukiwanie, filtry i stronę, ale zachowuje sortowanie „Ostatnia zmiana”; sortowanie wraca do kolejności w ofercie wyłącznie przez „Przywróć domyślne” / przycisk sortowania (D-42, D-50). Zachowanie bez zmian wyglądu.",
+      "relatedRequirementIds": ["FR-ADM-020", "FR-ADM-021", "FR-ADM-022"],
+      "referenceScreenIds": ["ADM-04", "ADM-05"],
+      "scenarioStates": {
+        "list": "ADM-04 (mobile) i ADM-05 (desktop) / lista pojazdów z filtrami i sortowaniem; ID stanów w Penpocie bez zmian względem wpisów #34 i #337"
+      },
+      "codePaths": ["src/components/admin/vehicle-list.tsx"],
+      "testPaths": ["tests/unit/vehicle-list-reset.test.tsx", "tests/e2e/admin-fleet.spec.ts"]
+    },
+    {
       "issue": 375,
       "scope": "ADM-05 toolbar listy pojazdów na wąskim desktopie (1024-1200 px): zamknięte pola Publikacja i Kategoria mają co najmniej 120 px (min-width pigułek, węższe minimum Szukaj, krótka widoczna etykieta „Zmiana” przycisku sortowania poniżej 900 px kontenera; nazwa dostępna „Ostatnia zmiana, sortowanie: …” bez zmian), a Szukaj, Publikacja, Kategoria, sortowanie i „Dodaj pojazd” zostają w jednym rzędzie. Tylko CSS i etykieta; bez zmian logiki. Plansza Penpota: Desktop a4abf4c9-2e1f-80fd-8008-afeba8dd6131.",
       "relatedRequirementIds": ["C-F095", "C-F097", "FR-ADM-021", "FR-ADM-022"],
