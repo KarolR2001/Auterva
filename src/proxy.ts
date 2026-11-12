@@ -3,12 +3,37 @@ import { prisma } from "./lib/prisma";
 import { isCustomDomainHost, resolveAliasRedirect } from "./modules/domains/routing";
 import { parseHostAuthority, resolveHostMapping } from "./modules/tenancy/host-registry";
 import { routeAllowedForArea } from "./modules/tenancy/host-route-policy";
-import { countRequest } from "./modules/observability/http-observe";
+import { count5xx, countRequest } from "./modules/observability/http-observe";
+import { logFailure } from "./modules/observability/log";
+import { randomUUID } from "node:crypto";
 import { documentCsp, isDocumentPath, newNonce } from "./modules/tenancy/csp";
 import { bodyLimitForPath } from "./modules/tenancy/json-body";
 import { withErrorRequestId } from "./modules/tenancy/request-id";
 
+const unavailablePage = `<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">`
+  + `<meta name="robots" content="noindex"><title>Chwilowa przerwa</title></head><body><main><h1>Chwilowa przerwa</h1>`
+  + `<p>Usługa jest tymczasowo niedostępna. Spróbuj ponownie za chwilę.</p></main></body></html>`;
+
+/**
+ * #412: the host lookup runs before any handler and is the first database read of a request. When it fails (database
+ * down, pool exhausted) the visitor gets a controlled retryable 503 with a request ID instead of a bare 500.
+ * Only the safe machine error code is logged, never the message or connection details; host refusal (404) is unchanged.
+ */
 export async function proxy(request: NextRequest) {
+  try {
+    return await route(request);
+  } catch (error) {
+    const requestId = randomUUID();
+    count5xx(requestId);
+    logFailure("http.service_unavailable", error, { requestId, operation: "proxy.host_lookup", status: 503 });
+    const headers = { "Cache-Control": "no-store", "Retry-After": "2", "X-Request-Id": requestId };
+    return request.nextUrl.pathname.startsWith("/api/")
+      ? NextResponse.json({ code: "TEMPORARILY_UNAVAILABLE" }, { status: 503, headers })
+      : new NextResponse(unavailablePage, { status: 503, headers: { ...headers, "Content-Type": "text/html; charset=utf-8" } });
+  }
+}
+
+async function route(request: NextRequest) {
   // #57: Next buffers a bounded copy of every non-GET body before this function runs and, for a chunked body, drops a
   // chunk that does not fit, so a handler could see only a prefix. A body with no declared length is refused here
   // (a request without any body and without Content-Length, such as fetch DELETE, passes), and a declared length above

@@ -22,6 +22,15 @@
       "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
     },
     {
+      "issue": 412,
+      "scope": "Proxy: przy niedostępnej bazie (błąd rozpoznania hosta przed handlerem) kontrolowana odpowiedź 503 zamiast surowego 500: trasy API zwracają {code:TEMPORARILY_UNAVAILABLE} z Retry-After, X-Request-Id i no-store, strony prostą stronę błędu bez szczegółów; zdarzenie http.service_unavailable i licznik 5xx bez sekretów. Odmowa hosta (404) bez zmian.",
+      "relatedRequirementIds": ["C-N060"],
+      "referenceScreenIds": [],
+      "unmappedStates": ["Backend; prosta strona błędu bez makiety, treść neutralna bez szczegółów."],
+      "codePaths": ["src/proxy.ts"],
+      "testPaths": ["tests/unit/proxy-db-unavailable.test.ts", "tests/integration/host-proxy.test.ts"]
+    },
+    {
       "issue": 381,
       "scope": "Lista pojazdów: „Wyczyść filtry” (arkusz filtrów i stan „Brak wyników”) czyści wyszukiwanie, filtry i stronę, ale zachowuje sortowanie „Ostatnia zmiana”; sortowanie wraca do kolejności w ofercie wyłącznie przez „Przywróć domyślne” / przycisk sortowania (D-42, D-50). Zachowanie bez zmian wyglądu.",
       "relatedRequirementIds": ["FR-ADM-020", "FR-ADM-021", "FR-ADM-022"],
