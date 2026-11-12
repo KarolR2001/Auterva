@@ -7,6 +7,7 @@ import type { ActorContext } from "@/modules/tenancy/request-context";
 import { decryptArtifact, exportArtifactKey, getArtifact } from "./artifact";
 import type { ExportCounts } from "./snapshot";
 import type { MediaStorage } from "@/modules/media/storage";
+import { expireReadyExport, failAbandonedExport } from "./transitions";
 
 const hour = 60 * 60_000;
 const day = 24 * hour;
@@ -76,11 +77,14 @@ export async function requestCompanyExport(db: PrismaClient, input: {
     if (archivedAt && (actor.role !== "SUPERADMIN_AUTERVA" || now.getTime() - archivedAt.getTime() > EXPORT_ARCHIVE_WINDOW_MS))
       return { ok: false, code: "EXPORT_ARCHIVE_WINDOW_ELAPSED" } as const;
     // Housekeeping first, so a stale row never blocks the company: expired READY, abandoned PENDING.
-    await tx.companyExport.updateMany({ where: { organizationId: actor.organizationId, status: "READY", expiresAt: { lte: now } },
-      data: { status: "EXPIRED" } });
-    await tx.companyExport.updateMany({ where: { organizationId: actor.organizationId, status: "PENDING",
-      createdAt: { lte: new Date(now.getTime() - EXPORT_PENDING_TIMEOUT_MS) } },
-    data: { status: "FAILED", errorCode: "EXPORT_TIMEOUT", completedAt: now } });
+    const cutoff = new Date(now.getTime() - EXPORT_PENDING_TIMEOUT_MS);
+    const [expired, abandoned] = await Promise.all([
+      tx.companyExport.findMany({ where: { organizationId: actor.organizationId, status: "READY", expiresAt: { lte: now } },
+        select: { id: true, organizationId: true } }),
+      tx.companyExport.findMany({ where: { organizationId: actor.organizationId, status: "PENDING", createdAt: { lte: cutoff } },
+        select: { id: true, organizationId: true } })]);
+    for (const row of expired) await expireReadyExport(tx, row, now);
+    for (const row of abandoned) await failAbandonedExport(tx, row, now, cutoff);
     const pending = await tx.companyExport.findFirst({ where: { organizationId: actor.organizationId, status: "PENDING" },
       select: { id: true } });
     if (pending) return { ok: false, code: "EXPORT_ALREADY_ACTIVE", exportId: pending.id } as const;
