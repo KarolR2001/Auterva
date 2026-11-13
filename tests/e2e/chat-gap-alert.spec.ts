@@ -48,7 +48,7 @@ for (const { who, superadmin, width, height } of variants) {
       const [name, ...rest] = session.cookie.split("=");
       await context.addCookies([{ name, value: rest.join("="), url: origin }]);
       await page.goto(superadmin ? `${origin}/wiadomosci/?firma=${org}` : `${origin}/admin/czat/`);
-      await expect(page.getByText("wiadomość 40", { exact: true })).toBeVisible();
+      await expect(page.getByRole("log", { name: "Historia rozmowy" }).getByText("wiadomość 40", { exact: true })).toBeVisible();
       await expect.poll(() => sockets.length).toBe(1);
       const state = { ownMessageId: null, ownSeq: 0, peerMessageId: null, peerSeq: 0, unread: 0 };
       const ready = (route: WebSocketRoute, backlog: string) => route.send(JSON.stringify({ type: "ready", protocol: 1, role: superadmin ? "SUPERADMIN_AUTERVA" : "ADMIN_FIRMY",
