@@ -64,6 +64,30 @@
       "sharedWith": "Zależy od #383 (PR #395)."
     },
     {
+      "issue": 419,
+      "scope": "Trwałe usunięcie danych firmy 12 miesięcy po archiwizacji (D-58): dzienny, idempotentny job COMPANY_PURGE w media-workerze; start pod blokadą wiersza firmy (purgeStartedAt, nieodwracalny trigger), wiersze firmy w paczkach (pojazdy, blokady, feedy, eksporty, treści/ustawienia, media, czat, hosty/domena, zaproszenia, receipty, konto administratora z MFA i sesjami), obiekty storage z ponowieniem po awarii, zanonimizowany szkielet Organization (purgedAt) dla audytu 365 dni. Po starcie brak zapisu, przywrócenia (409 COMPANY_PURGED) i restore z kopii. Audyt i logi bez treści. Karta firmy superadmina: purge.scheduledAt/startedAt/completedAt w API. Bez nowego ekranu.",
+      "relatedRequirementIds": ["C-F073", "C-F074", "C-F077", "D-58"],
+      "referenceScreenIds": [],
+      "unmappedStates": ["Backend; data planowanego usunięcia w karcie firmy (PLT-03) i komunikat COMPANY_PURGED wymagają osobnej decyzji projektowej/UI — w tym PR tylko pole API i tekst błędu przywrócenia."],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261112120000_company_purge_issue_419/migration.sql",
+        "src/modules/organizations/purge.ts",
+        "src/modules/organizations/archive.ts",
+        "src/modules/organizations/read.ts",
+        "src/modules/organizations/write-lock.ts",
+        "src/modules/media/worker.ts",
+        "src/modules/backup/company.ts",
+        "src/modules/observability/alerts.ts",
+        "src/components/platform/company-ops.tsx",
+        "docs/contracts/company-archive-restore.md",
+        "docs/contracts/platform-companies-read.md",
+        "docs/runbooks/monitoring-incidents.md",
+        "docs/runbooks/backup-restore.md"
+      ],
+      "testPaths": ["tests/integration/company-purge.test.ts"]
+    },
+    {
       "issue": 371,
       "scope": "OVR-07 desktop (D-48): „Kopiuj na inne auta” w nagłówku okna edycji blokady obok tytułu (wspólny Dialog dostaje opcjonalne headerAction, addytywnie; okna bez niego bez zmian). Na mobile (do 480 px) zostaje przycisk pełnej szerokości nad „Usuń blokadę” (OVR-07-mobile-edit); ten sam href, w danej szerokości widoczny jeden link. Kolejność Tab: nagłówek, pola, Zamknij, Zapisz; fokus początkowy, Escape i powrót fokusu bez zmian.",
       "relatedRequirementIds": ["FR-ADM-055", "FR-ADM-057", "D-48"],
