@@ -51,6 +51,9 @@ Uwaga W6 ([OWASP_CONTROLS §6](../security/OWASP_CONTROLS.md)): ostrzeżenie Nex
 ### mail
 `MAIL_DELIVERY_FAILED` (ticket): w ostatniej godzinie przybyły joby `MAIL_*` w `FAILED` lub `UNCERTAIN` (alert znika sam po powrocie do zdrowia; nowa porażka alarmuje ponownie). `MAIL_PROVIDER_ERRORS` (ticket): ≥3 odpowiedzi dostawcy z błędem w 15 minut (licznik workera). Sprawdź dostawcę poczty i kody (`MAIL_TRANSIENT`, `MAIL_PERMANENT`, `MAIL_OUTCOME_UNKNOWN`). Nie wysyłaj ręcznie ponownie bez sprawdzenia u dostawcy (ryzyko duplikatu).
 
+### company-purge
+`COMPANY_PURGE_FAILED` (ticket, nowa porażka w godzinie): dzienny job trwałego usunięcia danych firmy (#419, D-58) przeszedł w `FAILED` po pięciu kolejnych nieudanych próbach. Kod błędu w `Job.errorCode`: `COMPANY_PURGE_STORAGE_FAILED` (storage obiektów; sprawdź `READY_STORAGE`/`STORAGE_ERRORS`), `COMPANY_PURGE_ROWS_REMAIN` lub `COMPANY_PURGE_UNCLASSIFIED_TABLE` (nowa tabela z `organizationId` bez decyzji w `COMPANY_PURGE_TABLES`; to błąd kodu — zgłoś Backend), inne `COMPANY_PURGE_FAILED`. Rozpoczęte usunięcie firmy (`purgeStartedAt` bez `purgedAt`) wznawia automatycznie job następnego dnia UTC; ręczny restart nie jest potrzebny. Alert znika sam po godzinie bez nowej porażki; jeśli kolejny dzień znów kończy się `FAILED`, przyczyna nie została usunięta. Nie wklejaj do zgłoszeń danych firmy, tylko identyfikator firmy i kod.
+
 ### audit-retention
 Osobne sygnały #108, żaden nie jest ukryty sukcesem purge:
 - `AUDIT_RETENTION_FAILED` (page): job w `FAILED`, cutoff zachowany. Zbadaj przyczynę (`scripts/audit-retention.ts status`), potem `retry <job-id>`.

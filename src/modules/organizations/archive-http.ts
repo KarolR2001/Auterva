@@ -6,7 +6,7 @@ import { reportInternalError, transientDbResponse } from "@/modules/observabilit
 
 function archiveFailure(error: unknown, requestId: string): Response {
   const message = error instanceof Error ? error.message : "";
-  if (["COMPANY_VERSION_CONFLICT", "COMPANY_ALREADY_ARCHIVED", "COMPANY_NOT_ARCHIVED"].includes(message))
+  if (["COMPANY_VERSION_CONFLICT", "COMPANY_ALREADY_ARCHIVED", "COMPANY_NOT_ARCHIVED", "COMPANY_PURGED"].includes(message))
     return periodResponse({ code: message }, 409, requestId);
   if (message === "COMPANY_NOT_FOUND") return periodResponse({ code: "NOT_FOUND" }, 404, requestId);
   if (message === "FORBIDDEN") return periodResponse({ code: "FORBIDDEN" }, 403, requestId);

@@ -6,8 +6,9 @@ import { EXPORT_JOB_KIND, EXPORT_LEASE_MS, processCompanyExportClaim, sweepCompa
 import { decodeMedia } from "./decode";
 import { putImmutable, readLimited, removeObject, type MediaStorage } from "./storage";
 import type { LogContext } from "@/modules/observability/log";
-import { currentLogContext, logFailure, runWithLogContext } from "@/modules/observability/log";
+import { currentLogContext, log, logFailure, runWithLogContext } from "@/modules/observability/log";
 import { iterationOutcome } from "@/modules/observability/worker-metrics";
+import { COMPANY_PURGE_JOB_KIND, COMPANY_PURGE_LEASE_MS, processCompanyPurgeClaim, purgeStorageFrom, scheduleCompanyPurge } from "@/modules/organizations/purge";
 
 const leaseMs = 90_000;
 const retryMs = (attempt: number) => Math.min(5_000 * 2 ** Math.min(attempt - 1, 6), 300_000);
@@ -143,8 +144,10 @@ export async function processMediaClaim(db: PrismaClient, storage: MediaStorage,
     await putImmutable(storage, variants.large, decoded.large, "image/webp");
     await putImmutable(storage, variants.thumb, decoded.thumb, "image/webp");
     const committed = await db.$transaction(async (tx) => {
+      // #419: a company whose purge started counts as missing, so no image is created after the purge began.
       const company = await tx.$queryRaw<{ id: string; archivedAt: Date | null }[]>`
-        SELECT id, "archivedAt" FROM "Organization" WHERE id = ${upload.organizationId}::uuid FOR NO KEY UPDATE`;
+        SELECT id, "archivedAt" FROM "Organization" WHERE id = ${upload.organizationId}::uuid AND "purgeStartedAt" IS NULL
+        FOR NO KEY UPDATE`;
       const vehicle = upload.vehicleId ? await tx.$queryRaw<{ id: string; status: string; name: string | null }[]>`
         SELECT id, status, name FROM "Vehicle" WHERE id = ${upload.vehicleId}::uuid
           AND "organizationId" = ${upload.organizationId}::uuid FOR UPDATE` : null;
@@ -211,10 +214,17 @@ export async function processMediaClaim(db: PrismaClient, storage: MediaStorage,
 
 export async function runMediaWorkerLoop(db: PrismaClient, storage: MediaStorage, signal: AbortSignal,
   clock: () => Date = () => new Date()): Promise<void> {
+  let purgeScheduledDay = "";
   while (!signal.aborted) {
     const jobCtx: LogContext = { operation: "media.process" };
     try {
       const now = clock();
+      // #419 (D-58): one company purge job per UTC day; this worker owns the object storage the purge empties.
+      const day = now.toISOString().slice(0, 10);
+      if (day !== purgeScheduledDay) {
+        await scheduleCompanyPurge(db, now);
+        purgeScheduledDay = day;
+      }
       await reconcileMediaFailures(db);
       await cleanupExpiredImageUploads(db, storage, now);
       await cleanupDeletedPublicMedia(db, storage);
@@ -231,6 +241,15 @@ export async function runMediaWorkerLoop(db: PrismaClient, storage: MediaStorage
       if (claim) {
         await runWithLogContext(jobCtx, () => processMediaClaim(db, storage, claim, clock));
         continue;
+      }
+      const purgeClaim = await claimNextJob(db, now, COMPANY_PURGE_LEASE_MS, false, COMPANY_PURGE_JOB_KIND);
+      if (purgeClaim) {
+        const result = await processCompanyPurgeClaim(db, purgeStorageFrom(storage), purgeClaim, clock);
+        // Identifiers and counts only; the purge never logs company data.
+        for (const step of result.steps) log.info("company.purge_step", { operation: "company.purge", outcome: "success",
+          organizationId: step.kind === "idle" ? undefined : step.organizationId, step: step.kind, count: "count" in step ? step.count : undefined });
+        if (result.errorCode) log.warn("company.purge_failed", { operation: "company.purge", outcome: "failure", errorCode: result.errorCode });
+        if (!result.errorCode) continue;
       }
     } catch (error) { logFailure("worker.iteration_failed", error, { operation: "media.worker", organizationId: jobCtx.organizationId }); iterationOutcome("media-worker", false); }
     await new Promise<void>((resolve) => {

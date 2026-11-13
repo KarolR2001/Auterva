@@ -129,6 +129,10 @@ export const rules: AlertRule[] = [
   { id: "MEDIA_JOBS_FAILED", title: "Image processing jobs newly failed (last hour)", severity: "ticket", owner: "operator", group: "jobs",
     runbook: "#worker", forEvaluations: 1, clearAfter: 2,
     breached: (c) => { if (!fresh(c, "jobs")) return null; const n = increaseOf(c, metricNames.jobsTerminalFailures, [{ kind: "MEDIA_PROCESS" }], 60 * MIN, true); return n === null ? null : n >= 1; } },
+  // #419 (D-58): a failed company purge leaves data past its retention; the next day's job resumes it.
+  { id: "COMPANY_PURGE_FAILED", title: "Company purge job newly failed (last hour)", severity: "ticket", owner: "operator", group: "jobs",
+    runbook: "#company-purge", forEvaluations: 1, clearAfter: 2,
+    breached: (c) => { if (!fresh(c, "jobs")) return null; const n = increaseOf(c, metricNames.jobsTerminalFailures, [{ kind: "COMPANY_PURGE" }], 60 * MIN, true); return n === null ? null : n >= 1; } },
   // Audit retention and operator export (#108): separate signals, none hidden behind a successful purge.
   { id: "AUDIT_RETENTION_FAILED", title: "AUDIT_RETENTION job is FAILED (attempts exhausted)", severity: "page", owner: "operator", group: "audit",
     runbook: "#audit-retention", forEvaluations: 1, clearAfter: 2,
