@@ -2639,7 +2639,8 @@
       "codePaths": ["src/components/admin/bulk-blocks.tsx", "src/components/admin/bulk-blocks-model.ts"],
       "testPaths": ["tests/unit/bulk-blocks.test.tsx", "tests/e2e/bulk-blocks.spec.ts"],
       "sharedWith": "Reguła startsInPast z src/components/admin/vehicle-calendar-model.ts (pojedyncza blokada, #217)."
-    }
+    },
+    {"issue": 426, "scope": "Lokalny czat na żywo: local-ingress (tylko lokalna próba, produkcyjna topologia bez zmian) przekazuje upgrade /ws i /ws/platform do procesu ws (WS_PORT) z Origin i Cookie klienta; Host zastępuje skonfigurowanym adresem usługi WS, nagłówki forwarding są usuwane, ruch spoza loopbacku dostaje 403, inne ścieżki 404, niedostępny proces ws 502. Origin z rejestru hostów, sesję z MFA, rolę i firmę nadal ocenia proces ws. Bez zmian kontraktu czatu i UI; pnpm dev nie przekazuje /ws (czat na żywo przez local-ingress).", "relatedRequirementIds": [], "referenceScreenIds": [], "codePaths": ["src/modules/ingress/ws-upgrade-proxy.ts", "scripts/start-local-ingress.ts"], "testPaths": ["tests/integration/ws-upgrade-proxy.test.ts"], "sharedWith": "Kontrakt: docs/contracts/chat-realtime.md (handshake); adapter adresu: src/modules/ingress/client-address.ts."}
   ],
   "sources": [
     {
