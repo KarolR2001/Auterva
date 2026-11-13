@@ -29,6 +29,8 @@ test("A/B seed is repeatable, tenant-scoped and includes catalogue, periods and 
     expect(users.rows).toHaveLength(3);
     expect(users.rows.filter((row) => row.role === "ADMIN_FIRMY").map((row) => row.organizationId).sort()).toEqual([...FIXTURE.organizations].sort());
     expect(users.rows.find((row) => row.role === "SUPERADMIN_AUTERVA")?.organizationId).toBeNull();
+    const platform = await db.query('SELECT "organizationId", area, status FROM "HostMapping" WHERE hostname = $1', ["platform.localhost"]);
+    expect(platform.rows).toEqual([{ organizationId: null, area: "PLATFORM", status: "ACTIVE" }]);
   } finally {
     await db.end();
   }

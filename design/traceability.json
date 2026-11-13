@@ -64,6 +64,14 @@
       "sharedWith": "Zależy od #383 (PR #395)."
     },
     {
+      "issue": 425,
+      "scope": "Lokalny seed fixture tworzy idempotentnie host platformy platform.localhost (obszar PLATFORM, bez firmy, ACTIVE), także po --reset, tylko w guardowanej ścieżce lokalnej; superadmin loguje się bez ręcznego psql. Bez zmian UI i API.",
+      "relatedRequirementIds": ["D-29"],
+      "codePaths": ["scripts/seed-local-fixture.ts", "README.md"],
+      "testPaths": ["tests/integration/local-fixture.test.ts"],
+      "sharedWith": "Instrukcja URUCHOMIENIE_MACOS.md (PR #423): po scaleniu usunąć krok psql."
+    },
+    {
       "issue": 371,
       "scope": "OVR-07 desktop (D-48): „Kopiuj na inne auta” w nagłówku okna edycji blokady obok tytułu (wspólny Dialog dostaje opcjonalne headerAction, addytywnie; okna bez niego bez zmian). Na mobile (do 480 px) zostaje przycisk pełnej szerokości nad „Usuń blokadę” (OVR-07-mobile-edit); ten sam href, w danej szerokości widoczny jeden link. Kolejność Tab: nagłówek, pola, Zamknij, Zapisz; fokus początkowy, Escape i powrót fokusu bez zmian.",
       "relatedRequirementIds": ["FR-ADM-055", "FR-ADM-057", "D-48"],
