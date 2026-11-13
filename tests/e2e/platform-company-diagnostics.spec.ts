@@ -54,7 +54,7 @@ test("superadmin: Diagnostyka shows domain and mail, uncertain on 5xx keeps the 
     await retry.first().focus();
     await expect(retry.first()).toBeFocused();
     await page.keyboard.press("Enter");
-    await expect(region.getByText("Wynik niepewny")).toBeVisible();
+    await expect(region.getByText("Wynik niepewny", { exact: true })).toBeVisible();
     await expect(region.getByText(/Ostatni potwierdzony wynik: Błąd/)).toBeVisible();
     await expect(retry.first()).toBeFocused();
     await expect(region.getByText("Aktywna", { exact: true })).toHaveCount(0);
