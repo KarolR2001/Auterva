@@ -31,3 +31,9 @@ test("block types keep MAINTENANCE as the canonical Serwis type (D-15)", async (
   expect(blockTypeLabels.MAINTENANCE).toBe("Serwis");
   expect(blockTypes).not.toContain("SERVICE");
 });
+
+test("request dates stop at 9998-12-31 so every window stays inside year 9999 (#390)", () => {
+  expect(parseAvailabilityRange("9998-12-31", "9998-12-31").days).toBe(1);
+  expect(() => parseAvailabilityRange("9999-01-01", "9999-01-01")).toThrow();
+  expect(() => parseAvailabilityRange("9999-12-31", "9999-12-31")).toThrow();
+});

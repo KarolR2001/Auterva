@@ -61,3 +61,11 @@ test("DST in Warsaw does not shift calendar days", () => {
 test("vehicle without activity start is never available", () => {
   expect(findNearestSlot({ ...base, days: 1, blocks: [], availableFrom: null })).toBeNull();
 });
+
+test("dates at the end of the calendar never overflow into year 10000 (#390)", () => {
+  expect(findNearestSlot({ ...base, searchFrom: "9998-12-31", availableFrom: "9999-12-31", days: 365, blocks: [] })).toBeNull();
+  expect(findNearestSlot({ ...base, searchFrom: "9998-12-31", availableFrom: "2027-01-01", days: 365,
+    blocks: [b("9998-12-31", "9999-12-31")] })).toBeNull();
+  expect(findNearestSlot({ ...base, searchFrom: "9998-12-31", availableFrom: "2027-01-01", days: 2, blocks: [] }))
+    .toEqual({ from: "9998-12-31", to: "9999-01-01" });
+});
