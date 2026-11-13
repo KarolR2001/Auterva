@@ -1144,6 +1144,22 @@
       "testPaths": ["tests/integration/chat-inbox-consistency.test.ts", "tests/integration/chat-inbox.test.ts"]
     },
     {
+      "issue": 173,
+      "scope": "Limit prob handshake WebSocket na zrodlo (60/60 s, w pamieci procesu WS) przed zapytaniami do bazy: 429 z Retry-After, zrodlo z zaufanej abstrakcji clientAddress (peer gniazda; punkt rozszerzenia adaptera dostawcy #90), metryka i alert odrzucen. Czesc lokalna wg D-54. Bez UI.",
+      "relatedRequirementIds": ["C-N001", "C-N004"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "docs/contracts/chat-realtime.md",
+        "docs/runbooks/monitoring-incidents.md",
+        "src/modules/chat/handshake-limit.ts",
+        "src/modules/chat/realtime.ts",
+        "src/modules/observability/alerts.ts",
+        "src/modules/observability/metrics.ts",
+        "src/server/realtime.ts"
+      ],
+      "testPaths": ["tests/unit/handshake-limit.test.ts", "tests/integration/ws-handshake-limit.test.ts", "tests/unit/observability-alerts.test.ts"]
+    },
+    {
       "issue": 159,
       "scope": "Konfigurowalny nasłuch i allowlista hostów serwera WebSocket w kontenerze (WS_HOST, WS_PORT, WS_ALLOWED_HOSTS) walidowane przy starcie; domyślnie loopback, bez trybu dowolnego hosta.",
       "relatedRequirementIds": ["C-N004", "C-N059"],

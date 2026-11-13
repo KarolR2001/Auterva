@@ -181,6 +181,9 @@ export const rules: AlertRule[] = [
     runbook: "#realtime", forEvaluations: 2, clearAfter: 2,
     // A lost listener during a database outage is a consequence of it (READY_DATABASE pages once).
     breached: (c) => hasSample(c.samples, names.wsListenerHealthy) && !databaseDown(c) ? c.samples.some((s) => s.name === names.wsListenerHealthy && s.value < 1) : null },
+  { id: "WS_HANDSHAKE_FLOOD", title: "Realtime handshakes are refused by the per-source limit", severity: "ticket", owner: "operator", group: "realtime",
+    runbook: "#realtime", forEvaluations: 2, clearAfter: 4,
+    breached: (c) => { const n = c.increase(names.wsHandshakeLimited, {}, 5 * MIN); return n === null ? null : n >= 100; } },
 ];
 
 // ---------------------------------------------------------------------------------------------------------------

@@ -24,7 +24,15 @@ W produkcji proxy zwykle przepisuje `Host` na stały host usługi WS, więc `WS_
 
 `GET /ws?organizationId=<uuid>[&after=<kursor>]` z ciasteczkiem sesji i `Origin`. Inne parametry to `400`. Kolejno: ścieżka, `Host` z allowlisty, Origin z rejestru, sesja z **dowodem MFA tej sesji**, rola, firma i stan konta (`requireAuthorizedActor`: konto aktywne, e-mail zweryfikowany, TOTP włączone, firma niezarchiwizowana). Admin: `organizationId` musi być firmą hosta panelu. Superadmin: host `PLATFORM`, `organizationId` wskazuje istniejącą firmę (także zarchiwizowaną; kontekst firmy, własna tożsamość, bez impersonacji).
 
-Odmowa to odpowiedź HTTP przed upgrade, bez treści: `403` (każda odmowa autoryzacji, celowo jednolita), `400` zły parametr lub `after`, `404` ścieżka, `429` ponad 5 połączeń tego konta w tej samej firmie, `503` ponad 2000 połączeń lub zamykanie procesu. Zdarzenia firmy A nie trafiają do B (grupy per firma, zapytania z `organizationId`).
+## Limit prób handshake (#173)
+
+Pierwszy krok po sprawdzeniu ścieżki i `Host` (przed parsowaniem parametrów, `HostMapping`, sesją i jakimkolwiek zapytaniem do bazy): limit prób na **źródło**, 60 prób (każdy wynik) na 60 s, dla `/ws` i `/ws/platform` łącznie. Powyżej limitu: `429` z `Retry-After`, bez zapytań do bazy; odrzucone próby nie wydłużają okna. Licznik jest w pamięci procesu WS (limit na instancję), tabela źródeł ograniczona do 10 000 (najpierw wygasłe, potem najstarsze wpisy). Prawidłowi klienci innego źródła mają osobny licznik. Wartości: `handshakeWindowMs`, `maxHandshakesPerWindow`, `maxHandshakeSources` (`RealtimeLimits`).
+
+Źródło to adres z zaufanej abstrakcji `clientAddress` (`src/modules/chat/handshake-limit.ts`), nigdy nagłówek od klienta (`X-Forwarded-For` i spółka są ignorowane). Domyślnie jest to peer gniazda (`socketClientAddress`): bezpośrednio lub za lokalnym ingressem; adresy IPv6 grupowane po /64, IPv4-mapped jako IPv4. **Punkt rozszerzenia #90:** za proxy dostawcy gniazdo wskazuje proxy, więc bez adaptera wszyscy klienci tworzyliby jedno źródło. Adapter (`clientAddress` w `startRealtimeServer`) musi czytać adres wyłącznie z nagłówka ustawianego przez skonfigurowane proxy i zwracać `null`, gdy go brak (wspólne źródło `unknown`). Do czasu rozstrzygnięcia #90 limit nie jest wdrażalny za proxy dostawcy.
+
+Odrzucenia: licznik `auterva_ws_handshake_limited_total`, alert `WS_HANDSHAKE_FLOOD` (ticket, ≥ 100 w 5 min; runbook `monitoring-incidents.md#realtime`).
+
+Odmowa to odpowiedź HTTP przed upgrade, bez treści: `403` (każda odmowa autoryzacji, celowo jednolita), `400` zły parametr lub `after`, `404` ścieżka, `429` ponad 5 połączeń tego konta w tej samej firmie albo ponad limit prób źródła, `503` ponad 2000 połączeń lub zamykanie procesu. Zdarzenia firmy A nie trafiają do B (grupy per firma, zapytania z `organizationId`).
 
 ## Ramki (JSON, tekst)
 

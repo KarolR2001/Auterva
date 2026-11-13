@@ -29,6 +29,7 @@ const server = await startRealtimeServer({
   authority: createRealtimeAuthority(prisma, auth),
   // Events are fixed internal words (no user data); lost listener and failures are warnings, the rest informational.
   log: (event, principal) => {
+    if (event === "handshake-limited") metrics.inc(names.wsHandshakeLimited, "WebSocket handshakes refused with 429 by the per-source limit");
     const failing = /(failed|lost|slow)/.test(event);
     runWithLogContext({ actorId: principal?.actorId, actorRole: principal?.role, organizationId: principal?.organizationId, operation: "realtime" },
       () => (failing ? log.warn : log.info)(`realtime.${event}`, { outcome: failing ? "failure" : "success" }));
