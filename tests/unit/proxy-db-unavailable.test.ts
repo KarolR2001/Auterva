@@ -3,16 +3,15 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 // #412: when the host lookup cannot reach the database, Proxy answers a controlled 503 instead of a raw 500.
 const connection = "postgresql://user:s3cret@db.invalid:5432/auterva";
-vi.mock("../../src/lib/prisma", () => ({ prisma: { hostMapping: { findFirst: vi.fn(async () => {
-  throw Object.assign(new Error(`connect ECONNREFUSED ${connection}`), { code: "ECONNREFUSED" });
-}) } } }));
+const failure = vi.hoisted(() => ({ error: null as unknown }));
+vi.mock("../../src/lib/prisma", () => ({ prisma: { hostMapping: { findFirst: vi.fn(async () => { throw failure.error; }) } } }));
 
 import { proxy } from "../../src/proxy";
 import { setLogSink } from "../../src/modules/observability/log";
 
 const logged: string[] = [];
 let restore = () => {};
-beforeEach(() => { logged.length = 0; restore = setLogSink((line) => { logged.push(line); }); });
+beforeEach(() => { failure.error = Object.assign(new Error(`connect ECONNREFUSED ${connection}`), { code: "ECONNREFUSED" }); logged.length = 0; restore = setLogSink((line) => { logged.push(line); }); });
 afterEach(() => restore());
 
 const request = (path: string, method = "GET") => new NextRequest(`https://app.example.test${path}`, { method, headers: { host: "app.example.test" } });
@@ -46,4 +45,27 @@ test("domain probe hits the same controlled answer and the failure is logged wit
   expect(lines).toContain("http.service_unavailable");
   expect(lines).toContain(requestId);
   expect(lines).not.toMatch(/s3cret|db\.invalid|postgresql:/);
+});
+
+test("connection error nested in cause is still 503", async () => {
+  failure.error = new Error("query failed", { cause: Object.assign(new Error("x"), { code: "ETIMEDOUT" }) });
+  expect((await proxy(request("/api/admin/settings/"))).status).toBe(503);
+});
+
+test("non-database error: neutral 500 INTERNAL_ERROR without Retry-After, logged as internal error", async () => {
+  failure.error = new TypeError(`bug ${connection}`);
+  const api = await proxy(request("/api/admin/settings/"));
+  expect(api.status).toBe(500);
+  expect(await api.json()).toEqual({ code: "INTERNAL_ERROR" });
+  expect(api.headers.get("Retry-After")).toBeNull();
+  expect(api.headers.get("Cache-Control")).toBe("no-store");
+  const requestId = api.headers.get("X-Request-Id")!;
+  const page = await proxy(request("/admin/"));
+  expect(page.status).toBe(500);
+  expect(await page.text()).not.toMatch(/bug|s3cret|db\.invalid/);
+  const lines = logged.join("\n");
+  expect(lines).toContain("http.internal_error");
+  expect(lines).toContain(requestId);
+  expect(lines).not.toContain("http.service_unavailable");
+  expect(lines).not.toMatch(/s3cret|db\.invalid/);
 });

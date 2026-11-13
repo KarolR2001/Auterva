@@ -56,6 +56,23 @@ export function isTransientDbError(error: unknown, depth = 0): boolean {
   return isTransientDbError(meta?.driverAdapterError, depth + 1) || isTransientDbError(e.cause, depth + 1);
 }
 
+const connectionPrismaCodes = new Set(["P1001", "P1002", "P1017"]);
+const connectionSystemCodes = new Set(["ECONNREFUSED", "ETIMEDOUT"]);
+
+/**
+ * Database unreachable or transient (#412): everything isTransientDbError covers plus connection and initialization
+ * failures (PrismaClientInitializationError, P1001/P1002/P1017, ECONNREFUSED/ETIMEDOUT anywhere in the cause chain).
+ * Anything else is an unexpected error and must stay a 500.
+ */
+export function isDbUnavailableError(error: unknown, depth = 0): boolean {
+  if (isTransientDbError(error)) return true;
+  if (typeof error !== "object" || error === null || depth > 4) return false;
+  const e = error as { name?: unknown; code?: unknown; cause?: unknown };
+  if (e.name === "PrismaClientInitializationError") return true;
+  if (typeof e.code === "string" && (connectionPrismaCodes.has(e.code) || connectionSystemCodes.has(e.code))) return true;
+  return isDbUnavailableError(e.cause, depth + 1);
+}
+
 /**
  * For HTTP failure mappers: a transient database failure becomes a retryable 503 TEMPORARILY_UNAVAILABLE
  * (the client treats the outcome as uncertain); the log and 5xx counter carry the real status. Otherwise null.
