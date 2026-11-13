@@ -2,7 +2,7 @@ import { Prisma } from "@/generated/prisma/client";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { resolvePublicVisibility } from "@/modules/service-period/public";
 import { blockTypeLabels, type BlockType } from "./block-types";
-import { addLocalDays, enumerateAvailabilityDays, localDate, sqlDate, type AvailabilityRange } from "./dates";
+import { addLocalDays, addLocalDaysClamped, enumerateAvailabilityDays, localDate, sqlDate, type AvailabilityRange } from "./dates";
 
 /** Reusable before list pagination and count; all dates are inclusive SQL DATE values. */
 export function availabilityVehicleWhere(
@@ -195,15 +195,15 @@ export function findNearestSlot(input: { searchFrom: string; days: number; horiz
   availableFrom: string | null; availableTo: string | null; blocks: { from: string; to: string }[] }):
   { from: string; to: string } | null {
   if (input.availableFrom === null) return null;
-  const limit = addLocalDays(input.searchFrom, input.horizon - 1);
+  const limit = addLocalDaysClamped(input.searchFrom, input.horizon - 1);
   const last = input.availableTo !== null && input.availableTo < limit ? input.availableTo : limit;
   let start = input.availableFrom > input.searchFrom ? input.availableFrom : input.searchFrom;
   for (const block of input.blocks) {
     if (block.to < start) continue;
-    if (block.from > addLocalDays(start, input.days - 1)) break;
-    start = addLocalDays(block.to, 1);
+    if (block.from > addLocalDaysClamped(start, input.days - 1)) break;
+    start = addLocalDaysClamped(block.to, 1);
   }
-  const end = addLocalDays(start, input.days - 1);
+  const end = addLocalDaysClamped(start, input.days - 1);
   return end <= last ? { from: start, to: end } : null;
 }
 
