@@ -68,7 +68,11 @@ function errorNotice(status: number, code: string | null, retryAfter: string | n
   return { refresh: false, notice: { tone: "error", title: "Nie wykonano operacji.", text: "Sprawdź dane i spróbuj ponownie." } };
 }
 
-export function CompanyDomain({ organizationId, archived }: { organizationId: string; archived: boolean }) {
+export function CompanyDomain({ organizationId, archived, onChanged }: {
+  organizationId: string; archived: boolean;
+  /** Called after every finished domain operation, whatever its outcome (#78: the diagnostics re-read). */
+  onChanged?: () => void;
+}) {
   const hostId = "company-domain-host";
   const base = `/api/platform/companies/${organizationId}/domains/`;
   const [state, setState] = useState<DomainState | null>(null);
@@ -141,6 +145,7 @@ export function CompanyDomain({ organizationId, archived }: { organizationId: st
       if (refresh) await load(true);
     }
     setBusy(null);
+    onChanged?.();
     requestAnimationFrame(() => (invalidInput ? document.getElementById(hostId) : status.current)?.focus());
   }
 

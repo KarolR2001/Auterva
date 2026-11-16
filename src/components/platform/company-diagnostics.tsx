@@ -1,98 +1,119 @@
 "use client";
 
 import { CircleAlert, CircleCheck, CircleHelp, Clock, Info, OctagonX, RefreshCw, TriangleAlert } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "../ui/button";
-import { domainView, isDiagnostics, mailView, type BlockView, type DiagnosticsDto, type IconName } from "./launch-diagnostics-model";
-import { formatInstant, platformRequest } from "./platform-api";
+import { domainView, isDiagnostics, mailView, type BlockView, type DiagnosticsDto, type Tone } from "./launch-diagnostics-model";
+import { formatInstant, platformRequest, type ApiResult } from "./platform-api";
 import { newIdempotencyKey } from "@/modules/organizations/new-company-form";
 import styles from "./platform.module.css";
 
-// Safe launch diagnostics of a company (#78, D-52, D-63) for the superadmin: reads the stored result of #77.
-// The domain "Sprawdź ponownie" runs the existing verification; mail has no active check, so it re-reads.
-const icons: Record<IconName, typeof Clock> = {
+// Safe launch diagnostics of a company (#78, D-52, D-63) for the superadmin, on the API of #77 + #417.
+// Domain "Sprawdź ponownie" runs the recheck action and shows the diagnostics it returns; mail has no active
+// check, so it re-reads. A 5xx or a lost answer is never a result: the block shows the last confirmed one.
+const icons: Record<Tone, typeof Clock> = {
   ok: CircleCheck, warning: TriangleAlert, error: OctagonX, waiting: Clock, uncertain: CircleHelp, info: Info,
 };
 
 type Block = "domain" | "mail";
-type Busy = Block | "load" | null;
+/** Why a block has no current result: the check itself may or may not have run, or only the read failed. */
+type Failure = "check" | "read" | null;
+type Live = { text: string; problem: boolean };
 
-const uncertainText = "Serwer nie odpowiedział i nie wiemy, czy sprawdzenie się wykonało. Pokazujemy ostatni potwierdzony wynik. Spróbuj ponownie za chwilę.";
+const quiet: Live = { text: "", problem: false };
+const both = <T,>(value: T): Record<Block, T> => ({ domain: value, mail: value });
 
-function Badge({ view }: { view: Pick<BlockView, "tone" | "icon" | "label"> }) {
-  const Icon = icons[view.icon];
+/** A definite refusal (4xx): nothing was checked. */
+function refusal(result: ApiResult<unknown>): string {
+  if (result.status === 429) {
+    const seconds = result.retryAfter;
+    const wait = !seconds ? "chwilę" : seconds >= 120 ? `${Math.ceil(seconds / 60)} min` : `${seconds} s`;
+    return `Limit sprawdzeń został wyczerpany, więc sprawdzenie się nie wykonało. Spróbuj ponownie za ${wait}.`;
+  }
+  if (result.code === "DOMAIN_COMPANY_ARCHIVED") return "Firma jest zarchiwizowana, więc sprawdzenie jej nie dotyczy. Odśwież stronę.";
+  if (result.status === 409) return "Stan domeny zmienił się w trakcie sprawdzania. Odświeżyliśmy wynik — sprawdź ponownie.";
+  if (result.status === 401 || result.status === 403) return "Brak uprawnień albo sesja wygasła. Zaloguj się ponownie.";
+  return "Sprawdzenie się nie wykonało. Spróbuj ponownie.";
+}
+
+function Badge({ tone, label }: { tone: Tone; label: string }) {
+  const Icon = icons[tone];
   return (
-    <p className={`${styles.diagBadge} ${styles[`diag_${view.tone}`]}`}>
-      <Icon size={20} aria-hidden="true" />
-      <span>{view.label}</span>
+    <p className={`${styles.diagBadge} ${styles[`diag_${tone}`]}`}>
+      <Icon size={24} aria-hidden="true" />
+      <span>{label}</span>
     </p>
   );
 }
 
-function DiagnosticsBlock({ id, title, view, uncertain, notice, checking, liveText, button }: {
-  id: string; title: string; view: BlockView | null; uncertain: boolean;
-  notice: string | null; checking: boolean; liveText: string; button: React.ReactNode;
+function DiagnosticsBlock({ id, title, view, failure, checking, live, children }: {
+  id: string; title: string; view: BlockView | null; failure: Failure; checking: boolean; live: Live; children: React.ReactNode;
 }) {
-  const shown: BlockView | null = uncertain
-    ? { tone: "uncertain", icon: "uncertain", label: "Wynik niepewny", subject: view?.subject ?? null,
-      detail: uncertainText, checkedLabel: null, checkedAt: null, confirmed: "" }
-    : checking && view ? { ...view, tone: "waiting", icon: "waiting", label: "Weryfikacja w toku" } : view;
   return (
     <section aria-labelledby={`${id}-title`} className={styles.diagBlock}>
       <h3 id={`${id}-title`} className={styles.diagTitle}>{title}</h3>
-      {shown ? (
+      {failure ? (
         <>
-          <Badge view={shown} />
-          {shown.subject && <p className={styles.diagSubject}>{shown.subject}</p>}
-          <p className={styles.hint}>{shown.detail}</p>
+          <Badge tone="uncertain" label="Wynik niepewny" />
+          {view?.subject && <p className={styles.diagSubject}>{view.subject}</p>}
+          <p className={styles.diagText}>
+            {failure === "check" ? "Serwer nie odpowiedział i nie wiemy, czy sprawdzenie się wykonało."
+              : "Nie udało się wczytać aktualnego wyniku."}
+            {view ? " Pokazujemy ostatni potwierdzony wynik." : ""} Spróbuj ponownie za chwilę.
+          </p>
         </>
-      ) : <p className={styles.hint}>Wczytywanie wyniku…</p>}
-      <p role="status" aria-live="polite" className={checking || liveText ? styles.diagLive : styles.srOnly}>{liveText}</p>
-      {notice && <p role="alert" className={styles.diagNotice}><CircleAlert size={16} aria-hidden="true" />{notice}</p>}
-      {uncertain ? (
-        <p className={styles.diagDate}>
-          {view?.checkedAt
-            ? `Ostatni potwierdzony wynik: ${view.confirmed}, ${formatInstant(view.checkedAt)}`
-            : view ? `Ostatni potwierdzony wynik: ${view.confirmed}.` : "Brak potwierdzonego wyniku."}
+      ) : view ? (
+        <>
+          {checking ? <Badge tone="waiting" label="Weryfikacja w toku" /> : <Badge tone={view.tone} label={view.label} />}
+          {view.subject && <p className={styles.diagSubject}>{view.subject}</p>}
+          <p className={styles.diagText}>{view.detail}</p>
+        </>
+      ) : <p className={styles.diagText}>Wczytywanie wyniku…</p>}
+      <p role="status" aria-live="polite" className={live.text && !failure ? styles.diagLive : styles.srOnly}>
+        {live.problem && <CircleAlert size={20} aria-hidden="true" />}{live.text}
+      </p>
+      {failure ? (
+        <p className={styles.diagText}>
+          {!view ? "Brak potwierdzonego wyniku."
+            : `Ostatni potwierdzony wynik: ${view.label}${view.checkedAt ? `, ${formatInstant(view.checkedAt)}` : "."}`}
         </p>
       ) : view?.checkedAt ? (
-        <p className={styles.diagDate}>{checking ? "Poprzednie sprawdzenie" : view.checkedLabel}: {formatInstant(view.checkedAt)}</p>
-      ) : view && view.tone === "info" && view.label === "Jeszcze nie sprawdzono" ? (
-        <p className={styles.diagDate}>Ostatnie sprawdzenie: brak.</p>
+        <p className={styles.diagText}>{view.checkedLabel ?? (checking ? "Poprzednie sprawdzenie" : "Ostatnie sprawdzenie")}: {formatInstant(view.checkedAt)}</p>
       ) : null}
-      {button}
+      {children}
     </section>
   );
 }
 
-export function CompanyDiagnostics({ organizationId, archived }: { organizationId: string; archived: boolean }) {
-  const base = `/api/platform/companies/${organizationId}`;
+export function CompanyDiagnostics({ organizationId, archived, reloadKey, onDomainChecked }: {
+  organizationId: string; archived: boolean;
+  /** Changes when another section of the card changed the domain or the invitation: re-read, so the card never contradicts itself. */
+  reloadKey?: string;
+  /** Called after a domain check that returned a result: the domain section shows the same state. */
+  onDomainChecked?: () => void;
+}) {
+  const base = `/api/platform/companies/${organizationId}/launch-diagnostics/`;
   const [data, setData] = useState<DiagnosticsDto | null>(null);
-  const [busy, setBusy] = useState<Busy>(archived ? null : "load");
-  const [failed, setFailed] = useState<Record<Block, boolean>>({ domain: false, mail: false });
-  const [notice, setNotice] = useState<Record<Block, string | null>>({ domain: null, mail: null });
-  const [live, setLive] = useState<Record<Block, string>>({ domain: "", mail: "" });
+  const [busy, setBusy] = useState<Block | "load" | null>(archived ? null : "load");
+  const [failed, setFailed] = useState(both<Failure>(null));
+  const [live, setLive] = useState(both(quiet));
   const refocus = useRef<Block | null>(null);
-
-  const read = useCallback(async () => {
-    const result = await platformRequest<DiagnosticsDto>(`${base}/launch-diagnostics`);
-    if (result.ok && isDiagnostics(result.data)) { setData(result.data); return true; }
-    return false;
-  }, [base]);
 
   useEffect(() => {
     if (archived) return;
     let cancelled = false;
     void (async () => {
-      const result = await platformRequest<DiagnosticsDto>(`${base}/launch-diagnostics`);
+      const result = await platformRequest<DiagnosticsDto>(base);
       if (cancelled) return;
-      if (result.ok && isDiagnostics(result.data)) setData(result.data);
-      else setFailed({ domain: true, mail: true });
-      setBusy(null);
+      const ok = result.ok && isDiagnostics(result.data);
+      if (ok) setData(result.data);
+      setFailed(both<Failure>(ok ? null : "read"));
+      setLive(both(quiet));
+      setBusy((current) => (current === "load" ? null : current));
     })();
     return () => { cancelled = true; };
-  }, [archived, base]);
+  }, [archived, base, reloadKey]);
 
   // The disabled button loses focus; return it once the answer is shown.
   useEffect(() => {
@@ -104,32 +125,31 @@ export function CompanyDiagnostics({ organizationId, archived }: { organizationI
 
   async function recheck(block: Block) {
     if (busy) return;
-    setBusy(block);
-    setNotice((current) => ({ ...current, [block]: null }));
-    setFailed((current) => ({ ...current, [block]: false }));
-    setLive((current) => ({ ...current, [block]: "Sprawdzanie teraz… Wynik pojawi się tutaj." }));
-    let uncertain = false;
-    let message: string | null = null;
-    const custom = data?.domain.customDomain;
-    if (block === "domain" && custom?.retry.allowed === true) {
-      const result = await platformRequest<unknown>(`${base}/domains/verify/`, { method: "POST", body: { eventKey: newIdempotencyKey() } });
-      if (result.status === 0 || result.status >= 500) uncertain = true;
-      else if (!result.ok) {
-        message = result.status === 429 ? `Limit sprawdzeń. Spróbuj ponownie za ${result.retryAfter ?? 60} s.`
-          : result.status === 401 || result.status === 403 ? "Brak uprawnień lub sesja wygasła. Zaloguj się ponownie."
-            : "Nie udało się sprawdzić domeny. Pokazujemy aktualny zapisany stan.";
-      }
+    const say = (text: string, problem = false) => setLive((current) => ({ ...current, [block]: { text, problem } }));
+    if (navigator.onLine === false) {
+      say("Brak połączenia z siecią. Sprawdzenie nie zostało wysłane. Połącz się z siecią i spróbuj ponownie.", true);
+      return;
     }
-    if (!uncertain && !(await read())) uncertain = true;
-    setFailed((current) => ({ ...current, [block]: uncertain }));
-    setNotice((current) => ({ ...current, [block]: message }));
-    setLive((current) => ({ ...current, [block]: uncertain ? "Wynik niepewny. Pokazujemy ostatni potwierdzony wynik." : message ? "Sprawdzanie nie powiodło się." : "Sprawdzanie zakończone." }));
+    setBusy(block);
+    say("Sprawdzanie teraz… Wynik pojawi się tutaj.");
+    const checks = block === "domain";
+    const first = checks
+      ? await platformRequest<DiagnosticsDto>(`${base}recheck/`, { method: "POST", body: { eventKey: newIdempotencyKey() } })
+      : await platformRequest<DiagnosticsDto>(base);
+    const refused = !first.ok && first.status >= 400 && first.status < 500;
+    // A conflict means the stored state moved meanwhile: read it instead of keeping the one from before the click.
+    const result = refused && first.status === 409 ? await platformRequest<DiagnosticsDto>(base) : first;
+    const next = result.ok && isDiagnostics(result.data) ? result.data : null;
+    if (next) setData(next);
+    // After a plain refusal nothing ran and the shown result stands; any other missing answer is uncertain.
+    const failure: Failure = next || (refused && result === first) ? null : checks && !refused ? "check" : "read";
+    setFailed((current) => (next ? both<Failure>(null) : { ...current, [block]: failure }));
+    say(failure ? "Wynik niepewny." : refused ? refusal(first) : "Sprawdzanie zakończone.", !failure && refused);
+    if (checks && !refused && next?.domain.customDomain) onDomainChecked?.();
     refocus.current = block;
     setBusy(null);
   }
 
-  const domain = data ? domainView(data, formatInstant, new Date()) : null;
-  const mail = data ? mailView(data, formatInstant) : null;
   const custom = data?.domain.customDomain ?? null;
   const configBlocked = custom?.retry.allowed === false && custom.retry.reason === "PLATFORM_CONFIG_REQUIRED";
 
@@ -140,21 +160,22 @@ export function CompanyDiagnostics({ organizationId, archived }: { organizationI
   );
 
   return (
-    <section aria-labelledby="diag-title" className={styles.panelCard} aria-busy={busy !== null || undefined}>
+    <section aria-labelledby="diag-title" className={`${styles.panelCard} ${styles.diagCard}`} aria-busy={busy !== null || undefined}>
       <h2 id="diag-title" className={styles.sectionTitle}>Diagnostyka</h2>
       <p className={styles.opsHint}>Wyniki ostatnich sprawdzeń domeny i poczty tej firmy. Bez kluczy weryfikacyjnych i danych technicznych.</p>
       {archived ? (
-        <p className={`${styles.diagBadge} ${styles.diag_info}`}><Info size={20} aria-hidden="true" /><span>Nie dotyczy — firma zarchiwizowana</span></p>
+        <Badge tone="info" label="Nie dotyczy — firma zarchiwizowana" />
       ) : (
         <>
-          <DiagnosticsBlock id="diag-domain" title="Domena" view={domain} uncertain={failed.domain && busy !== "domain"}
-            notice={notice.domain} checking={busy === "domain"} liveText={live.domain}
-            button={<>
-              {configBlocked && <p className={styles.hint}>Najpierw uzupełnij konfigurację platformy — bez niej sprawdzenie domeny się nie wykona.</p>}
-              {retry("domain", configBlocked)}
-            </>} />
-          <DiagnosticsBlock id="diag-mail" title="Poczta" view={mail} uncertain={failed.mail && busy !== "mail"}
-            notice={notice.mail} checking={false} liveText={live.mail} button={retry("mail")} />
+          <DiagnosticsBlock id="diag-domain" title="Domena" view={data && domainView(data)} failure={busy === "domain" ? null : failed.domain}
+            checking={busy === "domain"} live={live.domain}>
+            {configBlocked && <p className={styles.diagText}>Sprawdzenie domeny nie wykona się bez konfiguracji platformy. Po jej uzupełnieniu użyj „Sprawdź konfigurację” w sekcji „Domena własna”.</p>}
+            {retry("domain", configBlocked)}
+          </DiagnosticsBlock>
+          <DiagnosticsBlock id="diag-mail" title="Poczta" view={data && mailView(data)} failure={busy === "mail" ? null : failed.mail}
+            checking={false} live={live.mail}>
+            {retry("mail")}
+          </DiagnosticsBlock>
         </>
       )}
     </section>

@@ -2483,7 +2483,7 @@
     },
     {
       "issue": 78,
-      "scope": "PLT-03 karta firmy (superadmin): sekcja Diagnostyka pod Statusem firmy (D-52, D-63) na API #77 — bloki Domena i Poczta, status tekstem + ikona Lucide + obramowanie (SPEC 4.2.5), ogólny opis i kolejny krok bez tokenów TXT, wartości DNS i kodów błędów, data ostatniego sprawdzenia. Sprawdź ponownie (48 px): domena = istniejące POST weryfikacji, poczta = ponowny odczyt; w trakcie komunikat aria-live i zablokowany przycisk, po wyniku fokus wraca na przycisk; 5xx/brak odpowiedzi = Wynik niepewny z ostatnim potwierdzonym wynikiem, bez fałszywego sukcesu. Poczta obejmuje tylko zaproszenia i przypomnienia (bez resetu hasła, D-63). Archiwum: Nie dotyczy, bez przycisków. Pola #417 (data ważności TLS, checkedAt adresu Autervy, jedno pole ostatniej wysyłki, kategoria przyczyny) są opcjonalne; bez nich stan nie zgaduje (np. brak ostrzeżenia o certyfikacie). Porównanie z Penpotem: Mobile 390 z eksportu, Desktop 1440 z eksportu sprzed poprawki przykładowej domeny (układ zgodny); rzeczywisty VoiceOver DEFERRED (#97).",
+      "scope": "PLT-03 karta firmy (superadmin): sekcja Diagnostyka pod Statusem firmy (D-52, D-63) na API #77 + #417 — bloki Domena i Poczta, status tekstem + ikona Lucide + obramowanie (SPEC 4.2.5), ogólny opis i kolejny krok bez tokenów TXT, wartości DNS i kodów błędów, data ostatniego sprawdzenia. Domena: stany z customDomain.state, ostrzeżenie o certyfikacie z tlsExpiry/tlsNotAfter (próg liczy API), firma bez domeny pokazuje aliasCheckedAt jako odczyt stanu adresu Autervy (nie test sieci); aktywna domena z nieudanym sprawdzeniem (D-64) pokazuje błąd „domena własna nie odpowiada, strona może być niedostępna” z kolejnym krokiem, bez zapewnienia o adresie Autervy. Poczta: jedno pole lastMail (tylko zaproszenia i przypomnienia, bez resetu hasła, D-63) i ogólna przyczyna cause. Sprawdź ponownie (48 px): domena = POST …/launch-diagnostics/recheck (wynik z odpowiedzi akcji), poczta = ponowny odczyt; w trakcie komunikat aria-live i zablokowany przycisk, po wyniku fokus wraca na przycisk; 5xx/brak odpowiedzi = Wynik niepewny z ostatnim potwierdzonym wynikiem, 429 = limit z czasem oczekiwania, 409 = konflikt i świeży odczyt, brak sieci = żądanie niewysłane. Archiwum: Nie dotyczy, bez przycisków. Diagnostyka i sekcja Domena własna odświeżają się nawzajem po operacji. Porównanie z Penpotem (odczyt struktury 12 sekcji, 390 i 1440) w PR; rzeczywisty VoiceOver DEFERRED (#97).",
       "relatedRequirementIds": ["C-F035", "C-F089", "D-52", "D-63"],
       "referenceScreenIds": ["PLT-03"],
       "scenarioStates": {
@@ -2495,17 +2495,18 @@
         "diag-no-data": "PLT-03 / state=diag-no-data — desktop 342ca6e3-588e-80dd-8008-eef1d100de1b, mobile 342ca6e3-588e-80dd-8008-eef2ff4fba78"
       },
       "unmappedStates": [
-        "Stan diag-warning domeny (certyfikat wygasa wkrótce) wymaga pola daty ważności z #417; do czasu jego wejścia aplikacja go nie pokazuje.",
+        "Makieta diag-warning poczty pokazuje „próba 2 z 5” i termin kolejnej próby: lastMail nie ma jeszcze attempts/maxAttempts/nextAttemptAt (poprawka #417), więc próby zaproszenia pochodzą z invitation.delivery, a przypomnienia z reminders.items bez limitu prób.",
         "Dawny tekst pola „Własna domena” w sklonowanym formularzu makiety: aplikacja używa tych samych danych co Diagnostyka."
       ],
       "codePaths": [
         "src/components/platform/company-diagnostics.tsx",
         "src/components/platform/launch-diagnostics-model.ts",
         "src/components/platform/company-card.tsx",
+        "src/components/platform/company-domain.tsx",
         "src/components/platform/platform.module.css"
       ],
       "testPaths": ["tests/unit/company-diagnostics.test.tsx", "tests/e2e/platform-company-diagnostics.spec.ts"],
-      "sharedWith": "API: #77 (docs/contracts/launch-diagnostics.md); pola opcjonalne z #417."
+      "sharedWith": "API: #77 + #417 (docs/contracts/launch-diagnostics.md); src/components/platform/company-domain.tsx zgłasza zakończoną operację (onChanged)."
     },
     {
       "issue": 53,
