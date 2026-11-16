@@ -31,6 +31,25 @@ test("settings nav: Tab brings every section tab fully into view at 320 and 390 
     const [name, ...rest] = session.cookie.split("=");
     await context.addCookies([{ name, value: rest.join("="), url: origin }]);
 
+    // #405 (DS-SET-001): od 1024 px pionowy panel 240 px po lewej, treść obok, bez poziomego przewijania.
+    for (const width of [1024, 1440, 1920]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`${origin}/firmy/${org}/ustawienia/`);
+      const nav = page.getByRole("navigation", { name: "Sekcje ustawień" });
+      const layout = await nav.evaluate((el) => {
+        const rects = [...el.querySelectorAll("a")].map((a) => a.getBoundingClientRect());
+        const box = el.getBoundingClientRect();
+        const next = el.nextElementSibling?.getBoundingClientRect();
+        return { width: box.width, left: box.left, stacked: rects.every((r, i) => i === 0 || r.top > rects[i - 1].top),
+          contentLeft: next?.left ?? 0, overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth };
+      });
+      expect(layout.width, `panel przy ${width}px`).toBeCloseTo(240, 0);
+      expect(layout.stacked, `pozycje pod sobą przy ${width}px`).toBe(true);
+      expect(layout.contentLeft, `treść obok panelu przy ${width}px`).toBeGreaterThan(layout.left + 240);
+      expect(layout.overflow).toBeLessThanOrEqual(0);
+      await expect(nav.getByRole("link", { name: "Dane firmy" }).getByText("Dane firmy", { exact: true })).toBeVisible();
+    }
+
     for (const width of [320, 390]) {
       await page.setViewportSize({ width, height: 800 });
       await page.goto(`${origin}/firmy/${org}/ustawienia/`);
@@ -43,6 +62,12 @@ test("settings nav: Tab brings every section tab fully into view at 320 and 390 
       await expect(calendar).toBeVisible();
       await expect(calendar.getByText("Kalendarz", { exact: true })).toBeVisible();
       expect((await calendar.locator("span").nth(1).boundingBox())?.width ?? 0).toBeLessThanOrEqual(1);
+      // #405: krótkie etykiety z makiety widoczne, a nazwa dostępna zawiera widoczny tekst (WCAG 2.5.3).
+      for (const [visible, name] of [["Firma", /Dane firmy/], ["Kontakt", /Kanały kontaktu/], ["SEO", /Prezentacja i SEO/], ["Prawne", /Treści prawne/]] as const) {
+        const link = nav.getByRole("link", { name });
+        await expect(link.getByText(visible, { exact: true })).toBeVisible();
+        expect((await link.evaluate((el) => el.textContent ?? "")).toLowerCase()).toContain(visible.toLowerCase());
+      }
       await links.first().focus();
       for (let index = 0; index < count; index += 1) {
         if (index > 0) await page.keyboard.press("Tab");

@@ -91,6 +91,19 @@ Histereza (alert po kolejnych N naruszeniach, zamknięcie po M zdrowych), grupow
 
 `OPS_ALERT_FILE` i/lub `OPS_ALERT_MAILPIT_URL` + `OPS_ALERT_TO` (tylko loopback). Test: `tests/integration/ops-monitoring.test.ts` (zabija i restartuje worker oraz realtime, sprawdza plik i Mailpit). Dostawca docelowy i kontrolowany odbiorca w staging: not-run (#90).
 
+## Lokalna symulacja awarii (#401)
+
+`tests/integration/ops-failure-simulation.test.ts` wstrzykuje do rzeczywistych ścieżek kodu (readiness, middleware klienta S3, procesor poczty, tabela jobów) cztery awarie i prowadzi prawdziwy monitor (scrape `/metrics` + kolektory DB) na zegarze syntetycznym:
+
+| Awaria | Health | Alert | Sekcja |
+|---|---|---|---|
+| baza niedostępna | `/live` 200 (brak restartu), `/ready` 503, `checks.database` fail | `READY_DATABASE` (kolejka i migracje to skutek, bez drugiej strony) | [ready-database](#ready-database) |
+| storage niedostępny | `/ready` 503, `checks.storage` fail | `READY_STORAGE`, `STORAGE_ERRORS` | [ready-storage](#ready-storage) |
+| dostawca poczty pada | bez zmiany (poczta nie jest zależnością gotowości) | `MAIL_PROVIDER_ERRORS` | [mail](#mail) |
+| zadanie wisi >5 min | `checks.queue` fail `QUEUE_STALLED` | `JOBS_STALLED` | [worker](#worker) |
+
+Po przywróceniu alerty wygasają i dostarczane jest RESOLVED; logi z próby nie zawierają adresów, treści błędu dostawcy, tokenów ani endpointu storage. Uruchomienie: `pnpm exec vitest run tests/integration/ops-failure-simulation.test.ts` (wymaga fixture z `DATABASE_URL`; test tworzy i usuwa własną bazę).
+
 ## Not-run (zależne od #90)
 
 - Dashboard u dostawcy (dostępność 99,9 %, lokalizacja problemu).
