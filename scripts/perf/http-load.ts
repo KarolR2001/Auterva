@@ -68,7 +68,8 @@ async function setup() {
     companies.push({ n, ...ids, cookie, sessionId, slugs: vehicles.map((v) => v.slug!), vehicleIds: vehicles.map((v) => v.id), categoryId: vehicles[0]?.categoryId ?? null });
   }
 }
-// Free slots of this harness lie beyond the generated history (about +2310 days) and inside the activity (+2920).
+// Write slots of this harness start at +2400 days, inside the activity (+2920). The generated history thins out there
+// (its last blocks start near +2450), so the range from +2390 is cleared first: a few dozen of 200 000 generated rows.
 const cleanSlots = () => db.$executeRaw`DELETE FROM "AvailabilityBlock" WHERE "from" >= ${new Date(`${day(2390)}T00:00:00Z`)}::date
   AND "organizationId" IN (SELECT id FROM "Organization" WHERE slug LIKE 'perf-%')`;
 

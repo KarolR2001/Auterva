@@ -26,6 +26,11 @@ beforeAll(async () => {
   ] });
   await db.availabilityBlock.create({ data: { organizationId: organizations[0], vehicleId: vehicles[1],
     from: sqlDate(today), to: sqlDate(today), type: "MAINTENANCE" } });
+  // #402: neighbours of today on the available vehicle (ended yesterday, starts tomorrow) must not block today.
+  await db.availabilityBlock.createMany({ data: [
+    { organizationId: organizations[0], vehicleId: vehicles[0], from: sqlDate("2026-10-24"), to: sqlDate("2026-10-25"), type: "BLOCKED" },
+    { organizationId: organizations[0], vehicleId: vehicles[0], from: sqlDate("2026-10-27"), to: sqlDate("2026-10-27"), type: "BLOCKED" },
+  ] });
 });
 
 afterAll(async () => {
@@ -85,4 +90,24 @@ test("negative activity and availability filters include drafts without a start 
   const foreign = await listCompanyVehicles(db, organizations[1], { availableToday: false,
     page: 1, pageSize: 10 }, now);
   expect(foreign.total).toBe(0);
+});
+
+// #402: "blocked today" is read through the GiST range index; both ends of a block count, the days next to it do not.
+test("blocked today is inclusive on both ends of a block and agrees with the availableToday filter", async () => {
+  const now = new Date("2026-10-26T12:00:00Z");
+  const flag = async () => (await listCompanyVehicles(db, organizations[0], { page: 1, pageSize: 100 }, now))
+    .items.find((item) => item.id === vehicles[0])?.availableToday;
+  const filtered = async () => (await listCompanyVehicles(db, organizations[0], { availableToday: true, page: 1, pageSize: 100 }, now))
+    .items.map((item) => item.id);
+  expect(await flag()).toBe(true);
+  expect(await filtered()).toEqual([vehicles[0]]);
+  // One block at a time (replacing the neighbours): ends today, starts today, contains today, ends yesterday, starts tomorrow.
+  for (const [from, to, available] of [["2026-10-20", "2026-10-26", false], ["2026-10-26", "2026-11-02", false],
+    ["2026-10-01", "2026-12-31", false], ["2026-10-20", "2026-10-25", true], ["2026-10-27", "2026-11-02", true]] as const) {
+    await db.availabilityBlock.deleteMany({ where: { vehicleId: vehicles[0] } });
+    await db.availabilityBlock.create({ data: { organizationId: organizations[0], vehicleId: vehicles[0],
+      from: sqlDate(from), to: sqlDate(to), type: "RESERVED" } });
+    expect(await flag(), `${from}..${to}`).toBe(available);
+    expect(await filtered(), `${from}..${to}`).toEqual(available ? [vehicles[0]] : []);
+  }
 });
