@@ -83,9 +83,13 @@
         "docs/contracts/company-archive-restore.md",
         "docs/contracts/platform-companies-read.md",
         "docs/runbooks/monitoring-incidents.md",
-        "docs/runbooks/backup-restore.md"
+        "docs/runbooks/backup-restore.md",
+        "src/modules/reminders/reconcile.ts",
+        "src/modules/reminders/deliver.ts",
+        "docs/contracts/calendar-and-company-export.md",
+        "docs/ARCHITEKTURA_AUTERVA.md"
       ],
-      "testPaths": ["tests/integration/company-purge.test.ts"]
+      "testPaths": ["tests/integration/company-purge.test.ts", "tests/integration/company-purge-migration.test.ts", "tests/integration/backup-restore.test.ts", "tests/integration/company-archive.test.ts"]
     },
     {
       "issue": 371,
