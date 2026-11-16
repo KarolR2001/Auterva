@@ -198,7 +198,7 @@ test("forwarding headers and the client Host never reach the realtime process; O
   const { port } = await proxy(upstream.port, "ws.internal.test:9");
   const status = await upgrade(port, `/ws?organizationId=${organizationId}`, { Host: "evil.example.test", Origin: origin, Cookie: "a=b",
     "X-Forwarded-For": "203.0.113.9", "X-Forwarded-Host": "evil.example.test", "X-Forwarded-Proto": "https", "X-Real-IP": "203.0.113.9",
-    "CF-Connecting-IP": "203.0.113.9", "X-Auterva-Client-Address": "203.0.113.9" });
+    "CF-Connecting-IP": "203.0.113.9", "X-Auterva-Client-Address": "203.0.113.9", "X-Note": "caf\u00e9" });
   expect(status).toBe(403);
   const head = upstream.heads[0].toLowerCase();
   expect(head.startsWith(`get /ws?organizationid=${organizationId} http/1.1\r\nhost: ws.internal.test:9\r\n`)).toBe(true);
@@ -208,6 +208,7 @@ test("forwarding headers and the client Host never reach the realtime process; O
   }
   expect(head).toContain(`\r\norigin: ${origin}\r\n`);
   expect(head).toContain("\r\ncookie: a=b\r\n");
+  expect(head).toContain("\r\nx-note: caf\u00e9\r\n"); // header bytes are passed on as received, not re-encoded
   expect(head).toContain("\r\nsec-websocket-key: ");
 }, 30_000);
 

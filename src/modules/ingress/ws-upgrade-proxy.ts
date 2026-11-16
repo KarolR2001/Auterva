@@ -62,7 +62,7 @@ export function attachWsUpgradeProxy(server: Server, options: WsUpgradeProxyOpti
     // Covers a refused, slow or silent upstream alike; once it answers, the realtime heartbeat owns liveness.
     const timer = setTimeout(() => upstream.destroy(), options.handshakeTimeoutMs ?? 10_000);
     upstream.once("connect", () => {
-      upstream.write(`${lines.join("\r\n")}\r\n\r\n`);
+      upstream.write(`${lines.join("\r\n")}\r\n\r\n`, "latin1"); // as Node decoded them: bytes pass unchanged
       if (head.length > 0) upstream.write(head);
       // pipe() carries backpressure both ways: a slow reader pauses the other side instead of growing a buffer here.
       upstream.pipe(client);
