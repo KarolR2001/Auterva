@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
 import { createServer } from "node:net";
 import { afterAll, beforeAll, expect, test } from "vitest";
@@ -98,6 +98,25 @@ test("the default listener stays on loopback with the loopback authority", async
   expect(run.output.out).toContain(`127.0.0.1:${port}`);
   expect(await refusedStatus(port, organizationId, { cookie: session.cookie, origin: `https://${panelHost}`, host: `${panelHost}:${port}` })).toBe(403);
   socket.ws.close();
+  run.child.kill("SIGTERM");
+  await run.exited;
+}, 60_000);
+
+test("#173: the process refuses a flood of handshakes from one source with 429, counts it and does not log every refusal", async () => {
+  const [port, opsPort] = [await freePort(), await freePort()];
+  const token = randomBytes(24).toString("hex");
+  const run = launch({ WS_PORT: String(port), OPS_PORT: String(opsPort), OPS_METRICS_TOKEN: token });
+  await listening(run.output, run.exited);
+  const statuses: number[] = [];
+  for (let index = 0; index < 70; index += 1) {
+    statuses.push(await refusedStatus(port, organizationId, { origin: "https://nobody.example.test", query: "organizationId=x" }));
+  }
+  // Default limit: 60 attempts per source (the loopback peer) in 60 s, here answered 400 for the bad parameter, then 429.
+  expect(statuses.slice(0, 60)).toEqual(Array(60).fill(400));
+  expect(statuses.slice(60)).toEqual(Array(10).fill(429));
+  const metrics = await (await fetch(`http://127.0.0.1:${opsPort}/metrics`, { headers: { Authorization: `Bearer ${token}` } })).text();
+  expect(metrics).toMatch(/^auterva_ws_handshake_limited_total(\{[^}]*\})? 10$/m);
+  expect(run.output.out + run.output.err).not.toContain("handshake-limited");
   run.child.kill("SIGTERM");
   await run.exited;
 }, 60_000);

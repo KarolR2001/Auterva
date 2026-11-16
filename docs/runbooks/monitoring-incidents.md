@@ -79,7 +79,7 @@ Klucze (`AUDIT_EXPORT_KEY`) i treść eksportu nigdy nie trafiają do logów ani
 ### realtime
 `WS_LISTENER_UNHEALTHY` (page; tłumiony przy awarii DB): serwer czatu stracił powiadomienia z DB (poll jako zapas). Sprawdź DB i zrestartuj realtime; klienci wznawiają połączenie z kursorem.
 
-`WS_HANDSHAKE_FLOOD` (ticket): co najmniej 100 odmów `429` limitu prób handshake w 5 min (`auterva_ws_handshake_limited_total`). Zwykle nieuwierzytelniony lub zbyt gorliwy klient z jednego źródła; baza jest wtedy nieobciążona. Sprawdź, czy źródłem nie jest sam proxy (wszyscy klienci jako jeden adres: adapter adresu #90 nie jest skonfigurowany) i czy pętla ponowień klienta ma backoff. Kontrakt: [chat-realtime](../contracts/chat-realtime.md#limit-prób-handshake-173).
+`WS_HANDSHAKE_FLOOD` (ticket): co najmniej 100 odmów `429` limitu prób handshake w 5 min (`auterva_ws_handshake_limited_total`). Zwykle nieuwierzytelniony lub zbyt gorliwy klient z jednego źródła; baza jest wtedy nieobciążona. Sprawdź, czy pętla ponowień klienta ma backoff i czy przed procesem nie stoi lokalny pośrednik na loopbacku (wtedy wszyscy klienci są jednym źródłem). Za proxy dostawcy bez adaptera adresu (#90) proces nie liczy prób, tylko odmawia `503` z ostrzeżeniem `realtime.handshake-source-failed`: czat na żywo nie łączy się do czasu skonfigurowania adaptera. Kontrakt: [chat-realtime](../contracts/chat-realtime.md#limit-prób-handshake-173).
 
 ### web-vitals
 

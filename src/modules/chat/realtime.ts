@@ -3,7 +3,7 @@ import type { Duplex } from "node:stream";
 import { WebSocketServer, type RawData, type WebSocket } from "ws";
 import { z } from "zod";
 import type { PrismaClient } from "../../generated/prisma/client";
-import { createHandshakeLimiter, socketClientAddress, sourceKey, type ClientAddressResolver } from "./handshake-limit";
+import { createHandshakeLimiter, handshakeSource, localClientAddress, type ClientAddressResolver } from "./handshake-limit";
 import { decodeCursor, encodeCursor } from "./cursor";
 import { ChatError } from "./errors";
 import { inboxFingerprints, inboxSummaries, MAX_SUMMARY_ORGANIZATIONS } from "./platform-inbox";
@@ -106,7 +106,7 @@ type Options = {
   databaseUrl: string;
   authority: RealtimeAuthority;
   limits?: Partial<RealtimeLimits>;
-  /** Source of the handshake limit. Default: the socket peer (direct or local ingress); a provider adapter plugs in here (#90). */
+  /** Trusted source of the handshake limit. Default: the local adapter (loopback peer only); a provider adapter plugs in here (#90). */
   clientAddress?: ClientAddressResolver;
   /** Event names only (never message text, cookies or SQL). */
   log?: (event: string, principal?: { actorId: string; role: string; organizationId?: string }) => void;
@@ -118,7 +118,7 @@ const ERROR_CODES: Record<string, string> = {
   CHAT_ORGANIZATION_ARCHIVED: "CHAT_ORGANIZATION_ARCHIVED", RATE_LIMITED: "RATE_LIMITED",
 };
 
-export async function startRealtimeServer({ db, config, databaseUrl, authority, limits: overrides, clientAddress = socketClientAddress, log = () => undefined }: Options) {
+export async function startRealtimeServer({ db, config, databaseUrl, authority, limits: overrides, clientAddress = localClientAddress, log = () => undefined }: Options) {
   const limits = { ...DEFAULT_LIMITS, ...overrides };
   const allowedHosts = new Set(config.allowedHosts);
   const sockets = new WebSocketServer({ noServer: true, maxPayload: limits.maxPayloadBytes });
@@ -141,6 +141,7 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
   let inboxPolling = false;
   let connections = 0;
   let handshakes = 0;
+  let sourceWarnedAt = -Infinity;
   let stopped = false;
 
   const refuse = (socket: Duplex, status: number, retryAfter?: number) => {
@@ -544,7 +545,13 @@ export async function startRealtimeServer({ db, config, databaseUrl, authority, 
     const host = request.headers.host?.toLowerCase();
     if (!host || !allowedHosts.has(host)) return refuse(socket, 403);
     // Before parameter parsing, HostMapping and session lookups: an unauthenticated flood must not reach the database.
-    const wait = handshakeLimiter.take(sourceKey(clientAddress(request)));
+    const source = handshakeSource(clientAddress(request));
+    // Production without a trusted address (a proxy in front and no adapter, #90): refused like the HTTP limits, never guessed.
+    if (source === null) {
+      if (Date.now() - sourceWarnedAt >= limits.handshakeWindowMs) { sourceWarnedAt = Date.now(); log("handshake-source-failed"); }
+      return refuse(socket, 503);
+    }
+    const wait = handshakeLimiter.take(source);
     if (wait) { log("handshake-limited"); return refuse(socket, 429, wait); }
     if (url.pathname === "/ws/platform") return handshakePlatform(request, socket, head, host, url.search !== "");
     const keys = [...url.searchParams.keys()];
