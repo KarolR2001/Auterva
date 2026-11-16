@@ -64,6 +64,16 @@
       "sharedWith": "Zależy od #383 (PR #395)."
     },
     {
+      "issue": 414,
+      "scope": "Sesja logowania w obu panelach: jawnie 30 dni od ostatniego odświeżenia (D-61), odświeżanie najwyżej raz na dobę. Backend bez zmian UI i API; reauth, unieważnianie sesji i WebSocket bez zmian.",
+      "relatedRequirementIds": ["D-61", "D-05", "FR-ADM-081"],
+      "referenceScreenIds": [],
+      "unmappedStates": ["Zadanie backendowe bez ekranu Penpota."],
+      "codePaths": ["src/lib/auth.ts"],
+      "testPaths": ["tests/integration/session-lifetime.test.ts"],
+      "sharedWith": "Kontrakt: docs/contracts/account-operations.md (Sesje konta, czas sesji)."
+    },
+    {
       "issue": 405,
       "scope": "Nawigacja Ustawień wg DS-SET-001 SettingsNavigation (ADM-11–14, ADM-22, superadmin w kontekście firmy): od 1024 px pionowy panel 240 px po lewej z pełnymi nazwami i treścią obok (aktywna pozycja odwrócona), poniżej poziomy pasek z krótkimi etykietami z makiety (Firma, Kontakt, SEO, Prawne, Kalendarz; dodatkowo Wygląd, bo makieta nie ma tej sekcji). Nazwa dostępna zawiera widoczny tekst (WCAG 2.5.3; „Firma” dopisane do „Dane firmy”). Zachowane dosuwanie aktywnej zakładki i pełny obrys fokusu (#351/#358/#372), brak poziomego przewijania 320–1920.",
       "relatedRequirementIds": ["DS-SET-001", "D-49"],
@@ -142,6 +152,19 @@
       "testPaths": ["tests/integration/calendar-feed-scope.test.ts", "tests/integration/calendar-feed.test.ts"]
     },
     {
+      "issue": 378,
+      "scope": "Blokada zbiorcza i kopia blokady (ADM-10 state=bulk-*) rejestrują niezapisane zmiany w strażniku powłoki panelu: dane wpisane lub wybrane pojazdy (poza wynikiem zapisu) to „dirty”, trwający zapis to „busy”; „Odśwież teraz” (aktualizacja PWA), linki panelu, okruszek „Kalendarz floty” (kliknięcie przechwycone przez powłokę nie zamyka już widoku), Wstecz przeglądarki (cofnięty i potwierdzany dialogiem) i zamknięcie karty pytają o potwierdzenie; po zapisanym wyniku lub anulowaniu zapisu stan jest czysty.",
+      "relatedRequirementIds": ["FR-PWA-005", "C-F146", "C-F150", "FR-ADM-055", "FR-ADM-057"],
+      "referenceScreenIds": ["ADM-10", "ADM-19"],
+      "unmappedStates": ["Dialog „Niezapisane zmiany” to istniejący komponent powłoki (bez nowego wyglądu); porównanie z makietą w Penpocie: DEFERRED (#263)."],
+      "codePaths": [
+        "src/components/admin/bulk-blocks.tsx",
+        "src/components/admin/bulk-blocks-model.ts"
+      ],
+      "testPaths": ["tests/unit/bulk-blocks.test.tsx", "tests/e2e/bulk-blocks-unsaved.spec.ts"],
+      "sharedWith": "Rozszerza #217; wzorzec useUnsavedChanges jak w vehicle-calendar i vehicle-form."
+    },
+    {
       "issue": 367,
       "scope": "Zakres prywatnego adresu iCal na ekranie „Kalendarz zewnętrzny” (ADM-22 state=create, E11, D-47; API #366): grupa radio „Cała flota” (domyślnie) / „Wybrane pojazdy (opublikowane)”; przy wyborze lista opublikowanych pojazdów firmy z listy floty panelu (status=PUBLISHED, strony po 100), wyszukiwanie powyżej 8 pojazdów, limit 50 (pozostałe pola nieaktywne z objaśnieniem), min. 1 — komunikat przy polu, podsumowanie „Do poprawy” i fokus na grupie; vehicleIds wysyłane tylko dla wybranych pojazdów; 400 fieldErrors.vehicleIds (VEHICLE_NOT_PUBLISHED, VEHICLE_NOT_FOUND, OUT_OF_RANGE, DUPLICATE) jako zrozumiały komunikat przy polu, przy nieopublikowanym/nieistniejącym ponowny odczyt listy i usunięcie go z wyboru, bez sukcesu i bez utraty etykiety. Lista adresów (admin i superadmin, tylko odczyt): „Zakres: Cała flota” albo „Zakres: N pojazdów” z rozwijaną listą nazw; pusty zakres po usunięciu pojazdów objaśniony. Rotacja bez zmian (serwer zachowuje zakres); wynik niepewny jak w #355.",
       "referenceScreenIds": ["ADM-22"],
@@ -201,6 +224,15 @@
       "testPaths": ["tests/integration/mfa-recovery-pending.test.ts", "tests/integration/auth-http.test.ts"]
     },
     {
+      "issue": 393,
+      "scope": "Wznowienie czatu po ready z backlog \"refetch\" (ponad 200 wiadomości zaległości): klient zachowuje własny kursor sprzed ready (ready.cursor to głowa rozmowy), dociąga lukę przez HTTP after=<własny kursor> stronami do hasNewer:false, wiadomości na żywo z gniazda wstrzymuje do końca dociągania (kolejność, deduplikacja po id), dopiero potem przyjmuje kursor najnowszej wiadomości na liście. Błąd dociągania: komunikat z ponowieniem, kursor zostaje na ostatniej pełnej stronie, bez cichej utraty. Replay/none bez zmian. Porównanie z Penpotem DEFERRED (#263): stan błędu używa istniejącego wzorca Alert czatu.",
+      "relatedRequirementIds": ["C-F132", "C-N066"],
+      "referenceScreenIds": ["TEN-11"],
+      "unmappedStates": ["Stan „Wczytywanie wiadomości z czasu rozłączenia” i błąd dociągania luki bez osobnej planszy; wzorzec jak błąd wczytania rozmowy."],
+      "codePaths": ["src/components/chat/chat-panel.tsx"],
+      "testPaths": ["tests/unit/chat-panel.test.tsx", "tests/e2e/chat-refetch.spec.ts"]
+    },
+    {
       "issue": 377,
       "scope": "Backend eksportu danych firmy (D-40, poprawka #328): żądanie POST …/export wygasza READY po terminie i porzuca PENDING tą samą funkcją przejścia co sweep i worker (transitions.ts): w jednej transakcji audyt systemowy EXPORT_EXPIRED/EXPORT_FAILED (bez treści) i zamknięcie joba porzuconego eksportu (FAILED), także gdy żądanie jest odrzucone; sweep nie audytuje drugi raz.",
       "referenceScreenIds": [],
@@ -212,6 +244,38 @@
         "docs/contracts/company-export-implementation.md"
       ],
       "testPaths": ["tests/integration/company-export.test.ts"]
+    },
+    {
+      "issue": 390,
+      "scope": "Poprawka publicznego API dostępności: data późniejsza niż 9998-12-31 to 400 INVALID_DATE_RANGE (nie 500 z przepełnienia roku 10000), arytmetyka najbliższego terminu nasyca się na 9999-12-31, a odczyty dostępności mają wspólny wrapper błędów (503 dla przejściowych błędów bazy, 500 INTERNAL_ERROR z X-Request-Id, no-store i reportInternalError). Bez zmian UI.",
+      "referenceScreenIds": [],
+      "unmappedStates": ["Backend bez UI."],
+      "codePaths": [
+        "src/modules/availability/dates.ts",
+        "src/modules/availability/read.ts",
+        "src/modules/availability/http.ts",
+        "docs/contracts/availability-reads.md"
+      ],
+      "testPaths": ["tests/unit/availability.test.ts", "tests/unit/availability-nearest.test.ts", "tests/integration/availability-public-errors.test.ts"]
+    },
+    {
+      "issue": 401,
+      "scope": "Lokalna część #58 (D-54): inwentarz logów strukturalnych i testy redakcji (TOTP, kody odzyskania, adres feedu, ramki WebSocket jako zserializowany JSON są maskowane), serie błędów storage i poczty startują od 0, żeby pierwsza awaria była mierzalnym przyrostem dla reguł alertów, oraz lokalna symulacja awarii (DB, storage, dostawca poczty, zablokowane zadanie) z dowodem wykrycia przez health, metryki i alerty oraz powrotu. Wdrożenie u dostawcy: #90.",
+      "relatedRequirementIds": ["C-N020", "C-N037", "C-N059", "C-N060", "D-10", "D-54"],
+      "referenceScreenIds": [],
+      "unmappedStates": ["Bez ekranu: zmiana backendowa i dokumentacja operacyjna."],
+      "codePaths": [
+        "src/modules/observability/redact.ts",
+        "src/modules/media/storage.ts",
+        "src/modules/jobs/processor.ts",
+        "docs/contracts/monitoring-alerts.md",
+        "docs/runbooks/monitoring-incidents.md"
+      ],
+      "testPaths": [
+        "tests/integration/ops-failure-simulation.test.ts",
+        "tests/unit/observability-redaction.test.ts"
+      ],
+      "sharedWith": "Rozszerza #58/#180/#108; dashboard i paging u dostawcy w #90."
     },
     {
       "issue": 342,
