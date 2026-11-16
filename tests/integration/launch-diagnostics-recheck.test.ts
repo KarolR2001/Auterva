@@ -5,6 +5,7 @@ import { createPrismaClient } from "../../src/lib/prisma";
 import type { CheckOutcome, DomainChecker } from "../../src/modules/domains/checker";
 import { createLaunchDiagnosticsRecheck, RECHECK_LIMIT } from "../../src/modules/domains/diagnostics-recheck";
 import { recheckDueDomains, refreshActiveDomain } from "../../src/modules/domains/lifecycle";
+import { setLogSink } from "../../src/modules/observability/log";
 import { getLaunchDiagnostics } from "../../src/modules/organizations/launch-diagnostics";
 import { ensureControlledFixtureAccess, verifiedFixtureSession } from "../fixtures/verified-session";
 
@@ -23,9 +24,11 @@ const checker: DomainChecker = {
   async checkRouting() { return script.routing; },
 };
 const recheck = createLaunchDiagnosticsRecheck(() => ({ checker, config }));
-const call = (org: string, init: { cookie?: string; origin?: string | null; body?: object; host?: string } = {}) => {
+const unconfigured = createLaunchDiagnosticsRecheck(() => ({ checker, config: { ...config, cnameTarget: null } }));
+const call = (org: string, init: { cookie?: string; origin?: string | null; body?: object; host?: string;
+  handler?: typeof recheck } = {}) => {
   const h = init.host ?? platformHost;
-  return recheck(new Request(`http://${h}/api/platform/companies/${org}/launch-diagnostics/recheck`, { method: "POST",
+  return (init.handler ?? recheck)(new Request(`http://${h}/api/platform/companies/${org}/launch-diagnostics/recheck`, { method: "POST",
     headers: { host: h, cookie: init.cookie ?? platformSession.cookie, "content-type": "application/json",
       ...(init.origin === null ? {} : { origin: init.origin ?? `http://${h}` }) },
     body: JSON.stringify(init.body ?? { eventKey: randomUUID() }) }), org);
@@ -73,6 +76,7 @@ test("recheck of an ACTIVE domain records the result without changing its lifecy
   const body = await res.json();
   expect(body.domain.customDomain).toMatchObject({ status: "ACTIVE", state: "ACTIVE", tlsExpiry: "OK",
     tlsNotAfter: notAfter.toISOString(), version: 3 });
+  expect(body.domain.customDomain.retry).toEqual({ action: "VERIFY_DOMAIN", allowed: true, reason: null });
   expect(body.domain.customDomain.checkedAt).not.toBeNull();
   expect(body.domain.aliasCheckedAt).not.toBeNull();
   expect(body.domain.adminCheckedAt).not.toBeNull();
@@ -115,11 +119,45 @@ test("recheck access: superadmin on platform host with Origin only; strict body;
   await db.organization.update({ where: { id: c }, data: { archivedAt: null } });
 });
 
+test("without the platform CNAME target a domain is not judged: 409, no probe, no write, no limit use", async () => {
+  const before = await domainOf(a);
+  const calls = script.calls;
+  for (let i = 0; i < RECHECK_LIMIT + 2; i += 1) { // more than the hourly limit: refusals do not consume it
+    const res = await call(a, { handler: unconfigured });
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ code: "PLATFORM_CONFIG_REQUIRED" });
+  }
+  expect((await call(b, { handler: unconfigured })).status).toBe(409); // non-active domain: no DOMAIN_CONFIG_MISSING written
+  expect(script.calls).toBe(calls);
+  expect(await domainOf(a)).toMatchObject({ checkedAt: before.checkedAt, lastFailureCode: before.lastFailureCode });
+  expect((await domainOf(b)).lastFailureCode).toBeNull();
+  // A company without a custom domain needs no platform target: its Autervy hosts are still confirmed.
+  const none = await call(c, { handler: unconfigured });
+  expect(none.status).toBe(200);
+  // The read tells the card the same: the button is not available until the platform is configured.
+  expect((await getLaunchDiagnostics(db, a, new Date(), false))!.domain.customDomain!.retry).toEqual({
+    action: "VERIFY_DOMAIN", allowed: false, reason: "PLATFORM_CONFIG_REQUIRED" });
+  // The periodic check does the same: nothing is checked or recorded.
+  await db.customDomain.update({ where: { organizationId: a }, data: { checkedAt: null } });
+  expect(await recheckDueDomains(db, checker, { ...config, cnameTarget: null }, new Date())).toBe(0);
+  expect(await refreshActiveDomain(db, checker, { organizationId: a, config: { ...config, cnameTarget: null } })).toBe(false);
+  expect(script.calls).toBe(calls);
+  expect(await domainOf(a)).toMatchObject({ checkedAt: null, lastFailureCode: before.lastFailureCode, status: "ACTIVE" });
+  await db.customDomain.update({ where: { organizationId: a }, data: { checkedAt: before.checkedAt } });
+});
+
 test("recheck is limited per company; a checker failure is a 5xx that changes nothing", async () => {
   const before = (await domainOf(a)).checkedAt;
   script.throws = true;
-  expect((await call(a)).status).toBe(500);
+  const lines: string[] = [];
+  const restore = setLogSink((line) => { lines.push(line); });
+  try { expect((await call(a)).status).toBe(500); } finally { restore(); }
   script.throws = false;
+  // The failure is logged under the domain operations, with a safe code only (no message, no hostname).
+  const logged = lines.map((line) => JSON.parse(line)).filter((line) => line.level === "error");
+  expect(logged).toHaveLength(1);
+  expect(logged[0].operation).toBe("domains");
+  expect(lines.join("\n")).not.toContain("boom");
   expect((await domainOf(a)).checkedAt).toEqual(before);
   let last = 0;
   for (let i = 0; i < RECHECK_LIMIT + 1; i += 1) last = (await call(a)).status;
@@ -148,8 +186,23 @@ test("periodic re-check: only stale ACTIVE domains of non-archived companies, on
   expect((await domainOf(a)).tlsNotAfter).toEqual(notAfter);
   expect((await domainOf(b)).checkedAt).toEqual(fresh);
   expect((await domainOf(c)).checkedAt).not.toBeNull();
-  // Archived company and a domain that changed while the probe ran are skipped.
+  // A failed check is repeated after an hour, a successful one after a day.
+  const ago = (minutes: number) => new Date(now.getTime() - minutes * 60_000);
+  await db.customDomain.update({ where: { organizationId: a }, data: { checkedAt: ago(61), lastFailureCode: "DNS_ERROR" } });
+  await db.customDomain.update({ where: { organizationId: b }, data: { checkedAt: ago(30), lastFailureCode: "TLS_INVALID" } });
+  await db.customDomain.update({ where: { organizationId: c }, data: { checkedAt: ago(23 * 60), lastFailureCode: null } });
+  await recheckDueDomains(db, checker, config, now, { onError: (e) => errors.push(e) });
+  expect(errors).toEqual([]);
+  expect(await domainOf(a)).toMatchObject({ lastFailureCode: null, checkedAt: now });
+  expect(await domainOf(b)).toMatchObject({ lastFailureCode: "TLS_INVALID", checkedAt: ago(30) });
+  expect((await domainOf(c)).checkedAt).toEqual(ago(23 * 60));
+  // An aborted run (worker shutdown) starts no further domain.
   await db.customDomain.update({ where: { organizationId: a }, data: { checkedAt: stale } });
+  const stopped = new AbortController();
+  stopped.abort();
+  expect(await recheckDueDomains(db, checker, config, now, { signal: stopped.signal })).toBe(0);
+  expect((await domainOf(a)).checkedAt).toEqual(stale);
+  // Archived company and a domain that changed while the probe ran are skipped.
   await db.organization.update({ where: { id: a }, data: { archivedAt: now } });
   expect(await refreshActiveDomain(db, checker, { organizationId: a, config, now })).toBe(false);
   expect((await domainOf(a)).checkedAt).toEqual(stale);

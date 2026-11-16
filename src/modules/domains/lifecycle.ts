@@ -216,11 +216,13 @@ export async function stampHostChecks(tx: Prisma.TransactionClient, organization
  * #417: re-checks an ACTIVE custom domain without changing its lifecycle: a transient DNS/TLS blip must not unpublish
  * the company page, so only the check result (`checkedAt`, failure code, certificate expiry) is recorded and the
  * diagnostics show the failure until a later check succeeds. Returns false when nothing was checked (no active
- * domain, archived company, or the row moved while the network probe ran).
+ * domain, archived company, the row moved while the network probe ran, or the platform has no CNAME target: a missing
+ * platform setting is not a fault of the domain and must not be recorded on it).
  */
 export async function refreshActiveDomain(db: PrismaClient, checker: DomainChecker, input: {
   organizationId: string; config: DomainConfig; now?: Date;
 }): Promise<boolean> {
+  if (!input.config.cnameTarget) return false;
   const company = await db.organization.findUnique({ where: { id: input.organizationId }, select: { archivedAt: true } });
   if (!company || company.archivedAt !== null) return false;
   const seen = await db.customDomain.findUnique({ where: { organizationId: input.organizationId }, ...withHost });
@@ -243,15 +245,28 @@ export async function refreshActiveDomain(db: PrismaClient, checker: DomainCheck
   });
 }
 
-/** Worker step (#417): ACTIVE domains not checked for `staleMs` (default 24 h), oldest first, one company at a time. */
+/** #417: a healthy ACTIVE domain is re-checked daily, one whose last check failed hourly (a blip clears within the hour). */
+export const DOMAIN_RECHECK_MS = 24 * 3_600_000;
+export const DOMAIN_FAILED_RECHECK_MS = 3_600_000;
+
+/**
+ * Worker step (#417): ACTIVE domains due for a re-check (never checked, `staleMs` since a successful check or
+ * `failedStaleMs` since a failed one), oldest first, one company at a time. Does nothing without the platform CNAME
+ * target. `signal` stops between domains (worker shutdown).
+ */
 export async function recheckDueDomains(db: PrismaClient, checker: DomainChecker, config: DomainConfig, now: Date,
-  options: { staleMs?: number; limit?: number; onError?: (error: unknown) => void } = {}): Promise<number> {
+  options: { staleMs?: number; failedStaleMs?: number; limit?: number; signal?: AbortSignal;
+    onError?: (error: unknown) => void } = {}): Promise<number> {
+  if (!config.cnameTarget) return 0;
+  const before = (ms: number) => new Date(now.getTime() - ms);
   const due = await db.customDomain.findMany({ where: { status: "ACTIVE", organization: { archivedAt: null },
-    OR: [{ checkedAt: null }, { checkedAt: { lte: new Date(now.getTime() - (options.staleMs ?? 24 * 3_600_000)) } }] },
+    OR: [{ checkedAt: null }, { checkedAt: { lte: before(options.staleMs ?? DOMAIN_RECHECK_MS) } },
+      { lastFailureCode: { not: null }, checkedAt: { lte: before(options.failedStaleMs ?? DOMAIN_FAILED_RECHECK_MS) } }] },
     orderBy: [{ checkedAt: { sort: "asc", nulls: "first" } }, { id: "asc" }], take: options.limit ?? 10,
     select: { organizationId: true } });
   let checked = 0;
   for (const row of due) {
+    if (options.signal?.aborted) break;
     try { if (await refreshActiveDomain(db, checker, { organizationId: row.organizationId, config, now })) checked += 1; }
     catch (error) { options.onError?.(error); } // one broken company must not starve the others
   }
