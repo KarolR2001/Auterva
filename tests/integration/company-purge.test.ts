@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Client } from "pg";
@@ -16,6 +16,7 @@ import {
 } from "../../src/modules/organizations/purge";
 import { getPlatformCompany } from "../../src/modules/organizations/read";
 import { lockCompanyForWrite } from "../../src/modules/organizations/write-lock";
+import { processDueReminders } from "../../src/modules/reminders/deliver";
 import { ensureControlledFixtureAccess } from "../fixtures/verified-session";
 
 // #419 (D-58): permanent purge of a company 12 months after archiving, on PostgreSQL and the S3 fixture.
@@ -26,6 +27,8 @@ const storage = createMediaStorage({ ...process.env, ...secrets });
 const objects = purgeStorageFrom(storage);
 const db = createPrismaClient(process.env.DATABASE_URL ?? "");
 const DAY = 86_400_000;
+// Every scenario makes dozens of PostgreSQL and S3 round trips; the default 5 s is not enough on a loaded machine.
+const TEST_TIMEOUT_MS = 120_000;
 const superId = FIXTURE.users[2];
 let superSessionId: string;
 let skew = 0;
@@ -98,8 +101,10 @@ async function seedCompany(label: string, archivedAt: Date | null): Promise<Seed
   const exportKey = `company-exports/${id}/${exportId}.bin`;
   await db.companyExport.create({ data: { id: exportId, organizationId: id, requestedById: adminId, requestedByRole: "ADMIN_FIRMY",
     idempotencyKey: randomUUID(), status: "EXPIRED", artifactKey: exportKey } });
-  await db.job.create({ data: { organizationId: id, kind: "MAIL_REMINDER", dedupeKey: `purge-test:${randomUUID()}`,
+  const mail = await db.job.create({ data: { organizationId: id, kind: "MAIL_REMINDER", dedupeKey: `purge-test:${randomUUID()}`,
     payload: { digest: "d", to: adminEmail }, runAt: new Date() } });
+  await db.reminderIntent.create({ data: { organizationId: id, effectiveEndsAt: new Date("2025-01-31T23:00:00.000Z"), offsetDays: 7,
+    channel: "EMAIL", slotAt: new Date("2025-01-24T23:00:00.000Z"), source: "PAID", periodVersion: 0, status: "DELIVERED", jobId: mail.id } });
   await db.auditLog.create({ data: { eventKey: randomUUID(), organizationId: id, actorId: superId, actorRole: "SUPERADMIN_AUTERVA",
     action: "COMPANY_ARCHIVED", entityType: "Organization", entityId: id, requestId: randomUUID() } });
   keys.push(rawKey, `${rawKey}/large.webp`, stagingKey, logoKey, exportKey);
@@ -189,7 +194,8 @@ test("A/B: the purge deletes everything of the due company A (rows, objects, acc
   const c = await seedCompany("C", new Date(Date.now() - 300 * DAY));
   const beforeB = await companyRows(b.id);
   const beforeC = await companyRows(c.id);
-  expect(Object.keys(await companyRows(a.id)).length).toBeGreaterThan(20);
+  // The seed has a row in every purged table, so the delete order is proven against the real foreign keys.
+  expect(Object.keys(await companyRows(a.id)).sort()).toEqual(COMPANY_PURGE_TABLES.map((entry) => entry.table).sort());
   expect(await storedKeys(a.id)).toHaveLength(5);
 
   const result = await runToEnd(await purgeJob(clock()), [a.id, b.id, c.id]);
@@ -217,7 +223,8 @@ test("A/B: the purge deletes everything of the due company A (rows, objects, acc
   expect(audit.map((row) => row.action)).toEqual(["COMPANY_ARCHIVED", "COMPANY_DATA_PURGE_STARTED", "COMPANY_DATA_PURGED"]);
   const started = audit[1];
   expect(started).toMatchObject({ actorId: COMPANY_PURGE_ACTOR, actorRole: "OPERATOR", entityId: a.id });
-  expect(started.safeChanges).toMatchObject({ counts: { ChatMessage: 1, Vehicle: 1, user: 1, CompanyExport: 1, HostMapping: 2 } });
+  expect(started.safeChanges).toMatchObject({ counts: { ChatMessage: 1, Vehicle: 1, user: 1, CompanyExport: 1, HostMapping: 2 },
+    objectKeysOutsidePrefixes: 0 });
   const text = JSON.stringify(audit.slice(1));
   for (const secret of [a.name, a.adminEmail, a.message, a.host, "note A"]) expect(text).not.toContain(secret);
 
@@ -242,7 +249,7 @@ test("A/B: the purge deletes everything of the due company A (rows, objects, acc
   expect(await runToEnd(again, [a.id, b.id, c.id])).toEqual({ steps: [], done: true });
   expect((await db.job.findUniqueOrThrow({ where: { id: again } })).status).toBe("SENT");
   expect(await db.auditLog.count({ where: { organizationId: a.id } })).toBe(3);
-});
+}, TEST_TIMEOUT_MS);
 
 test("12-month boundary with a controlled clock: due only strictly after archive + 12 months", async () => {
   const d = await seedCompany("D", new Date(Date.now() - 366 * DAY));
@@ -271,7 +278,7 @@ test("12-month boundary with a controlled clock: due only strictly after archive
   skew += COMPANY_PURGE_STORAGE_GRACE_MS + 1_000;
   expect(await runToEnd(await purgeJob(clock()), [d.id])).toMatchObject({ done: true });
   expect((await db.organization.findUniqueOrThrow({ where: { id: d.id } })).purgedAt).not.toBeNull();
-});
+}, TEST_TIMEOUT_MS);
 
 test("a company restored before the term is not purged, also when the restore races the purge start", async () => {
   // Restored through the real operation: archive 13 months ago, restore now.
@@ -283,6 +290,17 @@ test("a company restored before the term is not purged, also when the restore ra
   const beforeE = await companyRows(e.id);
   expect(await runToEnd(await purgeJob(clock()), [e.id])).toEqual({ steps: [], done: true });
   expect(await companyRows(e.id)).toEqual(beforeE);
+
+  // Archived again: the 12 months count from the NEW archive, not from the one 13 months ago.
+  const rearchivedAt = new Date(Date.now() - 100 * DAY);
+  await archiveCompany(db, { actorId: superId, sessionId: superSessionId, organizationId: e.id, expectedVersion: archived.version + 1,
+    eventKey: randomUUID(), requestId: randomUUID(), now: rearchivedAt });
+  const beforeRearchived = await companyRows(e.id);
+  expect(await runToEnd(await purgeJob(clock()), [e.id])).toEqual({ steps: [], done: true });
+  expect(await companyRows(e.id)).toEqual(beforeRearchived);
+  expect(await storedKeys(e.id)).toHaveLength(5);
+  expect((await getPlatformCompany(db, e.id))?.purge).toEqual({ scheduledAt: companyPurgeDueAt(rearchivedAt).toISOString(),
+    startedAt: null, completedAt: null });
 
   // Race: the restore holds the company row when the purge decides; the purge waits and rechecks under the lock.
   const f = await seedCompany("F", new Date(Date.now() - 400 * DAY));
@@ -307,7 +325,7 @@ test("a company restored before the term is not purged, also when the restore ra
   expect(row.purgeStartedAt).toBeNull();
   expect(await storedKeys(f.id)).toHaveLength(5);
   expect(Object.keys(await companyRows(f.id)).length).toBeGreaterThan(20);
-});
+}, TEST_TIMEOUT_MS);
 
 test("a storage outage keeps the job retryable, then FAILED; the next day's job resumes and finishes", async () => {
   const g = await seedCompany("G", new Date(Date.now() - 400 * DAY));
@@ -343,7 +361,146 @@ test("a storage outage keeps the job retryable, then FAILED; the next day's job 
   expect(await storedKeys(g.id)).toEqual([]);
   expect((await db.organization.findUniqueOrThrow({ where: { id: g.id } })).purgedAt).not.toBeNull();
   expect(await db.auditLog.count({ where: { organizationId: g.id, actorId: COMPANY_PURGE_ACTOR } })).toBe(2);
-});
+}, TEST_TIMEOUT_MS);
+
+test("two workers on two jobs purge one company exactly once and never touch the other company", async () => {
+  const j = await seedCompany("J", new Date(Date.now() - 400 * DAY));
+  const k = await seedCompany("K", null);
+  const scope = { organizationIds: [j.id, k.id] };
+  const beforeK = await companyRows(k.id);
+  const total = Object.values(await companyRows(j.id)).reduce((sum, n) => sum + n, 0);
+  const [job1, job2] = [await purgeJob(clock()), await purgeJob(clock())];
+  // Both workers hold a valid lease of their own job and work the same company at the same time.
+  const round = async () => {
+    const claims = [await claim(job1), await claim(job2)];
+    return Promise.all(claims.map((item) => processCompanyPurgeClaim(db, objects, item, clock, scope)));
+  };
+  const first = await round();
+  expect(first.map((result) => result.errorCode)).toEqual([undefined, undefined]);
+  const steps = first.flatMap((result) => result.steps);
+  expect(steps.filter((step) => step.kind === "started")).toHaveLength(1);
+  // Every row is deleted by exactly one of the two workers.
+  expect(steps.reduce((sum, step) => sum + (step.kind === "rows" ? step.count ?? 0 : 0), 0)).toBe(total);
+  expect(steps.filter((step) => step.kind === "waiting").length).toBeGreaterThan(0);
+  expect(await companyRows(j.id)).toEqual({});
+  expect(await storedKeys(j.id)).toEqual([]);
+  expect((await db.organization.findUniqueOrThrow({ where: { id: j.id } })).purgedAt).toBeNull();
+
+  skew += COMPANY_PURGE_STORAGE_GRACE_MS + 1_000;
+  const second = await round();
+  expect(second.map((result) => result.errorCode)).toEqual([undefined, undefined]);
+  expect((await db.organization.findUniqueOrThrow({ where: { id: j.id } })).purgedAt).not.toBeNull();
+  for (const id of [job1, job2]) {
+    if ((await db.job.findUniqueOrThrow({ where: { id } })).status !== "SENT") expect(await runToEnd(id, scope.organizationIds)).toEqual({ steps: [], done: true });
+  }
+  const audit = await db.auditLog.findMany({ where: { organizationId: j.id, actorId: COMPANY_PURGE_ACTOR }, orderBy: { createdAt: "asc" } });
+  expect(audit.map((row) => row.action)).toEqual(["COMPANY_DATA_PURGE_STARTED", "COMPANY_DATA_PURGED"]);
+  expect((audit[0].safeChanges as { count: number }).count).toBe(total);
+
+  expect(await companyRows(k.id)).toEqual(beforeK);
+  expect(await storedKeys(k.id)).toHaveLength(5);
+  expect(await db.organization.findUniqueOrThrow({ where: { id: k.id } })).toMatchObject({ name: k.name, archivedAt: null,
+    purgeStartedAt: null, purgedAt: null });
+  expect(await db.auditLog.count({ where: { organizationId: k.id, actorId: COMPANY_PURGE_ACTOR } })).toBe(0);
+}, TEST_TIMEOUT_MS);
+
+test("a worker killed half-way: its expired lease does nothing more, the next claim resumes and finishes once", async () => {
+  const l = await seedCompany("L", new Date(Date.now() - 400 * DAY));
+  const scope = { organizationIds: [l.id] };
+  const jobId = await purgeJob(clock());
+  const dead = { claim: await claim(jobId), clock };
+  expect(await companyPurgeStep(db, objects, clock(), dead, scope)).toEqual({ kind: "started", organizationId: l.id });
+  expect(await companyPurgeStep(db, objects, clock(), dead, scope)).toMatchObject({ kind: "rows", organizationId: l.id });
+  // The worker dies here: the purge is started, part of the rows and every object are still there.
+  const partial = await companyRows(l.id);
+  expect(Object.keys(partial).length).toBeGreaterThan(10);
+  expect(await storedKeys(l.id)).toHaveLength(5);
+  const half = await db.organization.findUniqueOrThrow({ where: { id: l.id } });
+  expect(half.purgeStartedAt).not.toBeNull();
+  expect(half.purgedAt).toBeNull();
+
+  // Its lease expires. A late step of the dead worker is refused and changes nothing.
+  skew += COMPANY_PURGE_LEASE_MS + 1_000;
+  await expect(companyPurgeStep(db, objects, clock(), dead, scope)).rejects.toThrow("COMPANY_PURGE_LEASE_LOST");
+  expect(await processCompanyPurgeClaim(db, objects, dead.claim, clock, scope))
+    .toEqual({ steps: [], done: false, errorCode: "COMPANY_PURGE_LEASE_LOST" });
+  expect(await companyRows(l.id)).toEqual(partial);
+  expect(await storedKeys(l.id)).toHaveLength(5);
+
+  // A lease taken over by another worker is refused the same way, although its time has not run out.
+  const stale = await claim(jobId);
+  const current = await claim(jobId);
+  expect(await processCompanyPurgeClaim(db, objects, stale, clock, scope))
+    .toEqual({ steps: [], done: false, errorCode: "COMPANY_PURGE_LEASE_LOST" });
+  expect((await db.job.findUniqueOrThrow({ where: { id: jobId } })).leaseToken).toBe(current.leaseToken);
+  expect(await companyRows(l.id)).toEqual(partial);
+
+  expect(await runToEnd(jobId, scope.organizationIds)).toMatchObject({ done: true });
+  expect(await companyRows(l.id)).toEqual({});
+  expect(await storedKeys(l.id)).toEqual([]);
+  expect((await db.organization.findUniqueOrThrow({ where: { id: l.id } })).purgedAt).not.toBeNull();
+  const audit = await db.auditLog.findMany({ where: { organizationId: l.id, actorId: COMPANY_PURGE_ACTOR }, orderBy: { createdAt: "asc" } });
+  expect(audit.map((row) => row.action)).toEqual(["COMPANY_DATA_PURGE_STARTED", "COMPANY_DATA_PURGED"]);
+}, TEST_TIMEOUT_MS);
+
+test("objects go by company prefix only: a row of the purged company that points at another company's object cannot delete it", async () => {
+  const o = await seedCompany("O", new Date(Date.now() - 400 * DAY));
+  const p = await seedCompany("P", null);
+  const foreignKey = p.keys[3];
+  const vehicle = await db.vehicle.findFirstOrThrow({ where: { organizationId: o.id }, select: { id: true } });
+  await db.vehicleImage.create({ data: { organizationId: o.id, vehicleId: vehicle.id, storageKey: foreignKey, mime: "image/png",
+    width: 10, height: 10, bytes: 3, status: "READY" } });
+  const beforeP = await companyRows(p.id);
+  expect(await runToEnd(await purgeJob(clock()), [o.id, p.id])).toMatchObject({ done: true });
+  expect(await companyRows(o.id)).toEqual({});
+  expect(await storedKeys(o.id)).toEqual([]);
+  expect((await db.organization.findUniqueOrThrow({ where: { id: o.id } })).purgedAt).not.toBeNull();
+  // The other company keeps every row and every object, the one referenced by the purged company included.
+  expect(await companyRows(p.id)).toEqual(beforeP);
+  expect((await storedKeys(p.id)).sort()).toEqual([...p.keys].sort());
+  // The reference outside the own prefixes is counted in the audit (no key, no content).
+  const started = await db.auditLog.findFirstOrThrow({ where: { organizationId: o.id, action: "COMPANY_DATA_PURGE_STARTED" } });
+  expect(started.safeChanges).toMatchObject({ objectKeysOutsidePrefixes: 1 });
+  expect(JSON.stringify(started.safeChanges)).not.toContain(p.id);
+}, TEST_TIMEOUT_MS);
+
+test("a table with company rows and no purge decision stops the purge before anything is deleted", async () => {
+  const n = await seedCompany("N", new Date(Date.now() - 400 * DAY));
+  const before = await companyRows(n.id);
+  const jobId = await purgeJob(clock());
+  await db.$executeRawUnsafe(`CREATE TABLE "PurgeUnclassifiedProbe" ("organizationId" uuid)`);
+  try {
+    expect(await unclassifiedPurgeTables(db)).toEqual(["PurgeUnclassifiedProbe"]);
+    expect(await processCompanyPurgeClaim(db, objects, await claim(jobId), clock, { organizationIds: [n.id] }))
+      .toEqual({ steps: [], done: false, errorCode: "COMPANY_PURGE_UNCLASSIFIED_TABLE" });
+  } finally { await db.$executeRawUnsafe(`DROP TABLE IF EXISTS "PurgeUnclassifiedProbe"`); }
+  expect(await db.job.findUniqueOrThrow({ where: { id: jobId } })).toMatchObject({ status: "PENDING",
+    errorCode: "COMPANY_PURGE_UNCLASSIFIED_TABLE" });
+  expect((await db.organization.findUniqueOrThrow({ where: { id: n.id } })).purgeStartedAt).toBeNull();
+  expect(await companyRows(n.id)).toEqual(before);
+  expect(await storedKeys(n.id)).toHaveLength(5);
+  expect(await db.auditLog.count({ where: { organizationId: n.id, actorId: COMPANY_PURGE_ACTOR } })).toBe(0);
+  // With the decision in place (table gone) the same job purges the company.
+  expect(await runToEnd(jobId, [n.id])).toMatchObject({ done: true });
+  expect((await db.organization.findUniqueOrThrow({ where: { id: n.id } })).purgedAt).not.toBeNull();
+}, TEST_TIMEOUT_MS);
+
+test("the reminder sweep does not write a plan or an intent for a company whose purge started", async () => {
+  const m = await seedCompany("M", new Date(Date.now() - 400 * DAY));
+  const scope = { organizationIds: [m.id] };
+  const lease = { claim: await claim(await purgeJob(clock())), clock };
+  expect(await companyPurgeStep(db, objects, clock(), lease, scope)).toEqual({ kind: "started", organizationId: m.id });
+  // The purge has passed the reminder tables; the period row is still there, which is what the sweep heals from.
+  for (let i = 0; i < 40 && (await companyRows(m.id)).ReminderPlan; i++) await companyPurgeStep(db, objects, clock(), lease, scope);
+  const rows = await companyRows(m.id);
+  expect(rows.ReminderPlan).toBeUndefined();
+  expect(rows.ServiceAccess).toBe(1);
+  await processDueReminders(db, clock(), randomBytes(32), [m.id]);
+  expect(await companyRows(m.id)).toEqual(rows);
+  await db.job.update({ where: { id: lease.claim.id }, data: { status: "SENT", leaseToken: null, lockedUntil: null } });
+  expect(await runToEnd(await purgeJob(clock()), scope.organizationIds)).toMatchObject({ done: true });
+  expect((await db.organization.findUniqueOrThrow({ where: { id: m.id } })).purgedAt).not.toBeNull();
+}, TEST_TIMEOUT_MS);
 
 test("the media worker loop schedules the daily job and purges without company data in the logs", async () => {
   const { runMediaWorkerLoop } = await import("../../src/modules/media/worker");
@@ -356,7 +513,7 @@ test("the media worker loop schedules the daily job and purges without company d
   const controller = new AbortController();
   const loop = runMediaWorkerLoop(db, storage, controller.signal, clock);
   try {
-    for (let i = 0; i < 300; i++) {
+    for (let i = 0; i < 900; i++) {
       const row = await db.organization.findUniqueOrThrow({ where: { id: h.id } });
       if (row.purgedAt) break;
       if (row.purgeStartedAt && clock().getTime() - row.purgeStartedAt.getTime() < COMPANY_PURGE_STORAGE_GRACE_MS) {
@@ -373,4 +530,4 @@ test("the media worker loop schedules the daily job and purges without company d
   expect(text).toContain("company.purge_step");
   expect(text).toContain(h.id);
   for (const secret of [h.name, h.adminEmail, h.message, h.host, "note H", "bytes H"]) expect(text).not.toContain(secret);
-});
+}, TEST_TIMEOUT_MS);

@@ -827,3 +827,72 @@ test("retention keeps 30 days and the newest complete set; the age check alarms 
   expect(await backupAge(await mkdtemp(resolve(".local/backup-empty-")), key, now)).toBeNull();
   expect(recent.manifest.id).not.toBe(fresh.manifest.id);
 }, TEST_TIMEOUT_MS);
+
+test("#419: a company whose permanent purge started is never restored from a backup, before and under the company lock", async () => {
+  // Two archived companies with data and an object each; the backup is taken before their purge.
+  const seedArchived = async (label: string) => {
+    const org = randomUUID();
+    const vehicle = randomUUID();
+    const objectKey = `backup-test/${org}/cover-${label}.webp`;
+    await live.query(`INSERT INTO "Organization" (id, slug, name, "archivedAt") VALUES ($1, $2, $3, now() - interval '400 days')`,
+      [org, `bk-${label}-${tag}`, `Company ${label}`]);
+    await live.query(`INSERT INTO "Vehicle" (id, "organizationId", slug, name, status, price) VALUES ($1, $2, $3, 'Vehicle', 'DRAFT', 100.00)`,
+      [vehicle, org, `bk-${label}-v0`]);
+    await live.query(`INSERT INTO "VehicleImage" (id, "organizationId", "vehicleId", "storageKey", mime, width, height, bytes, status, "isCover")
+      VALUES ($1, $2, $3, $4, 'image/webp', 480, 320, 2048, 'READY', true)`, [randomUUID(), org, vehicle, objectKey]);
+    await put(objectKey, bytesA);
+    return { org, objectKey };
+  };
+  // What the purge does to a company: rows and objects go, the irreversible mark stays.
+  const purge = async (db: typeof live, target: { org: string; objectKey: string }) => {
+    await db.query(`UPDATE "Organization" SET "purgeStartedAt" = now() WHERE id = $1`, [target.org]);
+    await db.query(`DELETE FROM "VehicleImage" WHERE "organizationId" = $1`, [target.org]);
+    await db.query(`DELETE FROM "Vehicle" WHERE "organizationId" = $1`, [target.org]);
+  };
+  const rowsOf = async (org: string) => (await live.query(`SELECT
+    (SELECT count(*)::int FROM "Vehicle" WHERE "organizationId" = $1) AS vehicles,
+    (SELECT count(*)::int FROM "VehicleImage" WHERE "organizationId" = $1) AS images,
+    (SELECT count(*)::int FROM "AuditLog" WHERE "organizationId" = $1 AND action = 'COMPANY_RESTORED_FROM_BACKUP') AS restores`, [org])).rows[0];
+  const before = await seedArchived("p");
+  const during = await seedArchived("q");
+  const { dir } = await createBackup({ databaseUrl, outDir, key, storage, commit: "test-commit" });
+  const bBefore = await others(live, B);
+
+  // Purged before the restore starts: refused up front, no row and no object comes back.
+  await purge(live, before);
+  await storage.client.send(new DeleteObjectCommand({ Bucket: storage.bucket, Key: before.objectKey }));
+  await expect(restoreCompany({ backupDir: dir, key, organizationId: before.org, targetUrl: databaseUrl, repoDir, operatorId: operator, storage }))
+    .rejects.toMatchObject({ code: "RESTORE_COMPANY_PURGED" });
+  expect(await rowsOf(before.org)).toEqual({ vehicles: 0, images: 0, restores: 0 });
+  expect(await exists(storage, before.objectKey)).toBe(false);
+  // The finished skeleton is refused the same way.
+  await live.query(`UPDATE "Organization" SET "purgedAt" = now() + interval '1 second', name = NULL, slug = $2 WHERE id = $1`,
+    [before.org, `purged-${before.org}`]);
+  await expect(restoreCompany({ backupDir: dir, key, organizationId: before.org, targetUrl: databaseUrl, repoDir, operatorId: operator, storage }))
+    .rejects.toMatchObject({ code: "RESTORE_COMPANY_PURGED" });
+  expect(await rowsOf(before.org)).toEqual({ vehicles: 0, images: 0, restores: 0 });
+
+  // The purge starts while the restore waits for the company lock: refused under the lock, everything rolled back.
+  const purger = await connect(databaseUrl);
+  await purger.query("BEGIN");
+  await purger.query(`SELECT id FROM "Organization" WHERE id = $1 FOR UPDATE`, [during.org]);
+  const restoring = restoreCompany({ backupDir: dir, key, organizationId: during.org, targetUrl: databaseUrl, repoDir, operatorId: operator, storage });
+  const refused = expect(restoring).rejects.toMatchObject({ code: "RESTORE_COMPANY_PURGED" });
+  const probe = await connect(databaseUrl);
+  let waiting = 0;
+  for (let attempt = 0; attempt < 400 && waiting === 0; attempt++) {
+    waiting = (await probe.query(`SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database()
+      AND wait_event_type = 'Lock' AND query ILIKE '%FROM "Organization" t WHERE id = $1 FOR UPDATE%'`)).rows[0].n;
+    if (waiting === 0) await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  await probe.end();
+  expect(waiting).toBe(1);
+  await purge(purger, during);
+  await purger.query("COMMIT");
+  await purger.end();
+  await refused;
+  expect(await rowsOf(during.org)).toEqual({ vehicles: 0, images: 0, restores: 0 });
+  expect((await live.query(`SELECT name, "purgeStartedAt" IS NOT NULL AS started FROM "Organization" WHERE id = $1`, [during.org])).rows)
+    .toEqual([{ name: "Company q", started: true }]);
+  expect(await others(live, B)).toEqual(bBefore);
+}, TEST_TIMEOUT_MS);

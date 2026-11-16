@@ -12,11 +12,15 @@ export type ReconcileOptions = {
 
 const CHANNELS = ["PANEL", "EMAIL"] as const;
 
-/** Row lock that excludes period, archive, activation and delivery writers of one company. */
-export async function lockReminderCompany(tx: Prisma.TransactionClient, organizationId: string): Promise<void> {
-  const rows = await tx.$queryRaw<{ id: string }[]>`
-    SELECT id FROM "Organization" WHERE id = ${organizationId}::uuid FOR NO KEY UPDATE`;
+/**
+ * Row lock that excludes period, archive, activation and delivery writers of one company. Returns false for a company
+ * whose permanent purge started (#419, D-58): the sweep must not write a plan or an intent for it again.
+ */
+export async function lockReminderCompany(tx: Prisma.TransactionClient, organizationId: string): Promise<boolean> {
+  const rows = await tx.$queryRaw<{ id: string; purgeStartedAt: Date | null }[]>`
+    SELECT id, "purgeStartedAt" FROM "Organization" WHERE id = ${organizationId}::uuid FOR NO KEY UPDATE`;
   if (rows.length !== 1) throw new Error("REMINDER_COMPANY_NOT_FOUND");
+  return rows[0].purgeStartedAt === null;
 }
 
 /**

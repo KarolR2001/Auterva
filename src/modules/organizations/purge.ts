@@ -104,7 +104,7 @@ export const COMPANY_PURGE_TABLES: ReadonlyArray<{ table: string; where: string 
   { table: "verification", where: `EXISTS (SELECT 1 FROM "user" u WHERE u."organizationId" = $1::uuid AND (
     "verification".identifier = 'password-reset:' || lower(u.email)
     OR ("verification".identifier LIKE '2fa-%' AND "verification".value = u.id)
-    OR ("verification".identifier LIKE 'auterva:mfa:%' AND "verification".value LIKE '%"userId":"' || u.id || '"%')))` },
+    OR ("verification".identifier LIKE 'auterva:mfa:%' AND strpos("verification".value, '"userId":"' || u.id || '"') > 0)))` },
   { table: "session", where: `"userId" IN (${USERS})` },
   { table: "account", where: `"userId" IN (${USERS})` },
   { table: "twoFactor", where: `"userId" IN (${USERS})` },
@@ -179,19 +179,32 @@ async function startPurge(db: PrismaClient, organizationId: string, asOf: Date, 
     await assertLease(tx, lease);
     // Rechecked under the lock: a restore committed meanwhile (archivedAt null) or a newer archive is not purged.
     if (!company || company.purgeStartedAt || !isCompanyPurgeDue(company.archivedAt, asOf)) return false;
+    // Nothing irreversible starts while a table with company rows has no purge decision: the purge could not finish.
+    if ((await unclassifiedPurgeTables(tx)).length > 0) throw new Error("COMPANY_PURGE_UNCLASSIFIED_TABLE");
     const now = lease.clock();
     const counts: Record<string, number> = {};
     for (const { table, where } of COMPANY_PURGE_TABLES) {
       const n = await countRows(tx, table, where, organizationId);
       if (n > 0) counts[table] = n;
     }
+    // Objects are removed by company prefix only, never by a key read from a row (isolation). Every key the application
+    // creates lies under a prefix; a row pointing elsewhere (seed or imported data) leaves its object behind, so it is counted.
+    const [p0, p1, p2] = companyStoragePrefixes(organizationId);
+    const stray = await tx.$queryRaw<{ n: bigint }[]>`
+      SELECT count(*) AS n FROM (
+        SELECT "storageKey" AS key FROM "VehicleImage" WHERE "organizationId" = ${organizationId}::uuid
+        UNION ALL SELECT "storageKey" FROM "PublicMedia" WHERE "organizationId" = ${organizationId}::uuid
+        UNION ALL SELECT "stagingKey" FROM "ImageUpload" WHERE "organizationId" = ${organizationId}::uuid
+        UNION ALL SELECT "rawKey" FROM "ImageUpload" WHERE "organizationId" = ${organizationId}::uuid
+        UNION ALL SELECT "artifactKey" FROM "CompanyExport" WHERE "organizationId" = ${organizationId}::uuid) keys
+      WHERE NOT (starts_with(key, ${p0}) OR starts_with(key, ${p1}) OR starts_with(key, ${p2}))`;
     await tx.organization.update({ where: { id: organizationId }, data: { purgeStartedAt: now, version: { increment: 1 } } });
     // Queued work of the company never runs again (mail payloads keep only their digest); rows are deleted later.
     await tx.$executeRaw`UPDATE "Job" SET status = 'SKIPPED', "errorCode" = 'COMPANY_PURGED', "leaseToken" = NULL,
       "lockedUntil" = NULL, payload = jsonb_build_object('digest', payload->>'digest')
       WHERE "organizationId" = ${organizationId}::uuid AND status IN ('PENDING', 'RUNNING', 'UNCERTAIN')`;
     await purgeAudit(tx, organizationId, "COMPANY_DATA_PURGE_STARTED", {
-      count: Object.values(counts).reduce((sum, n) => sum + n, 0), counts,
+      count: Object.values(counts).reduce((sum, n) => sum + n, 0), counts, objectKeysOutsidePrefixes: Number(stray[0]?.n ?? 0),
       archivedAt: company.archivedAt!.toISOString(), dueAt: companyPurgeDueAt(company.archivedAt!).toISOString() }, now);
     await notifyChat(tx, { k: "o", o: organizationId });
     return true;
