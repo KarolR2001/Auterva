@@ -236,6 +236,25 @@
       "testPaths": ["tests/unit/availability.test.ts", "tests/unit/availability-nearest.test.ts", "tests/integration/availability-public-errors.test.ts"]
     },
     {
+      "issue": 401,
+      "scope": "Lokalna część #58 (D-54): inwentarz logów strukturalnych i testy redakcji (TOTP, kody odzyskania, adres feedu, ramki WebSocket jako zserializowany JSON są maskowane), serie błędów storage i poczty startują od 0, żeby pierwsza awaria była mierzalnym przyrostem dla reguł alertów, oraz lokalna symulacja awarii (DB, storage, dostawca poczty, zablokowane zadanie) z dowodem wykrycia przez health, metryki i alerty oraz powrotu. Wdrożenie u dostawcy: #90.",
+      "relatedRequirementIds": ["C-N020", "C-N037", "C-N059", "C-N060", "D-10", "D-54"],
+      "referenceScreenIds": [],
+      "unmappedStates": ["Bez ekranu: zmiana backendowa i dokumentacja operacyjna."],
+      "codePaths": [
+        "src/modules/observability/redact.ts",
+        "src/modules/media/storage.ts",
+        "src/modules/jobs/processor.ts",
+        "docs/contracts/monitoring-alerts.md",
+        "docs/runbooks/monitoring-incidents.md"
+      ],
+      "testPaths": [
+        "tests/integration/ops-failure-simulation.test.ts",
+        "tests/unit/observability-redaction.test.ts"
+      ],
+      "sharedWith": "Rozszerza #58/#180/#108; dashboard i paging u dostawcy w #90."
+    },
+    {
       "issue": 342,
       "scope": "Audyt dostępności (część #61): panel platformy, strony publiczne firmy i marketing Autervy. Automatyczny skan axe (WCAG 2.2 AA, serious/critical = błąd) każdego ekranu przy 1440, 390 i 320 px oraz kontrole strukturalne: jeden h1 i main, lang, skip link jako pierwszy stop, kolejność i widoczność fokusu, fokus nieprzesłonięty, reflow 320/640 px, reduced motion; dialog archiwizacji (pułapka i powrót fokusu) i menu mobilne z klawiatury. Poprawki: nazwa linku Wiadomości/Czat z plakietką „Nowe” zgodna z widocznym tekstem (WCAG 2.5.3), scroll-padding chroniący fokus przed paskiem akcji (dolna nawigacja: reguła z #341) formularza/kalendarza pojazdu (WCAG 2.4.11). Bez zmian logiki. VoiceOver: DEFERRED (#97); strona logowania i MFA nie mają skip linku (brak bloków do pominięcia).",
       "relatedRequirementIds": ["C-N047", "C-N049", "C-N060"],
