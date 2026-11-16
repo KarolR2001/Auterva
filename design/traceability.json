@@ -142,6 +142,19 @@
       "testPaths": ["tests/integration/calendar-feed-scope.test.ts", "tests/integration/calendar-feed.test.ts"]
     },
     {
+      "issue": 378,
+      "scope": "Blokada zbiorcza i kopia blokady (ADM-10 state=bulk-*) rejestrują niezapisane zmiany w strażniku powłoki panelu: dane wpisane lub wybrane pojazdy (poza wynikiem zapisu) to „dirty”, trwający zapis to „busy”; „Odśwież teraz” (aktualizacja PWA), linki panelu, okruszek „Kalendarz floty” (kliknięcie przechwycone przez powłokę nie zamyka już widoku), Wstecz przeglądarki (cofnięty i potwierdzany dialogiem) i zamknięcie karty pytają o potwierdzenie; po zapisanym wyniku lub anulowaniu zapisu stan jest czysty.",
+      "relatedRequirementIds": ["FR-PWA-005", "C-F146", "C-F150", "FR-ADM-055", "FR-ADM-057"],
+      "referenceScreenIds": ["ADM-10", "ADM-19"],
+      "unmappedStates": ["Dialog „Niezapisane zmiany” to istniejący komponent powłoki (bez nowego wyglądu); porównanie z makietą w Penpocie: DEFERRED (#263)."],
+      "codePaths": [
+        "src/components/admin/bulk-blocks.tsx",
+        "src/components/admin/bulk-blocks-model.ts"
+      ],
+      "testPaths": ["tests/unit/bulk-blocks.test.tsx", "tests/e2e/bulk-blocks-unsaved.spec.ts"],
+      "sharedWith": "Rozszerza #217; wzorzec useUnsavedChanges jak w vehicle-calendar i vehicle-form."
+    },
+    {
       "issue": 367,
       "scope": "Zakres prywatnego adresu iCal na ekranie „Kalendarz zewnętrzny” (ADM-22 state=create, E11, D-47; API #366): grupa radio „Cała flota” (domyślnie) / „Wybrane pojazdy (opublikowane)”; przy wyborze lista opublikowanych pojazdów firmy z listy floty panelu (status=PUBLISHED, strony po 100), wyszukiwanie powyżej 8 pojazdów, limit 50 (pozostałe pola nieaktywne z objaśnieniem), min. 1 — komunikat przy polu, podsumowanie „Do poprawy” i fokus na grupie; vehicleIds wysyłane tylko dla wybranych pojazdów; 400 fieldErrors.vehicleIds (VEHICLE_NOT_PUBLISHED, VEHICLE_NOT_FOUND, OUT_OF_RANGE, DUPLICATE) jako zrozumiały komunikat przy polu, przy nieopublikowanym/nieistniejącym ponowny odczyt listy i usunięcie go z wyboru, bez sukcesu i bez utraty etykiety. Lista adresów (admin i superadmin, tylko odczyt): „Zakres: Cała flota” albo „Zakres: N pojazdów” z rozwijaną listą nazw; pusty zakres po usunięciu pojazdów objaśniony. Rotacja bez zmian (serwer zachowuje zakres); wynik niepewny jak w #355.",
       "referenceScreenIds": ["ADM-22"],
