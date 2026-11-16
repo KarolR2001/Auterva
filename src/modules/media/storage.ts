@@ -33,6 +33,11 @@ export function createMediaStorage(input: Record<string, string | undefined> = p
 
 /** Request count and duration per S3 operation (#58). Labels carry the command name and result, never keys. */
 function instrumentStorage(client: S3Client): void {
+  // Failure series exist at 0 from the start, so the first real failure is a measurable increase (an alert rule
+  // cannot see the step of a series whose first sample is already non-zero).
+  for (const operation of ["HeadBucketCommand", "HeadObjectCommand", "GetObjectCommand", "PutObjectCommand", "DeleteObjectCommand"]) {
+    metrics.inc(names.storage, "Object storage requests", { operation, result: "error" }, 0);
+  }
   client.middlewareStack.add((next, context) => async (args) => {
     const started = performance.now();
     const operation = context.commandName ?? "unknown";

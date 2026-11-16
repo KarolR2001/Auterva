@@ -73,6 +73,16 @@
       "testPaths": ["tests/integration/launch-diagnostics.test.ts", "tests/integration/launch-diagnostics-recheck.test.ts", "tests/integration/jobs-worker-domains.test.ts", "tests/integration/custom-domain-network.test.ts"]
     },
     {
+      "issue": 414,
+      "scope": "Sesja logowania w obu panelach: jawnie 30 dni od ostatniego odświeżenia (D-61), odświeżanie najwyżej raz na dobę. Backend bez zmian UI i API; reauth, unieważnianie sesji i WebSocket bez zmian.",
+      "relatedRequirementIds": ["D-61", "D-05", "FR-ADM-081"],
+      "referenceScreenIds": [],
+      "unmappedStates": ["Zadanie backendowe bez ekranu Penpota."],
+      "codePaths": ["src/lib/auth.ts"],
+      "testPaths": ["tests/integration/session-lifetime.test.ts"],
+      "sharedWith": "Kontrakt: docs/contracts/account-operations.md (Sesje konta, czas sesji)."
+    },
+    {
       "issue": 371,
       "scope": "OVR-07 desktop (D-48): „Kopiuj na inne auta” w nagłówku okna edycji blokady obok tytułu (wspólny Dialog dostaje opcjonalne headerAction, addytywnie; okna bez niego bez zmian). Na mobile (do 480 px) zostaje przycisk pełnej szerokości nad „Usuń blokadę” (OVR-07-mobile-edit); ten sam href, w danej szerokości widoczny jeden link. Kolejność Tab: nagłówek, pola, Zamknij, Zapisz; fokus początkowy, Escape i powrót fokusu bez zmian.",
       "relatedRequirementIds": ["FR-ADM-055", "FR-ADM-057", "D-48"],
@@ -139,6 +149,19 @@
         "docs/contracts/calendar-feed-implementation.md"
       ],
       "testPaths": ["tests/integration/calendar-feed-scope.test.ts", "tests/integration/calendar-feed.test.ts"]
+    },
+    {
+      "issue": 378,
+      "scope": "Blokada zbiorcza i kopia blokady (ADM-10 state=bulk-*) rejestrują niezapisane zmiany w strażniku powłoki panelu: dane wpisane lub wybrane pojazdy (poza wynikiem zapisu) to „dirty”, trwający zapis to „busy”; „Odśwież teraz” (aktualizacja PWA), linki panelu, okruszek „Kalendarz floty” (kliknięcie przechwycone przez powłokę nie zamyka już widoku), Wstecz przeglądarki (cofnięty i potwierdzany dialogiem) i zamknięcie karty pytają o potwierdzenie; po zapisanym wyniku lub anulowaniu zapisu stan jest czysty.",
+      "relatedRequirementIds": ["FR-PWA-005", "C-F146", "C-F150", "FR-ADM-055", "FR-ADM-057"],
+      "referenceScreenIds": ["ADM-10", "ADM-19"],
+      "unmappedStates": ["Dialog „Niezapisane zmiany” to istniejący komponent powłoki (bez nowego wyglądu); porównanie z makietą w Penpocie: DEFERRED (#263)."],
+      "codePaths": [
+        "src/components/admin/bulk-blocks.tsx",
+        "src/components/admin/bulk-blocks-model.ts"
+      ],
+      "testPaths": ["tests/unit/bulk-blocks.test.tsx", "tests/e2e/bulk-blocks-unsaved.spec.ts"],
+      "sharedWith": "Rozszerza #217; wzorzec useUnsavedChanges jak w vehicle-calendar i vehicle-form."
     },
     {
       "issue": 367,
@@ -233,6 +256,25 @@
         "docs/contracts/availability-reads.md"
       ],
       "testPaths": ["tests/unit/availability.test.ts", "tests/unit/availability-nearest.test.ts", "tests/integration/availability-public-errors.test.ts"]
+    },
+    {
+      "issue": 401,
+      "scope": "Lokalna część #58 (D-54): inwentarz logów strukturalnych i testy redakcji (TOTP, kody odzyskania, adres feedu, ramki WebSocket jako zserializowany JSON są maskowane), serie błędów storage i poczty startują od 0, żeby pierwsza awaria była mierzalnym przyrostem dla reguł alertów, oraz lokalna symulacja awarii (DB, storage, dostawca poczty, zablokowane zadanie) z dowodem wykrycia przez health, metryki i alerty oraz powrotu. Wdrożenie u dostawcy: #90.",
+      "relatedRequirementIds": ["C-N020", "C-N037", "C-N059", "C-N060", "D-10", "D-54"],
+      "referenceScreenIds": [],
+      "unmappedStates": ["Bez ekranu: zmiana backendowa i dokumentacja operacyjna."],
+      "codePaths": [
+        "src/modules/observability/redact.ts",
+        "src/modules/media/storage.ts",
+        "src/modules/jobs/processor.ts",
+        "docs/contracts/monitoring-alerts.md",
+        "docs/runbooks/monitoring-incidents.md"
+      ],
+      "testPaths": [
+        "tests/integration/ops-failure-simulation.test.ts",
+        "tests/unit/observability-redaction.test.ts"
+      ],
+      "sharedWith": "Rozszerza #58/#180/#108; dashboard i paging u dostawcy w #90."
     },
     {
       "issue": 342,
