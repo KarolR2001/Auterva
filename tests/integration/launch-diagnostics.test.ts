@@ -169,6 +169,71 @@ test("diagnostics is a read: no new rows, jobs or audit, and neighbour data neve
   expect(JSON.stringify(d)).not.toContain(b);
 });
 
+test("#417: certificate expiry, host check times, last mail (no password reset) and general causes", async () => {
+  const set = (data: object) => db.customDomain.update({ where: { organizationId: a }, data });
+  const day = 86_400_000;
+  await set({ status: "ACTIVE", activatedAt: now, ownershipVerifiedAt: now, routingVerifiedAt: now, tlsVerifiedAt: now,
+    lastFailureCode: null, checkedAt: now, tlsNotAfter: new Date(now.getTime() + 60 * day) });
+  let d = await diag();
+  expect(d.domain.customDomain).toMatchObject({ state: "ACTIVE", tlsExpiry: "OK",
+    tlsNotAfter: new Date(now.getTime() + 60 * day).toISOString() });
+  expect(d.domain.severity).toBe("OK");
+  await set({ tlsNotAfter: new Date(now.getTime() + 21 * day) });
+  d = await diag();
+  expect(d.domain.customDomain).toMatchObject({ state: "ACTIVE", tlsExpiry: "EXPIRING_SOON" });
+  expect(d.domain.severity).toBe("WAITING");
+  await set({ tlsNotAfter: new Date(now.getTime() - day) });
+  expect((await diag()).domain).toMatchObject({ severity: "ERROR", customDomain: { tlsExpiry: "EXPIRED" } });
+  await set({ tlsNotAfter: null });
+  expect((await diag()).domain.customDomain).toMatchObject({ tlsExpiry: "UNKNOWN", tlsNotAfter: null });
+  // A failed periodic re-check keeps the lifecycle (ACTIVE) but is shown as a failure.
+  await set({ lastFailureCode: "CNAME_MISMATCH" });
+  expect((await diag()).domain).toMatchObject({ severity: "ERROR",
+    customDomain: { status: "ACTIVE", state: "FAILED", category: "DNS" } });
+  await set({ status: "READY", activatedAt: null, lastFailureCode: null });
+
+  expect((await diag()).domain).toMatchObject({ aliasCheckedAt: null, adminCheckedAt: null });
+  const checked = new Date("2026-10-25T08:00:00.000Z");
+  await db.hostMapping.updateMany({ where: { organizationId: a, kind: "PROVIDER" }, data: { checkedAt: checked } });
+  expect((await diag()).domain).toMatchObject({ aliasCheckedAt: checked.toISOString(),
+    adminCheckedAt: checked.toISOString() });
+
+  // The invitation was revoked above; its job is still a mail event. Password reset jobs are never reported.
+  await db.invitation.update({ where: { id: invitationA }, data: { revokedAt: null } });
+  await setJob({ status: "FAILED", attempts: 5, errorCode: "DELIVERY_REJECTED", completedAt: new Date(now.getTime() - 3_600_000) });
+  await db.job.create({ data: { organizationId: a, kind: "MAIL_PASSWORD_RESET", dedupeKey: `MAIL_PASSWORD_RESET:${randomUUID()}`,
+    payload: { digest: "x" }, runAt: now, status: "SENT", completedAt: now } });
+  d = await diag();
+  expect(d.lastMail).toEqual({ type: "INVITATION", at: new Date(now.getTime() - 3_600_000).toISOString(),
+    state: "FAILED", cause: "PROVIDER_REJECTED" });
+  expect(d.invitation.delivery).toMatchObject({ cause: "PROVIDER_REJECTED" });
+  const causes: [string, string][] = [["MAIL_TRANSIENT", "PROVIDER_TEMPORARY"], ["MAIL_PERMANENT", "PROVIDER_REJECTED"],
+    ["RECIPIENT_NOT_ALLOWED", "PLATFORM_CONFIG"], ["MAIL_OUTCOME_UNKNOWN", "OUTCOME_UNKNOWN"],
+    ["STALE_INTENT", "OTHER"], ["provider said: secret detail", "OTHER"]];
+  for (const [code, cause] of causes) {
+    await setJob({ errorCode: code });
+    const out = await diag();
+    expect(out.lastMail?.cause).toBe(cause);
+    expect(JSON.stringify(out.lastMail)).not.toContain(code);
+  }
+  // A later reminder event wins; PENDING slots are not events.
+  const ends = new Date("2026-11-03T10:00:00.000Z");
+  await db.organization.update({ where: { id: a }, data: { firstAdminRegisteredAt: new Date("2026-10-20T10:00:00Z") } });
+  await db.serviceAccess.update({ where: { organizationId: a }, data: { trialStartedAt: new Date("2026-10-20T10:00:00Z"),
+    trialEndsAt: ends } });
+  await db.reminderIntent.createMany({ data: [
+    { organizationId: a, effectiveEndsAt: ends, offsetDays: 7, channel: "EMAIL", slotAt: new Date("2026-10-27T10:00:00Z"),
+      source: "TRIAL", periodVersion: 0, status: "PENDING" },
+    { organizationId: a, effectiveEndsAt: ends, offsetDays: 1, channel: "EMAIL", slotAt: new Date("2026-10-26T10:00:00Z"),
+      source: "TRIAL", periodVersion: 0, status: "DELIVERED", deliveredAt: new Date(now.getTime() - 60_000) }] });
+  expect((await diag()).lastMail).toMatchObject({ type: "REMINDER", state: "DELIVERED", cause: null,
+    at: new Date(now.getTime() - 60_000).toISOString() });
+  await db.reminderIntent.deleteMany({ where: { organizationId: a } });
+  await db.organization.update({ where: { id: a }, data: { archivedAt: now } });
+  expect((await diag()).lastMail).toBeNull();
+  await db.organization.update({ where: { id: a }, data: { archivedAt: null } });
+});
+
 test("HTTP: only the platform superadmin; admin, wrong host, bad id and query are refused", async () => {
   const call = (path: string, host: string, cookie: string) => handler(new Request(`http://127.0.0.1:3381${path}`,
     { headers: { host, cookie } }), { params: Promise.resolve({ organizationId: path.split("/")[4].split("?")[0] }) });

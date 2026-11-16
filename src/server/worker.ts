@@ -1,5 +1,6 @@
 import { getServerEnv } from "../lib/env";
 import { prisma } from "../lib/prisma";
+import { productionDomainDeps } from "../modules/domains/config";
 import { getWorkerMailContext } from "../modules/jobs/config";
 import { runWorkerLoop } from "../modules/jobs/runner";
 import { log } from "../modules/observability/log";
@@ -15,7 +16,7 @@ const ops = await initProcessObservability("worker", { db: prisma });
 try {
   await prisma.$queryRaw`SELECT 1`;
   log.info("Worker ready", { operation: "worker.start", outcome: "success" });
-  await runWorkerLoop({ db: prisma, context, signal: controller.signal });
+  await runWorkerLoop({ db: prisma, context, signal: controller.signal, domains: productionDomainDeps() });
 } finally {
   await ops.close();
   await prisma.$disconnect();

@@ -33,7 +33,7 @@ export async function activateProviderHosts(db: PrismaClient, input: {
     }
     if (input.apply && toActivate.length) {
       await tx.hostMapping.updateMany({ where: { id: { in: toActivate.map((h) => h.id) }, status: "PENDING" },
-        data: { status: "ACTIVE" } });
+        data: { status: "ACTIVE", checkedAt: new Date() } });
     }
     return { applied: input.apply, skipped,
       toActivate: toActivate.map(({ hostname, area, organizationId }) => ({ hostname, area, organizationId })) };
