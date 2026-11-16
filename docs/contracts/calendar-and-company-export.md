@@ -81,7 +81,7 @@ Plik eksportu leży w prywatnym storage z prefiksem firmy i nie wchodzi do kopii
 | Zarchiwizowana | Admin: brak (sesja i login zablokowane, `requireAuditActor` odmawia); superadmin: może zażądać eksportu w kontekście archiwum jako własny aktor, z `context: "ARCHIVED_COMPANY"` (spójne z D-23) | Dane nie są usuwane (brak ścieżki purge); to ścieżka obsługi praw do danych po zamknięciu konta |
 | Przywrócona z archiwum (#48) | Eksporty `READY` z czasu archiwum wygasają wg terminu; nowy eksport wymaga zalogowania z MFA | Przywrócenie nie przywraca sesji ani challenge |
 | Odtworzona z kopii (#60 `restore-company`) | Otwarte eksporty `EXPIRED`; konta zablokowane do odblokowania operatora | Brak wskrzeszenia wygasłych danych |
-| Po „zakończeniu współpracy” | Zatwierdzone 10.11.2026 (E8): superadmin eksportuje na prośbę przez 30 dni po archiwizacji lub zakończeniu współpracy. Retencja i kasowanie danych firmy nadal nie są zdefiniowane w tym kontrakcie (osobny otwarty temat) | **zatwierdzone: 30 dni** (E8) |
+| Po „zakończeniu współpracy” | Zatwierdzone 10.11.2026 (E8): superadmin eksportuje na prośbę przez 30 dni po archiwizacji lub zakończeniu współpracy. Retencja danych firmy: D-58 (12.11.2026) — do 12 miesięcy po archiwizacji, potem trwałe usunięcie (kopie zapasowe wygasają po 30 dniach); wdrożenie usuwania to osobne zadanie Backend, jeszcze niezrealizowane (dziś brak ścieżki purge) | **zatwierdzone: 30 dni** (E8) |
 
 ## 2. Subskrypcja kalendarza (b)
 
