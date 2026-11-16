@@ -211,7 +211,7 @@ pnpm test:integration               # wymaga uruchomionej fixture (karta 1) i mi
 
 **E2E** (Playwright, Chromium): `pnpm build`, potem `pnpm test:e2e`. Uruchamia trzy serwery na loopback: produkcja `E2E_PORT` (domyślnie 3305), dev `E2E_DEV_PORT` (+1), ingress `E2E_TRUSTED_PORT` (+2). Na własnych portach, np. `E2E_PORT=3345 E2E_DEV_PORT=3346 E2E_TRUSTED_PORT=3347 pnpm test:e2e`. Na maszynie wspólnej z innymi agentami przed ręcznym E2E weź blokadę `mkdir "$(git rev-parse --git-common-dir)/e2e.lock"` (patrz [CI](CI.md#tryb-lokalny-d-29)) i zwolnij ją po teście.
 
-**Pełne lokalne CI** (odpowiednik wyłączonego workflow; dokładny opis w [CI](CI.md#tryb-lokalny-d-29)):
+**Pełne lokalne CI** (procedura zapasowa dla workflow `CI` na GitHub Actions, D-65; dokładny opis w [CI](CI.md#tryb-lokalny-d-29)):
 
 ```sh
 colima start
