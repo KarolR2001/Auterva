@@ -1,10 +1,12 @@
 "use client";
 
 import { Ban, CircleCheck, CircleHelp } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 
 import { newClientUuid } from "@/lib/client-uuid";
 import { formatRangeShort } from "@/modules/public-offer/presentation";
+import { UnsavedChangesDialog } from "../panel/unsaved-changes-dialog";
+import { useUnsavedChanges } from "../panel/unsaved-changes-guard";
 import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
 import { FormField } from "../ui/form-field";
@@ -13,7 +15,7 @@ import { Textarea } from "../ui/textarea";
 import { TextInput } from "../ui/text-input";
 import { bulkCopyBlock, bulkCreateBlocks, type BulkAnswer, type BulkCopyBody, type BulkCreateBody, type Rejection } from "./bulk-blocks-api";
 import {
-  activityText, bulkErrorText, bulkStartsInPast, checkedVehicles, emptyDraft, keyFor, MAX_BULK_VEHICLES, ofVehicles, pluralVehicles, rejectionText, requestOf, signatureOf, validateDraft,
+  activityText, bulkErrorText, bulkStartsInPast, checkedVehicles, emptyDraft, isDraftDirty, keyFor, MAX_BULK_VEHICLES, ofVehicles, pluralVehicles, rejectionText, requestOf, signatureOf, validateDraft,
   type BulkDraft, type BulkErrorKey, type BulkMode, type BulkSource, type BulkVehicle,
 } from "./bulk-blocks-model";
 import type { BlockTypeCode } from "./calendar-api";
@@ -48,9 +50,11 @@ async function readVehicles(context: PanelContext, today: string, signal: AbortS
  * Every outcome is the server's: the preview is a dryRun that saves nothing, a save re-checks under locks, an unknown
  * outcome (5xx, lost connection) is never a success and is retried only with the same idempotency key; new data, new key.
  */
-export function BulkBlocks({ context, mode, source, today, calendarHref, onClose, onSaved, onCopy }: {
+export function BulkBlocks({ context, mode, source, today, calendarHref, onClose, onSaved, onCopy, backGuardRef }: {
   context: PanelContext; mode: BulkMode; source: BulkSource | null; today: string; calendarHref: string;
   onClose: () => void; onSaved: () => void; onCopy: (source: BulkSource) => void;
+  /** Set by the host while a draft is open: answers true when it took over a browser Back (see the host's popstate listener). */
+  backGuardRef?: MutableRefObject<(() => boolean) | null>;
 }) {
   const [draft, setDraft] = useState<BulkDraft>(emptyDraft);
   const [errors, setErrors] = useState<Partial<Record<BulkErrorKey, string>>>({});
@@ -87,6 +91,31 @@ export function BulkBlocks({ context, mode, source, today, calendarHref, onClose
   const shown = settled ? draft.vehicleIds.map((id) => byId.get(id) ?? { id, name: null, availableFrom: null, availableTo: null })
     : all.filter((item) => !search.trim() || (item.name ?? "").toLocaleLowerCase("pl").includes(search.trim().toLocaleLowerCase("pl")));
   const locked = busy !== null || settled;
+  // The draft is lost on leaving until a saved/aborted result (or an unknown outcome, retried explicitly) is on screen; a running save may lose its result.
+  const savingNow = busy === "save";
+  const guarded = savingNow || (!settled && isDraftDirty(draft));
+  useUnsavedChanges({ dirty: !settled && isDraftDirty(draft), saving: savingNow, contextLabel: mode === "copy" ? "Kopia blokady" : "Blokada zbiorcza" });
+  // Browser Back leaves the view without a click the shell could intercept: with a draft it is undone and asked about.
+  const [backAsk, setBackAsk] = useState<"dirty" | "busy" | null>(null);
+  const backState = useRef<"idle" | "restoring" | "leaving">("idle");
+  useEffect(() => {
+    if (!guarded || !backGuardRef) return;
+    // The fleet calendar's popstate listener calls this first and does nothing when it answers true (listener order is not ours to rely on).
+    backGuardRef.current = () => {
+      if (backState.current === "leaving") return false;
+      if (backState.current === "restoring") { backState.current = "idle"; return true; }
+      backState.current = "restoring";
+      window.history.go(1);
+      setBackAsk(savingNow ? "busy" : "dirty");
+      return true;
+    };
+    return () => { backGuardRef.current = null; };
+  }, [guarded, savingNow, backGuardRef]);
+  useEffect(() => {
+    if (backAsk !== "busy") return;
+    const timer = window.setTimeout(() => setBackAsk(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [backAsk]);
   const count = draft.vehicleIds.length;
 
   function change<K extends keyof BulkDraft>(key: K, value: BulkDraft[K]) {
@@ -266,9 +295,17 @@ export function BulkBlocks({ context, mode, source, today, calendarHref, onClose
   return (
     <section className={styles.page} aria-labelledby="bulk-title" aria-busy={busy !== null}>
       <nav aria-label="Ścieżka" className={styles.crumbs}>
-        <a href={calendarHref} onClick={(event) => { event.preventDefault(); onClose(); }}>Kalendarz floty</a>
+        <a href={calendarHref} onClick={(event) => {
+          // The panel shell asks about a draft first (capture on document) and marks the click handled: closing then would skip the question.
+          const handled = event.defaultPrevented;
+          event.preventDefault();
+          if (!handled) onClose();
+        }}>Kalendarz floty</a>
         <span aria-hidden="true"> / </span><span aria-current="page">{title}</span>
       </nav>
+      {backAsk === "busy" && <p role="alert" className={styles.sub}>Trwa zapisywanie zmian. Poczekaj na zakończenie, zanim opuścisz tę stronę.</p>}
+      <UnsavedChangesDialog open={backAsk === "dirty"} contextLabel={mode === "copy" ? "Kopia blokady" : "Blokada zbiorcza"} onStay={() => setBackAsk(null)}
+        onDiscard={() => { backState.current = "leaving"; setBackAsk(null); onClose(); }} />
       <h2 id="bulk-title" className={styles.title} ref={heading} tabIndex={-1}>{title}</h2>
       <p className={styles.sub}>{mode === "copy" ? "Skopiuj blokadę na inne pojazdy na te same daty. To nie jest rezerwacja terminu."
         : `Do ${MAX_BULK_VEHICLES} pojazdów i jeden zakres dat (Europe/Warsaw, obie daty wliczone). Blokada nie jest rezerwacją terminu.`}</p>

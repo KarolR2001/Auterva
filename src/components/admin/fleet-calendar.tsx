@@ -54,6 +54,7 @@ export function FleetCalendar({ context = companyContext, today: initialToday, t
   const [bulk, setBulk] = useState<{ mode: BulkMode; source: BulkSource | null } | null>(null);
   const [copyError, setCopyError] = useState<string | null>(null);
   const returnFocus = useRef<"button" | "heading" | null>(null);
+  const backGuardRef = useRef<(() => boolean) | null>(null);
   const tickets = useRef(createLatest());
   const calendarUrl = (params: Record<string, string> = {}) => fleetCalendarHref(context.hrefBase, params);
   const heading = useRef<HTMLHeadingElement | null>(null);
@@ -72,6 +73,7 @@ export function FleetCalendar({ context = companyContext, today: initialToday, t
   useEffect(() => {
     let live = true;
     const sync = () => {
+      if (backGuardRef.current?.()) return;
       const query = new URLSearchParams(window.location.search);
       if (query.get("zbiorcza") === "1") { setBulk({ mode: "create", source: null }); return; }
       const blockId = query.get("kopiuj"), vehicleId = query.get("pojazd"), from = query.get("od");
@@ -152,7 +154,7 @@ export function FleetCalendar({ context = companyContext, today: initialToday, t
       <>
         <title>{title}</title>
         <BulkBlocks key={`${bulk.mode}:${bulk.source?.blockId ?? ""}`} context={context} mode={bulk.mode} source={bulk.source} today={today}
-          calendarHref={calendarUrl()} onClose={closeBulk} onSaved={() => setReload((value) => value + 1)} onCopy={copyNext} />
+          calendarHref={calendarUrl()} onClose={closeBulk} onSaved={() => setReload((value) => value + 1)} onCopy={copyNext} backGuardRef={backGuardRef} />
       </>
     );
   }
