@@ -32,6 +32,7 @@ function refusal(result: ApiResult<unknown>): string {
     return `Limit sprawdzeń został wyczerpany, więc sprawdzenie się nie wykonało. Spróbuj ponownie za ${wait}.`;
   }
   if (result.code === "DOMAIN_COMPANY_ARCHIVED") return "Firma jest zarchiwizowana, więc sprawdzenie jej nie dotyczy. Odśwież stronę.";
+  if (result.code === "PLATFORM_CONFIG_REQUIRED") return "Platforma nie ma konfiguracji potrzebnej do sprawdzenia domeny, więc sprawdzenie się nie wykonało.";
   if (result.status === 409) return "Stan domeny zmienił się w trakcie sprawdzania. Odświeżyliśmy wynik — sprawdź ponownie.";
   if (result.status === 401 || result.status === 403) return "Brak uprawnień albo sesja wygasła. Zaloguj się ponownie.";
   return "Sprawdzenie się nie wykonało. Spróbuj ponownie.";
@@ -70,7 +71,7 @@ function DiagnosticsBlock({ id, title, view, failure, checking, live, children }
           <p className={styles.diagText}>{view.detail}</p>
         </>
       ) : <p className={styles.diagText}>Wczytywanie wyniku…</p>}
-      <p role="status" aria-live="polite" className={live.text && !failure ? styles.diagLive : styles.srOnly}>
+      <p role="status" aria-live="polite" className={live.text && (live.problem || !failure) ? styles.diagLive : styles.srOnly}>
         {live.problem && <CircleAlert size={20} aria-hidden="true" />}{live.text}
       </p>
       {failure ? (
@@ -141,17 +142,17 @@ export function CompanyDiagnostics({ organizationId, archived, reloadKey, onDoma
     const result = refused && first.status === 409 ? await platformRequest<DiagnosticsDto>(base) : first;
     const next = result.ok && isDiagnostics(result.data) ? result.data : null;
     if (next) setData(next);
-    // After a plain refusal nothing ran and the shown result stands; any other missing answer is uncertain.
-    const failure: Failure = next || (refused && result === first) ? null : checks && !refused ? "check" : "read";
+    // After a plain refusal nothing ran, so the block stays as it was; any other missing answer is uncertain.
+    const failure: Failure = next ? null : refused && result === first ? failed[block] : checks && !refused ? "check" : "read";
     setFailed((current) => (next ? both<Failure>(null) : { ...current, [block]: failure }));
-    say(failure ? "Wynik niepewny." : refused ? refusal(first) : "Sprawdzanie zakończone.", !failure && refused);
+    say(refused ? refusal(first) : failure ? "Wynik niepewny." : "Sprawdzanie zakończone.", refused);
     if (checks && !refused && next?.domain.customDomain) onDomainChecked?.();
     refocus.current = block;
     setBusy(null);
   }
 
-  const custom = data?.domain.customDomain ?? null;
-  const configBlocked = custom?.retry.allowed === false && custom.retry.reason === "PLATFORM_CONFIG_REQUIRED";
+  // `retry` says what the recheck would do now: refused without the platform configuration (or for an archived company).
+  const retryState = data?.domain.customDomain?.retry;
 
   const retry = (block: Block, disabled = false) => (
     <Button id={`diag-${block}-retry`} variant="secondary" width="fill" icon={<RefreshCw size={20} aria-hidden="true" />}
@@ -169,8 +170,8 @@ export function CompanyDiagnostics({ organizationId, archived, reloadKey, onDoma
         <>
           <DiagnosticsBlock id="diag-domain" title="Domena" view={data && domainView(data)} failure={busy === "domain" ? null : failed.domain}
             checking={busy === "domain"} live={live.domain}>
-            {configBlocked && <p className={styles.diagText}>Sprawdzenie domeny nie wykona się bez konfiguracji platformy. Po jej uzupełnieniu użyj „Sprawdź konfigurację” w sekcji „Domena własna”.</p>}
-            {retry("domain", configBlocked)}
+            {retryState?.reason === "PLATFORM_CONFIG_REQUIRED" && <p className={styles.diagText}>Sprawdzenie domeny nie wykona się, dopóki platforma nie ma konfiguracji domen własnych. Uzupełnij ją, a potem odśwież kartę.</p>}
+            {retry("domain", retryState?.allowed === false)}
           </DiagnosticsBlock>
           <DiagnosticsBlock id="diag-mail" title="Poczta" view={data && mailView(data)} failure={busy === "mail" ? null : failed.mail}
             checking={false} live={live.mail}>

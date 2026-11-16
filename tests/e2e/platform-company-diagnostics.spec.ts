@@ -8,7 +8,8 @@ import { ensureControlledSuperadminMfa, resetPlatformApiBudget, verifiedFixtureS
 
 // #78 (D-52, D-63): domain and mail diagnostics on the company card, as the superadmin in a real browser on the real API
 // of #77 + #417. States come from database rows; only the lost answer (503) is injected, because the API cannot be made
-// to fail on demand.
+// to fail on demand. The domain re-check itself runs for a company without a custom domain: with one, the test server
+// has no platform CNAME target, so the API refuses the action (PLATFORM_CONFIG_REQUIRED).
 test.use({ launchOptions: { args: ["--host-resolver-rules=MAP *.example.test 127.0.0.1"] }, actionTimeout: 15_000, navigationTimeout: 30_000 });
 const WIDTHS = [320, 390, 768, 1024, 1440, 1920];
 
@@ -77,7 +78,7 @@ async function superadmin(db: ReturnType<typeof createPrismaClient>, page: Page,
   return session;
 }
 
-test("superadmin: certificate warning and accepted mail, a failing active domain (D-64), then DNS and mail errors after a re-read; a lost answer stays uncertain (#78)", async ({ page, baseURL }) => {
+test("superadmin: certificate warning and accepted mail, a failing active domain (D-64) and a retried mail, then DNS and mail errors after a re-read (#78)", async ({ page, baseURL }) => {
   test.setTimeout(180_000);
   if (!baseURL) throw new Error("Missing trusted ingress URL");
   const port = new URL(baseURL).port;
@@ -92,6 +93,9 @@ test("superadmin: certificate warning and accepted mail, a failing active domain
   try {
     await company(db, org, false);
     const mapping = await db.hostMapping.create({ data: { hostname: custom, area: "COMPANY_PUBLIC", kind: "CUSTOM", organizationId: org, status: "ACTIVE" } });
+    // An active custom domain is the canonical address: the Autervy address redirects to it.
+    const alias = { hostname: `plt78-p-${org}.example.test` };
+    await db.hostMapping.update({ where: alias, data: { canonicalTarget: custom } });
     const verified = new Date(now - 3_600_000);
     await db.customDomain.create({ data: { organizationId: org, hostMappingId: mapping.id, verificationToken: token, status: "ACTIVE",
       activatedAt: verified, ownershipVerifiedAt: verified, routingVerifiedAt: verified, tlsVerifiedAt: verified,
@@ -121,18 +125,23 @@ test("superadmin: certificate warning and accepted mail, a failing active domain
 
     // D-64: a failed re-check of the ACTIVE domain keeps it active. The card says the page may be down and what to do,
     // and never that the Autervy address still works (it redirects to this domain).
+    // The invitation mail is being retried: attempt, limit and the next attempt come from lastMail (diag-warning, mail).
     await db.customDomain.update({ where: { organizationId: org }, data: { lastFailureCode: "TLS_UNREACHABLE", checkedAt: new Date() } });
+    await db.job.update({ where: { id: job.id }, data: { status: "PENDING", attempts: 2, completedAt: null, runAt: new Date(Date.now() + 3_600_000) } });
     await page.setViewportSize({ width: 390, height: 844 });
     await retry.last().click();
+    await expect(mail.getByText("Ponawianie wysyłki")).toBeVisible();
+    await expect(mail.getByText("Zaproszenie administratora · próba 2 z 5")).toBeVisible();
+    await expect(mail.getByText(/Kolejna próba automatycznie: \d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}\./)).toBeVisible();
     await expect(domain.getByText("Błąd: certyfikat domeny")).toBeVisible();
     await expect(domain.getByText(/strona firmy może być niedostępna: adres Autervy przekierowuje na tę domenę\. Sprawdź z firmą wpisy DNS i certyfikat domeny własnej, a potem użyj „Sprawdź ponownie”/)).toBeVisible();
     await expect(domain).not.toContainText("Adres Autervy działa nadal");
-    await expect(retry.first()).toBeEnabled();
-    await shots(page, "diag-error-active-domain");
+    await shots(page, "diag-error-active-domain_warning-mail");
 
     // The stored state changes (failed check of a pending domain, rejected invitation, a newer password-reset mail).
     // Mail has no active check: its button re-reads the diagnostics, and both blocks show the new stored result.
     await db.hostMapping.update({ where: { id: mapping.id }, data: { status: "PENDING" } });
+    await db.hostMapping.update({ where: alias, data: { canonicalTarget: null } });
     await db.customDomain.update({ where: { organizationId: org }, data: { status: "PENDING_ROUTING", activatedAt: null,
       routingVerifiedAt: null, tlsVerifiedAt: null, tlsNotAfter: null, lastFailureCode: "CNAME_MISMATCH", checkedAt: new Date() } });
     await db.job.update({ where: { id: job.id }, data: { status: "FAILED", attempts: 5, errorCode: "MAIL_PERMANENT", completedAt: new Date() } });
@@ -151,20 +160,8 @@ test("superadmin: certificate warning and accepted mail, a failing active domain
     await shots(page, "diag-error");
     await axeScan(page, "karta firmy z diagnostyką (błędy)");
 
-    // Keyboard: Enter on the focused button; a lost answer (injected 503) is neither success nor error.
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.route(`**/api/platform/companies/${org}/launch-diagnostics/recheck/`, (route) => route.fulfill({ status: 503, body: "{}", contentType: "application/json" }));
-    await retry.first().focus();
-    await page.keyboard.press("Enter");
-    await expect(domain.getByText("Wynik niepewny", { exact: true })).toBeVisible();
-    await expect(domain.getByText(/^Ostatni potwierdzony wynik: Błąd: DNS domeny, \d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}$/)).toBeVisible();
-    await expect(retry.first()).toBeFocused();
-    await expect(domain.getByText("Aktywna", { exact: true })).toHaveCount(0);
-    await expect(mail.getByText("Błąd: wysyłka nieudana")).toBeVisible();
-    await shots(page, "diag-uncertain-domain");
-    await page.unroute(`**/api/platform/companies/${org}/launch-diagnostics/recheck/`);
-
     // Offline: nothing is sent and the shown result stays.
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.context().setOffline(true);
     await retry.last().click();
     await expect(mail.getByRole("status")).toContainText("Brak połączenia z siecią. Sprawdzenie nie zostało wysłane.");
@@ -179,7 +176,7 @@ test("superadmin: certificate warning and accepted mail, a failing active domain
   }
 });
 
-test("superadmin: no domain and no mail; the real re-check confirms with a date, the limit refuses without changing the result; other roles and hosts are refused (#78)", async ({ page, baseURL }) => {
+test("superadmin: no domain and no mail; the real re-check confirms with a date, the limit refuses without changing the result, a lost answer stays uncertain; other roles and hosts are refused (#78)", async ({ page, baseURL }) => {
   test.setTimeout(180_000);
   if (!baseURL) throw new Error("Missing trusted ingress URL");
   const port = new URL(baseURL).port;
@@ -226,6 +223,18 @@ test("superadmin: no domain and no mail; the real re-check confirms with a date,
     await expect(domain.getByText("Brak domeny własnej")).toBeVisible();
     await expect(domain.getByText("Wynik niepewny")).toHaveCount(0);
     await shots(page, "diag-limit");
+
+    // Keyboard: Enter on the focused button; a lost answer (injected 503) is neither success nor error.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.route(`**/api/platform/companies/${org}/launch-diagnostics/recheck/`, (route) => route.fulfill({ status: 503, body: "{}", contentType: "application/json" }));
+    await retry.focus();
+    await page.keyboard.press("Enter");
+    await expect(domain.getByText("Wynik niepewny", { exact: true })).toBeVisible();
+    await expect(domain.getByText(/^Ostatni potwierdzony wynik: Brak domeny własnej, \d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}$/)).toBeVisible();
+    await expect(retry).toBeFocused();
+    await expect(mail.getByText("Brak wysyłek")).toBeVisible();
+    await shots(page, "diag-uncertain-domain");
+    await page.unroute(`**/api/platform/companies/${org}/launch-diagnostics/recheck/`);
 
     // Only the superadmin on the platform host: the company administrator and anonymous callers get no diagnostics.
     const admin = await verifiedFixtureSession(db, adminId);

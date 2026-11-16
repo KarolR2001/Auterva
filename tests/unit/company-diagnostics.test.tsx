@@ -17,21 +17,20 @@ type Custom = NonNullable<DiagnosticsDto["domain"]["customDomain"]>;
 type Mail = NonNullable<DiagnosticsDto["lastMail"]>;
 
 // The DTO of docs/contracts/launch-diagnostics.md (#77 + #417), with the fields the card reads.
-function dto(patch: { domain?: Partial<DiagnosticsDto["domain"]>; custom?: Partial<Custom> | null; lastMail?: Mail | null;
-  invitation?: Partial<DiagnosticsDto["invitation"]>; reminders?: DiagnosticsDto["reminders"]["items"] } = {}): DiagnosticsDto {
+function dto(patch: { domain?: Partial<DiagnosticsDto["domain"]>; custom?: Partial<Custom> | null; lastMail?: Mail | null } = {}): DiagnosticsDto {
   const custom: Custom | null = patch.custom === null ? null : {
     hostname: "wynajem.alfa.example", status: "ACTIVE", state: "ACTIVE", category: null, checkedAt: "2026-11-12T07:15:00.000Z",
     tlsNotAfter: "2027-06-01T00:00:00.000Z", tlsExpiry: "OK", retry: { action: "VERIFY_DOMAIN", allowed: true, reason: null }, ...patch.custom };
   return {
     generatedAt: "2026-11-12T07:15:00.000Z", archived: false,
-    domain: { severity: "OK", aliasHost: "ACTIVE", adminHost: "ACTIVE", aliasCheckedAt: null, customDomain: custom, ...patch.domain },
-    invitation: { severity: "OK", state: "ISSUED", delivery: null, ...patch.invitation },
+    // An active custom domain is the address of the page: the Autervy address redirects to it.
+    domain: { severity: "OK", aliasHost: "ACTIVE", adminHost: "ACTIVE", aliasCheckedAt: null,
+      aliasRedirectsToCustomDomain: custom?.status === "ACTIVE", customDomain: custom, ...patch.domain },
     lastMail: patch.lastMail ?? null,
-    reminders: { severity: "OK", items: patch.reminders ?? [] },
   };
 }
 const mail = (state: Mail["state"], extra: Partial<Mail> = {}): Mail =>
-  ({ type: "INVITATION", at: "2026-11-11T13:02:00.000Z", state, cause: null, ...extra });
+  ({ type: "INVITATION", at: "2026-11-11T13:02:00.000Z", state, cause: null, attempts: 1, maxAttempts: 5, nextAttemptAt: null, ...extra });
 
 describe("model diagnostyki (#78)", () => {
   it.each([
@@ -69,15 +68,17 @@ describe("model diagnostyki (#78)", () => {
   ] as const)("D-64: aktywna domena z nieudanym sprawdzeniem (%s) — strona może być niedostępna, bez zapewnienia o adresie Autervy", (category, label) => {
     const live = domainView(dto({ domain: { severity: "ERROR" }, custom: { state: "FAILED", status: "ACTIVE", category } }));
     expect(live).toMatchObject({ tone: "error", label, subject: "wynajem.alfa.example", checkedAt: "2026-11-12T07:15:00.000Z" });
-    expect(live.detail).toBe("Domena własna nie odpowiada poprawnie, więc strona firmy może być niedostępna: adres Autervy przekierowuje na tę domenę. Sprawdź z firmą wpisy DNS i certyfikat domeny własnej, a potem użyj „Sprawdź ponownie”.");
+    expect(live.detail).toBe("Domena własna nie odpowiada poprawnie, więc strona firmy może być niedostępna: adres Autervy przekierowuje na tę domenę. Sprawdź z firmą wpisy DNS i certyfikat domeny własnej, a potem użyj „Sprawdź ponownie”. Jeśli usterka trwa, a strona ma wrócić pod adres Autervy, użyj „Sprawdź konfigurację” albo „Usuń domenę” w sekcji „Domena własna”.");
     expect(live.detail).not.toContain("działa nadal");
   });
 
-  it("D-64: wygasły certyfikat aktywnej domeny ma ten sam skutek i krok, a brak konfiguracji platformy własny", () => {
+  it("D-64: o skutku decyduje aliasRedirectsToCustomDomain z API; wygasły certyfikat aktywnej domeny ma ten sam skutek i krok", () => {
     const expired = domainView(dto({ custom: { tlsExpiry: "EXPIRED", tlsNotAfter: "2026-11-01T00:00:00.000Z" } }));
     expect(expired.detail).toMatch(/^Certyfikat domeny stracił ważność\. Domena własna nie odpowiada poprawnie, więc strona firmy może być niedostępna/);
-    const config = domainView(dto({ custom: { state: "FAILED", status: "ACTIVE", category: "CONFIG" } }));
-    expect(config.detail).toBe("Cel domeny nie jest jeszcze skonfigurowany po stronie Autervy. Uzupełnij konfigurację platformy.");
+    const notRedirected = domainView(dto({ domain: { aliasRedirectsToCustomDomain: false }, custom: { state: "FAILED", status: "ACTIVE", category: "DNS" } }));
+    expect(notRedirected.detail).toContain("Adres Autervy działa nadal.");
+    const redirected = domainView(dto({ domain: { aliasRedirectsToCustomDomain: true }, custom: { state: "FAILED", status: "PENDING_ROUTING", category: "DNS" } }));
+    expect(redirected.detail).not.toContain("działa nadal");
   });
 
   it("data: domena własna z checkedAt; bez domeny znacznik odczytu adresu Autervy z etykietą, która nie udaje testu sieci", () => {
@@ -100,25 +101,23 @@ describe("model diagnostyki (#78)", () => {
     expect(mailView(dto({ lastMail: mail("UNCERTAIN") })).detail).toContain("cofnij bieżące w sekcji „Zaproszenie administratora”");
   });
 
-  it("poczta: ponawianie pokazuje próbę i termin z wiersza dostarczenia (zaproszenie z limitem, przypomnienie bez)", () => {
-    const invitation = mailView(dto({ lastMail: mail("RETRYING", { cause: "PROVIDER_TEMPORARY" }),
-      invitation: { delivery: { state: "RETRYING", attempts: 2, maxAttempts: 5, nextAttemptAt: "2026-11-12T08:00:00.000Z" } } }));
-    expect(invitation).toMatchObject({ tone: "warning", label: "Ponawianie wysyłki", subject: "Zaproszenie administratora · próba 2 z 5" });
-    expect(invitation.detail).toContain("Kolejna próba automatycznie: 12.11.2026, 09:00.");
-    const reminder = mailView(dto({ lastMail: mail("RETRYING", { type: "REMINDER" }),
-      reminders: [{ state: "DELIVERED", attempts: 1, nextAttemptAt: null }, { state: "RETRYING", attempts: 3, nextAttemptAt: null }] }));
-    expect(reminder.subject).toBe("Przypomnienie o końcu okresu · próba 3");
-    expect(reminder.detail).toContain("Kolejna próba nastąpi automatycznie.");
+  it("poczta: ponawianie pokazuje próbę, limit i termin z lastMail; bez zadania sama liczba prób", () => {
+    const reminder = mailView(dto({ lastMail: mail("RETRYING", { type: "REMINDER", cause: "PROVIDER_TEMPORARY", attempts: 2, maxAttempts: 5,
+      nextAttemptAt: "2026-11-12T08:00:00.000Z" }) }));
+    expect(reminder).toMatchObject({ tone: "warning", label: "Ponawianie wysyłki", subject: "Przypomnienie o końcu okresu · próba 2 z 5" });
+    expect(reminder.detail).toBe("Serwer poczty chwilowo nie przyjął wiadomości. Kolejna próba automatycznie: 12.11.2026, 09:00.");
+    const noJob = mailView(dto({ lastMail: mail("RETRYING", { attempts: 3, maxAttempts: null }) }));
+    expect(noJob.subject).toBe("Zaproszenie administratora · próba 3");
+    expect(noJob.detail).toContain("Kolejna próba nastąpi automatycznie.");
   });
 
-  it("poczta: błąd ma ogólną przyczynę i kolejny krok; zarejestrowany administrator nie dostaje rady o nowym zaproszeniu", () => {
+  it("poczta: błąd ma ogólną przyczynę i kolejny krok", () => {
     const rejected = mailView(dto({ lastMail: mail("FAILED", { cause: "PROVIDER_REJECTED" }) }));
     expect(rejected).toMatchObject({ tone: "error", label: "Błąd: wysyłka nieudana" });
     expect(rejected.detail).toBe("Serwer poczty odrzucił wiadomość. Sprawdź adres e-mail administratora i wydaj nowe zaproszenie w sekcji „Zaproszenie administratora”.");
     expect(mailView(dto({ lastMail: mail("FAILED", { cause: "PLATFORM_CONFIG" }) })).detail).toContain("po stronie Autervy");
     expect(mailView(dto({ lastMail: mail("SKIPPED", { cause: "OTHER" }) })).detail).toContain("Wiadomość nie została wysłana.");
-    const registered = mailView(dto({ lastMail: mail("FAILED", { cause: "PROVIDER_REJECTED" }), invitation: { state: "NOT_APPLICABLE" } }));
-    expect(registered.detail).not.toContain("wydaj nowe zaproszenie");
+    expect(mailView(dto({ lastMail: mail("FAILED", { type: "REMINDER", cause: "PROVIDER_REJECTED" }) })).detail).not.toContain("zaproszenie");
   });
 
   it("D-63: wysyłka innego rodzaju niż zaproszenie i przypomnienie nie jest opisywana", () => {
@@ -144,8 +143,9 @@ const failedDns = dto({ custom: { state: "FAILED", status: "PENDING_ROUTING", ca
 describe("karta Diagnostyka (#78)", () => {
   it("pokazuje bloki Domena i Poczta ze statusem tekstowym i datą sprawdzenia, bez danych technicznych", async () => {
     const calls = mockApi(() => Response.json({ ...dto({ lastMail: mail("ACCEPTED_BY_PROVIDER") }),
-      // Fields the API also returns; none of them may reach the screen.
-      invitation: { severity: "OK", state: "ISSUED", delivery: { state: "ACCEPTED_BY_PROVIDER", errorCode: "MAIL_PERMANENT", attempts: 1, maxAttempts: 5, nextAttemptAt: null } } }));
+      // Fields the API also returns to this role; none of them may reach the screen.
+      invitation: { severity: "OK", state: "ISSUED", delivery: { state: "ACCEPTED_BY_PROVIDER", errorCode: "MAIL_PERMANENT" } },
+      reminders: { severity: "ERROR", items: [{ state: "FAILED", errorCode: "DELIVERY_REJECTED" }] } }));
     render(<CompanyDiagnostics organizationId={id} archived={false} />);
     expect(await block("Domena").findByText("Aktywna")).toBeInTheDocument();
     expect(block("Domena").getByText("wynajem.alfa.example")).toBeInTheDocument();
@@ -248,6 +248,24 @@ describe("karta Diagnostyka (#78)", () => {
     expect(block("Domena").queryByText("Wynik niepewny")).toBeNull();
   });
 
+  it("odmowa po niepewnym wyniku nie udaje potwierdzenia: blok zostaje niepewny, a powód odmowy jest widoczny", async () => {
+    const user = userEvent.setup();
+    let posts = 0;
+    mockApi((_url, init) => {
+      if (!isPost(init)) return Response.json(dto());
+      posts += 1;
+      return posts === 1 ? new Response("boom", { status: 503 }) : Response.json({ code: "RATE_LIMITED" }, { status: 429, headers: { "Retry-After": "90" } });
+    });
+    render(<CompanyDiagnostics organizationId={id} archived={false} />);
+    await block("Domena").findByText("Aktywna");
+    await user.click(retry("Domena"));
+    await block("Domena").findByText("Wynik niepewny");
+    await user.click(retry("Domena"));
+    expect(await block("Domena").findByText(/Limit sprawdzeń został wyczerpany.*Spróbuj ponownie za 90 s\./)).toBeVisible();
+    expect(block("Domena").getByText("Wynik niepewny")).toBeInTheDocument();
+    expect(block("Domena").queryByText(/^Aktywna$/)).toBeNull();
+  });
+
   it("409: konflikt stanu domeny pokazuje komunikat i świeżo odczytany stan", async () => {
     const user = userEvent.setup();
     let reads = 0;
@@ -306,8 +324,26 @@ describe("karta Diagnostyka (#78)", () => {
     render(<CompanyDiagnostics organizationId={id} archived={false} />);
     await block("Domena").findByText("Błąd: konfiguracja Autervy");
     expect(retry("Domena")).toBeDisabled();
-    expect(block("Domena").getByText(/nie wykona się bez konfiguracji platformy/)).toBeInTheDocument();
+    expect(block("Domena").getByText(/nie wykona się, dopóki platforma nie ma konfiguracji domen własnych/)).toBeInTheDocument();
     expect(retry("Poczta")).toBeEnabled();
+  });
+
+  it("409 PLATFORM_CONFIG_REQUIRED: odmowa bez niepewności, a świeży odczyt wyłącza przycisk", async () => {
+    const user = userEvent.setup();
+    let reads = 0;
+    mockApi((_url, init) => {
+      if (isPost(init)) return Response.json({ code: "PLATFORM_CONFIG_REQUIRED" }, { status: 409 });
+      reads += 1;
+      return Response.json(reads === 1 ? failedDns : dto({ custom: { state: "FAILED", status: "PENDING_ROUTING", category: "DNS",
+        retry: { action: "VERIFY_DOMAIN", allowed: false, reason: "PLATFORM_CONFIG_REQUIRED" } } }));
+    });
+    render(<CompanyDiagnostics organizationId={id} archived={false} />);
+    await block("Domena").findByText("Błąd: DNS domeny");
+    await user.click(retry("Domena"));
+    expect(await block("Domena").findByText(/Platforma nie ma konfiguracji potrzebnej do sprawdzenia domeny/)).toBeInTheDocument();
+    expect(block("Domena").getByText("Błąd: DNS domeny")).toBeInTheDocument();
+    expect(block("Domena").queryByText("Wynik niepewny")).toBeNull();
+    expect(retry("Domena")).toBeDisabled();
   });
 
   it("zmiana w innej sekcji karty (reloadKey) odczytuje diagnostykę ponownie", async () => {
