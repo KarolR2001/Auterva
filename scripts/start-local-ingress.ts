@@ -33,15 +33,17 @@ const handler: RequestListener = (request, response) => {
 const server = createServer(handler);
 server.listen(port, hostname, () => process.stdout.write(`Local trusted ingress on ${hostname}:${port}\n`));
 const wsProxy = wsProxyOptionsFromEnv(process.env);
-attachWsUpgradeProxy(server, wsProxy);
+const tunnels = [attachWsUpgradeProxy(server, wsProxy)];
 const servers = [server];
 if (process.env.AUTERVA_LOCAL_IPV6 === "1") {
   const ipv6 = createServer(handler);
-  attachWsUpgradeProxy(ipv6, wsProxy);
+  tunnels.push(attachWsUpgradeProxy(ipv6, wsProxy));
   servers.push(ipv6);
   ipv6.listen({ port, host: "::1", ipv6Only: true }, () => process.stdout.write(`Local trusted ingress on [::1]:${port}\n`));
 }
 async function shutdown() {
+  // Upgraded sockets are not HTTP connections; without this the listeners would wait for every open chat tab.
+  for (const tunnel of tunnels) tunnel.close();
   await Promise.all(servers.map(async (listener) => {
     listener.closeAllConnections();
     await new Promise<void>((resolve) => listener.close(() => resolve()));

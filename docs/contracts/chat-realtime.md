@@ -113,6 +113,16 @@ Restore firmy z kopii unieważnia **wszystkie** sesje superadmina (nie tylko te 
 
 Ramki są nieodrzucalne jak w #51: przekroczenie bufora 1 MiB zamyka `4408`, a klient łączy się ponownie i odświeża listę. Pomiar: `tests/integration/chat-inbox.test.ts` (60 wysyłek, lokalnie, prawdziwy PostgreSQL i gniazdo) od startu zapisu do ramki `conversation` p50 ok. 34 ms, p95 ok. 36 ms; cel p95 ≤ 2 s (D-08); wynik laboratoryjny, nie dowodzi produkcji.
 
+## Lokalne przekazanie `/ws` (#426)
+
+Przeglądarka otwiera `/ws` i `/ws/platform` na hoście i porcie strony. W produkcji do procesu WS kieruje je proxy dostawcy; lokalnie robi to `pnpm start:local-ingress` (produkcyjny build) albo `pnpm dev:gateway` przed `pnpm dev` (opis uruchomienia: [README](../../README.md)). Kod: `src/modules/ingress/ws-upgrade-proxy.ts`, `src/modules/ingress/dev-gateway.ts`. Nie jest to część produkcyjnej topologii i nie zmienia kontraktu ramek.
+
+- Przechodzi tylko `GET` z upgrade na dokładnie te dwie ścieżki i tylko z loopbacku; inny nadawca `403`, inna ścieżka `404` (w bramce dev inne upgrade, czyli HMR, trafiają bez zmian do `next dev`).
+- `Origin`, `Cookie` i nagłówki `Sec-WebSocket-*` klienta przechodzą bez zmian. `Host` klienta jest zastępowany wartością `LOCAL_INGRESS_WS_HOST` (domyślnie `127.0.0.1:<WS_PORT>`), która musi być w `WS_ALLOWED_HOSTS`. Nagłówki `X-Forwarded-*`, `X-Real-IP`, `CF-Connecting-IP` i `X-Auterva-Client-Address` są usuwane; przekazanie nie dodaje żadnego nagłówka z adresem klienta.
+- Wszystkie decyzje z sekcji „Handshake” (Origin z rejestru, sesja z dowodem MFA, rola, firma, limity) podejmuje nadal proces WS, a jego odmowy (`400`, `403`, `429`, `503`) wracają do klienta bez zmian. Proces WS widzi jako peer gniazda loopback (adres przekazania), nie przeglądarkę, więc każdy limit liczony na źródło połączenia (np. limit prób handshake z #173) obejmuje wszystkich lokalnych klientów łącznie.
+- Każdy klient ma własne połączenie do procesu WS (bez współdzielenia). Proces WS nieosiągalny albo milczący przez 10 s: `502`. Zamknięcie lub zerwanie jednej strony zamyka drugą; kody zamknięcia (`4401`, `4503` i pozostałe) przechodzą bez zmian. Wolny odbiorca wstrzymuje drugą stronę zamiast powiększać bufor przekazania, więc `4408` procesu WS działa jak bez niego. Zatrzymanie lokalnego ingressu zamyka otwarte tunele.
+- Test: `tests/integration/ws-upgrade-proxy.test.ts` (prawdziwy proces czatu i sesje) oraz `tests/e2e/chat-live.spec.ts` (przeglądarka przez ingress: licznik skrzynki, wiadomości, pisanie, odczyt, wznowienie po przerwie).
+
 ## Granice
 
 Brak załączników, e-maili o czacie, statusu „online”, reakcji. Jedno połączenie obsługuje jedną firmę (superadmin łączy się osobno z każdą rozmową); zbiorczy kanał skrzynki platformy opisuje sekcja „Kanał platformy” (#167); `unread` jednej rozmowy pochodzi z `ready`/`sync`, a listy z `GET /api/platform/chat/conversations/`. `typing` ma limit na instancję i dodatkowy próg po stronie odbiorcy; przy kilku instancjach nadawca może przez krótko przekroczyć 1/s, odbiorca dostaje najwyżej 1/s na nadawcę.
