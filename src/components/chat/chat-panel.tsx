@@ -46,6 +46,8 @@ type History = {
   conversationId: string | null; messages: ChatMessage[]; olderCursor: string | null; newerCursor: string | null; hasNewer: boolean;
 };
 type Pending = { clientMessageId: string; body: string; status: "sending" | "failed" | "uncertain"; failure: SendFailure | null };
+/** Gap after `backlog:"refetch"` (#393): live messages wait here until HTTP has filled everything after the own cursor. */
+type GapFill = { live: { message: ChatMessage; cursor: string | null }[]; fetched: Set<string>; failed: boolean };
 
 const MAX_CODE_POINTS = 4000;
 const time = new Intl.DateTimeFormat("pl-PL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Warsaw" });
@@ -69,6 +71,7 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
   const [newBelow, setNewBelow] = useState(0);
   const [pending, setPendingState] = useState<Pending | null>(null);
   const [announcement, setAnnouncement] = useState("");
+  const [gap, setGap] = useState<"loading" | "error" | null>(null);
   const conversationKey = conversationId ?? `org:${organizationId}`;
   const [draft, setDraft] = useState("");
   const [draftKeyLoaded, setDraftKeyLoaded] = useState<string | null>(null);
@@ -85,7 +88,10 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
   const atBottom = useRef(true);
   const prependHeight = useRef<number | null>(null);
   const socket = useRef<WebSocket | null>(null);
+  // Resume point: the list holds every message up to it, so a reconnect with `after` can never skip one.
   const cursor = useRef<string | null>(null);
+  const gapFill = useRef<GapFill | null>(null);
+  const gapRun = useRef(0);
   const attempts = useRef(0);
   const retryTimer = useRef<number | null>(null);
   const typingSent = useRef(0);
@@ -183,16 +189,57 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
     finally { setLoadingOlder(false); }
   }
 
+  // A message from the live channel (or the own send): appended only behind a complete list, otherwise held back.
+  const receive = useCallback((message: ChatMessage, at: string | null) => {
+    if (gapFill.current) { gapFill.current.live.push({ message, cursor: at }); return; }
+    if (at) cursor.current = at;
+    setMessages((current) => {
+      const next = appendMessages(current, [message]);
+      if (next !== current && !message.own && !atBottom.current) setNewBelow((count) => count + 1);
+      return next;
+    });
+  }, []);
+
   const catchUp = useCallback(async () => {
-    // backlog "refetch" or a gap: read everything after the last cursor over HTTP (the database is the source of truth).
+    // backlog "refetch" (#393): the socket lives from the server head, so everything after the own cursor is read over
+    // HTTP page by page (the database is the source of truth); only then the held live messages and their cursor follow.
+    const fill = gapFill.current;
+    if (!fill) return;
+    const run = ++gapRun.current;
+    setGap("loading");
     try {
-      for (let guard = 0; guard < 20; guard += 1) {
-        const query = cursor.current ? `limit=100&after=${encodeURIComponent(cursor.current)}` : "limit=30";
-        const page = await fetchHistory(query);
-        showHistory(page, cursor.current ? "newer" : "replace");
+      for (;;) {
+        const after = cursor.current;
+        const page = await fetchHistory(after ? `limit=100&after=${encodeURIComponent(after)}` : "limit=30");
+        if (gapRun.current !== run) return; // superseded by a newer ready
+        if (page.hasNewer && (!page.newerCursor || page.newerCursor === after)) throw new Error("NO_PROGRESS");
+        for (const message of page.messages) fill.fetched.add(message.id);
+        showHistory(page, after ? "newer" : "replace");
         if (!page.hasNewer) break;
       }
-    } catch { /* the next reconnect tries again */ }
+    } catch {
+      if (gapRun.current !== run) return;
+      // The cursor stays at the last complete page: the retry and every reconnect continue from there.
+      fill.failed = true;
+      setGap("error");
+      setAnnouncement("Nie udało się wczytać wiadomości z czasu rozłączenia.");
+      return;
+    }
+    gapFill.current = null;
+    setGap(null);
+    if (fill.failed) setAnnouncement("Uzupełniono wiadomości z czasu rozłączenia.");
+    // Live frames come in order: the newest one is ahead of HTTP only when HTTP has not returned it yet.
+    const newest = [...fill.live].reverse().find((entry) => entry.cursor);
+    if (newest && !fill.fetched.has(newest.message.id)) cursor.current = newest.cursor;
+    const held = fill.live.map((entry) => entry.message);
+    if (held.length) {
+      setMessages((current) => {
+        const next = appendMessages(current, held);
+        const fresh = next.length - current.length;
+        if (fresh > 0 && !atBottom.current && held.some((message) => !message.own)) setNewBelow((count) => count + fresh);
+        return next;
+      });
+    }
   }, [fetchHistory, showHistory]);
 
   const applyFrame = useCallback((frame: ServerFrame) => {
@@ -203,8 +250,15 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
         unreadFromServer.current = frame.state.unread;
         reportUnread(frame.state.unread);
         setReadThrough(frame.state.peerMessageId);
-        if (frame.cursor) cursor.current = frame.cursor;
-        if (frame.backlog === "refetch") void catchUp();
+        if (frame.backlog === "refetch") {
+          // ready.cursor is the server head here, not the client's position: the own cursor stays until the gap is filled.
+          gapFill.current = { live: [], fetched: new Set(), failed: false };
+          void catchUp();
+        } else {
+          // Replay starts at the own cursor; it supersedes an unfinished gap fill of an earlier socket.
+          if (gapFill.current) { gapRun.current += 1; gapFill.current = null; setGap(null); }
+          if (frame.cursor) cursor.current = frame.cursor;
+        }
         break;
       case "sync":
         unreadFromServer.current = frame.state.unread;
@@ -212,19 +266,13 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
         setReadThrough(frame.state.peerMessageId);
         break;
       case "message":
-        if (frame.cursor) cursor.current = frame.cursor;
         if (!frame.message.own) setPeerTyping(false);
         else if (pendingRef.current && frame.message.clientMessageId === pendingRef.current.clientMessageId) settle(keyRef.current);
-        setMessages((current) => {
-          const next = appendMessages(current, [frame.message]);
-          if (next !== current && !frame.message.own && !atBottom.current) setNewBelow((count) => count + 1);
-          return next;
-        });
+        receive(frame.message, frame.cursor);
         break;
       case "sent":
-        if (frame.cursor) cursor.current = frame.cursor;
         if (pendingRef.current && frame.message.clientMessageId === pendingRef.current.clientMessageId) settle(keyRef.current);
-        setMessages((current) => appendMessages(current, [frame.message]));
+        receive(frame.message, frame.cursor);
         break;
       case "read":
         if (frame.own) {
@@ -240,7 +288,7 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
         if (frame.code === "CHAT_ORGANIZATION_ARCHIVED") onArchivedRef.current?.();
         break;
     }
-  }, [catchUp, reportUnread, settle]);
+  }, [catchUp, receive, reportUnread, settle]);
 
   // Live channel: after the first page; reconnects from the last cursor, never on a revoked session (4401).
   useEffect(() => {
@@ -371,7 +419,7 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
     if (response && (response.status === 200 || response.status === 201)) {
       const result = (await response.json().catch(() => null)) as { message?: ChatMessage; conversationId?: string } | null;
       // Success is the server's durable answer, never the click (C-F130).
-      if (result?.message) setMessages((current) => appendMessages(current, [result.message!]));
+      if (result?.message) receive(result.message, null);
       clearPending(accountId, keyAtSend);
       clearPending(accountId, keyRef.current);
       if (result?.conversationId) {
@@ -389,7 +437,7 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
     savePending(accountId, keyRef.current, { clientMessageId, body: text, status: failure.kind, message: failure.message });
     setPending({ clientMessageId, body: text, status: failure.kind, failure });
     setAnnouncement(failure.message);
-  }, [accountId, apiBase, conversationId, setPending]);
+  }, [accountId, apiBase, conversationId, receive, setPending]);
 
   function submit() {
     if (readOnly) return;
@@ -468,6 +516,12 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
             </div>
           );
         })}
+        {gap === "loading" && <p className={styles.note}>Wczytywanie wiadomości z czasu rozłączenia…</p>}
+        {gap === "error" && (
+          <Alert tone="error" title="Nie udało się wczytać wiadomości z czasu rozłączenia." action={{ label: "Spróbuj ponownie", onClick: () => void catchUp() }}>
+            Nowsze wiadomości pokażemy po uzupełnieniu historii. Szkic zostaje w polu.
+          </Alert>
+        )}
         {pending && (
           <article className={styles.message} data-own data-pending={pending.status}>
             <p className={styles.sender}>{ownLabel ?? companyName}</p>

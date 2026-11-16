@@ -15,7 +15,7 @@ import { Textarea } from "../ui/textarea";
 import { TextInput } from "../ui/text-input";
 import { bulkCopyBlock, bulkCreateBlocks, type BulkAnswer, type BulkCopyBody, type BulkCreateBody, type Rejection } from "./bulk-blocks-api";
 import {
-  activityText, bulkErrorText, checkedVehicles, emptyDraft, isDraftDirty, keyFor, MAX_BULK_VEHICLES, ofVehicles, pluralVehicles, rejectionText, requestOf, signatureOf, validateDraft,
+  activityText, bulkErrorText, bulkStartsInPast, checkedVehicles, emptyDraft, isDraftDirty, keyFor, MAX_BULK_VEHICLES, ofVehicles, pluralVehicles, rejectionText, requestOf, signatureOf, validateDraft,
   type BulkDraft, type BulkErrorKey, type BulkMode, type BulkSource, type BulkVehicle,
 } from "./bulk-blocks-model";
 import type { BlockTypeCode } from "./calendar-api";
@@ -64,6 +64,9 @@ export function BulkBlocks({ context, mode, source, today, calendarHref, onClose
   const busyRef = useRef(false);
   const [vehicles, setVehicles] = useState<Vehicles>({ status: "loading" });
   const [search, setSearch] = useState("");
+  /** The period starts before today: the save needs this confirmation (the preview does not); a change of dates withdraws it. */
+  const [pastAck, setPastAck] = useState(false);
+  const [ackError, setAckError] = useState(false);
   const keyRef = useRef<{ signature: string; key: string } | null>(null);
   /** A new request was sent after an unknown outcome: a conflict may then be the block that request already saved. */
   const [afterUnknown, setAfterUnknown] = useState(false);
@@ -119,6 +122,7 @@ export function BulkBlocks({ context, mode, source, today, calendarHref, onClose
     setDraft((current) => ({ ...current, [key]: value }));
     setErrors((current) => ({ ...current, [key === "vehicleIds" ? "vehicles" : key]: undefined }));
     setFailure(null);
+    if (key === "from" || key === "to") { setPastAck(false); setAckError(false); }
     // Any change makes the preview stale: it is dropped rather than shown for other data.
     if (stage.kind === "preview") setStage({ kind: "form" });
   }
@@ -130,10 +134,15 @@ export function BulkBlocks({ context, mode, source, today, calendarHref, onClose
   }
   const focusBanner = () => requestAnimationFrame(() => banner.current?.focus());
 
+  const pastPeriod = bulkStartsInPast(mode, draft, source, today);
   function request(dryRun: boolean): BulkCreateBody | BulkCopyBody | null {
     const found = validateDraft(mode, draft);
     setErrors(found);
     if (Object.keys(found).length > 0) { requestAnimationFrame(() => document.getElementById("bulk-summary")?.focus()); return null; }
+    if (!dryRun && pastPeriod && !pastAck) {
+      setAckError(true); requestAnimationFrame(() => document.getElementById("bulk-ack")?.focus());
+      return null;
+    }
     const base = requestOf(mode, draft, source);
     if (dryRun) return { ...base, dryRun: true } as BulkCreateBody | BulkCopyBody;
     keyRef.current = keyFor(keyRef.current, signatureOf(base), newClientUuid);
@@ -360,6 +369,17 @@ export function BulkBlocks({ context, mode, source, today, calendarHref, onClose
             </div>
           )}
           {mode === "copy" && <p className={styles.muted}>Te same daty, typ i numer odniesienia na wybranych pojazdach.</p>}
+          {mode === "copy" && pastPeriod && !settled && (
+            <Alert tone="warning" title="Termin zaczyna się w przeszłości.">
+              Zapiszemy go jako historię. Nie zmieni to już minionych dni, a bieżącą dostępność wpłynie tylko część od dzisiaj.
+              <label className={styles.option}>
+                <input id="bulk-ack" type="checkbox" checked={pastAck} disabled={locked} aria-invalid={ackError ? true : undefined} aria-describedby={ackError ? "bulk-ack-error" : undefined}
+                  onChange={(event) => { setPastAck(event.target.checked); setAckError(false); }} />
+                <span>Rozumiem, zapisz okres z przeszłości</span>
+              </label>
+              {ackError && <p id="bulk-ack-error" className={styles.fieldError}>Potwierdź zapis okresu z przeszłości.</p>}
+            </Alert>
+          )}
           {mode === "copy" && (
             <label className={styles.option}>
               <input type="checkbox" checked={draft.copyNote} disabled={locked || !source?.hasNote} onChange={(event) => change("copyNote", event.target.checked)} />
@@ -376,6 +396,17 @@ export function BulkBlocks({ context, mode, source, today, calendarHref, onClose
                   <TextInput type="date" value={draft.to} min={draft.from || undefined} disabled={locked} onChange={(event) => change("to", event.target.value)} />
                 </FormField>
               </div>
+              {pastPeriod && !settled && (
+                <Alert tone="warning" title="Termin zaczyna się w przeszłości.">
+                  Zapiszemy go jako historię. Nie zmieni to już minionych dni, a bieżącą dostępność wpłynie tylko część od dzisiaj.
+                  <label className={styles.option}>
+                    <input id="bulk-ack" type="checkbox" checked={pastAck} disabled={locked} aria-invalid={ackError ? true : undefined} aria-describedby={ackError ? "bulk-ack-error" : undefined}
+                      onChange={(event) => { setPastAck(event.target.checked); setAckError(false); }} />
+                    <span>Rozumiem, zapisz okres z przeszłości</span>
+                  </label>
+                  {ackError && <p id="bulk-ack-error" className={styles.fieldError}>Potwierdź zapis okresu z przeszłości.</p>}
+                </Alert>
+              )}
               <FormField id="bulk-type" label="Typ" required error={errors.type}>
                 <Select value={draft.type} disabled={locked} onChange={(event) => change("type", event.target.value as BlockTypeCode)}>
                   {blockTypeOrder.map((type) => <option key={type} value={type}>{typeLabel(type)}</option>)}
