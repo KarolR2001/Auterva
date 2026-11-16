@@ -64,6 +64,16 @@
       "sharedWith": "Zależy od #383 (PR #395)."
     },
     {
+      "issue": 414,
+      "scope": "Sesja logowania w obu panelach: jawnie 30 dni od ostatniego odświeżenia (D-61), odświeżanie najwyżej raz na dobę. Backend bez zmian UI i API; reauth, unieważnianie sesji i WebSocket bez zmian.",
+      "relatedRequirementIds": ["D-61", "D-05", "FR-ADM-081"],
+      "referenceScreenIds": [],
+      "unmappedStates": ["Zadanie backendowe bez ekranu Penpota."],
+      "codePaths": ["src/lib/auth.ts"],
+      "testPaths": ["tests/integration/session-lifetime.test.ts"],
+      "sharedWith": "Kontrakt: docs/contracts/account-operations.md (Sesje konta, czas sesji)."
+    },
+    {
       "issue": 371,
       "scope": "OVR-07 desktop (D-48): „Kopiuj na inne auta” w nagłówku okna edycji blokady obok tytułu (wspólny Dialog dostaje opcjonalne headerAction, addytywnie; okna bez niego bez zmian). Na mobile (do 480 px) zostaje przycisk pełnej szerokości nad „Usuń blokadę” (OVR-07-mobile-edit); ten sam href, w danej szerokości widoczny jeden link. Kolejność Tab: nagłówek, pola, Zamknij, Zapisz; fokus początkowy, Escape i powrót fokusu bez zmian.",
       "relatedRequirementIds": ["FR-ADM-055", "FR-ADM-057", "D-48"],
