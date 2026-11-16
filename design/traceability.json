@@ -65,12 +65,12 @@
     },
     {
       "issue": 417,
-      "scope": "Backend diagnostyki uruchomienia firmy dla stanów z makiety #78 (D-52, D-63): data ważności certyfikatu TLS własnej domeny z progiem 21 dni (tlsExpiry), checkedAt adresów Autervy, jedno pole lastMail (zaproszenia i przypomnienia, bez resetu hasła) z ogólną przyczyną (cause) zamiast kodów, akcja „Sprawdź ponownie” (POST …/launch-diagnostics/recheck, limit 6/h na firmę, 5xx = wynik niepewny) i okresowe (24 h) ponowne sprawdzanie aktywnej domeny w workerze bez zmiany jej cyklu życia. Bez UI.",
-      "relatedRequirementIds": ["C-F035", "C-F089"],
+      "scope": "Backend diagnostyki uruchomienia firmy dla stanów z makiety #78 (D-52, D-63): data ważności certyfikatu TLS własnej domeny z progiem 21 dni (tlsExpiry), checkedAt adresów Autervy, jedno pole lastMail (zaproszenia i przypomnienia, bez resetu hasła) z ogólną przyczyną (cause) zamiast kodów, akcja „Sprawdź ponownie” (POST …/launch-diagnostics/recheck, limit 6/h na firmę, 5xx = wynik niepewny) i okresowe ponowne sprawdzanie aktywnej domeny w workerze (24 h, po błędzie 1 h, poza pętlą poczty, tylko z konfiguracją CNAME) bez zmiany jej cyklu życia i routingu aliasu (D-64; aliasRedirectsToCustomDomain). lastMail z próbami (attempts, maxAttempts, nextAttemptAt); wykorzystane zaproszenie nie jest błędem. Bez UI.",
+      "relatedRequirementIds": ["C-F035", "C-F089", "D-52", "D-63", "D-64"],
       "referenceScreenIds": ["PLT-03"],
       "unmappedStates": ["Backend bez UI; stany diag-ok/warning/error/checking/uncertain/no-data (PLT-03) pokrywa Frontend #78 na tym API."],
-      "codePaths": ["docs/contracts/launch-diagnostics.md", "prisma/migrations/20261112120000_launch_diagnostics_checks_issue_417/migration.sql", "src/modules/organizations/launch-diagnostics.ts", "src/modules/domains/diagnostics-recheck.ts", "src/modules/domains/lifecycle.ts", "src/modules/domains/network-checker.ts", "src/modules/jobs/runner.ts", "src/app/api/platform/companies/[organizationId]/launch-diagnostics/recheck/route.ts"],
-      "testPaths": ["tests/integration/launch-diagnostics.test.ts", "tests/integration/launch-diagnostics-recheck.test.ts", "tests/integration/custom-domain-network.test.ts"]
+      "codePaths": ["docs/contracts/launch-diagnostics.md", "docs/contracts/custom-domain-lifecycle.md", "src/server/worker.ts", "prisma/migrations/20261112120000_launch_diagnostics_checks_issue_417/migration.sql", "src/modules/organizations/launch-diagnostics.ts", "src/modules/domains/diagnostics-recheck.ts", "src/modules/domains/lifecycle.ts", "src/modules/domains/network-checker.ts", "src/modules/jobs/runner.ts", "src/app/api/platform/companies/[organizationId]/launch-diagnostics/recheck/route.ts"],
+      "testPaths": ["tests/integration/launch-diagnostics.test.ts", "tests/integration/launch-diagnostics-recheck.test.ts", "tests/integration/jobs-worker-domains.test.ts", "tests/integration/custom-domain-network.test.ts"]
     },
     {
       "issue": 371,

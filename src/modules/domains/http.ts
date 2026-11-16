@@ -15,7 +15,8 @@ const statusByCode: Record<string, number> = {
 };
 const publicCode: Record<string, string> = { DOMAIN_NOT_FOUND: "NOT_FOUND", DOMAIN_COMPANY_NOT_FOUND: "NOT_FOUND" };
 
-function failure(error: unknown, requestId: string): Response {
+/** Maps a domain operation error to its stable answer; unknown errors are logged under the "domains" operation. */
+export function domainFailure(error: unknown, requestId: string): Response {
   const message = error instanceof Error ? error.message : "";
   if (message in statusByCode) return periodResponse({ code: publicCode[message] ?? message }, statusByCode[message], requestId);
   // A reused audit event key rolls back the whole mutation; never report it as success.
@@ -55,7 +56,7 @@ export function createPlatformDomainHandlers(deps: () => DomainDeps) {
       if (new URL(request.url).search) return periodResponse({ code: "INVALID_INPUT" }, 400, requestId);
       const result = await readDomain(prisma, organizationId, deps().config);
       return result ? periodResponse(result, 200, requestId) : periodResponse({ code: "NOT_FOUND" }, 404, requestId);
-    } catch (error) { return failure(error, requestId); }
+    } catch (error) { return domainFailure(error, requestId); }
   }
 
   async function write(request: Request, organizationId: string, operation: Operation): Promise<Response> {
@@ -86,7 +87,7 @@ export function createPlatformDomainHandlers(deps: () => DomainDeps) {
           : operation === "verify" ? await verifyDomain(prisma, checker, { ...base, config })
             : await activateDomain(prisma, checker, { ...base, config, expectedVersion: body.expectedVersion as number });
       return periodResponse(result, 200, requestId);
-    } catch (error) { return failure(error, requestId); }
+    } catch (error) { return domainFailure(error, requestId); }
   }
 
   return {

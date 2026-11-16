@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { companyBoundary, loadReminderCompany } from "@/modules/reminders/current";
 import type { FailureCode } from "@/modules/domains/checker";
+import { readDomainConfig } from "@/modules/domains/config";
 
 /** Operator-only launch diagnostics (#77). Facts only: no tokens, DNS proof values, payloads or addresses. */
 export type Severity = "OK" | "WAITING" | "UNCERTAIN" | "ERROR" | "NOT_APPLICABLE";
@@ -46,7 +47,9 @@ const hostState = (status: string | undefined): HostState =>
 function domainSection(input: {
   archived: boolean;
   now: Date;
-  hosts: { area: string; kind: string; status: string; checkedAt: Date | null }[];
+  /** The platform has its CNAME target, so a domain check can be judged (#417). */
+  configReady: boolean;
+  hosts: { area: string; kind: string; status: string; checkedAt: Date | null; canonicalTarget: string | null }[];
   custom: { hostname: string; status: string; ownershipVerifiedAt: Date | null; routingVerifiedAt: Date | null;
     tlsVerifiedAt: Date | null; tlsNotAfter: Date | null; checkedAt: Date | null; lastFailureCode: string | null;
     version: number } | null;
@@ -82,8 +85,11 @@ function domainSection(input: {
         tls: c.tlsVerifiedAt !== null },
       tlsNotAfter: c.tlsNotAfter?.toISOString() ?? null, tlsExpiry,
       version: c.version,
-      retry: { action: "VERIFY_DOMAIN" as const, allowed: !input.archived && c.lastFailureCode !== "DOMAIN_CONFIG_MISSING",
-        reason: c.lastFailureCode === "DOMAIN_CONFIG_MISSING" ? "PLATFORM_CONFIG_REQUIRED" as const : null },
+      // #417: the action is the card's "Sprawdź ponownie" (`POST …/launch-diagnostics/recheck`), which never steps an
+      // ACTIVE domain back. The identifier stays `VERIFY_DOMAIN` for existing readers. `allowed` mirrors what that
+      // call does now: refused for an archived company (409) and without the platform CNAME target (409).
+      retry: { action: "VERIFY_DOMAIN" as const, allowed: !input.archived && input.configReady,
+        reason: input.configReady ? null : "PLATFORM_CONFIG_REQUIRED" as const },
     };
   }
   const baseSeverity: Severity = aliasState === "ACTIVE" && adminState === "ACTIVE" ? "OK" : "ERROR";
@@ -91,6 +97,9 @@ function domainSection(input: {
     : rank[customSeverity] > rank[baseSeverity] ? customSeverity : baseSeverity;
   return { severity, aliasHost: aliasState, adminHost: adminState,
     aliasCheckedAt: alias?.checkedAt?.toISOString() ?? null, adminCheckedAt: admin?.checkedAt?.toISOString() ?? null,
+    // D-64: while this is true the Autervy address only redirects to the custom domain, also when that domain fails
+    // its check, so the page may be unreachable under both addresses.
+    aliasRedirectsToCustomDomain: !!alias?.canonicalTarget,
     customDomain: custom };
 }
 
@@ -159,7 +168,10 @@ function reminderItem(row: IntentRow, now: Date) {
   // When the reminder last had a mail event; a PENDING slot has none yet.
   const at = state === "PENDING" ? null
     : job ? (job.completedAt ?? job.firstSendAt ?? job.runAt) : (row.deliveredAt ?? row.updatedAt);
-  return { severity, at, item: { offsetDays: row.offsetDays, slotAt: row.slotAt.toISOString(), state,
+  // Attempt facts of the mail itself (#417): from the Job whenever the reminder has one, else the intent's own counter.
+  const mail = { attempts: row.job ? row.job.attempts : row.attempts, maxAttempts: row.job?.maxAttempts ?? null,
+    nextAttemptAt: job && job.status === "PENDING" ? job.runAt : null };
+  return { severity, at, mail, item: { offsetDays: row.offsetDays, slotAt: row.slotAt.toISOString(), state,
     errorCode: safeCode(job ? job.errorCode : row.errorCode), cause: causeOf(job ? job.errorCode : row.errorCode),
     attempts: job ? job.attempts : row.attempts,
     lastAttemptAt: job?.completedAt?.toISOString() ?? null,
@@ -175,32 +187,47 @@ function remindersSection(archived: boolean, boundaryActive: boolean, rows: Inte
   const severity = built.reduce<Severity>((worst, b) => rank[b.severity] > rank[worst] ? b.severity : worst, "OK");
   const last = built.filter((b) => b.at).sort((x, y) => y.at!.getTime() - x.at!.getTime())[0] ?? null;
   return { severity, items: built.map((b) => b.item),
-    last: last ? { type: "REMINDER" as const, at: last.at!, state: last.item.state, cause: last.item.cause } : null };
+    last: last ? { type: "REMINDER" as const, at: last.at!, state: last.item.state, cause: last.item.cause,
+      ...last.mail } : null };
 }
+
+type LastMailState = ReminderState | "ACCEPTED_BY_PROVIDER";
 
 /**
  * #417 (D-52, D-63): the single "last mail" of the company: invitations and service-period reminders only, never
  * password reset. Latest event wins; an invitation wins a tie. `cause` is the general reason, never a provider code.
+ * `attempts`/`maxAttempts`/`nextAttemptAt` come from the same Job ("próba 2 z 5, kolejna o …"). An invitation the
+ * administrator has used reached them whatever the Job recorded, so it is never reported as failed or uncertain.
  */
 function lastMail(archived: boolean, invitation: InvitationRow | null, job: JobRow | null,
   reminder: ReturnType<typeof remindersSection>["last"]) {
   if (archived) return null;
   const fromInvitation = invitation ? (() => {
     const status = job?.status ?? invitation.deliveryStatus;
+    const used = invitation.usedAt !== null;
+    const state: LastMailState = used ? "DELIVERED" : deliveryState(status, job?.attempts ?? 0);
     return { type: "INVITATION" as const, at: job ? (job.completedAt ?? job.firstSendAt ?? job.runAt) : invitation.issuedAt,
-      state: deliveryState(status, job?.attempts ?? 0), cause: causeOf(job?.errorCode ?? null) };
+      state, cause: used ? null : causeOf(job?.errorCode ?? null),
+      attempts: job?.attempts ?? 0, maxAttempts: job?.maxAttempts ?? null,
+      nextAttemptAt: !used && job && status === "PENDING" ? job.runAt : null };
   })() : null;
   const best = fromInvitation && (!reminder || fromInvitation.at >= reminder.at) ? fromInvitation : reminder;
-  return best ? { type: best.type, at: best.at.toISOString(), state: best.state, cause: best.cause } : null;
+  return best ? { type: best.type, at: best.at.toISOString(), state: best.state as LastMailState, cause: best.cause,
+    attempts: best.attempts, maxAttempts: best.maxAttempts, nextAttemptAt: best.nextAttemptAt?.toISOString() ?? null } : null;
 }
 
-export async function getLaunchDiagnostics(db: PrismaClient, organizationId: string, now = new Date()) {
+/**
+ * `domainConfigReady`: whether this process has the platform CNAME target (`AUTERVA_CUSTOM_DOMAIN_CNAME_TARGET`);
+ * without it "Sprawdź ponownie" cannot judge a domain and `customDomain.retry.allowed` is false.
+ */
+export async function getLaunchDiagnostics(db: PrismaClient, organizationId: string, now = new Date(),
+  domainConfigReady = readDomainConfig().cnameTarget !== null) {
   return db.$transaction(async (tx: Prisma.TransactionClient) => {
     const company = await loadReminderCompany(tx, organizationId);
     if (!company) return null;
     const [hosts, custom, invitation] = await Promise.all([
       tx.hostMapping.findMany({ where: { organizationId }, select: { area: true, kind: true, status: true,
-        hostname: true, checkedAt: true } }),
+        hostname: true, checkedAt: true, canonicalTarget: true } }),
       tx.customDomain.findUnique({ where: { organizationId }, select: { status: true, ownershipVerifiedAt: true,
         routingVerifiedAt: true, tlsVerifiedAt: true, tlsNotAfter: true, checkedAt: true, lastFailureCode: true, version: true,
         hostMapping: { select: { hostname: true } } } }),
@@ -218,7 +245,7 @@ export async function getLaunchDiagnostics(db: PrismaClient, organizationId: str
           completedAt: true, firstSendAt: true, errorCode: true } } } }) : [];
     const archived = company.archivedAt !== null;
     const adminHostReady = hosts.some((h) => h.area === "COMPANY_ADMIN" && h.status === "ACTIVE");
-    const domain = domainSection({ archived, hosts, now,
+    const domain = domainSection({ archived, hosts, now, configReady: domainConfigReady,
       custom: custom ? { ...custom, hostname: custom.hostMapping.hostname } : null });
     const invitationSection_ = invitationSection({ archived, registered: company.firstAdminRegisteredAt !== null,
       adminHostReady, now, invitation, job });

@@ -62,7 +62,8 @@ const setJob = async (data: object) => {
     create: { organizationId: a, kind: "MAIL_INVITATION", dedupeKey: `MAIL_INVITATION:${invitationA}`,
       payload: { digest: "x" }, runAt: now, ...data }, update: data });
 };
-const diag = async (id = a) => (await getLaunchDiagnostics(db, id, now))!;
+// The platform CNAME target is passed explicitly: the fixture environment has none.
+const diag = async (id = a, configReady = true) => (await getLaunchDiagnostics(db, id, now, configReady))!;
 
 test("domain: unchecked and waiting are distinct from failures, with category and retry", async () => {
   let d = await diag();
@@ -78,8 +79,12 @@ test("domain: unchecked and waiting are distinct from failures, with category an
   expect(d.domain.customDomain).toMatchObject({ state: "FAILED", category: "TLS", failureCode: "TLS_INVALID",
     proofs: { ownership: true, routing: false, tls: false } });
   expect(d.domain.severity).toBe("ERROR");
+  // #417: `retry` follows the platform setting of the answering process, not the stored code: after the operator
+  // fixes the setting the button works again and the next check replaces the stored DOMAIN_CONFIG_MISSING.
   await set({ lastFailureCode: "DOMAIN_CONFIG_MISSING" });
-  expect((await diag()).domain.customDomain?.retry).toEqual({ action: "VERIFY_DOMAIN", allowed: false,
+  expect((await diag()).domain.customDomain).toMatchObject({ state: "FAILED", category: "CONFIG",
+    retry: { action: "VERIFY_DOMAIN", allowed: true, reason: null } });
+  expect((await diag(a, false)).domain.customDomain?.retry).toEqual({ action: "VERIFY_DOMAIN", allowed: false,
     reason: "PLATFORM_CONFIG_REQUIRED" });
   await set({ status: "READY", lastFailureCode: null, routingVerifiedAt: now, tlsVerifiedAt: now });
   d = await diag();
@@ -108,7 +113,7 @@ test("invitation delivery states come from the job; retry follows the contract",
 
 test("expired or revoked invitation, registered and archived companies", async () => {
   const later = new Date(now.getTime() + 7 * 86_400_000);
-  expect((await getLaunchDiagnostics(db, a, later))!.invitation).toMatchObject({ state: "EXPIRED", severity: "ERROR" });
+  expect((await getLaunchDiagnostics(db, a, later, true))!.invitation).toMatchObject({ state: "EXPIRED", severity: "ERROR" });
   await db.invitation.update({ where: { id: invitationA }, data: { revokedAt: now } });
   expect((await diag()).invitation).toMatchObject({ state: "NOT_ISSUED", severity: "WAITING" });
   expect((await diag(b)).invitation.state).toBe("NOT_APPLICABLE");
@@ -186,10 +191,15 @@ test("#417: certificate expiry, host check times, last mail (no password reset) 
   expect((await diag()).domain).toMatchObject({ severity: "ERROR", customDomain: { tlsExpiry: "EXPIRED" } });
   await set({ tlsNotAfter: null });
   expect((await diag()).domain.customDomain).toMatchObject({ tlsExpiry: "UNKNOWN", tlsNotAfter: null });
-  // A failed periodic re-check keeps the lifecycle (ACTIVE) but is shown as a failure.
+  // A failed periodic re-check keeps the lifecycle (ACTIVE) but is shown as a failure. D-64: the alias keeps
+  // redirecting to the custom domain, and the DTO says so (the card must not claim the Autervy address still works).
+  expect((await diag()).domain.aliasRedirectsToCustomDomain).toBe(false);
+  await db.hostMapping.updateMany({ where: { organizationId: a, kind: "PROVIDER", area: "COMPANY_PUBLIC" },
+    data: { canonicalTarget: hostsA.custom } });
   await set({ lastFailureCode: "CNAME_MISMATCH" });
-  expect((await diag()).domain).toMatchObject({ severity: "ERROR",
-    customDomain: { status: "ACTIVE", state: "FAILED", category: "DNS" } });
+  expect((await diag()).domain).toMatchObject({ severity: "ERROR", aliasRedirectsToCustomDomain: true,
+    customDomain: { status: "ACTIVE", state: "FAILED", category: "DNS", failureCode: "CNAME_MISMATCH" } });
+  await db.hostMapping.updateMany({ where: { organizationId: a, kind: "PROVIDER" }, data: { canonicalTarget: null } });
   await set({ status: "READY", activatedAt: null, lastFailureCode: null });
 
   expect((await diag()).domain).toMatchObject({ aliasCheckedAt: null, adminCheckedAt: null });
@@ -200,13 +210,44 @@ test("#417: certificate expiry, host check times, last mail (no password reset) 
 
   // The invitation was revoked above; its job is still a mail event. Password reset jobs are never reported.
   await db.invitation.update({ where: { id: invitationA }, data: { revokedAt: null } });
-  await setJob({ status: "FAILED", attempts: 5, errorCode: "DELIVERY_REJECTED", completedAt: new Date(now.getTime() - 3_600_000) });
+  const firstSend = new Date(now.getTime() - 3_600_000);
+  const nextTry = new Date(now.getTime() + 40_000);
+  // Job shapes as the queue writes them: only finishJob/skip set completedAt; failJob leaves it null.
+  const shape = { completedAt: null, firstSendAt: null, errorCode: null, maxAttempts: 5 };
   await db.job.create({ data: { organizationId: a, kind: "MAIL_PASSWORD_RESET", dedupeKey: `MAIL_PASSWORD_RESET:${randomUUID()}`,
     payload: { digest: "x" }, runAt: now, status: "SENT", completedAt: now } });
+  // Queued, never attempted: the only time known is the planned run.
+  await setJob({ ...shape, status: "PENDING", attempts: 0, runAt: firstSend });
+  expect((await diag()).lastMail).toEqual({ type: "INVITATION", at: firstSend.toISOString(), state: "QUEUED",
+    cause: null, attempts: 0, maxAttempts: 5, nextAttemptAt: firstSend.toISOString() });
+  // Retrying after a transient failure (failJob): runAt is the next attempt, the event time is the first send.
+  await setJob({ ...shape, status: "PENDING", attempts: 2, errorCode: "MAIL_TRANSIENT", firstSendAt: firstSend, runAt: nextTry });
+  expect((await diag()).lastMail).toEqual({ type: "INVITATION", at: firstSend.toISOString(), state: "RETRYING",
+    cause: "PROVIDER_TEMPORARY", attempts: 2, maxAttempts: 5, nextAttemptAt: nextTry.toISOString() });
+  // Attempts exhausted (failJob): UNCERTAIN, no next attempt.
+  await setJob({ ...shape, status: "UNCERTAIN", attempts: 5, errorCode: "MAIL_OUTCOME_UNKNOWN", firstSendAt: firstSend, runAt: nextTry });
+  expect((await diag()).lastMail).toEqual({ type: "INVITATION", at: firstSend.toISOString(), state: "UNCERTAIN",
+    cause: "OUTCOME_UNKNOWN", attempts: 5, maxAttempts: 5, nextAttemptAt: null });
+  // Permanent refusal (failJob): FAILED without completedAt.
+  await setJob({ ...shape, status: "FAILED", attempts: 1, errorCode: "MAIL_PERMANENT", firstSendAt: firstSend, runAt: firstSend });
   d = await diag();
-  expect(d.lastMail).toEqual({ type: "INVITATION", at: new Date(now.getTime() - 3_600_000).toISOString(),
-    state: "FAILED", cause: "PROVIDER_REJECTED" });
-  expect(d.invitation.delivery).toMatchObject({ cause: "PROVIDER_REJECTED" });
+  expect(d.lastMail).toEqual({ type: "INVITATION", at: firstSend.toISOString(), state: "FAILED",
+    cause: "PROVIDER_REJECTED", attempts: 1, maxAttempts: 5, nextAttemptAt: null });
+  expect(d.invitation.delivery).toMatchObject({ cause: "PROVIDER_REJECTED", lastAttemptAt: null,
+    firstAttemptAt: firstSend.toISOString() });
+  // Accepted (finishJob): completedAt is the event time.
+  await setJob({ ...shape, status: "SENT", attempts: 1, firstSendAt: firstSend, completedAt: now, runAt: firstSend });
+  expect((await diag()).lastMail).toMatchObject({ at: now.toISOString(), state: "ACCEPTED_BY_PROVIDER", cause: null });
+  // A used invitation reached the administrator whatever the job recorded: never failed or uncertain.
+  for (const [status, errorCode] of [["UNCERTAIN", "MAIL_OUTCOME_UNKNOWN"], ["FAILED", "MAIL_PERMANENT"]]) {
+    await setJob({ ...shape, status, attempts: 5, errorCode, firstSendAt: firstSend, runAt: nextTry });
+    await db.invitation.update({ where: { id: invitationA }, data: { usedAt: now } });
+    expect((await diag()).lastMail).toEqual({ type: "INVITATION", at: firstSend.toISOString(), state: "DELIVERED",
+      cause: null, attempts: 5, maxAttempts: 5, nextAttemptAt: null });
+    await db.invitation.update({ where: { id: invitationA }, data: { usedAt: null } });
+    expect((await diag()).lastMail).toMatchObject({ state: status });
+  }
+  await setJob({ ...shape, status: "FAILED", attempts: 1, errorCode: "DELIVERY_REJECTED", firstSendAt: firstSend, runAt: firstSend });
   const causes: [string, string][] = [["MAIL_TRANSIENT", "PROVIDER_TEMPORARY"], ["MAIL_PERMANENT", "PROVIDER_REJECTED"],
     ["RECIPIENT_NOT_ALLOWED", "PLATFORM_CONFIG"], ["MAIL_OUTCOME_UNKNOWN", "OUTCOME_UNKNOWN"],
     ["STALE_INTENT", "OTHER"], ["provider said: secret detail", "OTHER"]];
@@ -226,8 +267,16 @@ test("#417: certificate expiry, host check times, last mail (no password reset) 
       source: "TRIAL", periodVersion: 0, status: "PENDING" },
     { organizationId: a, effectiveEndsAt: ends, offsetDays: 1, channel: "EMAIL", slotAt: new Date("2026-10-26T10:00:00Z"),
       source: "TRIAL", periodVersion: 0, status: "DELIVERED", deliveredAt: new Date(now.getTime() - 60_000) }] });
-  expect((await diag()).lastMail).toMatchObject({ type: "REMINDER", state: "DELIVERED", cause: null,
-    at: new Date(now.getTime() - 60_000).toISOString() });
+  expect((await diag()).lastMail).toEqual({ type: "REMINDER", state: "DELIVERED", cause: null,
+    at: new Date(now.getTime() - 60_000).toISOString(), attempts: 0, maxAttempts: null, nextAttemptAt: null });
+  // A reminder being retried reports the attempts and the next attempt of its own Job.
+  const reminderJob = await db.job.create({ data: { organizationId: a, kind: "MAIL_REMINDER",
+    dedupeKey: `MAIL_REMINDER:${randomUUID()}`, payload: { digest: "x" }, status: "PENDING", attempts: 2, maxAttempts: 5,
+    errorCode: "MAIL_TRANSIENT", firstSendAt: new Date(now.getTime() - 30_000), runAt: nextTry } });
+  await db.reminderIntent.updateMany({ where: { organizationId: a, offsetDays: 7 },
+    data: { status: "QUEUED", jobId: reminderJob.id } });
+  expect((await diag()).lastMail).toEqual({ type: "REMINDER", state: "RETRYING", cause: "PROVIDER_TEMPORARY",
+    at: new Date(now.getTime() - 30_000).toISOString(), attempts: 2, maxAttempts: 5, nextAttemptAt: nextTry.toISOString() });
   await db.reminderIntent.deleteMany({ where: { organizationId: a } });
   await db.organization.update({ where: { id: a }, data: { archivedAt: now } });
   expect((await diag()).lastMail).toBeNull();

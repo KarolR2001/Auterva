@@ -28,7 +28,8 @@ Tylko `SUPERADMIN_AUTERVA` na hoście `PLATFORM` (własna tożsamość, MFA, zgo
 
 * Samo wpisanie domeny daje `PENDING_OWNERSHIP`: host `CUSTOM` ma `status=PENDING`, więc nie jest publicznym adresem (`resolveHostMapping` go nie zwraca), a alias nadal obsługuje ofertę.
 * `READY` oznacza komplet dowodów, nie publikację. Dopiero jawne `activate` ustawia `ACTIVE`, host `CUSTOM` na `ACTIVE` i `canonicalTarget` aliasu — jedną transakcją pod blokadą wiersza organizacji, z audytem `DOMAIN_CHANGED`.
-* Weryfikacja domeny `ACTIVE`, która nie przechodzi kompletu dowodów, cofa ją do odpowiedniego stanu oczekującego, host `CUSTOM` do `PENDING` i czyści `canonicalTarget` w tej samej transakcji; alias ponownie sam obsługuje ofertę (zły DNS/TLS → oczekuje, nigdy przekierowanie na martwy adres).
+* Jawna weryfikacja domeny `ACTIVE` z karty domeny (`POST …/domains/verify`) albo nieudana ponowna aktywacja, która nie przechodzi kompletu dowodów, cofa ją do odpowiedniego stanu oczekującego, host `CUSTOM` do `PENDING` i czyści `canonicalTarget` w tej samej transakcji; alias ponownie sam obsługuje ofertę. To świadoma operacja superadmina.
+* **Okresowe sprawdzanie i „Sprawdź ponownie” diagnostyki nie cofają domeny `ACTIVE` (#417, D-64 — reguła zatwierdzona 16.11.2026).** Worker i `POST …/launch-diagnostics/recheck` zapisują dla domeny `ACTIVE` wyłącznie wynik: `checkedAt`, `lastFailureCode` i `tlsNotAfter` ([diagnostyka uruchomienia](launch-diagnostics.md#rozszerzenie-417-d-52-d-63-d-64)). Domena z nieudanym sprawdzeniem pozostaje `ACTIVE` z `lastFailureCode ≠ null`, host `CUSTOM` pozostaje `ACTIVE`, a `canonicalTarget` aliasu bez zmian — bez wpisu audytu i bez awaryjnego powrotu strony na adres Autervy. Skutek opisuje sekcja „Przekierowanie aliasu”.
 * Zmiana domeny = `DELETE` + nowy `PUT`: nowy token, nowe dowody. Usunięty host zwalnia nazwę; poprzedni dowód nie przechodzi na inną firmę.
 
 ## Walidacja hostname (wejście)
@@ -40,7 +41,7 @@ Wejście to wyłącznie nazwa hosta (nie URL). Bez białych znaków na brzegach,
 Instrukcja (tylko dla superadmina) zawiera trzy elementy; dla klienta Auterva przekazuje je poza aplikacją:
 
 1. **Własność:** rekord TXT `_auterva-challenge.<hostname>` o wartości `auterva-verification=<token>`; token to 32 losowe bajty base64url, unikalny dla pary firma–host.
-2. **Routing DNS:** `<hostname>` CNAME na `AUTERVA_CUSTOM_DOMAIN_CNAME_TARGET` (cel Cloudflare for SaaS wybrany w #3/#58). Brak konfiguracji celu daje `DOMAIN_CONFIG_MISSING`, nie „gotowe”.
+2. **Routing DNS:** `<hostname>` CNAME na `AUTERVA_CUSTOM_DOMAIN_CNAME_TARGET` (cel Cloudflare for SaaS wybrany w #3/#58). Zmienna jest wymagana w procesie web i w workerze (ta sama wartość). Brak konfiguracji celu przy `verify`/`activate` daje `DOMAIN_CONFIG_MISSING`, nie „gotowe”; okresowe sprawdzanie i „Sprawdź ponownie” diagnostyki bez tej zmiennej niczego nie sprawdzają ani nie zapisują (#417).
 3. **TLS i routing aplikacji:** `https://<hostname>/.well-known/auterva-domain-check` musi odpowiedzieć 200 z `proof = sha256("auterva-routing-v1\n" + hostname + "\n" + token)` po ważnym łańcuchu certyfikatu obejmującym dokładnie ten host. Endpoint zwraca wyłącznie ten skrót i wyłącznie dla hostu `CUSTOM` w dowolnym stanie; dla innych hostów jest to neutralne 404 (Proxy i handler).
 
 Kolejność jest wiążąca: sprawdzenie własności jest warunkiem **jakiejkolwiek** próby sieciowej wobec hosta (CNAME, adresy, TLS). Host bez dowodu własności nie jest łączony — zawęża to powierzchnię SSRF do hostów, które kontrolują rekord z naszym tokenem.
@@ -62,7 +63,7 @@ Wszystkie ścieżki z końcowym `/`, `Cache-Control: no-store`, `X-Request-Id`; 
 
 | Metoda i ścieżka | JSON | Wynik 200 |
 |---|---|---|
-| `GET /api/platform/companies/{id}/domains/` | — | `{ aliasHostname, domain: null \| { hostname, status, instruction, lastFailureCode, checkedAt, activatedAt, version } }` |
+| `GET /api/platform/companies/{id}/domains/` | — | `{ aliasHostname, domain: null \| { hostname, status, instruction, lastFailureCode, checkedAt, activatedAt, version } }`; od #417 `status: "ACTIVE"` może wystąpić z `lastFailureCode ≠ null` (ostatnie okresowe lub ręczne sprawdzenie diagnostyki się nie powiodło, domena pozostaje aktywna) |
 | `PUT …/domains/` | `{ hostname, expectedVersion: int \| null, eventKey }` | stan jak wyżej; `expectedVersion=null` oznacza brak domeny, liczba — zamianę istniejącej |
 | `DELETE …/domains/` | `{ expectedVersion, eventKey }` | `{ domain: null }` |
 | `POST …/domains/verify/` | `{ eventKey }` | stan po sprawdzeniu |
@@ -82,16 +83,18 @@ Proxy po dopasowaniu aktywnego hosta i dozwolonej trasy obszaru, dla hosta `COMP
 2. dopiero przy wyniku pozytywnym sprawdza, że cel jest aktywnym hostem `CUSTOM`/`COMPANY_PUBLIC` **tej samej firmy** (cel nie pochodzi z żądania; zły rekord nie daje otwartego przekierowania);
 3. odpowiada `307` na `https://<cel><ścieżka><query>` (port tylko gdy alias go miał, jak w lokalnym ingressie) z `Cache-Control: no-store`; tylko `GET`/`HEAD`, inne metody dostają neutralne 404.
 
-Przy niewidocznej ofercie (koniec okresu, archiwum, blokada po przywróceniu, brak pierwszej rejestracji) lub niespójnym celu odpowiedź to neutralne `404` bez `Location`; alias z ustawionym celem nigdy nie serwuje treści sam. Tymczasowy `307` + `no-store` jest świadomy: stały `308` mógłby zostać zapamiętany przez przeglądarkę i prowadzić do wyłączonej domeny po cofnięciu aktywacji. Domena własna wywołuje tę samą bramę w swoich handlerach. Host panelu (`COMPANY_ADMIN`) i nieznany host nigdy nie są publicznym fallbackiem: `/` na panelu i na nieznanym hoście kończy się neutralnym `404`.
+Przy niewidocznej ofercie (koniec okresu, archiwum, blokada po przywróceniu, brak pierwszej rejestracji) lub niespójnym celu odpowiedź to neutralne `404` bez `Location`; alias z ustawionym celem nigdy nie serwuje treści sam. Tymczasowy `307` + `no-store` jest świadomy: stały `308` mógłby zostać zapamiętany przez przeglądarkę i prowadzić do wyłączonej domeny po cofnięciu aktywacji. Domena własna wywołuje tę samą bramę w swoich handlerach.
+
+**Domena `ACTIVE` z nieudanym sprawdzeniem (#417, D-64).** Reguła przekierowania zależy od stanu cyklu (`ACTIVE`, `canonicalTarget`), nie od wyniku ostatniego sprawdzenia. Gdy okresowe sprawdzanie albo „Sprawdź ponownie” zapisze błąd, alias nadal odpowiada `307` na domenę własną i nie serwuje oferty sam. Przy rzeczywistej (nie chwilowej) usterce DNS/TLS/routingu domeny klienta strona firmy może więc być niedostępna pod **oboma** adresami, dopóki klient nie naprawi domeny albo operator jej nie wyłączy. Diagnostyka pokazuje ten stan (`status: "ACTIVE"`, `state: "FAILED"`, `aliasRedirectsToCustomDomain: true`) i nie może twierdzić, że adres Autervy działa nadal. Kolejny krok operatora: (1) wyjaśnić przyczynę z klientem i po poprawce „Sprawdź ponownie” (worker powtarza sprawdzenie co godzinę do skutku); (2) jeśli strona ma wrócić pod adres Autervy przed naprawą — `POST …/domains/verify/` (cofnie domenę do stanu oczekującego i wyczyści `canonicalTarget`) albo `DELETE …/domains/`. Automatycznego powrotu na alias nie ma — tak rozstrzygnął właściciel (D-64). Host panelu (`COMPANY_ADMIN`) i nieznany host nigdy nie są publicznym fallbackiem: `/` na panelu i na nieznanym hoście kończy się neutralnym `404`.
 
 Odbiór okresu (kryterium integracji z #21): rozgrzać alias i domenę własną, skrócić okres (`paidThrough`, także skrócenie opłaty przy trialu z `publicRequiresPaid`), sprawdzić ponownie oba adresy z tą samą ścieżką i query — oba `404`, żaden bez ujawnienia oferty ani `Location`.
 
 ## Znane ryzyka (do #10/#58)
 
 * Dowód routingu to SHA-256 z publicznego tokenu, nie HMAC z sekretem serwera. Właściciel DNS kontrolujący zarazem TXT i cel może wystawić własny serwer HTTPS z takim skrótem; ochroną przed przejęciem cudzego hosta pozostaje dowód własności TXT, a HMAC z sekretem serwera i weryfikacja wyłącznie przez nasz brzeg to wzmocnienie do wdrożenia infrastruktury.
-* Brak cyklicznej kontroli domen w workerze; stan `ACTIVE` jest ponownie sprawdzany tylko przy `verify` superadmina.
+* Cykliczna kontrola domen `ACTIVE` w workerze (#417: co 24 h, po nieudanym sprawdzeniu co 1 h) tylko zapisuje wynik; nie cofa domeny i nie przywraca aliasu (D-64). Trwała usterka domeny klienta wymaga działania operatora opisanego w „Przekierowanie aliasu”. Domeny w stanach oczekujących nie są sprawdzane cyklicznie — sprawdza je `verify` superadmina albo „Sprawdź ponownie” diagnostyki.
 * Brak aplikacyjnej ścieżki aktywacji aliasu `PROVIDER` (robi to operator, #20): do triage jako osobne zadanie.
 
 ## Co jest poza tym zadaniem
 
-Provisioning Cloudflare for SaaS i rekordów DNS strefy, realny cel CNAME i certyfikaty (#10/#58), zakup domen, harmonogram cyklicznej kontroli domen w workerze (kontrola jest dziś wyzwalana przez superadmina), apex u dostawcy DNS klienta, endpoint i UI odczytu dla administratora firmy.
+Provisioning Cloudflare for SaaS i rekordów DNS strefy, realny cel CNAME i certyfikaty (#10/#58), zakup domen, cykliczna kontrola domen w stanach oczekujących (sprawdzenie wyzwala superadmin; domeny `ACTIVE` sprawdza worker, #417), apex u dostawcy DNS klienta, endpoint i UI odczytu dla administratora firmy.
