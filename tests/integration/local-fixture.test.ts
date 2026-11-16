@@ -142,3 +142,26 @@ test("reset refuses a fixture image ID reassigned to an unrelated tenant", async
     await db.end();
   }
 });
+
+test("seed reuses a hand-added platform.localhost and refuses that hostname in another area", async () => {
+  const db = new Client({ connectionString: process.env.DATABASE_URL });
+  await db.connect();
+  const env = { ...process.env, AUTERVA_FIXTURE: "1" };
+  const manualId = randomUUID();
+  const hosts = () => db.query('SELECT id, area, "organizationId" FROM "HostMapping" WHERE hostname = $1', ["platform.localhost"]);
+  try {
+    await seedLocalFixture(db, env, true);
+    // The macOS guide used to add this host with psql and a random id.
+    await db.query('UPDATE "HostMapping" SET id = $1 WHERE hostname = $2', [manualId, "platform.localhost"]);
+    await seedLocalFixture(db, env, false);
+    await seedLocalFixture(db, env, true);
+    expect((await hosts()).rows).toEqual([{ id: manualId, area: "PLATFORM", organizationId: null }]);
+    await db.query('UPDATE "HostMapping" SET area = $1 WHERE id = $2', ["MARKETING", manualId]);
+    await expect(seedLocalFixture(db, env, false)).rejects.toThrow(/collision/);
+    expect((await hosts()).rows).toEqual([{ id: manualId, area: "MARKETING", organizationId: null }]);
+  } finally {
+    await db.query('DELETE FROM "HostMapping" WHERE id = $1', [manualId]);
+    await seedLocalFixture(db, env, false);
+    await db.end();
+  }
+});

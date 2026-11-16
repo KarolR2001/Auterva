@@ -104,6 +104,11 @@ export async function seedLocalFixture(db: Client, env: Record<string, string | 
       }
     }
     await assertFixtureIdentities(db);
+    // A platform host added by hand (older macOS guide: psql with a random id) is reused; any other owner is refused.
+    const platformHost = await db.query('SELECT area FROM "HostMapping" WHERE lower(btrim(hostname)) = $1 FOR UPDATE', ["platform.localhost"]);
+    if (platformHost.rows.some((row) => row.area !== "PLATFORM")) {
+      throw new Error("Fixture identity collision in HostMapping; refusing to overwrite data");
+    }
     if (reset) {
       const orgs = [...FIXTURE.organizations];
       // Delete only IDs created by this seed. Unexpected dependants make the transaction fail.
@@ -132,7 +137,7 @@ export async function seedLocalFixture(db: Client, env: Record<string, string | 
       await db.query('INSERT INTO "SiteSettings" ("organizationId", "publicName", "showPrices") VALUES ($1, $2, true) ON CONFLICT ("organizationId") DO NOTHING', [orgId, name]);
     }
     // Local superadmin login host (PLATFORM has no company); only this guarded fixture path creates it.
-    await db.query('INSERT INTO "HostMapping" (id, "organizationId", hostname, area, status) VALUES ($1,NULL,$2,$3,$4) ON CONFLICT (id) DO NOTHING', [id(85), "platform.localhost", "PLATFORM", "ACTIVE"]);
+    await db.query('INSERT INTO "HostMapping" (id, "organizationId", hostname, area, status) VALUES ($1,NULL,$2,$3,$4) ON CONFLICT DO NOTHING', [id(85), "platform.localhost", "PLATFORM", "ACTIVE"]);
     for (const [hostId, companyIndex, hostname, area] of [
       [id(81), 0, "company-a.localhost", "COMPANY_PUBLIC"],
       [id(82), 0, "admin.company-a.localhost", "COMPANY_ADMIN"],

@@ -65,7 +65,7 @@
     },
     {
       "issue": 425,
-      "scope": "Lokalny seed fixture tworzy idempotentnie host platformy platform.localhost (obszar PLATFORM, bez firmy, ACTIVE), także po --reset, tylko w guardowanej ścieżce lokalnej; superadmin loguje się bez ręcznego psql. Bez zmian UI i API.",
+      "scope": "Lokalny seed fixture tworzy idempotentnie host platformy platform.localhost (obszar PLATFORM, bez firmy, ACTIVE), także po --reset, tylko w guardowanej ścieżce lokalnej; superadmin loguje się bez ręcznego psql. Wiersz dodany wcześniej ręcznie pod innym id jest zachowywany, ta sama nazwa w innym obszarze przerywa seed. Bez zmian UI i API.",
       "relatedRequirementIds": ["D-29"],
       "codePaths": ["scripts/seed-local-fixture.ts", "README.md"],
       "testPaths": ["tests/integration/local-fixture.test.ts"],
