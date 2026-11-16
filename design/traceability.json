@@ -207,6 +207,16 @@
       "sharedWith": "Rozszerza #217."
     },
     {
+      "issue": 415,
+      "scope": "Blokada zbiorcza i kopia blokady (ADM-10): komunikat wyniku nieznanego (5xx/sieć) dopisuje ostrzeżenie, że po opuszczeniu strony ponowienie wysyłki tym samym kluczem znika i trzeba sprawdzić kalendarz floty; logika strażnika i klucza idempotencji bez zmian.",
+      "relatedRequirementIds": ["FR-ADM-055", "FR-ADM-057", "D-48"],
+      "referenceScreenIds": ["ADM-10"],
+      "unmappedStates": ["Porównanie z makietą w Penpocie: DEFERRED (#263); zmiana dotyczy tylko treści komunikatu."],
+      "codePaths": ["src/components/admin/bulk-blocks.tsx"],
+      "testPaths": ["tests/unit/bulk-blocks.test.tsx"],
+      "sharedWith": "Rozszerza #378; zależność: PR #407."
+    },
+    {
       "issue": 387,
       "scope": "Bezpieczeństwo MFA (D-05 pkt 4–5): po zalogowaniu kodem odzyskania konto ma trwały stan „odzyskanie w toku” (user.mfaRecoveryPendingAt + mfaRecoverySessionId). Do potwierdzenia nowego TOTP logowanie samym hasłem daje neutralne 401 bez sesji, a enable/verify-totp przyjmuje wyłącznie sesja, która zużyła kod; potwierdzenie czyści stan i dopisuje audyt MFA_RECOVERY_COMPLETED. Porzucone odzyskanie odblokowuje tylko procedura operatora. Obie role (admin firmy, superadmin). Bez zmian UI.",
       "relatedRequirementIds": ["C-F011", "C-F013", "C-F014"],
