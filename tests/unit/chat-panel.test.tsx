@@ -375,10 +375,12 @@ describe("czat firmy (#52)", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     let failing = true;
+    let hold: Promise<void> | null = null;
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const query = String(input).split("?")[1] ?? "";
       if (query === "limit=30") return Response.json(history([m("1", false)], { newerCursor: "cur-1" }));
       if (query === "limit=100&after=cur-1") {
+        if (hold) await hold;
         if (failing) return new Response(null, { status: 503 });
         return Response.json(gapPage(["2", "3"], "cur-3", false));
       }
@@ -393,8 +395,23 @@ describe("czat firmy (#52)", () => {
     // One announcement only: the polite status region, not a second role="alert".
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.getAllByRole("status").some((region) => region.textContent === "Nie udało się wczytać wiadomości z czasu rozłączenia.")).toBe(true);
-    // #411: pinned outside the scrolling history, so it never needs a scroll to be seen.
-    expect(screen.getByRole("log", { name: "Historia rozmowy" })).not.toContainElement(alert);
+    // #411: pinned outside the scrolling history and above it, so it never needs a scroll to be seen.
+    const log = screen.getByRole("log", { name: "Historia rozmowy" });
+    expect(log).not.toContainElement(alert);
+    expect(alert.compareDocumentPosition(log) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // A retry that fails again is announced again: the status region is emptied while the retry runs.
+    const failure = "Nie udało się wczytać wiadomości z czasu rozłączenia.";
+    const announced = () => screen.getAllByRole("status").some((region) => region.textContent === failure);
+    let release = () => {};
+    hold = new Promise<void>((resolve) => { release = resolve; });
+    await user.click(screen.getByRole("button", { name: "Spróbuj ponownie" }));
+    await waitFor(() => expect(screen.queryByTestId("chat-gap-alert")).toBeNull());
+    expect(announced()).toBe(false);
+    hold = null;
+    release();
+    await screen.findByTestId("chat-gap-alert");
+    expect(announced()).toBe(true);
+    expect(screen.queryByRole("alert")).toBeNull();
     act(() => socket.emit({ type: "message", conversationId: "conv-1", message: m("4", false), cursor: "cur-4" }));
     expect(order()).toEqual(["1"]); // nothing after the gap is shown as if it were contiguous
     failing = false;

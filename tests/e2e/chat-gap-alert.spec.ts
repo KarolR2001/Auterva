@@ -6,9 +6,9 @@ import { ensureControlledSuperadminMfa, resetPlatformApiBudget, verifiedFixtureS
 
 test.use({ launchOptions: { args: ["--host-resolver-rules=MAP *.example.test 127.0.0.1"] } });
 
-// #411: the gap-refetch error alert is pinned above the composer, so on a phone it is visible without scrolling the list.
+// #411: the gap-refetch error notice is pinned above the history, so on a phone it is visible without scrolling anything.
 const variants = [
-  { who: "admin firmy", superadmin: false, width: 320, height: 700 }, { who: "admin firmy", superadmin: false, width: 390, height: 700 },
+  { who: "admin firmy", superadmin: false, width: 320, height: 640 }, { who: "admin firmy", superadmin: false, width: 390, height: 700 },
   { who: "superadmin", superadmin: true, width: 320, height: 640 }, { who: "superadmin", superadmin: true, width: 390, height: 700 },
 ];
 for (const { who, superadmin, width, height } of variants) {
@@ -51,38 +51,72 @@ for (const { who, superadmin, width, height } of variants) {
       await expect(page.getByRole("log", { name: "Historia rozmowy" }).getByText("wiadomość 40", { exact: true })).toBeVisible();
       await expect.poll(() => sockets.length).toBe(1);
       const state = { ownMessageId: null, ownSeq: 0, peerMessageId: null, peerSeq: 0, unread: 0 };
-      const ready = (route: WebSocketRoute, backlog: string) => route.send(JSON.stringify({ type: "ready", protocol: 1, role: superadmin ? "SUPERADMIN_AUTERVA" : "ADMIN_FIRMY",
-        conversationId: conversation.id, cursor: "head", backlog, state }));
-      ready(sockets[0].route, "none");
+      // The first connection resumes from the client's own cursor (real HTTP history); later the server answers with its head.
+      const own = sockets[0].url.searchParams.get("after");
+      const ready = (route: WebSocketRoute, backlog: string, cursor: string | null) => route.send(JSON.stringify({ type: "ready", protocol: 1, role: superadmin ? "SUPERADMIN_AUTERVA" : "ADMIN_FIRMY",
+        conversationId: conversation.id, cursor, backlog, state }));
+      ready(sockets[0].route, "none", own);
+      await expect(page.getByText("Łączenie…")).toHaveCount(0);
 
       // The gap fetch fails: the history after the own cursor answers 503.
       await page.route(/\/messages\/\?.*after=/, (route) => route.fulfill({ status: 503, body: "" }));
+      // Two messages arrive while the client is away: the gap the retry has to fill.
+      await db.chatMessage.createMany({ data: rows(41, 42, conversation.id) });
+      await db.conversation.update({ where: { id: conversation.id }, data: { lastSeq: 42, activityAt: at(42) } });
       await sockets[0].route.close({ code: 4503, reason: "SHUTDOWN" });
       await expect.poll(() => sockets.length, { timeout: 10_000 }).toBe(2);
-      ready(sockets[1].route, "refetch");
+      ready(sockets[1].route, "refetch", "head-of-the-conversation");
 
       const alert = page.getByTestId("chat-gap-alert");
       await expect(alert).toContainText("Nie udało się wczytać wiadomości z czasu rozłączenia.");
-      // Visible in the viewport right away, with the retry action, without scrolling anything, above the composer.
+      // Visible right away with the retry action: nothing was scrolled, both are fully in the viewport and not under the
+      // fixed bottom navigation (hit-tested at the centre, which toBeInViewport does not cover).
+      const uncovered = (selector: string) => page.evaluate((css) => {
+        const element = document.querySelector(css);
+        if (!element) return false;
+        const box = element.getBoundingClientRect();
+        const top = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+        return !!top && (top === element || element.contains(top));
+      }, selector);
+      expect(await page.evaluate(() => window.scrollY)).toBe(0);
       await expect(alert).toBeInViewport({ ratio: 1 });
       const retry = alert.getByRole("button", { name: "Spróbuj ponownie" });
       await expect(retry).toBeInViewport({ ratio: 1 });
+      expect(await uncovered("[data-testid=chat-gap-alert] button")).toBe(true);
+      // Order: notice, history, composer. The history keeps its floor (64 px) and still scrolls; the message field stays
+      // visible and usable at these sizes.
+      const history = page.getByRole("log", { name: "Historia rozmowy" });
       const composer = page.getByLabel(/Napisz wiadomość do/);
-      const [alertBox, composerBox] = await Promise.all([alert.boundingBox(), composer.boundingBox()]);
-      expect(alertBox && composerBox && alertBox.y + alertBox.height <= composerBox.y).toBe(true);
-      // The history keeps a usable share of the panel (>= 35%) and the notice has no role of its own (one announcement).
-      const panel = page.locator("section[aria-labelledby=chat-title]");
-      const [panelBox, listBox] = await Promise.all([panel.boundingBox(), page.getByRole("log", { name: "Historia rozmowy" }).boundingBox()]);
-      expect(listBox && panelBox && listBox.height >= panelBox.height * 0.35).toBe(true);
+      const [alertBox, listBox, composerBox] = await Promise.all([alert.boundingBox(), history.boundingBox(), composer.boundingBox()]);
+      expect(alertBox && listBox && composerBox && alertBox.y + alertBox.height <= listBox.y && listBox.y + listBox.height <= composerBox.y).toBe(true);
+      expect(listBox && listBox.height >= 64).toBe(true);
+      expect(await history.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
+      await expect(composer).toBeInViewport({ ratio: 1 });
+      expect(await uncovered("#chat-composer")).toBe(true);
+      // The notice has no role of its own (one announcement, in the status region) and nothing overflows sideways.
       await expect(alert.getByRole("alert")).toHaveCount(0);
       await expect(page.locator("[role=alert]", { hasText: "z czasu rozłączenia" })).toHaveCount(0);
+      await expect(page.locator("[role=status]", { hasText: "Nie udało się wczytać wiadomości z czasu rozłączenia." })).toHaveCount(1);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      // The send button is reachable by scrolling the page: it ends above the fixed bottom navigation.
+      const send = page.getByRole("button", { name: "Wyślij" });
+      await send.scrollIntoViewIfNeeded();
+      expect(await uncovered("form button[type=submit]")).toBe(true);
+      await page.evaluate(() => window.scrollTo(0, 0));
 
-      // Keyboard: the retry action is a normal button and recovers the gap.
+      // Keyboard: the retry action is a normal button right before the history in the tab order, with the token focus ring;
+      // it fills the gap from the real history, the notice goes away, the result is announced once and the draft stays.
+      await composer.fill("szkic 411");
       await page.unroute(/\/messages\/\?.*after=/);
-      await retry.focus();
+      await history.focus();
+      await page.keyboard.press("Shift+Tab");
+      await expect(retry).toBeFocused();
+      expect(await retry.evaluate((element) => getComputedStyle(element).outlineStyle)).toBe("solid");
       await page.keyboard.press("Enter");
+      await expect(history.getByText("wiadomość 42", { exact: true })).toBeVisible();
       await expect(alert).toHaveCount(0);
+      await expect(page.locator("[role=status]", { hasText: "Uzupełniono wiadomości z czasu rozłączenia." })).toHaveCount(1);
+      await expect(composer).toHaveValue("szkic 411");
     } finally {
       await db.hostMapping.deleteMany({ where: { hostname: platformHost } });
       await session?.dispose();

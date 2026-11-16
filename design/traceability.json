@@ -201,11 +201,11 @@
     },
     {
       "issue": 411,
-      "scope": "Czat: błąd dociągania luki po ready z backlog \"refetch\" (#393) to zwarty komunikat z „Spróbuj ponownie” przypięty między historią a polem wiadomości (nie na końcu przewijanej listy), więc akcja jest widoczna bez przewijania przy 320 i 390 px (firma i superadmin). Podczas błędu panel może urosnąć, a historia zachowuje min. 40dvh; brak poziomego przewijania. Jedno ogłoszenie dla czytnika: komunikat nie ma własnej roli alert, ogłasza go region status (także „Uzupełniono…” po ponowieniu). Klawiatura i ponowienie bez zmian. Porównanie z Penpotem DEFERRED (#263): brak planszy stanu, wzorzec Alert czatu w zwartej formie.",
+      "scope": "Czat: błąd dociągania luki po ready z backlog \"refetch\" (#393) to zwarty komunikat z „Spróbuj ponownie” przypięty nad historią rozmowy (poza przewijaną listą), więc komunikat i akcja są widoczne bez przewijania przy 320 i 390 px (firma i superadmin) niezależnie od miejsca na historię. Historia oddaje miejsce komunikatowi do progu 64 px; gdy i to się nie mieści, panel (w skrzynce superadmina poniżej 1024 px razem z jej kontenerem) rośnie tylko o brakującą część: pole wiadomości zostaje widoczne, a „Wyślij” jest osiągalne przewinięciem strony ponad dolną nawigacją; brak poziomego przewijania. Jedno ogłoszenie dla czytnika: komunikat nie ma własnej roli alert, ogłasza go region status (ponownie po nieudanym ponowieniu, „Uzupełniono…” po udanym). Akcja ma obrys fokusu z tokenów; ponowienie bez zmian. Porównanie z Penpotem DEFERRED (#263): brak planszy stanu, wzorzec Alert czatu w zwartej formie.",
       "relatedRequirementIds": ["C-F132", "C-N066"],
       "referenceScreenIds": ["TEN-11"],
-      "unmappedStates": ["Błąd dociągania luki bez osobnej planszy; wzorzec Alert jak błąd wczytania rozmowy, pozycja przypięta nad polem wiadomości."],
-      "codePaths": ["src/components/chat/chat-panel.tsx", "src/components/chat/chat.module.css"],
+      "unmappedStates": ["Błąd dociągania luki bez osobnej planszy; wzorzec Alert jak błąd wczytania rozmowy, pozycja przypięta nad historią rozmowy."],
+      "codePaths": ["src/components/chat/chat-panel.tsx", "src/components/chat/chat.module.css", "src/components/platform/inbox.module.css"],
       "testPaths": ["tests/unit/chat-panel.test.tsx", "tests/e2e/chat-gap-alert.spec.ts"]
     },
     {
