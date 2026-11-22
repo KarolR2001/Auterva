@@ -8,7 +8,7 @@ import { verifiedFixtureSession } from "../fixtures/verified-session";
 // #34: fleet list and dashboard of the company admin against the real API of the built ingress.
 test.use({ launchOptions: { args: ["--host-resolver-rules=MAP *.example.test 127.0.0.1"] }, actionTimeout: 15_000 });
 
-test("fleet list and dashboard: empty states, filters, keyboard order, hide and archive, today statistics and nearest blocks", async ({ baseURL, browser }) => {
+test("fleet list and dashboard: empty states, filters, keyboard order, hide and archive, today statistics and nearest blocks", async ({ baseURL, browser }, testInfo) => {
   test.setTimeout(90_000);
   if (!baseURL) throw new Error("Missing trusted ingress URL");
   const port = Number(new URL(baseURL).port);
@@ -17,6 +17,7 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
   const host = `admin-fleet-${org}.example.test`;
   const today = availabilityToday();
   const day = (offset: number) => new Date(sqlDate(today).getTime() + offset * 86_400_000).toISOString().slice(0, 10);
+  const clientErrors: string[] = [];
   let session: Awaited<ReturnType<typeof verifiedFixtureSession>> | undefined;
   const context = await browser.newContext();
   try {
@@ -30,6 +31,9 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
     const [name, value] = session.cookie.split(/=(.*)/s);
     await context.addCookies([{ name, value, domain: host, path: "/" }]);
     const page = await context.newPage();
+    // #453: a client render error replaces the whole page with the error shell and then looks like a missing control; keep its cause.
+    page.on("pageerror", (error) => clientErrors.push(error.message));
+    page.on("console", (message) => { if (message.type() === "error" && !/Cross-Origin-Opener-Policy|status of 409/.test(message.text())) clientErrors.push(message.text()); });
     const base = `http://${host}:${port}`;
 
     await page.goto(`${base}/admin/pojazdy/`);
@@ -130,6 +134,9 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
     // Mobile: filters and sort open in a sheet that traps focus and gives it back; cards keep Edytuj, Terminy, Więcej.
     await page.setViewportSize({ width: 390, height: 844 });
     const filters = page.getByRole("button", { name: /^Filtry/ });
+    // The compact layout is derived from the container width, so after the resize either the button or the error shell appears; name the latter.
+    await expect(filters.or(page.getByRole("heading", { name: "Nie udało się wyświetlić strony" }))).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Nie udało się wyświetlić strony" }), "client error shell instead of the list").toHaveCount(0);
     await expect(filters).toBeVisible();
     await expect(page.getByRole("link", { name: /^Terminy/ }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /^Edytuj/ }).first()).toBeVisible();
@@ -211,6 +218,7 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
     expect(await db.vehicle.count({ where: { organizationId: org } })).toBe(3);
     expect((await db.vehicle.findUniqueOrThrow({ where: { id: b } })).status).toBe("ARCHIVED");
   } finally {
+    if (clientErrors.length) await testInfo.attach("client-errors", { body: clientErrors.join("\n"), contentType: "text/plain" });
     await context.close();
     await session?.dispose();
     await db.auditLog.deleteMany({ where: { organizationId: org } });

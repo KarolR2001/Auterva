@@ -1,4 +1,5 @@
-import type { Prisma, PrismaClient } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
+import type { PrismaClient } from "@/generated/prisma/client";
 import { addLocalDays, availabilityToday, localDate, parseAvailabilityRange, sqlDate } from "@/modules/availability/dates";
 import { singleLineControl } from "@/lib/text-policy";
 import { resolveImageAlt } from "@/modules/media/vehicle-images";
@@ -75,17 +76,24 @@ export async function listCompanyVehicles(db: PrismaClient, organizationId: stri
     ],
   };
   const where: Prisma.VehicleWhereInput = filters.status ? { ...base, status: filters.status } : base;
-  const [total, grouped, vehicles] = await db.$transaction([
-    db.vehicle.count({ where }),
+  const { total, grouped, vehicles, blockedToday } = await db.$transaction(async (tx) => {
+    const total = await tx.vehicle.count({ where });
     // Counters follow every filter except `status`, so the header can show each status next to the chosen one.
-    db.vehicle.groupBy({ by: ["status"], where: base, _count: { id: true }, orderBy: { status: "asc" } }),
-    db.vehicle.findMany({ where, orderBy,
+    const grouped = await tx.vehicle.groupBy({ by: ["status"], where: base, _count: { id: true }, orderBy: { status: "asc" } });
+    const vehicles = await tx.vehicle.findMany({ where, orderBy,
       skip: (filters.page - 1) * filters.pageSize, take: filters.pageSize,
       include: { category: { select: { id: true, name: true } },
         images: { where: { status: "READY" }, orderBy: [{ position: "asc" }, { id: "asc" }],
-          select: { id: true, alt: true, isCover: true } },
-        blocks: { where: { from: { lte: todaySql }, to: { gte: todaySql } }, select: { id: true } } } }),
-  ], { isolationLevel: "RepeatableRead" });
+          select: { id: true, alt: true, isCover: true } } } });
+    // #402: "blocked today" of the page comes from the GiST index (vehicleId, daterange) of the overlap constraint, one
+    // search per vehicle of the page; the relation filter read every block of the company. Same snapshot as the page.
+    const ids = vehicles.map((vehicle) => vehicle.id);
+    const rows = ids.length ? await tx.$queryRaw<{ vehicleId: string }[]>(Prisma.sql`
+      SELECT DISTINCT b."vehicleId" FROM "AvailabilityBlock" b
+       WHERE b."vehicleId" = ANY (${ids}::uuid[]) AND b."organizationId" = ${organizationId}::uuid
+         AND daterange(b."from", b."to", '[]') && daterange(${today}::date, ${today}::date, '[]')`) : [];
+    return { total, grouped, vehicles, blockedToday: new Set(rows.map((row) => row.vehicleId)) };
+  }, { isolationLevel: "RepeatableRead" });
   const counted = grouped.map((row) => ({ status: row.status, n: (row._count as { id: number }).id }));
   const byStatus = (status: string) => counted.find((row) => row.status === status)?.n ?? 0;
   const statusCounts = { all: counted.reduce((sum, row) => sum + row.n, 0),
@@ -100,7 +108,7 @@ export async function listCompanyVehicles(db: PrismaClient, organizationId: stri
       activeToday: !!vehicle.availableFrom && localDate(vehicle.availableFrom) <= today
         && (!vehicle.availableTo || localDate(vehicle.availableTo) >= today),
       availableToday: !!vehicle.availableFrom && localDate(vehicle.availableFrom) <= today
-        && (!vehicle.availableTo || localDate(vehicle.availableTo) >= today) && vehicle.blocks.length === 0 })) };
+        && (!vehicle.availableTo || localDate(vehicle.availableTo) >= today) && !blockedToday.has(vehicle.id) })) };
 }
 
 /** The cover and its alt for the ordinal it has in the gallery (the same number the public page shows). */

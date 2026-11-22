@@ -41,7 +41,7 @@ let main: Server;
 type Logs = string[];
 async function startServer(limits: Partial<RealtimeLimits> = {}, logs: Logs = []): Promise<Server> {
   const server = await startRealtimeServer({ db, config: { host: "127.0.0.1", port: 0, allowedHosts: new Set() },
-    databaseUrl, authority, limits: { listenRetryMs: 200, ...limits }, log: (event) => logs.push(event) });
+    databaseUrl, authority, limits: { listenRetryMs: 200, maxHandshakesPerWindow: 10_000, ...limits }, log: (event) => logs.push(event) });
   servers.push(server);
   return server;
 }
