@@ -142,6 +142,30 @@ test("pagination is stable, bounded and reports total", async () => {
   expect((await admin(range(day(0), day(1), "&pageSize=100"))).status).toBe(200);
 });
 
+// #402: blocks of the grid come from one raw query that repeats the page selection of the vehicle list.
+test("blocks follow the page of vehicles, and a range touching a block on its first or last day includes it", async () => {
+  const onDraft = await db.availabilityBlock.create({ data: { organizationId: orgA, vehicleId: ids.draft,
+    from: sqlDate(day(3)), to: sqlDate(day(3)), type: "OTHER" } });
+  try {
+    const first = await (await admin(range(day(0), day(5), "&pageSize=2"))).json() as Page;
+    const second = await (await admin(range(day(0), day(5), "&pageSize=2&page=2"))).json() as Page;
+    expect(first.items.map((i) => [i.vehicleId, i.blocks.map((b) => b.from)]))
+      .toEqual([[ids.active, [day(0), day(5)]], [ids.open, []]]);
+    expect(second.items.map((i) => [i.vehicleId, i.blocks.map((b) => b.id)])).toEqual([[ids.draft, [onDraft.id]]]);
+    const blocksOfActive = async (from: number, to: number) =>
+      ((await (await admin(range(day(from), day(to)))).json()) as Page).items[0]!.blocks.map((b) => [b.from, b.to]);
+    expect(await blocksOfActive(1, 5)).toEqual([[day(0), day(1)], [day(5), day(5)]]); // last day of one, only day of the other
+    expect(await blocksOfActive(1, 1)).toEqual([[day(0), day(1)]]);
+    expect(await blocksOfActive(2, 4)).toEqual([]); // the days between two blocks
+    expect(await blocksOfActive(-4, -1)).toEqual([]);
+    expect(await blocksOfActive(6, 9)).toEqual([]);
+    const archived = await (await admin(range(day(-3), day(-3), "&status=ARCHIVED&pageSize=1"))).json() as Page;
+    expect(archived.items.map((i) => [i.vehicleId, i.blocks.length])).toEqual([[ids.archived, 1]]);
+  } finally {
+    await db.availabilityBlock.delete({ where: { id: onDraft.id } });
+  }
+});
+
 test("ARCHIVED vehicles are outside the grid by default and the status filter matches the fleet list", async () => {
   const archived = await (await admin(range(day(-5), day(0), "&status=ARCHIVED"))).json() as Page;
   expect(archived).toMatchObject({ total: 1 });
