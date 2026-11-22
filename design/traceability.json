@@ -82,6 +82,14 @@
       "sharedWith": "Zależy od #383 (PR #395)."
     },
     {
+      "issue": 425,
+      "scope": "Lokalny seed fixture tworzy idempotentnie host platformy platform.localhost (obszar PLATFORM, bez firmy, ACTIVE), także po --reset, tylko w guardowanej ścieżce lokalnej; superadmin loguje się bez ręcznego psql. Wiersz dodany wcześniej ręcznie pod innym id jest zachowywany, ta sama nazwa w innym obszarze przerywa seed. Bez zmian UI i API.",
+      "relatedRequirementIds": ["D-29"],
+      "codePaths": ["scripts/seed-local-fixture.ts", "README.md", "docs/development/URUCHOMIENIE_MACOS.md"],
+      "testPaths": ["tests/integration/local-fixture.test.ts"],
+      "sharedWith": "Instrukcja docs/development/URUCHOMIENIE_MACOS.md: usunięty ręczny krok psql hosta platformy."
+    },
+    {
       "issue": 414,
       "scope": "Sesja logowania w obu panelach: jawnie 30 dni od ostatniego odświeżenia (D-61), odświeżanie najwyżej raz na dobę. Backend bez zmian UI i API; reauth, unieważnianie sesji i WebSocket bez zmian.",
       "relatedRequirementIds": ["D-61", "D-05", "FR-ADM-081"],
@@ -225,6 +233,16 @@
       "sharedWith": "Rozszerza #217."
     },
     {
+      "issue": 415,
+      "scope": "Blokada zbiorcza i kopia blokady (ADM-10): komunikat wyniku nieznanego (5xx/sieć) dopisuje ostrzeżenie, że po opuszczeniu strony ponowienie wysyłki tym samym kluczem znika i trzeba sprawdzić kalendarz floty; logika strażnika i klucza idempotencji bez zmian.",
+      "relatedRequirementIds": ["FR-ADM-055", "FR-ADM-057", "D-48"],
+      "referenceScreenIds": ["ADM-10"],
+      "unmappedStates": ["Porównanie z makietą w Penpocie: DEFERRED (#263); zmiana dotyczy tylko treści komunikatu."],
+      "codePaths": ["src/components/admin/bulk-blocks.tsx"],
+      "testPaths": ["tests/unit/bulk-blocks.test.tsx"],
+      "sharedWith": "Rozszerza #378; zależność: PR #407."
+    },
+    {
       "issue": 387,
       "scope": "Bezpieczeństwo MFA (D-05 pkt 4–5): po zalogowaniu kodem odzyskania konto ma trwały stan „odzyskanie w toku” (user.mfaRecoveryPendingAt + mfaRecoverySessionId). Do potwierdzenia nowego TOTP logowanie samym hasłem daje neutralne 401 bez sesji, a enable/verify-totp przyjmuje wyłącznie sesja, która zużyła kod; potwierdzenie czyści stan i dopisuje audyt MFA_RECOVERY_COMPLETED. Porzucone odzyskanie odblokowuje tylko procedura operatora. Obie role (admin firmy, superadmin). Bez zmian UI.",
       "relatedRequirementIds": ["C-F011", "C-F013", "C-F014"],
@@ -249,6 +267,15 @@
       "unmappedStates": ["Stan „Wczytywanie wiadomości z czasu rozłączenia” i błąd dociągania luki bez osobnej planszy; wzorzec jak błąd wczytania rozmowy."],
       "codePaths": ["src/components/chat/chat-panel.tsx"],
       "testPaths": ["tests/unit/chat-panel.test.tsx", "tests/e2e/chat-refetch.spec.ts"]
+    },
+    {
+      "issue": 411,
+      "scope": "Czat: błąd dociągania luki po ready z backlog \"refetch\" (#393) to zwarty komunikat z „Spróbuj ponownie” przypięty nad historią rozmowy (poza przewijaną listą), więc komunikat i akcja są widoczne bez przewijania przy 320 i 390 px (firma i superadmin) niezależnie od miejsca na historię. Historia oddaje miejsce komunikatowi do progu 64 px; gdy i to się nie mieści, panel (w skrzynce superadmina poniżej 1024 px razem z jej kontenerem) rośnie tylko o brakującą część: pole wiadomości zostaje widoczne, a „Wyślij” jest osiągalne przewinięciem strony ponad dolną nawigacją; brak poziomego przewijania. Jedno ogłoszenie dla czytnika: komunikat nie ma własnej roli alert, ogłasza go region status (ponownie po nieudanym ponowieniu, „Uzupełniono…” po udanym). Akcja ma obrys fokusu z tokenów; ponowienie bez zmian. Porównanie z Penpotem DEFERRED (#263): brak planszy stanu, wzorzec Alert czatu w zwartej formie.",
+      "relatedRequirementIds": ["C-F132", "C-N066"],
+      "referenceScreenIds": ["TEN-11"],
+      "unmappedStates": ["Błąd dociągania luki bez osobnej planszy; wzorzec Alert jak błąd wczytania rozmowy, pozycja przypięta nad historią rozmowy."],
+      "codePaths": ["src/components/chat/chat-panel.tsx", "src/components/chat/chat.module.css", "src/components/platform/inbox.module.css"],
+      "testPaths": ["tests/unit/chat-panel.test.tsx", "tests/e2e/chat-gap-alert.spec.ts"]
     },
     {
       "issue": 377,
@@ -294,6 +321,20 @@
         "tests/unit/observability-redaction.test.ts"
       ],
       "sharedWith": "Rozszerza #58/#180/#108; dashboard i paging u dostawcy w #90."
+    },
+    {
+      "issue": 404,
+      "scope": "Lokalna probe backupu i restore calego systemu oraz jednej firmy na fixture dwoch firm (blokady, feedy, eksporty, czat, media): kroki runbooka wykonane komendami CLI z pomiarem czasu, test integracyjny rozszerzony o bloki, feedy i eksporty, raport cwiczenia. Konfiguracja dostawcy, PITR i RTO na stagingu not-run (#90). Bez UI.",
+      "relatedRequirementIds": ["C-N041", "C-N042", "C-N046", "D-10", "D-16"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/backup/company.ts",
+        "docs/runbooks/backup-restore.md",
+        "docs/runbooks/backup-restore-drill-2026-11-12.md"
+      ],
+      "testPaths": [
+        "tests/integration/backup-restore.test.ts"
+      ]
     },
     {
       "issue": 342,
