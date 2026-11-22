@@ -15,7 +15,7 @@ Repozytorium zawiera minimalny lokalny scaffold Next.js, PostgreSQL, auth, WebSo
 
 ## Lokalny scaffold
 
-Pełna instrukcja uruchomienia na macOS (terminale, komendy, hosty, logowanie, testy, zatrzymanie): [URUCHOMIENIE_MACOS](docs/development/URUCHOMIENIE_MACOS.md).
+Uruchomienie na macOS krok po kroku (komendy po kolei, do przeklikania): [URUCHOMIENIE_MACOS](docs/development/URUCHOMIENIE_MACOS.md); szczegóły, testy i rozwiązywanie problemów: [URUCHOMIENIE_MACOS_SZCZEGOLY](docs/development/URUCHOMIENIE_MACOS_SZCZEGOLY.md).
 
 Wymagane są Node 24.20.0, pnpm 12.6.0 i lokalny PostgreSQL 18. Użyj odrębnej testowej bazy i użytkownika z uprawnieniem do migracji. Nie łącz tych prób z produkcyjną bazą. Na czystym checkoutcie:
 
