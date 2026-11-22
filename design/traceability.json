@@ -317,6 +317,18 @@
       "testPaths": ["tests/unit/chat-panel.test.tsx", "tests/e2e/chat-gap-alert.spec.ts"]
     },
     {
+      "issue": 435,
+      "scope": "PLT-09 skrzynka superadmina na telefonie (poniżej 768 px, stała dolna nawigacja): nagłówek rozmowy ma dwa wiersze — „Wiadomości” (wstecz) i „Karta firmy” w jednym, pod nimi nazwa firmy raz, najwyżej w dwóch liniach (pełna nazwa pozostaje w nagłówku h2 i w nazwie dostępnej linku karty; wiersz „Odbiorca: …” panelu czatu zostaje tylko dla technologii asystujących, a pełną nazwę pokazuje podpowiedź pola wiadomości). Rozmowa nie jest już przycinana do wysokości okna: historia ma co najmniej 128 px (64 px w stanie błędu luki z #411), a gdy nagłówek, historia i pole nie mieszczą się w oknie, panel rośnie i strona się przewija, więc pole wiadomości i „Wyślij” kończą się nad dolną nawigacją (320x568, 320x640, 390x700, nazwa firmy do 120 znaków); komunikat błędu luki i „Spróbuj ponownie” są widoczne bez przewijania. Od 768 px i w panelu firmy bez zmian. Logika czatu i komunikat luki bez zmian.",
+      "relatedRequirementIds": ["C-F136", "C-F137", "DS-N09"],
+      "referenceScreenIds": ["PLT-09"],
+      "scenarioStates": {
+        "mobile": "PLT-09 / Messages / Mobile / state=conversation"
+      },
+      "unmappedStates": ["Makieta 390 px pokazuje krótką nazwę firmy w jednej linii, opis „Rozmowa z firmą …” pod tytułem i „Wróć do rozmów” w górnym pasku; nazwa 120 znaków, powrót pod górnym paskiem (#53) i brak wiersza opisu na telefonie nie mają planszy — rozbieżności opisane w PR do #435."],
+      "codePaths": ["src/components/platform/message-inbox.tsx", "src/components/platform/inbox.module.css", "src/components/chat/chat.module.css"],
+      "testPaths": ["tests/e2e/inbox-narrow-layout.spec.ts", "tests/e2e/messages-inbox.spec.ts", "tests/e2e/chat-gap-alert.spec.ts", "tests/unit/message-inbox.test.tsx"]
+    },
+    {
       "issue": 377,
       "scope": "Backend eksportu danych firmy (D-40, poprawka #328): żądanie POST …/export wygasza READY po terminie i porzuca PENDING tą samą funkcją przejścia co sweep i worker (transitions.ts): w jednej transakcji audyt systemowy EXPORT_EXPIRED/EXPORT_FAILED (bez treści) i zamknięcie joba porzuconego eksportu (FAILED), także gdy żądanie jest odrzucone; sweep nie audytuje drugi raz.",
       "referenceScreenIds": [],

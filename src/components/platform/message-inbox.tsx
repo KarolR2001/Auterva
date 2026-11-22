@@ -305,7 +305,8 @@ export function MessageInbox({ accountId, initialSelected }: Props) {
               <button type="button" className={styles.back} onClick={back}><ArrowLeft size={16} aria-hidden="true" />Wiadomości</button>
               <h2 ref={title} tabIndex={-1} className={styles.convTitle}>{selected.name}</h2>
               {archived && <span className={platform.badgeArchived}><Archive size={16} aria-hidden="true" />Zarchiwizowana</span>}
-              <Link href={`/firmy/${encodeURIComponent(selected.organizationId)}/`} prefetch={false}>Karta firmy {selected.name}</Link>
+              {/* #435: on phones only "Karta firmy" is drawn (the name is the heading next to it); the link's name stays complete. */}
+              <Link href={`/firmy/${encodeURIComponent(selected.organizationId)}/`} prefetch={false}>Karta firmy <span className={styles.cardName}>{selected.name}</span></Link>
             </div>
             <div className={styles.convBody}>
               <ChatPanel

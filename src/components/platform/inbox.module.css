@@ -198,6 +198,68 @@
   }
 }
 
+/* #435: phones (below 768 px the shell has the fixed bottom navigation). The conversation header shrinks to two rows —
+   back and the company card link, then the company name — and the conversation is no longer cut to the viewport: when the
+   header, a usable history and the composer do not fit, the pane grows and the page scrolls, so the message field and
+   "Wyślij" always end above the navigation instead of under it. With enough room nothing changes: the pane still fills
+   the viewport-fitted height and only the history scrolls. */
+@media (max-width: 767px) {
+  .inbox[data-view="conversation"] {
+    height: auto;
+    min-height: max(360px, calc(100dvh - 190px));
+  }
+
+  .inbox[data-view="conversation"] .convBody {
+    display: flex;
+    flex: 1 0 auto;
+    flex-direction: column;
+  }
+
+  .convHeader {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .back {
+    grid-area: 1 / 1;
+  }
+
+  .convHeader a {
+    display: inline-flex;
+    min-height: var(--touch-target-mobile);
+    grid-area: 1 / 2;
+    align-items: center;
+    justify-self: end;
+  }
+
+  /* The name is drawn once, as the heading; the link keeps it for assistive technology only. */
+  .cardName {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* A long name (up to 120 characters) takes at most two lines here and ends with an ellipsis; the element still holds
+     the whole name, and the composer hint below shows it in full. */
+  .convTitle {
+    display: -webkit-box;
+    grid-column: 1 / -1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  /* Archived badge: its own row under the name. */
+  .convHeader > span {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+
 @media (min-width: 1024px) {
   .inbox {
     grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
@@ -215,5 +277,23 @@
 
   .inbox[data-view="list"] .placeholder {
     display: block;
+  }
+
+  /* #435 (QA of #411): in the split view the gap-refetch notice pushed the composer out of the viewport-fitted box. The box
+     grows by the missing part instead, as it already does below 1024 px; the list of conversations takes the height of
+     the row and never stretches it (zero flex basis). When everything fits, the height is the same as before. */
+  .inbox:has([data-gap-error]) {
+    height: auto;
+    min-height: max(360px, calc(100dvh - 160px));
+  }
+
+  .inbox:has([data-gap-error]) .convBody {
+    display: flex;
+    flex: 1 0 auto;
+    flex-direction: column;
+  }
+
+  .inbox:has([data-gap-error]) .rows {
+    flex: 1 1 0px;
   }
 }
