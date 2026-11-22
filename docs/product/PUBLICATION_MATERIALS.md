@@ -22,6 +22,7 @@ D-03 określa strukturę (kategorie superadmina, opcjonalna cena z przełącznik
 | Logo i podgląd produktu | MKT-01 | Penpot; SVG w `design/assets/brand/` | AUT-03 | preview | Autorstwo i prawo użycia SVG; w preview wordmark tekstowy. |
 | Ilustracja redakcyjna `public-fleet-depot` | MKT-01 | manifest, `synthetic-demo` | AUT-04 | preview DEMO | Zastąpić zasobem z udokumentowanym prawem. |
 | Polityka prywatności Autervy | MKT-01 stopka | wg PRD, art. 13 RODO | AUT-05 | szkic | Dane operatora, procesy, dostawcy, retencja, data, akceptacja. |
+| Szkice prawne D-55: polityka Autervy, wzór polityki firmy, wariant regulaminu | MKT-01 stopka, PUB-05, PUB-06 | agent na podstawie kodu i kontraktów, [docs/legal](../legal/README.md) | AUT-05, FIR-03, FIR-06 | **do akceptacji**, „do weryfikacji prawnej”, nie w aplikacji | Weryfikacja prawna, dane operatora i firmy, dostawcy (D-53), decyzje o retencji, akceptacja właściciela. |
 | Marka, hero, opis, kategorie | PUB-01, PUB-02/03 | Penpot | FIR-01, FIR-05 | staging DEMO | Prawdziwa firma, jej materiały i słownik kategorii superadmina. |
 | Kontakt, godziny, adres, mapa | PUB-04 | Penpot jako wzór | FIR-02 | staging DEMO, kontakt nieaktywny | Sprawdzone kanały, pełny adres i działająca mapa firmy. |
 | Polityka prywatności firmy | PUB-05 | Penpot + wg PRD | FIR-03 | szkic DEMO | Administrator, procesy, dostawcy i akceptacja konkretnej firmy. |

@@ -94,6 +94,7 @@ Poprawione, każde z testem padającym bez poprawki:
 | S4 | `GET /api/auth/invitation/{token}` bez limitu i bez obsługi błędu | 60/min na adres zaufanego proxy, `try/catch` | `security-regression` („rate limit”) |
 | S5 | NUL i znaki spoza wzorca sluga w `POST /api/public/availability/{check,batch}` i `GET /api/public/vehicles/{slug}/calendar` dawały 500 | wzorzec sluga `^[a-z0-9]+(?:-[a-z0-9]+)*$` (≤120) w Zod i w `publicCalendar` | `security-regression` („NUL and %00” na wszystkich trasach z parametrem) |
 | S6 | bufor ciała Proxy 10 MB przed handlerem, a chunk niemieszczący się w buforze jest odrzucany w całości (handler mógł dostać tylko prefiks); wbudowana strona 404 łamała CSP | `proxyClientMaxBodySize: "264kb"` (powyżej największego limitu trasy), Proxy: `411` dla ciała bez zadeklarowanej długości i `413` dla `Content-Length` ponad limit trasy (`bodyLimitForPath`); limity per trasa 64/128/256 KiB; layout dynamiczny i własny `not-found.tsx` | `unit/security-headers` (konfiguracja, limity), `security-regression` („body limits per route”: maksymalne dane z 3-bajtowymi znakami przechodzą, o znak dłuższe: 400), `e2e/security-headers` (411/413, DELETE bez ciała, upload poza Proxy, przeglądarka na 404) |
+| S7 | wyjątek, którego nie złapał handler (np. awaria bazy poza `try/catch`, trasa `/.well-known/auterva-domain-check`), trafiał do własnego loggera Next z komunikatem sterownika i stosem, poza naszą redakcją | `routeContext` łapie wyjątek (sync i async), loguje klasę i kod przez zredagowany logger (`http.internal_error`) i odpowiada stałym `500 {"code":"INTERNAL_ERROR"}`; sygnały sterowania Next (`digest` `NEXT_*`) przechodzą dalej | `integration/error-redaction-5xx` (awaria warstwy danych na każdej trasie), `unit/route-context-errors` |
 
 Znalezione poza zakresem tego przebiegu (zgłoszone orkiestratorowi, bez zmian kodu):
 
@@ -103,6 +104,22 @@ Znalezione poza zakresem tego przebiegu (zgłoszone orkiestratorowi, bez zmian k
 - W5 (framework, niskie): żądanie z uszkodzonym nagłówkiem `Next-Router-State-Tree` daje 500 z logiem Next. Odpowiedź nie niesie danych; nagłówek jest ignorowany przez nasz kod. Do rozważenia odrzucanie w Proxy lub aktualizacja Next.
 - W6 (log, C-N017): ostrzeżenie Next `Request body exceeded … for <url>` powstaje podczas buforowania, przed Proxy, i może zawierać URL z tokenem zaproszenia, gdy ktoś wyśle ponad 264 kB na `/api/auth/invitation/{token}/`. Kod nie może go zablokować (Proxy działa później); 413 dla zadeklarowanej długości ponad limit zapobiega dalszemu przetwarzaniu, ale nie temu logowi. Ryzyko ogranicza fakt, że token zna tylko adresat lub skaner, a log dotyczy wyłącznie nadmiernego ciała; do rozstrzygnięcia na stagingu: odrzucanie dużych ciał i maskowanie logów na proxy dostawcy (#90).
 - W4 (do sprawdzenia na stagingu): kontrola Origin porównuje protokół z `request.url`; za terminacją TLS adres żądania musi przekazywać `https`, inaczej mutacje będą odrzucane (bezpieczny kierunek błędu).
+
+### Inwentarze #399 (lokalna część #57)
+
+Wynik przebiegu: jedna luka (S7, poprawiona); reszta inwentarzy bez luk. Każdy inwentarz iteruje po trasach z systemu plików, więc nowa trasa bez klasyfikacji lub limitu przerywa test.
+
+| Kontrola | Inwentarz | Wynik | Dowód |
+|---|---|---|---|
+| Limity żądań | każdy `route.ts` musi przez graf importów sięgać do limitera (`takeRateLimit`, `takeAuthenticatedApiLimit`, `reserveAuthAttempt`) albo być na jawnej liście wyjątków z uzasadnieniem (health, vitals, robots, sitemap, sonda domeny) | pass | `unit/route-rate-limit-inventory` |
+| Limity żądań, zachowanie | każdy handler admin/platform (ok. 100 metod) z ważną sesją zużywa budżet `api:read/write/media` aktora przed pracą | pass | `security-regression` („limit inventory”) |
+| Origin/CSRF, admin i platforma | wszystkie mutacje: brak, `null`, obcy, siostrzany, z portem, ze ścieżką, inny schemat: 403 | pass | `security-regression` (TEST-MVP-34) |
+| Origin/CSRF, pozostałe mutacje | lista mutacji poza admin/platform jest zamrożona (auth, zaproszenie, vitals, 3 odczyty dostępności); auth i zaproszenie: brak/obcy Origin 403 na hoście firmy i platformy; vitals: obcy 403; trzy POST dostępności są odczytami (nic nie zapisują, `no-store`) | pass | `security-regression` („Origin inventory”) |
+| Nagłówki, zbudowany serwer | dokument HTML panelu (z sesją i bez), platformy i strony publicznej, także 404 i przekierowania: pełny zestaw, świeży nonce, bez `unsafe-inline`/`unsafe-eval`; dane (200, 404, trasa uploadu poza Proxy): zamknięte CSP i brak stosu | pass po uruchomieniu w ci-local | `e2e/security-headers` (nowy test #399) |
+| Redakcja błędów i logów | awaria warstwy danych na każdej trasie: żadna odpowiedź ani linia logu nie zawiera komunikatu, SQL, connection stringa, ścieżki ani stosu; token, hasło, ciasteczko i treść czatu: `unit/observability-redaction` | pass po poprawce S7 | `integration/error-redaction-5xx`, `unit/observability-redaction` |
+| Izolacja A/B | uzupełniono: media innej firmy na własnym hoście publicznym (oba kierunki, oba warianty): neutralne 404 bez cache; DTO, cache, jobs i WS bez zmian w pokryciu (sekcja 7) | pass | `security-regression` („media ID”) |
+
+Nadal otwarte (bez zmian względem wyżej): W1, W2, W4, W6 oraz cały zakres stagingowy z sekcji 8 (zależy od #90).
 
 ## 7. Izolacja A/B: media, cache, jobs, WS, DTO
 
