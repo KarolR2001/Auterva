@@ -22,6 +22,17 @@
       "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
     },
     {
+      "issue": 440,
+      "scope": "Formularze z sekretem (logowanie, MFA: kod z aplikacji i kod odzyskania, konfiguracja MFA, nowe kody odzyskania, aktywacja z zaproszenia, żądanie i ustawienie nowego hasła, zmiana hasła) używają wspólnego SecretForm: natywna wysyłka (Enter przed hydratacją, brak JavaScriptu) idzie metodą POST bez action, więc hasło i kod nigdy nie trafiają do adresu URL, historii ani Referer. Zachowanie z JavaScriptem, etykiety, błędy i fokus bez zmian wyglądu.",
+      "relatedRequirementIds": ["C-N020"],
+      "referenceScreenIds": ["ADM-01", "PLT-08", "ACC-07"],
+      "scenarioStates": {
+        "forms": "Bez zmian wyglądu; ID stanów w Penpocie jak we wpisach logowania, MFA i konta"
+      },
+      "codePaths": ["src/components/ui/secret-form.tsx", "src/components/auth/auth-flow.tsx", "src/components/auth/reset-flow.tsx", "src/components/auth/activation-flow.tsx", "src/components/account/account-view.tsx"],
+      "testPaths": ["tests/unit/secret-forms-inventory.test.tsx", "tests/e2e/secret-forms-no-get.spec.ts"]
+    },
+    {
       "issue": 437,
       "scope": "Jedno miejsce mapowania „baza niedostępna” na 503 TEMPORARILY_UNAVAILABLE (Retry-After, X-Request-Id, no-store) we wszystkich handlerach i trasach (transientDbResponse oparte na isDbUnavailableError, także w routeContext dla wyjątków, które uciekły handlerowi, i w trasie uploadu), tak jak w proxy (#412). Kody systemowe Node (ECONNRESET, ETIMEDOUT itd.) liczą się tylko dla błędu z klienta bazy (Prisma lub pula), więc błąd S3, poczty lub DNS pozostaje 500. createPrismaClient ma connectionTimeoutMillis (APP_DB_LIMITS: 4 s): baza, która przyjmuje TCP i nie odpowiada, kończy się kodem DB_CONNECT_TIMEOUT, a brak wolnego połączenia w puli DB_POOL_TIMEOUT, oba jako 503. Strony RSC: Next nie pozwala wybrać statusu renderu, więc strona błędu zostaje neutralna, a onRequestError loguje http.service_unavailable zamiast http.unhandled_error. Test inwentarza pilnuje, że każdy mapper 500 najpierw próbuje wspólnego mapowania.",
       "relatedRequirementIds": ["C-N060"],
@@ -100,6 +111,34 @@
         "tests/integration/fleet-list.test.ts",
         "tests/integration/fleet-list-filters.test.ts"
       ]
+    },
+    {
+      "issue": 419,
+      "scope": "Trwałe usunięcie danych firmy 12 miesięcy po archiwizacji (D-58): dzienny, idempotentny job COMPANY_PURGE w media-workerze; start pod blokadą wiersza firmy (purgeStartedAt, nieodwracalny trigger), wiersze firmy w paczkach (pojazdy, blokady, feedy, eksporty, treści/ustawienia, media, czat, hosty/domena, zaproszenia, receipty, konto administratora z MFA i sesjami), obiekty storage z ponowieniem po awarii, zanonimizowany szkielet Organization (purgedAt) dla audytu 365 dni. Po starcie brak zapisu, przywrócenia (409 COMPANY_PURGED) i restore z kopii. Audyt i logi bez treści. Karta firmy superadmina: purge.scheduledAt/startedAt/completedAt w API. Bez nowego ekranu.",
+      "relatedRequirementIds": ["C-F073", "C-F074", "C-F077", "D-58"],
+      "referenceScreenIds": [],
+      "unmappedStates": ["Backend; data planowanego usunięcia w karcie firmy (PLT-03) i komunikat COMPANY_PURGED wymagają osobnej decyzji projektowej/UI — w tym PR tylko pole API i tekst błędu przywrócenia."],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261112120000_company_purge_issue_419/migration.sql",
+        "src/modules/organizations/purge.ts",
+        "src/modules/organizations/archive.ts",
+        "src/modules/organizations/read.ts",
+        "src/modules/organizations/write-lock.ts",
+        "src/modules/media/worker.ts",
+        "src/modules/backup/company.ts",
+        "src/modules/observability/alerts.ts",
+        "src/components/platform/company-ops.tsx",
+        "docs/contracts/company-archive-restore.md",
+        "docs/contracts/platform-companies-read.md",
+        "docs/runbooks/monitoring-incidents.md",
+        "docs/runbooks/backup-restore.md",
+        "src/modules/reminders/reconcile.ts",
+        "src/modules/reminders/deliver.ts",
+        "docs/contracts/calendar-and-company-export.md",
+        "docs/ARCHITEKTURA_AUTERVA.md"
+      ],
+      "testPaths": ["tests/integration/company-purge.test.ts", "tests/integration/company-purge-migration.test.ts", "tests/integration/backup-restore.test.ts", "tests/integration/company-archive.test.ts"]
     },
     {
       "issue": 425,
@@ -2805,7 +2844,8 @@
       "codePaths": ["src/components/admin/bulk-blocks.tsx", "src/components/admin/bulk-blocks-model.ts"],
       "testPaths": ["tests/unit/bulk-blocks.test.tsx", "tests/e2e/bulk-blocks.spec.ts"],
       "sharedWith": "Reguła startsInPast z src/components/admin/vehicle-calendar-model.ts (pojedyncza blokada, #217)."
-    }
+    },
+    {"issue": 426, "scope": "Lokalny czat na żywo (tylko lokalnie, produkcyjna topologia bez zmian): local-ingress (produkcyjny build) i bramka dev (pnpm dev:gateway przed pnpm dev) przekazują upgrade /ws i /ws/platform do procesu ws (WS_PORT) z Origin i Cookie klienta; Host zastępuje skonfigurowany adres usługi WS, nagłówki forwarding są usuwane, żaden adres klienta nie jest przekazywany, ruch spoza loopbacku dostaje 403, inne ścieżki 404 (w bramce dev inne upgrade trafiają do next dev), niedostępny lub milczący proces ws 502. Zerwanie jednej strony zamyka drugą, zatrzymanie ingressu zamyka tunele. Origin z rejestru hostów, sesję z MFA, rolę i firmę nadal ocenia proces ws. Bez zmian kontraktu ramek i UI.", "relatedRequirementIds": ["C-F118", "C-F119", "C-F120", "C-F121"], "referenceScreenIds": [], "codePaths": ["src/modules/ingress/ws-upgrade-proxy.ts", "src/modules/ingress/dev-gateway.ts", "scripts/start-local-ingress.ts", "scripts/dev-gateway.ts", "playwright.config.ts"], "testPaths": ["tests/integration/ws-upgrade-proxy.test.ts", "tests/e2e/chat-live.spec.ts"], "sharedWith": "Kontrakt: docs/contracts/chat-realtime.md (sekcja „Lokalne przekazanie /ws”); adapter adresu: src/modules/ingress/client-address.ts; limit handshake na źródło: #173."}
   ],
   "sources": [
     {

@@ -33,10 +33,11 @@ function validVersion(value: number): boolean {
 
 /** All period and restore mutations lock the organization row before inspecting payment. */
 async function lockOrganization(tx: Prisma.TransactionClient, organizationId: string) {
-  const rows = await tx.$queryRaw<{ id: string }[]>`
-    SELECT id FROM "Organization" WHERE id = ${organizationId}::uuid FOR UPDATE
+  const rows = await tx.$queryRaw<{ id: string; purgeStartedAt: Date | null }[]>`
+    SELECT id, "purgeStartedAt" FROM "Organization" WHERE id = ${organizationId}::uuid FOR UPDATE
   `;
-  if (rows.length !== 1) throw new Error("PERIOD_COMPANY_NOT_FOUND");
+  // #419: a purged company has no period any more; it is not found for period writes.
+  if (rows.length !== 1 || rows[0].purgeStartedAt !== null) throw new Error("PERIOD_COMPANY_NOT_FOUND");
 }
 
 export async function changePaidThrough(db: PrismaClient, input: PlatformOperation & {

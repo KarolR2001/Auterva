@@ -490,3 +490,32 @@ test("platform HTTP transport guards host, origin, MFA and input, and the admin 
   expect(await restored.json()).toMatchObject({ archivedAt: null, publicUnlockRequired: true, publicRequiresPaid: true });
   expect(vehicleA).toBeTruthy();
 });
+
+test("#419: restoring a company whose permanent purge started is refused with 409 COMPANY_PURGED, also with a stale version", async () => {
+  await db.rateLimitEvent.deleteMany();
+  const purged = randomUUID();
+  await db.organization.create({ data: { id: purged, slug: `archive-purged-${purged}`, name: "Purged", version: 3,
+    archivedAt: new Date(Date.now() - 400 * 86_400_000), publicRequiresPaid: true, publicUnlockRequired: true,
+    purgeStartedAt: new Date() } });
+  const call = (handler: typeof archivePost, expectedOrganizationVersion: number) => handler(
+    new Request(`https://${platformHost}/api/platform/companies/${purged}/`, { method: "POST", headers: { host: platformHost,
+      origin: `https://${platformHost}`, cookie: platformCookie.cookie, "content-type": "application/json" },
+    body: JSON.stringify({ expectedOrganizationVersion, eventKey: randomUUID() }) }),
+    { params: Promise.resolve({ organizationId: purged }) });
+  try {
+    const before = await orgRow(purged);
+    for (const version of [3, 2]) {
+      const refused = await call(restorePost, version);
+      expect(refused.status).toBe(409);
+      expect(refused.headers.get("Cache-Control")).toBe("no-store");
+      expect(await refused.json()).toEqual({ code: "COMPANY_PURGED" });
+    }
+    const archiveAgain = await call(archivePost, 3);
+    expect(archiveAgain.status).toBe(409);
+    expect(await archiveAgain.json()).toEqual({ code: "COMPANY_ALREADY_ARCHIVED" });
+    expect(await orgRow(purged)).toEqual(before);
+    expect(await db.auditLog.count({ where: { organizationId: purged } })).toBe(0);
+  } finally {
+    await db.organization.deleteMany({ where: { id: purged } });
+  }
+});
