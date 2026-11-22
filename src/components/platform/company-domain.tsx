@@ -86,36 +86,46 @@ export function CompanyDomain({ organizationId, archived, onChanged, reloadKey =
   const status = useRef<HTMLDivElement>(null);
   useUnsavedChanges({ dirty: false, saving: busy !== null && busy !== "load" });
 
-  const load = useCallback(async (quiet = false) => {
+  // Every read gets a number and every write its own stamp. A read is applied only if no newer read started and no write began or
+  // finished meanwhile (#460): a late quiet GET must not overwrite a fresher state, and the next re-read (onChanged) corrects it.
+  const readSeq = useRef(0);
+  const writeSeq = useRef(0);
+  const read = useCallback(async (): Promise<"applied" | "stale" | "failed"> => {
+    const mine = ++readSeq.current;
+    const writes = writeSeq.current;
     try {
       const response = await fetch(base, { credentials: "same-origin", cache: "no-store" });
       if (!response.ok) throw new Error("load");
-      setState((await response.json()) as DomainState);
+      const next = (await response.json()) as DomainState;
+      if (mine !== readSeq.current || writes !== writeSeq.current) return "stale";
+      setState(next);
       setLoadFailed(false);
+      return "applied";
     } catch {
-      if (!quiet) setLoadFailed(true);
+      return mine !== readSeq.current || writes !== writeSeq.current ? "stale" : "failed";
     }
   }, [base]);
+
+  const load = useCallback(async (quiet = false) => {
+    if ((await read()) === "failed" && !quiet) setLoadFailed(true);
+  }, [read]);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      try {
-        const response = await fetch(base, { credentials: "same-origin", cache: "no-store" });
-        if (!response.ok) throw new Error("load");
-        const next = (await response.json()) as DomainState;
-        if (!cancelled) setState(next);
-      } catch {
-        if (!cancelled) setLoadFailed(true);
-      }
-      if (!cancelled) setBusy(null);
+      const result = await read();
+      if (cancelled) return;
+      if (result === "failed") setLoadFailed(true);
+      // Only the initial or a manual load is "load": never lift the busy state of a running domain operation.
+      setBusy((current) => (current === "load" ? null : current));
     })();
     return () => { cancelled = true; };
     // reloadKey is a trigger, not data: a change re-reads the stored domain without remounting the section.
-  }, [base, reloadKey]);
+  }, [read, reloadKey]);
 
   async function call(operation: Exclude<Busy, "load" | null>, method: string, path: string, body: Record<string, unknown>, success: (next: DomainState) => Notice) {
     if (busy) return;
+    writeSeq.current += 1;
     setBusy(operation);
     setNotice(null);
     setFieldError(null);
@@ -147,6 +157,7 @@ export function CompanyDomain({ organizationId, archived, onChanged, reloadKey =
       setNotice(next);
       if (refresh) await load(true);
     }
+    writeSeq.current += 1;
     setBusy(null);
     onChanged?.();
     requestAnimationFrame(() => (invalidInput ? document.getElementById(hostId) : status.current)?.focus());
@@ -173,7 +184,7 @@ export function CompanyDomain({ organizationId, archived, onChanged, reloadKey =
         {busy === null && notice && <Alert tone={notice.tone} title={notice.title}>{notice.text}</Alert>}
         {busy === null && loadFailed && (
           <Alert tone="error" title="Nie udało się wczytać stanu domeny."
-            action={{ label: "Spróbuj ponownie", onClick: () => { setBusy("load"); void load().finally(() => setBusy(null)); } }}>
+            action={{ label: "Spróbuj ponownie", onClick: () => { setBusy("load"); void load().finally(() => setBusy((current) => (current === "load" ? null : current))); } }}>
             Pokazany stan może być nieaktualny.
           </Alert>
         )}
