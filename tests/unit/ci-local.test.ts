@@ -1,5 +1,5 @@
 import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { chmodSync, existsSync, utimesSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, utimesSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterAll, expect, test, vi } from "vitest";
@@ -68,7 +68,21 @@ function setup(v: Versions = {}, pnpmBody = "exit 1", extra: Extra = {}) {
   stub(bin, "pg_dump", `echo "pg_dump (PostgreSQL) ${v.pgdump ?? "18.1"}"`);
   if (v.docker !== false) stub(bin, "docker", v.buildx === false ? 'test "$1" != buildx' : "exit 0");
   stub(bin, "pnpm", pnpmBody);
-  const env: NodeJS.ProcessEnv = { PATH: `${bin}:/usr/bin:/bin:/usr/sbin`, HOME: root, TMPDIR: root, NODE_ENV: "test" as const, ...extra.env };
+  // A runner may ship a real docker in /usr/bin (GitHub Actions does), which would defeat docker:false; then the system
+  // directories are mirrored by symlinks without docker.
+  let systemPath = "/usr/bin:/bin:/usr/sbin";
+  if (v.docker === false) {
+    const sys = join(root, "sys");
+    mkdirSync(sys);
+    for (const dir of systemPath.split(":")) {
+      if (!existsSync(dir)) continue;
+      for (const name of readdirSync(dir)) {
+        if (name !== "docker" && !existsSync(join(sys, name))) symlinkSync(join(dir, name), join(sys, name));
+      }
+    }
+    systemPath = sys;
+  }
+  const env: NodeJS.ProcessEnv = { PATH: `${bin}:${systemPath}`, HOME: root, TMPDIR: root, NODE_ENV: "test" as const, ...extra.env };
   const base = freeBase();
   // "27400" in a call stands for this setup's own free frame.
   const mapped = (args: string[]) => args.map((a) => (a === "27400" ? String(base) : a));
