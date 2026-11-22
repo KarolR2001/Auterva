@@ -273,13 +273,22 @@
     flex: 1 1 0px;
     min-height: calc(var(--space-16) * 2);
   }
+}
 
-  .chat[data-embedded] .subtitle {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
+/* #457: the same in the split view. The recipient line repeats the company name of the heading right above, and with a
+   120-character name it took the room of the history in the narrow conversation column (about 34 px at 1024x768). The
+   history keeps the same usable minimum (8 grid steps) as below 1024 px. */
+.chat[data-embedded] .subtitle {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (min-width: 1024px) {
+  .chat[data-embedded]:not([data-gap-error]) .list {
+    min-height: calc(var(--space-16) * 2);
   }
 }

@@ -100,6 +100,12 @@ for (const { label, width, height, phone, split, tablet } of variants as { label
       const toTop = () => page.evaluate(() => window.scrollTo(0, 0));
 
       if (split) {
+        // #457: the long name takes at most two lines in the narrow conversation column, so the history keeps >= 128 px (8 grid steps).
+        const headingSplit = await heading.boundingBox();
+        const historySplit = await history.boundingBox();
+        expect(headingSplit?.height ?? 0, "split heading height").toBeLessThanOrEqual(60);
+        expect(historySplit?.height ?? 0, "split history height").toBeGreaterThanOrEqual(128);
+        expect(await heading.evaluate((element) => element.textContent)).toBe(NAME);
         // 1024 px and wider: no navigation; the whole composer stays inside the inbox box also with the gap notice (#411/#435).
         await page.route(/\/messages\/\?.*after=/, (route) => route.fulfill({ status: 503, body: "" }));
         await db.chatMessage.createMany({ data: rows(41, 42, conversation.id) });
