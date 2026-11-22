@@ -5,7 +5,7 @@ Instrukcja krok po kroku dla osoby, która po restarcie Maca chce uruchomić Aut
 Wszystko działa wyłącznie na `127.0.0.1` i lokalnych danych (`.local/`, ignorowane przez Git). Nie wpisuj tu produkcyjnych danych ani nie publikuj plików `.env`, `.local/fixture-9/secrets.env` i `.local/fixture-9/access.json`.
 
 > **Warunkowość opisów (stan: do czasu scalenia wskazanych PR):**
-> - Host `platform.localhost` tworzy `seed-local-fixture.ts` dopiero po scaleniu PR #432. Do tego czasu dodaj go ręcznym `INSERT` z sekcji 4 (po każdym `--reset` ponownie). Po #432 ten krok jest zbędny (`ON CONFLICT DO NOTHING` pozostaje bezpieczny).
+> - Host `platform.localhost` tworzy `seed-local-fixture.ts` od scalenia PR #432 (także po `--reset`); ręczny `INSERT` jest potrzebny tylko na starym checkoutcie sprzed #432.
 > - Proxy `/ws` dla czatu na żywo (przekazanie WebSocket z `pnpm dev` / `start:local-ingress` do procesu `dev:ws`) dochodzi z PR #438. Do tego czasu obowiązuje „ograniczenie lokalne” w sekcji 4 (czat przez HTTP, wskaźniki na żywo bez proxy).
 
 ## Szybki start: kolejność komend (po restarcie Maca)
@@ -27,7 +27,7 @@ pnpm exec prisma migrate deploy
 pnpm exec tsx scripts/seed-local-fixture.ts
 scripts/local-fixture.sh seed-media
 scripts/local-fixture.sh status
-# do scalenia PR #432: ręczny INSERT hosta platform.localhost (sekcja 4), inaczej logowanie superadmina da 404
+# host platform.localhost tworzy seed (od #432); na starszym checkoutcie dodaj go ręcznie wg sekcji 4
 ```
 
 **Karta 2 — aplikacja (wybierz jedno):**
@@ -153,16 +153,9 @@ Routing wybiera obszar po nagłówku `Host` (port jest ignorowany). Domeny `*.lo
 |---|---|---|
 | Strona publiczna firmy A / B | `company-a.localhost`, `company-b.localhost` | `http://company-a.localhost:44210/` |
 | Panel firmy A / B | `admin.company-a.localhost`, `admin.company-b.localhost` | `http://admin.company-a.localhost:44210/admin/login/` |
-| Platforma (superadmin) | **brak w seedzie do scalenia PR #432** — patrz niżej | `http://platform.localhost:44210/login/` |
+| Platforma (superadmin) | `platform.localhost` | `http://platform.localhost:44210/login/` |
 
-Do scalenia PR #432 seed nie tworzy hosta platformy (po #432 tworzy go sam i ten krok jest zbędny). Dla logowania superadmina dodaj lokalnie (raz na bazę; reset bazy go usuwa), zmieniając port na swój `LOCAL_PORT_BASE`:
-
-```sh
-psql -h 127.0.0.1 -p 44200 -d auterva_fixture_9 -c \
-  "INSERT INTO \"HostMapping\" (id, hostname, area, status) VALUES (gen_random_uuid(), 'platform.localhost', 'PLATFORM', 'ACTIVE') ON CONFLICT DO NOTHING"
-```
-
-(Pusta baza alternatywnie dostaje hosta platformy z `pnpm exec tsx scripts/bootstrap-superadmin.ts`; nie używaj go na fixture z danymi, bo wymaga pustej bazy.) Sprawdzono: `http://platform.localhost:44210/login/` zwraca 200, a `/firmy/` przekierowuje do logowania.
+Host platformy tworzy ten sam seed, także po `--reset` (#425); ręczny `psql` nie jest potrzebny. Tylko na checkoucie sprzed #432 dodaj host ręcznie (port jak `LOCAL_PORT_BASE`): `psql -h 127.0.0.1 -p 44200 -d auterva_fixture_9 -c "INSERT INTO \"HostMapping\" (id, hostname, area, status) VALUES (gen_random_uuid(), 'platform.localhost', 'PLATFORM', 'ACTIVE') ON CONFLICT DO NOTHING"`. Wiersz `platform.localhost` dodany wcześniej ręcznie seed zostawia bez zmian. Sprawdzono: `http://platform.localhost:44210/login/` zwraca 200, `/firmy/` bez sesji przekierowuje do logowania, a superadmin z fixture loguje się hasłem i kodem TOTP. (Pusta baza bez fixture dostaje hosta platformy z `pnpm exec tsx scripts/bootstrap-superadmin.ts`; nie używaj go na fixture z danymi, bo wymaga pustej bazy.)
 
 ### Wariant A: dev (szybki, bez PWA) — karta 2
 
@@ -289,10 +282,10 @@ Penpot to osobne narzędzie w przeglądarce (nie uruchamia się go z repozytoriu
 | Po uśpieniu lub restarcie Maca brak połączenia z bazą, `status` pokazuje „no response” | Procesy fixture padły. Wykonaj `scripts/local-fixture.sh stop`, potem `start` z tą samą bazą; dane zostają. Jeśli `start` nadal zgłasza stary `postmaster.pid` — do potwierdzenia, niesprawdzone w tej instrukcji. |
 | `backup-restore` test timeout lub zapełniony S3 | Przy zatrzymanej fixture `rm -rf .local/fixture-9/storage`, potem `start` i `seed-media`. Dotyczy wyczyszczonych wolumenów SeaweedFS (#212). |
 | `PrismaClientValidationError` lub nieaktualny klient po `git pull` | `pnpm exec prisma generate` i `pnpm exec prisma migrate deploy`. |
-| Logowanie zwraca 404 lub przekierowanie do `/login` na hoście platformy | Brak wiersza `platform.localhost` (sekcja 4) albo zły host. Zaloguj się na `admin.company-a.localhost`, nie na `localhost`. |
+| Logowanie zwraca 404 lub przekierowanie do `/login` na hoście platformy | Brak wiersza `platform.localhost` (uruchom seed, sekcja 3) albo zły host: superadmin loguje się na `platform.localhost`, administrator firmy na `admin.company-a.localhost`, nikt na `localhost`. |
 | Brak e-maili | Worker nie działa (karta 3) albo klucze `MAIL_*` nie zostały ustawione; sprawdź Mailpit (`baza+3`). |
 | Dev i build nadpisują się | Osobny katalog: `AUTERVA_NEXT_DIST_DIR=.local/next-dev pnpm dev --port <port>`. |
-| Reset całej bazy | `pnpm exec tsx scripts/seed-local-fixture.ts --reset` (nie `prisma migrate reset`). Po resecie dodaj ponownie `platform.localhost` i TOTP. |
+| Reset całej bazy | `pnpm exec tsx scripts/seed-local-fixture.ts --reset` (nie `prisma migrate reset`). Po resecie dodaj ponownie TOTP do aplikacji (nowe sekrety); host `platform.localhost` tworzy seed. |
 
 ## Niepotwierdzone w tym dokumencie
 
