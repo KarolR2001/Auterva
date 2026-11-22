@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { denyPanel } from "@/components/panel/deny-panel";
 import { PanelShell } from "@/components/panel/panel-shell";
-import { PurgeRunningNotice } from "@/components/platform/purge-running-notice";
+import { PurgeRunningNotice, purgeCompanyName, purgeNoticeState } from "@/components/platform/purge-running-notice";
 import { SettingsForm } from "@/components/settings/settings-form";
 import { SettingsNav } from "@/components/settings/settings-nav";
 import { parseSection, type SettingsSnapshot } from "@/components/settings/settings-model";
@@ -30,9 +30,12 @@ export default async function CompanySettingsPage({ params, searchParams }: {
   if (area?.area !== "PLATFORM" || area.organizationId !== null || !uuid.test(organizationId)) notFound();
   const actor = await requireAuthorizedActor(prisma, auth, incoming, { area: "PLATFORM", organizationId: null });
   if (!actor) return denyPanel(prisma, auth, incoming, { area: "PLATFORM", organizationId: null });
-  const snapshot = await getCompanySettings(prisma, organizationId, "platform");
-  if (!snapshot) notFound();
-  const company = await prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true, purgeStartedAt: true } });
+  const company = await prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true, purgeStartedAt: true, purgedAt: true } });
+  if (!company) notFound();
+  // Once the purge has started the settings are neither read nor shown: the neutral state replaces the whole page.
+  const purge = purgeNoticeState(company);
+  const snapshot = purge ? null : await getCompanySettings(prisma, organizationId, "platform");
+  if (!purge && !snapshot) notFound();
   const section = parseSection((await searchParams).sekcja);
   const base = `/firmy/${encodeURIComponent(organizationId)}/ustawienia`;
   return (
@@ -42,9 +45,9 @@ export default async function CompanySettingsPage({ params, searchParams }: {
       expectedSessionId={actor.sessionId}
       title="Ustawienia firmy"
       currentPath={base}
-      companyContext={{ id: organizationId, name: company?.name ?? "Firma" }}
+      companyContext={{ id: organizationId, name: purgeCompanyName(purge, company.name) }}
     >
-      {company?.purgeStartedAt ? <PurgeRunningNotice /> : (
+      {purge ? <PurgeRunningNotice state={purge} /> : (
         <div className={settingsStyles.layout}>
           <SettingsNav base={base} current={section} />
           <SettingsForm key={section} snapshot={snapshot as unknown as SettingsSnapshot} section={section} />

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { CalendarFeeds } from "@/components/calendar-feed/calendar-feeds";
 import { platformFeedContext } from "@/components/calendar-feed/feed-api";
 import { denyPanel } from "@/components/panel/deny-panel";
+import { PurgeRunningNotice, purgeCompanyName, purgeNoticeState } from "@/components/platform/purge-running-notice";
 import { PanelShell } from "@/components/panel/panel-shell";
 import { SettingsNav } from "@/components/settings/settings-nav";
 import settingsStyles from "@/components/settings/settings.module.css";
@@ -25,9 +26,10 @@ export default async function CompanyExternalCalendarPage({ params }: { params: 
   if (area?.area !== "PLATFORM" || area.organizationId !== null || !uuid.test(organizationId)) notFound();
   const actor = await requireAuthorizedActor(prisma, auth, incoming, { area: "PLATFORM", organizationId: null });
   if (!actor) return denyPanel(prisma, auth, incoming, { area: "PLATFORM", organizationId: null });
-  const company = await prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true } });
+  const company = await prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true, purgeStartedAt: true, purgedAt: true } });
   if (!company) notFound();
-  const name = company.name ?? "Firma";
+  const purge = purgeNoticeState(company);
+  const name = purgeCompanyName(purge, company.name);
   const base = `/firmy/${encodeURIComponent(organizationId)}/ustawienia`;
   return (
     <PanelShell
@@ -38,10 +40,12 @@ export default async function CompanyExternalCalendarPage({ params }: { params: 
       currentPath={`${base}/kalendarz-zewnetrzny`}
       companyContext={{ id: organizationId, name }}
     >
-      <div className={settingsStyles.layout}>
-        <SettingsNav base={base} current="kalendarz" />
-        <CalendarFeeds context={platformFeedContext(organizationId)} companyName={name} />
-      </div>
+      {purge ? <PurgeRunningNotice state={purge} /> : (
+        <div className={settingsStyles.layout}>
+          <SettingsNav base={base} current="kalendarz" />
+          <CalendarFeeds context={platformFeedContext(organizationId)} companyName={name} />
+        </div>
+      )}
     </PanelShell>
   );
 }

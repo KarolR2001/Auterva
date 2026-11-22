@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { PanelShell } from "@/components/panel/panel-shell";
 import { requireVehicleInCompany } from "@/components/panel/require-vehicle";
 import { requirePlatformPage } from "@/components/platform/platform-gate";
-import { PurgeRunningNotice } from "@/components/platform/purge-running-notice";
+import { PurgeRunningNotice, purgeCompanyName, purgeNoticeState } from "@/components/platform/purge-running-notice";
 import { Alert } from "@/components/ui/alert";
 import { prisma } from "@/lib/prisma";
 
@@ -25,16 +25,18 @@ export async function PlatformCompanyPage({ organizationId, currentPath, title, 
 }) {
   if (!uuid.test(organizationId)) notFound();
   const actor = await requirePlatformPage();
-  const company = await prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true, archivedAt: true, purgeStartedAt: true } });
+  const company = await prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true, archivedAt: true, purgeStartedAt: true, purgedAt: true } });
   if (!company) notFound();
-  if (requireVehicleId) await requireVehicleInCompany(organizationId, requireVehicleId);
-  const name = company.name ?? "Firma";
+  // After the purge started the company's data is being (or has been) removed: the pages show the neutral state, never the data.
+  const purge = purgeNoticeState(company);
+  if (!purge && requireVehicleId) await requireVehicleInCompany(organizationId, requireVehicleId);
+  const name = purgeCompanyName(purge, company.name);
   const archived = company.archivedAt !== null;
   return (
     <PanelShell area="platform" accessState="allowed" expectedSessionId={actor.sessionId} title={title} currentPath={currentPath}
       companyContext={{ id: organizationId, name }}>
-      {company.purgeStartedAt ? (
-        <PurgeRunningNotice />
+      {purge ? (
+        <PurgeRunningNotice state={purge} />
       ) : (<>
       {archived && (
         <Alert tone="info" title="Firma jest zarchiwizowana">
