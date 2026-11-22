@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { actor, response } from "@/modules/fleet/http";
-import { reportInternalError } from "@/modules/observability/http-observe";
+import { reportInternalError, transientDbResponse } from "@/modules/observability/http-observe";
 import { AuditReadInputError, auditReadActions, auditReadActorRoles, auditReadEntityTypes, decodeAuditCursor, isValidAuditInstant,
   readAuditPage } from "./read";
 
@@ -45,7 +45,8 @@ async function read(request: Request, area: "COMPANY_ADMIN" | "PLATFORM", organi
     const code = error instanceof Error ? error.message : "";
     if (code === "Audit actor is not authorized" || code === "Audit tenant mismatch")
       return response({ code: "FORBIDDEN" }, 403, requestId);
-    return response({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "audit"));
+    return transientDbResponse(error, requestId, "audit")
+      ?? response({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "audit"));
   }
 }
 
