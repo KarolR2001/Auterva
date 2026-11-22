@@ -7,6 +7,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Client } from "pg";
 import { BackupCryptoError, canonicalJson, manifestMac } from "./crypto";
+import type { ConfigInventory } from "./config-inventory";
 
 export type Queryable = { query: (sql: string, params?: unknown[]) => Promise<{ rows: Array<Record<string, unknown>>; rowCount?: number | null }> };
 
@@ -32,6 +33,8 @@ export type Manifest = {
   constraints: string[];
   organizations: Record<string, { slug: string; counts: Record<string, number> }>;
   media: { objects: MediaEntry[]; missingRequired: string[] };
+  /** Names and keyed fingerprints of required configuration (no values); absent in older backups. */
+  config?: ConfigInventory;
   mac?: string;
 };
 

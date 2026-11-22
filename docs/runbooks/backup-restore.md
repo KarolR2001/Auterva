@@ -17,7 +17,8 @@
 1. Jedna transakcja `REPEATABLE READ` eksportuje snapshot. `pg_dump --snapshot`, liczby wierszy (tabela i firma), lista ograniczeń, wersje migracji i lista kluczy mediów pochodzą z tego samego punktu.
 2. DB i każdy obiekt mediów są szyfrowane strumieniowo AES-256-GCM (ramki 1 MiB uwierzytelniane indeksem i znacznikiem ostatniej ramki); w postaci jawnej nic nie trafia na dysk.
 3. Manifest zawiera czas UTC, commit, ostatnią migrację, sumy SHA-256 plików i obiektów, liczby wierszy oraz MAC (HMAC kluczem kopii). Zła suma, zły klucz lub edycja manifestu daje odmowę przed jakimkolwiek zapisem.
-4. Jeśli brakuje choćby jednego wymaganego obiektu (READY), manifest ma `complete=false`, komenda kończy się błędem `BACKUP_MEDIA_INCOMPLETE`, a zestaw nie jest punktem RPO.
+4. Manifest zawiera też spis konfiguracji **bez wartości**: nazwy wymaganych zmiennych (obecne i brakujące) oraz kluczowany odcisk HMAC `BETTER_AUTH_SECRET` i `MAIL_PAYLOAD_KEY`. Pełny restore porównuje odciski ze środowiskiem operatora i ostrzega (`warnings`), gdy sekret jest inny lub nieustawiony. Sama konfiguracja i sekrety nie są w kopii: pochodzą z repozytorium konfiguracji i menedżera sekretów dostawcy (not-run, #90), a kopia dowodzi tylko, że odtwarzany jest ten sam sekret.
+5. Jeśli brakuje choćby jednego wymaganego obiektu (READY), manifest ma `complete=false`, komenda kończy się błędem `BACKUP_MEDIA_INCOMPLETE`, a zestaw nie jest punktem RPO.
 
 Ograniczenie: kopia wykrywa obiekt usunięty przez GC po snapshotcie, ale nie rejestruje blokady usuwania (opisanej w kontrakcie środowisk). Do czasu jej wdrożenia GC mediów nie powinien działać w oknie kopii; brak obiektu daje alarm, nie cichą lukę.
 
@@ -78,9 +79,15 @@ Wyłącznie operator, według [D-05](../contracts/technical-limits-and-mfa-boots
 
 Uwaga do pojęcia „generacji bezpieczeństwa” w kontrakcie środowisk: w tym rozwiązaniu realizują ją usunięcie sesji, weryfikacji, challenge MFA i jobów w nowej bazie oraz zachowanie `BETTER_AUTH_SECRET`; osobny licznik generacji poza snapshotem nie jest potrzebny, bo odtworzone środowisko nie ma żadnego wcześniej wydanego tokenu.
 
+## Ćwiczenie lokalne jedną komendą
+
+`AUTERVA_FIXTURE=1 LOCAL_PORT_BASE=<baza> pnpm exec tsx scripts/backup-drill.ts [--organization=<id>] [--keep]` na uruchomionej lokalnej fixture (po `seed-local-fixture.ts` i `seed-media`). Źródłowa baza i bucket są tylko czytane; komenda odmawia poza loopbackową fixture. Wykonuje: kopię, `verify`, pełny restore do nowej bazy i nowego bucketa, **niezależne** porównanie (liczby wierszy tabel i firm z manifestem poza zamierzonymi zmianami restore, obiekty S3: komplet kluczy, rozmiar i SHA-256), następnie zmienia dane obu firm w odtworzonej bazie, odtwarza firmę A i sprawdza, że żaden wiersz poza A (skrót wszystkich tabel z `organizationId` oraz `Organization`) się nie zmienił, a A wróciła do stanu kopii. Raport JSON zawiera czasy etapów, `rpo` (okno od snapshotu do startu restore i liczba wierszy zapisanych po snapshocie na źródle) oraz `rto` (verify + pełny restore) z celami D-10; kod ≠ 0, gdy którakolwiek kontrola nie przeszła. Bazy i buckety ćwiczenia są usuwane (bez `--keep`).
+
+Okno RPO tej metody to maksymalnie okres między kopiami (24 h); ćwiczenie mierzy je dla konkretnej kopii, nie zastępuje PITR. Test `tests/integration/backup-drill.test.ts` obejmuje ćwiczenie, wykrywanie wycieku oraz scenariusz po purge: pełny restore kopii sprzed trwałego usunięcia przywraca firmę, job `COMPANY_PURGE` z kopii pozostaje do wykonania (nie jest kwarantannowany ani nie unieważnia restore), następny przebieg usuwa firmę i jej obiekty z odtworzonego bucketa, a `restore-company` z tej kopii kończy się `RESTORE_COMPANY_PURGED`.
+
 ## Pomiar lokalny (fixture, nie produkcja)
 
-Test `tests/integration/backup-restore.test.ts` wypisuje czasy etapów. Ćwiczenie D-54 na fixture (2 firmy, bloki, feedy, eksporty, 3 obiekty; komendy CLI): kopia 0,6 s, `verify` 0,5 s, restore pełny 1,0 s, restore firmy 0,6 s; szczegóły w [raporcie ćwiczenia](backup-restore-drill-2026-11-12.md). To ma znaczenie tylko dla poprawności metody. RPO metody: kopia dzienna daje stratę do jednego okresu między kopiami, czyli do 24 h (kopia o 2:00 i awaria o 1:59 następnego dnia); PITR nie jest tu uruchomiony, więc dla strat mniejszych niż 24 h nie ma dowodu.
+Test `tests/integration/backup-restore.test.ts` wypisuje czasy etapów. Ćwiczenie D-54 na fixture (2 firmy, bloki, feedy, eksporty, 3 obiekty; komendy CLI): kopia 0,6 s, `verify` 0,5 s, restore pełny 1,0 s, restore firmy 0,6 s (ćwiczenie z `backup-drill.ts` na fixture #60: kopia 0,1 s, restore pełny 0,4 s, restore firmy 0,3 s, 36 tabel, 82 wiersze, 3 obiekty 76 KiB); szczegóły w [raporcie ćwiczenia](backup-restore-drill-2026-11-12.md). To ma znaczenie tylko dla poprawności metody. RPO metody: kopia dzienna daje stratę do jednego okresu między kopiami, czyli do 24 h (kopia o 2:00 i awaria o 1:59 następnego dnia); PITR nie jest tu uruchomiony, więc dla strat mniejszych niż 24 h nie ma dowodu.
 
 ## Not-run (zależne od #90, płatne środowiska)
 

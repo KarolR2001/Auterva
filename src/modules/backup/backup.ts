@@ -8,6 +8,7 @@ import { PassThrough, type Readable } from "node:stream";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import type { MediaStorage } from "../media/storage";
 import { createEncryptor } from "./crypto";
+import { configInventory } from "./config-inventory";
 import {
   appliedMigrations, BackupError, connect, constraintNames, type Manifest, type MediaEntry, organizationCounts, pgEnv,
   readManifest, referencedMedia, rowCounts, runTool, serverFingerprint, signManifest, toolFailure,
@@ -53,7 +54,7 @@ async function readObject(storage: MediaStorage, key: string): Promise<Buffer | 
  * DB and media describe the same point. Output stays encrypted and is never written in clear.
  */
 export async function createBackup(input: {
-  databaseUrl: string; outDir: string; key: Buffer; storage: MediaStorage | null; commit: string; now?: Date;
+  databaseUrl: string; outDir: string; key: Buffer; storage: MediaStorage | null; commit: string; now?: Date; env?: NodeJS.ProcessEnv;
 }): Promise<{ dir: string; manifest: Manifest }> {
   const now = input.now ?? new Date();
   const id = backupId(now);
@@ -105,6 +106,7 @@ export async function createBackup(input: {
       source: { database, fingerprint: serverFingerprint(input.databaseUrl), systemId },
       db: { file: "db.dump.enc", cipherSha256: written.cipherSha256, cipherBytes: written.cipherBytes, pgDumpVersion: version },
       tables, constraints, organizations, media: { objects, missingRequired },
+      config: configInventory(input.env ?? process.env, input.key),
     }, input.key);
     await writeFile(join(dir, "manifest.json"), JSON.stringify(manifest, null, 2), { mode: 0o600 });
     if (!manifest.complete) {
