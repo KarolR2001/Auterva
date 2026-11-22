@@ -1,14 +1,15 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BulkBlocks } from "../../src/components/admin/bulk-blocks";
 import { readBulkAnswer } from "../../src/components/admin/bulk-blocks-api";
 import {
-  activityText, bulkStartsInPast, checkedVehicles, emptyDraft, keyFor, ofVehicles, rejectionText, requestOf, signatureOf, validateDraft, type BulkSource,
+  activityText, bulkStartsInPast, checkedVehicles, emptyDraft, isDraftDirty, keyFor, ofVehicles, rejectionText, requestOf, signatureOf, validateDraft, type BulkSource,
 } from "../../src/components/admin/bulk-blocks-model";
+import { createGuardRegistry, UnsavedChangesGuardContext } from "../../src/components/panel/unsaved-changes-guard";
 import { FleetCalendar } from "../../src/components/admin/fleet-calendar";
 import { companyContext, platformContext } from "../../src/components/admin/fleet-api";
 import { warsawDate } from "../../src/components/admin/vehicle-calendar-model";
@@ -233,6 +234,30 @@ describe("#217 ekran: podgląd, tryby konfliktu, raport, wynik niepewny", () => 
     expect(bulk()[0].body).toEqual(bulk()[2].body);
   });
 
+  it("wynik nieznany ostrzega, że po opuszczeniu strony ponowienie tym samym kluczem znika (blokada i kopia)", async () => {
+    const warning = "Po opuszczeniu tej strony nie ponowisz wysyłki tym samym kluczem — sprawdź kalendarz floty.";
+    const user = userEvent.setup();
+    server([reply(502, {})]);
+    renderBulk();
+    await fillCreate(user);
+    await user.click(screen.getByRole("button", { name: "Zapisz blokadę" }));
+    expect(await screen.findByText("Nie wiemy, czy blokady zostały zapisane")).toBeInTheDocument();
+    expect(screen.getByText("Nie wiemy, czy blokady zostały zapisane").parentElement).toHaveTextContent(warning);
+  });
+
+  it("kopia: wynik nieznany niesie to samo ostrzeżenie", async () => {
+    const user = userEvent.setup();
+    server([preview([A]), reply(503, {})]);
+    const source: BulkSource = { blockId: BLOCK, vehicleId: C, vehicleName: "Auto Gamma", from: "2027-03-15", to: "2027-03-17", type: "MAINTENANCE", reference: "SRV-9", hasNote: true };
+    renderBulk({ mode: "copy", source });
+    await user.click(await screen.findByRole("checkbox", { name: /Auto Alfa/ }));
+    await user.click(screen.getByRole("button", { name: "Sprawdź konflikty" }));
+    await screen.findByText("Podgląd konfliktów — nic nie zapisano");
+    await user.click(screen.getByRole("button", { name: "Kopiuj blokadę" }));
+    expect(await screen.findByText("Nie wiemy, czy blokady zostały zapisane")).toBeInTheDocument();
+    expect(screen.getByText("Nie wiemy, czy blokady zostały zapisane").parentElement).toHaveTextContent("Po opuszczeniu tej strony nie ponowisz wysyłki tym samym kluczem — sprawdź kalendarz floty.");
+  });
+
   it("„Zmień dane” po wyniku nieznanym odblokowuje formularz, kolejny zapis ma nowy klucz", async () => {
     const user = userEvent.setup();
     const { bulk } = server([reply(500, { code: "INTERNAL_ERROR" }), reply(201, { saved: [{ vehicleId: A, blockId: "n1", version: 1 }], rejected: [] })]);
@@ -364,6 +389,115 @@ describe("#217 kalendarz floty: wejścia D-48, adres widoku i odświeżenie po z
     render(<FleetCalendar today="2026-11-10" title="Kalendarz floty" />);
     expect(await screen.findByText(/Nie znaleźliśmy blokady do skopiowania/)).toBeInTheDocument();
     expect(window.location.search).toBe("");
+  });
+});
+
+describe("#378 ochrona niezapisanych zmian: blokada zbiorcza i kopia w powłoce panelu", () => {
+  function guarded(props: Partial<Parameters<typeof BulkBlocks>[0]> = {}) {
+    const registry = createGuardRegistry();
+    const spies = renderBulkIn(registry, props);
+    return { registry, ...spies };
+  }
+  function renderBulkIn(registry: ReturnType<typeof createGuardRegistry>, props: Partial<Parameters<typeof BulkBlocks>[0]>) {
+    const onSaved = vi.fn(), onClose = vi.fn(), onCopy = vi.fn();
+    render(<UnsavedChangesGuardContext.Provider value={registry}>
+      <BulkBlocks context={companyContext} mode="create" source={null} today={TODAY} calendarHref="/admin/kalendarz/"
+        onClose={onClose} onSaved={onSaved} onCopy={onCopy} {...props} />
+    </UnsavedChangesGuardContext.Provider>);
+    return { onSaved, onClose, onCopy };
+  }
+
+  it("model: pusty formularz jest czysty, każde wpisane pole albo wybrany pojazd to zmiana", () => {
+    expect(isDraftDirty(emptyDraft())).toBe(false);
+    expect(isDraftDirty({ ...emptyDraft(), vehicleIds: [A] })).toBe(true);
+    expect(isDraftDirty({ ...emptyDraft(), internalNote: "x" })).toBe(true);
+    expect(isDraftDirty({ ...emptyDraft(), onConflict: "SKIP" })).toBe(true);
+    expect(isDraftDirty({ ...emptyDraft(), copyNote: true })).toBe(true);
+  });
+
+  it("wpis lub wybór pojazdu rejestruje „dirty”; po zapisanym wyniku stan jest czysty (admin i superadmin)", async () => {
+    for (const context of [companyContext, platformContext("org-1")]) {
+      cleanup();
+      const user = userEvent.setup();
+      server([reply(201, { saved: [{ vehicleId: A, blockId: "n1", version: 1 }], rejected: [] })]);
+      const { registry } = guarded({ context });
+      await screen.findByRole("checkbox", { name: /Auto Alfa/ });
+      expect(registry.state()).toBe("free");
+      await user.click(screen.getByRole("checkbox", { name: /Auto Alfa/ }));
+      expect(registry.state()).toBe("dirty");
+      expect(registry.label()).toBe("Blokada zbiorcza");
+      await user.type(screen.getByLabelText(/^Od/), "2027-03-15");
+      await user.click(screen.getByRole("button", { name: "Zapisz blokadę" }));
+      await screen.findByText(/Zapisano 1 z 1/);
+      expect(registry.state()).toBe("free");
+    }
+  });
+
+  it("w trakcie zapisu stan to „busy” (wyjście pokazuje ostrzeżenie), po odpowiedzi nie; anulowany zapis (wszystko albo nic) też jest czysty", async () => {
+    const user = userEvent.setup();
+    let release: (response: Response) => void = () => undefined;
+    vi.stubGlobal("fetch", vi.fn(async (input: string) => {
+      if (String(input).includes("/availability/fleet/")) return reply(200, vehicles());
+      return new Promise<Response>((resolve) => { release = resolve; });
+    }));
+    const { registry } = guarded();
+    await fillCreate(user, ["Auto Alfa"]);
+    await user.click(screen.getByRole("button", { name: "Zapisz blokadę" }));
+    await waitFor(() => expect(registry.state()).toBe("busy"));
+    release(reply(409, { code: "BULK_CONFLICTS", saved: [], rejected: [{ vehicleId: A, code: "BLOCK_OUTSIDE_ACTIVITY" }] }));
+    expect(await screen.findByText("Nic nie zapisano")).toBeInTheDocument();
+    expect(registry.state()).toBe("free");
+  });
+
+  it("kopia z wybranym pojazdem jest „dirty”", async () => {
+    const user = userEvent.setup();
+    server([]);
+    const source: BulkSource = { blockId: BLOCK, vehicleId: C, vehicleName: "Auto Gamma", from: "2027-03-15", to: "2027-03-17", type: "MAINTENANCE", reference: null, hasNote: false };
+    const { registry } = guarded({ mode: "copy", source });
+    await screen.findByRole("checkbox", { name: /Auto Alfa/ });
+    expect(registry.state()).toBe("free");
+    await user.click(screen.getByRole("checkbox", { name: /Auto Alfa/ }));
+    expect(registry.state()).toBe("dirty");
+    expect(registry.label()).toBe("Kopia blokady");
+  });
+
+  it("okruszek: gdy powłoka przechwyciła kliknięcie (dialog), widok się nie zamyka; bez zmian zamyka", async () => {
+    const user = userEvent.setup();
+    server([]);
+    const { onClose } = guarded();
+    await screen.findByRole("checkbox", { name: /Auto Alfa/ });
+    await user.click(screen.getByRole("link", { name: "Kalendarz floty" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole("checkbox", { name: /Auto Alfa/ }));
+    const shell = (event: Event) => event.preventDefault();
+    document.addEventListener("click", shell, true);
+    try { await user.click(screen.getByRole("link", { name: "Kalendarz floty" })); } finally { document.removeEventListener("click", shell, true); }
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("Wstecz przeglądarki z wpisanymi danymi pyta (host oddaje popstate strażnikowi); „Zostań” zachowuje dane, „Odrzuć” zamyka widok", async () => {
+    const user = userEvent.setup();
+    server([]);
+    const go = vi.spyOn(window.history, "go").mockImplementation(() => undefined);
+    const backGuard: { current: (() => boolean) | null } = { current: null };
+    const hostSync = vi.fn();
+    const host = () => { if (backGuard.current?.()) return; hostSync(); };
+    window.addEventListener("popstate", host);
+    const { onClose } = guarded({ backGuardRef: backGuard });
+    await user.click(await screen.findByRole("checkbox", { name: /Auto Alfa/ }));
+    act(() => { window.dispatchEvent(new PopStateEvent("popstate")); });
+    expect(hostSync).not.toHaveBeenCalled();
+    expect(go).toHaveBeenCalledWith(1);
+    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Zostań" }));
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("checkbox", { name: /Auto Alfa/ })).toBeChecked();
+    act(() => { window.dispatchEvent(new PopStateEvent("popstate")); }); // the restoring popstate
+    act(() => { window.dispatchEvent(new PopStateEvent("popstate")); });
+    await user.click(await within(await screen.findByRole("alertdialog")).findByRole("button", { name: "Odrzuć zmiany" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(hostSync).not.toHaveBeenCalled();
+    window.removeEventListener("popstate", host);
+    go.mockRestore();
   });
 });
 

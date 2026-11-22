@@ -37,8 +37,45 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
-@media (min-width: 768px) {
-  .navShort {
+.navLink[aria-current="page"] {
+  border-color: var(--text-primary);
+  background: var(--surface-selected);
+}
+.navHint {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+/* DS-SET-001 desktop: pionowy panel 240 px po lewej, treść obok (makieta ADM-11–14, ADM-22). */
+@media (min-width: 1024px) {
+  .layout {
+    grid-template-columns: 240px minmax(0, 1fr);
+    align-items: start;
+    column-gap: var(--space-6);
+  }
+  .nav {
+    flex-direction: column;
+    gap: var(--space-2);
+    overflow: visible;
+    margin: 0;
+    padding: var(--space-4);
+    border: var(--border-width-hairline) solid var(--border-default);
+    border-radius: var(--radius-lg);
+  }
+  .navLink {
+    padding: 0 var(--space-4);
+    border-color: transparent;
+  }
+  .navLink[aria-current="page"] {
+    border-color: var(--surface-inverse);
+    background: var(--surface-inverse);
+    color: var(--text-inverse);
+  }
+  .navShort,
+  .navHint {
     display: none;
   }
   .navFull {
@@ -48,10 +85,6 @@
     overflow: visible;
     clip-path: none;
   }
-}
-.navLink[aria-current="page"] {
-  border-color: var(--text-primary);
-  background: var(--surface-selected);
 }
 .navLink:focus-visible,
 .link:focus-visible {

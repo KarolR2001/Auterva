@@ -7,6 +7,11 @@ import { failJob, quarantineMailJob, startMailAttempt, type ClaimedJob } from ".
 import { currentLogContext } from "@/modules/observability/log";
 import { metrics, names } from "@/modules/observability/metrics";
 
+// Failure series exist at 0 from the start, so the first provider failure is a measurable increase for alert rules.
+for (const kind of ["MAIL_INVITATION", "MAIL_PASSWORD_RESET", "MAIL_REMINDER"]) {
+  for (const result of ["transient", "permanent"]) metrics.inc(names.mail, "Mail provider outcomes", { kind, result }, 0);
+}
+
 export type MailProviderResult = { kind: "accepted"; providerId: string } |
   { kind: "transient" | "permanent" };
 export type MailProvider = { send(mail: MailPayload, idempotencyKey: string): Promise<MailProviderResult> };

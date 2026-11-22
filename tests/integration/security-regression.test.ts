@@ -48,10 +48,12 @@ let superId = "";
 const sessionRows: string[] = [];
 const routes: Route[] = [];
 
+// A well-formed export id reaches the handler body (storage included); only the limit inventory needs that.
+let validExportId = false;
 function params(tenant: Tenant, route: Route, method?: string): Record<string, string> {
   const t = ids[tenant];
   return { organizationId: t.org, id: t.vehicle, blockId: t.block, imageId: t.image, mediaId: t.image, variant: "large",
-    kind: "privacy", action: "publish", segment: method === "POST" ? "logo" : t.image, invitationId: t.invitation, token: "A".repeat(43), slug: `slug-${tag}` };
+    kind: "privacy", action: "publish", segment: method === "POST" ? "logo" : t.image, invitationId: t.invitation, token: "A".repeat(43), slug: `slug-${tag}`, exportId: validExportId ? t.conv : "x" };
 }
 
 function fill(route: Route, tenant: Tenant, method: string): string {
@@ -298,6 +300,88 @@ test("TEST-MVP-34: every mutation refuses a missing, foreign, sibling-subdomain 
   expect(failures).toEqual([]);
   expect(await snapshot()).toBe(before);
 }, 240_000);
+
+test("#399 Origin inventory: every mutating handler outside admin/platform is either Origin-checked or a justified read-only entry", async () => {
+  const mutating = routes.filter((route) => route.group !== "admin" && route.group !== "platform")
+    .flatMap((route) => (Object.keys(route.methods) as (typeof METHODS)[number][]).filter((method) => MUTATING.has(method)).map((method) => `${method} ${route.url}`)).sort();
+  // Every entry here is classified below; a new anonymous mutation must be added on purpose.
+  expect(mutating).toEqual(["POST /api/auth/[...all]/", "POST /api/auth/invitation/[token]/", "POST /api/public/availability/batch/",
+    "POST /api/public/availability/check/", "POST /api/public/availability/next/", "POST /api/vitals/"]);
+  const post = (route: string, url: string, origin: string | null, hostName: string) => {
+    const handler = routes.find((item) => item.url === route)!.methods.POST!;
+    const headers: Record<string, string> = { host: hostName, "content-type": "application/json", ...(origin === null ? {} : { origin }) };
+    return runWithTrustedClientAddress(`10.${randomBytes(3).join(".")}`, async () =>
+      handler(new Request(url, { method: "POST", headers, body: "{}" }), { params: Promise.resolve({ token: "A".repeat(43) }) }));
+  };
+  const failures: string[] = [];
+  const forged = (own: string) => ["null", "http://evil.example.test", `http://${own}.evil.test`, `https://${own}`, `http://${own}:8443`, `http://${host.publicA}`];
+  for (const [hostName, area] of [[host.adminA, "company"], [host.platform, "platform"]] as const) {
+    for (const origin of [null, ...forged(hostName)]) {
+      for (const path of ["sign-in/email", "two-factor/verify-totp", "sign-out", "mfa/reauth", "password/request-reset", "password/reset", "password/change", "profile", "sessions/end"]) {
+        const reply = await post("/api/auth/[...all]/", `http://${hostName}/api/auth/${path}`, origin, hostName);
+        if (reply.status !== 403) failures.push(`auth ${area} ${path} origin=${origin} -> ${reply.status}`);
+      }
+    }
+  }
+  for (const origin of [null, ...forged(host.adminA)]) {
+    const reply = await post("/api/auth/invitation/[token]/", `http://${host.adminA}/api/auth/invitation/${"A".repeat(43)}/`, origin, host.adminA);
+    if (reply.status !== 403) failures.push(`invitation origin=${origin} -> ${reply.status}`);
+  }
+  // The Web Vitals beacon: a browser always sends Origin on POST, so a foreign one is refused (a missing one is a non-browser client).
+  for (const origin of forged(host.publicA).filter((value) => !value.endsWith(`//${host.publicA}`))) {
+    const reply = await post("/api/vitals/", `http://${host.publicA}/api/vitals/`, origin, host.publicA);
+    if (reply.status !== 403) failures.push(`vitals origin=${origin} -> ${reply.status}`);
+  }
+  expect(failures).toEqual([]);
+  // The three public availability POSTs are reads with POST semantics (a JSON body keeps them off simple cross-site forms);
+  // they must not write anything, whatever the Origin.
+  const before = await snapshot();
+  for (const route of ["/api/public/availability/check/", "/api/public/availability/batch/", "/api/public/availability/next/"]) {
+    for (const origin of [null, "http://evil.example.test"]) {
+      const reply = await post(route, `http://${host.publicA}${route}`, origin, host.publicA);
+      expect(reply.status, route).toBeLessThan(500);
+      expect(reply.headers.get("cache-control"), route).toMatch(/no-store|private/);
+    }
+  }
+  expect(await snapshot()).toBe(before);
+}, 120_000);
+
+test("#399 TEST-MVP-06/33: the other company's media ID on this company's public host is a neutral 404, in both directions, and is never cached", async () => {
+  const media = routes.find((route) => route.url === "/api/public/media/[mediaId]/[variant]/")!;
+  const failures: string[] = [];
+  for (const [own, other, ownHost] of [["a", "b", host.publicA], ["b", "a", host.publicB]] as const) {
+    for (const variant of ["large", "thumb"]) {
+      const handler = media.methods.GET!;
+      const reply = await runWithTrustedClientAddress(`10.${randomBytes(3).join(".")}`, async () => handler(
+        new Request(`http://${ownHost}/api/public/media/${ids[other].image}/${variant}/`, { headers: { host: ownHost } }),
+        { params: Promise.resolve({ mediaId: ids[other].image, variant }) }));
+      const text = await reply.text();
+      if (reply.status !== 404 || text.includes(marker[other]) || text.includes(`sec-${variant}-${other}-${tag}`) || text.includes(`sec-large-${other}-${tag}`)) failures.push(`${own}->${other} ${variant} -> ${reply.status}`);
+      if (!/no-store|private/.test(reply.headers.get("cache-control") ?? "")) failures.push(`${own}->${other} ${variant} cache-control=${reply.headers.get("cache-control")}`);
+    }
+  }
+  expect(failures).toEqual([]);
+});
+
+test("#399 limit inventory: every private handler spends the caller's API budget before it does any work", async () => {
+  const hash = (key: string) => createHmac("sha256", process.env.BETTER_AUTH_SECRET!).update(key).digest("hex");
+  const failures: string[] = [];
+  validExportId = true;
+  for (const route of privateRoutes()) {
+    for (const method of Object.keys(route.methods) as (typeof METHODS)[number][]) {
+      const platform = route.group === "platform";
+      const actor = platform ? superId : ids.a.user;
+      const keys = ["read", "write", "media"].map((kind) => hash(`api:${kind}:${actor}:${platform ? "platform" : ids.a.org}`));
+      await resetBudgets();
+      const reply = await call(route, method, { tenant: "a", host: platform ? host.platform : host.adminA, cookie: platform ? cookieSuper : cookieAdminA });
+      const spent = await db.rateLimitEvent.count({ where: { keyHash: { in: keys } } });
+      if (spent === 0) failures.push(`${method} ${route.url} -> ${reply.status}`);
+    }
+  }
+  validExportId = false;
+  expect(failures).toEqual([]);
+  await resetBudgets();
+}, 300_000);
 
 test("TEST-MVP-33: warmed public reads of company A never show A to B and the reverse, and every public answer is uncacheable", async () => {
   const publicRoutes = routes.filter((route) => route.group === "public" || route.group === "discovery");
