@@ -19,7 +19,7 @@ Dokument wymagań: [WYMAGANIA_AUTERVA.md](WYMAGANIA_AUTERVA.md). Dokładne nazwy
 | Obszar | Stan scaffoldingu | Docelowy moduł MVP / granica próby |
 |---|---|---|
 | Runtime | Node 24.20.0, pnpm 12.6.0 przypięte | CI i produkcja mają używać zgodnych wersji |
-| Framework | Next.js 16.4.3, App Router, Webpack | Strony/API wszystkich obszarów pozostają do budowy |
+| Framework | Next.js 16.4.6, App Router, Webpack | Strony/API wszystkich obszarów pozostają do budowy |
 | React | React/React DOM 19.3.1 | Komponenty produktu powstają osobno |
 | TypeScript | 5.9.3, zgodny z peer `typescript-eslint` | Historyczny kandydat 7.x odrzucony dla tej macierzy |
 | Style | Tailwind 4.3.3, CSS i Inter Variable | Tokeny i kompletne komponenty UI wymagają odbioru FE |
