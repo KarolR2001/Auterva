@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { denyPanel } from "@/components/panel/deny-panel";
 import { PanelShell } from "@/components/panel/panel-shell";
+import { PurgeRunningNotice } from "@/components/platform/purge-running-notice";
 import { SettingsForm } from "@/components/settings/settings-form";
 import { SettingsNav } from "@/components/settings/settings-nav";
 import { parseSection, type SettingsSnapshot } from "@/components/settings/settings-model";
@@ -31,7 +32,7 @@ export default async function CompanySettingsPage({ params, searchParams }: {
   if (!actor) return denyPanel(prisma, auth, incoming, { area: "PLATFORM", organizationId: null });
   const snapshot = await getCompanySettings(prisma, organizationId, "platform");
   if (!snapshot) notFound();
-  const company = await prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true } });
+  const company = await prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true, purgeStartedAt: true } });
   const section = parseSection((await searchParams).sekcja);
   const base = `/firmy/${encodeURIComponent(organizationId)}/ustawienia`;
   return (
@@ -43,10 +44,12 @@ export default async function CompanySettingsPage({ params, searchParams }: {
       currentPath={base}
       companyContext={{ id: organizationId, name: company?.name ?? "Firma" }}
     >
-      <div className={settingsStyles.layout}>
-        <SettingsNav base={base} current={section} />
-        <SettingsForm key={section} snapshot={snapshot as unknown as SettingsSnapshot} section={section} />
-      </div>
+      {company?.purgeStartedAt ? <PurgeRunningNotice /> : (
+        <div className={settingsStyles.layout}>
+          <SettingsNav base={base} current={section} />
+          <SettingsForm key={section} snapshot={snapshot as unknown as SettingsSnapshot} section={section} />
+        </div>
+      )}
     </PanelShell>
   );
 }

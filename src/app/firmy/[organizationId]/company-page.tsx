@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { PanelShell } from "@/components/panel/panel-shell";
 import { requireVehicleInCompany } from "@/components/panel/require-vehicle";
 import { requirePlatformPage } from "@/components/platform/platform-gate";
+import { PurgeRunningNotice } from "@/components/platform/purge-running-notice";
 import { Alert } from "@/components/ui/alert";
 import { prisma } from "@/lib/prisma";
 
@@ -24,7 +25,7 @@ export async function PlatformCompanyPage({ organizationId, currentPath, title, 
 }) {
   if (!uuid.test(organizationId)) notFound();
   const actor = await requirePlatformPage();
-  const company = await prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true, archivedAt: true } });
+  const company = await prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true, archivedAt: true, purgeStartedAt: true } });
   if (!company) notFound();
   if (requireVehicleId) await requireVehicleInCompany(organizationId, requireVehicleId);
   const name = company.name ?? "Firma";
@@ -32,12 +33,16 @@ export async function PlatformCompanyPage({ organizationId, currentPath, title, 
   return (
     <PanelShell area="platform" accessState="allowed" expectedSessionId={actor.sessionId} title={title} currentPath={currentPath}
       companyContext={{ id: organizationId, name }}>
+      {company.purgeStartedAt ? (
+        <PurgeRunningNotice />
+      ) : (<>
       {archived && (
         <Alert tone="info" title="Firma jest zarchiwizowana">
           Administrator firmy nie ma dostępu, a strona publiczna jest wyłączona. Jako superadmin nadal zarządzasz flotą i zdjęciami tej firmy.
         </Alert>
       )}
       {await children({ name, archived })}
+      </>)}
     </PanelShell>
   );
 }

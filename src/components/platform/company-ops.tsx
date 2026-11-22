@@ -373,7 +373,9 @@ function PeriodSection({ company, base, reload }: SectionProps) {
           id="paid-through"
           label="Opłacono do dnia włącznie"
           hint={
-            company.archivedAt
+            purgeState(company) === "running"
+              ? "Trwa trwałe usunięcie danych firmy. Okresu usługi nie można już zmienić."
+              : company.archivedAt
               ? "Firma jest zarchiwizowana. Najpierw ją przywróć, potem zmień okres."
               : "Data końcowa jest wliczona. Strefa: Europe/Warsaw. Puste pole usuwa opłatę."
           }
@@ -481,6 +483,7 @@ const DIALOG_COPY: Record<ArchiveKind, { title: (name: string) => string; descri
       "Administrator zaloguje się od nowa z MFA; poprzednie sesje nie wracają.",
       "Strona publiczna pozostaje wyłączona do osobnego odblokowania i ważnej opłaty. Sam trial nie wystarcza.",
       "Okres usługi, trial i dane firmy nie zmieniają się.",
+      "Jeśli usunięcie danych było zaplanowane, przywrócenie je anuluje. Po starcie usuwania przywrócenie nie jest możliwe.",
     ],
     action: "Przywróć",
   },
@@ -614,7 +617,9 @@ function ArchiveSection({ company, base, reload }: SectionProps) {
 
       <h3 className={styles.subTitle}>Dostęp do firmy</h3>
       <p className={styles.opsHint}>
-        {archived
+        {irreversible
+          ? "Firma jest zarchiwizowana: administrator nie może się zalogować, a strona publiczna jest wyłączona. Trwa trwałe usunięcie danych, więc firma nie przyjmuje zapisów."
+          : archived
           ? "Firma jest zarchiwizowana: dane są zachowane, administrator nie może się zalogować, a strona publiczna jest wyłączona. Jako superadmin nadal edytujesz dane firmy."
           : "Archiwizacja zachowa dane, zablokuje logowanie administratora i wyłączy stronę publiczną. Nie usuwa firmy."}
       </p>

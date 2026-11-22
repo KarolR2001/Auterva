@@ -84,7 +84,18 @@ test("platform: planned, running and finished purge states on the list and the c
       await expect(region).toContainText("Trwa trwałe usunięcie danych");
       await expect(page.getByRole("button", { name: /Przywróć firmę|Odblokuj/ })).toHaveCount(0);
       await expect(page.getByRole("link", { name: "Zarządzaj flotą" })).toHaveCount(0);
+      // #465: no links or sentences that suggest editing or restoring, and the notice icon keeps its 20 px.
+      await expect(page.getByRole("link", { name: /Kalendarz floty|Ustawienia firmy|Edytuj logo i materiały publiczne|Dziennik zmian/ })).toHaveCount(0);
+      await expect(page.locator("main")).not.toContainText(/Najpierw ją przywróć|nadal edytujesz dane firmy/);
+      const icon = await region.locator("svg").first().boundingBox();
+      expect(icon?.width, `notice icon ${width}`).toBeGreaterThanOrEqual(20);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), `running card ${width}`).toBeLessThanOrEqual(0);
+    }
+    for (const path of ["kalendarz", "ustawienia"]) {
+      await page.goto(`${origin}/firmy/${running}/${path}/`);
+      await expect(page.getByText("Trwa usuwanie danych firmy")).toBeVisible();
+      await expect(page.getByRole("button", { name: /Zapisz|Dodaj|Zablokuj/ })).toHaveCount(0);
+      await expect(page.getByRole("link", { name: /^Wróć do karty firmy/ })).toBeVisible();
     }
     await axeScan(page, "running purge card");
 

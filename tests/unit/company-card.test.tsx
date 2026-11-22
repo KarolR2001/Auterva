@@ -68,6 +68,18 @@ describe("karta firmy i zaproszenie (#25)", () => {
     expect(screen.getByRole("link", { name: "Ustawienia firmy" }).getAttribute("href")).toMatch(new RegExp(`^/firmy/${base.organizationId}/ustawienia/?$`));
   });
 
+  it("trwające usuwanie danych: karta nie sugeruje edycji ani przywrócenia (#465)", () => {
+    const running = { ...base, archivedAt: "2025-01-01T00:00:00Z", purge: { scheduledAt: "2026-01-01T00:00:00Z", startedAt: "2026-11-22T08:00:00Z", completedAt: null } };
+    shell(<CompanyCard initial={running} justSaved={false} />);
+    expect(screen.getByRole("region", { name: "Trwałe usunięcie danych" })).toHaveTextContent("Trwa trwałe usunięcie danych");
+    for (const name of ["Kalendarz floty", "Ustawienia firmy", "Edytuj logo i materiały publiczne", "Dziennik zmian", "Zarządzaj flotą"]) {
+      expect(screen.queryByRole("link", { name })).toBeNull();
+    }
+    expect(screen.queryByText(/Najpierw ją przywróć/)).toBeNull();
+    expect(screen.queryByText(/nadal edytujesz dane firmy/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /Przywróć firmę/ })).toBeNull();
+  });
+
   it("UNCERTAIN: brak wydania nowego zaproszenia, jest tylko cofnięcie", () => {
     const invitation = { id: "i", recipientEmail: "a@b.pl", issuedHost: "h", issuedAt: "2026-11-08T10:00:00Z",
       expiresAt: "2099-01-01T00:00:00Z", usedAt: null, revokedAt: null, deliveryStatus: "UNCERTAIN" };
