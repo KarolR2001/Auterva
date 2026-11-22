@@ -88,6 +88,13 @@ export function mailView(dto: DiagnosticsDto): BlockView {
       return out("uncertain", "Nie wiadomo, czy wysłano", when, invitation
         ? `Serwer poczty nie potwierdził wysyłki. Zanim wydasz nowe zaproszenie, cofnij bieżące w sekcji ${INVITATION_SECTION}.`
         : "Serwer poczty nie potwierdził wysyłki. Przypomnienie nie zostanie wysłane drugi raz bez potwierdzenia.");
+    case "SKIPPED":
+      return out("error", "Wysyłka pominięta", when, invitation
+        ? `Wiadomość nie została wysłana, bo zaproszenie przestało być aktualne. Sprawdź ${INVITATION_SECTION} i w razie potrzeby wydaj nowe.`
+        : "Wiadomość nie została wysłana, bo przypomnienie przestało być aktualne. Sprawdź okres usługi na karcie firmy.");
+    case "UNKNOWN":
+      return out("error", "Nieznany stan wysyłki", when,
+        "Nie udało się ustalić, co się stało z wiadomością. Sprawdź adres e-mail administratora na karcie firmy i odśwież stan.");
     default: {
       const next = invitation ? `Sprawdź adres e-mail administratora i wydaj nowe zaproszenie w sekcji ${INVITATION_SECTION}.`
         : "Sprawdź adres e-mail administratora na karcie firmy.";

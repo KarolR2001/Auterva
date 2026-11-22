@@ -247,7 +247,7 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
         </div>
         {view.kind === "uncertain" && <p className={styles.hint}>Nowe zaproszenie jest zablokowane, dopóki nie cofniesz niepewnego.</p>}
       </section>
-      {!archived && <CompanyDomain key={domainSync.checked} organizationId={company.organizationId} archived={archived}
+      {!archived && <CompanyDomain reloadKey={domainSync.checked} organizationId={company.organizationId} archived={archived}
         onChanged={() => setDomainSync((sync) => ({ ...sync, changed: sync.changed + 1 }))} />}
       <Link className={styles.cancel} href="/firmy/" prefetch={false}>Wróć do firm</Link>
       </div>

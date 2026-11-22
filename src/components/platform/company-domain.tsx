@@ -68,8 +68,10 @@ function errorNotice(status: number, code: string | null, retryAfter: string | n
   return { refresh: false, notice: { tone: "error", title: "Nie wykonano operacji.", text: "Sprawdź dane i spróbuj ponownie." } };
 }
 
-export function CompanyDomain({ organizationId, archived, onChanged }: {
+export function CompanyDomain({ organizationId, archived, onChanged, reloadKey = 0 }: {
   organizationId: string; archived: boolean;
+  /** When it changes the stored domain is re-read quietly; the typed hostname and notices stay (#78). */
+  reloadKey?: number;
   /** Called after every finished domain operation, whatever its outcome (#78: the diagnostics re-read). */
   onChanged?: () => void;
 }) {
@@ -109,7 +111,8 @@ export function CompanyDomain({ organizationId, archived, onChanged }: {
       if (!cancelled) setBusy(null);
     })();
     return () => { cancelled = true; };
-  }, [base]);
+    // reloadKey is a trigger, not data: a change re-reads the stored domain without remounting the section.
+  }, [base, reloadKey]);
 
   async function call(operation: Exclude<Busy, "load" | null>, method: string, path: string, body: Record<string, unknown>, success: (next: DomainState) => Notice) {
     if (busy) return;

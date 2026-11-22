@@ -98,6 +98,9 @@ describe("model diagnostyki (#78)", () => {
     expect(mailView(dto({ lastMail: mail("QUEUED") }))).toMatchObject({ tone: "waiting", label: "Wysyłka w kolejce",
       subject: "Zaproszenie administratora · od 11.11.2026, 14:02" });
     expect(mailView(dto({ lastMail: mail("UNCERTAIN", { cause: "OUTCOME_UNKNOWN" }) }))).toMatchObject({ tone: "uncertain", label: "Nie wiadomo, czy wysłano" });
+    expect(mailView(dto({ lastMail: mail("SKIPPED") }))).toMatchObject({ tone: "error", label: "Wysyłka pominięta" });
+    expect(mailView(dto({ lastMail: mail("UNKNOWN") }))).toMatchObject({ tone: "error", label: "Nieznany stan wysyłki" });
+    expect(mailView(dto({ lastMail: mail("FAILED") })).label).toBe("Błąd: wysyłka nieudana");
     expect(mailView(dto({ lastMail: mail("UNCERTAIN") })).detail).toContain("cofnij bieżące w sekcji „Zaproszenie administratora”");
   });
 
@@ -116,7 +119,7 @@ describe("model diagnostyki (#78)", () => {
     expect(rejected).toMatchObject({ tone: "error", label: "Błąd: wysyłka nieudana" });
     expect(rejected.detail).toBe("Serwer poczty odrzucił wiadomość. Sprawdź adres e-mail administratora i wydaj nowe zaproszenie w sekcji „Zaproszenie administratora”.");
     expect(mailView(dto({ lastMail: mail("FAILED", { cause: "PLATFORM_CONFIG" }) })).detail).toContain("po stronie Autervy");
-    expect(mailView(dto({ lastMail: mail("SKIPPED", { cause: "OTHER" }) })).detail).toContain("Wiadomość nie została wysłana.");
+    expect(mailView(dto({ lastMail: mail("FAILED", { cause: "OTHER" }) })).detail).toContain("Wiadomość nie została wysłana.");
     expect(mailView(dto({ lastMail: mail("FAILED", { type: "REMINDER", cause: "PROVIDER_REJECTED" }) })).detail).not.toContain("zaproszenie");
   });
 
@@ -386,5 +389,19 @@ describe("karta firmy: Diagnostyka i sekcja Domena własna (#78)", () => {
     await waitFor(() => expect(reads("/domains/")).toBe(2));
     await user.click(await screen.findByRole("button", { name: "Sprawdź konfigurację" }));
     await waitFor(() => expect(reads("/launch-diagnostics/")).toBe(2));
+  });
+
+  it("sprawdzenie w sekcji Poczta/Domena nie kasuje wpisanego hosta w sekcji Domena własna", async () => {
+    const user = userEvent.setup();
+    mockApi((url, init) => url.includes("/launch-diagnostics/") ? Response.json(failedDns)
+      : url.includes("/domains/") ? Response.json(isPost(init) ? { domain: stored.domain } : { aliasHostname: stored.aliasHostname, domain: null }) : Response.json(card));
+    render(<PanelShell area="platform" accessState="allowed" title="Firmy" currentPath="/firmy" onLogout={vi.fn()}>
+      <CompanyCard initial={card} justSaved={false} /></PanelShell>);
+    await block("Domena").findByText("Błąd: DNS domeny");
+    const field = await screen.findByLabelText(/^Nazwa domeny/);
+    await user.type(field, "nowa.example.pl");
+    await user.click(retry("Domena"));
+    await waitFor(() => expect(block("Domena").getByRole("button", { name: /Sprawdź ponownie/ })).toBeEnabled());
+    expect(screen.getByLabelText(/^Nazwa domeny/)).toHaveValue("nowa.example.pl");
   });
 });
