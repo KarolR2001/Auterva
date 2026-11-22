@@ -4,7 +4,8 @@ import { createPrismaClient } from "../../src/lib/prisma";
 import { FIXTURE } from "../../scripts/fixture-ids";
 import { ensureControlledSuperadminMfa, resetPlatformApiBudget, verifiedFixtureSession } from "../fixtures/verified-session";
 
-// #53: the superadmin inbox in a real browser. The local ingress carries no WebSocket, so the live channels show their
+// #53: the superadmin inbox in a real browser. No realtime process runs during this spec (the ingress answers 502 for
+// /ws; the live channels: tests/e2e/chat-live.spec.ts), so the live channels show their
 // reconnect state; the list, history, sending and drafts work over HTTP and local storage.
 test.use({ launchOptions: { args: ["--host-resolver-rules=MAP *.example.test 127.0.0.1"] } });
 
