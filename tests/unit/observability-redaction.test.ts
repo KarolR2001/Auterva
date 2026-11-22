@@ -149,3 +149,20 @@ test("explicit contexts do not leak between runs (workers, realtime)", () => {
   expect(JSON.parse(lines[0]).organizationId).toBe("org-a");
   expect(JSON.parse(lines[1]).organizationId).toBeUndefined();
 });
+
+test("#401: TOTP secrets, otpauth URIs, recovery codes, calendar feed addresses and chat frames never reach a log line", () => {
+  const lines = capture();
+  const totp = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP";
+  const recovery = "7HQ2-9KDM-X4PZ-3WRT";
+  const feedToken = "feed" + "Z9x".repeat(14);
+  log.info("auth.mfa", {
+    totpSecret: totp, recoveryCodes: [recovery], otp: "123456", setupUri: `otpauth://totp/Auterva:jan@firma.example.test?secret=${totp}&issuer=Auterva`,
+    detail: `enrolment secret ${totp} for jan@firma.example.test`,
+    feedUrl: `https://acme.example.test/api/calendar/feed/${feedToken}.ics`, path: `/api/calendar/feed/${feedToken}`,
+    frame: { type: "chat.send", text: secrets.chat, clientMessageId: "m-1" }, ws: JSON.stringify({ type: "chat.send", text: secrets.chat }),
+  });
+  logFailure("ws.message_failed", new Error(`bad frame ${secrets.chat}`), { operation: "ws.message", outcome: "failure" });
+  const all = lines.join("\n");
+  for (const secret of [totp, recovery, "123456", feedToken, "jan@firma.example.test", secrets.chat]) expect(all, secret).not.toContain(secret);
+  for (const line of lines) expect(() => JSON.parse(line)).not.toThrow();
+});
