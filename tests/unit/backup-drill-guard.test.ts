@@ -21,6 +21,18 @@ describe("assertLocalDrillTarget", () => {
   });
 });
 
+describe("assertLocalDrillTarget loopback bypass attempts", () => {
+  test.each([
+    "http://127.0.0.1.evil.com:8333", "http://localhost@evil.com", "http://127.0.0.1@evil.com", "http://evil.com#@127.0.0.1",
+    "http://0.0.0.0:8333", "http://localhost.:8333", "http://localhost.evil.com", "http://[::ffff:127.0.0.1]:8333", "127.0.0.1:8333", "127.0.0.1",
+  ])("refuses S3_ENDPOINT %s", (endpoint) => {
+    expect(() => assertLocalDrillTarget({ ...local, S3_ENDPOINT: endpoint })).toThrow(/DRILL_REFUSED/);
+  });
+  test.each(["http://[::1]:8333", "http://localhost", "http://u:p@127.0.0.1:8333"])("accepts S3_ENDPOINT %s", (endpoint) => {
+    expect(() => assertLocalDrillTarget({ ...local, S3_ENDPOINT: endpoint })).not.toThrow();
+  });
+});
+
 describe("resolveDrillKey", () => {
   test("warns about a random key only with --keep", () => {
     expect(resolveDrillKey({}, true).warning).toMatch(/DRILL_KEEP_RANDOM_KEY/);

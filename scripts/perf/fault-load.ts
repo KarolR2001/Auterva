@@ -181,6 +181,9 @@ async function dropPhase() {
   if (firstOk("read") === undefined || firstOk("write") === undefined) verdicts.push("drop: no recovery after the database came back");
 }
 
+// Ctrl-C or SIGTERM during the drop phase must not leave the fixture database down (sync work only in `exit`).
+process.once("exit", () => { try { ensurePostgresRunning(pgOptions); } catch { /* best effort */ } });
+for (const signal of ["SIGINT", "SIGTERM"] as const) process.once(signal, () => process.exit(130));
 try {
   if (phases.includes("conflict")) await conflictPhase();
   if (phases.includes("drop")) await dropPhase();
