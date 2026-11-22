@@ -259,11 +259,11 @@
   }
 }
 
-/* #435: on phones the inbox conversation grows with its content in every state (inbox.module.css), not only with the gap
+/* #435, #452: below the split view (phones and tablets) the inbox conversation grows with its content in every state (inbox.module.css), not only with the gap
    notice. The history keeps a usable height instead of collapsing under a long header; the recipient line would repeat
    the company name that the inbox heading right above already shows, so it stays for assistive technology only. The
    company panel is not embedded and keeps its layout. */
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .chat[data-embedded] {
     flex: 1 0 auto;
     height: auto;
