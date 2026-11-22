@@ -891,32 +891,37 @@ test("account state: a disabled, unverified, expired or revoked session and an a
       })));
     if (await snapshot() !== before) failures.push(`${label}: data changed`);
   };
-  const fresh = async (userId: string, patch?: { expiresAt?: Date }) => {
+  const fresh = async (userId: string) => {
     const session = await verifiedFixtureSession(db, userId);
     sessions.push(session);
-    if (patch?.expiresAt) await db.session.updateMany({ where: { userId, mfaVerifiedAt: { not: null } }, data: { expiresAt: patch.expiresAt } }); 
     return session;
   };
-  // Disabled company admin, and a disabled superadmin only when the superadmin is a fixture owned by this test.
-  const disabled = await fresh(ids.a.user);
-  await db.user.update({ where: { id: ids.a.user }, data: { disabledAt: new Date() } });
-  await sweep("disabled admin", disabled.cookie, "a", false);
-  await db.user.update({ where: { id: ids.a.user }, data: { disabledAt: null, emailVerified: false } });
-  await sweep("unverified admin", disabled.cookie, "a", false);
-  await db.user.update({ where: { id: ids.a.user }, data: { emailVerified: true } });
-  // Revoked: the session row is gone.
-  const revoked = await fresh(ids.a.user);
-  await revoked.dispose();
-  await sweep("revoked session", revoked.cookie, "a", false);
-  // Expired: a session whose expiry is in the past.
-  const expired = await verifiedFixtureSession(db, ids.a.user);
-  await db.session.updateMany({ where: { token: expired.cookie.split("=")[1].split(".")[0] }, data: { expiresAt: new Date(Date.now() - 60_000) } });
-  sessions.push(expired);
-  await sweep("expired session", expired.cookie, "a", false);
-  if (ownedSuperId) {
-    await db.user.update({ where: { id: ownedSuperId }, data: { disabledAt: new Date() } });
-    await sweep("disabled superadmin", cookieSuper, "a", true);
-    await db.user.update({ where: { id: ownedSuperId }, data: { disabledAt: null } });
+  // Both actor kinds: the company admin of A (admin handlers) and the one superadmin (platform handlers; the schema allows
+  // a single superadmin). Account flags are restored in `finally`; the fixture superadmin is active and verified (checked in beforeAll).
+  const superUser = superId;
+  try {
+    for (const [kind, userId, platform] of [["admin", ids.a.user, false], ["superadmin", superUser, true]] as const) {
+      const sweepKind = (label: string, cookie: string) => sweep(`${label} ${kind}`, cookie, "a", platform);
+      const live = await fresh(userId);
+      expect((await call(privateRoutes().find((route) => route.group === (platform ? "platform" : "admin") && route.methods.GET && !route.url.includes("["))!,
+        "GET", { tenant: "a", host: platform ? host.platform : host.adminA, cookie: live.cookie })).status, `${kind} fixture session is valid`).not.toBe(401);
+      try {
+        await db.user.update({ where: { id: userId }, data: { disabledAt: new Date() } });
+        await sweepKind("disabled", live.cookie);
+        await db.user.update({ where: { id: userId }, data: { disabledAt: null, emailVerified: false } });
+        await sweepKind("unverified", live.cookie);
+      } finally {
+        await db.user.update({ where: { id: userId }, data: { disabledAt: null, emailVerified: true } });
+      }
+      const revoked = await fresh(userId);
+      await revoked.dispose();
+      await sweepKind("revoked session", revoked.cookie);
+      const expired = await fresh(userId);
+      await db.session.updateMany({ where: { token: expired.cookie.split("=")[1].split(".")[0] }, data: { expiresAt: new Date(Date.now() - 60_000) } });
+      await sweepKind("expired session", expired.cookie);
+    }
+  } finally {
+    await db.user.updateMany({ where: { id: { in: [ids.a.user, superUser] } }, data: { disabledAt: null, emailVerified: true } });
   }
   // Archived company A: its admin is out on every handler, company B's admin is untouched.
   await db.organization.update({ where: { id: ids.a.org }, data: { archivedAt: new Date() } });
