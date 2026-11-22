@@ -526,6 +526,7 @@ function ArchiveSection({ company, base, reload }: SectionProps) {
         COMPANY_VERSION_CONFLICT: "Firma została zmieniona w innej sesji. Odświeżyliśmy kartę; sprawdź stan i spróbuj ponownie.",
         COMPANY_ALREADY_ARCHIVED: "Firma jest już zarchiwizowana.",
         COMPANY_NOT_ARCHIVED: "Firma nie jest zarchiwizowana.",
+        COMPANY_PURGED: "Dane firmy zostały trwale usunięte 12 miesięcy po archiwizacji. Przywrócenie nie jest możliwe.",
         PERIOD_PAYMENT_REQUIRED: "Odblokowanie wymaga ważnej opłaty. Sam trial nie wystarcza.",
         PERIOD_ARCHIVED: "Firma jest zarchiwizowana.",
         PUBLIC_RESTORE_NOT_LOCKED: "Strona nie wymaga już odblokowania.",

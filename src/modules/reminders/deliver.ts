@@ -13,9 +13,10 @@ async function isolated(work: () => Promise<unknown>): Promise<void> {
   try { await work(); } catch (error) { logFailure("reminders.sweep_item_failed", error, { operation: "reminders.sweep" }); }
 }
 
-async function inCompany<T>(db: PrismaClient, organizationId: string,
-  work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
-  return db.$transaction(async (tx) => { await lockReminderCompany(tx, organizationId); return work(tx); }, TX);
+/** Runs `work` under the company lock; a company whose purge started (#419) is skipped without any write. */
+async function inCompany(db: PrismaClient, organizationId: string,
+  work: (tx: Prisma.TransactionClient) => Promise<void>): Promise<void> {
+  await db.$transaction(async (tx) => { if (await lockReminderCompany(tx, organizationId)) await work(tx); }, TX);
 }
 
 /** Companies whose schedule was never reconciled or is behind periodVersion (pre-#54 data, missed hook). */

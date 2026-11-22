@@ -10,6 +10,7 @@ import { z } from "zod";
 import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
 import { FormField } from "../ui/form-field";
+import { SecretForm } from "../ui/secret-form";
 import { PasswordInput } from "../ui/password-input";
 import { TextInput } from "../ui/text-input";
 import {
@@ -80,9 +81,8 @@ export function ResetRequestForm({ area }: AuthProps) {
           </p>
         </div>
       ) : (
-        <form
+        <SecretForm
           className={styles.form}
-          noValidate
           aria-busy={request.loading || undefined}
           onSubmit={form.handleSubmit(({ email }) => {
             const normalized = email.trim().toLowerCase();
@@ -141,7 +141,7 @@ export function ResetRequestForm({ area }: AuthProps) {
               Wróć do logowania
             </Link>
           </p>
-        </form>
+        </SecretForm>
       )}
     </AuthFrame>
   );
@@ -227,9 +227,8 @@ export function SetNewPasswordForm({
         </div>
       )}
       {state === "form" && (
-        <form
+        <SecretForm
           className={styles.form}
-          noValidate
           aria-busy={request.loading || undefined}
           onSubmit={form.handleSubmit(({ password: next }) =>
             request.run(
@@ -302,7 +301,7 @@ export function SetNewPasswordForm({
           >
             {request.cooldown > 0 ? "Ponów po limicie" : "Ustaw nowe hasło"}
           </Button>
-        </form>
+        </SecretForm>
       )}
     </AuthFrame>
   );

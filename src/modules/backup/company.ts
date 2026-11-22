@@ -134,6 +134,8 @@ export async function restoreCompany(input: {
   try {
     await assertCompanyTablesClassified(live);
     await assertCompanyTablesClassified(scratch);
+    // #419 (D-58): a company whose purge started is never brought back from a backup (checked again under the lock).
+    if ((await live.query(`SELECT 1 FROM "Organization" WHERE id = $1 AND "purgeStartedAt" IS NOT NULL`, [orgId])).rows.length > 0) throw new BackupError("RESTORE_COMPANY_PURGED", "The company data was permanently purged (D-58); it cannot be restored");
     const liveMigrations = await appliedMigrations(live);
     if (JSON.stringify(liveMigrations) !== JSON.stringify(manifest.migrations.applied)) {
       throw new BackupError("RESTORE_MIGRATION_MISMATCH", "The live schema differs from the backup's migrations; migrate or choose a matching backup");
@@ -167,6 +169,7 @@ export async function restoreCompany(input: {
       await live.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [`auterva:company-restore:${orgId}`]);
       const liveOrg = (await live.query(`SELECT row_to_json(t) AS row FROM "Organization" t WHERE id = $1 FOR UPDATE`, [orgId])).rows[0]?.row as Record<string, unknown> | undefined;
       const xid = String((await live.query(`SELECT pg_current_xact_id()::xid::text AS x`)).rows[0].x);
+      if (liveOrg?.purgeStartedAt) throw new BackupError("RESTORE_COMPANY_PURGED", "The company data was permanently purged (D-58); it cannot be restored");
 
       // Conflicts are explicit refusals, not silent overwrites of someone else's rows.
       const clash = async (sql: string, params: unknown[], code: string) => {

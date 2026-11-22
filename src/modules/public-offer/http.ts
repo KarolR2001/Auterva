@@ -8,7 +8,7 @@ import { withErrorRequestId } from "@/modules/tenancy/request-id";
 import { readPublicTrafficLimits } from "./config";
 import { getPublicContact, getPublicHome, getPublicLegal, getPublicVehicle, listPublicVehicles,
   type LegalKind } from "./read";
-import { reportInternalError } from "@/modules/observability/http-observe";
+import { reportInternalError, transientDbResponse } from "@/modules/observability/http-observe";
 
 export type RequestId = ReturnType<typeof randomUUID>;
 
@@ -40,7 +40,8 @@ async function serve(request: Request, read: Read): Promise<Response> {
     // A disabled company, an unknown host and a missing resource share one neutral 404.
     return (await read(request.headers.get("host") ?? "", requestId)) ?? publicJson({ code: "NOT_FOUND" }, 404, requestId);
   } catch (error) {
-    return publicJson({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "public-offer"));
+    return transientDbResponse(error, requestId, "public-offer")
+      ?? publicJson({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "public-offer"));
   }
 }
 
