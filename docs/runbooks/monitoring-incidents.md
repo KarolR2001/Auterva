@@ -79,6 +79,8 @@ Klucze (`AUDIT_EXPORT_KEY`) i treść eksportu nigdy nie trafiają do logów ani
 ### realtime
 `WS_LISTENER_UNHEALTHY` (page; tłumiony przy awarii DB): serwer czatu stracił powiadomienia z DB (poll jako zapas). Sprawdź DB i zrestartuj realtime; klienci wznawiają połączenie z kursorem.
 
+`WS_HANDSHAKE_FLOOD` (ticket): co najmniej 100 odmów `429` limitu prób handshake w 5 min (`auterva_ws_handshake_limited_total`). Zwykle nieuwierzytelniony lub zbyt gorliwy klient z jednego źródła; baza jest wtedy nieobciążona. Sprawdź, czy pętla ponowień klienta ma backoff i czy przed procesem nie stoi lokalny pośrednik na loopbacku (wtedy wszyscy klienci są jednym źródłem). Za proxy dostawcy bez adaptera adresu (#90) proces nie liczy prób, tylko odmawia `503` z ostrzeżeniem `realtime.handshake-source-failed`: czat na żywo nie łączy się do czasu skonfigurowania adaptera. Kontrakt: [chat-realtime](../contracts/chat-realtime.md#limit-prób-handshake-173).
+
 ### web-vitals
 
 Informacyjne, bez alertu (#340). Odczyt: `auterva_web_vital_lcp_seconds`, `auterva_web_vital_inp_seconds`, `auterva_web_vital_cls` w `/api/health/metrics/`; p75 z histogramu osobno dla `device="mobile"` i `"desktop"`, cele LCP ≤ 2,5 s, INP ≤ 200 ms, CLS ≤ 0,1. Nagły wzrost `auterva_web_vitals_reports_total{rating="rate_limited"}` albo `invalid` oznacza nadużycie lub zmianę kontraktu paczki, nie awarię użytkowników; endpoint niczego nie zapisuje, więc nie wymaga czyszczenia danych. Opis i prywatność: [kontrakt](../contracts/monitoring-alerts.md#web-vitals-340).

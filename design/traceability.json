@@ -1255,6 +1255,24 @@
       "testPaths": ["tests/integration/chat-inbox-consistency.test.ts", "tests/integration/chat-inbox.test.ts"]
     },
     {
+      "issue": 173,
+      "scope": "Limit prób handshake WebSocket na źródło (60/60 s, w pamięci procesu WS, tabela ograniczona) przed zapytaniami do bazy dla /ws i /ws/platform: 429 z Retry-After. Źródło wyłącznie z serwerowego adaptera clientAddress i reguły trustedClientAddress jak w limitach HTTP: adapter lokalny (peer loopback), nagłówki klienta nieczytane; bez zaufanego adresu w produkcji 503 przed bazą, poza produkcją wspólne źródło unknown. Metryka i alert odrzuceń. Część lokalna wg D-54; adapter dostawcy za proxy otwarty do #90. Bez UI.",
+      "relatedRequirementIds": ["C-N001", "C-N004"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "docs/contracts/chat-realtime.md",
+        "docs/contracts/technical-limits-and-mfa-bootstrap.md",
+        "docs/runbooks/monitoring-incidents.md",
+        "docs/security/OWASP_CONTROLS.md",
+        "src/modules/chat/handshake-limit.ts",
+        "src/modules/chat/realtime.ts",
+        "src/modules/observability/alerts.ts",
+        "src/modules/observability/metrics.ts",
+        "src/server/realtime.ts"
+      ],
+      "testPaths": ["tests/unit/handshake-limit.test.ts", "tests/integration/ws-handshake-limit.test.ts", "tests/integration/realtime-process.test.ts", "tests/unit/observability-alerts.test.ts"]
+    },
+    {
       "issue": 159,
       "scope": "Konfigurowalny nasłuch i allowlista hostów serwera WebSocket w kontenerze (WS_HOST, WS_PORT, WS_ALLOWED_HOSTS) walidowane przy starcie; domyślnie loopback, bez trybu dowolnego hosta.",
       "relatedRequirementIds": ["C-N004", "C-N059"],

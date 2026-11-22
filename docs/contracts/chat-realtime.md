@@ -22,9 +22,29 @@ W produkcji proxy zwykle przepisuje `Host` na stały host usługi WS, więc `WS_
 
 ## Handshake
 
-`GET /ws?organizationId=<uuid>[&after=<kursor>]` z ciasteczkiem sesji i `Origin`. Inne parametry to `400`. Kolejno: ścieżka, `Host` z allowlisty, Origin z rejestru, sesja z **dowodem MFA tej sesji**, rola, firma i stan konta (`requireAuthorizedActor`: konto aktywne, e-mail zweryfikowany, TOTP włączone, firma niezarchiwizowana). Admin: `organizationId` musi być firmą hosta panelu. Superadmin: host `PLATFORM`, `organizationId` wskazuje istniejącą firmę (także zarchiwizowaną; kontekst firmy, własna tożsamość, bez impersonacji).
+`GET /ws?organizationId=<uuid>[&after=<kursor>]` z ciasteczkiem sesji i `Origin`. Inne parametry to `400`. Kolejno: ścieżka, `Host` z allowlisty, [limit prób źródła](#limit-prób-handshake-173), Origin z rejestru, sesja z **dowodem MFA tej sesji**, rola, firma i stan konta (`requireAuthorizedActor`: konto aktywne, e-mail zweryfikowany, TOTP włączone, firma niezarchiwizowana). Admin: `organizationId` musi być firmą hosta panelu. Superadmin: host `PLATFORM`, `organizationId` wskazuje istniejącą firmę (także zarchiwizowaną; kontekst firmy, własna tożsamość, bez impersonacji).
 
-Odmowa to odpowiedź HTTP przed upgrade, bez treści: `403` (każda odmowa autoryzacji, celowo jednolita), `400` zły parametr lub `after`, `404` ścieżka, `429` ponad 5 połączeń tego konta w tej samej firmie, `503` ponad 2000 połączeń lub zamykanie procesu. Zdarzenia firmy A nie trafiają do B (grupy per firma, zapytania z `organizationId`).
+## Limit prób handshake (#173)
+
+Pierwszy krok po sprawdzeniu ścieżki i `Host` (przed parsowaniem parametrów, `HostMapping`, sesją i jakimkolwiek zapytaniem do bazy): limit prób na **źródło**, 60 prób (każdy wynik: także `400`, `403`, `503` puli i przyjęte połączenie) na ruchome 60 s, wspólnie dla `/ws` i `/ws/platform`. Powyżej limitu: `429` z `Retry-After` (sekundy, co najmniej 1), bez zapytań do bazy; odrzucone próby nie są liczone, więc nie wydłużają okna, a klient po `Retry-After` wznawia połączenie z kursorem jak po każdym rozłączeniu. Odmowa ścieżki (`404`) i `Host` (`403`) nie zużywa budżetu. Limit dotyczy tylko nowych prób: otwarte połączenia, limit 5 połączeń konta i pula 2000 działają bez zmian.
+
+Licznik jest w pamięci procesu WS, celowo poza współdzielonymi licznikami D-04 (odmowa nie może kosztować zapytania): każda instancja egzekwuje własny limit. Tabela źródeł ma najwyżej 10 000 wpisów po najwyżej 60 znaczników czasu; nowe źródło usuwa najpierw wygasłe, potem najstarsze wpisy, w stałym czasie. Wartości: `handshakeWindowMs`, `maxHandshakesPerWindow`, `maxHandshakeSources` (`RealtimeLimits`). Limit chroni przed powodzią z jednego źródła; powódź rozproszoną ogranicza nadal pula 2000 i limit na krawędzi (#90).
+
+**Źródło** ustala wyłącznie serwerowy adapter `clientAddress` (`src/modules/chat/handshake-limit.ts`) i ta sama reguła co limity HTTP (`trustedClientAddress`). Nagłówki żądania (`X-Forwarded-For`, `X-Real-IP`, `CF-Connecting-IP`, `Forwarded`, `X-Auterva-Client-Address`) nie są czytane. IPv6 jest grupowane po /64, IPv4-mapped liczy się jako IPv4.
+
+| Adapter | Źródło | Stan |
+|---|---|---|
+| Lokalny (`localClientAddress`, domyślny) | Peer gniazda, tylko gdy jest loopbackiem: lokalna przeglądarka albo lokalny pośrednik przekazujący `/ws` (local-ingress, #426), który sam przyjmuje wyłącznie loopback. Ta sama reguła co `scripts/start-local-ingress.ts`. Lokalnie wszyscy klienci są więc jednym źródłem (ta sama maszyna) i dzielą jeden limit. Pośrednik na loopbacku jest nieodróżnialny od lokalnego klienta, więc produkcyjne proxy na tym samym hoście też wymaga adaptera dostawcy. | dostarczone |
+| Dostawcy za proxy | Adres z nagłówka ustawianego przez skonfigurowane proxy dostawcy, przyjmowany tylko od tego proxy; `null`, gdy go brak. Podłączany jako `clientAddress` w `startRealtimeServer`. | **otwarte, zależy od #90** (wybór dostawcy i jego nagłówka; bez tego nagłówek pochodziłby od klienta) |
+
+Gdy adapter nie zna adresu (`null` albo wartość niebędąca adresem IP; dla adaptera lokalnego każdy peer spoza loopbacku, czyli np. load balancer dostawcy):
+
+- w produkcji (`NODE_ENV=production`) handshake dostaje `503` przed zapytaniami do bazy, tak jak limity HTTP odpowiadają `503 TRUSTED_INGRESS_REQUIRED`. Adres proxy nigdy nie jest brany za klienta, bo wspólny licznik pozwalałby jednemu klientowi zablokować czat wszystkim. Skutek: obraz `ws` za proxy dostawcy nie przyjmuje połączeń do czasu adaptera z #90 (logowanie produkcyjne bez zaufanego adaptera też odmawia). Ostrzeżenie `realtime.handshake-source-failed` najwyżej raz na okno.
+- poza produkcją (dev, testy) takie próby dzielą jedno źródło `unknown` z tym samym limitem.
+
+Odrzucenia limitem: licznik `auterva_ws_handshake_limited_total` (bez wpisu w logu na każdą odmowę), alert `WS_HANDSHAKE_FLOOD` (ticket, ≥ 100 w 5 min; runbook `monitoring-incidents.md#realtime`).
+
+Odmowa to odpowiedź HTTP przed upgrade, bez treści: `403` (każda odmowa autoryzacji, celowo jednolita), `400` zły parametr lub `after`, `404` ścieżka, `429` ponad 5 połączeń tego konta w tej samej firmie albo ponad limit prób źródła (wtedy z `Retry-After`), `503` ponad 2000 połączeń, zamykanie procesu albo brak zaufanego adresu źródła w produkcji. Zdarzenia firmy A nie trafiają do B (grupy per firma, zapytania z `organizationId`).
 
 ## Ramki (JSON, tekst)
 
