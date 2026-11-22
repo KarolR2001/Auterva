@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { metrics, names } from "../observability/metrics";
 import { rssProbe } from "./rss";
 import { maxImageBytes } from "./storage";
 
@@ -40,8 +41,28 @@ function environmentError(error: unknown): Error {
 export type DecodedMedia = { mime: "image/jpeg" | "image/png" | "image/webp";
   width: number; height: number; large: Buffer; thumb: Buffer };
 
-export function decodeMedia(bytes: Buffer): Promise<DecodedMedia> {
-  return exclusive(() => decodeIsolated(bytes));
+/** Closed result alphabet (#58): never a message or key. Refusals of the image itself stay apart from environment faults. */
+function decodeResult(error: unknown): string {
+  const code = error instanceof Error ? error.message : "";
+  if (code === "MEDIA_BUSY") return "busy";
+  if (code === "MEDIA_DECODER_UNAVAILABLE") return "unavailable";
+  if (code === "MEDIA_MEMORY_LIMIT" || code === "MEDIA_DECODE_TIMEOUT") return "too_complex";
+  return "invalid";
+}
+// Failure series exist at 0 from the start, so the first real failure is a measurable increase.
+for (const result of ["busy", "unavailable", "too_complex", "invalid"]) metrics.inc(names.mediaDecodes, "Image decoder outcomes", { result }, 0);
+
+export async function decodeMedia(bytes: Buffer): Promise<DecodedMedia> {
+  const started = performance.now();
+  try {
+    const decoded = await exclusive(() => decodeIsolated(bytes));
+    metrics.inc(names.mediaDecodes, "Image decoder outcomes", { result: "ok" });
+    metrics.observe(names.mediaDecodeDuration, "Image decode duration", (performance.now() - started) / 1000, {}, [0.25, 0.5, 1, 2.5, 5, 10, 30]);
+    return decoded;
+  } catch (error) {
+    metrics.inc(names.mediaDecodes, "Image decoder outcomes", { result: decodeResult(error) });
+    throw error;
+  }
 }
 
 // The decoder handles untrusted bytes: it never inherits application secrets.
