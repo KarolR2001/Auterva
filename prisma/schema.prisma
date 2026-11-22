@@ -17,6 +17,10 @@ model Organization {
   publicRequiresPaid     Boolean            @default(false)
   version                Int                @default(0)
   domainVersion          Int                @default(0)
+  /// #419 (D-58): set once when the purge 12 months after archiving starts; irreversible (DB trigger).
+  purgeStartedAt         DateTime?          @db.Timestamptz(6)
+  /// #419: the company data is gone; the row is an anonymised skeleton kept for the audit retention.
+  purgedAt               DateTime?          @db.Timestamptz(6)
   vehicles               Vehicle[]
   messages               ChatMessage[]
   users                  User[]
@@ -249,6 +253,7 @@ model HostMapping {
   kind            String        @default("PROVIDER")
   status          String        @default("PENDING")
   canonicalTarget String?
+  checkedAt       DateTime?     @db.Timestamptz(6)
   createdAt       DateTime      @default(now()) @db.Timestamptz(6)
   organization    Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   customDomain    CustomDomain?
@@ -266,6 +271,7 @@ model CustomDomain {
   ownershipVerifiedAt DateTime?   @db.Timestamptz(6)
   routingVerifiedAt   DateTime?   @db.Timestamptz(6)
   tlsVerifiedAt       DateTime?   @db.Timestamptz(6)
+  tlsNotAfter         DateTime?   @db.Timestamptz(6)
   checkedAt           DateTime?   @db.Timestamptz(6)
   lastFailureCode     String?
   activatedAt         DateTime?   @db.Timestamptz(6)

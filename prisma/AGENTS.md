@@ -11,6 +11,6 @@
 - Indeks częściowy chroni co najwyżej jedno cover; publikacja wymaga transakcyjnej kontroli istnienia poprawnego zdjęcia. Szkic może go nie mieć. D-02 rozstrzygnij przed finalnym kontraktem publikacji.
 - RLS to projektowana dodatkowa warstwa, nie dowód bezpieczeństwa. Jeśli stosowane: runtime nie jest właścicielem tabel/BYPASSRLS, kontekst transakcyjny, pooling nie przenosi firmy, platforma ma jawną politykę. Testuj adapter auth i worker.
 - Zapis domenowy/audyt/outbox mają spójną transakcję; poczta/storage poza nią z retry. Audyt tylko dopisywany, bez sekretów/pełnego czatu i bez podszywania się pod admina firmy.
-- Archiwizacja zachowuje firmę, flotę, media i rozmowę. Bez automatycznego purge i kaskadowego usuwania firmy. Dozwolone usunięcie blokady/zdjęcia ma osobny audyt/reguły.
+- Archiwizacja zachowuje firmę, flotę, media i rozmowę. Jedynym usunięciem danych firmy jest job `COMPANY_PURGE` 12 miesięcy po archiwizacji (D-58, #419; `docs/contracts/company-archive-restore.md`); bez kaskadowego usuwania firmy (FK `Restrict`), a nowa tabela z `organizationId` wymaga decyzji w `COMPANY_PURGE_TABLES`. Dozwolone usunięcie blokady/zdjęcia ma osobny audyt/reguły.
 - Migracje wersjonowane i przeglądane; bez `db push`, reset i `--accept-data-loss` na staging/produkcji. Opisz wpływ, rollout i odtworzenie; testuj pustą i zasiedloną bazę testową.
 - Migrator oddzielony od runtime. Zmiana produkcyjna/destrukcyjna wymaga jawnego polecenia. Nie wybieraj usługi Prisma Postgres z powodu nazwy skilla; dostawca pozostaje decyzją wdrożeniową.

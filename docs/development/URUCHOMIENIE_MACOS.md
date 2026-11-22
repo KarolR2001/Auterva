@@ -1,261 +1,201 @@
-# Uruchomienie całości lokalnie na macOS
+# Uruchomienie Auterva na macOS (do przeklikania)
 
-Instrukcja krok po kroku dla osoby, która po restarcie Maca chce uruchomić Auterva lokalnie: baza, S3, poczta, aplikacja, worker, media-worker i WebSocket. Komendy sprawdzono na macOS (Apple Silicon) z Node 24.20.0, pnpm 12.6.0 i PostgreSQL 18, na bazie portów `44200`. Dokument nie zmienia zakresu ani statusów projektu; szczegóły fixture opisuje [README](../../README.md), odbiór auth [AUTH_QA](AUTH_QA.md), tryb CI [CI](CI.md).
+Ta instrukcja służy tylko do uruchomienia aplikacji lokalnie i zalogowania się. Nie uruchamia testów i nie dotyczy pracy nad kodem. Wszystko działa wyłącznie na Twoim Macu (`127.0.0.1`), na danych testowych.
 
-Wszystko działa wyłącznie na `127.0.0.1` i lokalnych danych (`.local/`, ignorowane przez Git). Nie wpisuj tu produkcyjnych danych ani nie publikuj plików `.env`, `.local/fixture-9/secrets.env` i `.local/fixture-9/access.json`.
+Jak czytać: **Terminal** to aplikacja Terminal (albo iTerm). Karty otwierasz przez `Cmd+T`. Komendy wpisuj po kolei, jedna po drugiej, i czekaj, aż poprzednia się skończy (chyba że opis mówi, że zostaje włączona). Opis po `#` nie jest częścią komendy.
 
-## 0. Okna Terminala (skrót)
+Szczegóły, rozwiązywanie problemów, testy i tryb CI są w [URUCHOMIENIE_MACOS_SZCZEGOLY](URUCHOMIENIE_MACOS_SZCZEGOLY.md).
 
-Używaj aplikacji Terminal (albo iTerm) i osobnych kart (`Cmd+T`). Każda karta zaczyna od `cd` do repozytorium (poniżej `~/Developer/Auterva`; wstaw własną ścieżkę — gniazdo PostgreSQL ma limit 103 bajtów ścieżki, więc trzymaj repozytorium w krótkiej ścieżce).
+Używamy jednej bazy portów `44200`. Adresy w tej instrukcji zakładają właśnie ją.
 
-| Karta | Rola | Komenda (po kroku 2–3) | Port (baza 15450 domyślnie) |
-|---|---|---|---|
-| 1 | Fixture: PostgreSQL, S3 (SeaweedFS), Mailpit | `scripts/local-fixture.sh start` (kończy się i wraca do promptu; usługi działają w tle) | baza…baza+7 |
-| 2 | Aplikacja (dev **albo** build produkcyjny z ingressem) | `pnpm dev --port <baza+10>` | baza+10 |
-| 3 | Worker (poczta/outbox, joby) | `pnpm dev:worker` | brak nasłuchu |
-| 4 | Media-worker (przetwarzanie obrazów) | `pnpm dev:media-worker` | brak nasłuchu |
-| 5 | Serwer WebSocket czatu | `pnpm dev:ws` | `WS_PORT` |
+---
 
-Karty 3–5 są potrzebne tylko do funkcji, które ich używają (e-maile zaproszeń/resetu, upload zdjęć, czat). Do samego przeglądania panelu wystarczą karty 1–2.
+## Część A. Raz, przy pierwszej instalacji
 
-## 1. Wymagania jednorazowe
+Pomiń tę część, jeśli masz już repozytorium w `~/Developer/Auterva`, Node 24.20.0 i pnpm.
+
+**Terminal, karta 1.**
 
 ```sh
-# Homebrew (jeśli brak): https://brew.sh
-brew install nvm postgresql@18 colima docker docker-buildx gh gitleaks
+# Krok A1. Zainstaluj narzędzia (Homebrew musi już być zainstalowany: https://brew.sh).
+brew install nvm postgresql@18 colima docker docker-buildx
 ```
 
-1. **Node 24.20.0** (dokładna wersja z `engines.node`; `scripts/ci-local.sh` odmawia innej):
-   ```sh
-   mkdir -p ~/.nvm
-   # dopisz do ~/.zshrc linie z `brew info nvm` (export NVM_DIR ... oraz source nvm.sh), potem nowe okno Terminala
-   nvm install 24.20.0
-   nvm use 24.20.0   # w repozytorium
-   node --version    # v24.20.0
-   ```
-2. **pnpm 12.6.0** (pole `packageManager`): `corepack enable && corepack prepare pnpm@12.6.0 --activate`; sprawdź `pnpm --version`. (Jeśli pnpm masz już z innego źródła, wystarczy zgodna wersja.)
-3. **PostgreSQL 18**: po `brew install postgresql@18` dodaj do `~/.zshrc` `export PATH="/opt/homebrew/opt/postgresql@18/bin:$PATH"` (formuła jest „keg-only”; w tej konfiguracji `psql`/`pg_dump` są już w `/opt/homebrew/bin`, ale jeśli `which pg_dump` nic nie zwraca — dopisz PATH). Sprawdź: `psql --version`, `pg_dump --version`, `initdb --version` (18.x). Nie uruchamiaj `brew services start postgresql@18`; fixture tworzy własny klaster w `.local/`.
-4. **colima + docker** (potrzebne do `scripts/ci-local.sh` i budowy obrazów; do samego uruchomienia aplikacji nie): `docker --version`, `docker buildx version`, `colima --version`. Jeśli `docker buildx` nie jest widoczny, wykonaj `brew info docker-buildx` i dodaj wskazaną linię `cliPluginsExtraDirs` do `~/.docker/config.json` (do potwierdzenia na świeżej maszynie).
-5. **gh**: `gh auth login`, `gh auth status` (potrzebne do PR-ów, nie do uruchomienia aplikacji).
-6. **gitleaks 8.30.1** (wersja jak w `.github/workflows/ci.yml`; tylko dla `ci-local.sh`): `gitleaks version`.
-7. Repozytorium: `git clone <adres repozytorium> ~/Developer/Auterva`, następnie `cd ~/Developer/Auterva`.
-8. Przeglądarka Playwright (tylko E2E): `pnpm exec playwright install chromium`.
-
-## 2. Po każdym restarcie Maca
-
-Restart zabija wszystkie procesy w tle (PostgreSQL fixture, SeaweedFS, Mailpit, Next, workery) i Colimę. Dane zostają w `.local/`.
+```sh
+# Krok A2. Włącz nvm. Dopisz do pliku ~/.zshrc linie, które wypisze ta komenda (export NVM_DIR ... i source nvm.sh),
+# potem ZAMKNIJ i otwórz Terminal od nowa.
+mkdir -p ~/.nvm && brew info nvm
+```
 
 ```sh
-colima start                 # tylko jeśli używasz docker/ci-local
-docker info | head -3        # weryfikacja: brak błędu "Cannot connect"
+# Krok A3. Zainstaluj Node w wymaganej wersji (raz).
+nvm install 24.20.0
+```
+
+```sh
+# Krok A4. Włącz pnpm w wymaganej wersji (raz).
+corepack enable && corepack prepare pnpm@12.6.0 --activate
+```
+
+```sh
+# Krok A5. Pobierz repozytorium (raz). Wstaw adres repozytorium zamiast <adres>.
+# Trzymaj je w krótkiej ścieżce (PostgreSQL ma limit długości ścieżki).
+git clone <adres> ~/Developer/Auterva
+```
+
+```sh
+# Krok A6. Wejdź do repozytorium i pobierz lokalne usługi (PostgreSQL ma własny klaster, SeaweedFS i Mailpit
+# pobierają się z kontrolą sumy). Wykonuje się raz.
 cd ~/Developer/Auterva
 nvm use 24.20.0
 pnpm install --frozen-lockfile
-pnpm exec prisma generate
-```
-
-`pnpm install` przy niezmienionym lockfile pomija `postinstall`, dlatego `prisma generate` wykonuj jawnie (zwłaszcza po `git pull`).
-
-## 3. Fixture lokalny (karta 1)
-
-Ustal bazę portów. Domyślnie `15450`; poniżej `LOCAL_PORT_BASE=44200` jako przykład. **Tę samą wartość podawaj przy `start`, `stop`, `status`, `seed-media` i w każdej karcie.** Fixture zajmuje porty `baza…baza+7`, `+10`/`+11` są zarezerwowane dla dev HTTP/WS, a `+101`, `+104…+107` zajmuje gRPC SeaweedFS. Przed startem sprawdź, że porty są wolne:
-
-```sh
-lsof -iTCP:44200-44307 -sTCP:LISTEN   # pusty wynik = wolne
-```
-
-Pierwszy raz (pobiera przypięte SeaweedFS 4.49 i Mailpit 1.32.0 z weryfikacją SHA-256 do `.local/bin`):
-
-```sh
 export LOCAL_PORT_BASE=44200
 scripts/local-fixture.sh install
 ```
 
-Start, migracje, seed i obrazy demo (za każdym razem po restarcie; seed jest idempotentny):
+---
+
+## Część B. Za każdym razem, gdy chcesz uruchomić aplikację
+
+Najpierw **sprawdź, że porty są wolne** (karta 1):
 
 ```sh
-export LOCAL_PORT_BASE=44200
-scripts/local-fixture.sh start                      # tworzy .local/fixture-9 i .env przy pierwszym uruchomieniu
-pnpm exec prisma migrate deploy
-pnpm exec tsx scripts/seed-local-fixture.ts          # firmy A/B, flota, konta z hasłem i TOTP
-scripts/local-fixture.sh seed-media                  # trzy okładki w prywatnym S3
+cd ~/Developer/Auterva
+lsof -iTCP:44200-44307 -sTCP:LISTEN   # pusty wynik = wolne; jeśli coś wypisze, zakończ to albo zmień bazę portów
 ```
 
-Jak sprawdzić, że działa:
+### Karta 1. Baza danych, pliki zdjęć i poczta
+
+Uruchom raz po restarcie Maca. Po ostatniej komendzie wracasz do znaku zachęty, a usługi działają w tle.
 
 ```sh
-scripts/local-fixture.sh status
-# 127.0.0.1:44200 - accepting connections
-# SeaweedFS running on loopback
-# Mailpit running on loopback
+cd ~/Developer/Auterva && nvm use 24.20.0            # wejście do repozytorium i właściwy Node
+pnpm install --frozen-lockfile                        # instaluje zależności zgodnie z lockfile
+pnpm exec prisma generate                             # generuje klienta bazy danych
+export LOCAL_PORT_BASE=44200                          # baza portów; w każdej karcie taka sama
+scripts/local-fixture.sh start                        # włącza PostgreSQL, magazyn zdjęć (S3) i pocztę testową (Mailpit)
+pnpm exec prisma migrate deploy                       # zakłada/aktualizuje tabele w bazie
+pnpm exec tsx scripts/seed-local-fixture.ts           # wgrywa dane testowe: firmy A i B, pojazdy, konta, host platformy
+scripts/local-fixture.sh seed-media                   # wgrywa trzy zdjęcia demonstracyjne
+scripts/local-fixture.sh status                       # sprawdza, czy wszystko działa (powinno napisać „accepting connections”)
 ```
 
-Poczta (Mailpit) pokazuje wiadomości pod `http://127.0.0.1:<baza+3>` (przy bazie 44200: `http://127.0.0.1:44203`).
+Jeśli `start` zgłasza `Existing .env does not belong to this local fixture and port`, wykonaj `mv .env .local/env.old` i ponów `scripts/local-fixture.sh start`.
 
-**Zatrzymanie** (na końcu pracy): `LOCAL_PORT_BASE=44200 scripts/local-fixture.sh stop`. Kończy tylko procesy tej fixture.
+### Karta 2. Aplikacja (strony i panele)
 
-**Reset danych** (kasuje całą lokalną bazę i odtwarza ją): `pnpm exec tsx scripts/seed-local-fixture.ts --reset` — nigdy `prisma migrate reset`.
+Zostaje włączona (nie zamykaj tej karty). Cmd+T, potem:
 
-### Uwaga o `.env`
+```sh
+cd ~/Developer/Auterva && nvm use 24.20.0             # wejście do repozytorium
+set -a; . .local/fixture-9/secrets.env; set +a        # wczytuje klucze lokalnego magazynu zdjęć (nic nie wypisuje)
+pnpm dev --port 44210                                 # włącza aplikację; pierwsze wejście na stronę trwa kilkanaście sekund
+```
 
-Pierwszy `start` tworzy `.env` na bazie tego `LOCAL_PORT_BASE` (z losowym `BETTER_AUTH_SECRET`). `.env` z innej bazy portów lub obcy powoduje odmowę startu: `Existing .env does not belong to this local fixture and port`. Wtedy przenieś go: `mv .env .local/env.old` (bez czytania) i ponów `start`, albo wróć do poprzedniej bazy portów. `.env` ma stałe `BETTER_AUTH_URL=http://127.0.0.1:3305` i `WS_PORT=3312`; poniżej nadpisujemy je zmiennymi środowiska w danej karcie (zmienne ustawione w powłoce mają pierwszeństwo przed `--env-file`).
+Jeśli komenda zatrzyma się komunikatem Next.js o „znanej luce bezpieczeństwa”, wpisz **tę samą komendę jeszcze raz**. Za drugim razem przechodzi.
 
-## 4. Aplikacja i procesy
+### Karta 3. Wysyłka e-maili (zaproszenia, reset hasła)
 
-Skrypty `pnpm dev:*` same wczytują `.env`/`.env.local` (`--env-file-if-exists`); `pnpm dev` robi to Next. Sekretów nie wypisuj: nie używaj `cat .env` ani `env`.
+Zostaje włączona. Cmd+T, potem:
 
-### Hosty lokalne
+```sh
+cd ~/Developer/Auterva && nvm use 24.20.0                                              # wejście do repozytorium
+export MAIL_PAYLOAD_KEY="$(openssl rand -hex 32)"                                      # losowy klucz do kolejki wiadomości
+export MAIL_ENVIRONMENT=development MAIL_PROVIDER=sink                                 # poczta testowa: nic nie wychodzi na zewnątrz
+export MAIL_ALLOWED_RECIPIENTS=admin-a@example.test,admin-b@example.test,superadmin@example.test  # dozwoleni odbiorcy
+pnpm dev:worker                                                                        # włącza wysyłkę; wiadomości zobaczysz w Mailpit
+```
 
-Routing wybiera obszar po nagłówku `Host` (port jest ignorowany). Domeny `*.localhost` przeglądarka rozwiązuje na `127.0.0.1`, więc nie trzeba edytować `/etc/hosts` (w Safari/Chrome/Firefox działa; do `curl` użyj `--resolve <host>:<port>:127.0.0.1` albo bezpośrednio, bo `curl` również rozwiązuje `*.localhost`). Seed tworzy:
+Wiadomości testowe czytasz pod adresem `http://127.0.0.1:44203` (Mailpit).
 
-| Obszar | Host | Adres (dev, port 44210) |
+### Karta 4. Zdjęcia pojazdów (przetwarzanie)
+
+Zostaje włączona. Potrzebna tylko, jeśli dodajesz zdjęcia. Cmd+T, potem:
+
+```sh
+cd ~/Developer/Auterva && nvm use 24.20.0             # wejście do repozytorium
+set -a; . .local/fixture-9/secrets.env; set +a        # klucze lokalnego magazynu zdjęć
+pnpm dev:media-worker                                 # włącza przetwarzanie zdjęć
+```
+
+### Karta 5. Czat na żywo (serwer)
+
+Zostaje włączona. Potrzebna tylko do czatu. Cmd+T, potem:
+
+```sh
+cd ~/Developer/Auterva && nvm use 24.20.0             # wejście do repozytorium
+WS_PORT=44211 pnpm dev:ws                             # włącza serwer czatu na porcie 44211
+```
+
+### Karta 6. Bramka czatu (jeden adres dla stron i czatu)
+
+Zostaje włączona. Potrzebna tylko, jeśli chcesz czat „na żywo” (pisanie, status przeczytania). Cmd+T, potem:
+
+```sh
+cd ~/Developer/Auterva && nvm use 24.20.0                                            # wejście do repozytorium
+PORT=44216 DEV_APP_PORT=44210 WS_PORT=44211 pnpm dev:gateway                         # łączy aplikację (44210) i czat (44211) pod adresami na porcie 44216
+```
+
+---
+
+## Część C. Wejście do aplikacji i logowanie
+
+Hasła i klucze logowania (TOTP) każdego konta są w pliku `.local/fixture-9/access.json`. Otwórz go **tylko u siebie** i nigdy nie wklejaj nigdzie. Konta testowe:
+
+| Konto | Do czego | E-mail |
 |---|---|---|
-| Strona publiczna firmy A / B | `company-a.localhost`, `company-b.localhost` | `http://company-a.localhost:44210/` |
-| Panel firmy A / B | `admin.company-a.localhost`, `admin.company-b.localhost` | `http://admin.company-a.localhost:44210/admin/login/` |
-| Platforma (superadmin) | **brak w seedzie** — patrz niżej | `http://platform.localhost:44210/login/` |
+| Superadmin | platforma, wszystkie firmy | `superadmin@example.test` |
+| Administrator firmy A | panel firmy A | `admin-a@example.test` |
+| Administrator firmy B | panel firmy B | `admin-b@example.test` |
 
-Seed nie tworzy hosta platformy. Dla logowania superadmina dodaj lokalnie (raz na bazę; reset bazy go usuwa), zmieniając port na swój `LOCAL_PORT_BASE`:
+Adresy wpisuj w przeglądarce (Chrome, Safari lub Firefox). Nie trzeba edytować pliku `hosts`.
 
-```sh
-psql -h 127.0.0.1 -p 44200 -d auterva_fixture_9 -c \
-  "INSERT INTO \"HostMapping\" (id, hostname, area, status) VALUES (gen_random_uuid(), 'platform.localhost', 'PLATFORM', 'ACTIVE') ON CONFLICT DO NOTHING"
-```
+| Co | Adres (bez czatu na żywo, port 44210) | Adres z czatem na żywo (port 44216, karty 5 i 6 włączone) |
+|---|---|---|
+| Logowanie superadmina | `http://platform.localhost:44210/login/` | `http://platform.localhost:44216/login/` |
+| Wiadomości superadmina | – | `http://platform.localhost:44216/wiadomosci/` |
+| Panel firmy A | `http://admin.company-a.localhost:44210/admin/login/` | `http://admin.company-a.localhost:44216/admin/login/` |
+| Czat w panelu firmy A | – | `http://admin.company-a.localhost:44216/admin/czat/` |
+| Panel firmy B | `http://admin.company-b.localhost:44210/admin/login/` | `http://admin.company-b.localhost:44216/admin/login/` |
+| Strona publiczna firmy A | `http://company-a.localhost:44210/` | `http://company-a.localhost:44216/` |
+| Strona publiczna firmy B | `http://company-b.localhost:44210/` | `http://company-b.localhost:44216/` |
+| Poczta testowa | `http://127.0.0.1:44203` | `http://127.0.0.1:44203` |
 
-(Pusta baza alternatywnie dostaje hosta platformy z `pnpm exec tsx scripts/bootstrap-superadmin.ts`; nie używaj go na fixture z danymi, bo wymaga pustej bazy.) Sprawdzono: `http://platform.localhost:44210/login/` zwraca 200, a `/firmy/` przekierowuje do logowania.
+Jak się zalogować:
 
-### Wariant A: dev (szybki, bez PWA) — karta 2
+1. Otwórz adres logowania z tabeli, wpisz e-mail konta i hasło z `access.json`.
+2. Konta mają obowiązkowy drugi składnik (MFA). Pole `totpURI` z `access.json` dodaj do aplikacji z kodami (1Password, Google Authenticator): zeskanuj kod QR utworzony z tego adresu albo wpisz sekret ręcznie.
+3. Na ekranie MFA wpisz 6-cyfrowy kod z aplikacji.
 
-```sh
-cd ~/Developer/Auterva && nvm use 24.20.0
-pnpm dev --port 44210
-```
+Konto firmy loguje się tylko na adresie swojego panelu, a superadmin tylko na adresie platformy.
 
-Pierwsze wejście na stronę kompiluje ją (kilkanaście sekund). Service worker i PWA działają tylko w buildzie produkcyjnym.
+---
 
-### Wariant B: build produkcyjny za zaufanym ingressem — karta 2 (MFA, limity, PWA)
-
-Produkcyjny auth wymaga adaptera adresu klienta; lokalnie jest to `start:local-ingress` (ten sam co w E2E). Nie uruchamiaj go razem z wariantem A w tym samym katalogu `.next` — albo zatrzymaj dev przed `pnpm build`, albo dev uruchom z `AUTERVA_NEXT_DIST_DIR=.local/next-dev pnpm dev --port 44210`.
-
-```sh
-cd ~/Developer/Auterva && nvm use 24.20.0
-pnpm build
-NODE_ENV=production PORT=44212 BETTER_AUTH_URL=http://platform.localhost:44212 pnpm start:local-ingress
-# Local trusted ingress on 127.0.0.1:44212
-```
-
-Adresy: `http://company-a.localhost:44212/`, `http://admin.company-a.localhost:44212/admin/login/`, `http://platform.localhost:44212/login/` (wszystkie zwracają 200). Ingress odrzuca ruch spoza loopback i usuwa nagłówki `X-Forwarded-*`. Wartość `BETTER_AUTH_URL` dla ingressu ustawiono jak host platformy; dokładne wymagania `BETTER_AUTH_URL` dla innych hostów — do potwierdzenia przy logowaniu w przeglądarce (Origin żądań musi zgadzać się z hostem strony).
-
-### Worker — karta 3
-
-Wymaga kluczy poczty w powłoce (losowych, niewypisywanych); sink nie wysyła nic na zewnątrz:
+## Część D. Zakończenie pracy
 
 ```sh
-cd ~/Developer/Auterva && nvm use 24.20.0
-export MAIL_PAYLOAD_KEY="$(openssl rand -hex 32)"
-export MAIL_ENVIRONMENT=development MAIL_PROVIDER=sink
-export MAIL_ALLOWED_RECIPIENTS=admin-a@example.test,admin-b@example.test,superadmin@example.test
-pnpm dev:worker
-# {"operation":"worker.start","outcome":"success", ... "Worker ready"}
+# Karty 2–6: w każdej naciśnij Ctrl+C (zatrzymuje aplikację, wysyłkę, zdjęcia, czat i bramkę).
 ```
 
-Klucz możesz też wpisać do ignorowanego `.env`, żeby nie generować go za każdym razem (kontrakt: [jobs-mail-outbox](../contracts/jobs-mail-outbox.md)). Zmiana klucza po wysłaniu zadań uniemożliwia odczyt starych payloadów w kolejce.
-
-### Media-worker — karta 4
-
-Wczytuje klucze lokalnego S3 bez wypisywania:
+W karcie 1:
 
 ```sh
-cd ~/Developer/Auterva && nvm use 24.20.0
-set -a; . .local/fixture-9/secrets.env; set +a
-pnpm dev:media-worker
-# ... "Media worker ready"
+cd ~/Developer/Auterva
+LOCAL_PORT_BASE=44200 scripts/local-fixture.sh stop   # wyłącza bazę, magazyn zdjęć i pocztę testową (dane zostają)
 ```
 
-Serwer Next (karta 2) do uploadu zdjęć potrzebuje tych samych zmiennych S3 — uruchom go z tym samym `set -a; . .local/fixture-9/secrets.env; set +a` przed `pnpm dev` / `pnpm start:local-ingress` (kontrakt: [media-upload-processing](../contracts/media-upload-processing.md)).
+Opcjonalnie wyłącz środowisko kontenerów, jeśli je włączałeś: `colima stop`.
 
-### WebSocket czatu — karta 5
+---
 
-```sh
-cd ~/Developer/Auterva && nvm use 24.20.0
-WS_PORT=44211 pnpm dev:ws
-# ... "Realtime listening" ... "port":44211
-```
+## Gdy coś nie działa
 
-`.env` ustawia `WS_PORT=3312`; powyższe nadpisanie unika kolizji z innymi fixture. Domyślnie przyjmuje `Host` tylko `127.0.0.1:<WS_PORT>`; kontrakt: [chat-realtime](../contracts/chat-realtime.md) (`WS_HOST`, `WS_ALLOWED_HOSTS`).
-
-Ograniczenie lokalne (do potwierdzenia przez właściciela): przeglądarka łączy się z `ws://<host strony>/ws…` (ten sam host i port co strona), a ani `next dev`, ani `start:local-ingress` nie przekazują połączeń WebSocket do procesu `ws`. Lokalnie więc wiadomości czatu zapisują się i odświeżają przez HTTP, a wskaźniki „na żywo” (pisanie, status w czasie rzeczywistym) wymagają zewnętrznego reverse proxy przed Next i WS albo testów procesu: `tests/integration/realtime-process.test.ts`.
-
-## 5. Logowanie
-
-Konta (sprawdzone w seedzie): `admin-a@example.test` (panel firmy A), `admin-b@example.test` (firma B), `superadmin@example.test` (platforma). Hasła i sekrety TOTP są losowe i lokalne: leżą w `.local/fixture-9/access.json` (uprawnienia 0600). Odczytaj plik tylko u siebie; nie wklejaj go do issue, PR ani czatu.
-
-1. Otwórz właściwy host (tabela w sekcji 4) i zaloguj e-mailem oraz hasłem z `access.json`.
-2. Dodaj `totpURI` z `access.json` do aplikacji TOTP (1Password, Google Authenticator) — pole `totpURI` jest adresem `otpauth://`, można z niego wygenerować kod QR albo wpisać sekret ręcznie. Kody 6-cyfrowe wpisz na ekranie MFA.
-3. Konta fixture mają już włączone MFA; powtórny seed zachowuje hasła i TOTP. Po `--reset` powstają nowe sekrety i trzeba je dodać ponownie.
-4. Kody odzyskiwania i procedura utraty czynników: [AUTH_QA](AUTH_QA.md) (`scripts/recover-mfa.ts`, interaktywny TTY).
-
-Konto firmy nie zadziała na hoście platformy ani drugiej firmy; superadmin loguje się na hoście platformy. Brak publicznej rejestracji klientów.
-
-## 6. Testy
-
-Wszystkie komendy z korzenia repozytorium, z `nvm use 24.20.0`:
-
-```sh
-pnpm lint
-pnpm typecheck
-pnpm test:unit                      # bez bazy
-pnpm test:integration               # wymaga uruchomionej fixture (karta 1) i migracji/seedu
-```
-
-`pnpm test:integration` najpierw odtwarza bazę `auterva_bootstrap_12` z `BOOTSTRAP_TEST_DATABASE_URL`, więc przed nim dopisz do `.env` (raz) osobną bazę loopback na PostgreSQL fixture (utwórz ją, jeśli jej nie ma: `createdb -h 127.0.0.1 -p 44200 auterva_bootstrap_12` — do potwierdzenia, niesprawdzone), np. `BOOTSTRAP_TEST_DATABASE_URL=postgresql://<twój-użytkownik>@127.0.0.1:44200/auterva_bootstrap_12` (host `127.0.0.1`, dokładna nazwa bazy, bez parametrów; port jak PostgreSQL fixture) oraz `MAIL_PAYLOAD_KEY` w powłoce. Dla testów mediów potrzebny jest prywatny S3 z `seed-media`. Przed pełnym zestawem uruchom `pnpm exec prisma generate`. Pojedyncze pliki: `pnpm exec vitest run tests/integration/<plik> --maxWorkers=2`.
-
-**E2E** (Playwright, Chromium): `pnpm build`, potem `pnpm test:e2e`. Uruchamia trzy serwery na loopback: produkcja `E2E_PORT` (domyślnie 3305), dev `E2E_DEV_PORT` (+1), ingress `E2E_TRUSTED_PORT` (+2). Na własnych portach, np. `E2E_PORT=3345 E2E_DEV_PORT=3346 E2E_TRUSTED_PORT=3347 pnpm test:e2e`. Na maszynie wspólnej z innymi agentami przed ręcznym E2E weź blokadę `mkdir "$(git rev-parse --git-common-dir)/e2e.lock"` (patrz [CI](CI.md#tryb-lokalny-d-29)) i zwolnij ją po teście.
-
-**Pełne lokalne CI** (procedura zapasowa dla workflow `CI` na GitHub Actions, D-65; dokładny opis w [CI](CI.md#tryb-lokalny-d-29)):
-
-```sh
-colima start
-scripts/ci-local.sh 44200 .local/ci-result.txt
-```
-
-- Argumenty: baza portów (`LOCAL_PORT_BASE`) i plik wyniku (w `.local/`, nie śledzony).
-- Wymaga czystego drzewa (`git status --porcelain` puste), Node dokładnie 24.20.0, `pg_dump` 18, gitleaks 8.30.1, działającego `docker` z `buildx`.
-- Porty E2E to `baza+12…baza+14`; fixture zajmuje `baza…+7`, `+10/+11`, `+101`, `+104…+107`.
-- **Resetuje dane fixture tego repozytorium** i zatrzymuje ją na końcu, jeśli sam ją uruchomił. Zatrzymaj wcześniej własną fixture na tej bazie portów.
-- Krok E2E czeka na slot semafora w `<git-common-dir>/e2e.slots/` (domyślnie 2 sloty, limit czekania `AUTERVA_E2E_LOCK_TIMEOUT`, domyślnie 1800 s; na zajętej maszynie np. `AUTERVA_E2E_LOCK_TIMEOUT=10800`). Starej blokady `e2e.lock` nie bierz ręcznie przed `ci-local.sh`.
-- Wynik: plik z dziewięcioma wierszami `PASS`/`FAIL`; logi w `.local/ci-local/`. Kod wyjścia ≠ 0 przy dowolnym `FAIL`. Przerwanie Ctrl-C sprząta własne procesy.
-- Przed uruchomieniem usuń zapełniony magazyn S3 poprzednich prób: `rm -rf .local/fixture-9/storage` (tylko przy zatrzymanej fixture; zob. sekcja 8).
-
-## 7. Penpot (makiety)
-
-Penpot to osobne narzędzie w przeglądarce (nie uruchamia się go z repozytorium). Plik projektu: `Nowy plik 2`, ID `b564c72c-f31f-81ec-8008-af198a313438`; zasady odczytu, mapowanie FR/UC na ekrany i znane ograniczenia: [design/README.md](../../design/README.md). Do odczytu przez agentów służy wtyczka MCP; hostowany Penpot ma jedną kartę przeglądarki, więc nie otwieraj go równolegle w kilku sesjach agentów. Adres instancji Penpot właściciel zna z konta — **do potwierdzenia**, nie ma go w repozytorium.
-
-## 8. Zatrzymanie i typowe problemy
-
-**Zatrzymanie wszystkiego:**
-
-1. Ctrl-C w kartach 2–5 (Next, worker, media-worker, WS).
-2. `LOCAL_PORT_BASE=44200 scripts/local-fixture.sh stop` w karcie 1.
-3. Opcjonalnie `colima stop`.
-4. Sprawdź: `lsof -iTCP:44200-44307 -sTCP:LISTEN` ma być puste. Nie używaj `pkill node` — na maszynie mogą działać cudze procesy; kończ tylko własne po PID z `lsof -tiTCP:<port> -sTCP:LISTEN`.
-
-| Problem | Przyczyna i działanie |
+| Objaw | Co zrobić |
 |---|---|
-| Zajęty port przy `start` lub dev | Inny proces trzyma port. `lsof -iTCP:<port> -sTCP:LISTEN`; zakończ własny proces albo wybierz inną bazę (`LOCAL_PORT_BASE=45200` konsekwentnie w każdej komendzie). Nie zabijaj cudzych procesów. |
-| `Existing .env does not belong to this local fixture and port` | `.env` pochodzi z innej bazy portów. `mv .env .local/env.old` i ponów `start` (lub użyj poprzedniej bazy). Stary `.env` utrzymuje stary port bazy. |
-| `docker: Cannot connect to the Docker daemon` | Colima nie działa po restarcie: `colima start`, potem `docker info`. Dotyczy tylko `ci-local.sh`/obrazów. |
-| `pg_ctl: could not start server` / odmowa o długości ścieżki | Gniazdo PostgreSQL `<repo>/.local/fixture-9/.s.PGSQL.<port>` ma limit 103 B na macOS. Użyj krótszej ścieżki repozytorium. |
-| Po uśpieniu lub restarcie Maca brak połączenia z bazą, `status` pokazuje „no response” | Procesy fixture padły. Wykonaj `scripts/local-fixture.sh stop`, potem `start` z tą samą bazą; dane zostają. Jeśli `start` nadal zgłasza stary `postmaster.pid` — do potwierdzenia, niesprawdzone w tej instrukcji. |
-| `backup-restore` test timeout lub zapełniony S3 | Przy zatrzymanej fixture `rm -rf .local/fixture-9/storage`, potem `start` i `seed-media`. Dotyczy wyczyszczonych wolumenów SeaweedFS (#212). |
-| `PrismaClientValidationError` lub nieaktualny klient po `git pull` | `pnpm exec prisma generate` i `pnpm exec prisma migrate deploy`. |
-| Logowanie zwraca 404 lub przekierowanie do `/login` na hoście platformy | Brak wiersza `platform.localhost` (sekcja 4) albo zły host. Zaloguj się na `admin.company-a.localhost`, nie na `localhost`. |
-| Brak e-maili | Worker nie działa (karta 3) albo klucze `MAIL_*` nie zostały ustawione; sprawdź Mailpit (`baza+3`). |
-| Dev i build nadpisują się | Osobny katalog: `AUTERVA_NEXT_DIST_DIR=.local/next-dev pnpm dev --port <port>`. |
-| Reset całej bazy | `pnpm exec tsx scripts/seed-local-fixture.ts --reset` (nie `prisma migrate reset`). Po resecie dodaj ponownie `platform.localhost` i TOTP. |
-
-## Niepotwierdzone w tym dokumencie
-
-- Dokładna konfiguracja `docker buildx` na maszynie bez wcześniejszej instalacji.
-- Logowanie w przeglądarce w wariancie B przy `BETTER_AUTH_URL` innym niż host platformy (wymagania Origin).
-- Działanie czatu „na żywo” lokalnie (brak proxy WebSocket, sekcja 4).
-- Adres instancji Penpot.
+| Po restarcie Maca nic nie działa | Wykonaj od nowa część B (dane zostają w `.local/`). |
+| `lsof` w sprawdzeniu portów coś wypisuje | Port jest zajęty. Zamknij ten proces albo wybierz inną bazę portów (np. `45200`) i wpisuj ją **konsekwentnie** w każdej komendzie i każdej karcie. |
+| Odmowa z `Existing .env does not belong…` | `mv .env .local/env.old`, potem ponów `scripts/local-fixture.sh start`. |
+| Logowanie zwraca 404 | Sprawdź adres: superadmin na `platform.localhost`, firma na `admin.company-a.localhost` lub `admin.company-b.localhost`. Nie loguje się na samym `localhost`. |
+| Brak e-maili w Mailpit | Włącz kartę 3 (wysyłka) i sprawdź `http://127.0.0.1:44203`. |
+| Błąd o nieaktualnym kliencie bazy po `git pull` | `pnpm exec prisma generate` i `pnpm exec prisma migrate deploy` (karta 1). |
+| Chcesz wyczyścić dane testowe i zacząć od zera | `pnpm exec tsx scripts/seed-local-fixture.ts --reset` (po tym trzeba ponownie dodać klucze TOTP do aplikacji). Nigdy `prisma migrate reset`. |

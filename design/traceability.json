@@ -22,6 +22,35 @@
       "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
     },
     {
+      "issue": 440,
+      "scope": "Formularze z sekretem (logowanie, MFA: kod z aplikacji i kod odzyskania, konfiguracja MFA, nowe kody odzyskania, aktywacja z zaproszenia, żądanie i ustawienie nowego hasła, zmiana hasła) używają wspólnego SecretForm: natywna wysyłka (Enter przed hydratacją, brak JavaScriptu) idzie metodą POST bez action, więc hasło i kod nigdy nie trafiają do adresu URL, historii ani Referer. Zachowanie z JavaScriptem, etykiety, błędy i fokus bez zmian wyglądu.",
+      "relatedRequirementIds": ["C-N020"],
+      "referenceScreenIds": ["ADM-01", "PLT-08", "ACC-07"],
+      "scenarioStates": {
+        "forms": "Bez zmian wyglądu; ID stanów w Penpocie jak we wpisach logowania, MFA i konta"
+      },
+      "codePaths": ["src/components/ui/secret-form.tsx", "src/components/auth/auth-flow.tsx", "src/components/auth/reset-flow.tsx", "src/components/auth/activation-flow.tsx", "src/components/account/account-view.tsx"],
+      "testPaths": ["tests/unit/secret-forms-inventory.test.tsx", "tests/e2e/secret-forms-no-get.spec.ts"]
+    },
+    {
+      "issue": 437,
+      "scope": "Jedno miejsce mapowania „baza niedostępna” na 503 TEMPORARILY_UNAVAILABLE (Retry-After, X-Request-Id, no-store) we wszystkich handlerach i trasach (transientDbResponse oparte na isDbUnavailableError, także w routeContext dla wyjątków, które uciekły handlerowi, i w trasie uploadu), tak jak w proxy (#412). Kody systemowe Node (ECONNRESET, ETIMEDOUT itd.) liczą się tylko dla błędu z klienta bazy (Prisma lub pula), więc błąd S3, poczty lub DNS pozostaje 500. createPrismaClient ma connectionTimeoutMillis (APP_DB_LIMITS: 4 s): baza, która przyjmuje TCP i nie odpowiada, kończy się kodem DB_CONNECT_TIMEOUT, a brak wolnego połączenia w puli DB_POOL_TIMEOUT, oba jako 503. Strony RSC: Next nie pozwala wybrać statusu renderu, więc strona błędu zostaje neutralna, a onRequestError loguje http.service_unavailable zamiast http.unhandled_error. Test inwentarza pilnuje, że każdy mapper 500 najpierw próbuje wspólnego mapowania.",
+      "relatedRequirementIds": ["C-N060"],
+      "referenceScreenIds": [],
+      "unmappedStates": ["Backend; bez zmian UI, strony błędu bez makiety."],
+      "codePaths": ["src/modules/observability/http-observe.ts", "src/modules/observability/route-context.ts", "src/lib/prisma.ts", "src/instrumentation.ts", "src/modules/media/http.ts"],
+      "testPaths": ["tests/unit/proxy-db-unavailable.test.ts", "tests/unit/route-context-errors.test.ts", "tests/unit/db-unavailable-mapping-inventory.test.ts", "tests/integration/db-unavailable-handlers.test.ts", "tests/integration/proxy-db-unavailable.test.ts"]
+    },
+    {
+      "issue": 412,
+      "scope": "Proxy: przy niedostępnej bazie (błąd rozpoznania hosta przed handlerem) kontrolowana odpowiedź 503 zamiast surowego 500: trasy API zwracają {code:TEMPORARILY_UNAVAILABLE} z Retry-After, X-Request-Id i no-store, strony prostą stronę błędu bez szczegółów z zamkniętym CSP; zdarzenie http.service_unavailable i licznik 5xx bez sekretów. Niedostępność rozpoznaje isDbUnavailableError (baza nie słucha, timeout lub brak trasy sieciowej, zerwane połączenie, PostgreSQL w trakcie zamykania/startu, brak wolnych połączeń, błędy przejściowe) na kształtach błędów zmierzonych na Prisma 7 z adapter-pg. Błąd konfiguracji połączenia i każdy inny nieoczekiwany błąd proxy to neutralne 500 {code:INTERNAL_ERROR} bez Retry-After, zgłaszane przez reportInternalError (http.internal_error). Odmowa hosta (404) bez zmian.",
+      "relatedRequirementIds": ["C-N060"],
+      "referenceScreenIds": [],
+      "unmappedStates": ["Backend; prosta strona błędu bez makiety, treść neutralna bez szczegółów."],
+      "codePaths": ["src/proxy.ts", "src/modules/observability/http-observe.ts"],
+      "testPaths": ["tests/unit/proxy-db-unavailable.test.ts", "tests/unit/transient-db-error.test.ts", "tests/integration/proxy-db-unavailable.test.ts", "tests/integration/host-proxy.test.ts"]
+    },
+    {
       "issue": 381,
       "scope": "Lista pojazdów: „Wyczyść filtry” (arkusz filtrów i stan „Brak wyników”) czyści wyszukiwanie, filtry i stronę, ale zachowuje sortowanie „Ostatnia zmiana”; sortowanie wraca do kolejności w ofercie wyłącznie przez „Przywróć domyślne” / przycisk sortowania (D-42, D-50). Zachowanie bez zmian wyglądu.",
       "relatedRequirementIds": ["FR-ADM-020", "FR-ADM-021", "FR-ADM-022"],
@@ -62,6 +91,71 @@
       "codePaths": ["src/components/admin/vehicle-calendar.tsx"],
       "testPaths": ["tests/unit/vehicle-calendar.test.tsx", "tests/e2e/vehicle-calendar.spec.ts"],
       "sharedWith": "Zależy od #383 (PR #395)."
+    },
+    {
+      "issue": 417,
+      "scope": "Backend diagnostyki uruchomienia firmy dla stanów z makiety #78 (D-52, D-63): data ważności certyfikatu TLS własnej domeny z progiem 21 dni (tlsExpiry), checkedAt adresów Autervy, jedno pole lastMail (zaproszenia i przypomnienia, bez resetu hasła) z ogólną przyczyną (cause) zamiast kodów, akcja „Sprawdź ponownie” (POST …/launch-diagnostics/recheck, limit 6/h na firmę, 5xx = wynik niepewny) i okresowe ponowne sprawdzanie aktywnej domeny w workerze (24 h, po błędzie 1 h, poza pętlą poczty, tylko z konfiguracją CNAME) bez zmiany jej cyklu życia i routingu aliasu (D-64; aliasRedirectsToCustomDomain). lastMail z próbami (attempts, maxAttempts, nextAttemptAt); wykorzystane zaproszenie nie jest błędem. Bez UI.",
+      "relatedRequirementIds": ["C-F035", "C-F089", "D-52", "D-63", "D-64"],
+      "referenceScreenIds": ["PLT-03"],
+      "unmappedStates": ["Backend bez UI; stany diag-ok/warning/error/checking/uncertain/no-data (PLT-03) pokrywa Frontend #78 na tym API."],
+      "codePaths": ["docs/contracts/launch-diagnostics.md", "docs/contracts/custom-domain-lifecycle.md", "src/server/worker.ts", "prisma/migrations/20261112120000_launch_diagnostics_checks_issue_417/migration.sql", "src/modules/organizations/launch-diagnostics.ts", "src/modules/domains/diagnostics-recheck.ts", "src/modules/domains/lifecycle.ts", "src/modules/domains/network-checker.ts", "src/modules/jobs/runner.ts", "src/app/api/platform/companies/[organizationId]/launch-diagnostics/recheck/route.ts"],
+      "testPaths": ["tests/integration/launch-diagnostics.test.ts", "tests/integration/launch-diagnostics-recheck.test.ts", "tests/integration/jobs-worker-domains.test.ts", "tests/integration/custom-domain-network.test.ts"]
+    },
+    {
+      "issue": 402,
+      "scope": "Lokalny test obciążenia przez prawdziwy HTTP (produkcyjny Next za ingressem pomiarowym), profil P2 (2 firmy x 100 aut x 100 000 okresów), profilowanie zapytań i EXPLAIN; zapytania listy floty (blokady dziś) i siatki floty czytają blokady przez GiST availability_no_overlap zamiast filtra relacji po wszystkich blokadach firmy (bez nowej migracji). Staging i profil zatwierdzony: not-run (#90).",
+      "relatedRequirementIds": ["NFR-PERF-002", "C-N060", "C-N062", "D-54"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "scripts/perf/http-load.ts",
+        "scripts/perf/load-ingress.ts",
+        "scripts/perf/pg-log-top.ts",
+        "scripts/perf/explain.ts",
+        "src/modules/availability/read.ts",
+        "src/modules/fleet/read.ts",
+        "docs/performance/local-load-2026-11.md"
+      ],
+      "testPaths": [
+        "tests/integration/availability-fleet-calendar.test.ts",
+        "tests/integration/fleet-list.test.ts",
+        "tests/integration/fleet-list-filters.test.ts"
+      ]
+    },
+    {
+      "issue": 419,
+      "scope": "Trwałe usunięcie danych firmy 12 miesięcy po archiwizacji (D-58): dzienny, idempotentny job COMPANY_PURGE w media-workerze; start pod blokadą wiersza firmy (purgeStartedAt, nieodwracalny trigger), wiersze firmy w paczkach (pojazdy, blokady, feedy, eksporty, treści/ustawienia, media, czat, hosty/domena, zaproszenia, receipty, konto administratora z MFA i sesjami), obiekty storage z ponowieniem po awarii, zanonimizowany szkielet Organization (purgedAt) dla audytu 365 dni. Po starcie brak zapisu, przywrócenia (409 COMPANY_PURGED) i restore z kopii. Audyt i logi bez treści. Karta firmy superadmina: purge.scheduledAt/startedAt/completedAt w API. Bez nowego ekranu.",
+      "relatedRequirementIds": ["C-F073", "C-F074", "C-F077", "D-58"],
+      "referenceScreenIds": [],
+      "unmappedStates": ["Backend; data planowanego usunięcia w karcie firmy (PLT-03) i komunikat COMPANY_PURGED wymagają osobnej decyzji projektowej/UI — w tym PR tylko pole API i tekst błędu przywrócenia."],
+      "codePaths": [
+        "prisma/schema.prisma",
+        "prisma/migrations/20261112120000_company_purge_issue_419/migration.sql",
+        "src/modules/organizations/purge.ts",
+        "src/modules/organizations/archive.ts",
+        "src/modules/organizations/read.ts",
+        "src/modules/organizations/write-lock.ts",
+        "src/modules/media/worker.ts",
+        "src/modules/backup/company.ts",
+        "src/modules/observability/alerts.ts",
+        "src/components/platform/company-ops.tsx",
+        "docs/contracts/company-archive-restore.md",
+        "docs/contracts/platform-companies-read.md",
+        "docs/runbooks/monitoring-incidents.md",
+        "docs/runbooks/backup-restore.md",
+        "src/modules/reminders/reconcile.ts",
+        "src/modules/reminders/deliver.ts",
+        "docs/contracts/calendar-and-company-export.md",
+        "docs/ARCHITEKTURA_AUTERVA.md"
+      ],
+      "testPaths": ["tests/integration/company-purge.test.ts", "tests/integration/company-purge-migration.test.ts", "tests/integration/backup-restore.test.ts", "tests/integration/company-archive.test.ts"]
+    },
+    {
+      "issue": 425,
+      "scope": "Lokalny seed fixture tworzy idempotentnie host platformy platform.localhost (obszar PLATFORM, bez firmy, ACTIVE), także po --reset, tylko w guardowanej ścieżce lokalnej; superadmin loguje się bez ręcznego psql. Wiersz dodany wcześniej ręcznie pod innym id jest zachowywany, ta sama nazwa w innym obszarze przerywa seed. Bez zmian UI i API.",
+      "relatedRequirementIds": ["D-29"],
+      "codePaths": ["scripts/seed-local-fixture.ts", "README.md", "docs/development/URUCHOMIENIE_MACOS.md"],
+      "testPaths": ["tests/integration/local-fixture.test.ts"],
+      "sharedWith": "Instrukcja docs/development/URUCHOMIENIE_MACOS.md: usunięty ręczny krok psql hosta platformy."
     },
     {
       "issue": 414,
@@ -207,6 +301,16 @@
       "sharedWith": "Rozszerza #217."
     },
     {
+      "issue": 415,
+      "scope": "Blokada zbiorcza i kopia blokady (ADM-10): komunikat wyniku nieznanego (5xx/sieć) dopisuje ostrzeżenie, że po opuszczeniu strony ponowienie wysyłki tym samym kluczem znika i trzeba sprawdzić kalendarz floty; logika strażnika i klucza idempotencji bez zmian.",
+      "relatedRequirementIds": ["FR-ADM-055", "FR-ADM-057", "D-48"],
+      "referenceScreenIds": ["ADM-10"],
+      "unmappedStates": ["Porównanie z makietą w Penpocie: DEFERRED (#263); zmiana dotyczy tylko treści komunikatu."],
+      "codePaths": ["src/components/admin/bulk-blocks.tsx"],
+      "testPaths": ["tests/unit/bulk-blocks.test.tsx"],
+      "sharedWith": "Rozszerza #378; zależność: PR #407."
+    },
+    {
       "issue": 387,
       "scope": "Bezpieczeństwo MFA (D-05 pkt 4–5): po zalogowaniu kodem odzyskania konto ma trwały stan „odzyskanie w toku” (user.mfaRecoveryPendingAt + mfaRecoverySessionId). Do potwierdzenia nowego TOTP logowanie samym hasłem daje neutralne 401 bez sesji, a enable/verify-totp przyjmuje wyłącznie sesja, która zużyła kod; potwierdzenie czyści stan i dopisuje audyt MFA_RECOVERY_COMPLETED. Porzucone odzyskanie odblokowuje tylko procedura operatora. Obie role (admin firmy, superadmin). Bez zmian UI.",
       "relatedRequirementIds": ["C-F011", "C-F013", "C-F014"],
@@ -231,6 +335,27 @@
       "unmappedStates": ["Stan „Wczytywanie wiadomości z czasu rozłączenia” i błąd dociągania luki bez osobnej planszy; wzorzec jak błąd wczytania rozmowy."],
       "codePaths": ["src/components/chat/chat-panel.tsx"],
       "testPaths": ["tests/unit/chat-panel.test.tsx", "tests/e2e/chat-refetch.spec.ts"]
+    },
+    {
+      "issue": 411,
+      "scope": "Czat: błąd dociągania luki po ready z backlog \"refetch\" (#393) to zwarty komunikat z „Spróbuj ponownie” przypięty nad historią rozmowy (poza przewijaną listą), więc komunikat i akcja są widoczne bez przewijania przy 320 i 390 px (firma i superadmin) niezależnie od miejsca na historię. Historia oddaje miejsce komunikatowi do progu 64 px; gdy i to się nie mieści, panel (w skrzynce superadmina poniżej 1024 px razem z jej kontenerem) rośnie tylko o brakującą część: pole wiadomości zostaje widoczne, a „Wyślij” jest osiągalne przewinięciem strony ponad dolną nawigacją; brak poziomego przewijania. Jedno ogłoszenie dla czytnika: komunikat nie ma własnej roli alert, ogłasza go region status (ponownie po nieudanym ponowieniu, „Uzupełniono…” po udanym). Akcja ma obrys fokusu z tokenów; ponowienie bez zmian. Porównanie z Penpotem DEFERRED (#263): brak planszy stanu, wzorzec Alert czatu w zwartej formie.",
+      "relatedRequirementIds": ["C-F132", "C-N066"],
+      "referenceScreenIds": ["TEN-11"],
+      "unmappedStates": ["Błąd dociągania luki bez osobnej planszy; wzorzec Alert jak błąd wczytania rozmowy, pozycja przypięta nad historią rozmowy."],
+      "codePaths": ["src/components/chat/chat-panel.tsx", "src/components/chat/chat.module.css", "src/components/platform/inbox.module.css"],
+      "testPaths": ["tests/unit/chat-panel.test.tsx", "tests/e2e/chat-gap-alert.spec.ts"]
+    },
+    {
+      "issue": 435,
+      "scope": "PLT-09 skrzynka superadmina na telefonie (poniżej 768 px, stała dolna nawigacja): nagłówek rozmowy ma dwa wiersze — „Wiadomości” (wstecz) i „Karta firmy” w jednym, pod nimi nazwa firmy raz, najwyżej w dwóch liniach (pełna nazwa pozostaje w nagłówku h2 i w nazwie dostępnej linku karty; wiersz „Odbiorca: …” panelu czatu zostaje tylko dla technologii asystujących, a pełną nazwę pokazuje podpowiedź pola wiadomości). Rozmowa nie jest już przycinana do wysokości okna: historia ma co najmniej 128 px (64 px w stanie błędu luki z #411), a gdy nagłówek, historia i pole nie mieszczą się w oknie, panel rośnie i strona się przewija, więc pole wiadomości i „Wyślij” kończą się nad dolną nawigacją (320x568, 320x640, 390x700, nazwa firmy do 120 znaków); komunikat błędu luki i „Spróbuj ponownie” są widoczne bez przewijania. Od 768 px i w panelu firmy bez zmian. Logika czatu i komunikat luki bez zmian.",
+      "relatedRequirementIds": ["C-F136", "C-F137", "DS-N09"],
+      "referenceScreenIds": ["PLT-09"],
+      "scenarioStates": {
+        "mobile": "PLT-09 / Messages / Mobile / state=conversation"
+      },
+      "unmappedStates": ["Makieta 390 px pokazuje krótką nazwę firmy w jednej linii, opis „Rozmowa z firmą …” pod tytułem i „Wróć do rozmów” w górnym pasku; nazwa 120 znaków, powrót pod górnym paskiem (#53) i brak wiersza opisu na telefonie nie mają planszy — rozbieżności opisane w PR do #435."],
+      "codePaths": ["src/components/platform/message-inbox.tsx", "src/components/platform/inbox.module.css", "src/components/chat/chat.module.css"],
+      "testPaths": ["tests/e2e/inbox-narrow-layout.spec.ts", "tests/e2e/messages-inbox.spec.ts", "tests/e2e/chat-gap-alert.spec.ts", "tests/unit/message-inbox.test.tsx"]
     },
     {
       "issue": 377,
@@ -276,6 +401,20 @@
         "tests/unit/observability-redaction.test.ts"
       ],
       "sharedWith": "Rozszerza #58/#180/#108; dashboard i paging u dostawcy w #90."
+    },
+    {
+      "issue": 404,
+      "scope": "Lokalna probe backupu i restore calego systemu oraz jednej firmy na fixture dwoch firm (blokady, feedy, eksporty, czat, media): kroki runbooka wykonane komendami CLI z pomiarem czasu, test integracyjny rozszerzony o bloki, feedy i eksporty, raport cwiczenia. Konfiguracja dostawcy, PITR i RTO na stagingu not-run (#90). Bez UI.",
+      "relatedRequirementIds": ["C-N041", "C-N042", "C-N046", "D-10", "D-16"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/backup/company.ts",
+        "docs/runbooks/backup-restore.md",
+        "docs/runbooks/backup-restore-drill-2026-11-12.md"
+      ],
+      "testPaths": [
+        "tests/integration/backup-restore.test.ts"
+      ]
     },
     {
       "issue": 342,
@@ -948,7 +1087,7 @@
     },
     {
       "issue": 59,
-      "scope": "Pomiar obciążenia profilu P1 (zatwierdzony) i P2 (proponowany w #90), indeks i zapytanie sprawdzenia dostępności, rzut kalendarza; harness poza zwykłymi testami (pnpm perf:*), staging i profil wielu firm not-run.",
+      "scope": "Pomiar obciążenia profilu P1 (zatwierdzony) i P2 (proponowany w #90), indeks i zapytanie sprawdzenia dostępności, rzut kalendarza; harness poza zwykłymi testami (pnpm perf:*); część lokalna 059.L2: konflikty zapisu pod ruchem i zerwanie bazy w trakcie obciążenia HTTP i WS (perf:fault, perf:ws-fault). Staging, ruch docelowy i profil wielu firm not-run (#90).",
       "relatedRequirementIds": ["NFR-PERF-002", "C-N060", "C-N062", "C-N066", "D-15"],
       "referenceScreenIds": [],
       "codePaths": [
@@ -964,7 +1103,10 @@
         "scripts/perf/report.ts",
         "scripts/perf/legacy-availability.ts",
         "scripts/perf/target.ts",
+        "scripts/perf/fault-load.ts",
+        "scripts/perf/ws-fault.ts",
         "docs/performance/PERF_REPORT.md",
+        "docs/performance/local-load-2026-11.md",
         "docs/contracts/availability-reads.md"
       ],
       "testPaths": ["tests/integration/availability-query-regression.test.ts", "tests/unit/perf-generator.test.ts"]
@@ -1194,6 +1336,24 @@
         "src/modules/organizations/archive.ts"
       ],
       "testPaths": ["tests/integration/chat-inbox-consistency.test.ts", "tests/integration/chat-inbox.test.ts"]
+    },
+    {
+      "issue": 173,
+      "scope": "Limit prób handshake WebSocket na źródło (60/60 s, w pamięci procesu WS, tabela ograniczona) przed zapytaniami do bazy dla /ws i /ws/platform: 429 z Retry-After. Źródło wyłącznie z serwerowego adaptera clientAddress i reguły trustedClientAddress jak w limitach HTTP: adapter lokalny (peer loopback), nagłówki klienta nieczytane; bez zaufanego adresu w produkcji 503 przed bazą, poza produkcją wspólne źródło unknown. Metryka i alert odrzuceń. Część lokalna wg D-54; adapter dostawcy za proxy otwarty do #90. Bez UI.",
+      "relatedRequirementIds": ["C-N001", "C-N004"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "docs/contracts/chat-realtime.md",
+        "docs/contracts/technical-limits-and-mfa-bootstrap.md",
+        "docs/runbooks/monitoring-incidents.md",
+        "docs/security/OWASP_CONTROLS.md",
+        "src/modules/chat/handshake-limit.ts",
+        "src/modules/chat/realtime.ts",
+        "src/modules/observability/alerts.ts",
+        "src/modules/observability/metrics.ts",
+        "src/server/realtime.ts"
+      ],
+      "testPaths": ["tests/unit/handshake-limit.test.ts", "tests/integration/ws-handshake-limit.test.ts", "tests/integration/realtime-process.test.ts", "tests/unit/observability-alerts.test.ts"]
     },
     {
       "issue": 159,
@@ -2542,6 +2702,33 @@
       "testPaths": ["tests/unit/sessions-view.test.tsx", "tests/e2e/account-ui.spec.ts"]
     },
     {
+      "issue": 78,
+      "scope": "PLT-03 karta firmy (superadmin): sekcja Diagnostyka pod Statusem firmy (D-52, D-63) na API #77 + #417 — bloki Domena i Poczta, status tekstem + ikona Lucide + obramowanie (SPEC 4.2.5), ogólny opis i kolejny krok bez tokenów TXT, wartości DNS i kodów błędów, data ostatniego sprawdzenia. Domena: stany z customDomain.state, ostrzeżenie o certyfikacie z tlsExpiry/tlsNotAfter (próg liczy API), firma bez domeny pokazuje aliasCheckedAt jako odczyt stanu adresu Autervy (nie test sieci); gdy adres Autervy przekierowuje na domenę własną (aliasRedirectsToCustomDomain, D-64), nieudane sprawdzenie pokazuje błąd „domena własna nie odpowiada, strona może być niedostępna” z kolejnym krokiem, bez zapewnienia o adresie Autervy; przycisk jest wyłączony, gdy retry.allowed = false. Poczta: jedno pole lastMail (tylko zaproszenia i przypomnienia, bez resetu hasła, D-63) z ogólną przyczyną cause, liczbą prób i terminem kolejnej próby. Sprawdź ponownie (48 px): domena = POST …/launch-diagnostics/recheck (wynik z odpowiedzi akcji), poczta = ponowny odczyt; w trakcie komunikat aria-live i zablokowany przycisk, po wyniku fokus wraca na przycisk; 5xx/brak odpowiedzi = Wynik niepewny z ostatnim potwierdzonym wynikiem, 429 = limit z czasem oczekiwania, 409 = konflikt i świeży odczyt, brak sieci = żądanie niewysłane. Archiwum: Nie dotyczy, bez przycisków. Diagnostyka i sekcja Domena własna odświeżają się nawzajem po operacji. Porównanie z Penpotem (odczyt struktury 12 sekcji, 390 i 1440) w PR; rzeczywisty VoiceOver DEFERRED (#97).",
+      "relatedRequirementIds": ["C-F035", "C-F089", "D-52", "D-63"],
+      "referenceScreenIds": ["PLT-03"],
+      "scenarioStates": {
+        "diag-ok": "PLT-03 / state=diag-ok — desktop 342ca6e3-588e-80dd-8008-eeef8586ee6e, mobile 342ca6e3-588e-80dd-8008-eef22ba72f83",
+        "diag-warning": "PLT-03 / state=diag-warning — desktop 342ca6e3-588e-80dd-8008-eef0c2232155, mobile 342ca6e3-588e-80dd-8008-eef29911836e",
+        "diag-error": "PLT-03 / state=diag-error — desktop 342ca6e3-588e-80dd-8008-eef170b8c2d8, mobile 342ca6e3-588e-80dd-8008-eef2abae2adf",
+        "diag-checking": "PLT-03 / state=diag-checking — desktop 342ca6e3-588e-80dd-8008-eef18a02c294, mobile 342ca6e3-588e-80dd-8008-eef2dab45e44",
+        "diag-uncertain": "PLT-03 / state=diag-uncertain — desktop 342ca6e3-588e-80dd-8008-eef1bc7d7194, mobile 342ca6e3-588e-80dd-8008-eef2ed5336cc",
+        "diag-no-data": "PLT-03 / state=diag-no-data — desktop 342ca6e3-588e-80dd-8008-eef1d100de1b, mobile 342ca6e3-588e-80dd-8008-eef2ff4fba78"
+      },
+      "unmappedStates": [
+        "Makieta nie ma planszy aktywnej domeny z nieudanym sprawdzeniem (D-64) ani stanów limitu, konfliktu, braku sieci i braku konfiguracji platformy; aplikacja realizuje je według kontraktu API.",
+        "Dawny tekst pola „Własna domena” w sklonowanym formularzu makiety: aplikacja używa tych samych danych co Diagnostyka."
+      ],
+      "codePaths": [
+        "src/components/platform/company-diagnostics.tsx",
+        "src/components/platform/launch-diagnostics-model.ts",
+        "src/components/platform/company-card.tsx",
+        "src/components/platform/company-domain.tsx",
+        "src/components/platform/platform.module.css"
+      ],
+      "testPaths": ["tests/unit/company-diagnostics.test.tsx", "tests/e2e/platform-company-diagnostics.spec.ts"],
+      "sharedWith": "API: #77 + #417 (docs/contracts/launch-diagnostics.md); src/components/platform/company-domain.tsx zgłasza zakończoną operację (onChanged)."
+    },
+    {
       "issue": 53,
       "scope": "PLT-09 skrzynka superadmina (/wiadomosci): lista rozmów (firma, ostatnia wiadomość, czas, nowe tekstem, filtr archiwum; bez wyszukiwania, bo kontrakt go nie przewiduje), jeden kanał platformy /ws/platform z regułą klucza (version, lastSeq, readSeq) i odświeżaniem co 30 s, wspólny widok rozmowy z #52 (ChatPanel) z jednoznacznym odbiorcą, osobne szkice i niewysłane wiadomości per (konto, rozmowa), przełączanie bez dialogu i bez utraty szkicu (remount per firma, wynik starego żądania zostaje przy swojej rozmowie), archiwum tylko do odczytu (409 CHAT_ORGANIZATION_ARCHIVED), split-view od 1024 px, osobne widoki i Wstecz poniżej, wejście z karty firmy (?firma=). Bez załączników i poczty. Porównanie z Penpotem DEFERRED (#263).",
       "relatedRequirementIds": ["C-F121", "C-F122", "C-F123", "C-F124", "C-F134", "C-F135", "C-F136", "C-F137", "DS-N09"],
@@ -2708,7 +2895,8 @@
       "codePaths": ["src/components/admin/bulk-blocks.tsx", "src/components/admin/bulk-blocks-model.ts"],
       "testPaths": ["tests/unit/bulk-blocks.test.tsx", "tests/e2e/bulk-blocks.spec.ts"],
       "sharedWith": "Reguła startsInPast z src/components/admin/vehicle-calendar-model.ts (pojedyncza blokada, #217)."
-    }
+    },
+    {"issue": 426, "scope": "Lokalny czat na żywo (tylko lokalnie, produkcyjna topologia bez zmian): local-ingress (produkcyjny build) i bramka dev (pnpm dev:gateway przed pnpm dev) przekazują upgrade /ws i /ws/platform do procesu ws (WS_PORT) z Origin i Cookie klienta; Host zastępuje skonfigurowany adres usługi WS, nagłówki forwarding są usuwane, żaden adres klienta nie jest przekazywany, ruch spoza loopbacku dostaje 403, inne ścieżki 404 (w bramce dev inne upgrade trafiają do next dev), niedostępny lub milczący proces ws 502. Zerwanie jednej strony zamyka drugą, zatrzymanie ingressu zamyka tunele. Origin z rejestru hostów, sesję z MFA, rolę i firmę nadal ocenia proces ws. Bez zmian kontraktu ramek i UI.", "relatedRequirementIds": ["C-F118", "C-F119", "C-F120", "C-F121"], "referenceScreenIds": [], "codePaths": ["src/modules/ingress/ws-upgrade-proxy.ts", "src/modules/ingress/dev-gateway.ts", "scripts/start-local-ingress.ts", "scripts/dev-gateway.ts", "playwright.config.ts"], "testPaths": ["tests/integration/ws-upgrade-proxy.test.ts", "tests/e2e/chat-live.spec.ts"], "sharedWith": "Kontrakt: docs/contracts/chat-realtime.md (sekcja „Lokalne przekazanie /ws”); adapter adresu: src/modules/ingress/client-address.ts; limit handshake na źródło: #173."}
   ],
   "sources": [
     {

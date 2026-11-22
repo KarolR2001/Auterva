@@ -134,6 +134,8 @@ export async function restoreCompany(input: {
   try {
     await assertCompanyTablesClassified(live);
     await assertCompanyTablesClassified(scratch);
+    // #419 (D-58): a company whose purge started is never brought back from a backup (checked again under the lock).
+    if ((await live.query(`SELECT 1 FROM "Organization" WHERE id = $1 AND "purgeStartedAt" IS NOT NULL`, [orgId])).rows.length > 0) throw new BackupError("RESTORE_COMPANY_PURGED", "The company data was permanently purged (D-58); it cannot be restored");
     const liveMigrations = await appliedMigrations(live);
     if (JSON.stringify(liveMigrations) !== JSON.stringify(manifest.migrations.applied)) {
       throw new BackupError("RESTORE_MIGRATION_MISMATCH", "The live schema differs from the backup's migrations; migrate or choose a matching backup");
@@ -167,6 +169,7 @@ export async function restoreCompany(input: {
       await live.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [`auterva:company-restore:${orgId}`]);
       const liveOrg = (await live.query(`SELECT row_to_json(t) AS row FROM "Organization" t WHERE id = $1 FOR UPDATE`, [orgId])).rows[0]?.row as Record<string, unknown> | undefined;
       const xid = String((await live.query(`SELECT pg_current_xact_id()::xid::text AS x`)).rows[0].x);
+      if (liveOrg?.purgeStartedAt) throw new BackupError("RESTORE_COMPANY_PURGED", "The company data was permanently purged (D-58); it cannot be restored");
 
       // Conflicts are explicit refusals, not silent overwrites of someone else's rows.
       const clash = async (sql: string, params: unknown[], code: string) => {
@@ -211,7 +214,7 @@ export async function restoreCompany(input: {
       }
       // Intents belong to the plan: when the live plan stays, so do the intents of its current boundary.
       hasLive.ReminderIntent = hasLive.ReminderIntent || hasLive.ReminderPlan;
-      const liveUsers = new Map((await live.query(`SELECT id, "disabledAt", "twoFactorEnabled" FROM "user" WHERE "organizationId" = $1 FOR UPDATE`, [orgId]))
+      const liveUsers = new Map((await live.query(`SELECT id, "disabledAt", "twoFactorEnabled", "mfaRecoveryPendingAt", "mfaRecoverySessionId" FROM "user" WHERE "organizationId" = $1 FOR UPDATE`, [orgId]))
         .rows.map((r) => [String(r.id), r]));
       const liveCredentials = {
         account: await selectRows(live, "account", USER_SCOPED, orgId, true),
@@ -231,6 +234,10 @@ export async function restoreCompany(input: {
           // does not come back disabled) and the live MFA flag.
           row.disabledAt = current.disabledAt instanceof Date ? current.disabledAt.toISOString() : (current.disabledAt ?? null);
           row.twoFactorEnabled = current.twoFactorEnabled;
+          // #387: recovery-in-progress state belongs to the live factor, which is kept, so it stays live too. The
+          // session it names is revoked below, so a pending account waits for the operator procedure (D-05).
+          row.mfaRecoveryPendingAt = current.mfaRecoveryPendingAt instanceof Date ? current.mfaRecoveryPendingAt.toISOString() : (current.mfaRecoveryPendingAt ?? null);
+          row.mfaRecoverySessionId = current.mfaRecoverySessionId ?? null;
           // Still a restore lock only while disabled WITHOUT a credential password; an account disabled later by hand
           // (it has its password) is not a restore lock and must not return to the list.
           if (current.disabledAt && previouslyLocked.has(String(row.id)) && !hasPassword(liveCredentials.account, String(row.id))) usersLocked.push(String(row.id));
@@ -239,6 +246,8 @@ export async function restoreCompany(input: {
           // state and is NOT put on the recovery list; an active one is locked now and only the operator recovery
           // of D-05 (scripts/recover-mfa.ts, audited) can lift exactly the accounts listed in this restore's audit.
           row.twoFactorEnabled = false;
+          row.mfaRecoveryPendingAt = null;
+          row.mfaRecoverySessionId = null;
           if (!row.disabledAt) {
             row.disabledAt = now.toISOString();
             usersLocked.push(String(row.id));

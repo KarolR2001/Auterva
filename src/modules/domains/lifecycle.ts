@@ -182,6 +182,7 @@ async function applyEvaluation(tx: Prisma.TransactionClient, input: Operation, s
     ownershipVerifiedAt: evaluation.status === "PENDING_OWNERSHIP" ? null : (current.ownershipVerifiedAt ?? now),
     routingVerifiedAt: ready ? (current.routingVerifiedAt ?? now) : null,
     tlsVerifiedAt: ready ? (current.tlsVerifiedAt ?? now) : null,
+    tlsNotAfter: ready ? (evaluation.tlsNotAfter ?? null) : null,
   };
   const statusChanged = nextStatus !== current.status;
   const version = statusChanged ? await nextDomainVersion(tx, input.organizationId) : current.version;
@@ -200,8 +201,76 @@ async function applyEvaluation(tx: Prisma.TransactionClient, input: Operation, s
       version } });
   if (updated.count !== 1) throw new Error("DOMAIN_VERSION_CONFLICT");
   if (statusChanged) await auditChange(tx, input, current.hostMappingId, current.status, nextStatus, false);
+  await stampHostChecks(tx, input.organizationId, now);
   const row = await tx.customDomain.findUniqueOrThrow({ where: { id: current.id }, ...withHost });
   return { changed: statusChanged, row };
+}
+
+/** #417: the platform confirmed these Autervy hosts are ACTIVE (a state confirmation, not a network probe). */
+export async function stampHostChecks(tx: Prisma.TransactionClient, organizationId: string, now: Date) {
+  await tx.hostMapping.updateMany({ where: { organizationId, kind: "PROVIDER", status: "ACTIVE" },
+    data: { checkedAt: now } });
+}
+
+/**
+ * #417: re-checks an ACTIVE custom domain without changing its lifecycle: a transient DNS/TLS blip must not unpublish
+ * the company page, so only the check result (`checkedAt`, failure code, certificate expiry) is recorded and the
+ * diagnostics show the failure until a later check succeeds. Returns false when nothing was checked (no active
+ * domain, archived company, the row moved while the network probe ran, or the platform has no CNAME target: a missing
+ * platform setting is not a fault of the domain and must not be recorded on it).
+ */
+export async function refreshActiveDomain(db: PrismaClient, checker: DomainChecker, input: {
+  organizationId: string; config: DomainConfig; now?: Date;
+}): Promise<boolean> {
+  if (!input.config.cnameTarget) return false;
+  const company = await db.organization.findUnique({ where: { id: input.organizationId }, select: { archivedAt: true } });
+  if (!company || company.archivedAt !== null) return false;
+  const seen = await db.customDomain.findUnique({ where: { organizationId: input.organizationId }, ...withHost });
+  if (!seen || seen.status !== "ACTIVE") return false;
+  const evaluation = await evaluateSnapshot(checker, seen, input.config);
+  const now = input.now ?? new Date();
+  return db.$transaction(async (tx) => {
+    try { await lockOrganization(tx, input.organizationId); }
+    catch (error) { if (error instanceof Error && error.message === "DOMAIN_COMPANY_ARCHIVED") return false; throw error; }
+    const current = await tx.customDomain.findUnique({ where: { organizationId: input.organizationId }, ...withHost });
+    if (!current || current.id !== seen.id || current.version !== seen.version || current.status !== "ACTIVE"
+      || current.verificationToken !== seen.verificationToken
+      || current.hostMapping.hostname !== seen.hostMapping.hostname) return false;
+    const ok = evaluation.status === "READY";
+    await tx.customDomain.update({ where: { id: current.id }, data: { checkedAt: now,
+      lastFailureCode: evaluation.failureCode,
+      tlsNotAfter: ok ? (evaluation.tlsNotAfter ?? null) : current.tlsNotAfter } });
+    await stampHostChecks(tx, input.organizationId, now);
+    return true;
+  });
+}
+
+/** #417: a healthy ACTIVE domain is re-checked daily, one whose last check failed hourly (a blip clears within the hour). */
+export const DOMAIN_RECHECK_MS = 24 * 3_600_000;
+export const DOMAIN_FAILED_RECHECK_MS = 3_600_000;
+
+/**
+ * Worker step (#417): ACTIVE domains due for a re-check (never checked, `staleMs` since a successful check or
+ * `failedStaleMs` since a failed one), oldest first, one company at a time. Does nothing without the platform CNAME
+ * target. `signal` stops between domains (worker shutdown).
+ */
+export async function recheckDueDomains(db: PrismaClient, checker: DomainChecker, config: DomainConfig, now: Date,
+  options: { staleMs?: number; failedStaleMs?: number; limit?: number; signal?: AbortSignal;
+    onError?: (error: unknown) => void } = {}): Promise<number> {
+  if (!config.cnameTarget) return 0;
+  const before = (ms: number) => new Date(now.getTime() - ms);
+  const due = await db.customDomain.findMany({ where: { status: "ACTIVE", organization: { archivedAt: null },
+    OR: [{ checkedAt: null }, { checkedAt: { lte: before(options.staleMs ?? DOMAIN_RECHECK_MS) } },
+      { lastFailureCode: { not: null }, checkedAt: { lte: before(options.failedStaleMs ?? DOMAIN_FAILED_RECHECK_MS) } }] },
+    orderBy: [{ checkedAt: { sort: "asc", nulls: "first" } }, { id: "asc" }], take: options.limit ?? 10,
+    select: { organizationId: true } });
+  let checked = 0;
+  for (const row of due) {
+    if (options.signal?.aborted) break;
+    try { if (await refreshActiveDomain(db, checker, { organizationId: row.organizationId, config, now })) checked += 1; }
+    catch (error) { options.onError?.(error); } // one broken company must not starve the others
+  }
+  return checked;
 }
 
 export async function verifyDomain(db: PrismaClient, checker: DomainChecker, input: Operation & {

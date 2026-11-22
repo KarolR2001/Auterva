@@ -440,3 +440,14 @@ test("combineSinks counts every delivery per sink; one broken sink is visible bu
   await expect(combineSinks({ deliver: broken.deliver }, broken).deliver(note)).rejects.toThrow("ALERT_DELIVERY_FAILED");
   expect(metrics.value("auterva_alert_sink_deliveries_total", { sink: "sink0", result: "failed" })).toBe(1);
 });
+
+test("#173: WS_HANDSHAKE_FLOOD fires on a burst of limited handshakes and stays quiet at a trickle", () => {
+  const quiet = new AlertEngine(rules, { groupWindowMs: 0 });
+  let few = 0;
+  drive(quiet, 6, () => { few += 1; return [tgt("ws", "auterva_ws_handshake_limited_total", few)]; });
+  expect(quiet.firing().map((a) => a.id)).not.toContain("WS_HANDSHAKE_FLOOD");
+  const loud = new AlertEngine(rules, { groupWindowMs: 0 });
+  let many = 0;
+  drive(loud, 6, () => { many += 100; return [tgt("ws", "auterva_ws_handshake_limited_total", many)]; }, 14);
+  expect(loud.firing().map((a) => a.id)).toContain("WS_HANDSHAKE_FLOOD");
+});

@@ -3,8 +3,9 @@ import { expect, test } from "@playwright/test";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { verifiedFixtureSession } from "../fixtures/verified-session";
 
-// #52: the company chat page in a real browser. The local ingress carries no WebSocket, so the live channel
-// shows its reconnect state while sending, history and the draft work over HTTP and local storage.
+// #52: the company chat page in a real browser. No realtime process runs during this spec (the ingress answers 502
+// for /ws), so the live channel shows its reconnect state while sending, history and the draft work over HTTP and
+// local storage. The live channel itself: tests/e2e/chat-live.spec.ts.
 test.use({ launchOptions: { args: ["--host-resolver-rules=MAP *.example.test 127.0.0.1"] } });
 
 test("czat firmy: historia, trwałe potwierdzenie wysyłki, szkic po przeładowaniu, izolacja firm, zero zadań poczty", async ({ page, context, browser, baseURL }) => {
