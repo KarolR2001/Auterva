@@ -45,8 +45,31 @@ const stub = (bin: string, name: string, body: string) => {
   chmodSync(join(bin, name), 0o755);
 };
 
+// The tools ci-local checks exist only as stubs. The system directories never go into the child PATH directly, because
+// what they hold differs per machine: the GitHub runner has docker in /usr/bin and macOS does not, so a test that
+// leaves a stub out ("docker is missing") passed locally and failed in CI (#439). The child gets one directory of
+// links to every other system tool instead (git, sed, lsof, ...); the first directory that has a name wins, as in PATH.
+const STUBBED = new Set(["gitleaks", "node", "pg_dump", "docker", "pnpm"]);
+const SYSTEM_DIRS = ["/usr/bin", "/bin", "/usr/sbin"];
+const linkedTools = new Map<string, string>();
+function systemTools(dirs: string[]): string {
+  const key = dirs.join(":");
+  let dir = linkedTools.get(key);
+  if (dir) return dir;
+  dir = mkdtempSync(join(tmpdir(), "ci-local-sys-"));
+  roots.push(dir);
+  const seen = new Set(STUBBED);
+  for (const from of dirs) for (const name of readdirSync(from)) {
+    if (seen.has(name)) continue;
+    seen.add(name);
+    symlinkSync(join(from, name), join(dir, name));
+  }
+  linkedTools.set(key, dir);
+  return dir;
+}
+
 type Versions = { gitleaks?: string; node?: string; pgdump?: string; buildx?: boolean; docker?: boolean };
-type Extra = { gitleaksGit?: string; mktempFails?: boolean; env?: Record<string, string> };
+type Extra = { gitleaksGit?: string; mktempFails?: boolean; env?: Record<string, string>; systemDirs?: string[] };
 function setup(v: Versions = {}, pnpmBody = "exit 1", extra: Extra = {}) {
   const root = mkdtempSync(join(tmpdir(), "ci-local-"));
   roots.push(root);
@@ -68,21 +91,7 @@ function setup(v: Versions = {}, pnpmBody = "exit 1", extra: Extra = {}) {
   stub(bin, "pg_dump", `echo "pg_dump (PostgreSQL) ${v.pgdump ?? "18.1"}"`);
   if (v.docker !== false) stub(bin, "docker", v.buildx === false ? 'test "$1" != buildx' : "exit 0");
   stub(bin, "pnpm", pnpmBody);
-  // A runner may ship a real docker in /usr/bin (GitHub Actions does), which would defeat docker:false; then the system
-  // directories are mirrored by symlinks without docker.
-  let systemPath = "/usr/bin:/bin:/usr/sbin";
-  if (v.docker === false) {
-    const sys = join(root, "sys");
-    mkdirSync(sys);
-    for (const dir of systemPath.split(":")) {
-      if (!existsSync(dir)) continue;
-      for (const name of readdirSync(dir)) {
-        if (name !== "docker" && !existsSync(join(sys, name))) symlinkSync(join(dir, name), join(sys, name));
-      }
-    }
-    systemPath = sys;
-  }
-  const env: NodeJS.ProcessEnv = { PATH: `${bin}:${systemPath}`, HOME: root, TMPDIR: root, NODE_ENV: "test" as const, ...extra.env };
+  const env: NodeJS.ProcessEnv = { PATH: `${bin}:${systemTools(extra.systemDirs ?? SYSTEM_DIRS)}`, HOME: root, TMPDIR: root, NODE_ENV: "test" as const, ...extra.env };
   const base = freeBase();
   // "27400" in a call stands for this setup's own free frame.
   const mapped = (args: string[]) => args.map((a) => (a === "27400" ? String(base) : a));
@@ -124,6 +133,16 @@ test.each([
   expect(r.status).toBe(2);
   expect(r.stderr).toMatch(message);
 });
+
+test("a missing tool stays missing when the system has it installed (docker in /usr/bin on the GitHub runner)", () => {
+  // A stand-in for the runner's /usr/bin: every stubbed tool is installed there and works.
+  const installed = mkdtempSync(join(tmpdir(), "ci-local-installed-"));
+  roots.push(installed);
+  for (const name of STUBBED) stub(installed, name, "exit 0");
+  const r = setup({ docker: false }, "exit 1", { systemDirs: [installed, ...SYSTEM_DIRS] }).run("27400", join(tmpdir(), "ci-local-unused.txt"));
+  expect(r.status).toBe(2);
+  expect(r.stderr).toMatch(/docker is missing/);
+}, TEST_TIMEOUT_MS);
 
 test("rejects a semver range in engines.node explicitly", () => {
   const t = setup();
