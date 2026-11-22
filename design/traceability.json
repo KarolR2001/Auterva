@@ -73,6 +73,26 @@
       "sharedWith": "Zależy od #383 (PR #395)."
     },
     {
+      "issue": 414,
+      "scope": "Sesja logowania w obu panelach: jawnie 30 dni od ostatniego odświeżenia (D-61), odświeżanie najwyżej raz na dobę. Backend bez zmian UI i API; reauth, unieważnianie sesji i WebSocket bez zmian.",
+      "relatedRequirementIds": ["D-61", "D-05", "FR-ADM-081"],
+      "referenceScreenIds": [],
+      "unmappedStates": ["Zadanie backendowe bez ekranu Penpota."],
+      "codePaths": ["src/lib/auth.ts"],
+      "testPaths": ["tests/integration/session-lifetime.test.ts"],
+      "sharedWith": "Kontrakt: docs/contracts/account-operations.md (Sesje konta, czas sesji)."
+    },
+    {
+      "issue": 405,
+      "scope": "Nawigacja Ustawień wg DS-SET-001 SettingsNavigation (ADM-11–14, ADM-22, superadmin w kontekście firmy): od 1024 px pionowy panel 240 px po lewej z pełnymi nazwami i treścią obok (aktywna pozycja odwrócona), poniżej poziomy pasek z krótkimi etykietami z makiety (Firma, Kontakt, SEO, Prawne, Kalendarz; dodatkowo Wygląd, bo makieta nie ma tej sekcji). Nazwa dostępna zawiera widoczny tekst (WCAG 2.5.3; „Firma” dopisane do „Dane firmy”). Zachowane dosuwanie aktywnej zakładki i pełny obrys fokusu (#351/#358/#372), brak poziomego przewijania 320–1920.",
+      "relatedRequirementIds": ["DS-SET-001", "D-49"],
+      "referenceScreenIds": ["ADM-11", "ADM-12", "ADM-13", "ADM-14", "ADM-22"],
+      "unmappedStates": ["Sekcja „Wygląd publiczny” nie ma pozycji w makiecie nawigacji; w aplikacji zostaje z krótką etykietą „Wygląd”."],
+      "codePaths": ["src/components/settings/settings-nav.tsx", "src/components/settings/settings.module.css"],
+      "testPaths": ["tests/e2e/settings-nav-focus.spec.ts", "tests/unit/settings-routes.test.tsx", "tests/e2e/settings-ui.spec.ts", "tests/e2e/admin-a11y.spec.ts"],
+      "sharedWith": "Zależy od #372."
+    },
+    {
       "issue": 371,
       "scope": "OVR-07 desktop (D-48): „Kopiuj na inne auta” w nagłówku okna edycji blokady obok tytułu (wspólny Dialog dostaje opcjonalne headerAction, addytywnie; okna bez niego bez zmian). Na mobile (do 480 px) zostaje przycisk pełnej szerokości nad „Usuń blokadę” (OVR-07-mobile-edit); ten sam href, w danej szerokości widoczny jeden link. Kolejność Tab: nagłówek, pola, Zamknij, Zapisz; fokus początkowy, Escape i powrót fokusu bez zmian.",
       "relatedRequirementIds": ["FR-ADM-055", "FR-ADM-057", "D-48"],
@@ -141,6 +161,19 @@
       "testPaths": ["tests/integration/calendar-feed-scope.test.ts", "tests/integration/calendar-feed.test.ts"]
     },
     {
+      "issue": 378,
+      "scope": "Blokada zbiorcza i kopia blokady (ADM-10 state=bulk-*) rejestrują niezapisane zmiany w strażniku powłoki panelu: dane wpisane lub wybrane pojazdy (poza wynikiem zapisu) to „dirty”, trwający zapis to „busy”; „Odśwież teraz” (aktualizacja PWA), linki panelu, okruszek „Kalendarz floty” (kliknięcie przechwycone przez powłokę nie zamyka już widoku), Wstecz przeglądarki (cofnięty i potwierdzany dialogiem) i zamknięcie karty pytają o potwierdzenie; po zapisanym wyniku lub anulowaniu zapisu stan jest czysty.",
+      "relatedRequirementIds": ["FR-PWA-005", "C-F146", "C-F150", "FR-ADM-055", "FR-ADM-057"],
+      "referenceScreenIds": ["ADM-10", "ADM-19"],
+      "unmappedStates": ["Dialog „Niezapisane zmiany” to istniejący komponent powłoki (bez nowego wyglądu); porównanie z makietą w Penpocie: DEFERRED (#263)."],
+      "codePaths": [
+        "src/components/admin/bulk-blocks.tsx",
+        "src/components/admin/bulk-blocks-model.ts"
+      ],
+      "testPaths": ["tests/unit/bulk-blocks.test.tsx", "tests/e2e/bulk-blocks-unsaved.spec.ts"],
+      "sharedWith": "Rozszerza #217; wzorzec useUnsavedChanges jak w vehicle-calendar i vehicle-form."
+    },
+    {
       "issue": 367,
       "scope": "Zakres prywatnego adresu iCal na ekranie „Kalendarz zewnętrzny” (ADM-22 state=create, E11, D-47; API #366): grupa radio „Cała flota” (domyślnie) / „Wybrane pojazdy (opublikowane)”; przy wyborze lista opublikowanych pojazdów firmy z listy floty panelu (status=PUBLISHED, strony po 100), wyszukiwanie powyżej 8 pojazdów, limit 50 (pozostałe pola nieaktywne z objaśnieniem), min. 1 — komunikat przy polu, podsumowanie „Do poprawy” i fokus na grupie; vehicleIds wysyłane tylko dla wybranych pojazdów; 400 fieldErrors.vehicleIds (VEHICLE_NOT_PUBLISHED, VEHICLE_NOT_FOUND, OUT_OF_RANGE, DUPLICATE) jako zrozumiały komunikat przy polu, przy nieopublikowanym/nieistniejącym ponowny odczyt listy i usunięcie go z wyboru, bez sukcesu i bez utraty etykiety. Lista adresów (admin i superadmin, tylko odczyt): „Zakres: Cała flota” albo „Zakres: N pojazdów” z rozwijaną listą nazw; pusty zakres po usunięciu pojazdów objaśniony. Rotacja bez zmian (serwer zachowuje zakres); wynik niepewny jak w #355.",
       "referenceScreenIds": ["ADM-22"],
@@ -181,6 +214,16 @@
       "codePaths": ["src/components/admin/bulk-blocks.tsx"],
       "testPaths": ["tests/unit/bulk-blocks.test.tsx"],
       "sharedWith": "Rozszerza #217."
+    },
+    {
+      "issue": 415,
+      "scope": "Blokada zbiorcza i kopia blokady (ADM-10): komunikat wyniku nieznanego (5xx/sieć) dopisuje ostrzeżenie, że po opuszczeniu strony ponowienie wysyłki tym samym kluczem znika i trzeba sprawdzić kalendarz floty; logika strażnika i klucza idempotencji bez zmian.",
+      "relatedRequirementIds": ["FR-ADM-055", "FR-ADM-057", "D-48"],
+      "referenceScreenIds": ["ADM-10"],
+      "unmappedStates": ["Porównanie z makietą w Penpocie: DEFERRED (#263); zmiana dotyczy tylko treści komunikatu."],
+      "codePaths": ["src/components/admin/bulk-blocks.tsx"],
+      "testPaths": ["tests/unit/bulk-blocks.test.tsx"],
+      "sharedWith": "Rozszerza #378; zależność: PR #407."
     },
     {
       "issue": 387,
@@ -233,6 +276,39 @@
         "docs/contracts/availability-reads.md"
       ],
       "testPaths": ["tests/unit/availability.test.ts", "tests/unit/availability-nearest.test.ts", "tests/integration/availability-public-errors.test.ts"]
+    },
+    {
+      "issue": 401,
+      "scope": "Lokalna część #58 (D-54): inwentarz logów strukturalnych i testy redakcji (TOTP, kody odzyskania, adres feedu, ramki WebSocket jako zserializowany JSON są maskowane), serie błędów storage i poczty startują od 0, żeby pierwsza awaria była mierzalnym przyrostem dla reguł alertów, oraz lokalna symulacja awarii (DB, storage, dostawca poczty, zablokowane zadanie) z dowodem wykrycia przez health, metryki i alerty oraz powrotu. Wdrożenie u dostawcy: #90.",
+      "relatedRequirementIds": ["C-N020", "C-N037", "C-N059", "C-N060", "D-10", "D-54"],
+      "referenceScreenIds": [],
+      "unmappedStates": ["Bez ekranu: zmiana backendowa i dokumentacja operacyjna."],
+      "codePaths": [
+        "src/modules/observability/redact.ts",
+        "src/modules/media/storage.ts",
+        "src/modules/jobs/processor.ts",
+        "docs/contracts/monitoring-alerts.md",
+        "docs/runbooks/monitoring-incidents.md"
+      ],
+      "testPaths": [
+        "tests/integration/ops-failure-simulation.test.ts",
+        "tests/unit/observability-redaction.test.ts"
+      ],
+      "sharedWith": "Rozszerza #58/#180/#108; dashboard i paging u dostawcy w #90."
+    },
+    {
+      "issue": 404,
+      "scope": "Lokalna probe backupu i restore calego systemu oraz jednej firmy na fixture dwoch firm (blokady, feedy, eksporty, czat, media): kroki runbooka wykonane komendami CLI z pomiarem czasu, test integracyjny rozszerzony o bloki, feedy i eksporty, raport cwiczenia. Konfiguracja dostawcy, PITR i RTO na stagingu not-run (#90). Bez UI.",
+      "relatedRequirementIds": ["C-N041", "C-N042", "C-N046", "D-10", "D-16"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/backup/company.ts",
+        "docs/runbooks/backup-restore.md",
+        "docs/runbooks/backup-restore-drill-2026-11-12.md"
+      ],
+      "testPaths": [
+        "tests/integration/backup-restore.test.ts"
+      ]
     },
     {
       "issue": 342,
@@ -2323,6 +2399,23 @@
         "tests/e2e/security-headers.spec.ts",
         "tests/unit/security-headers.test.ts",
         "tests/unit/json-body.test.ts"
+      ]
+    },
+    {
+      "issue": 399,
+      "scope": "Lokalna regresja bezpieczeństwa i izolacji przed wydaniem (część #57, D-54): inwentarz limitów żądań (statyczny graf importów i zachowanie każdego handlera panelu), inwentarz Origin/CSRF mutacji poza panelem, nagłówki i CSP na dokumentach panelu, platformy i strony publicznej oraz na danych i trasie uploadu, redakcja błędów i logów przy awarii warstwy danych (poprawka: routeContext zamienia nieobsłużony wyjątek w neutralne 500), media innej firmy na hoście publicznym. Raport luk: docs/security/OWASP_CONTROLS.md. Staging i pentest: not-run (#90). Bez UI.",
+      "relatedRequirementIds": ["C-N001", "C-N006", "C-N007", "C-N017", "C-N029", "C-N032", "C-N036", "C-N044", "C-N057", "C-N061", "C-N062", "TEST-MVP-06", "TEST-MVP-33", "TEST-MVP-34"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/observability/route-context.ts",
+        "docs/security/OWASP_CONTROLS.md"
+      ],
+      "testPaths": [
+        "tests/unit/route-rate-limit-inventory.test.ts",
+        "tests/unit/route-context-errors.test.ts",
+        "tests/integration/error-redaction-5xx.test.ts",
+        "tests/integration/security-regression.test.ts",
+        "tests/e2e/security-headers.spec.ts"
       ]
     },
     {

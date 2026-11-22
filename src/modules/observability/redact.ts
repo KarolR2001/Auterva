@@ -46,7 +46,9 @@ export function scrubString(value: string): string {
 export function redactValue(key: string, value: unknown, depth = 0): unknown {
   if (value === null || value === undefined) return value;
   if (!structuralKeys.has(key) && sensitiveKey.test(key)) return "[redacted]";
-  if (typeof value === "string") return scrubString(value);
+  // A serialised object/array (a WebSocket frame, a request body) under an innocent field name can carry chat text
+  // that no pattern recognises, so it is never logged as text.
+  if (typeof value === "string") return /^\s*[[{]/.test(value) ? "[json]" : scrubString(value);
   if (typeof value === "number" || typeof value === "boolean") return value;
   if (Buffer.isBuffer(value) || ArrayBuffer.isView(value) || value instanceof ArrayBuffer) return "[binary]";
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value.toISOString();
