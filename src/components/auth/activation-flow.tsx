@@ -9,6 +9,7 @@ import { z } from "zod";
 import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
 import { PasswordInput } from "../ui/password-input";
+import { SecretForm } from "../ui/secret-form";
 import { evaluatePassword } from "./password-policy";
 import { PasswordStrength } from "./password-strength";
 import styles from "./auth.module.css";
@@ -201,7 +202,7 @@ export function ActivationFlow({ token }: { token: string }) {
   return (
     <Frame title="Aktywuj konto">
       <p className={styles.intro}>{phase.invitation.name} • {phase.invitation.recipientEmail}. Ustaw hasło do panelu. Otwarcie linku nie aktywuje konta; zrobi to dopiero przycisk poniżej.</p>
-      <form className={styles.form} noValidate onSubmit={onSubmit}>
+      <SecretForm className={styles.form} onSubmit={onSubmit}>
         <PasswordInput id="activation-password" label="Nowe hasło" autoComplete="new-password" placeholder="Wpisz nowe hasło"
           hint="12–256 znaków" aria-describedby="activation-strength" visibility={visibility} onVisibilityChange={setVisibility}
           error={form.formState.errors.password?.message} readOnly={uncertain} {...form.register("password")} />
@@ -213,7 +214,7 @@ export function ActivationFlow({ token }: { token: string }) {
         <Button type="submit" width="fill" loading={loading} loadingLabel="Aktywowanie…" disabled={cooldown > 0}>
           {cooldown > 0 ? "Ponów po limicie" : uncertain ? "Ponów aktywację" : "Aktywuj konto"}
         </Button>
-      </form>
+      </SecretForm>
       <LoginLink />
     </Frame>
   );

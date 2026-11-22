@@ -139,6 +139,7 @@ export const names = {
   workerIterations: "auterva_worker_iterations_total",
   wsConnections: "auterva_ws_connections",
   wsListenerHealthy: "auterva_ws_listener_healthy",
+  wsHandshakeLimited: "auterva_ws_handshake_limited_total",
   alertsFiring: "auterva_alerts_firing",
   alertNotifications: "auterva_alert_notifications_total",
   alertSinkDeliveries: "auterva_alert_sink_deliveries_total",

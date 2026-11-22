@@ -22,6 +22,35 @@
       "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
     },
     {
+      "issue": 440,
+      "scope": "Formularze z sekretem (logowanie, MFA: kod z aplikacji i kod odzyskania, konfiguracja MFA, nowe kody odzyskania, aktywacja z zaproszenia, żądanie i ustawienie nowego hasła, zmiana hasła) używają wspólnego SecretForm: natywna wysyłka (Enter przed hydratacją, brak JavaScriptu) idzie metodą POST bez action, więc hasło i kod nigdy nie trafiają do adresu URL, historii ani Referer. Zachowanie z JavaScriptem, etykiety, błędy i fokus bez zmian wyglądu.",
+      "relatedRequirementIds": ["C-N020"],
+      "referenceScreenIds": ["ADM-01", "PLT-08", "ACC-07"],
+      "scenarioStates": {
+        "forms": "Bez zmian wyglądu; ID stanów w Penpocie jak we wpisach logowania, MFA i konta"
+      },
+      "codePaths": ["src/components/ui/secret-form.tsx", "src/components/auth/auth-flow.tsx", "src/components/auth/reset-flow.tsx", "src/components/auth/activation-flow.tsx", "src/components/account/account-view.tsx"],
+      "testPaths": ["tests/unit/secret-forms-inventory.test.tsx", "tests/e2e/secret-forms-no-get.spec.ts"]
+    },
+    {
+      "issue": 437,
+      "scope": "Jedno miejsce mapowania „baza niedostępna” na 503 TEMPORARILY_UNAVAILABLE (Retry-After, X-Request-Id, no-store) we wszystkich handlerach i trasach (transientDbResponse oparte na isDbUnavailableError, także w routeContext dla wyjątków, które uciekły handlerowi, i w trasie uploadu), tak jak w proxy (#412). Kody systemowe Node (ECONNRESET, ETIMEDOUT itd.) liczą się tylko dla błędu z klienta bazy (Prisma lub pula), więc błąd S3, poczty lub DNS pozostaje 500. createPrismaClient ma connectionTimeoutMillis (APP_DB_LIMITS: 4 s): baza, która przyjmuje TCP i nie odpowiada, kończy się kodem DB_CONNECT_TIMEOUT, a brak wolnego połączenia w puli DB_POOL_TIMEOUT, oba jako 503. Strony RSC: Next nie pozwala wybrać statusu renderu, więc strona błędu zostaje neutralna, a onRequestError loguje http.service_unavailable zamiast http.unhandled_error. Test inwentarza pilnuje, że każdy mapper 500 najpierw próbuje wspólnego mapowania.",
+      "relatedRequirementIds": ["C-N060"],
+      "referenceScreenIds": [],
+      "unmappedStates": ["Backend; bez zmian UI, strony błędu bez makiety."],
+      "codePaths": ["src/modules/observability/http-observe.ts", "src/modules/observability/route-context.ts", "src/lib/prisma.ts", "src/instrumentation.ts", "src/modules/media/http.ts"],
+      "testPaths": ["tests/unit/proxy-db-unavailable.test.ts", "tests/unit/route-context-errors.test.ts", "tests/unit/db-unavailable-mapping-inventory.test.ts", "tests/integration/db-unavailable-handlers.test.ts", "tests/integration/proxy-db-unavailable.test.ts"]
+    },
+    {
+      "issue": 412,
+      "scope": "Proxy: przy niedostępnej bazie (błąd rozpoznania hosta przed handlerem) kontrolowana odpowiedź 503 zamiast surowego 500: trasy API zwracają {code:TEMPORARILY_UNAVAILABLE} z Retry-After, X-Request-Id i no-store, strony prostą stronę błędu bez szczegółów z zamkniętym CSP; zdarzenie http.service_unavailable i licznik 5xx bez sekretów. Niedostępność rozpoznaje isDbUnavailableError (baza nie słucha, timeout lub brak trasy sieciowej, zerwane połączenie, PostgreSQL w trakcie zamykania/startu, brak wolnych połączeń, błędy przejściowe) na kształtach błędów zmierzonych na Prisma 7 z adapter-pg. Błąd konfiguracji połączenia i każdy inny nieoczekiwany błąd proxy to neutralne 500 {code:INTERNAL_ERROR} bez Retry-After, zgłaszane przez reportInternalError (http.internal_error). Odmowa hosta (404) bez zmian.",
+      "relatedRequirementIds": ["C-N060"],
+      "referenceScreenIds": [],
+      "unmappedStates": ["Backend; prosta strona błędu bez makiety, treść neutralna bez szczegółów."],
+      "codePaths": ["src/proxy.ts", "src/modules/observability/http-observe.ts"],
+      "testPaths": ["tests/unit/proxy-db-unavailable.test.ts", "tests/unit/transient-db-error.test.ts", "tests/integration/proxy-db-unavailable.test.ts", "tests/integration/host-proxy.test.ts"]
+    },
+    {
       "issue": 381,
       "scope": "Lista pojazdów: „Wyczyść filtry” (arkusz filtrów i stan „Brak wyników”) czyści wyszukiwanie, filtry i stronę, ale zachowuje sortowanie „Ostatnia zmiana”; sortowanie wraca do kolejności w ofercie wyłącznie przez „Przywróć domyślne” / przycisk sortowania (D-42, D-50). Zachowanie bez zmian wyglądu.",
       "relatedRequirementIds": ["FR-ADM-020", "FR-ADM-021", "FR-ADM-022"],
@@ -1247,6 +1276,24 @@
         "src/modules/organizations/archive.ts"
       ],
       "testPaths": ["tests/integration/chat-inbox-consistency.test.ts", "tests/integration/chat-inbox.test.ts"]
+    },
+    {
+      "issue": 173,
+      "scope": "Limit prób handshake WebSocket na źródło (60/60 s, w pamięci procesu WS, tabela ograniczona) przed zapytaniami do bazy dla /ws i /ws/platform: 429 z Retry-After. Źródło wyłącznie z serwerowego adaptera clientAddress i reguły trustedClientAddress jak w limitach HTTP: adapter lokalny (peer loopback), nagłówki klienta nieczytane; bez zaufanego adresu w produkcji 503 przed bazą, poza produkcją wspólne źródło unknown. Metryka i alert odrzuceń. Część lokalna wg D-54; adapter dostawcy za proxy otwarty do #90. Bez UI.",
+      "relatedRequirementIds": ["C-N001", "C-N004"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "docs/contracts/chat-realtime.md",
+        "docs/contracts/technical-limits-and-mfa-bootstrap.md",
+        "docs/runbooks/monitoring-incidents.md",
+        "docs/security/OWASP_CONTROLS.md",
+        "src/modules/chat/handshake-limit.ts",
+        "src/modules/chat/realtime.ts",
+        "src/modules/observability/alerts.ts",
+        "src/modules/observability/metrics.ts",
+        "src/server/realtime.ts"
+      ],
+      "testPaths": ["tests/unit/handshake-limit.test.ts", "tests/integration/ws-handshake-limit.test.ts", "tests/integration/realtime-process.test.ts", "tests/unit/observability-alerts.test.ts"]
     },
     {
       "issue": 159,
@@ -2761,7 +2808,8 @@
       "codePaths": ["src/components/admin/bulk-blocks.tsx", "src/components/admin/bulk-blocks-model.ts"],
       "testPaths": ["tests/unit/bulk-blocks.test.tsx", "tests/e2e/bulk-blocks.spec.ts"],
       "sharedWith": "Reguła startsInPast z src/components/admin/vehicle-calendar-model.ts (pojedyncza blokada, #217)."
-    }
+    },
+    {"issue": 426, "scope": "Lokalny czat na żywo (tylko lokalnie, produkcyjna topologia bez zmian): local-ingress (produkcyjny build) i bramka dev (pnpm dev:gateway przed pnpm dev) przekazują upgrade /ws i /ws/platform do procesu ws (WS_PORT) z Origin i Cookie klienta; Host zastępuje skonfigurowany adres usługi WS, nagłówki forwarding są usuwane, żaden adres klienta nie jest przekazywany, ruch spoza loopbacku dostaje 403, inne ścieżki 404 (w bramce dev inne upgrade trafiają do next dev), niedostępny lub milczący proces ws 502. Zerwanie jednej strony zamyka drugą, zatrzymanie ingressu zamyka tunele. Origin z rejestru hostów, sesję z MFA, rolę i firmę nadal ocenia proces ws. Bez zmian kontraktu ramek i UI.", "relatedRequirementIds": ["C-F118", "C-F119", "C-F120", "C-F121"], "referenceScreenIds": [], "codePaths": ["src/modules/ingress/ws-upgrade-proxy.ts", "src/modules/ingress/dev-gateway.ts", "scripts/start-local-ingress.ts", "scripts/dev-gateway.ts", "playwright.config.ts"], "testPaths": ["tests/integration/ws-upgrade-proxy.test.ts", "tests/e2e/chat-live.spec.ts"], "sharedWith": "Kontrakt: docs/contracts/chat-realtime.md (sekcja „Lokalne przekazanie /ws”); adapter adresu: src/modules/ingress/client-address.ts; limit handshake na źródło: #173."}
   ],
   "sources": [
     {

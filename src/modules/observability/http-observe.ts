@@ -44,24 +44,89 @@ export function reportInternalError<T extends string>(error: unknown, requestId:
 
 const transientSqlStates = new Set(["55P03", "57014", "40001", "40P01"]);
 const transientPrismaCodes = new Set(["P2028", "P2024", "P2034"]);
+const noCodes: ReadonlySet<string> = new Set();
 
-/** Lock wait, statement or transaction budget exceeded, deadlock or serialization failure: nothing was committed. */
-export function isTransientDbError(error: unknown, depth = 0): boolean {
-  if (typeof error !== "object" || error === null || depth > 4) return false;
-  const e = error as { code?: unknown; meta?: unknown; cause?: unknown; originalCode?: unknown };
-  if (typeof e.code === "string" && (transientPrismaCodes.has(e.code) || transientSqlStates.has(e.code))) return true;
-  if (typeof e.originalCode === "string" && transientSqlStates.has(e.originalCode)) return true;
-  const meta = e.meta as { code?: unknown; driverAdapterError?: unknown } | undefined;
-  if (typeof meta?.code === "string" && transientSqlStates.has(meta.code)) return true;
-  return isTransientDbError(meta?.driverAdapterError, depth + 1) || isTransientDbError(e.cause, depth + 1);
+// Set by the database pool on every error that leaves its connect path (src/lib/prisma.ts). Symbol.for: the proxy and
+// the handlers may be bundled as separate module copies. Not enumerable, so it never reaches a log line or a response.
+const dbConnectMark = Symbol.for("auterva.db-connect-error");
+
+/** For the database pool only: this error is a failed attempt to get a database connection. */
+export function markDbConnectError<T>(error: T): T {
+  if (typeof error === "object" && error !== null) {
+    try { Object.defineProperty(error, dbConnectMark, { value: true }); } catch { /* frozen: stays unmarked */ }
+  }
+  return error;
 }
 
 /**
- * For HTTP failure mappers: a transient database failure becomes a retryable 503 TEMPORARILY_UNAVAILABLE
- * (the client treats the outcome as uncertain); the log and 5xx counter carry the real status. Otherwise null.
+ * A Node system code says nothing about its source: S3, SMTP and the domain probes fail with the same ECONNRESET or
+ * ETIMEDOUT. It counts only on an error that provably came from the database client (#437): Prisma wraps the socket
+ * error its adapter does not map into PrismaClientKnownRequestError (model, raw and batch queries), and the one path
+ * that passes the raw error through (the start of an interactive transaction) carries the pool's mark.
+ */
+function fromDatabaseClient(error: object): boolean {
+  return (error as { name?: unknown }).name === "PrismaClientKnownRequestError"
+    || (error as Record<symbol, unknown>)[dbConnectMark] === true;
+}
+
+/**
+ * Looks for a machine code where Prisma 7 with adapter-pg really puts it: `code` (Prisma code, SQLSTATE or a Node system
+ * code), the adapter's `kind` and `originalCode`, `meta.code`, then `meta.driverAdapterError` (whose `cause` holds
+ * `kind`/`originalCode`) and `cause`. Messages are never read.
+ */
+function hasDbCode(error: unknown, codes: ReadonlySet<string>, sqlStates: ReadonlySet<string>,
+  systemCodes: ReadonlySet<string> = noCodes, depth = 0): boolean {
+  if (typeof error !== "object" || error === null || depth > 4) return false;
+  const e = error as { code?: unknown; kind?: unknown; meta?: unknown; cause?: unknown; originalCode?: unknown };
+  if (typeof e.code === "string" && (codes.has(e.code) || sqlStates.has(e.code))) return true;
+  if (typeof e.code === "string" && systemCodes.has(e.code) && fromDatabaseClient(error)) return true;
+  if (typeof e.kind === "string" && codes.has(e.kind)) return true;
+  if (typeof e.originalCode === "string" && sqlStates.has(e.originalCode)) return true;
+  const meta = e.meta as { code?: unknown; driverAdapterError?: unknown } | undefined;
+  if (typeof meta?.code === "string" && sqlStates.has(meta.code)) return true;
+  return hasDbCode(meta?.driverAdapterError, codes, sqlStates, systemCodes, depth + 1)
+    || hasDbCode(e.cause, codes, sqlStates, systemCodes, depth + 1);
+}
+
+/** Lock wait, statement or transaction budget exceeded, deadlock or serialization failure: nothing was committed. */
+export function isTransientDbError(error: unknown): boolean {
+  return hasDbCode(error, transientPrismaCodes, transientSqlStates);
+}
+
+// Shapes measured on Prisma 7.10.1 + adapter-pg (#412, #437). A model query carries the Prisma code; a raw query is
+// always P2010 with the adapter's `kind` in meta.driverAdapterError.cause. Codes that only Prisma, its adapter or our
+// pool produce are matched wherever they appear.
+const unavailableCodes = new Set([
+  "P1001", "DatabaseNotReachable", // ECONNREFUSED, ENOTFOUND
+  "P1008", "SocketTimeout", // ETIMEDOUT
+  "P1017", "ConnectionClosed", // ECONNRESET
+  "P2037", "TooManyConnections", // 53300
+  // The pool's connection time limit (src/lib/prisma.ts): the server did not answer / no pooled connection got free.
+  "DB_CONNECT_TIMEOUT", "DB_POOL_TIMEOUT",
+]);
+// A socket error the adapter does not map (EHOSTUNREACH, ENETUNREACH, EAI_AGAIN, an AggregateError for a multi-address
+// host) keeps the Node code in `code`; see fromDatabaseClient for when it counts.
+const unavailableSystemCodes = new Set(["ECONNREFUSED", "ETIMEDOUT", "EHOSTUNREACH", "ENETUNREACH", "ENOTFOUND", "ECONNRESET", "EAI_AGAIN"]);
+// Server shutting down, crashed or still starting (57P01/57P02/57P03) and no free connection slot (53300).
+const unavailableSqlStates = new Set(["57P01", "57P02", "57P03", "53300"]);
+
+/**
+ * Database unreachable, restarting, out of connections or transient (#412, #437): the caller answers a retryable 503.
+ * Configuration errors (wrong database P1003, access denied P1010, authentication P1000, TLS P1011) and every other
+ * error are not matched and must stay a 500. Safe where the database is not the only I/O: a system code from another
+ * client (S3, mail, DNS or TLS probes) is never matched.
+ */
+export function isDbUnavailableError(error: unknown): boolean {
+  return isTransientDbError(error) || hasDbCode(error, unavailableCodes, unavailableSqlStates, unavailableSystemCodes);
+}
+
+/**
+ * The one place where a handler's unexpected error becomes "database unavailable": a retryable 503
+ * TEMPORARILY_UNAVAILABLE with Retry-After, the same answer as the proxy gives (the client treats the outcome as
+ * uncertain); the log and 5xx counter carry the real status. Any other error: null, the caller answers its 500.
  */
 export function transientDbResponse(error: unknown, requestId: string, operation: string): Response | null {
-  if (!isTransientDbError(error)) return null;
+  if (!isDbUnavailableError(error)) return null;
   count5xx(requestId);
   logFailure("http.service_unavailable", error, { requestId, operation, status: 503 });
   return Response.json({ code: "TEMPORARILY_UNAVAILABLE" }, { status: 503, headers: {

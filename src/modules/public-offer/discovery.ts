@@ -7,7 +7,7 @@ import { publicJson, takePublicBudget, type RequestId } from "./http";
 import { legalPaths, loadPublicContext } from "./read";
 import { parseHostAuthority } from "@/modules/tenancy/host-registry";
 import { publicOrigin, robotsTxt, sitemapXml, type SitemapEntry } from "./seo";
-import { reportInternalError } from "@/modules/observability/http-observe";
+import { reportInternalError, transientDbResponse } from "@/modules/observability/http-observe";
 
 /** Marketing pages that exist as routes (src/app/page.tsx); the Auterva documents have no route yet. */
 const marketingPaths = ["/"];
@@ -19,6 +19,10 @@ function marketingOrigin(authority: string): string | null {
 
 const text = (body: string, type: string, requestId: RequestId) => withErrorRequestId(new Response(body, { status: 200,
   headers: { "Content-Type": `${type}; charset=utf-8`, "Cache-Control": "no-store" } }), requestId);
+
+const discoveryFailure = (error: unknown, requestId: RequestId) =>
+  transientDbResponse(error, requestId, "public-offer.discovery")
+    ?? publicJson({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "public-offer.discovery"));
 
 /**
  * robots.txt per host. The marketing host is indexable except /api/ and lists only its sitemap. Panels (company admin, platform) and everything behind them are closed to crawlers.
@@ -41,7 +45,7 @@ export async function serveRobots(request: Request): Promise<Response> {
     const context = await loadPublicContext(prisma, authority, new Date());
     return context ? text(robotsTxt({ kind: "PUBLIC", origin: context.origin }), "text/plain", requestId)
       : publicJson({ code: "NOT_FOUND" }, 404, requestId);
-  } catch (error) { return publicJson({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "public-offer.discovery")); }
+  } catch (error) { return discoveryFailure(error, requestId); }
 }
 
 /** Sitemap of one company: only PUBLISHED vehicles and pages that have real content, on the canonical origin. */
@@ -72,5 +76,5 @@ export async function serveSitemap(request: Request): Promise<Response> {
       ...(settings?.privacyText ? [{ path: legalPaths.privacy, lastModified: settings.updatedAt }] : []),
       ...(settings?.termsText ? [{ path: legalPaths.terms, lastModified: settings.updatedAt }] : [])];
     return text(sitemapXml(context.origin, entries), "application/xml", requestId);
-  } catch (error) { return publicJson({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "public-offer.discovery")); }
+  } catch (error) { return discoveryFailure(error, requestId); }
 }

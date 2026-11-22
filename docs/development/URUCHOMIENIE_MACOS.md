@@ -4,6 +4,47 @@ Instrukcja krok po kroku dla osoby, która po restarcie Maca chce uruchomić Aut
 
 Wszystko działa wyłącznie na `127.0.0.1` i lokalnych danych (`.local/`, ignorowane przez Git). Nie wpisuj tu produkcyjnych danych ani nie publikuj plików `.env`, `.local/fixture-9/secrets.env` i `.local/fixture-9/access.json`.
 
+> **Warunkowość opisów (stan: do czasu scalenia wskazanych PR):**
+> - Host `platform.localhost` tworzy `seed-local-fixture.ts` od scalenia PR #432 (także po `--reset`); ręczny `INSERT` jest potrzebny tylko na starym checkoutcie sprzed #432.
+> - Proxy `/ws` dla czatu na żywo jest dostępne od scalenia PR #438: `start:local-ingress` (build produkcyjny) i `pnpm dev:gateway` (wariant dev, karta 6) przekazują WebSocket do procesu `dev:ws`. Szczegóły w sekcji 4.
+
+## Szybki start: kolejność komend (po restarcie Maca)
+
+Szczegóły i objaśnienia są w sekcjach poniżej. Wartość `LOCAL_PORT_BASE` (tu `44200`) musi być taka sama w każdej karcie. Karty otwieraj w Terminalu przez `Cmd+T`; każda zaczyna od `cd ~/Developer/Auterva && nvm use 24.20.0`.
+
+**Karta 1 — przygotowanie i fixture (jednorazowo po restarcie):**
+
+```sh
+colima start && docker info | head -3        # tylko dla docker/ci-local
+cd ~/Developer/Auterva && nvm use 24.20.0
+pnpm install --frozen-lockfile
+pnpm exec prisma generate
+export LOCAL_PORT_BASE=44200
+lsof -iTCP:44200-44307 -sTCP:LISTEN          # pusty wynik = porty wolne
+scripts/local-fixture.sh install             # tylko za pierwszym razem
+scripts/local-fixture.sh start
+pnpm exec prisma migrate deploy
+pnpm exec tsx scripts/seed-local-fixture.ts
+scripts/local-fixture.sh seed-media
+scripts/local-fixture.sh status
+# host platform.localhost tworzy seed (od #432); na starszym checkoutcie dodaj go ręcznie wg sekcji 4
+```
+
+**Karta 2 — aplikacja (wybierz jedno):**
+
+```sh
+set -a; . .local/fixture-9/secrets.env; set +a   # klucze S3 do uploadu zdjęć
+pnpm dev --port 44210                             # wariant A: dev
+# albo wariant B (MFA, limity, PWA): pnpm build, a potem
+# NODE_ENV=production PORT=44212 BETTER_AUTH_URL=http://platform.localhost:44212 pnpm start:local-ingress
+```
+
+**Karty 3–5 — opcjonalne (poczta, zdjęcia, czat):** `pnpm dev:worker` (z `MAIL_*` wg sekcji 4), `pnpm dev:media-worker` (po `set -a; . .local/fixture-9/secrets.env; set +a`), `WS_PORT=44211 pnpm dev:ws`.
+
+**Wejście:** `http://admin.company-a.localhost:44210/admin/login/` (panel firmy), `http://platform.localhost:44210/login/` (superadmin), hasła i TOTP z `.local/fixture-9/access.json` (nie publikuj). Poczta: `http://127.0.0.1:44203`.
+
+**Koniec pracy:** zatrzymaj procesy `Ctrl+C` w kartach, potem `LOCAL_PORT_BASE=44200 scripts/local-fixture.sh stop`.
+
 ## 0. Okna Terminala (skrót)
 
 Używaj aplikacji Terminal (albo iTerm) i osobnych kart (`Cmd+T`). Każda karta zaczyna od `cd` do repozytorium (poniżej `~/Developer/Auterva`; wstaw własną ścieżkę — gniazdo PostgreSQL ma limit 103 bajtów ścieżki, więc trzymaj repozytorium w krótkiej ścieżce).
@@ -15,8 +56,9 @@ Używaj aplikacji Terminal (albo iTerm) i osobnych kart (`Cmd+T`). Każda karta 
 | 3 | Worker (poczta/outbox, joby) | `pnpm dev:worker` | brak nasłuchu |
 | 4 | Media-worker (przetwarzanie obrazów) | `pnpm dev:media-worker` | brak nasłuchu |
 | 5 | Serwer WebSocket czatu | `pnpm dev:ws` | `WS_PORT` |
+| 6 | Bramka dev: jeden port dla stron i czatu na żywo (tylko wariant dev) | `pnpm dev:gateway` | baza+16 |
 
-Karty 3–5 są potrzebne tylko do funkcji, które ich używają (e-maile zaproszeń/resetu, upload zdjęć, czat). Do samego przeglądania panelu wystarczą karty 1–2.
+Karty 3–6 są potrzebne tylko do funkcji, które ich używają (e-maile zaproszeń/resetu, upload zdjęć, czat; karta 6 tylko do czatu na żywo w wariancie dev). Do samego przeglądania panelu wystarczą karty 1–2.
 
 ## 1. Wymagania jednorazowe
 
@@ -58,7 +100,7 @@ pnpm exec prisma generate
 
 ## 3. Fixture lokalny (karta 1)
 
-Ustal bazę portów. Domyślnie `15450`; poniżej `LOCAL_PORT_BASE=44200` jako przykład. **Tę samą wartość podawaj przy `start`, `stop`, `status`, `seed-media` i w każdej karcie.** Fixture zajmuje porty `baza…baza+7`, `+10`/`+11` są zarezerwowane dla dev HTTP/WS, a `+101`, `+104…+107` zajmuje gRPC SeaweedFS. Przed startem sprawdź, że porty są wolne:
+Ustal bazę portów. Domyślnie `15450`; poniżej `LOCAL_PORT_BASE=44200` jako przykład. **Tę samą wartość podawaj przy `start`, `stop`, `status`, `seed-media` i w każdej karcie.** Fixture zajmuje porty `baza…baza+7`, `+10`/`+11` są zarezerwowane dla dev HTTP/WS (bramka dev z karty 6 używa w tej instrukcji `+16`), a `+101`, `+104…+107` zajmuje gRPC SeaweedFS. Przed startem sprawdź, że porty są wolne:
 
 ```sh
 lsof -iTCP:44200-44307 -sTCP:LISTEN   # pusty wynik = wolne
@@ -114,7 +156,7 @@ Routing wybiera obszar po nagłówku `Host` (port jest ignorowany). Domeny `*.lo
 | Panel firmy A / B | `admin.company-a.localhost`, `admin.company-b.localhost` | `http://admin.company-a.localhost:44210/admin/login/` |
 | Platforma (superadmin) | `platform.localhost` | `http://platform.localhost:44210/login/` |
 
-Host platformy tworzy ten sam seed, także po `--reset` (#425); ręczny `psql` nie jest potrzebny. Wiersz `platform.localhost` dodany wcześniej ręcznie seed zostawia bez zmian. Sprawdzono: `http://platform.localhost:44210/login/` zwraca 200, `/firmy/` bez sesji przekierowuje do logowania, a superadmin z fixture loguje się hasłem i kodem TOTP. (Pusta baza bez fixture dostaje hosta platformy z `pnpm exec tsx scripts/bootstrap-superadmin.ts`; nie używaj go na fixture z danymi, bo wymaga pustej bazy.)
+Host platformy tworzy ten sam seed, także po `--reset` (#425); ręczny `psql` nie jest potrzebny. Tylko na checkoucie sprzed #432 dodaj host ręcznie (port jak `LOCAL_PORT_BASE`): `psql -h 127.0.0.1 -p 44200 -d auterva_fixture_9 -c "INSERT INTO \"HostMapping\" (id, hostname, area, status) VALUES (gen_random_uuid(), 'platform.localhost', 'PLATFORM', 'ACTIVE') ON CONFLICT DO NOTHING"`. Wiersz `platform.localhost` dodany wcześniej ręcznie seed zostawia bez zmian. Sprawdzono: `http://platform.localhost:44210/login/` zwraca 200, `/firmy/` bez sesji przekierowuje do logowania, a superadmin z fixture loguje się hasłem i kodem TOTP. (Pusta baza bez fixture dostaje hosta platformy z `pnpm exec tsx scripts/bootstrap-superadmin.ts`; nie używaj go na fixture z danymi, bo wymaga pustej bazy.)
 
 ### Wariant A: dev (szybki, bez PWA) — karta 2
 
@@ -132,11 +174,11 @@ Produkcyjny auth wymaga adaptera adresu klienta; lokalnie jest to `start:local-i
 ```sh
 cd ~/Developer/Auterva && nvm use 24.20.0
 pnpm build
-NODE_ENV=production PORT=44212 BETTER_AUTH_URL=http://platform.localhost:44212 pnpm start:local-ingress
+NODE_ENV=production PORT=44212 WS_PORT=44211 BETTER_AUTH_URL=http://platform.localhost:44212 pnpm start:local-ingress
 # Local trusted ingress on 127.0.0.1:44212
 ```
 
-Adresy: `http://company-a.localhost:44212/`, `http://admin.company-a.localhost:44212/admin/login/`, `http://platform.localhost:44212/login/` (wszystkie zwracają 200). Ingress odrzuca ruch spoza loopback i usuwa nagłówki `X-Forwarded-*`. Wartość `BETTER_AUTH_URL` dla ingressu ustawiono jak host platformy; dokładne wymagania `BETTER_AUTH_URL` dla innych hostów — do potwierdzenia przy logowaniu w przeglądarce (Origin żądań musi zgadzać się z hostem strony).
+Adresy: `http://company-a.localhost:44212/`, `http://admin.company-a.localhost:44212/admin/login/`, `http://platform.localhost:44212/login/` (wszystkie zwracają 200). Ingress odrzuca ruch spoza loopback i usuwa nagłówki `X-Forwarded-*`. `WS_PORT` wskazuje mu proces czatu z karty 5: połączenia `/ws` i `/ws/platform` przekazuje właśnie tam (bez tej zmiennej użyłby `WS_PORT=3312` z `.env`). Wartość `BETTER_AUTH_URL` dla ingressu ustawiono jak host platformy; dokładne wymagania `BETTER_AUTH_URL` dla innych hostów — do potwierdzenia przy logowaniu w przeglądarce (Origin żądań musi zgadzać się z hostem strony).
 
 ### Worker — karta 3
 
@@ -176,7 +218,20 @@ WS_PORT=44211 pnpm dev:ws
 
 `.env` ustawia `WS_PORT=3312`; powyższe nadpisanie unika kolizji z innymi fixture. Domyślnie przyjmuje `Host` tylko `127.0.0.1:<WS_PORT>`; kontrakt: [chat-realtime](../contracts/chat-realtime.md) (`WS_HOST`, `WS_ALLOWED_HOSTS`).
 
-Ograniczenie lokalne (do potwierdzenia przez właściciela): przeglądarka łączy się z `ws://<host strony>/ws…` (ten sam host i port co strona), a ani `next dev`, ani `start:local-ingress` nie przekazują połączeń WebSocket do procesu `ws`. Lokalnie więc wiadomości czatu zapisują się i odświeżają przez HTTP, a wskaźniki „na żywo” (pisanie, status w czasie rzeczywistym) wymagają zewnętrznego reverse proxy przed Next i WS albo testów procesu: `tests/integration/realtime-process.test.ts`.
+Przeglądarka łączy się z `ws://<host strony>/ws…` (ten sam host i port co strona), więc przed procesem `ws` stoi lokalne przekazanie (#426):
+
+- **Wariant B** (build produkcyjny): `start:local-ingress` przekazuje `/ws` i `/ws/platform` do procesu z `WS_PORT`. Uruchom go z tym samym `WS_PORT=44211` co tę kartę (komenda w wariancie B); czat na żywo działa pod adresami ingressu (port 44212).
+- **Wariant A** (dev): `next dev` nie przekazuje WebSocketu. Uruchom bramkę w karcie 6 i otwieraj adresy na jej porcie zamiast 44210:
+
+  ```sh
+  cd ~/Developer/Auterva && nvm use 24.20.0
+  PORT=44216 DEV_APP_PORT=44210 WS_PORT=44211 pnpm dev:gateway
+  # Development gateway on 127.0.0.1:44216 (app 44210)
+  ```
+
+  Czat: `http://admin.company-a.localhost:44216/admin/czat/` i `http://platform.localhost:44216/wiadomosci/`. Pod portem 44210 (bez bramki) czat działa tylko przez HTTP i pokazuje „Brak połączenia na żywo”.
+
+Ingress i bramka przyjmują tylko ruch z loopback i niczego nie autoryzują: Origin, sesję z MFA, rolę i firmę sprawdza proces `ws`. Sprawdzono w przeglądarce w obu wariantach: logowanie hasłem i TOTP, status „Online”, „pisze…”, „Przeczytano”, wiadomości w obie strony bez przeładowania oraz wznowienie po zatrzymaniu i ponownym starcie karty 5 (do tego czasu „Brak połączenia na żywo — łączymy ponownie”, wysyłka działa).
 
 ## 5. Logowanie
 
@@ -227,7 +282,7 @@ Penpot to osobne narzędzie w przeglądarce (nie uruchamia się go z repozytoriu
 
 **Zatrzymanie wszystkiego:**
 
-1. Ctrl-C w kartach 2–5 (Next, worker, media-worker, WS).
+1. Ctrl-C w kartach 2–6 (Next, worker, media-worker, WS, bramka dev).
 2. `LOCAL_PORT_BASE=44200 scripts/local-fixture.sh stop` w karcie 1.
 3. Opcjonalnie `colima stop`.
 4. Sprawdź: `lsof -iTCP:44200-44307 -sTCP:LISTEN` ma być puste. Nie używaj `pkill node` — na maszynie mogą działać cudze procesy; kończ tylko własne po PID z `lsof -tiTCP:<port> -sTCP:LISTEN`.
@@ -250,5 +305,4 @@ Penpot to osobne narzędzie w przeglądarce (nie uruchamia się go z repozytoriu
 
 - Dokładna konfiguracja `docker buildx` na maszynie bez wcześniejszej instalacji.
 - Logowanie w przeglądarce w wariancie B przy `BETTER_AUTH_URL` innym niż host platformy (wymagania Origin).
-- Działanie czatu „na żywo” lokalnie (brak proxy WebSocket, sekcja 4).
 - Adres instancji Penpot.

@@ -10,6 +10,12 @@ const devPort = Number(process.env.E2E_DEV_PORT ?? String(port + 1));
 if (!Number.isInteger(devPort) || devPort < 1 || devPort > 65535 || devPort === port) throw new Error("Invalid E2E_DEV_PORT");
 const trustedPort = Number(process.env.E2E_TRUSTED_PORT ?? String(port + 2));
 if (!Number.isInteger(trustedPort) || trustedPort < 1 || trustedPort > 65535 || trustedPort === port || trustedPort === devPort) throw new Error("Invalid E2E_TRUSTED_PORT");
+// #426: the trusted ingress forwards /ws to this port. Nothing listens there, except while tests/e2e/chat-live.spec.ts
+// runs its own realtime server, so every other spec keeps the "no live channel" state it asserts. Under ci-local this
+// is base+15, free in the executor frame.
+const wsPort = Number(process.env.E2E_WS_PORT ?? String(trustedPort + 1));
+if (!Number.isInteger(wsPort) || wsPort < 1 || wsPort > 65535 || [port, devPort, trustedPort].includes(wsPort)) throw new Error("Invalid E2E_WS_PORT");
+process.env.E2E_WS_PORT = String(wsPort);
 const productionURL = `http://127.0.0.1:${port}`;
 const developmentURL = `http://127.0.0.1:${devPort}`;
 const trustedURL = `http://127.0.0.1:${trustedPort}`;
@@ -41,7 +47,7 @@ export default defineConfig({
     {
       command: "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx scripts/start-local-ingress.ts",
       url: `${trustedURL}/api/health/`, reuseExistingServer: false, timeout: 30_000,
-      env: { NEXT_TELEMETRY_DISABLED: "1", NODE_ENV: "production", PORT: String(trustedPort), BETTER_AUTH_URL: trustedURL,
+      env: { NEXT_TELEMETRY_DISABLED: "1", NODE_ENV: "production", PORT: String(trustedPort), BETTER_AUTH_URL: trustedURL, WS_PORT: String(wsPort),
         AUTERVA_LOCAL_IPV6: "1", AUTERVA_ADMIN_BASE_DOMAIN: "sites.example.test", AUTERVA_PUBLIC_BASE_DOMAIN: "public.example.test",
         ...mediaEnv },
     },
