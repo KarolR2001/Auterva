@@ -4,6 +4,42 @@ Instrukcja krok po kroku dla osoby, która po restarcie Maca chce uruchomić Aut
 
 Wszystko działa wyłącznie na `127.0.0.1` i lokalnych danych (`.local/`, ignorowane przez Git). Nie wpisuj tu produkcyjnych danych ani nie publikuj plików `.env`, `.local/fixture-9/secrets.env` i `.local/fixture-9/access.json`.
 
+## Szybki start: kolejność komend (po restarcie Maca)
+
+Szczegóły i objaśnienia są w sekcjach poniżej. Wartość `LOCAL_PORT_BASE` (tu `44200`) musi być taka sama w każdej karcie. Karty otwieraj w Terminalu przez `Cmd+T`; każda zaczyna od `cd ~/Developer/Auterva && nvm use 24.20.0`.
+
+**Karta 1 — przygotowanie i fixture (jednorazowo po restarcie):**
+
+```sh
+colima start && docker info | head -3        # tylko dla docker/ci-local
+cd ~/Developer/Auterva && nvm use 24.20.0
+pnpm install --frozen-lockfile
+pnpm exec prisma generate
+export LOCAL_PORT_BASE=44200
+lsof -iTCP:44200-44307 -sTCP:LISTEN          # pusty wynik = porty wolne
+scripts/local-fixture.sh install             # tylko za pierwszym razem
+scripts/local-fixture.sh start
+pnpm exec prisma migrate deploy
+pnpm exec tsx scripts/seed-local-fixture.ts
+scripts/local-fixture.sh seed-media
+scripts/local-fixture.sh status
+```
+
+**Karta 2 — aplikacja (wybierz jedno):**
+
+```sh
+set -a; . .local/fixture-9/secrets.env; set +a   # klucze S3 do uploadu zdjęć
+pnpm dev --port 44210                             # wariant A: dev
+# albo wariant B (MFA, limity, PWA): pnpm build, a potem
+# NODE_ENV=production PORT=44212 BETTER_AUTH_URL=http://platform.localhost:44212 pnpm start:local-ingress
+```
+
+**Karty 3–5 — opcjonalne (poczta, zdjęcia, czat):** `pnpm dev:worker` (z `MAIL_*` wg sekcji 4), `pnpm dev:media-worker` (po `set -a; . .local/fixture-9/secrets.env; set +a`), `WS_PORT=44211 pnpm dev:ws`.
+
+**Wejście:** `http://admin.company-a.localhost:44210/admin/login/` (panel firmy), `http://platform.localhost:44210/login/` (superadmin), hasła i TOTP z `.local/fixture-9/access.json` (nie publikuj). Poczta: `http://127.0.0.1:44203`.
+
+**Koniec pracy:** zatrzymaj procesy `Ctrl+C` w kartach, potem `LOCAL_PORT_BASE=44200 scripts/local-fixture.sh stop`.
+
 ## 0. Okna Terminala (skrót)
 
 Używaj aplikacji Terminal (albo iTerm) i osobnych kart (`Cmd+T`). Każda karta zaczyna od `cd` do repozytorium (poniżej `~/Developer/Auterva`; wstaw własną ścieżkę — gniazdo PostgreSQL ma limit 103 bajtów ścieżki, więc trzymaj repozytorium w krótkiej ścieżce).
