@@ -1,9 +1,11 @@
 .chat {
+  /* The panel is fitted to the viewport below the shell chrome; phones override the offset further down. */
+  --chat-fit: calc(100dvh - 160px);
   position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  height: calc(100dvh - 160px);
+  height: var(--chat-fit);
   min-height: 320px;
   max-width: 860px;
 }
@@ -29,8 +31,68 @@
   gap: var(--space-2);
 }
 
+/* Gap-refetch error (#411): a compact notice pinned above the history, never scrolled away. The history gives its room to
+   the notice down to a small floor; only when even that does not fit, the panel grows by the missing part (the page scrolls
+   to the composer) instead of clipping the notice or pushing it out of the viewport. */
+.chat[data-gap-error]:not([data-embedded]) {
+  height: auto;
+  min-height: max(320px, var(--chat-fit));
+}
+
+.chat[data-gap-error] .list {
+  flex: 1 1 0px;
+  min-height: var(--space-16);
+}
+
+.pinnedAlert {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width-hairline) solid var(--status-error-border);
+  border-radius: var(--radius-md);
+  background: var(--status-error-surface);
+  color: var(--text-primary);
+  font-size: var(--font-size-14);
+  line-height: var(--line-height-20);
+}
+
+.pinnedAlert p {
+  display: flex;
+  flex: 1 1 200px;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+}
+
+.pinnedAlert p svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.pinnedAlertAction {
+  min-height: var(--touch-target-mobile);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-link);
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.pinnedAlertAction:focus-visible {
+  outline: var(--border-width-active) solid var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
 .list {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -156,7 +218,7 @@
 
 @media (max-width: 767px) {
   .chat {
-    height: calc(100dvh - 190px);
+    --chat-fit: calc(100dvh - 190px);
   }
 }
 
@@ -178,4 +240,13 @@
   height: 100%;
   min-height: 0;
   max-width: none;
+}
+
+/* #411: below the split view the inbox lets the conversation grow while the gap notice shows (inbox.module.css), so the
+   composer stays reachable above the bottom navigation; the panel then fills the pane as a flex item, not by percentage. */
+@media (max-width: 1023px) {
+  .chat[data-embedded][data-gap-error] {
+    flex: 1 0 auto;
+    height: auto;
+  }
 }
