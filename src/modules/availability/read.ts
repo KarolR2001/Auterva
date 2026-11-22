@@ -148,23 +148,39 @@ export async function getPrivateFleetCalendar(
 ) {
   // ARCHIVED vehicles accept no new blocks (D-21): they appear only when asked for explicitly.
   const where = { organizationId, status: status ?? { not: "ARCHIVED" } };
-  const [total, vehicles] = await db.$transaction([
+  const skip = (page - 1) * pageSize;
+  const statusSql = status ? Prisma.sql`v.status::text = ${status}` : Prisma.sql`v.status::text <> 'ARCHIVED'`;
+  const [total, vehicles, blockRows] = await db.$transaction([
     db.vehicle.count({ where }),
-    db.vehicle.findMany({ where, orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
-      skip: (page - 1) * pageSize, take: pageSize,
-      select: { id: true, name: true, slug: true, status: true, availableFrom: true, availableTo: true,
-        blocks: { where: { organizationId, from: { lte: sqlDate(range.to) }, to: { gte: sqlDate(range.from) } },
-          select: { id: true, from: true, to: true, type: true, version: true }, orderBy: { from: "asc" } } } }),
+    db.vehicle.findMany({ where, orderBy: [{ sortOrder: "asc" }, { id: "asc" }], skip, take: pageSize,
+      select: { id: true, name: true, slug: true, status: true, availableFrom: true, availableTo: true } }),
+    // #402: the blocks of the page come from the GiST index (vehicleId, daterange) of the overlap constraint, one
+    // search per vehicle of the page. The Prisma relation filter read every block of the company (O(blocks); plan in
+    // docs/performance/local-load-2026-11.md). Same page subquery as findMany above and the same snapshot; the closed
+    // range test is `&&` on [from, to].
+    db.$queryRaw<{ id: string; vehicleId: string; from: Date; to: Date; type: string; version: number }[]>(Prisma.sql`
+      SELECT b.id, b."vehicleId", b."from", b."to", b.type, b.version FROM "AvailabilityBlock" b
+       WHERE b."vehicleId" = ANY (ARRAY(SELECT v.id FROM "Vehicle" v WHERE v."organizationId" = ${organizationId}::uuid AND ${statusSql}
+                                         ORDER BY v."sortOrder" ASC, v.id ASC OFFSET ${skip} LIMIT ${pageSize}))
+         AND b."organizationId" = ${organizationId}::uuid
+         AND daterange(b."from", b."to", '[]') && daterange(${range.from}::date, ${range.to}::date, '[]')
+       ORDER BY b."from" ASC, b.id ASC`),
   ], { isolationLevel: "RepeatableRead" });
+  const blocksOf = new Map<string, typeof blockRows>();
+  for (const row of blockRows) {
+    const list = blocksOf.get(row.vehicleId);
+    if (list) list.push(row); else blocksOf.set(row.vehicleId, [row]);
+  }
   return { from: range.from, to: range.to, total, page, pageSize,
-    items: vehicles.map((vehicle) => ({ vehicleId: vehicle.id, name: vehicle.name, slug: vehicle.slug,
+    items: vehicles.map((listed) => { const vehicle = { ...listed, blocks: blocksOf.get(listed.id) ?? [] }; return {
+      vehicleId: vehicle.id, name: vehicle.name, slug: vehicle.slug,
       status: vehicle.status,
       availableFrom: vehicle.availableFrom ? localDate(vehicle.availableFrom) : null,
       availableTo: vehicle.availableTo ? localDate(vehicle.availableTo) : null,
       days: calendarDays(range, vehicle, vehicle.blocks),
       blocks: vehicle.blocks.map((block) => ({ id: block.id, from: localDate(block.from), to: localDate(block.to),
         type: block.type, typeLabel: blockTypeLabels[block.type as BlockType] ?? block.type,
-        version: block.version })) })) };
+        version: block.version })) }; }) };
 }
 
 /** Server constant (D-32 P1): the nearest-slot search never looks further than this many days from its start. */

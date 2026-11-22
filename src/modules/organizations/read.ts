@@ -1,9 +1,10 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { resolveServicePeriod } from "@/modules/service-period/state";
+import { companyPurgeView } from "./purge";
 
 const companySelect = {
   id: true, slug: true, name: true, version: true, firstAdminRegisteredAt: true,
-  archivedAt: true, publicUnlockRequired: true, publicRequiresPaid: true,
+  archivedAt: true, publicUnlockRequired: true, publicRequiresPaid: true, purgeStartedAt: true, purgedAt: true,
   serviceAccess: { select: { paidThrough: true, trialGranted: true, trialStartedAt: true,
     trialEndsAt: true, periodVersion: true } },
   users: { where: { role: "ADMIN_FIRMY" }, select: { id: true, name: true, email: true,
@@ -49,6 +50,8 @@ function companyDto(company: Company, now: Date) {
     organizationId: company.id, slug: company.slug, name: company.name,
     organizationVersion: company.version,
     archivedAt: company.archivedAt?.toISOString() ?? null,
+    // #419 (D-58): when the data of an archived company is purged (scheduledAt = archive + 12 months, earliest instant).
+    purge: companyPurgeView(company),
     registration: { status: company.firstAdminRegisteredAt ? "REGISTERED" as const : "PENDING" as const,
       firstAdminRegisteredAt: company.firstAdminRegisteredAt?.toISOString() ?? null },
     account: admin ? { id: admin.id, name: admin.name, email: admin.email,

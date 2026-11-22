@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs the jobs of .github/workflows/ci.yml locally while the workflow is disabled (D-29, docs/development/CI.md).
+# Runs the jobs of .github/workflows/ci.yml locally: the fallback for when the workflow is disabled or out of minutes (D-29, D-65, docs/development/CI.md).
 # Usage: scripts/ci-local.sh <LOCAL_PORT_BASE> <results-file>   (run from the repository root of the candidate tree)
 # Resets and then stops this worktree's own fixture; E2E uses ports derived from the base (base+12..14) and a slot semaphore.
 set -uo pipefail

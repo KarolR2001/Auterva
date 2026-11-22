@@ -36,7 +36,7 @@
     },
     {
       "path": "docs/ARCHITEKTURA_AUTERVA.md",
-      "sha256": "232db78ec60d8e624d861e40993459df059bea6cd6c37101a5dd2780ab831a10"
+      "sha256": "31fa3165bc6b3db1e3aeb2b2101dd47d4cb36ac3a2cf42e8a5bd0d29ef6561e9"
     },
     {
       "path": "docs/adr/0001-penpot.md",
@@ -96,7 +96,7 @@
     },
     {
       "path": "docs/contracts/platform-companies-read.md",
-      "sha256": "b6ad063a780b193353baac9f2e79e788a9aa25a91dfcd580cbfada4a2ba97faa"
+      "sha256": "1323e52975a7fb54578238d032c11085a6e17648a7cc69f80557ac48feb32234"
     },
     {
       "path": "docs/contracts/media-upload-processing.md",

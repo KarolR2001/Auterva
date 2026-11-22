@@ -28,6 +28,10 @@ const queries: [string, string][] = [
   ["private calendar, 365 days of one vehicle", `SELECT b.id, b."from", b."to" FROM "AvailabilityBlock" b
      WHERE b."organizationId" = ${org} AND b."vehicleId" = (SELECT id FROM "Vehicle" WHERE slug = 'perf-1-auto-005')
        AND b."from" <= '${dayOffset(today, 264)}' AND b."to" >= '${dayOffset(today, -100)}' ORDER BY b."from"`],
+  ["fleet list: blocked today of 100 vehicles, relation filter (before #402)", `SELECT b.id, b."vehicleId" FROM "AvailabilityBlock" b WHERE b."from" <= '${today}' AND b."to" >= '${today}' AND b."organizationId" = ${org}`],
+  ["fleet list: blocked today of 100 vehicles, GiST (#402)", `SELECT DISTINCT b."vehicleId" FROM "AvailabilityBlock" b WHERE b."vehicleId" = ANY (ARRAY(SELECT id FROM "Vehicle" WHERE "organizationId" = ${org} LIMIT 100)) AND b."organizationId" = ${org} AND daterange(b."from", b."to", '[]') && daterange('${today}', '${today}', '[]')`],
+  ["fleet grid: 31 days of 50 vehicles, relation filter (before #402)", `SELECT b.id FROM "AvailabilityBlock" b WHERE b."organizationId" = ${org} AND b."vehicleId" IN (SELECT id FROM (SELECT id FROM "Vehicle" WHERE "organizationId" = ${org} ORDER BY "sortOrder", id LIMIT 50) v) AND b."from" <= '${dayOffset(today, 31)}' AND b."to" >= '${today}' ORDER BY b."from"`],
+  ["fleet grid: 31 days of 50 vehicles, GiST (#402)", `SELECT b.id FROM "AvailabilityBlock" b WHERE b."vehicleId" = ANY (ARRAY(SELECT id FROM "Vehicle" WHERE "organizationId" = ${org} ORDER BY "sortOrder", id LIMIT 50)) AND b."organizationId" = ${org} AND daterange(b."from", b."to", '[]') && daterange('${today}', '${dayOffset(today, 31)}', '[]') ORDER BY b."from"`],
 ];
 const index = '"AvailabilityBlock_vehicleId_from_idx"';
 const create = `CREATE INDEX IF NOT EXISTS ${index} ON "AvailabilityBlock"("vehicleId", "from" DESC)`;

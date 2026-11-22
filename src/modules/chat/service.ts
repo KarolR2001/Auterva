@@ -56,9 +56,10 @@ export async function lockedWrite<T>(db: PrismaClient, scope: ChatScope, work: (
   allowArchived = false) {
   return db.$transaction(async (tx) => {
     await authorize(tx, scope);
-    const rows = await tx.$queryRaw<{ archivedAt: Date | null }[]>`
-      SELECT "archivedAt" FROM "Organization" WHERE id = ${scope.organizationId}::uuid FOR NO KEY UPDATE`;
-    if (rows.length !== 1) throw new ChatError("CHAT_NOT_FOUND");
+    const rows = await tx.$queryRaw<{ archivedAt: Date | null; purgeStartedAt: Date | null }[]>`
+      SELECT "archivedAt", "purgeStartedAt" FROM "Organization" WHERE id = ${scope.organizationId}::uuid FOR NO KEY UPDATE`;
+    // #419: the conversation of a purged company is deleted and never re-created.
+    if (rows.length !== 1 || rows[0].purgeStartedAt !== null) throw new ChatError("CHAT_NOT_FOUND");
     await authorize(tx, scope);
     if (rows[0].archivedAt && !allowArchived) throw new ChatError("CHAT_ORGANIZATION_ARCHIVED");
     return work(tx, rows[0].archivedAt !== null);

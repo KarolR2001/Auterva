@@ -42,7 +42,8 @@ afterAll(async () => {
 // R1: the real fleet route exports, a dependency fails after authorization, three different actors run in parallel
 // from the same frame. Every `http.internal_error` line carries its own actor and company, and nothing leaks after.
 test("real route exports: each 500 line has its own actor and company (two admins and a superadmin in a company context)", async () => {
-  vi.spyOn(prisma.vehicle, "count").mockImplementation((() => { throw new Error("DEPENDENCY_DOWN user@example.test"); }) as never);
+  // The fleet list reads inside one interactive transaction, so the failing dependency is the transaction itself.
+  vi.spyOn(prisma, "$transaction").mockImplementation((() => { throw new Error("DEPENDENCY_DOWN user@example.test"); }) as never);
   const lines: string[] = [];
   const restore = setLogSink((line) => lines.push(line));
   try {

@@ -3,12 +3,46 @@ import { prisma } from "./lib/prisma";
 import { isCustomDomainHost, resolveAliasRedirect } from "./modules/domains/routing";
 import { parseHostAuthority, resolveHostMapping } from "./modules/tenancy/host-registry";
 import { routeAllowedForArea } from "./modules/tenancy/host-route-policy";
-import { countRequest } from "./modules/observability/http-observe";
+import { count5xx, countRequest, isDbUnavailableError, reportInternalError } from "./modules/observability/http-observe";
+import { logFailure } from "./modules/observability/log";
+import { randomUUID } from "node:crypto";
 import { documentCsp, isDocumentPath, newNonce } from "./modules/tenancy/csp";
 import { bodyLimitForPath } from "./modules/tenancy/json-body";
 import { withErrorRequestId } from "./modules/tenancy/request-id";
 
+const unavailablePage = `<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">`
+  + `<meta name="robots" content="noindex"><title>Chwilowy błąd</title></head><body><main><h1>Chwilowy błąd</h1>`
+  + `<p>Nie udało się obsłużyć żądania. Spróbuj ponownie za chwilę.</p></main></body></html>`;
+
+// The neutral page loads nothing, so it gets the same closed policy as data responses (nonDocumentCsp in security-headers.mjs).
+const closedCsp = "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+
+/**
+ * #412: the host lookup runs before any handler and is the first database read of a request. When the database is
+ * unreachable, restarting or out of connections (isDbUnavailableError) the visitor gets a controlled retryable 503 with
+ * a request ID instead of a bare 500. Any other unexpected error becomes a neutral 500 INTERNAL_ERROR (no Retry-After).
+ * Only the safe machine error code is logged, never the message or connection details; host refusal (404) is unchanged.
+ */
 export async function proxy(request: NextRequest) {
+  try {
+    return await route(request);
+  } catch (error) {
+    const requestId = randomUUID();
+    const unavailable = isDbUnavailableError(error);
+    const status = unavailable ? 503 : 500;
+    if (unavailable) {
+      count5xx(requestId);
+      logFailure("http.service_unavailable", error, { requestId, operation: "proxy.host_lookup", status });
+    } else reportInternalError(error, requestId, "proxy.host_lookup");
+    const headers: Record<string, string> = { "Cache-Control": "no-store", "X-Request-Id": requestId };
+    if (unavailable) headers["Retry-After"] = "2";
+    return request.nextUrl.pathname.startsWith("/api/")
+      ? NextResponse.json({ code: unavailable ? "TEMPORARILY_UNAVAILABLE" : "INTERNAL_ERROR" }, { status, headers })
+      : new NextResponse(unavailablePage, { status, headers: { ...headers, "Content-Type": "text/html; charset=utf-8", "Content-Security-Policy": closedCsp } });
+  }
+}
+
+async function route(request: NextRequest) {
   // #57: Next buffers a bounded copy of every non-GET body before this function runs and, for a chunked body, drops a
   // chunk that does not fit, so a handler could see only a prefix. A body with no declared length is refused here
   // (a request without any body and without Content-Length, such as fetch DELETE, passes), and a declared length above
