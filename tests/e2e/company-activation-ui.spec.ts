@@ -49,6 +49,17 @@ async function fill(page: Page, password: string, confirm = password) {
   await page.getByLabel("Powtórz hasło").fill(confirm);
 }
 
+/**
+ * react-hook-form moves focus to the first invalid field twice after a failed submit: synchronously and again in a
+ * `setTimeout(0)`. The error text can render before that second call, so a `fill` started on seeing the text may be
+ * focused on one field and then have its text inserted into the one the late focus moved to (seen red on #434 CI).
+ * Wait for the focus move and then for the timer queue to pass it before typing.
+ */
+async function settleInvalidFocus(page: Page, field: string) {
+  await expect(page.getByLabel(field)).toBeFocused();
+  await page.evaluate(() => new Promise<void>((resolve) => setTimeout(resolve, 0)));
+}
+
 const password = "Activation UI password 7731!";
 const weakPassword = "abcdefghijkl"; // 12 chars: meets the server rule, scores weak
 
@@ -76,12 +87,14 @@ test("activation page: open does not activate, validation, double submit, lost r
     await fill(page, "short", "short");
     await page.getByRole("button", { name: "Aktywuj konto" }).click();
     await expect(page.getByText("Hasło musi mieć co najmniej 12 znaków")).toBeVisible();
+    await settleInvalidFocus(page, "Nowe hasło");
     // DS-AUT-004: text level and a textual checklist; only the length is required.
     await expect(page.getByText("Siła hasła: Za krótkie")).toBeVisible();
     await expect(page.getByText(/Co najmniej 12 znaków \(wymagane\)/)).toContainText("oczekuje");
     await fill(page, password, `${password}x`);
     await page.getByRole("button", { name: "Aktywuj konto" }).click();
     await expect(page.getByText("Hasła muszą być identyczne")).toBeVisible();
+    await settleInvalidFocus(page, "Powtórz hasło");
     expect(posts).toBe(0);
 
     // Lost response after a successful write: the retry returns the stored result, no second account or trial.
