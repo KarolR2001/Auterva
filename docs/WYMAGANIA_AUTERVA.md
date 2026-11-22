@@ -575,7 +575,7 @@ Historyczne scenariusze v2 (15): UC-SAS-01 assisted startup; 02 multi-company; 0
 - Decyzje właściciela z 23.10.2026 rozstrzygają D-01, D-02, D-04 i D-05. Szczegóły macierzy, publikacji, limitów i bootstrapu są kanoniczne dla implementacji MVP 3.1.
 - Decyzje właściciela z 27.10.2026 rozstrzygają D-16–D-27 (środowiska, materiały, limity, preview, archiwum, przypomnienia, SEO, hosty i przekierowania).
 - Decyzje właściciela z 28.10.2026 rozstrzygają D-28–D-32 (profil bez zakupu, kontrole lokalne, retencja podstawy odblokowania, wielu wykonawców w roli, najbliższy wolny termin i zbiorcze blokady).
-- Decyzje właściciela z 10.11.2026 rozstrzygają D-33–D-50 (TOTP, makiety PUB, TEN, PLT i ADM, dokumenty prawne, hasło, opis trialu, eksport kalendarza i danych, wejścia do blokad zbiorczych i ekran kalendarza zewnętrznego) i potwierdzają D-28. Decyzje właściciela z 12.11.2026 rozstrzygają D-51–D-56 (lista braków w ofercie, diagnostyka domeny i poczty, brak zakupu środowisk, lokalne części #57, szkice dokumentów prawnych i odroczenie VoiceOver).
+- Decyzje właściciela z 10.11.2026 rozstrzygają D-33–D-50 (TOTP, makiety PUB, TEN, PLT i ADM, dokumenty prawne, hasło, opis trialu, eksport kalendarza i danych, wejścia do blokad zbiorczych i ekran kalendarza zewnętrznego) i potwierdzają D-28. Decyzje właściciela z 12.11.2026 rozstrzygają D-51–D-63 (lista braków w ofercie, diagnostyka domeny i poczty, brak zakupu środowisk, lokalne części #57, szkice dokumentów prawnych, odroczenie VoiceOver, administrator danych, retencja 12 miesięcy, Web Vitals, regulaminy, sesja 30 dni, wzór polityki firm i zakres diagnostyki poczty).
 
 ### Do ustalenia przed implementacją danego obszaru
 
@@ -651,6 +651,13 @@ Rozstrzygają pytania zebrane podczas CR/QA Stage 3. Gdy decyzja zmienia zachowa
 - **D-54 — lokalne części #57:** wykonujemy teraz jako osobne podzadania Backend (#399, #401, #402, #404); części wymagające stagingu/produkcji czekają na #90 (D-53).
 - **D-55 — dokumenty prawne (#6):** agent przygotowuje szkic polityki prywatności Autervy (platforma), wzór polityki prywatności dla firm oraz wariant regulaminu, na podstawie faktycznego przetwarzania w aplikacji, oznaczone „do weryfikacji prawnej”. Publikacja dopiero po akceptacji właściciela/prawnika.
 - **D-56 — VoiceOver (#97):** test z rzeczywistym czytnikiem pomijamy w MVP; zostaje automatyczny audyt (axe, klawiatura, fokus, kontrast). Issue przeniesione po MVP; nie blokuje #61 ani #62.
+- **D-57 — administrator danych (#6):** administratorem danych platformy Auterva jest jednoosobowa działalność gospodarcza właściciela, bez IOD; dane identyfikacyjne (nazwa, adres, NIP, e-mail) uzupełnia właściciel przed publikacją.
+- **D-58 — retencja (#6):** treść czatu oraz konto i dane firmy są przechowywane do 12 miesięcy po archiwizacji firmy, potem trwałe usunięcie (kopie zapasowe wygasają po 30 dniach). Wdrożenie usuwania to osobne zadanie Backend.
+- **D-59 — Web Vitals (#6):** pomiar bez zgody (anonimowy, bez cookie i identyfikatorów; DNT/GPC go wyłącza), opisany w polityce; ostateczna weryfikacja prawnika.
+- **D-60 — regulaminy (#6):** regulamin platformy dla firm zawiera umowa poza aplikacją (aplikacja tylko linkuje dokument); regulamin wynajmu firmy jest opcjonalny (PUB-06).
+- **D-61 — sesja w panelach (#6, #414):** sesja administratora firmy i superadmina trwa 30 dni; wymaga jawnej konfiguracji w kodzie (wdrożenie #414).
+- **D-62 — wzór polityki firm (#6):** bez sekcji o okresie przechowywania kontaktu telefonicznego/WhatsApp/e-mail (firma opisuje to we własnych dokumentach); wzór opisuje tylko dane w Autervie.
+- **D-63 — diagnostyka poczty (#78, #417):** karta firmy obejmuje tylko zaproszenia i przypomnienia o okresie usługi, bez e-maili resetu hasła (prywatność konta).
 
 ## 10. Co warto dodać — propozycje, poza obowiązkowym zakresem
 
@@ -666,6 +673,6 @@ Rozstrzygają pytania zebrane podczas CR/QA Stage 3. Gdy decyzja zmienia zachowa
 
 - Analiza źródłowa objęła pięć plików PRD, z czterema różnymi treściami. Repozytorium zachowuje kanoniczny V31 i BASELINE_FLEET; historia V2/V30 nie jest zależnością implementacji. Zachowane i wycofane wymagania są rozliczone w tym dokumencie.
 - Katalog zachowuje 71 identyfikatorów bazowych FR, 10 UC, 4 NFR-PERF oraz odniesienia do 31 REQ-MVP i 55 scenariuszy TEST-MVP z V31 §20. Scenariusze testowe są planem odbioru, nie wynikami testów.
-- Pełne pokrycie katalogu nie oznacza gotowości wszystkich kontraktów do implementacji: D-12, D-13 i D-15 pozostają ustaleniami projektowymi i mapowaniem. D-01–D-11 i D-14 mają rozstrzygnięcie z 23.10.2026, D-16–D-27 z 27.10.2026, D-28–D-32 z 28.10.2026, D-33–D-50 (oraz potwierdzenie D-28) z 10.11.2026, a D-51–D-56 (oraz potwierdzenie D-28 w D-53) z 12.11.2026.
+- Pełne pokrycie katalogu nie oznacza gotowości wszystkich kontraktów do implementacji: D-12, D-13 i D-15 pozostają ustaleniami projektowymi i mapowaniem. D-01–D-11 i D-14 mają rozstrzygnięcie z 23.10.2026, D-16–D-27 z 27.10.2026, D-28–D-32 z 28.10.2026, D-33–D-50 (oraz potwierdzenie D-28) z 10.11.2026, a D-51–D-63 (oraz potwierdzenie D-28 w D-53) z 12.11.2026.
 - Dla każdego wdrażanego przekroju uzupełnić mapowanie wymaganie → board Penpota → kod → trwały test w `design/traceability.json`. Aktualny dokument nie dopisuje fikcyjnych ścieżek kodu ani zaliczonych testów.
 - Odbiór aplikacji wymaga [quality gates](quality-gates.md), w tym rzeczywistego PostgreSQL, izolacji firm, współbieżności, MFA, poczty, WebSocket, hostów i PWA production build.
