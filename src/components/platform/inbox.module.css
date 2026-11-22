@@ -198,12 +198,12 @@
   }
 }
 
-/* #435: phones (below 768 px the shell has the fixed bottom navigation). The conversation header shrinks to two rows —
+/* #435, #452: single-pane widths (below 1024 px; phones below 768 px also have the fixed bottom navigation). The conversation header shrinks to two rows —
    back and the company card link, then the company name — and the conversation is no longer cut to the viewport: when the
    header, a usable history and the composer do not fit, the pane grows and the page scrolls, so the message field and
    "Wyślij" always end above the navigation instead of under it. With enough room nothing changes: the pane still fills
    the viewport-fitted height and only the history scrolls. */
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .inbox[data-view="conversation"] {
     height: auto;
     min-height: max(360px, calc(100dvh - 190px));
