@@ -2599,7 +2599,10 @@
         "src/modules/backup/backup.ts",
         "src/modules/backup/restore.ts",
         "src/modules/backup/company.ts",
+        "src/modules/backup/config-inventory.ts",
+        "src/modules/backup/drill.ts",
         "scripts/backup-restore.ts",
+        "scripts/backup-drill.ts",
         "scripts/recover-mfa.ts",
         "src/modules/audit/operator.ts",
         "docs/runbooks/backup-restore.md",
@@ -2607,7 +2610,9 @@
       ],
       "testPaths": [
         "tests/unit/backup-crypto.test.ts",
-        "tests/integration/backup-restore.test.ts"
+        "tests/unit/backup-config.test.ts",
+        "tests/integration/backup-restore.test.ts",
+        "tests/integration/backup-drill.test.ts"
       ]
     },
     {

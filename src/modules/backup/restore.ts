@@ -1,3 +1,4 @@
+import { compareConfig } from "./config-inventory";
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -246,7 +247,7 @@ export type RestoreReport = {
 export async function restoreFull(input: {
   backupDir: string; key: Buffer; targetUrl: string; repoDir: string; operatorId: string;
   mediaTarget: MediaStorage | null; databaseOnly?: boolean; skipMedia?: boolean; createBucket?: boolean;
-  replaceExisting?: boolean; allowRemote?: boolean; now?: Date;
+  replaceExisting?: boolean; allowRemote?: boolean; now?: Date; env?: NodeJS.ProcessEnv;
 }): Promise<RestoreReport> {
   const steps: RestoreReport["steps"] = [];
   const started = Date.now();
@@ -310,11 +311,12 @@ export async function restoreFull(input: {
         proofs: await count(`SELECT count(*) AS n FROM "verification"`),
         openInvitations: await count(`SELECT count(*) AS n FROM "Invitation" WHERE "usedAt" IS NULL AND "revokedAt" IS NULL`),
         openResetRequests: await count(`SELECT count(*) AS n FROM "PasswordResetRequest" WHERE "consumedAt" IS NULL`),
-        runnableJobs: await count(`SELECT count(*) AS n FROM "Job" WHERE status IN ('PENDING', 'RUNNING', 'UNCERTAIN') AND kind <> 'AUDIT_RETENTION'`),
+        runnableJobs: await count(`SELECT count(*) AS n FROM "Job" WHERE status IN ('PENDING', 'RUNNING', 'UNCERTAIN') AND kind NOT IN ('AUDIT_RETENTION', 'COMPANY_PURGE')`),
         openReminderIntents: await count(`SELECT count(*) AS n FROM "ReminderIntent" WHERE status IN ('QUEUED', 'UNCERTAIN') OR (status = 'PENDING' AND "slotAt" <= $1)`),
       };
       integrity.checks.push({ name: "inherited credentials and queued work neutralised",
         ok: Object.values(leftovers).every((n) => n === 0), detail: JSON.stringify(leftovers) });
+      integrity.warnings.push(...compareConfig(manifest.config, input.env ?? process.env, input.key));
       integrity.ok = integrity.checks.every((check) => check.ok);
       return { ok: integrity.ok && (input.databaseOnly === true || !mediaSkipped), backupId: manifest.id, target: database,
         steps, totalMs: Date.now() - started, integrity, quarantine, mediaObjects, mediaSkipped };

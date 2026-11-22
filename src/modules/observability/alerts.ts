@@ -129,6 +129,14 @@ export const rules: AlertRule[] = [
   { id: "MEDIA_JOBS_FAILED", title: "Image processing jobs newly failed (last hour)", severity: "ticket", owner: "operator", group: "jobs",
     runbook: "#worker", forEvaluations: 1, clearAfter: 2,
     breached: (c) => { if (!fresh(c, "jobs")) return null; const n = increaseOf(c, metricNames.jobsTerminalFailures, [{ kind: "MEDIA_PROCESS" }], 60 * MIN, true); return n === null ? null : n >= 1; } },
+  // #58: decoder refusals from the media contract. unavailable = environment fault (no RSS measurement, OOM-kill, I/O);
+  // busy = saturated queue. Refusals of the image itself (too_complex, invalid) are the uploader's, so they are metrics only.
+  { id: "MEDIA_DECODER_UNAVAILABLE", title: "Image decoder is unavailable (503 MEDIA_DECODER_UNAVAILABLE, last 10 minutes)", severity: "ticket", owner: "operator", group: "media",
+    runbook: "#media-decoder", forEvaluations: 1, clearAfter: 3,
+    breached: (c) => { const n = c.increase(names.mediaDecodes, { result: "unavailable" }, 10 * MIN); return n === null ? null : n >= 3; } },
+  { id: "MEDIA_BUSY", title: "Image decoder is saturated (503 MEDIA_BUSY, last 10 minutes)", severity: "ticket", owner: "operator", group: "media",
+    runbook: "#media-decoder", forEvaluations: 2, clearAfter: 3,
+    breached: (c) => { const n = c.increase(names.mediaDecodes, { result: "busy" }, 10 * MIN); return n === null ? null : n >= 10; } },
   // #419 (D-58): a failed company purge leaves data past its retention; the next day's job resumes it.
   { id: "COMPANY_PURGE_FAILED", title: "Company purge job newly failed (last hour)", severity: "ticket", owner: "operator", group: "jobs",
     runbook: "#company-purge", forEvaluations: 1, clearAfter: 2,

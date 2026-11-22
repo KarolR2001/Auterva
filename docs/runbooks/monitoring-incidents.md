@@ -72,6 +72,9 @@ Nie wklejaj treści audytu do zgłoszeń.
 - `AUDIT_EXPORT_CLEANUP_OVERDUE` (page): artefakt `READY` po terminie lub porzucony `PENDING/FAILED` nie został usunięty (sprzątanie awaryjne). Uruchom `scripts/audit-retention.ts sweep`; sprawdź prywatny storage artefaktów. Artefakt po terminie nie wolno odczytać, ale bajty mają zniknąć.
 Klucze (`AUDIT_EXPORT_KEY`) i treść eksportu nigdy nie trafiają do logów ani alertów.
 
+### media-decoder
+`MEDIA_DECODER_UNAVAILABLE` (ticket: co najmniej 3 odpowiedzi `503 MEDIA_DECODER_UNAVAILABLE` w 10 min, `auterva_media_decodes_total{result="unavailable"}`): to awaria środowiska, nie zdjęcia, czyli brak pomiaru RSS (`/proc` lub `ps`), zabicie dekodera przez OOM-killer, brak miejsca w katalogu tymczasowym. Upload odpowiada 503 z `Retry-After`, rezerwacja miejsca zostaje, nic nie jest potwierdzane fałszywie. Sprawdź limit pamięci kontenera (web i worker >= 3 GiB, [kontrakt](../contracts/media-upload-processing.md)), wolne miejsce w `TMPDIR` i dmesg/zdarzenia OOM; po naprawie użytkownik ponawia upload. `MEDIA_BUSY` (ticket: co najmniej 10 odmów w 10 min przez 2 oceny): kolejka dekodera (jeden dekoder na proces, 4 oczekujące) jest zapchana; sprawdź skok ruchu lub zawieszony dekoder (czas `auterva_media_decode_duration_seconds`), potem rozważ więcej instancji. `result="too_complex"` (`422 IMAGE_TOO_COMPLEX`) i `invalid` to odmowy samego zdjęcia: tylko metryka, bez alertu. Joby `MEDIA_PROCESS` w `FAILED` alarmuje `MEDIA_JOBS_FAILED` ([worker](#worker)). Próba pamięci dekodera na docelowym Linuksie i zachowanie przy OOM-killerze cgroup: not-run (#90).
+
 ### migrations
 `MIGRATIONS_NOT_APPLIED` (page): migracja nieudana lub kod oczekuje migracji, której baza nie ma. Nie uruchamiaj nowego buildu; `prisma migrate deploy` po przeglądzie; nieudaną migrację rozwiązuje operator (`migrate resolve`) po decyzji właściciela. Bez destrukcyjnych napraw bez zgody.
 
@@ -108,8 +111,13 @@ Histereza (alert po kolejnych N naruszeniach, zamknięcie po M zdrowych), grupow
 | storage niedostępny | `/ready` 503, `checks.storage` fail | `READY_STORAGE`, `STORAGE_ERRORS` | [ready-storage](#ready-storage) |
 | dostawca poczty pada | bez zmiany (poczta nie jest zależnością gotowości) | `MAIL_PROVIDER_ERRORS` | [mail](#mail) |
 | zadanie wisi >5 min | `checks.queue` fail `QUEUE_STALLED` | `JOBS_STALLED` | [worker](#worker) |
+| dekoder obrazów niedostępny (#58) | bez zmiany (nie zależność gotowości; 503 `MEDIA_DECODER_UNAVAILABLE` z `X-Request-Id`) | `MEDIA_DECODER_UNAVAILABLE` (test jednostkowy reguły; licznik w `media-decode-metrics.test.ts`) | [media-decoder](#media-decoder) |
 
 Po przywróceniu alerty wygasają i dostarczane jest RESOLVED; logi z próby nie zawierają adresów, treści błędu dostawcy, tokenów ani endpointu storage. Uruchomienie: `pnpm exec vitest run tests/integration/ops-failure-simulation.test.ts` (wymaga fixture z `DATABASE_URL`; test tworzy i usuwa własną bazę).
+
+## Restart nie gubi zatwierdzonych mutacji (dowody lokalne)
+
+`tests/integration/jobs-process.test.ts` (zabity worker po claimie i po odpowiedzi dostawcy wznawia bez dublowania skutku), `jobs-queue.test.ts` (wygasły lease przejmuje inna instancja, stary właściciel nie potwierdza), `jobs-worker.test.ts` (przyjęta poczta przeżywa śmierć workera, stabilny klucz dostawcy), `ops-monitoring.test.ts` (restart workera i realtime, powrót do zdrowia i RESOLVED). Odłączenie DB/storage/poczty na stagingu: not-run (#90).
 
 ## Not-run (zależne od #90)
 

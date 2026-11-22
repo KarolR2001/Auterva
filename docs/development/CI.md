@@ -1,6 +1,6 @@
 # CI aplikacji, obrazy i preview (#10, D-16)
 
-Zakres według decyzji D-16: bezpłatne elementy (GitHub Actions, obrazy, opis preview). Płatny staging i produkcja nie są częścią tego dokumentu i wymagają osobnej zgody (#90). Nic tu nie wdraża usług ani nie tworzy kont. Workflow jest obecnie wyłączony przez właściciela; do jego włączenia obowiązuje [tryb lokalny](#tryb-lokalny-d-29) (D-29).
+Zakres według decyzji D-16: bezpłatne elementy (GitHub Actions, obrazy, opis preview). Płatny staging i produkcja nie są częścią tego dokumentu i wymagają osobnej zgody (#90). Nic tu nie wdraża usług ani nie tworzy kont. Workflow „CI” jest włączony; zgodnie z D-65 właściciel zdecydował 22.11.2026: „uruchamiaj testy w CI githuba oraz równolegle inne lokalnie aby maksymalnie przyspieszać pracę”. Testy działają więc w CI GitHuba, a inne kontrole równolegle lokalnie według [trybu lokalnego](#tryb-lokalny-d-29) (D-29).
 
 ## Workflow `.github/workflows/ci.yml`
 
@@ -61,11 +61,13 @@ Ochrona gałęzi i rulesets w prywatnym repozytorium wymagają GitHub Pro albo r
    - `Container images build (web)`, `Container images build (ws)`, `Container images build (worker)`, `Container images build (media-worker)`
 3. Zakaz force push i usuwania `main`.
 
-Checki pojawiają się na liście wyboru dopiero po przebiegu na tym repozytorium. Zmiana nazwy joba wymaga aktualizacji listy. Do tego czasu obowiązuje rzeczywisty CR i QA według workflow oraz sprawdzenie zielonego przebiegu przed merge (`gh pr checks`), a przy wyłączonym workflow wynik [trybu lokalnego](#tryb-lokalny-d-29) zapisany w PR.
+Checki pojawiają się na liście wyboru dopiero po przebiegu na tym repozytorium. Zmiana nazwy joba wymaga aktualizacji listy. Do tego czasu obowiązuje rzeczywisty CR i QA według workflow oraz sprawdzenie zielonego przebiegu przed merge (`gh pr checks`), a wynik kontroli uruchomionych lokalnie ([tryb lokalny](#tryb-lokalny-d-29)) zapisany w PR.
 
 ## Tryb lokalny (D-29)
 
-Gdy workflow `CI` jest wyłączony, przed merge te same joby uruchamia lokalnie orkiestrator, na drzewie kandydata: head PR zawierający aktualny `main`. Wykonawca może je uruchomić wcześniej, ale wynik przed merge potwierdza orkiestrator.
+Zgodnie z D-65 (22.11.2026: „uruchamiaj testy w CI githuba oraz równolegle inne lokalnie aby maksymalnie przyspieszać pracę”) testy działają w workflow `CI` na GitHub Actions, a inne kontrole uruchamia się równolegle lokalnie tym trybem.
+
+Lokalnie te same joby co w `ci.yml` uruchamia orkiestrator, na drzewie kandydata: head PR zawierający aktualny `main`. Wykonawca może je uruchomić wcześniej, ale wynik przed merge potwierdza orkiestrator.
 
 - Wymagania jednorazowe: `scripts/local-fixture.sh install`, lokalne środowisko kontenerów z `docker` i `buildx` (np. Colima) oraz gitleaks 8.30.1 (wersja jak `GITLEAKS_VERSION` w `ci.yml`).
 - Klient Prisma: po `pnpm install --frozen-lockfile` skrypt jawnie uruchamia `pnpm exec prisma generate` (w drzewie głównym i w czystym worktree przed lint, typecheck i unit), bo pnpm pomija `postinstall` przy niezmienionym lockfile i nowy schemat zostawiłby nieaktualnego klienta (`PrismaClientValidationError` w integracji).
