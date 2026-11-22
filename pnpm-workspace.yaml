@@ -20,3 +20,6 @@ overrides:
   # GHSA-mrhx-c7xc-m3w5 (#158): @serwist/build and @serwist/webpack-plugin 9.5.13 pull zod 4.6.5.
   # Align with the direct zod pin; remove when Serwist ships zod >=4.6.6.
   zod: 4.6.7
+  # GHSA-7589-6fvf-x4pw (#443): @prisma/config 7.10.1 pins effect 3.20.0 (ReDoS, fixed in 3.22.1).
+  # Same major line 3.x; remove when Prisma ships @prisma/config with effect >=3.22.1.
+  effect: 3.22.3
