@@ -61,7 +61,7 @@ Ochrona gałęzi i rulesets w prywatnym repozytorium wymagają GitHub Pro albo r
    - `Container images build (web)`, `Container images build (ws)`, `Container images build (worker)`, `Container images build (media-worker)`
 3. Zakaz force push i usuwania `main`.
 
-Checki pojawiają się na liście wyboru dopiero po przebiegu na tym repozytorium. Zmiana nazwy joba wymaga aktualizacji listy. Do tego czasu obowiązuje rzeczywisty CR i QA według workflow oraz sprawdzenie zielonego przebiegu przed merge (`gh pr checks`), a wynik kontroli uruchomionych lokalnie [trybu lokalnego](#tryb-lokalny-d-29) zapisany w PR.
+Checki pojawiają się na liście wyboru dopiero po przebiegu na tym repozytorium. Zmiana nazwy joba wymaga aktualizacji listy. Do tego czasu obowiązuje rzeczywisty CR i QA według workflow oraz sprawdzenie zielonego przebiegu przed merge (`gh pr checks`), a wynik kontroli uruchomionych lokalnie ([tryb lokalny](#tryb-lokalny-d-29)) zapisany w PR.
 
 ## Tryb lokalny (D-29)
 
