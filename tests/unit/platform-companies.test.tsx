@@ -23,6 +23,7 @@ function company(overrides: Partial<PlatformCompany> = {}): PlatformCompany {
     name: "Alfa Campers",
     organizationVersion: 3,
     archivedAt: null,
+    purge: { scheduledAt: null, startedAt: null, completedAt: null },
     registration: { status: "REGISTERED", firstAdminRegisteredAt: "2026-10-12T08:00:00.000Z" },
     account: { id: "u1", name: null, email: "admin@alfa.example", emailVerified: true, mfaEnabled: true, disabledAt: null },
     period: {
@@ -318,11 +319,94 @@ describe("archiwizacja, restore i odblokowanie w karcie (#49)", () => {
     const dialog = await screen.findByRole("alertdialog").catch(() => screen.findByRole("dialog"));
     expect(dialog).toHaveTextContent("Zarchiwizować firmę Alfa Campers?");
     expect(dialog).toHaveTextContent(/niczego nie usuwa/);
-    expect(dialog).toHaveTextContent(/Trwałe usunięcie firmy nie jest dostępne/);
+    expect(dialog).toHaveTextContent(/Dane firmy zostaną trwale usunięte 12 miesięcy po archiwizacji/);
     await user.click(screen.getByRole("button", { name: "Anuluj" }));
     expect(ops).toHaveLength(0);
     expect(screen.queryByText(/została zarchiwizowana/)).toBeNull();
     expect(document.body.textContent).not.toMatch(/Usuń firmę|Usuń trwale/);
+  });
+
+  describe("trwałe usunięcie danych (D-58, #445)", () => {
+    const archivedAt = "2025-11-30T10:00:00.000Z";
+    const archived = (purge: Partial<PlatformCompany["purge"]>, extra: Partial<PlatformCompany> = {}) => company({
+      archivedAt, publication: { visible: false, domainReady: true, unlockRequired: true, requiresPaid: false },
+      purge: { scheduledAt: "2026-11-30T10:00:00.000Z", startedAt: null, completedAt: null, ...purge }, ...extra });
+
+    it("zaplanowane: data (Europe/Warsaw), nieodwracalność po starcie i dostępne przywrócenie", async () => {
+      vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-11-22T10:00:00.000Z") });
+      try {
+        setup({ card: () => archived({}) });
+        await open(archived({}));
+        const region = screen.getByRole("region", { name: "Trwałe usunięcie danych" });
+        expect(region).toHaveTextContent("Zaplanowane usunięcie danych");
+        expect(region).toHaveTextContent("Najwcześniej 30.11.2026");
+        expect(region).toHaveTextContent(/Po starcie jest to nieodwracalne/);
+        expect(screen.getByRole("button", { name: "Przywróć firmę" })).toBeEnabled();
+      } finally { vi.useRealTimers(); }
+    });
+
+    it("termin minął, job nie wystartował: komunikat o terminie, przywrócenie nadal możliwe", async () => {
+      vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-12-05T10:00:00.000Z") });
+      try {
+        setup({ card: () => archived({}) });
+        await open(archived({}));
+        expect(screen.getByRole("region", { name: "Trwałe usunięcie danych" })).toHaveTextContent("Termin usunięcia danych minął");
+        expect(screen.getByRole("button", { name: "Przywróć firmę" })).toBeEnabled();
+      } finally { vi.useRealTimers(); }
+    });
+
+    it("w trakcie: nieodwracalne, bez przywrócenia i bez wejść do czatu i floty", async () => {
+      setup({ card: () => archived({ startedAt: "2026-11-30T12:00:00.000Z" }) });
+      await open(archived({ startedAt: "2026-11-30T12:00:00.000Z" }));
+      expect(screen.getByRole("region", { name: "Trwałe usunięcie danych" })).toHaveTextContent("Trwa trwałe usunięcie danych");
+      expect(screen.queryByRole("button", { name: "Przywróć firmę" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Odblokuj stronę publiczną" })).toBeNull();
+      expect(screen.queryByRole("link", { name: "Zarządzaj flotą" })).toBeNull();
+      expect(screen.getByText(/Przywrócenie firmy nie jest możliwe/)).toBeInTheDocument();
+    });
+
+    it("usunięta: karta bez nazwy, sluga, e-maila i akcji; tekst oznaczenia", async () => {
+      const purged = archived({ startedAt: "2026-11-30T12:00:00.000Z", completedAt: "2026-11-30T12:05:00.000Z" },
+        { name: null, slug: "purged-11111111", account: null, hosts: [] });
+      vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json(purged));
+      render(<PanelShell area="platform" accessState="allowed" title="Firma usunięta" currentPath="/firmy" onLogout={vi.fn()}>
+        <CompanyCard initial={purged} justSaved={false} /></PanelShell>);
+      expect(await screen.findByRole("heading", { level: 2, name: "Firma usunięta" })).toBeInTheDocument();
+      expect(screen.getByRole("region", { name: "Trwałe usunięcie danych" })).toHaveTextContent("Usunięta");
+      expect(screen.getByRole("region", { name: "Trwałe usunięcie danych" })).toHaveTextContent("30.11.2026");
+      expect(document.body.textContent).not.toMatch(/purged-|admin@alfa|Alfa Campers/);
+      expect(screen.queryByRole("button", { name: /Przywróć|Archiwizuj|Odblokuj|Wyślij|Zapisz/ })).toBeNull();
+      expect(screen.queryByRole("link", { name: /Napisz do firmy|Zarządzaj flotą/ })).toBeNull();
+      expect(screen.getByRole("link", { name: "Wróć do firm" })).toBeInTheDocument();
+    });
+
+    it("niezarchiwizowana firma nie pokazuje sekcji usunięcia", async () => {
+      setup({ card: () => company() });
+      await open(company());
+      expect(screen.queryByRole("region", { name: "Trwałe usunięcie danych" })).toBeNull();
+    });
+
+    it("lista: zaplanowana data przy firmie zarchiwizowanej i oznaczenie Usunięta bez nazwy i adresów", async () => {
+      vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-11-22T10:00:00.000Z") });
+      try {
+        const items = [archived({}), archived({ startedAt: "2026-11-30T12:00:00.000Z" }, { organizationId: "22222222-2222-4222-8222-222222222222", name: "Beta" }),
+          archived({ startedAt: "2026-11-30T12:00:00.000Z", completedAt: "2026-11-30T12:05:00.000Z" },
+            { organizationId: "33333333-3333-4333-8333-333333333333", name: null, slug: "purged-33333333", account: null, hosts: [] })];
+        vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ items, total: 3, page: 1, pageSize: 20, kpis: { paidCompanies: 0, trialCompanies: 0 } }));
+        render(<PanelShell area="platform" accessState="allowed" title="Firmy" currentPath="/firmy" onLogout={vi.fn()}><CompanyListView /></PanelShell>);
+        expect(await screen.findByText(/najwcześniej 30\.11\.2026/)).toBeInTheDocument();
+        expect(screen.getByText("Trwa usuwanie danych")).toBeInTheDocument();
+        const rows = screen.getAllByRole("row");
+        const gone = rows.find((row) => row.getAttribute("data-purge-state") === "done")!;
+        expect(gone).toHaveTextContent("Firma usunięta");
+        expect(gone).toHaveTextContent("Usunięta 30.11.2026");
+        expect(gone.textContent).not.toMatch(/purged-|Czat|Panel:|Strona:/);
+        expect(within(gone).queryByRole("link", { name: /Czat/ })).toBeNull();
+        expect(within(gone).getByRole("link", { name: /Otwórz kartę usuniętej firmy/ })).toBeInTheDocument();
+        const running = rows.find((row) => row.textContent?.includes("Beta"))!;
+        expect(within(running).queryByRole("link", { name: /Czat/ })).toBeNull();
+      } finally { vi.useRealTimers(); }
+    });
   });
 
   it("archiwizacja wysyła wersję i klucz, a sukces czeka na odczyt stanu", async () => {

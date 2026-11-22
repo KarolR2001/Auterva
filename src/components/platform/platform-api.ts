@@ -32,12 +32,17 @@ export type CompanyInvitation = {
   deliveryStatus: string;
 };
 
+/** D-58 (#419): when the data of an archived company is purged. `scheduledAt` is the earliest instant (archive + 12 months). */
+export type CompanyPurge = { scheduledAt: string | null; startedAt: string | null; completedAt: string | null };
+
 export type PlatformCompany = {
   organizationId: string;
   slug: string;
-  name: string;
+  /** null after the purge: the anonymised skeleton keeps no name. */
+  name: string | null;
   organizationVersion: number;
   archivedAt: string | null;
+  purge: CompanyPurge;
   registration: { status: "REGISTERED" | "PENDING"; firstAdminRegisteredAt: string | null };
   account: {
     id: string;
@@ -203,3 +208,19 @@ export function shorteningEffect(
     ? "Skrócenie kończy opłatę od razu. Strona pozostanie widoczna do końca trialu."
     : "Skrócenie kończy opłatę od razu. Publiczna strona firmy zostanie natychmiast wyłączona; panel firmy nadal działa.";
 }
+
+export type PurgeState = "none" | "scheduled" | "overdue" | "running" | "done";
+
+/**
+ * D-58 state of the permanent data deletion. `overdue` = the date passed but the daily job has not started yet
+ * (restoring is still possible); `running` and `done` are irreversible.
+ */
+export function purgeState(company: { archivedAt: string | null; purge?: CompanyPurge | null }, now = new Date()): PurgeState {
+  const purge = company.purge;
+  if (purge?.completedAt) return "done";
+  if (purge?.startedAt) return "running";
+  if (!company.archivedAt || !purge?.scheduledAt) return "none";
+  return new Date(purge.scheduledAt).getTime() <= now.getTime() ? "overdue" : "scheduled";
+}
+
+export const PURGED_COMPANY_LABEL = "Firma usunięta";

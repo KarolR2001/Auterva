@@ -164,6 +164,7 @@
 .statusLine svg { flex: none; margin-top: 2px; }
 .detail { display: block; color: var(--text-secondary); font-size: var(--font-size-14); }
 .badgeArchived { display: inline-flex; align-items: center; gap: var(--space-1); padding: var(--space-1) var(--space-3); border: var(--border-width-hairline) solid var(--status-archived-border); border-radius: var(--radius-full); background: var(--status-archived-surface); color: var(--status-archived-text); font-size: var(--font-size-14); }
+.badgePurged { display: inline-flex; align-items: center; gap: var(--space-1); width: fit-content; margin: 0; padding: var(--space-1) var(--space-3); border: var(--border-width-hairline) solid var(--status-error-border); border-radius: var(--radius-full); background: var(--status-error-surface); color: var(--status-error-text); font-size: var(--font-size-14); font-weight: var(--font-weight-semibold); }
 .openLink, .linkButton, .linkButtonSecondary { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: var(--button-height-md); padding: 0 var(--button-padding-x-md); border-radius: var(--radius-md); font-weight: var(--font-weight-semibold); text-decoration: none; }
 .openLink, .linkButtonSecondary { border: var(--border-width-hairline) solid var(--action-secondary-border); color: var(--action-secondary-content); width: fit-content; }
 .linkButton { background: var(--action-primary-default); color: var(--action-primary-content); }

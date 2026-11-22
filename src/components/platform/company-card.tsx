@@ -9,9 +9,9 @@ import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
 import { CompanyDiagnostics } from "./company-diagnostics";
 import { CompanyDomain } from "./company-domain";
-import { ArchiveSection, CompanyStatus, PeriodSection, companyHostLine } from "./company-ops";
+import { ArchiveSection, CompanyStatus, PeriodSection, PurgePanel, companyHostLine } from "./company-ops";
 import { PlatformPageHeader } from "./page-header";
-import type { CompanyCardData } from "./platform-api";
+import { PURGED_COMPANY_LABEL, purgeState, type CompanyCardData } from "./platform-api";
 import {
   canIssueInvitation, canRevokeInvitation, classifyInvitationError, invitationView, isConfigurationRefusal,
   type InvitationDto, type InvitationView,
@@ -156,10 +156,27 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
     requestAnimationFrame(() => status.current?.focus());
   }
 
+  const purge = purgeState(company);
+  // From the start of the purge the company takes no writes (D-58): no chat or fleet entries, and after it only the skeleton remains.
+  const frozen = purge === "running" || purge === "done";
   const opsBase = `/api/platform/companies/${encodeURIComponent(company.organizationId)}`;
   const invitation = company.invitation;
   const issuable = canIssueInvitation(view, registered, archived);
   const revocable = canRevokeInvitation(view, registered);
+
+  if (purge === "done") {
+    return (
+      <div className={styles.page}>
+        <PlatformPageHeader
+          trail={`Firmy / ${PURGED_COMPANY_LABEL}`}
+          title={PURGED_COMPANY_LABEL}
+          subtitle="Dane tej firmy zostały trwale usunięte. Nazwa, adresy i konto nie są już dostępne."
+        />
+        <PurgePanel company={company} />
+        <Link className={styles.cancel} href="/firmy/" prefetch={false}>Wróć do firm</Link>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.page}>
@@ -167,7 +184,7 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
         trail={`Firmy / ${company.name}`}
         title={company.name ?? "Firma"}
         subtitle={<>{companyHostLine(company)}<br />Działasz jako superadmin w kontekście firmy {company.name}. Nie przejmujesz konta administratora.</>}
-        actions={<>
+        actions={frozen ? undefined : <>
           {(company.conversationId || !archived) && (
             <Link className={styles.openLink} href={`/wiadomosci/?firma=${encodeURIComponent(company.organizationId)}`} prefetch={false}>
               {company.conversationId ? "Wiadomości" : "Napisz do firmy"}</Link>
@@ -182,6 +199,7 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
       <div className={styles.layout}>
       <div className={styles.layoutAside}>
         <CompanyStatus company={company} />
+        <PurgePanel company={company} />
         <CompanyDiagnostics organizationId={company.organizationId} archived={archived}
           reloadKey={`${domainSync.changed}:${company.invitation?.id}:${company.invitation?.deliveryStatus}:${company.invitation?.revokedAt}`}
           onDomainChecked={() => setDomainSync((sync) => ({ ...sync, checked: sync.checked + 1 }))} />

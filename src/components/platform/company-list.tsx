@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, Building2, CalendarCheck, CalendarX, CircleAlert, CircleCheck, CircleSlash, MessageCircle, Plus } from "lucide-react";
+import { Archive, Building2, Trash2, CalendarCheck, CalendarX, CircleAlert, CircleCheck, CircleSlash, MessageCircle, Plus } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -9,6 +9,8 @@ import { TextInput } from "../ui/text-input";
 import {
   formatInstantDate,
   periodLabel,
+  PURGED_COMPANY_LABEL,
+  purgeState,
   platformRequest,
   visibilityReason,
   type CompanyList,
@@ -191,7 +193,39 @@ export function CompanyListView() {
   );
 }
 
+/** A purged company is an anonymised skeleton: only the state and a link to its card, never name, slug or e-mail. */
+function PurgedRow({ company }: { company: PlatformCompany }) {
+  const completedAt = company.purge.completedAt;
+  return (
+    <tr data-purge-state="done">
+      <th scope="row" className={styles.cellCompany}>
+        <span className={styles.companyName} id={`company-${company.organizationId}`}>
+          <Trash2 size={20} aria-hidden="true" /> {PURGED_COMPANY_LABEL}
+        </span>
+        <span className={styles.badgePurged}>
+          <Trash2 size={16} aria-hidden="true" /> Usunięta{completedAt ? ` ${formatInstantDate(completedAt)}` : ""}
+        </span>
+        <span className={styles.hostLine}>Dane trwale usunięte, firma nie przyjmuje operacji.</span>
+      </th>
+      <td data-label="Okres usługi">—</td>
+      <td data-label="Widoczność">—</td>
+      <td data-label="Rejestracja">—</td>
+      <td data-label="Akcje">
+        <div className={styles.rowActions}>
+          <a className={styles.openLink} href={`/firmy/${encodeURIComponent(company.organizationId)}`}
+            aria-label={`Otwórz kartę usuniętej firmy (usunięta${completedAt ? ` ${formatInstantDate(completedAt)}` : ""})`}>
+            Otwórz kartę
+          </a>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
 function CompanyRow({ company }: { company: PlatformCompany }) {
+  const purge = purgeState(company);
+  if (purge === "done") return <PurgedRow company={company} />;
+  const purgeInProgress = purge === "running";
   const panelHost = company.hosts.find((host) => host.area === "COMPANY_ADMIN");
   // Same rule as the card: an active own domain, otherwise the provider alias.
   const publicHost =
@@ -209,6 +243,16 @@ function CompanyRow({ company }: { company: PlatformCompany }) {
         {company.archivedAt && (
           <span className={styles.badgeArchived}>
             <Archive size={16} aria-hidden="true" /> Zarchiwizowana {formatInstantDate(company.archivedAt)}
+          </span>
+        )}
+        {purgeInProgress && (
+          <span className={styles.badgePurged}>
+            <Trash2 size={16} aria-hidden="true" /> Trwa usuwanie danych
+          </span>
+        )}
+        {(purge === "scheduled" || purge === "overdue") && company.purge.scheduledAt && (
+          <span className={styles.hostLine}>
+            Trwałe usunięcie danych: {purge === "scheduled" ? "najwcześniej " : "termin minął "}{formatInstantDate(company.purge.scheduledAt)}
           </span>
         )}
         <span className={styles.hostLine}>Panel: {panelHost?.hostname ?? "brak"}</span>
@@ -237,14 +281,16 @@ function CompanyRow({ company }: { company: PlatformCompany }) {
           >
             Otwórz firmę
           </a>
-          <Link
-            className={styles.openLink}
-            href={`/wiadomosci/?firma=${encodeURIComponent(company.organizationId)}`}
-            prefetch={false}
-            aria-label={`Czat z firmą ${company.name}`}
-          >
-            <MessageCircle size={20} aria-hidden="true" /> Czat
-          </Link>
+          {!purgeInProgress && (
+            <Link
+              className={styles.openLink}
+              href={`/wiadomosci/?firma=${encodeURIComponent(company.organizationId)}`}
+              prefetch={false}
+              aria-label={`Czat z firmą ${company.name}`}
+            >
+              <MessageCircle size={20} aria-hidden="true" /> Czat
+            </Link>
+          )}
         </div>
       </td>
     </tr>
