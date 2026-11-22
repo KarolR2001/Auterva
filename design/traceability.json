@@ -22,6 +22,17 @@
       "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
     },
     {
+      "issue": 440,
+      "scope": "Formularze z sekretem (logowanie, MFA: kod z aplikacji i kod odzyskania, konfiguracja MFA, nowe kody odzyskania, aktywacja z zaproszenia, żądanie i ustawienie nowego hasła, zmiana hasła) używają wspólnego SecretForm: natywna wysyłka (Enter przed hydratacją, brak JavaScriptu) idzie metodą POST bez action, więc hasło i kod nigdy nie trafiają do adresu URL, historii ani Referer. Zachowanie z JavaScriptem, etykiety, błędy i fokus bez zmian wyglądu.",
+      "relatedRequirementIds": ["C-N020"],
+      "referenceScreenIds": ["ADM-01", "PLT-08", "ACC-07"],
+      "scenarioStates": {
+        "forms": "Bez zmian wyglądu; ID stanów w Penpocie jak we wpisach logowania, MFA i konta"
+      },
+      "codePaths": ["src/components/ui/secret-form.tsx", "src/components/auth/auth-flow.tsx", "src/components/auth/reset-flow.tsx", "src/components/auth/activation-flow.tsx", "src/components/account/account-view.tsx"],
+      "testPaths": ["tests/unit/secret-forms-inventory.test.tsx", "tests/e2e/secret-forms-no-get.spec.ts"]
+    },
+    {
       "issue": 437,
       "scope": "Jedno miejsce mapowania „baza niedostępna” na 503 TEMPORARILY_UNAVAILABLE (Retry-After, X-Request-Id, no-store) we wszystkich handlerach i trasach (transientDbResponse oparte na isDbUnavailableError, także w routeContext dla wyjątków, które uciekły handlerowi, i w trasie uploadu), tak jak w proxy (#412). Kody systemowe Node (ECONNRESET, ETIMEDOUT itd.) liczą się tylko dla błędu z klienta bazy (Prisma lub pula), więc błąd S3, poczty lub DNS pozostaje 500. createPrismaClient ma connectionTimeoutMillis (APP_DB_LIMITS: 4 s): baza, która przyjmuje TCP i nie odpowiada, kończy się kodem DB_CONNECT_TIMEOUT, a brak wolnego połączenia w puli DB_POOL_TIMEOUT, oba jako 503. Strony RSC: Next nie pozwala wybrać statusu renderu, więc strona błędu zostaje neutralna, a onRequestError loguje http.service_unavailable zamiast http.unhandled_error. Test inwentarza pilnuje, że każdy mapper 500 najpierw próbuje wspólnego mapowania.",
       "relatedRequirementIds": ["C-N060"],
