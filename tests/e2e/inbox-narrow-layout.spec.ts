@@ -17,6 +17,9 @@ const variants = [
   // Browser zoom cannot be set from the test: 200% in a 1440x900 window is this viewport in CSS pixels.
   { label: "720x450 (zoom 200% okna 1440x900)", width: 720, height: 450, phone: false },
   // Split view (no bottom navigation): the gap-refetch notice must not push the composer out of the inbox box.
+  // #452: tablet widths (768-1023 px) have no bottom navigation but still show one pane at a time.
+  { label: "768x600", width: 768, height: 600, phone: false, tablet: true },
+  { label: "1023x600", width: 1023, height: 600, phone: false, tablet: true },
   { label: "1024x768", width: 1024, height: 768, phone: false, split: true },
 ];
 
@@ -28,20 +31,23 @@ const exposure = (target: Locator) => target.evaluate((element) => {
   const hit = (x: number, y: number) => { const top = document.elementFromPoint(x, y); return !!top && (top === element || element.contains(top)); };
   const x = box.left + box.width / 2;
   return {
-    top: Math.round(box.top), bottom: Math.round(box.bottom), navTop: nav ? Math.round(nav.getBoundingClientRect().top) : null,
+    top: Math.round(box.top), bottom: Math.round(box.bottom), navTop: nav && nav.getClientRects().length > 0 ? Math.round(nav.getBoundingClientRect().top) : null,
     centre: hit(x, box.top + box.height / 2), upperEdge: hit(x, box.top + 1), lowerEdge: hit(x, box.bottom - 1),
   };
 });
+let navigationExpected = true;
 async function expectClear(target: Locator, what: string) {
   const seen = await exposure(target);
-  expect(seen.navTop, "fixed bottom navigation").not.toBeNull();
-  expect.soft({ what, ...seen, aboveNavigation: seen.bottom <= (seen.navTop ?? 0), belowTop: seen.top >= 0 })
+  if (navigationExpected) expect(seen.navTop, "fixed bottom navigation").not.toBeNull();
+  else expect(seen.navTop, "no bottom navigation from 768 px").toBeNull();
+  expect.soft({ what, ...seen, aboveNavigation: seen.bottom <= (seen.navTop ?? Infinity), belowTop: seen.top >= 0 })
     .toMatchObject({ what, centre: true, upperEdge: true, lowerEdge: true, aboveNavigation: true, belowTop: true });
 }
 
-for (const { label, width, height, phone, split } of variants as { label: string; width: number; height: number; phone: boolean; split?: boolean }[]) {
+for (const { label, width, height, phone, split, tablet } of variants as { label: string; width: number; height: number; phone: boolean; split?: boolean; tablet?: boolean }[]) {
   test(`skrzynka superadmina ${label}, nazwa firmy 120 znaków: pole wiadomości i „Wyślij” osiągalne nad dolną nawigacją`, async ({ page, context, baseURL }) => {
     if (!baseURL) throw new Error("Missing trusted ingress URL");
+    navigationExpected = !tablet;
     expect([...NAME]).toHaveLength(120);
     await page.setViewportSize({ width, height });
     const db = createPrismaClient(process.env.DATABASE_URL ?? "");
@@ -134,8 +140,10 @@ for (const { label, width, height, phone, split } of variants as { label: string
       expect.soft(headingBox.height).toBeLessThanOrEqual(60);
       expect.soft(headingBox.y).toBeGreaterThanOrEqual(backBox.y + backBox.height);
       // The history starts right below (the header no longer takes half of the screen), has a usable height and scrolls.
-      expect.soft(historyBox.y).toBeLessThanOrEqual(250);
+      expect.soft(historyBox.y).toBeLessThanOrEqual(tablet ? 280 : 250);
       expect.soft(historyBox.height).toBeGreaterThanOrEqual(128);
+      // #452: on tablets the history keeps the same usable minimum (8 grid steps of 16 px) under the long name, not ~34 px.
+      if (tablet) expect.soft(historyBox.height).toBeGreaterThanOrEqual(128);
       expect(await history.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
       expect(await sideways()).toBeLessThanOrEqual(0);
       // Phone sizes: the message field is on screen without scrolling.
