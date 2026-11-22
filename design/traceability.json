@@ -33,6 +33,15 @@
       "testPaths": ["tests/unit/secret-forms-inventory.test.tsx", "tests/e2e/secret-forms-no-get.spec.ts"]
     },
     {
+      "issue": 437,
+      "scope": "Jedno miejsce mapowania „baza niedostępna” na 503 TEMPORARILY_UNAVAILABLE (Retry-After, X-Request-Id, no-store) we wszystkich handlerach i trasach (transientDbResponse oparte na isDbUnavailableError, także w routeContext dla wyjątków, które uciekły handlerowi, i w trasie uploadu), tak jak w proxy (#412). Kody systemowe Node (ECONNRESET, ETIMEDOUT itd.) liczą się tylko dla błędu z klienta bazy (Prisma lub pula), więc błąd S3, poczty lub DNS pozostaje 500. createPrismaClient ma connectionTimeoutMillis (APP_DB_LIMITS: 4 s): baza, która przyjmuje TCP i nie odpowiada, kończy się kodem DB_CONNECT_TIMEOUT, a brak wolnego połączenia w puli DB_POOL_TIMEOUT, oba jako 503. Strony RSC: Next nie pozwala wybrać statusu renderu, więc strona błędu zostaje neutralna, a onRequestError loguje http.service_unavailable zamiast http.unhandled_error. Test inwentarza pilnuje, że każdy mapper 500 najpierw próbuje wspólnego mapowania.",
+      "relatedRequirementIds": ["C-N060"],
+      "referenceScreenIds": [],
+      "unmappedStates": ["Backend; bez zmian UI, strony błędu bez makiety."],
+      "codePaths": ["src/modules/observability/http-observe.ts", "src/modules/observability/route-context.ts", "src/lib/prisma.ts", "src/instrumentation.ts", "src/modules/media/http.ts"],
+      "testPaths": ["tests/unit/proxy-db-unavailable.test.ts", "tests/unit/route-context-errors.test.ts", "tests/unit/db-unavailable-mapping-inventory.test.ts", "tests/integration/db-unavailable-handlers.test.ts", "tests/integration/proxy-db-unavailable.test.ts"]
+    },
+    {
       "issue": 412,
       "scope": "Proxy: przy niedostępnej bazie (błąd rozpoznania hosta przed handlerem) kontrolowana odpowiedź 503 zamiast surowego 500: trasy API zwracają {code:TEMPORARILY_UNAVAILABLE} z Retry-After, X-Request-Id i no-store, strony prostą stronę błędu bez szczegółów z zamkniętym CSP; zdarzenie http.service_unavailable i licznik 5xx bez sekretów. Niedostępność rozpoznaje isDbUnavailableError (baza nie słucha, timeout lub brak trasy sieciowej, zerwane połączenie, PostgreSQL w trakcie zamykania/startu, brak wolnych połączeń, błędy przejściowe) na kształtach błędów zmierzonych na Prisma 7 z adapter-pg. Błąd konfiguracji połączenia i każdy inny nieoczekiwany błąd proxy to neutralne 500 {code:INTERNAL_ERROR} bez Retry-After, zgłaszane przez reportInternalError (http.internal_error). Odmowa hosta (404) bez zmian.",
       "relatedRequirementIds": ["C-N060"],

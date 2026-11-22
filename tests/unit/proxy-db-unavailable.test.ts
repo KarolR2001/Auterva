@@ -12,7 +12,7 @@ const failure = vi.hoisted(() => ({ error: null as unknown }));
 vi.mock("../../src/lib/prisma", () => ({ prisma: { hostMapping: { findFirst: vi.fn(async () => { throw failure.error; }) } } }));
 
 import { proxy } from "../../src/proxy";
-import { isDbUnavailableError } from "../../src/modules/observability/http-observe";
+import { isDbUnavailableError, markDbConnectError } from "../../src/modules/observability/http-observe";
 import { setLogSink } from "../../src/modules/observability/log";
 
 /** What a model query throws: PrismaClientKnownRequestError with the adapter error under meta. */
@@ -20,6 +20,11 @@ const known = (code: string, cause?: Record<string, unknown>, message = "Databas
   Object.assign(new Error(message), { name: "PrismaClientKnownRequestError", code, clientVersion: "7.10.1",
     meta: { modelName: "HostMapping", ...(cause ? { driverAdapterError: { name: "DriverAdapterError", cause } } : {}) } });
 const postgres = (sqlState: string) => ({ kind: "postgres", code: sqlState, originalCode: sqlState });
+
+// #437: what the start of an interactive transaction throws for a socket error the adapter does not map: the raw Node
+// error, marked by the pool (src/lib/prisma.ts) as a failed attempt to get a database connection.
+const socket = (code: string, syscall = "connect") => Object.assign(new Error(`${syscall} ${code} 10.0.0.5:5432`), { code, errno: -1, syscall, address: "10.0.0.5", port: 5432 });
+const fromPool = (code: string) => markDbConnectError(socket(code));
 
 // Port closed or PostgreSQL stopped; the real message names the host, so it must never be logged or rendered.
 const stopped = () => known("P1001", { kind: "DatabaseNotReachable", host: "db.invalid", port: 5432 }, `Can't reach database server at db.invalid:5432 (${connection})`);
@@ -42,7 +47,14 @@ const unavailable: Array<[string, unknown]> = [
   // Socket errors the adapter does not map keep the Node code (also ECONNREFUSED/ETIMEDOUT for a multi-address host).
   ...["ECONNREFUSED", "ETIMEDOUT", "EHOSTUNREACH", "ENETUNREACH", "ENOTFOUND", "ECONNRESET", "EAI_AGAIN"]
     .map((code): [string, unknown] => [`system code ${code}`, known(code)]),
-  ["system code in cause", new Error("query failed", { cause: Object.assign(new Error("x"), { code: "EHOSTUNREACH" }) })],
+  // #437: interactive transaction start, raw error from the pool; also when a caller wrapped it.
+  ...["EHOSTUNREACH", "ENETUNREACH", "EAI_AGAIN", "ECONNRESET"].map((code): [string, unknown] => [`pool error ${code}`, fromPool(code)]),
+  ["pool error for a multi-address host (AggregateError)", markDbConnectError(Object.assign(new AggregateError([socket("ECONNREFUSED"), socket("ECONNREFUSED")], ""), { code: "ECONNREFUSED" }))],
+  ["pool error in cause", new Error("query failed", { cause: fromPool("EHOSTUNREACH") })],
+  // #437: the pool's connection time limit, as Prisma wraps it (model, raw, batch) and raw (interactive transaction).
+  ["connect time limit (DB_CONNECT_TIMEOUT)", known("DB_CONNECT_TIMEOUT", undefined, "Connection terminated due to connection timeout")],
+  ["connect time limit, interactive transaction", fromPool("DB_CONNECT_TIMEOUT")],
+  ["no pooled connection in time (DB_POOL_TIMEOUT)", known("DB_POOL_TIMEOUT", undefined, "timeout exceeded when trying to connect")],
   ["transient (P2028)", { code: "P2028" }],
 ];
 
@@ -57,6 +69,16 @@ const notUnavailable: Array<[string, unknown]> = [
   ["client initialization", Object.assign(new Error("x"), { name: "PrismaClientInitializationError" })],
   ["programming error", new TypeError("bug")],
   ["non-error", "P1001"],
+  // #437: the same Node system codes from another client (S3, SMTP, DNS/TLS probes) are not a database outage.
+  ...["ECONNREFUSED", "ETIMEDOUT", "EHOSTUNREACH", "ENETUNREACH", "ENOTFOUND", "ECONNRESET", "EAI_AGAIN"]
+    .map((code): [string, unknown] => [`system code ${code} from another client`, socket(code)]),
+  ["S3 SDK socket error", Object.assign(socket("ECONNRESET", "read"), { name: "Error", $metadata: { attempts: 3, totalRetryDelay: 120 } })],
+  ["SMTP client timeout", Object.assign(new Error("Connection timeout"), { code: "ETIMEDOUT", command: "CONN" })],
+  ["DNS lookup failure", Object.assign(new Error("queryTxt EAI_AGAIN example.test"), { code: "EAI_AGAIN", syscall: "queryTxt", hostname: "example.test" })],
+  ["system code from another client in cause", new Error("upload failed", { cause: socket("ECONNRESET", "write") })],
+  ["AggregateError from another client", Object.assign(new AggregateError([socket("ECONNREFUSED")], ""), { code: "ECONNREFUSED" })],
+  // A connection lost mid-query has no code at all (known case: a single 500 next to db.pool_error).
+  ["connection terminated without a code", new Error("Connection terminated unexpectedly")],
 ];
 
 test.each(unavailable)("database unavailable: %s", (_name, error) => {
@@ -112,6 +134,8 @@ test.each([
   ["connection timeout", known("P1008", { kind: "SocketTimeout" })],
   ["server shutting down", known("P2039", postgres("57P03"))],
   ["host unreachable", known("EHOSTUNREACH")],
+  ["host unreachable at interactive transaction start", fromPool("EHOSTUNREACH")],
+  ["connect time limit", known("DB_CONNECT_TIMEOUT")],
 ])("%s: retryable 503, logged as service unavailable", async (_name, error) => {
   failure.error = error;
   const response = await proxy(request("/api/admin/settings/"));
@@ -124,6 +148,7 @@ test.each([
 
 test.each([
   ["programming error", new TypeError(`bug ${connection}`)],
+  ["system code that did not come from the database client", socket("ECONNRESET", "read")],
   ["configuration error: wrong database name", known("P1003", { kind: "DatabaseDoesNotExist", originalCode: "3D000" }, `Database \`auterva\` does not exist (${connection})`)],
 ])("%s: neutral 500 INTERNAL_ERROR without Retry-After, logged as internal error", async (_name, error) => {
   failure.error = error;

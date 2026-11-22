@@ -5,7 +5,7 @@ import { isVariant, serveStoredVariant } from "@/modules/media/serve";
 import type { LegalKind } from "@/modules/public-offer/read";
 import { getPreviewCatalog, getPreviewContact, getPreviewHome, getPreviewLegal, getPreviewVehicle,
   previewBase, resolvePreviewMediaKey } from "./read";
-import { reportInternalError } from "@/modules/observability/http-observe";
+import { reportInternalError, transientDbResponse } from "@/modules/observability/http-observe";
 
 type Area = "COMPANY_ADMIN" | "PLATFORM";
 
@@ -28,7 +28,10 @@ async function run(request: Request, area: Area, targetOrganizationId: string | 
     const organizationId = access.organizationId!;
     return harden(await read(organizationId, previewBase(area, organizationId), requestId)
       ?? response({ code: "NOT_FOUND" }, 404, requestId));
-  } catch (error) { return harden(response({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "preview"))); }
+  } catch (error) {
+    return harden(transientDbResponse(error, requestId, "preview")
+      ?? response({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "preview")));
+  }
 }
 
 export const previewHome = (request: Request, area: Area, organizationId?: string) =>
