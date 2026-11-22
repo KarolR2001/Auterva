@@ -22,6 +22,17 @@
       "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
     },
     {
+      "issue": 440,
+      "scope": "Formularze z sekretem (logowanie, MFA: kod z aplikacji i kod odzyskania, konfiguracja MFA, nowe kody odzyskania, aktywacja z zaproszenia, żądanie i ustawienie nowego hasła, zmiana hasła) używają wspólnego SecretForm: natywna wysyłka (Enter przed hydratacją, brak JavaScriptu) idzie metodą POST bez action, więc hasło i kod nigdy nie trafiają do adresu URL, historii ani Referer. Zachowanie z JavaScriptem, etykiety, błędy i fokus bez zmian wyglądu.",
+      "relatedRequirementIds": ["C-N020"],
+      "referenceScreenIds": ["ADM-01", "PLT-08", "ACC-07"],
+      "scenarioStates": {
+        "forms": "Bez zmian wyglądu; ID stanów w Penpocie jak we wpisach logowania, MFA i konta"
+      },
+      "codePaths": ["src/components/ui/secret-form.tsx", "src/components/auth/auth-flow.tsx", "src/components/auth/reset-flow.tsx", "src/components/auth/activation-flow.tsx", "src/components/account/account-view.tsx"],
+      "testPaths": ["tests/unit/secret-forms-inventory.test.tsx", "tests/e2e/secret-forms-no-get.spec.ts"]
+    },
+    {
       "issue": 381,
       "scope": "Lista pojazdów: „Wyczyść filtry” (arkusz filtrów i stan „Brak wyników”) czyści wyszukiwanie, filtry i stronę, ale zachowuje sortowanie „Ostatnia zmiana”; sortowanie wraca do kolejności w ofercie wyłącznie przez „Przywróć domyślne” / przycisk sortowania (D-42, D-50). Zachowanie bez zmian wyglądu.",
       "relatedRequirementIds": ["FR-ADM-020", "FR-ADM-021", "FR-ADM-022"],

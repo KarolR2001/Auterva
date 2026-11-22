@@ -9,6 +9,7 @@ import { z } from "zod";
 import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
 import { FormField } from "../ui/form-field";
+import { SecretForm } from "../ui/secret-form";
 import { PasswordInput } from "../ui/password-input";
 import { TextInput } from "../ui/text-input";
 import { safeReturnTo, type AuthArea } from "./auth-destination";
@@ -294,9 +295,8 @@ export function LoginForm({
           )}
         </div>
       )}
-      <form
+      <SecretForm
         className={`${styles.form} ${styles.loginForm}`}
-        noValidate
         onSubmit={form.handleSubmit((values) =>
           request.run("sign-in/email", values, "login", (data) => {
             if (
@@ -355,7 +355,7 @@ export function LoginForm({
             Nie pamiętasz hasła?
           </Link>
         </p>
-      </form>
+      </SecretForm>
     </AuthFrame>
   );
 }
@@ -523,9 +523,8 @@ export function MfaFlow({
         </>
       )}
       {step === "password" && (
-        <form
+        <SecretForm
           className={styles.form}
-          noValidate
           onSubmit={passwordForm.handleSubmit(({ password }) =>
             request.run(
               "two-factor/enable",
@@ -582,12 +581,11 @@ export function MfaFlow({
           >
             {submitLabel(afterRecovery ? "Potwierdź hasło" : "Rozpocznij konfigurację")}
           </Button>
-        </form>
+        </SecretForm>
       )}
       {(step === "setup" || step === "challenge" || step === "recovery") && (
-        <form
+        <SecretForm
           className={styles.form}
-          noValidate
           onSubmit={codeForm.handleSubmit(({ code: rawCode }) => {
             const code = step === "recovery" ? rawCode : rawCode.replace(/\s+/g, "");
             if (step !== "recovery" && !/^\d{6}$/.test(code)) {
@@ -696,7 +694,7 @@ export function MfaFlow({
               Nie mam aplikacji ani kodów
             </Button>
           )}
-        </form>
+        </SecretForm>
       )}
       {step === "uncertain" && (
         <div className={styles.form}>
@@ -725,9 +723,8 @@ export function MfaFlow({
         </div>
       )}
       {step === "restoreFactor" && (
-        <form
+        <SecretForm
           className={styles.form}
-          noValidate
           onSubmit={codeForm.handleSubmit(({ code: rawCode }) => {
             const code = rawCode.replace(/\s+/g, "");
             if (!/^\d{6}$/.test(code)) {
@@ -781,12 +778,11 @@ export function MfaFlow({
           >
             {submitLabel("Potwierdź kod")}
           </Button>
-        </form>
+        </SecretForm>
       )}
       {step === "restorePassword" && (
-        <form
+        <SecretForm
           className={styles.form}
-          noValidate
           onSubmit={passwordForm.handleSubmit(({ password }) => {
             void request.run(
               "mfa/rotate-backup-codes",
@@ -852,7 +848,7 @@ export function MfaFlow({
           >
             Wróć do weryfikacji
           </Button>
-        </form>
+        </SecretForm>
       )}
       {step === "proofExpired" && (
         <div className={styles.form}>

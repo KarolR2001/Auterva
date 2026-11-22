@@ -19,6 +19,7 @@ import { useRefocus } from "../auth/use-refocus";
 import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
 import { FormField } from "../ui/form-field";
+import { SecretForm } from "../ui/secret-form";
 import { PasswordInput } from "../ui/password-input";
 import { TextInput } from "../ui/text-input";
 import { AccountTabs } from "./account-tabs";
@@ -182,9 +183,8 @@ export function AccountView({
       <div className={styles.columns}>
       <section className={styles.card} aria-labelledby="account-data">
         <h2 id="account-data">Dane konta</h2>
-        <form
+        <SecretForm
           className={styles.form}
-          noValidate
           aria-busy={profile.loading || undefined}
           onSubmit={nameForm.handleSubmit(({ name }) => {
             setNameSaved(false);
@@ -244,7 +244,7 @@ export function AccountView({
           >
             Zapisz nazwę
           </Button>
-        </form>
+        </SecretForm>
         <Button
           variant="secondary"
           loading={loggingOut}
@@ -258,9 +258,8 @@ export function AccountView({
       <section className={styles.card} aria-labelledby="account-security">
         <h2 id="account-security">Bezpieczeństwo</h2>
         <h3 id="account-password">Zmień hasło</h3>
-        <form
+        <SecretForm
           className={styles.form}
-          noValidate
           aria-labelledby="account-password"
           aria-busy={change.loading || undefined}
           onSubmit={passwordForm.handleSubmit(({ current, next: value }) =>
@@ -342,7 +341,7 @@ export function AccountView({
           >
             Zmień hasło
           </Button>
-        </form>
+        </SecretForm>
 
         <hr className={styles.divider} />
         <h3 id="account-mfa">Uwierzytelnianie MFA</h3>
