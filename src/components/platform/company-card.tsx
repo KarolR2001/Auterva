@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useUnsavedChanges } from "../panel/unsaved-changes-guard";
 import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
+import { CompanyDiagnostics } from "./company-diagnostics";
 import { CompanyDomain } from "./company-domain";
 import { ArchiveSection, CompanyStatus, PeriodSection, companyHostLine } from "./company-ops";
 import { PlatformPageHeader } from "./page-header";
@@ -42,6 +43,8 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
   const uncertainAttempt = useRef(false);
   const invitationBefore = useRef<string | null>(null);
   const status = useRef<HTMLDivElement>(null);
+  // Diagnostics and the domain section each hold their own copy of the domain state: a change in one re-reads the other.
+  const [domainSync, setDomainSync] = useState({ checked: 0, changed: 0 });
   // A running mutation keeps the shell from leaving the page before its answer is known.
   useUnsavedChanges({ dirty: false, saving: busy === "issue" || busy === "revoke" });
 
@@ -179,6 +182,9 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
       <div className={styles.layout}>
       <div className={styles.layoutAside}>
         <CompanyStatus company={company} />
+        <CompanyDiagnostics organizationId={company.organizationId} archived={archived}
+          reloadKey={`${domainSync.changed}:${company.invitation?.id}:${company.invitation?.deliveryStatus}:${company.invitation?.revokedAt}`}
+          onDomainChecked={() => setDomainSync((sync) => ({ ...sync, checked: sync.checked + 1 }))} />
         <ArchiveSection company={company} base={opsBase} reload={() => refresh(true)} />
       </div>
       <div className={styles.layoutMain}>
@@ -241,7 +247,8 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
         </div>
         {view.kind === "uncertain" && <p className={styles.hint}>Nowe zaproszenie jest zablokowane, dopóki nie cofniesz niepewnego.</p>}
       </section>
-      {!archived && <CompanyDomain organizationId={company.organizationId} archived={archived} />}
+      {!archived && <CompanyDomain reloadKey={domainSync.checked} organizationId={company.organizationId} archived={archived}
+        onChanged={() => setDomainSync((sync) => ({ ...sync, changed: sync.changed + 1 }))} />}
       <Link className={styles.cancel} href="/firmy/" prefetch={false}>Wróć do firm</Link>
       </div>
       </div>
