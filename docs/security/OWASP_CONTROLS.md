@@ -110,6 +110,8 @@ Znalezione poza zakresem tego przebiegu (zgłoszone orkiestratorowi, bez zmian k
 
 Wynik przebiegu: jedna luka (S7, poprawiona); reszta inwentarzy bez luk. Każdy inwentarz iteruje po trasach z systemu plików, więc nowa trasa bez klasyfikacji lub limitu przerywa test.
 
+Macierz stanu konta (druga runda #57): każdy handler `admin` (admin firmy) i `platform` (superadmin) odmawia sesji wyłączonego użytkownika, z niezweryfikowanym e-mailem, wygasłej i cofniętej, a handlery `admin` także admina zarchiwizowanej firmy (superadmin nadal zarządza zarchiwizowaną firmą) (bez zmiany danych, firma B działa, publiczne A bez danych); po wygaśnięciu okresu usługi panel odpowiada jak wcześniej, a strona publiczna znika. Test: `security-regression.test.ts`. Wynik: bez nowych luk serwerowych.
+
 | Kontrola | Inwentarz | Wynik | Dowód |
 |---|---|---|---|
 | Limity żądań | każdy `route.ts` musi przez graf importów sięgać do limitera (`takeRateLimit`, `takeAuthenticatedApiLimit`, `reserveAuthAttempt`) albo być na jawnej liście wyjątków z uzasadnieniem (health, vitals, robots, sitemap, sonda domeny) | pass | `unit/route-rate-limit-inventory` |

@@ -877,3 +877,87 @@ test("#176: NUL and control characters in the text of every authenticated mutati
   expect(probes).toBeGreaterThan(150);
   expect(failures).toEqual([]);
 }, 600_000);
+
+// #57 account-state matrix: a session that still exists is worth nothing once the account or company is no longer
+// in good standing. The state is read on every request, so no handler may keep serving a stale "active" actor.
+test("account state: a disabled, unverified, expired or revoked session and an archived company are refused by every private handler", async () => {
+  const failures: string[] = [];
+  const sweep = async (label: string, cookie: string, tenant: "a" | "b", platform: boolean) => {
+    const before = await snapshot();
+    await Promise.all(privateRoutes().filter((route) => (route.group === "platform") === platform).flatMap((route) =>
+      (Object.keys(route.methods) as (typeof METHODS)[number][]).map(async (method) => {
+        const reply = await call(route, method, { tenant, host: platform ? host.platform : tenant === "a" ? host.adminA : host.adminB, cookie });
+        if (!DENIED.includes(reply.status) || reply.text.includes(marker.a) || reply.text.includes(`INT-${marker.a}`)) failures.push(`${label} ${method} ${route.url} -> ${reply.status}`);
+      })));
+    if (await snapshot() !== before) failures.push(`${label}: data changed`);
+  };
+  const fresh = async (userId: string) => {
+    const session = await verifiedFixtureSession(db, userId);
+    sessions.push(session);
+    return session;
+  };
+  // Both actor kinds: the company admin of A (admin handlers) and the one superadmin (platform handlers; the schema allows
+  // a single superadmin). Account flags are restored in `finally`; the fixture superadmin is active and verified (checked in beforeAll).
+  const superUser = superId;
+  try {
+    for (const [kind, userId, platform] of [["admin", ids.a.user, false], ["superadmin", superUser, true]] as const) {
+      const sweepKind = (label: string, cookie: string) => sweep(`${label} ${kind}`, cookie, "a", platform);
+      const live = await fresh(userId);
+      expect((await call(privateRoutes().find((route) => route.group === (platform ? "platform" : "admin") && route.methods.GET && !route.url.includes("["))!,
+        "GET", { tenant: "a", host: platform ? host.platform : host.adminA, cookie: live.cookie })).status, `${kind} fixture session is valid`).not.toBe(401);
+      try {
+        await db.user.update({ where: { id: userId }, data: { disabledAt: new Date() } });
+        await sweepKind("disabled", live.cookie);
+        await db.user.update({ where: { id: userId }, data: { disabledAt: null, emailVerified: false } });
+        await sweepKind("unverified", live.cookie);
+      } finally {
+        await db.user.update({ where: { id: userId }, data: { disabledAt: null, emailVerified: true } });
+      }
+      const revoked = await fresh(userId);
+      await revoked.dispose();
+      await sweepKind("revoked session", revoked.cookie);
+      const expired = await fresh(userId);
+      await db.session.updateMany({ where: { token: expired.cookie.split("=")[1].split(".")[0] }, data: { expiresAt: new Date(Date.now() - 60_000) } });
+      await sweepKind("expired session", expired.cookie);
+    }
+  } finally {
+    await db.user.updateMany({ where: { id: { in: [ids.a.user, superUser] } }, data: { disabledAt: null, emailVerified: true } });
+  }
+  // Archived company A: its admin is out on every handler, company B's admin is untouched.
+  await db.organization.update({ where: { id: ids.a.org }, data: { archivedAt: new Date() } });
+  try {
+    await sweep("archived company", cookieAdminA, "a", false);
+    const own = await Promise.all(privateRoutes().filter((route) => route.group === "admin" && route.methods.GET && !route.url.includes("["))
+      .map((route) => call(route, "GET", { tenant: "b", host: host.adminB, cookie: cookieAdminB })));
+    expect(own.some((reply) => reply.status === 200), "company B keeps working").toBe(true);
+    for (const route of routes.filter((item) => item.group === "public" && item.methods.GET)) {
+      const reply = await call(route, "GET", { tenant: "a", host: host.publicA });
+      if (reply.text.includes(marker.a) || reply.status >= 500) failures.push(`archived public ${route.url} -> ${reply.status}`);
+    }
+  } finally {
+    await db.organization.update({ where: { id: ids.a.org }, data: { archivedAt: null } });
+  }
+  expect(failures).toEqual([]);
+}, 240_000);
+
+test("expired service period: the company panel keeps its answers while the public site disappears", async () => {
+  const adminGets = privateRoutes().filter((route) => route.group === "admin" && route.methods.GET && !route.url.includes("["));
+  const run = async () => (await Promise.all(adminGets.map(async (route) => [route.url, (await call(route, "GET", { tenant: "a", host: host.adminA, cookie: cookieAdminA })).status] as const)));
+  const valid = await run();
+  const publicOffer = async () => (await Promise.all(routes.filter((item) => item.group === "public" && item.methods.GET && !item.url.includes("[")).map((route) =>
+    call(route, "GET", { tenant: "a", host: host.publicA }).then((reply) => reply.text.includes(marker.a)))));
+  expect((await publicOffer()).some(Boolean), "fixture publishes company A while the trial runs").toBe(true);
+  const original = await db.serviceAccess.findUniqueOrThrow({ where: { organizationId: ids.a.org } });
+  // The trial grant is immutable, so the expired period is a replaced row: a trial that ended an hour ago.
+  const started = new Date(Date.now() - 337 * 3_600_000);
+  await db.serviceAccess.delete({ where: { organizationId: ids.a.org } });
+  await db.serviceAccess.create({ data: { organizationId: ids.a.org, trialGranted: true, trialStartedAt: started, trialEndsAt: new Date(started.getTime() + 336 * 3_600_000) } });
+  try {
+    await resetBudgets();
+    expect(await run()).toEqual(valid);
+    expect((await publicOffer()).some(Boolean), "expired period hides every public answer").toBe(false);
+  } finally {
+    await db.serviceAccess.delete({ where: { organizationId: ids.a.org } });
+    await db.serviceAccess.create({ data: { organizationId: ids.a.org, trialGranted: true, trialStartedAt: original.trialStartedAt, trialEndsAt: original.trialEndsAt } });
+  }
+}, 120_000);
