@@ -4,7 +4,7 @@ Uzupełnia [PERF_REPORT.md](PERF_REPORT.md) (pomiar na handlerach, P1/P2, 28.10.
 
 ## Wynik w skrócie
 
-- Wszystkie cele NFR-PERF-002 spełnione z dużym zapasem przy P2 (2 firmy × 100 aut × 100 000 okresów, czyli 200 000 okresów łącznie; harmonogram 25 req/s): sprawdzenie dostępności p95 ok. 18-24 ms (cel 500), zapis blokady p95 28-117 ms (cel 800), lista 100 aut p95 53-68 ms (cel 600). 0 błędów we wszystkich scenariuszach, każdy limit produktu włączony.
+- Wszystkie cele NFR-PERF-002 spełnione z dużym zapasem przy P2 (2 firmy × 100 aut × 100 000 okresów, czyli 200 000 okresów łącznie; harmonogram 25 req/s): sprawdzenie dostępności p95 ok. 18-24 ms (cel 500), zapis blokady maks. 28-117 ms z 10-16 prób (cel 800; to maksimum, nie p95), lista 100 aut p95 53-68 ms (cel 600). 0 błędów we wszystkich scenariuszach, każdy limit produktu włączony.
 - Zmiana po profilu: lista floty (znacznik „zablokowany dziś") i siatka floty czytały blokady filtrem relacji Prisma, który skanuje wszystkie ok. 100 000 blokad firmy (ok. 1500 buforów, 8-12 ms). Teraz korzystają z istniejącego GiST `availability_no_overlap` (vehicleId, daterange): 1,0-1,2 ms i ok. 450 buforów (8-10x mniej czasu na zapytanie). Bez nowej migracji i bez nowego indeksu, więc brak rollbacku schematu; rollback = cofnięcie zmiany zapytań. W pomiarze HTTP różnica jest poniżej szumu (p95 listy i siatki 50-75 ms przed i po), bo dominuje reszta ścieżki; zmiana usuwa zależność od liczby blokad firmy.
 - Bez publicznego cache wyniku dostępności; każdy odczyt trafia do bazy.
 
@@ -43,7 +43,7 @@ Odtworzenie: `LOCAL_PORT_BASE=<base> scripts/local-fixture.sh start`, `prisma mi
 | zapis zbiorczy 50 aut (0,5/s) | 10 | 126,6 | 232,3 | 484,4 | 484,4 | 7,2% |
 | mieszanka 25 req/s (500 żądań + zapis 0,8/s) | 500 | 17,4 | 51,3 | 75,4 | 133,5 | 35,5% |
 
-Uwagi do odczytu: (1) próbki zapisów (n = 10-16) są za małe na wiarygodne p95, to jest maksimum; limit zapisu 60/min/admina trzyma tę częstość pod kontrolą. (2) Różnice „przed/po" w wierszach, których zapytania nie zmieniono, pokazują rozrzut pomiaru (przebieg „przed" miał zimniejszy start: pierwsze wywołania tras po uruchomieniu serwera). (3) Przebieg „po" w środku trwania miał skok obciążenia maszyny, stąd wyższe p95 zapisów. Wniosek: zapas ponad 6x nad każdym celem, błędów 0, nasycenie bazy niskie (patrz niżej).
+Uwagi do odczytu: (1) w wierszach zapisów (n = 10-16) kolumny „p95” i „p99” są po prostu maksimum próby (przy tak małym n nie da się policzyć wiarygodnego p95), czytaj je jako „maks.”; limit zapisu 60/min/admina trzyma tę częstość pod kontrolą. (2) Różnice „przed/po" w wierszach, których zapytania nie zmieniono, pokazują rozrzut pomiaru (przebieg „przed" miał zimniejszy start: pierwsze wywołania tras po uruchomieniu serwera). (3) Przebieg „po" w środku trwania miał skok obciążenia maszyny, stąd wyższe p95 zapisów. Wniosek: zapas ponad 6x nad każdym celem, błędów 0, nasycenie bazy niskie (patrz niżej).
 
 ### Nasycenie (próbnik `pg_stat_activity` co 500 ms w trakcie scenariusza; wartości maksymalne)
 
@@ -101,7 +101,7 @@ Wszystkie liczby p95 i nasycenia w tabelach powyżej pochodzą z przebiegów z 1
 
 ## Konflikty zapisu i zerwanie bazy pod obciążeniem (#59, część lokalna 059.L2, 22.11.2026)
 
-Uzupełnia pomiary powyżej o dwa kryteria #59 nieobjęte wcześniej: równoległe konflikty przez HTTP pod ruchem odczytowym oraz zerwanie zależności (PostgreSQL) w trakcie obciążenia. Ten sam fixture i dane P2 (2 firmy × 100 aut × 100 000 okresów), produkcyjny build Next za `pnpm perf:ingress`, limity produktu włączone, jedna maszyna (Apple M4, Node 24.20.0, PostgreSQL 18.6, load maszyny 2-3). Skrypty: `pnpm perf:fault -- --port <port ingressu> [--phase conflict,drop]` (HTTP) i `pnpm perf:ws-fault` (prawdziwy serwer realtime w procesie). Odmawiają pracy poza własnym fixture. Wyniki w `.local/perf/fault.json` i `.local/perf/ws-fault.json`. Odtworzenie: jak wyżej (`local-fixture.sh start`, `migrate deploy`, `perf:generate -- --profile p2`, `pnpm build`, `PORT=<base+14> pnpm perf:ingress`), po limicie zapisu odczekać minutę między przebiegami `perf:fault`.
+Uzupełnia pomiary powyżej o dwa kryteria #59 nieobjęte wcześniej: równoległe konflikty przez HTTP pod ruchem odczytowym oraz zerwanie zależności (PostgreSQL) w trakcie obciążenia. Ten sam fixture i dane P2 (2 firmy × 100 aut × 100 000 okresów), produkcyjny build Next za `pnpm perf:ingress`, limity produktu włączone, jedna maszyna (Apple M4, Node 24.20.0, PostgreSQL 18.6, load maszyny 2-3). Skrypty: `pnpm perf:fault -- --port <port ingressu> [--phase conflict,drop]` (HTTP) i `pnpm perf:ws-fault` (prawdziwy serwer realtime w procesie). Odmawiają pracy poza własnym fixture. Wyniki w `.local/perf/fault.json` i `.local/perf/ws-fault.json`. Odtworzenie: jak wyżej (`local-fixture.sh start`, `migrate deploy`, `perf:generate -- --profile p2`, `pnpm build`, `PORT=<base+14> pnpm perf:ingress`), po limicie zapisu odczekać minutę między przebiegami `perf:fault`. Gdy skrypt padnie między zatrzymaniem a startem bazy, `finally` (fault-load) i hak `exit` (ws-fault) uruchamiają bazę fixture ponownie.
 
 ### Konflikty (HTTP, 14 rund: 2 firmy równolegle, w rundzie 4 równoległe `POST` tych samych dat jednego auta, tło 20 req/s odczytów publicznych)
 
@@ -110,7 +110,7 @@ Uzupełnia pomiary powyżej o dwa kryteria #59 nieobjęte wcześniej: równoleg�
 | Rundy z dokładnie jednym `201` i resztą `409` | 14 / 14 (łącznie 14 × `201`, 42 × `409`) |
 | Publiczny odczyt tuż po zapisie: stary pozytywny wynik | 0 z 14 (zawsze `available:false`) |
 | Publiczny odczyt tuż po usunięciu: stary negatywny wynik | 0 z 14 |
-| Odpowiedzi z danymi obcej firmy | 0 |
+| Odpowiedzi z danymi obcej firmy (host drugiej firmy pyta o slug auta pierwszej: oczekiwane 404) | 0 |
 | Odczyty tła (n = 500) | 500 × `200`, p95 12,8 ms, p99 15,6 ms, 0 błędów |
 
 ### Zerwanie bazy w trakcie obciążenia (HTTP; `pg_ctl stop -m immediate` w 6. s, start w 12. s z 24 s)
@@ -140,4 +140,4 @@ Zmierzono na P2 zapytanie w kształcie aplikacji (`vehicleId = ANY($1)`, 100 ide
 - Lokalnie, jedna maszyna, bez sieci/TLS/Cloudflare. Zerwanie bazy to zatrzymanie procesu PostgreSQL (crash), nie awaria sieci ani pułapu połączeń u dostawcy.
 - Zerwanie innych zależności (storage, poczta, DNS) i WS na wielu instancjach: `not-run`.
 - Pomiar na stagingu/hostingu docelowym, ruch docelowy i zatwierdzony profil wielu firm: `not-run`, zależy od #90 i #3.
-- Konflikty: 14 rund (56 żądań) to dowód poprawności, nie pomiar latencji zapisu; p95 zapisu patrz wyżej.
+- Konflikty: 14 rund (56 żądań) to dowód poprawności, nie pomiar latencji zapisu; latencje zapisu patrz wyżej (tam maksimum prób, nie p95).
