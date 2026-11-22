@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -6,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import WebSocket from "ws";
 import { companyIds } from "./generate-data";
 import { FIXTURE } from "../fixture-ids";
+import { ensurePostgresRunning, startPostgres, stopPostgres } from "./pg-control";
 import { requireOwnFixture } from "./target";
 
 /**
@@ -24,6 +24,7 @@ const repoDir = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const url = await requireOwnFixture();
 const pgDir = resolve(repoDir, ".local", "fixture-9", "pg");
 const pgPort = new URL(url).port;
+const pgOptions = { pgDir, fixtureDir: resolve(repoDir, ".local", "fixture-9"), port: pgPort };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const [{ createPrismaClient }, { auth }, { getServerEnv }, { startRealtimeServer }, { createRealtimeAuthority }] = await Promise.all([
   import("../../src/lib/prisma"), import("../../src/lib/auth"), import("../../src/lib/env"), import("../../src/modules/chat/realtime"),
@@ -84,11 +85,13 @@ const pending = new Map<string, { clientMessageId: string; body: string }>(); //
 const sentBodies: string[] = [];
 let counter = 0; let stoppedAt = 0; let startedAt = 0;
 const t0 = performance.now(); const at = () => (performance.now() - t0) / 1000;
-const pgctl = (...a: string[]) => execFileSync("pg_ctl", ["-D", pgDir, ...a], { stdio: "ignore" });
+// A crash or Ctrl-C between `pg_ctl stop` and `start` must not leave the fixture database down (sync work only in `exit`).
+process.once("exit", () => { try { ensurePostgresRunning(pgOptions); } catch { /* best effort */ } });
+for (const signal of ["SIGINT", "SIGTERM"] as const) process.once(signal, () => process.exit(130));
 const toggler = (async () => {
-  await sleep(seconds * 250); stoppedAt = at(); pgctl("stop", "-m", "immediate", "-w");
+  await sleep(seconds * 250); stoppedAt = at(); stopPostgres(pgOptions);
   await sleep(seconds * 250);
-  pgctl("-l", resolve(repoDir, ".local", "fixture-9", "log", "postgres.log"), "-o", `-h 127.0.0.1 -p ${pgPort} -k ${resolve(repoDir, ".local", "fixture-9")}`, "start", "-w"); startedAt = at();
+  startPostgres(pgOptions); startedAt = at();
 })();
 while (at() < seconds) {
   const body = `wsf-${Date.now()}-${counter++}`; const clientMessageId = randomUUID();

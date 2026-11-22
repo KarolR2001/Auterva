@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { Agent, request as httpRequest } from "node:http";
@@ -6,6 +5,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { companyIds, dayOffset, mulberry32, vehicleId } from "./generate-data";
 import { openLoop, Recorder } from "./measure";
+import { ensurePostgresRunning, startPostgres, stopPostgres } from "./pg-control";
 import { requireOwnFixture } from "./target";
 
 /**
@@ -28,6 +28,7 @@ const repoDir = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const url = await requireOwnFixture();
 const pgDir = resolve(repoDir, ".local", "fixture-9", "pg");
 const pgPort = new URL(url).port;
+const pgOptions = { pgDir, fixtureDir: resolve(repoDir, ".local", "fixture-9"), port: pgPort };
 const { createPrismaClient } = await import("../../src/lib/prisma");
 const { availabilityToday } = await import("../../src/modules/availability/dates");
 let db = createPrismaClient(url);
@@ -88,7 +89,7 @@ const verdicts: string[] = [];
 async function conflictPhase() {
   const rounds = 7; const parallel = 4; // per admin 7 x 4 + 7 deletes = 35 writes, under the 60/min limit
   const wins = { perRoundExactlyOne: 0, rounds: 0 }; const statuses: Record<string, number> = {};
-  let foreignAnswers = 0; let staleReads = 0; let staleAfterDelete = 0;
+  let foreignAnswers = 0; let foreignUnexpected = 0; let staleReads = 0; let staleAfterDelete = 0;
   const reads = new Recorder();
   const background = openLoop(20, rounds * 3 + 4, async (i) => readLoad(companies[i % 2])(), reads);
   await sleep(500);
@@ -106,10 +107,13 @@ async function conflictPhase() {
       if (created.length === 1 && replies.filter((r) => r.status === 409).length === parallel - 1) wins.perRoundExactlyOne += 1;
       const after = await send("POST", "/api/public/availability/check", pub(c), { slug, from: day(from), to: day(from + 1) });
       if (after.status !== 200 || (JSON.parse(after.body) as { available: boolean }).available !== false) staleReads += 1;
-      // the other company must not see this vehicle at all
+      // The vehicle exists only at company c: the other company's host asks for its slug and must get 404, never a 200
+      // (a 200 with any availability answer would leak that the slug, or the block just committed, exists across companies).
       const other = companies[(c.n) % 2];
       const foreign = await send("POST", "/api/public/availability/check", pub(other), { slug, from: day(from), to: day(from + 1) });
-      if (foreign.status === 200 && JSON.parse(foreign.body).available !== undefined && other.slugs.indexOf(slug) < 0) foreignAnswers += 1;
+      if (other.slugs.includes(slug)) throw new Error("slug exists at both companies; the foreign probe would prove nothing");
+      if (foreign.status === 200) foreignAnswers += 1;
+      else if (foreign.status !== 404) foreignUnexpected += 1;
       if (created.length) {
         const json = JSON.parse(created[0].body) as { id: string; version: number };
         await send("DELETE", `/api/admin/vehicles/${vid}/blocks/${json.id}`, adm(c), { expectedVersion: json.version });
@@ -121,10 +125,11 @@ async function conflictPhase() {
   await background;
   const stats = reads.stats(rounds * 3);
   report.conflict = { rounds: wins.rounds, roundsWithExactlyOneSuccess: wins.perRoundExactlyOne, writeStatuses: statuses, staleAfterWrite: staleReads, staleAfterDelete,
-    foreignCompanyAnswers: foreignAnswers, readsUnderLoad: { n: stats.n, p95: stats.p95, p99: stats.p99, errors: stats.errors, statuses: stats.statuses } };
+    foreignCompanyAnswers: foreignAnswers, foreignProbeNon404: foreignUnexpected, readsUnderLoad: { n: stats.n, p95: stats.p95, p99: stats.p99, errors: stats.errors, statuses: stats.statuses } };
   if (wins.perRoundExactlyOne !== wins.rounds) verdicts.push("conflict: a round did not end with exactly one 201 and the rest 409");
   if (staleReads || staleAfterDelete) verdicts.push("conflict: public read returned a stale result after a committed change");
   if (foreignAnswers) verdicts.push("conflict: cross-company answer");
+  if (foreignUnexpected) verdicts.push("conflict: foreign-company probe answered something other than 404");
   if (stats.errors) verdicts.push("conflict: read errors under load");
 }
 
@@ -134,11 +139,10 @@ async function dropPhase() {
   const events: { t: number; status: number | string; kind: string }[] = [];
   const writes: { c: Company; vid: string; from: number; status: number | string; id?: string; t: number }[] = [];
   let cursor = 0; let pgStopped = 0; let pgStarted = 0;
-  const pgctl = (...a: string[]) => execFileSync("pg_ctl", ["-D", pgDir, ...a], { stdio: "ignore" });
   const toggler = (async () => {
-    await sleep(stopAt * 1000); pgStopped = at(); pgctl("stop", "-m", "immediate", "-w");
+    await sleep(stopAt * 1000); pgStopped = at(); stopPostgres(pgOptions);
     await sleep((startAt - stopAt) * 1000);
-    pgctl("-l", resolve(repoDir, ".local", "fixture-9", "log", "postgres.log"), "-o", `-h 127.0.0.1 -p ${pgPort} -k ${resolve(repoDir, ".local", "fixture-9")}`, "start", "-w"); pgStarted = at();
+    startPostgres(pgOptions); pgStarted = at();
   })();
   const readers = openLoop(10, seconds, async (i) => {
     const out = await readLoad(companies[i % 2])().catch(() => ({ ok: false, status: "EXCEPTION" }));
@@ -181,6 +185,9 @@ try {
   if (phases.includes("conflict")) await conflictPhase();
   if (phases.includes("drop")) await dropPhase();
 } finally {
+  // A crash of this script between `pg_ctl stop` and `start` must not leave the fixture database down.
+  try { if (ensurePostgresRunning(pgOptions) === "restarted") process.stderr.write("fault-load: the database was down, restarted in finally\n"); }
+  catch (error) { process.stderr.write(`fault-load: could not restart the fixture database: ${(error as Error).message}\n`); }
   await cleanSlots().catch(() => undefined);
   for (const c of companies) await db.session.deleteMany({ where: { id: c.sessionId } }).catch(() => undefined);
 }
