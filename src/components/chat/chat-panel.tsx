@@ -207,6 +207,8 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
     if (!fill) return;
     const run = ++gapRun.current;
     setGap("loading");
+    // A retry empties the status region, so a repeated failure is announced again (same text, no role="alert").
+    if (fill.failed) setAnnouncement("");
     try {
       for (;;) {
         const after = cursor.current;
@@ -475,7 +477,7 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
     return headers;
   }, [messages]);
   return (
-    <section className={styles.chat} data-embedded={embedded || undefined} aria-labelledby="chat-title">
+    <section className={styles.chat} data-embedded={embedded || undefined} data-gap-error={gap === "error" || undefined} aria-labelledby="chat-title">
       <h2 id="chat-title" className={styles.srOnly}>Czat z {peerWith ?? peerLabel}</h2>
       <p className={styles.subtitle}>{subtitle ?? `${companyName} · kontakt z ${peerWith ?? peerLabel}`}</p>
       <div className={styles.status} role="status">
@@ -484,6 +486,16 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
         {connection === "reconnecting" && <span><CircleAlert size={16} aria-hidden="true" /> Brak połączenia na żywo — łączymy ponownie. Wysłanie nadal działa, a tekst zostaje.</span>}
         {connection === "session-lost" && <span><CircleAlert size={16} aria-hidden="true" /> Sesja wygasła. <a href={loginHref}>Zaloguj się ponownie</a>; szkic zostaje na tym urządzeniu.</span>}
       </div>
+
+      {gap === "error" && (
+        // Pinned above the history (#411), outside the scrolling list and kept compact: its place does not depend on how much
+        // room the history gets, so the action never needs a scroll. It has no role of its own: the one announcement is the
+        // polite status region below (no duplicate role="alert").
+        <div className={styles.pinnedAlert} data-testid="chat-gap-alert">
+          <p><CircleAlert size={16} aria-hidden="true" /> <span>Nie udało się wczytać wiadomości z czasu rozłączenia. Nowsze pokażemy po uzupełnieniu.</span></p>
+          <button type="button" className={styles.pinnedAlertAction} onClick={() => void catchUp()}>Spróbuj ponownie</button>
+        </div>
+      )}
 
       <div ref={list} className={styles.list} onScroll={onScroll} role="log" aria-label="Historia rozmowy" aria-live="polite" tabIndex={0}>
         {phase === "loading" && <p className={styles.note}>Wczytywanie rozmowy…</p>}
@@ -517,11 +529,6 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
           );
         })}
         {gap === "loading" && <p className={styles.note}>Wczytywanie wiadomości z czasu rozłączenia…</p>}
-        {gap === "error" && (
-          <Alert tone="error" title="Nie udało się wczytać wiadomości z czasu rozłączenia." action={{ label: "Spróbuj ponownie", onClick: () => void catchUp() }}>
-            Nowsze wiadomości pokażemy po uzupełnieniu historii. Szkic zostaje w polu.
-          </Alert>
-        )}
         {pending && (
           <article className={styles.message} data-own data-pending={pending.status}>
             <p className={styles.sender}>{ownLabel ?? companyName}</p>
