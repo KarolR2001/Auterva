@@ -22,6 +22,24 @@
       "sharedWith": "Rozszerza ArchiveSection z #27/#265; kontrakt API: docs/contracts/company-archive-restore.md (#48)."
     },
     {
+      "issue": 437,
+      "scope": "Jedno miejsce mapowania „baza niedostępna” na 503 TEMPORARILY_UNAVAILABLE (Retry-After, X-Request-Id, no-store) we wszystkich handlerach i trasach (transientDbResponse oparte na isDbUnavailableError, także w routeContext dla wyjątków, które uciekły handlerowi, i w trasie uploadu), tak jak w proxy (#412). Kody systemowe Node (ECONNRESET, ETIMEDOUT itd.) liczą się tylko dla błędu z klienta bazy (Prisma lub pula), więc błąd S3, poczty lub DNS pozostaje 500. createPrismaClient ma connectionTimeoutMillis (APP_DB_LIMITS: 4 s): baza, która przyjmuje TCP i nie odpowiada, kończy się kodem DB_CONNECT_TIMEOUT, a brak wolnego połączenia w puli DB_POOL_TIMEOUT, oba jako 503. Strony RSC: Next nie pozwala wybrać statusu renderu, więc strona błędu zostaje neutralna, a onRequestError loguje http.service_unavailable zamiast http.unhandled_error. Test inwentarza pilnuje, że każdy mapper 500 najpierw próbuje wspólnego mapowania.",
+      "relatedRequirementIds": ["C-N060"],
+      "referenceScreenIds": [],
+      "unmappedStates": ["Backend; bez zmian UI, strony błędu bez makiety."],
+      "codePaths": ["src/modules/observability/http-observe.ts", "src/modules/observability/route-context.ts", "src/lib/prisma.ts", "src/instrumentation.ts", "src/modules/media/http.ts"],
+      "testPaths": ["tests/unit/proxy-db-unavailable.test.ts", "tests/unit/route-context-errors.test.ts", "tests/unit/db-unavailable-mapping-inventory.test.ts", "tests/integration/db-unavailable-handlers.test.ts", "tests/integration/proxy-db-unavailable.test.ts"]
+    },
+    {
+      "issue": 412,
+      "scope": "Proxy: przy niedostępnej bazie (błąd rozpoznania hosta przed handlerem) kontrolowana odpowiedź 503 zamiast surowego 500: trasy API zwracają {code:TEMPORARILY_UNAVAILABLE} z Retry-After, X-Request-Id i no-store, strony prostą stronę błędu bez szczegółów z zamkniętym CSP; zdarzenie http.service_unavailable i licznik 5xx bez sekretów. Niedostępność rozpoznaje isDbUnavailableError (baza nie słucha, timeout lub brak trasy sieciowej, zerwane połączenie, PostgreSQL w trakcie zamykania/startu, brak wolnych połączeń, błędy przejściowe) na kształtach błędów zmierzonych na Prisma 7 z adapter-pg. Błąd konfiguracji połączenia i każdy inny nieoczekiwany błąd proxy to neutralne 500 {code:INTERNAL_ERROR} bez Retry-After, zgłaszane przez reportInternalError (http.internal_error). Odmowa hosta (404) bez zmian.",
+      "relatedRequirementIds": ["C-N060"],
+      "referenceScreenIds": [],
+      "unmappedStates": ["Backend; prosta strona błędu bez makiety, treść neutralna bez szczegółów."],
+      "codePaths": ["src/proxy.ts", "src/modules/observability/http-observe.ts"],
+      "testPaths": ["tests/unit/proxy-db-unavailable.test.ts", "tests/unit/transient-db-error.test.ts", "tests/integration/proxy-db-unavailable.test.ts", "tests/integration/host-proxy.test.ts"]
+    },
+    {
       "issue": 381,
       "scope": "Lista pojazdów: „Wyczyść filtry” (arkusz filtrów i stan „Brak wyników”) czyści wyszukiwanie, filtry i stronę, ale zachowuje sortowanie „Ostatnia zmiana”; sortowanie wraca do kolejności w ofercie wyłącznie przez „Przywróć domyślne” / przycisk sortowania (D-42, D-50). Zachowanie bez zmian wyglądu.",
       "relatedRequirementIds": ["FR-ADM-020", "FR-ADM-021", "FR-ADM-022"],
@@ -82,6 +100,14 @@
         "tests/integration/fleet-list.test.ts",
         "tests/integration/fleet-list-filters.test.ts"
       ]
+    },
+    {
+      "issue": 425,
+      "scope": "Lokalny seed fixture tworzy idempotentnie host platformy platform.localhost (obszar PLATFORM, bez firmy, ACTIVE), także po --reset, tylko w guardowanej ścieżce lokalnej; superadmin loguje się bez ręcznego psql. Wiersz dodany wcześniej ręcznie pod innym id jest zachowywany, ta sama nazwa w innym obszarze przerywa seed. Bez zmian UI i API.",
+      "relatedRequirementIds": ["D-29"],
+      "codePaths": ["scripts/seed-local-fixture.ts", "README.md", "docs/development/URUCHOMIENIE_MACOS.md"],
+      "testPaths": ["tests/integration/local-fixture.test.ts"],
+      "sharedWith": "Instrukcja docs/development/URUCHOMIENIE_MACOS.md: usunięty ręczny krok psql hosta platformy."
     },
     {
       "issue": 414,
@@ -261,6 +287,15 @@
       "unmappedStates": ["Stan „Wczytywanie wiadomości z czasu rozłączenia” i błąd dociągania luki bez osobnej planszy; wzorzec jak błąd wczytania rozmowy."],
       "codePaths": ["src/components/chat/chat-panel.tsx"],
       "testPaths": ["tests/unit/chat-panel.test.tsx", "tests/e2e/chat-refetch.spec.ts"]
+    },
+    {
+      "issue": 411,
+      "scope": "Czat: błąd dociągania luki po ready z backlog \"refetch\" (#393) to zwarty komunikat z „Spróbuj ponownie” przypięty nad historią rozmowy (poza przewijaną listą), więc komunikat i akcja są widoczne bez przewijania przy 320 i 390 px (firma i superadmin) niezależnie od miejsca na historię. Historia oddaje miejsce komunikatowi do progu 64 px; gdy i to się nie mieści, panel (w skrzynce superadmina poniżej 1024 px razem z jej kontenerem) rośnie tylko o brakującą część: pole wiadomości zostaje widoczne, a „Wyślij” jest osiągalne przewinięciem strony ponad dolną nawigacją; brak poziomego przewijania. Jedno ogłoszenie dla czytnika: komunikat nie ma własnej roli alert, ogłasza go region status (ponownie po nieudanym ponowieniu, „Uzupełniono…” po udanym). Akcja ma obrys fokusu z tokenów; ponowienie bez zmian. Porównanie z Penpotem DEFERRED (#263): brak planszy stanu, wzorzec Alert czatu w zwartej formie.",
+      "relatedRequirementIds": ["C-F132", "C-N066"],
+      "referenceScreenIds": ["TEN-11"],
+      "unmappedStates": ["Błąd dociągania luki bez osobnej planszy; wzorzec Alert jak błąd wczytania rozmowy, pozycja przypięta nad historią rozmowy."],
+      "codePaths": ["src/components/chat/chat-panel.tsx", "src/components/chat/chat.module.css", "src/components/platform/inbox.module.css"],
+      "testPaths": ["tests/unit/chat-panel.test.tsx", "tests/e2e/chat-gap-alert.spec.ts"]
     },
     {
       "issue": 377,
@@ -1238,6 +1273,24 @@
         "src/modules/organizations/archive.ts"
       ],
       "testPaths": ["tests/integration/chat-inbox-consistency.test.ts", "tests/integration/chat-inbox.test.ts"]
+    },
+    {
+      "issue": 173,
+      "scope": "Limit prób handshake WebSocket na źródło (60/60 s, w pamięci procesu WS, tabela ograniczona) przed zapytaniami do bazy dla /ws i /ws/platform: 429 z Retry-After. Źródło wyłącznie z serwerowego adaptera clientAddress i reguły trustedClientAddress jak w limitach HTTP: adapter lokalny (peer loopback), nagłówki klienta nieczytane; bez zaufanego adresu w produkcji 503 przed bazą, poza produkcją wspólne źródło unknown. Metryka i alert odrzuceń. Część lokalna wg D-54; adapter dostawcy za proxy otwarty do #90. Bez UI.",
+      "relatedRequirementIds": ["C-N001", "C-N004"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "docs/contracts/chat-realtime.md",
+        "docs/contracts/technical-limits-and-mfa-bootstrap.md",
+        "docs/runbooks/monitoring-incidents.md",
+        "docs/security/OWASP_CONTROLS.md",
+        "src/modules/chat/handshake-limit.ts",
+        "src/modules/chat/realtime.ts",
+        "src/modules/observability/alerts.ts",
+        "src/modules/observability/metrics.ts",
+        "src/server/realtime.ts"
+      ],
+      "testPaths": ["tests/unit/handshake-limit.test.ts", "tests/integration/ws-handshake-limit.test.ts", "tests/integration/realtime-process.test.ts", "tests/unit/observability-alerts.test.ts"]
     },
     {
       "issue": 159,

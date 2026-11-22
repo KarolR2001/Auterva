@@ -12,7 +12,7 @@ import { currentTrustedClientAddress } from "@/modules/ingress/client-address";
 import { parseHostAuthority } from "@/modules/tenancy/host-registry";
 import { MAX_AUTH_BODY_BYTES, readJsonBody } from "@/modules/tenancy/json-body";
 import { resolveRequestArea } from "@/modules/tenancy/request-context";
-import { reportInternalError } from "@/modules/observability/http-observe";
+import { reportInternalError, transientDbResponse } from "@/modules/observability/http-observe";
 
 const bodySchema = z.object({ password: z.string().min(12).max(256) }).strict();
 
@@ -26,6 +26,17 @@ function sameOrigin(request: Request, authority: string): boolean {
     return origin.origin === raw && origin.protocol === new URL(request.url).protocol
       && supplied?.hostname === host.hostname && supplied.port === host.port;
   } catch { return false; }
+}
+
+/** Database unavailable: the common retryable 503 (#437); anything else: the neutral 500. Both keep the token out of Referer. */
+function failure(error: unknown, requestId: string, respond: (body: object, status: number) => Response): Response {
+  const unavailable = transientDbResponse(error, requestId, "invitation");
+  if (!unavailable) {
+    reportInternalError(error, requestId, "invitation");
+    return respond({ code: "INTERNAL_ERROR" }, 500);
+  }
+  unavailable.headers.set("Referrer-Policy", "no-referrer");
+  return unavailable;
 }
 
 async function handleGET(request: Request, context: { params: Promise<{ token: string }> }) {
@@ -52,10 +63,7 @@ async function handleGET(request: Request, context: { params: Promise<{ token: s
     const invitation = await inspectCompanyInvitation(prisma, { token, hostname: host.hostname, now: new Date() });
     return respond(invitation?.organizationId === area.organizationId
       ? invitation : { code: "NOT_FOUND" }, invitation?.organizationId === area.organizationId ? 200 : 404);
-  } catch (error) {
-    reportInternalError(error, requestId, "invitation");
-    return respond({ code: "INTERNAL_ERROR" }, 500);
-  }
+  } catch (error) { return failure(error, requestId, respond); }
 }
 
 async function handlePOST(request: Request, context: { params: Promise<{ token: string }> }) {
@@ -91,10 +99,7 @@ async function handlePOST(request: Request, context: { params: Promise<{ token: 
       password: parsed.data.password, requestId });
     return activated?.organizationId === area.organizationId
       ? respond(activated, 200) : respond({ code: "NOT_FOUND" }, 404);
-  } catch (error) {
-    reportInternalError(error, requestId, "invitation");
-    return respond({ code: "INTERNAL_ERROR" }, 500);
-  }
+  } catch (error) { return failure(error, requestId, respond); }
 }
 
 export const GET = routeContext(handleGET);

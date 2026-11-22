@@ -183,6 +183,19 @@
   .convHeader a {
     margin-left: 0;
   }
+
+  /* #411: while the chat shows the gap-refetch notice (data-gap-error on the panel), the single-pane inbox may grow past the
+     viewport-fitted height, so nothing overflows it and ends up under the fixed bottom navigation. */
+  .inbox:has([data-gap-error]) {
+    height: auto;
+    min-height: max(360px, calc(100dvh - 190px));
+  }
+
+  .inbox:has([data-gap-error]) .convBody {
+    display: flex;
+    flex: 1 0 auto;
+    flex-direction: column;
+  }
 }
 
 @media (min-width: 1024px) {
