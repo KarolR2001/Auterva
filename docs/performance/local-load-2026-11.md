@@ -98,3 +98,46 @@ Wszystkie liczby p95 i nasycenia w tabelach powyżej pochodzą z przebiegów z 1
 - WS tylko na jednej instancji i bez reconnectu z kursorem; zerwanie zależności pod obciążeniem: `not-run` (scenariusz QA).
 - Zapis blokady z uploadem i Core Web Vitals: poza zakresem.
 - Przebieg „przed" dla zapytań listy/siatki jest z poprzedniej wersji kodu uruchomionej na tym samym buildzie bazowym, ale w innym momencie obciążenia maszyny; porównanie jakościowe, rozstrzygające są plany EXPLAIN.
+
+## Konflikty zapisu i zerwanie bazy pod obciążeniem (#59, część lokalna 059.L2, 22.11.2026)
+
+Uzupełnia pomiary powyżej o dwa kryteria #59 nieobjęte wcześniej: równoległe konflikty przez HTTP pod ruchem odczytowym oraz zerwanie zależności (PostgreSQL) w trakcie obciążenia. Ten sam fixture i dane P2 (2 firmy × 100 aut × 100 000 okresów), produkcyjny build Next za `pnpm perf:ingress`, limity produktu włączone, jedna maszyna (Apple M4, Node 24.20.0, PostgreSQL 18.6, load maszyny 2-3). Skrypty: `pnpm perf:fault -- --port <port ingressu> [--phase conflict,drop]` (HTTP) i `pnpm perf:ws-fault` (prawdziwy serwer realtime w procesie). Odmawiają pracy poza własnym fixture. Wyniki w `.local/perf/fault.json` i `.local/perf/ws-fault.json`. Odtworzenie: jak wyżej (`local-fixture.sh start`, `migrate deploy`, `perf:generate -- --profile p2`, `pnpm build`, `PORT=<base+14> pnpm perf:ingress`), po limicie zapisu odczekać minutę między przebiegami `perf:fault`.
+
+### Konflikty (HTTP, 14 rund: 2 firmy równolegle, w rundzie 4 równoległe `POST` tych samych dat jednego auta, tło 20 req/s odczytów publicznych)
+
+| Miara | Wynik |
+|---|---|
+| Rundy z dokładnie jednym `201` i resztą `409` | 14 / 14 (łącznie 14 × `201`, 42 × `409`) |
+| Publiczny odczyt tuż po zapisie: stary pozytywny wynik | 0 z 14 (zawsze `available:false`) |
+| Publiczny odczyt tuż po usunięciu: stary negatywny wynik | 0 z 14 |
+| Odpowiedzi z danymi obcej firmy | 0 |
+| Odczyty tła (n = 500) | 500 × `200`, p95 12,8 ms, p99 15,6 ms, 0 błędów |
+
+### Zerwanie bazy w trakcie obciążenia (HTTP; `pg_ctl stop -m immediate` w 6. s, start w 12. s z 24 s)
+
+Obciążenie: 10 req/s odczytów publicznych (sprawdzenie dostępności i katalog) oraz 2 zapisy blokad/s przez adminów obu firm. Wynik poprawności, nie latencji.
+
+| Okres | Odpowiedzi |
+|---|---|
+| przed (0-6 s) | 60 × `200` odczyt, 12 × `201` zapis |
+| baza wyłączona (6-12,3 s) | 61 × `503` odczyt, 13 × `503` zapis, 1 × `200` odczyt (żądanie przed ostatecznym zamknięciem) |
+| po starcie bazy | 118 × `200` odczyt, 23 × `201` zapis |
+
+- Żadnej odpowiedzi innej niż `200`/`201`/`503`: brak `500`, zawieszeń i wyjątków połączenia. Log serwera: wyłącznie `http.service_unavailable` (`P1001`), czyli ścieżka z #412/#437.
+- Zatwierdzone operacje: 35 zapisów potwierdzonych `201`, 0 brakujących w bazie po powrocie; 0 wierszy zatwierdzonych bez potwierdzenia. Żaden zapis z `503` nie zostawił śladu.
+- Odzyskanie bez restartu serwera: pierwszy `200` odczytu w chwili startu bazy (0 s po `pg_ctl start -w`), pierwszy `201` zapisu po 0,2 s.
+
+### WebSocket przy zerwaniu bazy (serwer realtime w procesie; nadawca = admin, odbiorca = superadmin, obcy admin drugiej firmy; 1 wiadomość/s przez 24 s, ten sam schemat stop/start)
+
+24 wiadomości wysłane, 24 potwierdzone `sent`, 24 zapisane, 0 potwierdzonych a brakujących, 0 zdublowanych zapisów, odbiorca dostał wszystkie 24 po jednym razie (0 braków, 0 duplikatów), 0 dostarczeń do obcej firmy, 0 wierszy w złej firmie. W czasie awarii serwer odpowiadał ramką `INTERNAL_ERROR` na `send` (bez `sent`), klient ponawiał ten sam `clientMessageId` i po powrocie bazy wiadomość była zapisana raz (deduplikacja C-F131); ponowienia trafiły też w limit wysyłki (`RATE_LIMITED`), który nie został wyłączony. Gniazda pozostały otwarte (jedno połączenie na klienta), więc ten przebieg **nie ćwiczy** reconnectu z kursorem po stronie klienta; to pokrywają testy integracyjne czatu (`chat-realtime`).
+
+### Zapytanie listy: kształt z aplikacji (uwaga CR #402)
+
+Zmierzono na P2 zapytanie w kształcie aplikacji (`vehicleId = ANY($1)`, 100 identyfikatorów z parametrem wiązanym, plan generyczny) oraz wariant `unnest` + `EXISTS` (jedno wyszukanie na auto). Oba korzystają z `availability_no_overlap`, a `vehicleId` jest warunkiem indeksu (`Index Cond: vehicleId = ANY($1) AND daterange && ...`): `ANY` 401 buforów, 0,73 ms; `unnest` 396 buforów, 0,62 ms. Wariant nie daje istotnej poprawy, więc zapytania i indeksy **nie zostały zmienione** (poprzednia nota o 309 buforach i warunku tylko po zakresie dat dotyczyła innego momentu danych; przy 401 buforach plan jest nadal ok. 4x tańszy od 1531 buforów skanu relacji). Brak nowej migracji.
+
+### Ograniczenia i `not-run` (059.L2)
+
+- Lokalnie, jedna maszyna, bez sieci/TLS/Cloudflare. Zerwanie bazy to zatrzymanie procesu PostgreSQL (crash), nie awaria sieci ani pułapu połączeń u dostawcy.
+- Zerwanie innych zależności (storage, poczta, DNS) i WS na wielu instancjach: `not-run`.
+- Pomiar na stagingu/hostingu docelowym, ruch docelowy i zatwierdzony profil wielu firm: `not-run`, zależy od #90 i #3.
+- Konflikty: 14 rund (56 żądań) to dowód poprawności, nie pomiar latencji zapisu; p95 zapisu patrz wyżej.
