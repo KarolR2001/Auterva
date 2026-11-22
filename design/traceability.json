@@ -64,6 +64,14 @@
       "sharedWith": "Zależy od #383 (PR #395)."
     },
     {
+      "issue": 425,
+      "scope": "Lokalny seed fixture tworzy idempotentnie host platformy platform.localhost (obszar PLATFORM, bez firmy, ACTIVE), także po --reset, tylko w guardowanej ścieżce lokalnej; superadmin loguje się bez ręcznego psql. Wiersz dodany wcześniej ręcznie pod innym id jest zachowywany, ta sama nazwa w innym obszarze przerywa seed. Bez zmian UI i API.",
+      "relatedRequirementIds": ["D-29"],
+      "codePaths": ["scripts/seed-local-fixture.ts", "README.md", "docs/development/URUCHOMIENIE_MACOS.md"],
+      "testPaths": ["tests/integration/local-fixture.test.ts"],
+      "sharedWith": "Instrukcja docs/development/URUCHOMIENIE_MACOS.md: usunięty ręczny krok psql hosta platformy."
+    },
+    {
       "issue": 414,
       "scope": "Sesja logowania w obu panelach: jawnie 30 dni od ostatniego odświeżenia (D-61), odświeżanie najwyżej raz na dobę. Backend bez zmian UI i API; reauth, unieważnianie sesji i WebSocket bez zmian.",
       "relatedRequirementIds": ["D-61", "D-05", "FR-ADM-081"],
