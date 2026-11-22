@@ -4,6 +4,10 @@ Instrukcja krok po kroku dla osoby, która po restarcie Maca chce uruchomić Aut
 
 Wszystko działa wyłącznie na `127.0.0.1` i lokalnych danych (`.local/`, ignorowane przez Git). Nie wpisuj tu produkcyjnych danych ani nie publikuj plików `.env`, `.local/fixture-9/secrets.env` i `.local/fixture-9/access.json`.
 
+> **Warunkowość opisów (stan: do czasu scalenia wskazanych PR):**
+> - Host `platform.localhost` tworzy `seed-local-fixture.ts` dopiero po scaleniu PR #432. Do tego czasu dodaj go ręcznym `INSERT` z sekcji 4 (po każdym `--reset` ponownie). Po #432 ten krok jest zbędny (`ON CONFLICT DO NOTHING` pozostaje bezpieczny).
+> - Proxy `/ws` dla czatu na żywo (przekazanie WebSocket z `pnpm dev` / `start:local-ingress` do procesu `dev:ws`) dochodzi z PR #438. Do tego czasu obowiązuje „ograniczenie lokalne” w sekcji 4 (czat przez HTTP, wskaźniki na żywo bez proxy).
+
 ## Szybki start: kolejność komend (po restarcie Maca)
 
 Szczegóły i objaśnienia są w sekcjach poniżej. Wartość `LOCAL_PORT_BASE` (tu `44200`) musi być taka sama w każdej karcie. Karty otwieraj w Terminalu przez `Cmd+T`; każda zaczyna od `cd ~/Developer/Auterva && nvm use 24.20.0`.
@@ -23,6 +27,7 @@ pnpm exec prisma migrate deploy
 pnpm exec tsx scripts/seed-local-fixture.ts
 scripts/local-fixture.sh seed-media
 scripts/local-fixture.sh status
+# do scalenia PR #432: ręczny INSERT hosta platform.localhost (sekcja 4), inaczej logowanie superadmina da 404
 ```
 
 **Karta 2 — aplikacja (wybierz jedno):**
@@ -148,9 +153,9 @@ Routing wybiera obszar po nagłówku `Host` (port jest ignorowany). Domeny `*.lo
 |---|---|---|
 | Strona publiczna firmy A / B | `company-a.localhost`, `company-b.localhost` | `http://company-a.localhost:44210/` |
 | Panel firmy A / B | `admin.company-a.localhost`, `admin.company-b.localhost` | `http://admin.company-a.localhost:44210/admin/login/` |
-| Platforma (superadmin) | **brak w seedzie** — patrz niżej | `http://platform.localhost:44210/login/` |
+| Platforma (superadmin) | **brak w seedzie do scalenia PR #432** — patrz niżej | `http://platform.localhost:44210/login/` |
 
-Seed nie tworzy hosta platformy. Dla logowania superadmina dodaj lokalnie (raz na bazę; reset bazy go usuwa), zmieniając port na swój `LOCAL_PORT_BASE`:
+Do scalenia PR #432 seed nie tworzy hosta platformy (po #432 tworzy go sam i ten krok jest zbędny). Dla logowania superadmina dodaj lokalnie (raz na bazę; reset bazy go usuwa), zmieniając port na swój `LOCAL_PORT_BASE`:
 
 ```sh
 psql -h 127.0.0.1 -p 44200 -d auterva_fixture_9 -c \
@@ -219,7 +224,7 @@ WS_PORT=44211 pnpm dev:ws
 
 `.env` ustawia `WS_PORT=3312`; powyższe nadpisanie unika kolizji z innymi fixture. Domyślnie przyjmuje `Host` tylko `127.0.0.1:<WS_PORT>`; kontrakt: [chat-realtime](../contracts/chat-realtime.md) (`WS_HOST`, `WS_ALLOWED_HOSTS`).
 
-Ograniczenie lokalne (do potwierdzenia przez właściciela): przeglądarka łączy się z `ws://<host strony>/ws…` (ten sam host i port co strona), a ani `next dev`, ani `start:local-ingress` nie przekazują połączeń WebSocket do procesu `ws`. Lokalnie więc wiadomości czatu zapisują się i odświeżają przez HTTP, a wskaźniki „na żywo” (pisanie, status w czasie rzeczywistym) wymagają zewnętrznego reverse proxy przed Next i WS albo testów procesu: `tests/integration/realtime-process.test.ts`.
+Ograniczenie lokalne (obowiązuje do scalenia PR #438 z proxy `/ws`; do potwierdzenia przez właściciela): przeglądarka łączy się z `ws://<host strony>/ws…` (ten sam host i port co strona), a ani `next dev`, ani `start:local-ingress` nie przekazują połączeń WebSocket do procesu `ws`. Lokalnie więc wiadomości czatu zapisują się i odświeżają przez HTTP, a wskaźniki „na żywo” (pisanie, status w czasie rzeczywistym) wymagają zewnętrznego reverse proxy przed Next i WS albo testów procesu: `tests/integration/realtime-process.test.ts`.
 
 ## 5. Logowanie
 
