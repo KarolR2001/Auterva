@@ -1087,7 +1087,7 @@
     },
     {
       "issue": 59,
-      "scope": "Pomiar obciążenia profilu P1 (zatwierdzony) i P2 (proponowany w #90), indeks i zapytanie sprawdzenia dostępności, rzut kalendarza; harness poza zwykłymi testami (pnpm perf:*), staging i profil wielu firm not-run.",
+      "scope": "Pomiar obciążenia profilu P1 (zatwierdzony) i P2 (proponowany w #90), indeks i zapytanie sprawdzenia dostępności, rzut kalendarza; harness poza zwykłymi testami (pnpm perf:*); część lokalna 059.L2: konflikty zapisu pod ruchem i zerwanie bazy w trakcie obciążenia HTTP i WS (perf:fault, perf:ws-fault). Staging, ruch docelowy i profil wielu firm not-run (#90).",
       "relatedRequirementIds": ["NFR-PERF-002", "C-N060", "C-N062", "C-N066", "D-15"],
       "referenceScreenIds": [],
       "codePaths": [
@@ -1103,7 +1103,10 @@
         "scripts/perf/report.ts",
         "scripts/perf/legacy-availability.ts",
         "scripts/perf/target.ts",
+        "scripts/perf/fault-load.ts",
+        "scripts/perf/ws-fault.ts",
         "docs/performance/PERF_REPORT.md",
+        "docs/performance/local-load-2026-11.md",
         "docs/contracts/availability-reads.md"
       ],
       "testPaths": ["tests/integration/availability-query-regression.test.ts", "tests/unit/perf-generator.test.ts"]
