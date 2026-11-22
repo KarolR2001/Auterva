@@ -50,6 +50,7 @@ const fixtureIdentities: ReadonlyArray<{
   { table: "HostMapping", id: id(82), fields: { organizationId: FIXTURE.organizations[0], hostname: "admin.company-a.localhost", area: "COMPANY_ADMIN" } },
   { table: "HostMapping", id: id(83), fields: { organizationId: FIXTURE.organizations[1], hostname: "company-b.localhost", area: "COMPANY_PUBLIC" } },
   { table: "HostMapping", id: id(84), fields: { organizationId: FIXTURE.organizations[1], hostname: "admin.company-b.localhost", area: "COMPANY_ADMIN" } },
+  { table: "HostMapping", id: id(85), fields: { organizationId: null, hostname: "platform.localhost", area: "PLATFORM" } },
 ];
 
 async function assertFixtureIdentities(db: Client) {
@@ -103,6 +104,11 @@ export async function seedLocalFixture(db: Client, env: Record<string, string | 
       }
     }
     await assertFixtureIdentities(db);
+    // A platform host added by hand (older macOS guide: psql with a random id) is reused; any other owner is refused.
+    const platformHost = await db.query('SELECT area FROM "HostMapping" WHERE lower(btrim(hostname)) = $1 FOR UPDATE', ["platform.localhost"]);
+    if (platformHost.rows.some((row) => row.area !== "PLATFORM")) {
+      throw new Error("Fixture identity collision in HostMapping; refusing to overwrite data");
+    }
     if (reset) {
       const orgs = [...FIXTURE.organizations];
       // Delete only IDs created by this seed. Unexpected dependants make the transaction fail.
@@ -119,7 +125,7 @@ export async function seedLocalFixture(db: Client, env: Record<string, string | 
       await db.query('DELETE FROM "AuditLog" WHERE id = ANY($1::uuid[])', [[id(91), id(92)]]);
       await db.query('DELETE FROM "ServiceAccess" WHERE "organizationId" = ANY($1::uuid[])', [orgs]);
       await db.query('DELETE FROM "SiteSettings" WHERE "organizationId" = ANY($1::uuid[])', [orgs]);
-      await db.query('DELETE FROM "HostMapping" WHERE id = ANY($1::uuid[])', [[id(81), id(82), id(83), id(84)]]);
+      await db.query('DELETE FROM "HostMapping" WHERE id = ANY($1::uuid[])', [[id(81), id(82), id(83), id(84), id(85)]]);
       await db.query('DELETE FROM "session" WHERE "userId" = ANY($1::text[])', [FIXTURE.users]);
       await db.query('DELETE FROM "account" WHERE "userId" = ANY($1::text[])', [FIXTURE.users]);
       await db.query('DELETE FROM "twoFactor" WHERE "userId" = ANY($1::text[])', [FIXTURE.users]);
@@ -130,6 +136,8 @@ export async function seedLocalFixture(db: Client, env: Record<string, string | 
       await db.query('INSERT INTO "Organization" (id, slug, name, "firstAdminRegisteredAt") VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING', [orgId, slug, name, "2026-10-20T10:00:00Z"]);
       await db.query('INSERT INTO "SiteSettings" ("organizationId", "publicName", "showPrices") VALUES ($1, $2, true) ON CONFLICT ("organizationId") DO NOTHING', [orgId, name]);
     }
+    // Local superadmin login host (PLATFORM has no company); only this guarded fixture path creates it.
+    await db.query('INSERT INTO "HostMapping" (id, "organizationId", hostname, area, status) VALUES ($1,NULL,$2,$3,$4) ON CONFLICT DO NOTHING', [id(85), "platform.localhost", "PLATFORM", "ACTIVE"]);
     for (const [hostId, companyIndex, hostname, area] of [
       [id(81), 0, "company-a.localhost", "COMPANY_PUBLIC"],
       [id(82), 0, "admin.company-a.localhost", "COMPANY_ADMIN"],
