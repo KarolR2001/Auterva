@@ -451,3 +451,18 @@ test("#173: WS_HANDSHAKE_FLOOD fires on a burst of limited handshakes and stays 
   drive(loud, 6, () => { many += 100; return [tgt("ws", "auterva_ws_handshake_limited_total", many)]; }, 14);
   expect(loud.firing().map((a) => a.id)).toContain("WS_HANDSHAKE_FLOOD");
 });
+
+test("#58: decoder unavailable and busy refusals alert as tickets and clear on recovery; image refusals do not", () => {
+  const engine = new AlertEngine(rules, { groupWindowMs: 0 });
+  let unavailable = 0, busy = 0, complex = 0;
+  const make = (m: number) => {
+    if (m >= 5 && m < 8) { unavailable += 1; busy += 4; complex += 20; }
+    return [s("auterva_media_decodes_total", unavailable, { result: "unavailable", target: "web" }),
+      s("auterva_media_decodes_total", busy, { result: "busy", target: "web" }),
+      s("auterva_media_decodes_total", complex, { result: "too_complex", target: "web" })];
+  };
+  const out = drive(engine, 40, make);
+  const ids = out.flatMap((n) => [...n.firing.map((a) => `F${a.id}`), ...n.resolved.map((a) => `R${a.id}`)]);
+  expect(ids).toEqual(["FMEDIA_DECODER_UNAVAILABLE", "FMEDIA_BUSY", "RMEDIA_DECODER_UNAVAILABLE", "RMEDIA_BUSY"].sort((a, b) => ids.indexOf(a) - ids.indexOf(b)));
+  expect(ids.some((id) => id.includes("COMPLEX"))).toBe(false);
+});
