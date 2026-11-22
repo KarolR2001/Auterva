@@ -93,6 +93,26 @@
       "sharedWith": "Zależy od #383 (PR #395)."
     },
     {
+      "issue": 402,
+      "scope": "Lokalny test obciążenia przez prawdziwy HTTP (produkcyjny Next za ingressem pomiarowym), profil P2 (2 firmy x 100 aut x 100 000 okresów), profilowanie zapytań i EXPLAIN; zapytania listy floty (blokady dziś) i siatki floty czytają blokady przez GiST availability_no_overlap zamiast filtra relacji po wszystkich blokadach firmy (bez nowej migracji). Staging i profil zatwierdzony: not-run (#90).",
+      "relatedRequirementIds": ["NFR-PERF-002", "C-N060", "C-N062", "D-54"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "scripts/perf/http-load.ts",
+        "scripts/perf/load-ingress.ts",
+        "scripts/perf/pg-log-top.ts",
+        "scripts/perf/explain.ts",
+        "src/modules/availability/read.ts",
+        "src/modules/fleet/read.ts",
+        "docs/performance/local-load-2026-11.md"
+      ],
+      "testPaths": [
+        "tests/integration/availability-fleet-calendar.test.ts",
+        "tests/integration/fleet-list.test.ts",
+        "tests/integration/fleet-list-filters.test.ts"
+      ]
+    },
+    {
       "issue": 419,
       "scope": "Trwałe usunięcie danych firmy 12 miesięcy po archiwizacji (D-58): dzienny, idempotentny job COMPANY_PURGE w media-workerze; start pod blokadą wiersza firmy (purgeStartedAt, nieodwracalny trigger), wiersze firmy w paczkach (pojazdy, blokady, feedy, eksporty, treści/ustawienia, media, czat, hosty/domena, zaproszenia, receipty, konto administratora z MFA i sesjami), obiekty storage z ponowieniem po awarii, zanonimizowany szkielet Organization (purgedAt) dla audytu 365 dni. Po starcie brak zapisu, przywrócenia (409 COMPANY_PURGED) i restore z kopii. Audyt i logi bez treści. Karta firmy superadmina: purge.scheduledAt/startedAt/completedAt w API. Bez nowego ekranu.",
       "relatedRequirementIds": ["C-F073", "C-F074", "C-F077", "D-58"],
