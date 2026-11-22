@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { actor, response } from "@/modules/fleet/http";
 import { getServiceStatus } from "./read";
-import { reportInternalError } from "@/modules/observability/http-observe";
+import { reportInternalError, transientDbResponse } from "@/modules/observability/http-observe";
 
 /**
  * GET service status and delivered panel reminders. COMPANY_ADMIN reads the company of its own
@@ -18,5 +18,8 @@ export async function readServiceStatus(request: Request, area: "COMPANY_ADMIN" 
     if ("error" in access && access.error) return access.error;
     const result = await getServiceStatus(prisma, access.organizationId!, new Date());
     return result ? response(result, 200, requestId) : response({ code: "NOT_FOUND" }, 404, requestId);
-  } catch (error) { return response({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "reminders")); }
+  } catch (error) {
+    return transientDbResponse(error, requestId, "reminders")
+      ?? response({ code: "INTERNAL_ERROR" }, 500, reportInternalError(error, requestId, "reminders"));
+  }
 }
