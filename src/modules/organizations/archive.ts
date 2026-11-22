@@ -32,7 +32,7 @@ async function begin(tx: Prisma.TransactionClient, input: CompanyArchiveOperatio
     SELECT id FROM "Organization" WHERE id = ${input.organizationId}::uuid FOR NO KEY UPDATE`;
   if (rows.length !== 1) throw new Error("COMPANY_NOT_FOUND");
   return tx.organization.findUniqueOrThrow({ where: { id: input.organizationId },
-    select: { version: true, archivedAt: true, publicUnlockRequired: true } });
+    select: { version: true, archivedAt: true, publicUnlockRequired: true, purgeStartedAt: true } });
 }
 
 /**
@@ -122,6 +122,9 @@ export async function restoreCompany(db: PrismaClient, input: CompanyArchiveOper
   if (!validVersion(input.expectedVersion)) throw new Error("COMPANY_VERSION_CONFLICT");
   return db.$transaction(async (tx) => {
     const company = await begin(tx, input);
+    // #419 (D-58): once the purge started the data is (being) deleted; nothing can be restored. Checked before the
+    // version so a stale client still gets the operator message, not a version conflict.
+    if (company.purgeStartedAt) throw new Error("COMPANY_PURGED");
     if (company.version !== input.expectedVersion) throw new Error("COMPANY_VERSION_CONFLICT");
     if (!company.archivedAt) throw new Error("COMPANY_NOT_ARCHIVED");
     const changed = await tx.organization.updateMany({ where: { id: input.organizationId,

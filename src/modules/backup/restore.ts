@@ -76,7 +76,7 @@ export async function putRestoredObject(storage: MediaStorage, entry: MediaEntry
 /**
  * After a restore nothing inherited may authenticate or act: sessions, MFA challenges, reset proofs, invitations,
  * queued mail and mutating jobs are neutralised. `organizationId` limits the sweep to one company plus platform
- * sessions that had access to it. AUDIT_RETENTION jobs are idempotent purges and stay runnable.
+ * sessions that had access to it. AUDIT_RETENTION and COMPANY_PURGE jobs are idempotent purges and stay runnable.
  */
 export async function quarantineRestoredState(db: Queryable, input: { organizationId: string | null; now: Date }) {
   const scoped = input.organizationId !== null;
@@ -107,7 +107,7 @@ export async function quarantineRestoredState(db: Queryable, input: { organizati
   const jobs = (await db.query(`UPDATE "Job" SET status = 'SKIPPED', "errorCode" = '${QUARANTINE_CODE}', "leaseToken" = NULL,
     "lockedUntil" = NULL, payload = CASE WHEN starts_with(kind, 'MAIL_')
       THEN jsonb_build_object('digest', payload->>'digest') ELSE payload END
-    WHERE status IN ('PENDING', 'RUNNING', 'UNCERTAIN') AND kind <> 'AUDIT_RETENTION'${scoped ? ` AND "organizationId" = $1` : ""}`,
+    WHERE status IN ('PENDING', 'RUNNING', 'UNCERTAIN') AND kind NOT IN ('AUDIT_RETENTION', 'COMPANY_PURGE')${scoped ? ` AND "organizationId" = $1` : ""}`,
   params)).rowCount ?? 0;
   // #328: an export file made before the restore must not outlive it. Rows only change state here; the sweep removes bytes.
   const exportTable = (await db.query(`SELECT to_regclass('"CompanyExport"') IS NOT NULL AS present`)).rows[0]?.present === true;

@@ -330,7 +330,7 @@ Prefiksy wyznaczają dozwolony obszar hosta; poniższe URI są projektem technic
 | `GET/POST /api/platform/companies`, `GET/PATCH /api/platform/companies/[id]` | Prerejestracja z idempotencją, brak publicznego signup |
 | `POST /api/platform/companies/[id]/invitations` | Nowe wydanie versus retry; unieważnienie poprzedniego linku |
 | `PATCH /api/platform/companies/[id]/service-access` | Wyłącznie superadmin, wersja okresu, audyt i harmonogram |
-| `POST /api/platform/companies/[id]/archive`, `/restore`, `/public-unlock` | Odrębne skutki, idempotencja; bez trwałego delete firmy |
+| `POST /api/platform/companies/[id]/archive`, `/restore`, `/public-unlock` | Odrębne skutki, idempotencja; bez trwałego delete firmy (usuwa tylko job D-58 po 12 miesiącach archiwum; potem `restore` → `409 COMPANY_PURGED`) |
 | `PUT /api/platform/companies/[id]/domains`, `POST …/domains/verify`, `POST …/domains/activate` | Weryfikacja własności/DNS/TLS przed aktywacją |
 | `/api/platform/companies/[id]/vehicles/...` | Te same use cases floty co admin; własna sesja superadmina i wybrana firma |
 | `GET/POST /api/admin/chat/messages`, `GET/POST /api/platform/companies/[id]/chat/messages` | Historia z kursorem i wysyłka przez jeden use case; bez uploadu/załączników |
@@ -378,7 +378,7 @@ Prefiksy wyznaczają dozwolony obszar hosta; poniższe URI są projektem technic
 - Dostawca poczty: techniczny adapter API/SMTP, konfiguracja nadawcy i SPF/DKIM/DMARC, test dostarczalności na staging. Na preview można użyć darmowego planu dostawcy transakcyjnego; produkcja wymaga zweryfikowanego nadawcy i limitu odpowiedniego do ruchu.
 - DNS/TLS: ręcznie inicjowana przez superadmina konfiguracja z automatyczną kontrolą stanu; aktywacja dopiero po poprawnym routingu/certyfikacie. Bez zakupu domen w aplikacji.
 - Kontrakt techniczny domen: dowód przypisania konkretnej domeny do firmy, np. losowy rekord DNS TXT, ponowna weryfikacja po zmianie właściciela/przypisania; globalna unikalność hosta. Nie przyjmować wildcardów, IP, localhost ani dowolnych URL do pobrania; walidacja DNS/TLS nie może odpytywać prywatnej sieci.
-- Brak cyklicznego purge firm i czatów. Sprzątanie nieudanych tymczasowych uploadów jest osobną operacją techniczną, która nie usuwa przypisanych danych firmy.
+- Jedyny cykliczny purge danych firmy i czatu to dzienny job `COMPANY_PURGE`: trwałe usunięcie 12 miesięcy po archiwizacji (D-58, #419; [kontrakt](contracts/company-archive-restore.md#trwałe-usunięcie-12-miesięcy-po-archiwizacji-d-58-419)). Firma aktywna i zarchiwizowana krócej nie traci danych. Sprzątanie nieudanych tymczasowych uploadów jest osobną operacją techniczną, która nie usuwa przypisanych danych firmy.
 
 ## 16. Cache, SSR i PWA
 
@@ -446,7 +446,7 @@ Prefiksy wyznaczają dozwolony obszar hosta; poniższe URI są projektem technic
 - Metryki: latency/5xx, odmowy auth/tenant, konflikty zapisu, lag/retry zadań, skuteczność poczty, zdrowie WebSocket, upload, baza i storage. To monitoring techniczny, nie dodatkowe KPI biznesowe PLT.
 - Alerty: niedostępność, 5xx, brak bazy/storage, niewykonane backupy/migracje, kolejka zadań, TLS i wzrost błędnych logowań.
 - Backup bazy i mediów codziennie, z retencją 30 dni; dla bazy preferowane PITR. Cel RPO wynosi 24 h, a RTO 4 h. Właściciel/operator utrzymuje procedurę restore, testuje ją okresowo i potwierdza odtworzenie jednej firmy bez nadpisywania innych.
-- Logi bezpieczeństwa i audytowe przechowywać 365 dni, a zwykłe logi aplikacyjne 30 dni. Retencja i restore nie są automatycznym purge danych firmy.
+- Logi bezpieczeństwa i audytowe przechowywać 365 dni, a zwykłe logi aplikacyjne 30 dni. Retencja logów i restore nie są automatycznym purge danych firmy; dane firmy usuwa wyłącznie job D-58 (12 miesięcy po archiwizacji).
 - Media z wersjonowaniem/ochroną usunięcia; restore jednej firmy wykonywać najpierw do odrębnego środowiska, aby nie nadpisać innych firm. Archiwizacja nie jest backupem.
 
 ## 20. Kolejność realizacji
