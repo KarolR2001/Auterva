@@ -28,7 +28,7 @@ export default async function CompanyPage({ params, searchParams }: Props) {
       area="platform"
       accessState="allowed"
       expectedSessionId={actor.sessionId}
-      title={company.name ?? "Firma"}
+      title={company.purge.completedAt ? "Firma usunięta" : (company.name ?? "Firma")}
       currentPath="/firmy"
     >
       <CompanyCard initial={JSON.parse(JSON.stringify(company))} justSaved={saved} />

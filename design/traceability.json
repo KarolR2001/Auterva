@@ -3,6 +3,27 @@
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
+      "issue": 445,
+      "scope": "Karta firmy i lista firm superadmina pokazują stan trwałego usunięcia danych (D-58, #419): zaplanowana data (najwcześniej archiwizacja + 12 mies., Europe/Warsaw) z informacją o nieodwracalności po starcie, termin minął, trwa usuwanie (bez przywrócenia, odblokowania, wejść do czatu i floty) oraz oznaczenie „Usunięta” po purge (tekst, ikona i obramowanie; zanonimizowany szkielet bez nazwy, sluga i e-maila, bez akcji). Dialog archiwizacji zastępuje „Trwałe usunięcie nie jest dostępne” opisem 12 miesięcy. DECYZJA WŁAŚCICIELA 22.11.2026: stan makiety PLT-03 dla tych widoków nie istnieje i nie jest czekany; UI oparto na istniejących komponentach aplikacji (notice, badge, chip, panelCard, tokeny status-*), bez zmiany makiety i bez odczytu Penpota.",
+      "relatedRequirementIds": ["C-F073", "C-F074", "C-F077", "D-58"],
+      "referenceScreenIds": ["PLT-03", "PLT-01"],
+      "scenarioStates": {
+        "card": "PLT-03 / brak stanu purge w makiecie; ArchiveSection i CompanyStatus jako wzorzec wyglądu (decyzja właściciela)",
+        "list": "PLT-01 / brak stanu purge w makiecie; wiersz z badgeArchived jako wzorzec (decyzja właściciela)"
+      },
+      "unmappedStates": ["PLT-03: zaplanowane usunięcie, w trakcie i „Usunięta” oraz PLT-01: wiersz „Usunięta” nie mają stanów w Penpocie; UI zbudowano z istniejących komponentów (decyzja właściciela 22.11.2026), makieta bez zmian."],
+      "codePaths": [
+        "src/components/platform/company-ops.tsx",
+        "src/components/platform/company-card.tsx",
+        "src/components/platform/company-list.tsx",
+        "src/components/platform/platform-api.ts",
+        "src/components/platform/platform.module.css",
+        "src/app/firmy/[organizationId]/page.tsx"
+      ],
+      "testPaths": ["tests/unit/platform-companies.test.tsx", "tests/e2e/platform-company-purge.spec.ts", "tests/e2e/platform-companies.spec.ts"],
+      "sharedWith": "Dane: purge z #419/#433 (docs/contracts/platform-companies-read.md); wzorzec stanów archiwizacji z #49."
+    },
+    {
       "issue": 49,
       "scope": "Karta firmy superadmina: potwierdzenia archiwizacji, przywrócenia i odblokowania z nazwą firmy, skutkami i zachowaniem danych (bez trwałego kasowania); restore konta rozdzielony od odblokowania strony publicznej z rzeczywistym stanem publikacji i dalszymi krokami; niepewny wynik (5xx, brak odpowiedzi) kończy się odczytem stanu i komunikatem zgodnym z faktem; data archiwizacji na liście. Otwarty panel firmy po archiwizacji kończy się stanem odebranego dostępu (sesja unieważniona), nie banerem wygaśnięcia usługi.",
       "relatedRequirementIds": ["C-F069", "C-F073", "C-F074", "C-F075", "C-F076", "C-F077", "C-F078", "C-F079", "C-F080", "C-F147", "C-R015"],

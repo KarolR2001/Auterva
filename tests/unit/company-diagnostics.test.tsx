@@ -362,6 +362,7 @@ describe("karta Diagnostyka (#78)", () => {
 describe("karta firmy: Diagnostyka i sekcja Domena własna (#78)", () => {
   const card: CompanyCardDto = {
     organizationId: id, slug: "alfa", name: "Alfa", organizationVersion: 1, archivedAt: null,
+    purge: { scheduledAt: null, startedAt: null, completedAt: null },
     registration: { status: "REGISTERED", firstAdminRegisteredAt: "2026-11-01T10:00:00.000Z" },
     account: { id: "u1", name: null, email: "a@b.pl", emailVerified: true, mfaEnabled: true, disabledAt: null },
     period: { paidThrough: null, trialGranted: true, trialStartedAt: null, trialEndsAt: null, paidEndsAt: null,

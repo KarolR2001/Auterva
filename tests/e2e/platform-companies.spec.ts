@@ -85,7 +85,7 @@ test("superadmin: search, card, period save, version conflict and archive keep o
     await page.setViewportSize({ width: 1440, height: 900 });
     // Cancel leaves the company untouched; the dialog names the company and what is kept.
     await page.getByRole("button", { name: "Archiwizuj firmę" }).click();
-    await expect(page.getByRole("dialog")).toContainText("Trwałe usunięcie firmy nie jest dostępne");
+    await expect(page.getByRole("dialog")).toContainText("Dane firmy zostaną trwale usunięte 12 miesięcy po archiwizacji");
     await page.getByRole("button", { name: "Anuluj" }).click();
     expect((await db.organization.findUniqueOrThrow({ where: { id: org } })).archivedAt).toBeNull();
     await page.getByRole("button", { name: "Archiwizuj firmę" }).click();

@@ -14,6 +14,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 const base: CompanyCardDto = {
   organizationId: "11111111-1111-4111-8111-111111111111", slug: "alfa", name: "Alfa",
   organizationVersion: 1, archivedAt: null,
+  purge: { scheduledAt: null, startedAt: null, completedAt: null },
   registration: { status: "PENDING", firstAdminRegisteredAt: null },
   account: { id: "u1", name: null, email: "a@b.pl", emailVerified: false, mfaEnabled: false, disabledAt: null },
   period: { paidThrough: null, trialGranted: true, trialStartedAt: null, trialEndsAt: null, paidEndsAt: null,

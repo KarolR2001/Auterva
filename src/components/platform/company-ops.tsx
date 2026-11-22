@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, CircleAlert, CircleCheck, CircleSlash, Clock } from "lucide-react";
+import { Archive, CircleAlert, CircleCheck, CircleSlash, Clock, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { useUnsavedChanges } from "../panel/unsaved-changes-guard";
@@ -10,9 +10,11 @@ import { FormField } from "../ui/form-field";
 import { TextInput } from "../ui/text-input";
 import {
   formatInstant,
+  formatInstantDate,
   formatLocalDate,
   periodLabel,
   platformRequest,
+  purgeState,
   shorteningEffect,
   visibilityReason,
   type ApiResult,
@@ -142,6 +144,62 @@ export function CompanyStatus({ company }: { company: CompanyCardData }) {
         </dl>
       </section>
     </>
+  );
+}
+
+/**
+ * D-58: planned (or finished) permanent deletion of an archived company's data. Built from the existing notice and
+ * badge styles, not from a PLT-03 mock state (owner decision 22.11.2026). Text plus icon and border carry the meaning.
+ */
+export function PurgePanel({ company }: { company: CompanyCardData }) {
+  const state = purgeState(company);
+  if (state === "none") return null;
+  const purge = company.purge;
+  return (
+    <section aria-labelledby="purge-title" className={styles.panelCard} data-purge-state={state}>
+      <h2 id="purge-title" className={styles.sectionTitle}>
+        Trwałe usunięcie danych
+      </h2>
+      {state === "done" && (
+        <>
+          <p className={styles.badgePurged}>
+            <Trash2 size={16} aria-hidden="true" /> Usunięta
+          </p>
+          <p className={styles.opsHint}>
+            Dane firmy zostały trwale usunięte{purge.completedAt ? ` ${formatInstantDate(purge.completedAt)}` : ""}. Pozostał wyłącznie zanonimizowany ślad
+            techniczny bez nazwy, adresów i konta. Operacji na tej firmie nie można wykonać ani cofnąć.
+          </p>
+        </>
+      )}
+      {state === "running" && (
+        <div className={`${styles.notice} ${styles.notice_error}`} role="status">
+          <Trash2 size={20} aria-hidden="true" />
+          <div>
+            <p><strong>Trwa trwałe usunięcie danych</strong>{purge.startedAt ? ` (start ${formatInstantDate(purge.startedAt)})` : ""}</p>
+            <p>To jest nieodwracalne. Przywrócenie firmy nie jest już możliwe, a firma nie przyjmuje zapisów.</p>
+          </div>
+        </div>
+      )}
+      {(state === "scheduled" || state === "overdue") && purge.scheduledAt && (
+        <>
+          <div className={`${styles.notice} ${styles.notice_warning}`} role="status">
+            {state === "scheduled" ? <Clock size={20} aria-hidden="true" /> : <CircleAlert size={20} aria-hidden="true" />}
+            <div>
+              <p><strong>{state === "scheduled" ? "Zaplanowane usunięcie danych" : "Termin usunięcia danych minął"}</strong></p>
+              <p>
+                {state === "scheduled"
+                  ? `Najwcześniej ${formatInstantDate(purge.scheduledAt)} (12 miesięcy po archiwizacji). Usunięcie wykona najbliższe dzienne zadanie.`
+                  : `Planowany termin: ${formatInstantDate(purge.scheduledAt)}. Usunięcie rozpocznie najbliższe dzienne zadanie.`}
+              </p>
+              <p>
+                Obejmuje konto administratora, flotę, zdjęcia, blokady, czat i ustawienia firmy. Do startu usuwania możesz
+                przywrócić firmę, co anuluje usunięcie. Po starcie jest to nieodwracalne, a kopie zapasowe wygasają po 30 dniach.
+              </p>
+            </div>
+          </div>
+        </>
+      )}
+    </section>
   );
 }
 
@@ -411,7 +469,8 @@ const DIALOG_COPY: Record<ArchiveKind, { title: (name: string) => string; descri
       "Administrator nie zaloguje się, dopóki nie przywrócisz firmy.",
       "Strona publiczna i adresy firmy zostaną wyłączone.",
       "Flota, zdjęcia, blokady, czat, ustawienia i okres usługi zostają zachowane; czat jest tylko do odczytu.",
-      "Jako superadmin nadal edytujesz dane firmy. Trwałe usunięcie firmy nie jest dostępne.",
+      "Jako superadmin nadal edytujesz dane firmy.",
+      "Dane firmy zostaną trwale usunięte 12 miesięcy po archiwizacji. Przywrócenie przed startem usuwania anuluje usunięcie; po starcie nie da się go cofnąć.",
     ],
     action: "Archiwizuj",
   },
@@ -463,6 +522,8 @@ function ArchiveSection({ company, base, reload }: SectionProps) {
   const sent = useRef<{ kind: ArchiveKind; version: number } | null>(null);
   const archived = !!company.archivedAt;
   const needsUnlock = !archived && company.publication.unlockRequired;
+  // After the purge starts there is no way back: no restore (the API answers COMPANY_PURGED), no unlock.
+  const irreversible = purgeState(company) === "running" || purgeState(company) === "done";
 
   /** After a lost or 5xx answer: read the company and report applied / not applied / changed elsewhere. */
   async function resolveUncertain(requestId?: string | null) {
@@ -557,16 +618,20 @@ function ArchiveSection({ company, base, reload }: SectionProps) {
           ? "Firma jest zarchiwizowana: dane są zachowane, administrator nie może się zalogować, a strona publiczna jest wyłączona. Jako superadmin nadal edytujesz dane firmy."
           : "Archiwizacja zachowa dane, zablokuje logowanie administratora i wyłączy stronę publiczną. Nie usuwa firmy."}
       </p>
-      <div className={styles.actionsRow}>
-        <Button
-          variant={archived ? "secondary" : "destructive"}
-          icon={<Archive size={20} aria-hidden="true" />}
-          disabled={busy}
-          onClick={() => setDialog(archived ? "restore" : "archive")}
-        >
-          {archived ? "Przywróć firmę" : "Archiwizuj firmę"}
-        </Button>
-      </div>
+      {irreversible ? (
+        <p className={styles.opsHint}>Przywrócenie firmy nie jest możliwe: trwałe usunięcie danych już się rozpoczęło.</p>
+      ) : (
+        <div className={styles.actionsRow}>
+          <Button
+            variant={archived ? "secondary" : "destructive"}
+            icon={<Archive size={20} aria-hidden="true" />}
+            disabled={busy}
+            onClick={() => setDialog(archived ? "restore" : "archive")}
+          >
+            {archived ? "Przywróć firmę" : "Archiwizuj firmę"}
+          </Button>
+        </div>
+      )}
 
       <h3 className={styles.subTitle}>Strona publiczna</h3>
       <dl className={styles.statusList}>
@@ -599,13 +664,13 @@ function ArchiveSection({ company, base, reload }: SectionProps) {
           )}
         </>
       )}
-      {archived && <p className={styles.opsHint}>Odblokowanie strony jest osobnym krokiem po przywróceniu firmy.</p>}
+      {archived && !irreversible && <p className={styles.opsHint}>Odblokowanie strony jest osobnym krokiem po przywróceniu firmy.</p>}
 
       <Dialog
         open={dialog !== null}
         onOpenChange={(open) => !open && !busy && setDialog(null)}
         type={dialog === "archive" ? "destructive" : "confirm"}
-        title={copy ? copy.title(company.name) : ""}
+        title={copy ? copy.title(company.name ?? "") : ""}
         description={copy?.description}
         primaryAction={{
           label: busy ? "Zapisywanie…" : (copy?.action ?? ""),
