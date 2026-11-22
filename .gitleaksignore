@@ -2,3 +2,5 @@
 # https://github.com/KarolR2001/Auterva/actions/runs/40605443657
 072eb71455b5459c8bba67ae4f14b16e043a3977:tests/unit/observability-redaction.test.ts:generic-api-key:16
 072eb71455b5459c8bba67ae4f14b16e043a3977:tests/unit/observability-redaction.test.ts:generic-api-key:17
+# Publiczny przykladowy naglowek Sec-WebSocket-Key (RFC 6455) w tescie przekazywania /ws z #426 (commit a890bd8), zweryfikowane lokalnie gitleaks 8.30.1:
+a890bd8d16adeb4bc4f276f78eef2e27bc4d6e7e:tests/integration/ws-upgrade-proxy.test.ts:generic-api-key:70

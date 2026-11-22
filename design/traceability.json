@@ -207,6 +207,16 @@
       "sharedWith": "Rozszerza #217."
     },
     {
+      "issue": 415,
+      "scope": "Blokada zbiorcza i kopia blokady (ADM-10): komunikat wyniku nieznanego (5xx/sieć) dopisuje ostrzeżenie, że po opuszczeniu strony ponowienie wysyłki tym samym kluczem znika i trzeba sprawdzić kalendarz floty; logika strażnika i klucza idempotencji bez zmian.",
+      "relatedRequirementIds": ["FR-ADM-055", "FR-ADM-057", "D-48"],
+      "referenceScreenIds": ["ADM-10"],
+      "unmappedStates": ["Porównanie z makietą w Penpocie: DEFERRED (#263); zmiana dotyczy tylko treści komunikatu."],
+      "codePaths": ["src/components/admin/bulk-blocks.tsx"],
+      "testPaths": ["tests/unit/bulk-blocks.test.tsx"],
+      "sharedWith": "Rozszerza #378; zależność: PR #407."
+    },
+    {
       "issue": 387,
       "scope": "Bezpieczeństwo MFA (D-05 pkt 4–5): po zalogowaniu kodem odzyskania konto ma trwały stan „odzyskanie w toku” (user.mfaRecoveryPendingAt + mfaRecoverySessionId). Do potwierdzenia nowego TOTP logowanie samym hasłem daje neutralne 401 bez sesji, a enable/verify-totp przyjmuje wyłącznie sesja, która zużyła kod; potwierdzenie czyści stan i dopisuje audyt MFA_RECOVERY_COMPLETED. Porzucone odzyskanie odblokowuje tylko procedura operatora. Obie role (admin firmy, superadmin). Bez zmian UI.",
       "relatedRequirementIds": ["C-F011", "C-F013", "C-F014"],
@@ -276,6 +286,20 @@
         "tests/unit/observability-redaction.test.ts"
       ],
       "sharedWith": "Rozszerza #58/#180/#108; dashboard i paging u dostawcy w #90."
+    },
+    {
+      "issue": 404,
+      "scope": "Lokalna probe backupu i restore calego systemu oraz jednej firmy na fixture dwoch firm (blokady, feedy, eksporty, czat, media): kroki runbooka wykonane komendami CLI z pomiarem czasu, test integracyjny rozszerzony o bloki, feedy i eksporty, raport cwiczenia. Konfiguracja dostawcy, PITR i RTO na stagingu not-run (#90). Bez UI.",
+      "relatedRequirementIds": ["C-N041", "C-N042", "C-N046", "D-10", "D-16"],
+      "referenceScreenIds": [],
+      "codePaths": [
+        "src/modules/backup/company.ts",
+        "docs/runbooks/backup-restore.md",
+        "docs/runbooks/backup-restore-drill-2026-11-12.md"
+      ],
+      "testPaths": [
+        "tests/integration/backup-restore.test.ts"
+      ]
     },
     {
       "issue": 342,
