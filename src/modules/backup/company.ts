@@ -211,7 +211,7 @@ export async function restoreCompany(input: {
       }
       // Intents belong to the plan: when the live plan stays, so do the intents of its current boundary.
       hasLive.ReminderIntent = hasLive.ReminderIntent || hasLive.ReminderPlan;
-      const liveUsers = new Map((await live.query(`SELECT id, "disabledAt", "twoFactorEnabled" FROM "user" WHERE "organizationId" = $1 FOR UPDATE`, [orgId]))
+      const liveUsers = new Map((await live.query(`SELECT id, "disabledAt", "twoFactorEnabled", "mfaRecoveryPendingAt", "mfaRecoverySessionId" FROM "user" WHERE "organizationId" = $1 FOR UPDATE`, [orgId]))
         .rows.map((r) => [String(r.id), r]));
       const liveCredentials = {
         account: await selectRows(live, "account", USER_SCOPED, orgId, true),
@@ -231,6 +231,10 @@ export async function restoreCompany(input: {
           // does not come back disabled) and the live MFA flag.
           row.disabledAt = current.disabledAt instanceof Date ? current.disabledAt.toISOString() : (current.disabledAt ?? null);
           row.twoFactorEnabled = current.twoFactorEnabled;
+          // #387: recovery-in-progress state belongs to the live factor, which is kept, so it stays live too. The
+          // session it names is revoked below, so a pending account waits for the operator procedure (D-05).
+          row.mfaRecoveryPendingAt = current.mfaRecoveryPendingAt instanceof Date ? current.mfaRecoveryPendingAt.toISOString() : (current.mfaRecoveryPendingAt ?? null);
+          row.mfaRecoverySessionId = current.mfaRecoverySessionId ?? null;
           // Still a restore lock only while disabled WITHOUT a credential password; an account disabled later by hand
           // (it has its password) is not a restore lock and must not return to the list.
           if (current.disabledAt && previouslyLocked.has(String(row.id)) && !hasPassword(liveCredentials.account, String(row.id))) usersLocked.push(String(row.id));
@@ -239,6 +243,8 @@ export async function restoreCompany(input: {
           // state and is NOT put on the recovery list; an active one is locked now and only the operator recovery
           // of D-05 (scripts/recover-mfa.ts, audited) can lift exactly the accounts listed in this restore's audit.
           row.twoFactorEnabled = false;
+          row.mfaRecoveryPendingAt = null;
+          row.mfaRecoverySessionId = null;
           if (!row.disabledAt) {
             row.disabledAt = now.toISOString();
             usersLocked.push(String(row.id));
