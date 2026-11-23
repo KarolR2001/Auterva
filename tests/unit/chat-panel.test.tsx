@@ -121,7 +121,7 @@ describe("czat firmy (#52)", () => {
     await user.type(screen.getByRole("textbox", { name: /Napisz wiadomość/ }), "do wysłania");
     await user.click(screen.getByRole("button", { name: "Wyślij" }));
     await waitFor(() => expect(screen.getByText("Niepewny wynik wysyłki")).toBeInTheDocument());
-    await user.click(screen.getAllByRole("link", { name: "Dashboard" })[0]);
+    await user.click(screen.getAllByRole("link", { name: "Pulpit" })[0]);
     const dialog = screen.getByRole("alertdialog", { name: "Niezapisane zmiany" });
     expect(dialog).toHaveTextContent("Zostaje na tym urządzeniu");
     expect(screen.queryByRole("button", { name: "Odrzuć zmiany" })).toBeNull();

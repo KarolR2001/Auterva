@@ -3,14 +3,21 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
   Building2,
-  CalendarRange,
-  CarFront,
+  Calendar,
+  Car,
   CircleUserRound,
+  Download,
+  Ellipsis,
+  History,
+  House,
   LayoutDashboard,
-  Menu,
+  LogOut,
   MessageCircle,
+  MessageSquare,
   RefreshCw,
+  ScrollText,
   Settings,
+  User,
   Wifi,
   WifiOff,
 } from "lucide-react";
@@ -32,24 +39,24 @@ import {
 } from "./unsaved-changes-guard";
 import styles from "./panel.module.css";
 
+// Sidebar of SPEC 7.11 and the ADM boards: five items with Lucide icons; the fleet calendar stays in the user menu.
 const companyDesktop = [
-  { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
-  { label: "Pojazdy", href: "/admin/pojazdy", icon: CarFront },
-  { label: "Kalendarz floty", href: "/admin/kalendarz", icon: CalendarRange },
-  { label: "Czat z Autervą", href: "/admin/czat", icon: MessageCircle },
+  { label: "Pulpit", href: "/admin", icon: LayoutDashboard },
+  { label: "Pojazdy", href: "/admin/pojazdy", icon: Car },
+  { label: "Czat z Autervą", href: "/admin/czat", icon: MessageSquare },
   { label: "Ustawienia", href: "/admin/ustawienia", icon: Settings },
-  { label: "Konto", href: "/admin/konto", icon: CircleUserRound },
+  { label: "Konto", href: "/admin/konto", icon: User },
 ] as const;
 
 const companyMobile = [
-  { label: "Start", href: "/admin", icon: LayoutDashboard },
-  { label: "Pojazdy", href: "/admin/pojazdy", icon: CarFront },
+  { label: "Start", href: "/admin", icon: House },
+  { label: "Pojazdy", href: "/admin/pojazdy", icon: Car },
   { label: "Czat", href: "/admin/czat", icon: MessageCircle },
 ] as const;
 
 const platformNavigation = [
   { label: "Firmy", href: "/firmy", icon: Building2 },
-  { label: "Wiadomości", href: "/wiadomosci", icon: MessageCircle },
+  { label: "Wiadomości", href: "/wiadomosci", icon: MessageSquare },
 ] as const;
 
 function isCurrent(path: string, href: string) {
@@ -254,16 +261,17 @@ function AvailablePanelShell({
       : [];
   const pinnedHrefs = new Set<string>(pinnedItems.map((item) => item.href));
   const mobileItems = area === "company" ? companyMobile : platformNavigation;
+  // OVR-17 order: fleet calendar and change log first, then status, settings and account; sessions stay inside Konto.
   const menuLinks =
     area === "company"
       ? [
-          { label: "Kalendarz floty", href: "/admin/kalendarz" },
-          { label: "Status usługi", href: "/admin/usluga" },
-          { label: "Ustawienia", href: "/admin/ustawienia" },
-          { label: "Dziennik zmian", href: "/admin/logi" },
-          { label: "Konto", href: "/admin/konto" },
+          { label: "Kalendarz floty", href: "/admin/kalendarz", icon: Calendar },
+          { label: "Dziennik zmian", href: "/admin/logi", icon: ScrollText },
+          { label: "Status usługi", href: "/admin/usluga", icon: History },
+          { label: "Ustawienia", href: "/admin/ustawienia", icon: Settings },
+          { label: "Konto", href: "/admin/konto", icon: User },
         ]
-      : [{ label: "Konto", href: "/konto" }];
+      : [{ label: "Konto", href: "/konto", icon: User }];
 
   useEffect(() => {
     function onClick(event: MouseEvent) {
@@ -406,9 +414,11 @@ function AvailablePanelShell({
   ) {
     const Icon = item.icon;
     const chat = (item.href === "/admin/czat" || item.href === "/wiadomosci") && unreadChat;
+    // The fleet calendar has no tab of its own: like the vehicle calendar it belongs to "Pojazdy" (ADM-10).
     const current =
       isCurrent(currentPath, item.href) ||
-      (area === "platform" && currentPath === "/" && item.href === "/firmy");
+      (area === "platform" && currentPath === "/" && item.href === "/firmy") ||
+      (item.href === "/admin/pojazdy" && isCurrent(currentPath, "/admin/kalendarz"));
     return (
       <a
         key={item.href}
@@ -455,7 +465,7 @@ function AvailablePanelShell({
               Auterva
             </a>
             <span className={styles.shellAreaLabel}>
-              {area === "company" ? "Panel admina" : "Panel superadmina"}
+              {area === "company" ? "Panel firmy" : "Panel superadmina"}
             </span>
           </div>
           <div className={styles.shellNavItems}>
@@ -548,7 +558,7 @@ function AvailablePanelShell({
             aria-expanded={menuVisible && menuSource === "more"}
             onClick={(event) => openMenu("mobile", event.currentTarget, "more")}
           >
-            <Menu size={20} aria-hidden="true" />
+            <Ellipsis size={20} aria-hidden="true" />
             <span>Więcej</span>
           </button>
         </nav>
@@ -566,47 +576,61 @@ function AvailablePanelShell({
             }
           }}
         >
-          <DialogPrimitive.Title className={styles.shellMenuTitle}>
-            {menuMode === "mobile"
-              ? area === "company"
-                ? "Więcej — menu administratora"
-                : "Więcej — menu superadmina"
-              : "Menu użytkownika"}
-          </DialogPrimitive.Title>
+          <div className={styles.shellMenuHead}>
+            <DialogPrimitive.Title className={styles.shellMenuTitle}>
+              {menuMode === "mobile" ? (
+                <>
+                  {"Więcej "}
+                  <span className={styles.shellVisuallyHidden}>
+                    {area === "company" ? "— menu administratora" : "— menu superadmina"}
+                  </span>
+                </>
+              ) : (
+                "Menu użytkownika"
+              )}
+            </DialogPrimitive.Title>
+            <DialogPrimitive.Close
+              className={styles.shellMenuClose}
+              disabled={loggingOut}
+            >
+              Zamknij
+            </DialogPrimitive.Close>
+          </div>
           <div className={styles.shellMenuItems}>
-            {menuLinks.map((item) => (
-              <a
-                key={item.href}
-                href={item.href}
-                aria-current={
-                  isCurrent(currentPath, item.href) ? "page" : undefined
-                }
-              >
-                {item.label}
-              </a>
-            ))}
+            {menuLinks.map((item) => {
+              const Icon = item.icon;
+              return (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  aria-current={
+                    isCurrent(currentPath, item.href) ? "page" : undefined
+                  }
+                >
+                  <Icon size={20} aria-hidden="true" />
+                  {item.label}
+                </a>
+              );
+            })}
             {area === "company" && canInstallPwa && onInstallPwa && (
               <button type="button" onClick={onInstallPwa}>
+                <Download size={20} aria-hidden="true" />
                 Zainstaluj aplikację
               </button>
             )}
             <button
               type="button"
+              className={styles.shellMenuLogout}
               disabled={loggingOut}
               onClick={requestLogout}
             >
+              <LogOut size={20} aria-hidden="true" />
               Wyloguj
             </button>
           </div>
           {logoutError && (
             <p role="alert">Nie udało się wylogować. Spróbuj ponownie.</p>
           )}
-          <DialogPrimitive.Close
-            className={styles.shellMenuClose}
-            disabled={loggingOut}
-          >
-            Zamknij
-          </DialogPrimitive.Close>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>

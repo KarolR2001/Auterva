@@ -441,10 +441,31 @@
   outline: none;
 }
 
+/* OVR-17: title and "Zamknij" share the first row; items carry Lucide icons and "Wyloguj" sits below a divider. */
+.shellMenuHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
 .shellMenuTitle {
-  margin: 0 0 var(--space-4);
+  margin: 0;
   font-size: var(--font-size-20);
   line-height: var(--line-height-28);
+}
+
+.shellVisuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .shellMenuItems {
@@ -458,6 +479,7 @@
   display: flex;
   min-height: var(--button-height-md);
   align-items: center;
+  gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
   border: var(--border-width-hairline) solid transparent;
   border-radius: var(--radius-sm);
@@ -482,8 +504,25 @@
 }
 
 .shellMenuClose {
+  flex-shrink: 0;
+  justify-content: center;
+  padding: var(--space-2) var(--space-4);
+  font-weight: var(--font-weight-semibold);
+}
+
+.shellMenuItems .shellMenuLogout {
+  position: relative;
   margin-top: var(--space-3);
-  border-color: var(--border-default);
+  font-weight: var(--font-weight-semibold);
+}
+
+.shellMenuItems .shellMenuLogout::before {
+  content: "";
+  position: absolute;
+  top: calc(-1 * var(--space-2));
+  right: 0;
+  left: 0;
+  border-top: var(--border-width-hairline) solid var(--border-default);
 }
 
 .shellDesktopNav .shellNavLink:focus-visible,
