@@ -65,7 +65,7 @@ test("change log: local time from UTC, filters, cursor, superadmin as themselves
     await expect(page.getByRole("heading", { name: "Dziennik zmian", level: 2 })).toBeVisible();
     const list = page.getByRole("list", { name: "Wpisy dziennika zmian" });
     await expect(list.getByRole("listitem")).toHaveCount(30);
-    await expect(list).not.toContainText("Usunięcie blokady terminu");
+    await expect(list).not.toContainText("Usunięcie blokady");
     await expect(list).toContainText("Superadmin Autervy");
     // At 1440 px the header and every row are one column table (a container query cannot style its own container).
     const cells = await list.getByRole("listitem").first().locator("> div").evaluate((element) => ({
@@ -76,7 +76,7 @@ test("change log: local time from UTC, filters, cursor, superadmin as themselves
     await page.getByRole("button", { name: "Pokaż starsze" }).click();
     await expect(list.getByRole("listitem")).toHaveCount(32);
     await expect(page.getByText("To wszystkie wpisy")).toBeVisible();
-    await expect(list).not.toContainText("Usunięcie blokady terminu");
+    await expect(list).not.toContainText("Usunięcie blokady");
 
     await page.getByLabel("Akcja").selectOption("AUTH_LOGOUT");
     await page.getByRole("button", { name: "Zastosuj" }).click();
@@ -131,7 +131,7 @@ test("change log: local time from UTC, filters, cursor, superadmin as themselves
     const mobileList = mobile.getByRole("list", { name: "Wpisy dziennika zmian" });
     await expect(mobileList.getByRole("listitem")).toHaveCount(30);
     await expect(mobileList).toContainText("Superadmin Autervy");
-    await expect(mobileList).not.toContainText("Usunięcie blokady terminu");
+    await expect(mobileList).not.toContainText("Usunięcie blokady");
     // 320 px: no horizontal page scroll, the filter bar is a sheet toggled by a button.
     await mobile.setViewportSize({ width: 320, height: 700 });
     expect(await mobile.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
@@ -144,7 +144,7 @@ test("change log: local time from UTC, filters, cursor, superadmin as themselves
     // Another company's log comes from its own path.
     await mobile.goto(`${origin}/firmy/${orgB}/logi/`);
     await expect(mobile.getByRole("list", { name: "Wpisy dziennika zmian" }).getByRole("listitem")).toHaveCount(1);
-    await expect(mobile.getByRole("list", { name: "Wpisy dziennika zmian" })).toContainText("Usunięcie blokady terminu");
+    await expect(mobile.getByRole("list", { name: "Wpisy dziennika zmian" })).toContainText("Usunięcie blokady");
     // Unknown company: neutral 404.
     expect((await mobile.goto(`${origin}/firmy/${randomUUID()}/logi/`))?.status()).toBe(404);
   } finally {
