@@ -78,7 +78,7 @@ test("message describes the state now, not the state at scheduling", () => {
     publicUnlockRequired: false, domainReady: true };
   const early = reminderMessage({ ...base, offset: 0, now: at("2026-04-05T07:00:00.000Z") });
   expect(early.subject).toContain("już wygasł");
-  expect(early.body).toContain("Trial już wygasł");
+  expect(early.body).toContain("Okres próbny już wygasł");
   expect(early.body).toContain("Konto aktywne. Publiczna oferta jest obecnie wyłączona.");
   const active = reminderMessage({ ...base, endsAt: at("2026-04-05T11:00:00.000Z"), offset: 7, now: at("2026-03-29T07:00:00.000Z") });
   expect(active.body).toContain("05.04.2026 o 13:00");
@@ -104,5 +104,5 @@ test("a -7 banner read later speaks from the calendar distance to the end date (
     offset: 7, now: at(now), publicUnlockRequired: false, domainReady: true }).body;
   expect(trial("2026-04-02T07:00:00.000Z")).toContain("(za 3 dni)");
   expect(trial("2026-04-04T07:00:00.000Z")).toContain("(jutro)");
-  expect(trial("2026-04-05T07:00:00.000Z")).toContain("Trial kończy się dziś");
+  expect(trial("2026-04-05T07:00:00.000Z")).toContain("Okres próbny kończy się dziś");
 });

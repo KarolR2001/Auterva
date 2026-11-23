@@ -79,7 +79,7 @@ test("fleet calendar: company and superadmin reach the vehicle and the block, is
     await expect(region.getByRole("link", { name: "Auto Beta", exact: true })).toBeVisible();
     await expect(page.getByText("Obce Auto")).toHaveCount(0);
     await expect(page.getByText("Auto Archiwalne")).toHaveCount(0);
-    await expect(page.getByText("2 pojazdy · horyzont 14 dni · Europe/Warsaw")).toBeVisible();
+    await expect(page.getByText("2 pojazdy · horyzont 14 dni · czas polski")).toBeVisible();
     const html = await page.content();
     expect(html).not.toMatch(/FLEETCAL-REF-SECRET|FLEETCAL-NOTE-SECRET/);
     await noOverflow(page, "admin desktop 1440");

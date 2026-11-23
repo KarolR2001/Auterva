@@ -89,7 +89,7 @@ export function CompanyListView() {
           </strong>
         </div>
         <div className={styles.kpi}>
-          <span className={styles.kpiLabel}>Aktywne triale</span>
+          <span className={styles.kpiLabel}>Aktywne okresy próbne</span>
           <strong aria-live="polite" className={styles.kpiValue}>
             {data ? data.kpis.trialCompanies : "–"}
           </strong>
@@ -107,7 +107,7 @@ export function CompanyListView() {
           autoComplete="off"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Nazwa, slug lub e-mail administratora"
+          placeholder="Nazwa, adres lub e-mail administratora"
         />
         <label className={styles.checkRow}>
           <input

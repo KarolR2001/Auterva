@@ -108,7 +108,7 @@ export function AuditLog({ apiBase, title }: { apiBase: string; title: string })
       <title>{title}</title>
       <header className={styles.head}>
         <h2 ref={heading} tabIndex={-1} className={styles.h2}>Dziennik zmian</h2>
-        <p className={styles.lead}>Czas prezentowany lokalnie (Europa/Warszawa) z danych zapisanych w UTC. Wpisy są tylko do odczytu.</p>
+        <p className={styles.lead}>Czas prezentowany lokalnie z danych zapisanych w UTC. Wpisy są tylko do odczytu.</p>
       </header>
       <div className={styles.filterBar}>
         <p className={styles.filterSummary}><Filter aria-hidden="true" size={16} /> <span>{summaryText}</span></p>

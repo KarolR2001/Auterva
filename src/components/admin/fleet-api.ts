@@ -235,7 +235,7 @@ const errorText: Record<string, string> = {
   FORBIDDEN: "Brak uprawnień lub sesja wygasła. Zaloguj się ponownie.",
   RATE_LIMITED: "Zbyt wiele żądań. Spróbuj ponownie za chwilę.",
   NETWORK: "Brak połączenia z serwerem. Zmiana nie została zapisana.",
-  FLEET_SLUG_CONFLICT: "Ten adres (slug) jest już zajęty w Twojej firmie. Wybierz inny.",
+  FLEET_SLUG_CONFLICT: "Ta nazwa w adresie jest już zajęta w Twojej firmie. Wybierz inną.",
   FLEET_INVALID_CATEGORY: "Wybrana kategoria nie istnieje. Wybierz kategorię z listy.",
   FLEET_INVALID_ACTIVITY: "Koniec aktywności nie może być przed początkiem.",
   FLEET_BLOCK_OUTSIDE_ACTIVITY: "Istnieje blokada terminu poza nowym okresem aktywności. Zmień blokadę albo zakres.",

@@ -24,7 +24,7 @@ type Action = "create" | "save" | "publish" | "unpublish" | "archive";
 type Dialogs = null | "slug" | "publish" | "unpublish" | "archive";
 
 const requirementLabels: Record<string, string> = {
-  name: "Nazwa pojazdu", slug: "Adres (slug)", category: "Kategoria", shortDescription: "Krótki opis", description: "Pełny opis",
+  name: "Nazwa pojazdu", slug: "Nazwa w adresie", category: "Kategoria", shortDescription: "Krótki opis", description: "Pełny opis",
   seats: "Liczba miejsc (wymagana w tej kategorii)", availableFrom: "Początek aktywności", availableTo: "Koniec aktywności",
   images: "Gotowe zdjęcie oznaczone jako główne",
 };
@@ -400,7 +400,7 @@ export function VehicleForm({ context = companyContext, vehicleId, title }: { co
                   {section.id === "basic" && <>
                     {text("name", "Nazwa pojazdu", { hint: "Szkic można zapisać bez nazwy; do publikacji nazwa jest wymagana." })}
                     <div className={styles.grid2}>
-                      {text("slug", "Adres w witrynie (slug)", { hint: vehicleId ? undefined : "Zostaw puste, a utworzymy go z nazwy.", optional: true })}
+                      {text("slug", "Nazwa w adresie", { hint: vehicleId ? "Zmiana utworzy przekierowanie ze starego adresu." : "Zostaw puste, a utworzymy go z nazwy.", optional: true })}
                       <Field id="vf-categoryId" label="Kategoria" optional hint="Wymagana do publikacji." error={errors.category ?? errors.categoryId}>
                         <select value={values.categoryId} disabled={disabled} onChange={(event) => { set("categoryId", event.target.value); setErrors((c) => { const { category: _c, ...rest } = c; void _c; return rest; }); }}>
                           <option value="">Wybierz kategorię</option>

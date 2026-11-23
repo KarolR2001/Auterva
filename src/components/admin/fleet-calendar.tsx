@@ -165,7 +165,7 @@ export function FleetCalendar({ context = companyContext, today: initialToday, t
       <header className={styles.head}>
         <div>
           <h2 className={styles.title} ref={heading} tabIndex={-1}>Kalendarz floty</h2>
-          <p className={styles.sub}>{view.state === "ready" ? `${vehiclesText(total)} · ` : ""}{horizon} · Europe/Warsaw</p>
+          <p className={styles.sub}>{view.state === "ready" ? `${vehiclesText(total)} · ` : ""}{horizon} · czas polski</p>
         </div>
         <div className={styles.headActions}>
           <Button id="fleet-bulk-open" variant="secondary" icon={<Layers aria-hidden="true" size={20} />} onClick={openBulk}>Blokada zbiorcza</Button>
@@ -192,7 +192,7 @@ export function FleetCalendar({ context = companyContext, today: initialToday, t
             </Select>
           </FormField>
         </div>
-        <p className={styles.hint}>Europe/Warsaw · koniec zakresu wliczony</p>
+        <p className={styles.hint}>Czas polski · koniec zakresu wliczony</p>
       </div>
 
       {view.state === "loading" && <div className={styles.skeleton} role="status" aria-label="Ładowanie kalendarza floty"><span /><span /><span /></div>}

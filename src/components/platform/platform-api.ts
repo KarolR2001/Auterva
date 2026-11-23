@@ -165,9 +165,9 @@ export function periodLabel(company: CompanyCardData): string {
   if (period.paidValid && period.paidThrough)
     return `Opłacona do ${formatLocalDate(period.paidThrough)} włącznie`;
   if (period.trialValid && period.trialEndsAt)
-    return `Trial do ${formatInstant(period.trialEndsAt)}`;
+    return `Okres próbny do ${formatInstant(period.trialEndsAt)}`;
   if (registration.status === "PENDING") {
-    if (period.trialGranted) return "Trial jeszcze nie rozpoczęty";
+    if (period.trialGranted) return "Okres próbny jeszcze nie rozpoczęty";
     if (period.paidThrough)
       return `Opłata do ${formatLocalDate(period.paidThrough)} włącznie, start po rejestracji`;
     return "Brak okresu usługi";
@@ -205,7 +205,7 @@ export function shorteningEffect(
     return `Skrócenie: opłata kończy się ${formatLocalDate(next)} włącznie zamiast ${formatLocalDate(current)}.`;
   const trialKeeps = company.period.trialValid && !company.publication.requiresPaid;
   return trialKeeps
-    ? "Skrócenie kończy opłatę od razu. Strona pozostanie widoczna do końca trialu."
+    ? "Skrócenie kończy opłatę od razu. Strona pozostanie widoczna do końca okresu próbnego."
     : "Skrócenie kończy opłatę od razu. Publiczna strona firmy zostanie natychmiast wyłączona; panel firmy nadal działa.";
 }
 

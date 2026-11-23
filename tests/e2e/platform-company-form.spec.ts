@@ -49,10 +49,10 @@ test("superadmin dodaje firmę, widzi zapis osobno od zaproszenia i cofa zaprosz
 
     await page.getByLabel(/Nazwa firmy/).fill("Plt04 Wypożyczalnia Łódź");
     // The slug suggestion follows the name until edited.
-    await expect(page.getByLabel(/Slug panelu/)).toHaveValue("plt04-wypozyczalnia-lodz");
-    await page.getByLabel(/Slug panelu/).fill(slug);
+    await expect(page.getByLabel(/Nazwa w adresie panelu/)).toHaveValue("plt04-wypozyczalnia-lodz");
+    await page.getByLabel(/Nazwa w adresie panelu/).fill(slug);
     await page.getByLabel(/^E-mail administratora/).fill(email);
-    await page.getByLabel(/^Trial/).check();
+    await page.getByLabel(/^Okres próbny/).check();
 
     // D-41: the optional contact section validates like company settings and keeps the entries.
     await expect(page.getByRole("group", { name: "Adres (opcjonalnie)" })).toBeVisible();
@@ -119,11 +119,11 @@ test("superadmin dodaje firmę, widzi zapis osobno od zaproszenia i cofa zaprosz
     // The same slug cannot be taken twice: the error points at the fields and keeps the entries.
     await page.goto(`${origin}/firmy/nowa/`);
     await page.getByLabel(/Nazwa firmy/).fill("Drugi");
-    await page.getByLabel(/Slug panelu/).fill(slug);
+    await page.getByLabel(/Nazwa w adresie panelu/).fill(slug);
     await page.getByLabel(/^E-mail administratora/).fill(`other-${email}`);
-    await page.getByLabel(/^Trial/).check();
+    await page.getByLabel(/^Okres próbny/).check();
     await page.getByRole("button", { name: "Zapisz firmę" }).click();
-    await expect(page.getByText(/zajęty/).first()).toBeVisible();
+    await expect(page.getByText(/zajęt[ya]/).first()).toBeVisible();
     await expect(page.getByLabel(/Nazwa firmy/)).toHaveValue("Drugi");
   } finally {
     if (organizationId) {

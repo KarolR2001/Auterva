@@ -182,7 +182,7 @@ test("due slots deliver once per channel across restarts and two parallel worker
   expect(await db.job.count({ where: { organizationId: c.organizationId, kind: "MAIL_REMINDER" } })).toBe(1);
   const mail = w.sent.find((item) => item.recipient === c.email)!;
   expect(mail).toMatchObject({ kind: "MAIL_REMINDER", organizationId: c.organizationId, periodVersion: 1 });
-  expect(mail.text).toContain("Trial kończy się 01.11.2026 o 11:00");
+  expect(mail.text).toContain("Okres próbny kończy się 01.11.2026 o 11:00");
   expect(mail.url).toBe(`https://${c.adminHost}/admin/`);
   expect(mail.text).not.toContain("Opłac");
   const email = rows.find((row) => row.channel === "EMAIL")!;
@@ -215,7 +215,7 @@ test("catch-up after an outage sends each overdue slot once, separately, with th
   const mails = w.sent.filter((mail) => mail.recipient === c.email);
   expect(mails).toHaveLength(3);
   expect(new Set(mails.map((mail) => mail.referenceId)).size).toBe(3);
-  expect(mails.every((mail) => mail.text.includes("Trial już wygasł"))).toBe(true);
+  expect(mails.every((mail) => mail.text.includes("Okres próbny już wygasł"))).toBe(true);
   expect(mails.every((mail) => mail.text.includes("Konto aktywne. Publiczna oferta jest obecnie wyłączona."))).toBe(true);
   expect(await db.job.count({ where: { organizationId: c.organizationId } })).toBe(3);
 });
