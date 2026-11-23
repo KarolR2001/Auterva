@@ -179,7 +179,7 @@ test("panel firmy: fokus, dialogi, menu Więcej, błędy pól, reduced motion i 
 
     // 2. Calendar dialog: trap, Escape, focus back on the button that opened it.
     await page.goto(`${origin}/admin/pojazdy/${car}/kalendarz/`);
-    const add = page.getByRole("button", { name: "Dodaj okres niedostępności" }).last();
+    const add = page.getByRole("button", { name: "Dodaj blokadę" }).last();
     await add.focus();
     await page.keyboard.press("Enter");
     await expect(page.getByRole("dialog")).toBeVisible();

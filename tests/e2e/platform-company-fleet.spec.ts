@@ -112,12 +112,12 @@ test("company fleet by the superadmin: card -> fleet -> form -> photos -> calend
     // Calendar: a block is added for company A's vehicle.
     await page.getByRole("link", { name: "Kalendarz pojazdu" }).click();
     await expect(page).toHaveURL(new RegExp(`/firmy/${orgA}/pojazdy/${carA}/kalendarz/?$`));
-    await page.getByRole("button", { name: "Dodaj okres niedostępności" }).last().click();
+    await page.getByRole("button", { name: "Dodaj blokadę" }).last().click();
     await page.locator("#bc-from").fill(day(2));
     await page.locator("#bc-to").fill(day(2));
     await page.locator("#bc-type").selectOption({ label: "Serwis" });
     await page.locator("#bc-internalNote").fill("NOTATKA-BLOKADY-SEKRET");
-    await page.getByRole("dialog").getByRole("button", { name: "Dodaj blokadę" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Zapisz blokadę" }).click();
     await expect(page.getByText("Blokada została dodana.")).toBeVisible();
     expect(await db.availabilityBlock.count({ where: { vehicleId: carA, organizationId: orgA } })).toBe(1);
     expect((await db.auditLog.findFirstOrThrow({ where: { organizationId: orgA, action: "BLOCK_CREATED" } })).actorId).toBe(superId);

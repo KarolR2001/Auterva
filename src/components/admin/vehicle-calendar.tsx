@@ -545,7 +545,7 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
         <aside className={styles.aside} aria-label="Blokady pojazdu">
           <div className={styles.asideHead}>
             <h3 className={styles.h3}>Nadchodzące blokady</h3>
-            {!archived && <Button icon={<CalendarPlus aria-hidden="true" size={18} />} onClick={() => openCreate(pick ? { from: pick, to: pick } : undefined)}>Dodaj okres niedostępności</Button>}
+            {!archived && <Button icon={<CalendarPlus aria-hidden="true" size={18} />} onClick={() => openCreate(pick ? { from: pick, to: pick } : undefined)}>Dodaj blokadę</Button>}
           </div>
           {renderListing(upcoming, "Brak blokad w najbliższych 12 miesiącach. Pojazd jest niedostępny tylko poza okresem aktywności.", () => void loadListing("upcoming"))}
           <p className={styles.muted}>Lista obejmuje najbliższe 12 miesięcy; dalsze terminy zobaczysz w kalendarzu miesiąca.</p>
@@ -560,18 +560,18 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
 
       {!archived && (
         <div className={styles.stickyBar} data-fixed-action-bar="">
-          <Button width="fill" icon={<CalendarPlus aria-hidden="true" size={20} />} onClick={() => openCreate(pick ? { from: pick, to: pick } : undefined)}>Dodaj okres niedostępności</Button>
+          <Button width="fill" icon={<CalendarPlus aria-hidden="true" size={20} />} onClick={() => openCreate(pick ? { from: pick, to: pick } : undefined)}>Dodaj blokadę</Button>
         </div>
       )}
 
       <Dialog open={open} onOpenChange={(next) => { if (!next) requestClose(); }} type={panel === "delete" ? "destructive" : "form"}
-        title={panel === "delete" ? "Usunąć blokadę?" : editor.mode === "create" ? "Dodaj okres niedostępności" : "Edytuj blokadę"}
+        title={panel === "delete" ? "Usunąć blokadę?" : editor.mode === "create" ? "Dodaj blokadę" : "Edytuj blokadę"}
         description={panel === "delete" && dialogBlock ? `${typeLabel(dialogBlock.type)}, ${rangeText(dialogBlock.from, dialogBlock.to)}. Termin znów będzie wolny, jeśli nic innego go nie zajmuje. Tej operacji nie można cofnąć.`
           : `Pojazd: ${name}. Daty obejmują całe dni, obie wliczone; jeden dzień to ta sama data w obu polach.`}
         primaryAction={panel === "delete"
           ? { label: busy ? "Usuwanie…" : "Usuń blokadę", onClick: () => { if (uncertain) void checkUncertain(); else if (dialogBlock) void run({ action: "delete", editor, values }); }, disabled: resolving || readFailed }
           : uncertain ? { label: busy ? "Sprawdzanie…" : "Sprawdź stan", onClick: () => void checkUncertain() }
-            : { label: busy ? "Zapisywanie…" : editor.mode === "create" ? "Dodaj blokadę" : "Zapisz zmiany", onClick: () => void submit(), disabled: resolving || readFailed }}
+            : { label: busy ? "Zapisywanie…" : editor.mode === "create" ? "Zapisz blokadę" : "Zapisz zmiany", onClick: () => void submit(), disabled: resolving || readFailed }}
         secondaryAction={{ label: panel === "delete" ? "Anuluj" : "Zamknij", onClick: requestClose }}
         headerAction={panel === "form" && editor.mode === "edit" && dialogBlock
           ? <a className={`${styles.copyLink} ${styles.copyLinkHeader}`} href={copyHref(context.hrefBase, vehicleId, dialogBlock)}><Copy aria-hidden="true" size={18} />Kopiuj na inne auta</a> : undefined}>
