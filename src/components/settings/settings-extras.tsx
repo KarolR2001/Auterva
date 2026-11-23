@@ -19,6 +19,7 @@ export function LegalStatus({ kind, text, url }: { kind: "privacy" | "terms"; te
         <Icon size={16} aria-hidden="true" />
         <span>Stan: {legalLabels[status]}</span>
       </p>
+      {status === "TEXT" && <p className={styles.status}>Tak zobaczą ten tekst klienci na stronie firmy.</p>}
       {status === "TEXT" && <p className={styles.preview}>{String(text)}</p>}
       {status === "TEXT" && (
         <p>Linia zaczynająca się od „## ” staje się numerowanym nagłówkiem sekcji i pozycją spisu treści strony publicznej.</p>
@@ -46,8 +47,8 @@ export function LegalStatus({ kind, text, url }: { kind: "privacy" | "terms"; te
 
 export function LegalApprovalNotice() {
   return (
-    <Alert tone="warning" title="Treść wymaga zatwierdzenia prawnego">
-      Wpisuj wyłącznie zatwierdzone dokumenty firmy. Przykładowe teksty z fixture lub szkice nie nadają się do publikacji.
+    <Alert tone="warning" title="Treść robocza">
+      Treść wymaga akceptacji prawnej przed publikacją. Wpisuj wyłącznie zatwierdzone dokumenty firmy.
     </Alert>
   );
 }
