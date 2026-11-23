@@ -15,7 +15,7 @@ type Contact = NonNullable<Awaited<ReturnType<typeof getPublicContact>>>;
 const channelInfo = {
   PHONE: { label: "Telefon", action: "Zadzwoń teraz", lead: "Zadzwoń", Icon: Phone },
   WHATSAPP: { label: "WhatsApp", action: "Otwórz WhatsApp →", lead: "Napisz na WhatsApp", Icon: MessageCircle },
-  EMAIL: { label: "E-mail", action: "Napisz e-mail", lead: "Napisz e-mail", Icon: Mail },
+  EMAIL: { label: "E-mail", action: "Napisz e-mail →", lead: "Napisz e-mail", Icon: Mail },
 } as const;
 
 function Block({ title, icon, children }: { title: string; icon?: ReactNode; children: ReactNode }) {
@@ -44,7 +44,8 @@ export function ContactPage({ contact, brand, header, termsAvailable }: { contac
           <p className={styles.eyebrow}>Kontakt</p>
           <h1 className={styles.title}>Porozmawiajmy o właściwym samochodzie</h1>
           <p className={styles.lead}>
-            Skontaktuj się z {contact.name}, aby ustalić szczegóły wynajmu. Ta strona nie rezerwuje terminu ani nie zapisuje Twoich danych.
+            Skontaktuj się z {contact.name}. Podaj nazwę pojazdu oraz interesujący Cię termin — potwierdzimy aktualną dostępność.
+            Kontakt nie rezerwuje terminu, a ta strona nie zapisuje Twoich danych.
           </p>
         </header>
 
@@ -95,7 +96,8 @@ export function ContactPage({ contact, brand, header, termsAvailable }: { contac
         {!message.vehicle && !range ? (
           <section className={styles.prepare} aria-labelledby="prepare-title">
             <h2 id="prepare-title" className={styles.blockTitle}>Przygotuj do rozmowy</h2>
-            <p className={styles.hint}>Zapytanie o pojazd najlepiej wysłać z nazwą pojazdu i terminem. Firma potwierdza dostępność po kontakcie; to nie jest rezerwacja.</p>
+            <p className={styles.prepareItems}>Nazwę pojazdu • datę od–do</p>
+            <p className={styles.hint}>Kontakt nie jest rezerwacją. Dostępność potwierdzamy w rozmowie.</p>
             <a href={catalogLink} className={styles.link}>Wybierz pojazd i termin w ofercie</a>
           </section>
         ) : null}
@@ -106,7 +108,7 @@ export function ContactPage({ contact, brand, header, termsAvailable }: { contac
             <Block title="Adres" icon={<MapPin aria-hidden="true" size={20} />}>
               <div className={styles.mapArt} aria-hidden="true"><MapPin size={28} /></div>
               <address className={styles.address}>{place.map((line) => <span key={line}>{line}</span>)}</address>
-              {map ? <a href={map} className={styles.link} rel="noopener noreferrer">Otwórz w mapach</a> : null}
+              {map ? <a href={map} className={styles.link} rel="noopener noreferrer">Otwórz w mapach <span aria-hidden="true">→</span></a> : null}
             </Block>
           ) : null}
           {availabilityNotice ? <Block title="Dostępność"><p className={styles.pre}>{availabilityNotice}</p></Block> : null}

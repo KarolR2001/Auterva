@@ -4,15 +4,17 @@ import type { ReactNode } from "react";
 import { LinkButton } from "./public-chrome";
 import styles from "./public.module.css";
 
-export function StateBlock({ icon, code, title, children, actions, label, center = false, headingId, level = 1 }:
-  { level?: 1 | 2; icon?: ReactNode; code?: string; title: string; children: ReactNode; actions?: ReactNode; label?: string; center?: boolean; headingId?: string }) {
+export function StateBlock({ icon, code, title, children, actions, actionsLabel, label, center = false, hero = false, headingId, level = 1 }:
+  { level?: 1 | 2; icon?: ReactNode; code?: string; title: string; children: ReactNode; actions?: ReactNode; actionsLabel?: string; label?: string;
+    center?: boolean; hero?: boolean; headingId?: string }) {
   return (
-    <section className={`${styles.state} ${center ? styles.stateCenter : ""}`} aria-labelledby={headingId ?? "state-title"}>
+    <section className={`${styles.state} ${center ? styles.stateCenter : ""} ${hero ? styles.stateHero : ""}`} aria-labelledby={headingId ?? "state-title"}>
       {icon ? <span className={styles.stateIcon} aria-hidden="true">{icon}</span> : null}
       {code ? <p className={styles.code} aria-hidden="true">{code}</p> : null}
       {level === 1 ? <h1 id={headingId ?? "state-title"} className={styles.stateTitle}>{title}</h1> : <h2 id={headingId ?? "state-title"} className={styles.stateTitle}>{title}</h2>}
       <p className={styles.stateText}>{children}</p>
       {label ? <p className={styles.stateLabel}>{label}</p> : null}
+      {actionsLabel ? <p className={styles.stateActionsLabel}>{actionsLabel}</p> : null}
       {actions ? <div className={styles.stateActions}>{actions}</div> : null}
     </section>
   );
@@ -31,9 +33,9 @@ export function EmptyOffer({ contactHref, level = 1 }: { contactHref: string; le
 /** PUB-07 (active company, unknown path). The text never says whether the vehicle exists in another state. */
 export function NotFoundBlock() {
   return (
-    <StateBlock code="404" title="Nie znaleziono tej strony"
+    <StateBlock hero code="404" title="Nie znaleziono tej strony" actionsLabel="Możesz wrócić do:"
       actions={<><LinkButton href="/pojazdy/">Zobacz pojazdy</LinkButton><LinkButton href="/" variant="secondary">Wróć na stronę główną</LinkButton></>}>
-      Adres może być nieaktualny albo zawierać literówkę. Nie ujawniamy informacji o ukrytych pojazdach.
+      Adres może być nieaktualny albo zawierać literówkę.
     </StateBlock>
   );
 }

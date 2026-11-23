@@ -24,7 +24,7 @@ describe("kontakt (PUB-04)", () => {
     render(<ContactPage contact={contact({})} brand={brand} header={[]} termsAvailable />);
     expect(screen.getByRole("heading", { level: 1, name: "Porozmawiajmy o właściwym samochodzie" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Zadzwoń teraz" })).toHaveAttribute("href", "tel:+48600000111");
-    expect(screen.getByRole("link", { name: "Napisz e-mail" })).toHaveAttribute("href", "mailto:a@example.test?subject=Zapytanie");
+    expect(screen.getByRole("link", { name: "Napisz e-mail →" })).toHaveAttribute("href", "mailto:a@example.test?subject=Zapytanie");
     expect(screen.getByText("Preferowany kanał")).toBeInTheDocument();
   });
 

@@ -9,9 +9,9 @@ import { serializeJsonLd } from "@/modules/public-offer/seo";
 type Home = NonNullable<Awaited<ReturnType<typeof getPublicHome>>>;
 
 const benefits = [
-  { title: "Przejrzyste zasady", text: "Sprawdź dostępne terminy i wybierz dogodny zakres przed kontaktem." },
+  { title: "Przejrzyste zasady", text: "Sprawdź dostępne terminy przed kontaktem i od razu wybierz dogodny zakres." },
   { title: "Oferta w jednym miejscu", text: "Zobacz pojazdy, ich parametry i zdjęcia na stronie firmy." },
-  { title: "Kontakt z człowiekiem", text: "Doradzimy przy wyborze pojazdu i ustalimy szczegóły wyjazdu." },
+  { title: "Kontakt z człowiekiem", text: "Doradzimy przy wyborze pojazdu i wspólnie ustalimy szczegóły wyjazdu." },
 ];
 
 /** PUB-01 (HAS_VEHICLES) and PUB-01-02 (EMPTY) for one company; the state comes from the server read. */
@@ -39,11 +39,11 @@ export function PublicHome({ home, today }: { home: Home; today: string }) {
             ? <img src={company.hero.urls.large} alt={company.hero.alt ?? ""} width={company.hero.width ?? undefined} height={company.hero.height ?? undefined} className={styles.heroMedia} fetchPriority="high" decoding="async" />
             : null}
           <div className={styles.heroCopy}>
-            <p className={styles.eyebrow}>{company.name} · wynajem pojazdów</p>
             <h1 id="home-title" className={styles.h1}>{company.heroText ?? company.name}</h1>
             {company.shortDescription ? <p className={styles.lead}>{company.shortDescription}</p> : null}
             <div className={styles.heroActions}>
               <LinkButton href="/pojazdy/">Zobacz pojazdy</LinkButton>
+              <LinkButton href="#checker-title" variant="secondary">Sprawdź termin</LinkButton>
             </div>
             <AvailabilityChecker today={today} />
           </div>
@@ -74,7 +74,7 @@ export function PublicHome({ home, today }: { home: Home; today: string }) {
         <div className={`${styles.container} ${styles.ctaBand}`}>
           <div>
             <h2 id="contact-title" className={styles.h2}>Masz pytania przed wyjazdem?</h2>
-            <p className={styles.sectionLead}>Napisz lub zadzwoń. Pomożemy dobrać pojazd.</p>
+            <p className={styles.sectionLead}>Napisz lub zadzwoń. Pomagamy dobrać pojazd i wyjaśniamy warunki.</p>
           </div>
           <div className={styles.ctaActions}>
             <LinkButton href="/kontakt/">Napisz do nas</LinkButton>
