@@ -74,7 +74,7 @@ function SitePreview() {
         <div aria-hidden="true" className={styles.mockBar}><span /><span /><span /></div>
         <div aria-hidden="true" className={styles.mockSiteBody}>
           <div className={styles.mockImage}><DepotPicture /></div>
-          <p className={styles.mockTitle}>Wypożyczalnia DEMO</p>
+          <p className={styles.mockTitle}>Alfa Campers</p>
           <p className={styles.mockMeta}>Wybierz pojazd i sprawdź informacyjną dostępność.</p>
           <span className={styles.badge}><CircleCheck size={14} />Dostępny w wybranym terminie</span>
         </div>
@@ -138,7 +138,6 @@ export function MarketingPage({ contact }: { contact: Contact }) {
         <div id="top" className={styles.hero}>
           <div className={`${styles.container} ${styles.heroGrid}`}>
             <div className={styles.heroText}>
-              <p className={styles.eyebrow}>{heroCopy.eyebrow}</p>
               <h1 className={styles.h1}>{heroCopy.title}</h1>
               <p className={styles.lead}>{heroCopy.lead}</p>
               <CallLink contact={contact} className={`${styles.cta} ${styles.ctaLarge}`}><Phone aria-hidden="true" size={20} />{heroCopy.cta}</CallLink>

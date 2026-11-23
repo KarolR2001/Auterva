@@ -10,7 +10,7 @@ export const marketingMeta = {
 } as const;
 
 /**
- * Contact channels. `null` means the channel is not connected: the page then shows the DEMO notice and no
+ * Contact channels. `null` means the channel is not connected: the page then shows the inactive-contact notice and no
  * tel:/mailto:/wa.me link. The placeholder `+48 000 000 000` and `kontakt@example.invalid` must never be wired here.
  */
 export const marketingContact: { phone: string | null; whatsapp: string | null; email: string | null } = {
@@ -20,7 +20,6 @@ export const marketingContact: { phone: string | null; whatsapp: string | null; 
 };
 
 export const heroCopy = {
-  eyebrow: "SYSTEM DLA WYPOŻYCZALNI",
   title: "Flota online. Terminy pod kontrolą.",
   lead: "Pokaż flotę z najlepszej strony. Aktualizuj auta i wolne terminy w jednym panelu — także z telefonu.",
   cta: "Zadzwoń do Autervy",
@@ -28,7 +27,7 @@ export const heroCopy = {
 } as const;
 
 export const benefits = {
-  title: "Więcej czasu dla klientów.",
+  title: "Więcej czasu dla klientów",
   lead: "Klient poznaje ofertę na stronie. Ty aktualizujesz ją w jednym miejscu.",
   cards: [
     { icon: "globe", title: "Oferta, która przekonuje", text: "Zdjęcia, wyposażenie i wolne terminy pomagają klientom wybrać auto." },
@@ -50,13 +49,12 @@ export const preview = {
 } as const;
 
 export const steps = {
-  title: "Od prezentacji do gotowej strony.",
+  title: "Od prezentacji do gotowej strony",
   lead: "Poznaj system, przekaż materiały i odbierz przygotowaną stronę oraz dostęp do panelu.",
   items: [
-    { title: "Porozmawiajmy", text: "Ustalamy telefonicznie potrzeby." },
-    { title: "Zobacz rozwiązanie", text: "Pokazujemy makietę strony i panel." },
-    { title: "Uzgodnij materiały", text: "Firma akceptuje wygląd poza aplikacją, Auterva przygotowuje konfigurację." },
-    { title: "Otrzymaj dostęp", text: "Po zaproszeniu administrator prowadzi ofertę w panelu." },
+    { title: "Porozmawiajmy", text: "Telefonicznie ustalamy potrzeby Twojej wypożyczalni." },
+    { title: "Zobacz rozwiązanie", text: "Zobacz, jak Twoja oferta i codzienna praca mogą wyglądać w Autervie." },
+    { title: "Otrzymaj dostęp", text: "Odbierasz stronę swojej wypożyczalni i dostęp do panelu." },
   ],
 } as const;
 
@@ -66,30 +64,30 @@ export const faq = {
   items: [
     {
       question: "Jak klient ustala termin?",
-      answer: "Sprawdza informacyjną dostępność i kontaktuje się z firmą; administrator zapisuje uzgodniony zakres.",
+      answer: "Klient sprawdza termin na stronie, a szczegóły ustalacie telefonicznie. Administrator zapisuje uzgodniony zakres w panelu.",
     },
     {
       question: "Czy mogę pracować z telefonu?",
-      answer: "Tak, funkcje panelu floty i dostępności są dostępne na telefonie.",
+      answer: "Tak. Na telefonie zarządzasz pojazdami, zdjęciami i dostępnością tak samo jak na komputerze.",
     },
-    { question: "Co przygotować na start?", answer: "Logo, dane firmy i zdjęcia; Auterva pokazuje sposób obsługi panelu." },
+    { question: "Co przygotować na start?", answer: "Logo, dane firmy i zdjęcia pojazdów. Wspólnie przygotujemy stronę i pokażemy Ci obsługę panelu." },
   ],
 } as const;
 
 export const contactCopy = {
-  title: "Porozmawiajmy o Twojej wypożyczalni.",
-  lead: "Pokażemy Ci system do prezentacji floty i zarządzania dostępnością.",
+  title: "Porozmawiajmy o Twojej wypożyczalni",
+  lead: "Pokażemy Ci prosty system dopasowany do prezentacji floty i codziennego zarządzania dostępnością.",
   whatsapp: "Napisz na WhatsApp",
   email: "Napisz e-mail",
-  demoNotice: "Dane DEMO — kontakt nieaktywny",
+  demoNotice: "Kontakt jeszcze nieaktywny",
   demoHint: "Prawdziwe kanały kontaktu pojawią się przed publikacją strony.",
 } as const;
 
-export const footerText = "Auterva — system prezentacji floty i dostępności dla wypożyczalni pojazdów.";
+export const footerText = "Prosty system prezentacji floty i dostępności dla wypożyczalni pojazdów.";
 
 export const navItems = [
-  { href: "#korzysci", label: "Korzyści" },
   { href: "#podglad", label: "Funkcje" },
   { href: "#jak-to-dziala", label: "Jak to działa" },
+  { href: "#korzysci", label: "Korzyści" },
   { href: "#kontakt", label: "Kontakt" },
 ] as const;

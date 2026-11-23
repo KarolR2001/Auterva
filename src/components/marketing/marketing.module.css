@@ -27,7 +27,6 @@ a.wordmark, .navLink, .cta, .channel { min-height: var(--touch-target-mobile); d
 
 /* Typography */
 .eyebrow, .eyebrowSmall { margin: 0; font-size: var(--font-size-12); line-height: var(--line-height-16); font-weight: var(--font-weight-semibold); letter-spacing: 0.08em; color: var(--text-secondary); }
-.eyebrowSmall { font-size: 11px; }
 .h1 { margin: 0; font-size: var(--font-size-40); line-height: var(--line-height-48); font-weight: var(--font-weight-bold); text-wrap: balance; }
 .h2 { margin: 0; font-size: var(--font-size-28); line-height: var(--line-height-36); font-weight: var(--font-weight-bold); text-wrap: balance; }
 .h3 { margin: 0; font-size: var(--font-size-18); line-height: var(--line-height-26); font-weight: var(--font-weight-semibold); }
@@ -93,7 +92,7 @@ a.channel:hover { background: var(--color-neutral-700); }
 @media (min-width: 768px) {
   .previews { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
   .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .faq { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .faq, .steps { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .contactGrid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-12); align-items: center; }
 }
 @media (min-width: 1024px) {
@@ -109,7 +108,7 @@ a.channel:hover { background: var(--color-neutral-700); }
   .section { padding: var(--space-16) 0; }
   .sectionHead { gap: var(--space-5); margin-bottom: var(--space-5); }
   .cards { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-6); margin-top: var(--space-5); }
-  .faq { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .faq, .steps { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .card { padding: var(--space-6); border-radius: var(--radius-xl); }
   .card .h3 { font-size: var(--font-size-20); line-height: var(--line-height-28); }
   .card .h3, .card .text { padding-inline-end: 0; }
