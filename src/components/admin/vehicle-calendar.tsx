@@ -647,10 +647,10 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
               </Alert>
             )}
             <div className={styles.dates}>
-              <FormField id="bc-from" label="Od" required error={errors.from} hint="Format RRRR-MM-DD albo wybór z kalendarza.">
+              <FormField id="bc-from" label="Od" required error={errors.from} hint="Wpisz lub wybierz z kalendarza.">
                 <TextInput type="date" value={values.from} disabled={archived || busy || locked} onChange={(event) => set("from", event.target.value)} />
               </FormField>
-              <FormField id="bc-to" label="Do (włącznie)" required error={errors.to}>
+              <FormField id="bc-to" label="Do (włącznie)" required error={errors.to} hint="Wpisz lub wybierz z kalendarza.">
                 <TextInput type="date" value={values.to} min={values.from || undefined} disabled={archived || busy || locked} onChange={(event) => set("to", event.target.value)} />
               </FormField>
             </div>
@@ -666,7 +666,7 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
                 {errors.ack && <p id="bc-ack-error" className={styles.fieldError}>{errors.ack}</p>}
               </Alert>
             )}
-            <FormField id="bc-type" label="Typ" required error={errors.type}>
+            <FormField id="bc-type" label="Typ" required error={errors.type} hint="Publicznie zawsze: niedostępny.">
               <Select value={values.type} disabled={archived || busy || locked} onChange={(event) => set("type", event.target.value as BlockTypeCode)}>
                 {blockTypeOrder.map((type) => <option key={type} value={type}>{typeLabel(type)}</option>)}
               </Select>
