@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { PanelShell } from "../../src/components/panel/panel-shell";
 import { navigation } from "../../src/components/panel/unsaved-changes-guard";
 import { CompanyCard, type CompanyCardDto } from "../../src/components/platform/company-card";
+import { purgeCompanyName, purgeNoticeState } from "../../src/components/platform/purge-running-notice";
 import { NewCompanyForm } from "../../src/components/platform/new-company-form";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
@@ -66,6 +67,27 @@ describe("karta firmy i zaproszenie (#25)", () => {
     shell(<CompanyCard initial={base} justSaved={false} />);
     expect(screen.getByRole("link", { name: "Edytuj logo i materiały publiczne" }).getAttribute("href")).toMatch(new RegExp(`^/firmy/${base.organizationId}/ustawienia/?\\?sekcja=wyglad$`));
     expect(screen.getByRole("link", { name: "Ustawienia firmy" }).getAttribute("href")).toMatch(new RegExp(`^/firmy/${base.organizationId}/ustawienia/?$`));
+  });
+
+  it("trwające usuwanie danych: karta nie sugeruje edycji ani przywrócenia (#465)", () => {
+    const running = { ...base, archivedAt: "2025-01-01T00:00:00Z", purge: { scheduledAt: "2026-01-01T00:00:00Z", startedAt: "2026-11-22T08:00:00Z", completedAt: null } };
+    shell(<CompanyCard initial={running} justSaved={false} />);
+    expect(screen.getByRole("region", { name: "Trwałe usunięcie danych" })).toHaveTextContent("Trwa trwałe usunięcie danych");
+    for (const name of ["Kalendarz floty", "Ustawienia firmy", "Edytuj logo i materiały publiczne", "Dziennik zmian", "Zarządzaj flotą"]) {
+      expect(screen.queryByRole("link", { name })).toBeNull();
+    }
+    expect(screen.queryByText(/Najpierw ją przywróć/)).toBeNull();
+    expect(screen.queryByText(/nadal edytujesz dane firmy/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /Przywróć firmę/ })).toBeNull();
+  });
+
+  it("stan stron firmy z kolumn purge: zakończone wygrywa nad rozpoczętym, bez nazwy po usunięciu (#465)", () => {
+    const at = new Date();
+    expect(purgeNoticeState({ purgeStartedAt: null, purgedAt: null })).toBeNull();
+    expect(purgeNoticeState({ purgeStartedAt: at, purgedAt: null })).toBe("running");
+    expect(purgeNoticeState({ purgeStartedAt: at, purgedAt: at })).toBe("done");
+    expect(purgeCompanyName("done", "Alfa")).toBe("Firma usunięta");
+    expect(purgeCompanyName("running", "Alfa")).toBe("Alfa");
   });
 
   it("UNCERTAIN: brak wydania nowego zaproszenia, jest tylko cofnięcie", () => {

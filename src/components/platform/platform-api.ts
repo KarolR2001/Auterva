@@ -224,3 +224,15 @@ export function purgeState(company: { archivedAt: string | null; purge?: Company
 }
 
 export const PURGED_COMPANY_LABEL = "Firma usunięta";
+
+/** Title and text of the neutral page shown instead of fleet and settings once the permanent deletion has started. */
+export const PURGE_RUNNING_PAGE = {
+  title: "Trwa usuwanie danych firmy",
+  text: "Ta firma nie przyjmuje już zapisów, a jej flota, ustawienia i dziennik zmian nie są dostępne. Stan usuwania widać na karcie firmy.",
+} as const;
+
+/** The neutral page of a company whose data is already gone: nothing but the fact, no name, slug, e-mail or hosts. */
+export const PURGE_DONE_PAGE = {
+  title: PURGED_COMPANY_LABEL,
+  text: "Dane tej firmy zostały trwale usunięte. Nazwa, adresy i konto nie są już dostępne, a operacje na tej firmie nie są możliwe.",
+} as const;

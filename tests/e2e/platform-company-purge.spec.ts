@@ -84,7 +84,21 @@ test("platform: planned, running and finished purge states on the list and the c
       await expect(region).toContainText("Trwa trwałe usunięcie danych");
       await expect(page.getByRole("button", { name: /Przywróć firmę|Odblokuj/ })).toHaveCount(0);
       await expect(page.getByRole("link", { name: "Zarządzaj flotą" })).toHaveCount(0);
+      // #465: no links or sentences that suggest editing or restoring, and the notice icon keeps its 20 px.
+      await expect(page.getByRole("link", { name: /Kalendarz floty|Ustawienia firmy|Edytuj logo i materiały publiczne|Dziennik zmian/ })).toHaveCount(0);
+      await expect(page.locator("main")).not.toContainText(/Najpierw ją przywróć|nadal edytujesz dane firmy/);
+      const icon = await region.locator("svg").first().boundingBox();
+      expect(icon?.width, `notice icon ${width}`).toBeGreaterThanOrEqual(20);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), `running card ${width}`).toBeLessThanOrEqual(0);
+    }
+    // Every sub-page of the company shows the neutral state: running says it is in progress, never the data or actions.
+    const subPages = ["kalendarz", "ustawienia", "ustawienia/kalendarz-zewnetrzny", "pojazdy", "pojazdy/nowy", "podglad", "logi"];
+    for (const path of subPages) {
+      await page.goto(`${origin}/firmy/${running}/${path}/`);
+      await expect(page.getByText("Trwa usuwanie danych firmy"), path).toBeVisible();
+      await expect(page.getByRole("button", { name: /Zapisz|Dodaj|Zablokuj|Cofnij/ }), path).toHaveCount(0);
+      await expect(page.getByRole("navigation", { name: /Ustawienia/ }), path).toHaveCount(0);
+      await expect(page.getByRole("link", { name: /^Wróć do karty firmy/ }), path).toBeVisible();
     }
     await axeScan(page, "running purge card");
 
@@ -100,6 +114,16 @@ test("platform: planned, running and finished purge states on the list and the c
       await expect(page.getByRole("button", { name: /Przywróć|Archiwizuj|Odblokuj|Zapisz/ })).toHaveCount(0);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), `purged card ${width}`).toBeLessThanOrEqual(0);
     }
+    // Sub-pages of a finished purge say "Firma usunięta" (not "in progress") and carry no name, slug, e-mail or host.
+    for (const path of subPages) {
+      await page.goto(`${origin}/firmy/${gone}/${path}/`);
+      await expect(page.getByText("Firma usunięta").first(), path).toBeVisible();
+      await expect(page.getByText("Trwa usuwanie danych firmy"), path).toHaveCount(0);
+      await expect(page.locator("body"), path).not.toContainText(`purged-${gone}`);
+      await expect(page.getByRole("button", { name: /Zapisz|Dodaj|Zablokuj|Cofnij/ }), path).toHaveCount(0);
+      await expect(page.getByRole("navigation", { name: /Ustawienia/ }), path).toHaveCount(0);
+    }
+    await page.goto(`${origin}/firmy/${gone}/`);
     await axeScan(page, "purged card");
     await focusAudit(page, "purged card");
     // Restore of a purged company is refused by the API; the card offers no way to try.
