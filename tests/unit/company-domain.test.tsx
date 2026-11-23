@@ -140,4 +140,60 @@ describe("domena własna na karcie firmy (#25 / API #23)", () => {
     await screen.findByText(/Gotowa do aktywacji/);
     expect(screen.queryByRole("button", { name: /Aktywuj|Usuń|Sprawdź/ })).toBeNull();
   });
+
+  describe("odczyt a trwająca operacja (#460)", () => {
+    const withKey = (key: number) => (
+      <PanelShell area="platform" accessState="allowed" title="Firmy" currentPath="/firmy" onLogout={vi.fn()}>
+        <CompanyDomain organizationId={id} archived={false} reloadKey={key} />
+      </PanelShell>);
+    const gate = () => { let open!: (value: Response) => void; const promise = new Promise<Response>((resolve) => { open = resolve; }); return { promise, open }; };
+
+    it("przeładowanie z reloadKey nie zdejmuje busy trwającej operacji", async () => {
+      const user = userEvent.setup();
+      const put = gate();
+      vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => (init?.method === "PUT" ? put.promise : Response.json(view(null))));
+      const { rerender } = render(withKey(0));
+      await user.type(await screen.findByLabelText(/Nazwa domeny/), "kamper.klient.pl");
+      await user.click(screen.getByRole("button", { name: "Dodaj domenę" }));
+      await screen.findByText(/Trwa operacja na domenie/);
+      rerender(withKey(1));
+      await waitFor(() => expect(vi.mocked(fetch).mock.calls.filter(([, init]) => !init?.method || init.method === "GET")).toHaveLength(2));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(screen.getByText(/Trwa operacja na domenie/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Dodawanie domeny/ })).toBeDisabled();
+      put.open(Response.json(view(domain("PENDING_OWNERSHIP"))));
+      await screen.findByText("kamper.klient.pl — Oczekuje na potwierdzenie własności");
+    });
+
+    it("udany cichy odczyt czyści ostrzeżenie o nieaktualnym stanie", async () => {
+      let ok = false;
+      vi.spyOn(globalThis, "fetch").mockImplementation(async () => (ok ? Response.json(view(null)) : new Response(null, { status: 500 })));
+      const { rerender } = render(withKey(0));
+      await screen.findByText("Nie udało się wczytać stanu domeny.");
+      ok = true;
+      rerender(withKey(1));
+      await waitFor(() => expect(screen.queryByText("Nie udało się wczytać stanu domeny.")).toBeNull());
+      await screen.findByLabelText(/Nazwa domeny/);
+    });
+
+    it("spóźniona odpowiedź cichego GET po zapisie nie nadpisuje świeższego stanu", async () => {
+      const user = userEvent.setup();
+      const late = gate();
+      let reads = 0;
+      vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+        if (init?.method === "PUT") return Response.json(view(domain("PENDING_OWNERSHIP")));
+        reads += 1;
+        return reads === 1 ? Response.json(view(null)) : late.promise;
+      });
+      const { rerender } = render(withKey(0));
+      await user.type(await screen.findByLabelText(/Nazwa domeny/), "kamper.klient.pl");
+      rerender(withKey(1));
+      await waitFor(() => expect(reads).toBe(2));
+      await user.click(screen.getByRole("button", { name: "Dodaj domenę" }));
+      await screen.findByText("kamper.klient.pl — Oczekuje na potwierdzenie własności");
+      late.open(Response.json(view(null)));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(screen.getByText("kamper.klient.pl — Oczekuje na potwierdzenie własności")).toBeInTheDocument();
+    });
+  });
 });
