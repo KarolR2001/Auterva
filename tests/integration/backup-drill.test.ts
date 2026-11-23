@@ -159,3 +159,11 @@ test("a full restore of a set taken before a purge brings the company back and t
   expect(await listKeys(target.storage)).toEqual([keyB]);
   await restored.end();
 }, TEST_TIMEOUT_MS);
+
+test("the drill script refuses a non-loopback S3 endpoint before touching anything", () => {
+  const base: NodeJS.ProcessEnv = { ...process.env, AUTERVA_FIXTURE: "1" };
+  const refused = spawnSync("pnpm", ["exec", "tsx", "scripts/backup-drill.ts"], { env: { ...base, S3_ENDPOINT: "https://s3.example.com" }, encoding: "utf8" });
+  expect(refused.status).toBe(2);
+  expect(refused.stderr).toMatch(/DRILL_REFUSED.*S3_ENDPOINT/);
+  expect(refused.stdout).toBe("");
+}, TEST_TIMEOUT_MS);

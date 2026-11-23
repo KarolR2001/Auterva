@@ -13,6 +13,7 @@ if (process.env.AUTERVA_FIXTURE === "1" && existsSync(".local/fixture-9/secrets.
 
 const { createMediaStorage } = await import("../src/modules/media/storage");
 const { runBackupDrill } = await import("../src/modules/backup/drill");
+const { assertLocalDrillTarget, resolveDrillKey, runThenCleanup } = await import("../src/modules/backup/drill-guard");
 const { connect, quote, withDatabase } = await import("../src/modules/backup/core");
 const { DeleteBucketCommand, DeleteObjectCommand, ListObjectsV2Command } = await import("@aws-sdk/client-s3");
 
@@ -26,35 +27,42 @@ const args = process.argv.slice(2);
 const keep = args.includes("--keep");
 const organization = args.find((arg) => arg.startsWith("--organization="))?.slice(15);
 const sourceUrl = process.env.DATABASE_URL ?? "";
-if (process.env.AUTERVA_FIXTURE !== "1" || process.env.NODE_ENV === "production" || new URL(sourceUrl || "x:").hostname !== "127.0.0.1") {
-  process.stderr.write("DRILL_REFUSED: the drill runs only against the local fixture (AUTERVA_FIXTURE=1, loopback database)\n");
+try {
+  assertLocalDrillTarget(process.env);
+} catch (error) {
+  process.stderr.write(`${(error as Error).message}\n`);
   process.exit(2);
 }
 const tag = randomBytes(4).toString("hex");
 const restoreDatabase = `auterva_drill_${tag}`;
 const restoreBucket = `auterva-drill-${tag}`;
-const keyHex = process.env.BACKUP_ENCRYPTION_KEY ?? randomBytes(32).toString("hex");
+const { keyHex, warning } = resolveDrillKey(process.env, keep);
+if (warning) process.stderr.write(`${warning}\n`);
 const outDir = await mkdtemp(resolve(".local/backup-drill-"));
 const restoreStorage = createMediaStorage({ ...process.env, S3_BUCKET: restoreBucket });
 let exitCode = 0;
+const cleanup = async () => {
+  if (keep) return;
+  const control = await connect(withDatabase(sourceUrl, "postgres"));
+  await control.query(`DROP DATABASE IF EXISTS ${quote(restoreDatabase)} WITH (FORCE)`).finally(() => control.end());
+  const listed = await restoreStorage.client.send(new ListObjectsV2Command({ Bucket: restoreBucket })).catch(() => null);
+  for (const object of listed?.Contents ?? []) await restoreStorage.client.send(new DeleteObjectCommand({ Bucket: restoreBucket, Key: object.Key }));
+  await restoreStorage.client.send(new DeleteBucketCommand({ Bucket: restoreBucket })).catch(() => undefined);
+  await rm(outDir, { recursive: true, force: true });
+};
 try {
-  const commit = process.env.AUTERVA_COMMIT ?? execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
-  const report = await runBackupDrill({ databaseUrl: sourceUrl, storage: createMediaStorage(process.env),
-    key: Buffer.from(keyHex, "hex"), repoDir: resolve("."), operatorId: process.env.OPERATOR_ID ?? "drill", outDir, commit,
-    restoreDatabaseUrl: withDatabase(sourceUrl, restoreDatabase), restoreStorage, ...(organization ? { organizationId: organization } : {}) });
-  process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
-  if (!report.ok) exitCode = 1;
+  await runThenCleanup(async () => {
+    const commit = process.env.AUTERVA_COMMIT ?? execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+    const report = await runBackupDrill({ databaseUrl: sourceUrl, storage: createMediaStorage(process.env),
+      key: Buffer.from(keyHex, "hex"), repoDir: resolve("."), operatorId: process.env.OPERATOR_ID ?? "drill", outDir, commit,
+      restoreDatabaseUrl: withDatabase(sourceUrl, restoreDatabase), restoreStorage, ...(organization ? { organizationId: organization } : {}) });
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    if (!report.ok) exitCode = 1;
+  }, cleanup);
 } catch (error) {
   process.stderr.write(`${(error as { code?: string }).code ?? "DRILL_FAILED"}: ${(error as Error).message}\n`);
+  const cleanupError = (error as { cleanupError?: Error }).cleanupError;
+  if (cleanupError) process.stderr.write(`DRILL_CLEANUP_FAILED: ${cleanupError.message}\n`);
   exitCode = 1;
-} finally {
-  if (!keep) {
-    const control = await connect(withDatabase(sourceUrl, "postgres"));
-    await control.query(`DROP DATABASE IF EXISTS ${quote(restoreDatabase)} WITH (FORCE)`).finally(() => control.end());
-    const listed = await restoreStorage.client.send(new ListObjectsV2Command({ Bucket: restoreBucket })).catch(() => null);
-    for (const object of listed?.Contents ?? []) await restoreStorage.client.send(new DeleteObjectCommand({ Bucket: restoreBucket, Key: object.Key }));
-    await restoreStorage.client.send(new DeleteBucketCommand({ Bucket: restoreBucket })).catch(() => undefined);
-    await rm(outDir, { recursive: true, force: true });
-  }
 }
 process.exitCode = exitCode;
