@@ -533,6 +533,23 @@ function AvailablePanelShell({
                 tę stronę.
               </p>
             )}
+            {/* ADM-18: the loaded page stays readable offline; saving is paused and nothing is queued (FR-PWA-002). */}
+            {area === "company" && !pwa.online && (
+              <section role="status" aria-label="Brak połączenia" className={styles.shellOffline}>
+                <WifiOff size={20} aria-hidden="true" />
+                <div>
+                  <p className={styles.shellOfflineTitle}>Brak połączenia</p>
+                  <p>
+                    Nie możemy połączyć się z serwerem. Możesz przeglądać ostatnio
+                    wczytane dane, ale zapisywanie jest wstrzymane.
+                  </p>
+                  <p>
+                    Niezapisane dane formularza zostają na tym urządzeniu i nie
+                    zostaną wysłane bez połączenia.
+                  </p>
+                </div>
+              </section>
+            )}
             {area === "company" && pwa.updateReady && (
               <div role="status" aria-label="Aktualizacja panelu" className={styles.shellUpdate}>
                 <RefreshCw size={16} aria-hidden="true" />
