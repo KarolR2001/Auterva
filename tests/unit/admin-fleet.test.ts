@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, blocksWithin, nearestBlocks, warsawToday } from "../../src/components/admin/dashboard";
+import { addDays, blocksWithin, fleetQuality, nearestBlocks, nearestNote, rangeText, warsawToday } from "../../src/components/admin/dashboard";
 import { emptyQuery, errorMessage, isUncertain, queryFromSearch, readErrorMessage, rowActions, searchFromQuery, statusSummary } from "../../src/components/admin/fleet-api";
 import type { FleetItem } from "../../src/components/admin/fleet-api";
 import { filtersActive, REORDER_LIMIT, reorderPayload } from "../../src/components/admin/vehicle-list";
@@ -98,6 +98,26 @@ describe("#34 dashboard", () => {
     ], "2026-10-29", 2);
     expect(blocks.map((row) => row.id)).toEqual(["b2", "b3"]);
     expect(blocks[0].vehicleName).toBe("Pojazd bez nazwy");
+  });
+
+  it("names block ranges like ADM-04, inclusive and with one day valid", () => {
+    expect(rangeText("2026-09-25", "2026-09-27")).toBe("25–27 września • 3 dni");
+    expect(rangeText("2026-09-28", "2026-09-28")).toBe("28 września • 1 dzień");
+    expect(rangeText("2026-09-30", "2026-10-02")).toBe("30 września – 2 października • 3 dni");
+    expect(nearestNote([{ from: "2026-09-25" }], "2026-09-24")).toBe("najbliższa jutro");
+    expect(nearestNote([{ from: "2026-09-20" }], "2026-09-24")).toBe("najbliższa dziś");
+    expect(nearestNote([{ from: "2026-10-20" }], "2026-09-24")).toBeUndefined();
+    expect(nearestNote([], "2026-09-24")).toBeUndefined();
+  });
+
+  it("counts data-quality warnings without archived vehicles", () => {
+    const cover = { id: "c", alt: "Widok z boku" };
+    expect(fleetQuality([
+      { status: "PUBLISHED", price: null, cover },
+      { status: "PUBLISHED", price: "300", cover: null },
+      { status: "DRAFT", price: null, cover: null },
+      { status: "ARCHIVED", price: null, cover: null },
+    ])).toEqual({ noPrice: 2, noCover: 2, publishedNeedingAttention: 2 });
   });
 
   it("keeps list filters in the address and falls back to defaults for malformed values (D-42)", () => {

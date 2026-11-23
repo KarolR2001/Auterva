@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminDashboardPage() {
   return CompanyPanelPage({
     currentPath: "/admin",
-    children: ({ companyName }) => <Dashboard title={`Panel · ${companyName}`} />,
+    title: "Pulpit",
+    children: ({ companyName }) => <Dashboard title={`Pulpit · ${companyName}`} />,
   });
 }
