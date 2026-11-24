@@ -7,7 +7,18 @@
   gap: var(--space-3);
   height: var(--chat-fit);
   min-height: 320px;
-  max-width: 860px;
+  max-width: 760px;
+}
+
+/* TEN-11: visible page title (preflight resets heading size and weight). */
+.title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-32);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-40);
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
 }
 
 .srOnly {
@@ -97,10 +108,12 @@
   flex-direction: column;
   gap: var(--space-3);
   overflow-y: auto;
-  padding: var(--space-4);
-  border: var(--border-width-hairline) solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  background: var(--surface-default);
+  /* TEN-11: messages sit on the page background; the padding keeps focus rings and bubble borders inside the scrollport. */
+  padding: var(--space-4) var(--space-1);
+}
+.list:focus-visible {
+  outline: var(--border-width-active) solid var(--focus-ring);
+  outline-offset: calc(-1 * var(--border-width-active));
 }
 
 .note {
@@ -117,16 +130,15 @@
 }
 
 .message {
-  max-width: min(100%, 560px);
-  padding: var(--space-3) var(--space-4);
-  border: var(--border-width-hairline) solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  max-width: min(100%, 360px);
+  padding: var(--space-4) var(--space-5);
+  border: var(--border-width-hairline) solid var(--border-default);
+  border-radius: var(--radius-lg);
   background: var(--surface-canvas);
 }
 
 .message[data-own] {
   margin-left: auto;
-  border-color: var(--border-strong, var(--border-subtle));
 }
 
 .message[data-pending="failed"],
@@ -136,13 +148,13 @@
 
 .sender {
   margin: 0;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   font-size: var(--font-size-14);
   font-weight: var(--font-weight-semibold);
 }
 
 .body {
-  margin: var(--space-1) 0;
+  margin: var(--space-2) 0 var(--space-1);
   color: var(--text-primary);
   line-height: var(--line-height-24);
   white-space: pre-wrap;
@@ -152,7 +164,8 @@
 .meta {
   margin: 0;
   color: var(--text-secondary);
-  font-size: var(--font-size-14);
+  font-size: var(--font-size-12);
+  line-height: var(--line-height-16);
 }
 
 .failure {
@@ -177,7 +190,7 @@
 .newMessages {
   position: absolute;
   right: var(--space-4);
-  bottom: 168px;
+  bottom: 136px;
   display: inline-flex;
   min-height: 44px;
   align-items: center;
@@ -191,18 +204,41 @@
   cursor: pointer;
 }
 
+/* TEN-11: bordered composer card, one-line field with "Wyślij" beside it and the draft hint below. */
 .composer {
   display: grid;
-  gap: var(--space-2);
-  padding-bottom: env(safe-area-inset-bottom);
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-2) var(--space-4);
+  margin-bottom: env(safe-area-inset-bottom);
+  padding: var(--space-4);
+  border: var(--border-width-hairline) solid var(--border-default);
+  border-radius: var(--radius-lg);
+}
+
+.composer .hint {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  font-size: var(--font-size-12);
+  line-height: var(--line-height-16);
+}
+
+.composer .send {
+  grid-column: 2;
+  grid-row: 1;
+  min-height: 56px;
+  min-width: 100px;
+  border-color: var(--surface-inverse);
+  background: var(--surface-inverse);
+  color: var(--text-inverse);
 }
 
 .textarea {
   width: 100%;
-  min-height: 72px;
+  min-height: 56px;
   max-height: 200px;
   resize: vertical;
-  padding: var(--space-3);
+  padding: var(--space-4);
   border: var(--border-width-hairline) solid var(--border-strong, var(--border-subtle));
   border-radius: var(--radius-md);
   background: var(--surface-default);
