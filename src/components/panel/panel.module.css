@@ -156,9 +156,10 @@
   display: flex;
   height: 100svh;
   flex-direction: column;
-  gap: var(--space-8);
+  gap: var(--space-2);
   overflow-y: auto;
-  padding: var(--space-6) var(--space-4);
+  padding: var(--space-5);
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
   background: var(--surface-inverse);
   color: var(--text-inverse);
 }
@@ -166,26 +167,28 @@
 /* WCAG 2.4.11 (#342): the fixed action bar of the vehicle form and calendar covers the bottom of the viewport, so the last sidebar
    links get room to scroll above it (bar height plus the 64 px its bottom padding reserves below 1024 px). */
 :global(:root):has([data-fixed-action-bar]) .shellDesktopNav {
-  padding-bottom: calc(var(--space-6) + 96px);
+  padding-bottom: calc(var(--space-5) + 96px);
 }
 
 @media (max-width: 1023px) {
   :global(:root):has([data-fixed-action-bar]) .shellDesktopNav {
-    padding-bottom: calc(var(--space-6) + 168px);
+    padding-bottom: calc(var(--space-5) + 168px);
   }
 }
 
 .shellBrandBlock {
   display: grid;
   gap: var(--space-1);
-  padding: 0 var(--space-1);
+  padding-top: var(--space-1);
 }
 
+/* ADM-04 D: "AUTERVA" 20 px bold without tracking; "PANEL FIRMY" right below, the first nav item 8 px under it. */
 .shellBrand {
+  justify-self: start;
   color: var(--text-inverse);
-  font-size: var(--font-size-22);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.02em;
+  font-size: var(--font-size-20);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-24);
   text-decoration: none;
   text-transform: uppercase;
 }
@@ -209,7 +212,11 @@
   gap: var(--space-2);
 }
 
+/* Desktop sidebar items (ADM-04 D): 48 px rows, 16 px inline padding, 24 px icons 8 px before the label, 8 px apart. */
 .shellDesktopNav .shellNavLink {
+  min-height: var(--button-height-md);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
   color: var(--color-neutral-300);
 }
 
@@ -222,6 +229,7 @@
   border-color: transparent;
   background: var(--color-neutral-700);
   color: var(--text-inverse);
+  font-weight: var(--font-weight-medium);
 }
 
 .shellDesktopNav .shellUnread {
@@ -275,7 +283,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: var(--space-3) var(--space-8);
+  padding: var(--space-3) var(--space-6);
   border-bottom: var(--border-width-hairline) solid var(--border-subtle);
   background: var(--surface-default);
 }
@@ -312,6 +320,8 @@
 .shellBreadcrumbRoot {
   color: var(--text-secondary);
   font-size: var(--font-size-16);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-24);
 }
 
 .shellBreadcrumbs h1 {
@@ -324,19 +334,32 @@
   white-space: nowrap;
 }
 
+/* ADM-04: a 112 x 32 pill with a dot and "Online" in semibold; offline swaps in the WifiOff icon, "Offline" and a 2 px border. */
 .shellConnection {
   display: inline-flex;
   flex-shrink: 0;
+  min-width: 112px;
+  min-height: 32px;
+  box-sizing: border-box;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-2);
   margin-left: auto;
-  padding: var(--space-1) var(--space-3);
-  border: var(--border-width-hairline) solid var(--status-success-border);
+  padding: 0 var(--space-4);
+  border: var(--border-width-hairline) solid var(--border-strong);
   border-radius: var(--radius-full);
-  background: var(--status-success-surface);
-  color: var(--status-success-text);
+  background: var(--surface-default);
+  color: var(--text-primary);
   font-size: var(--font-size-14);
-  line-height: var(--line-height-24);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-20);
+}
+
+.shellConnectionDot {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: currentColor;
 }
 
 .shellConnection[data-online="false"] {
@@ -395,10 +418,11 @@
 }
 
 .shellProfileTrigger {
+  position: relative;
   flex-shrink: 0;
   display: inline-flex;
-  width: var(--touch-target-mobile);
-  height: var(--touch-target-mobile);
+  width: var(--button-height-sm);
+  height: var(--button-height-sm);
   align-items: center;
   justify-content: center;
   padding: 0;
@@ -409,12 +433,19 @@
   cursor: pointer;
 }
 
+/* The avatar is drawn at 40 px (mockups); the hit area keeps the 44 px touch target. */
+.shellProfileTrigger::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+}
+
 .shellContext {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-8);
+  padding: var(--space-3) var(--space-10);
   border-bottom: var(--border-width-hairline) solid var(--border-subtle);
   color: var(--text-secondary);
 }
@@ -424,9 +455,10 @@
   text-underline-offset: 3px;
 }
 
+/* Content starts 40 px after the 240 px sidebar and 32 px under the top bar (ADM-04 D); page wrappers add no inline padding. */
 .shellMain {
   min-width: 0;
-  padding: var(--space-8);
+  padding: var(--space-8) var(--space-10) var(--space-12);
 }
 
 .shellBusyNotice {
@@ -602,7 +634,12 @@
   }
 
   .shellMain {
-    padding: var(--space-4);
+    padding: var(--space-4) var(--space-4) var(--space-8);
+  }
+
+  .shellConnection {
+    min-width: 0;
+    padding: 0 var(--space-3);
   }
 
   .shellMobileNav {
@@ -634,6 +671,11 @@
     border-radius: 0;
     font-size: var(--font-size-12);
     text-align: center;
+  }
+
+  .shellMobileNav .shellNavLink svg {
+    width: 20px;
+    height: 20px;
   }
 
   .shellMobileNav .shellNavLink[data-current] {

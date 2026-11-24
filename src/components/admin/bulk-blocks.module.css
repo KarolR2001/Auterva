@@ -1,5 +1,5 @@
 /* Bulk block and copy (ADM-10 state=bulk-*, #217): in place of the fleet grid. Semantic tokens; status = text + icon + border. */
-.page { max-width: 1280px; margin: 0 auto; padding: var(--space-5) var(--space-4) calc(var(--space-12) * 2); container-type: inline-size; }
+.page { max-width: 1280px; margin: 0 auto; padding: 0 0 calc(var(--space-12) * 2); container-type: inline-size; }
 .crumbs { margin: 0 0 var(--space-2); font-size: var(--font-size-14); color: var(--text-secondary); }
 .crumbs a { color: var(--text-primary); }
 .crumbs a:focus-visible { outline: var(--border-width-active) solid var(--focus-ring); outline-offset: var(--focus-offset); }

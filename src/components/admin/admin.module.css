@@ -1,4 +1,4 @@
-.page { max-width: 1120px; margin: 0 auto; padding: var(--space-5) var(--space-4) var(--space-12); container-type: inline-size; }
+.page { max-width: 1120px; margin: 0 auto; padding: 0 0 var(--space-12); container-type: inline-size; }
 .pageHead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-5); }
 .title { margin: 0; font-size: var(--font-size-28); line-height: var(--line-height-32, 1.25); font-weight: var(--font-weight-bold); }
 .h2 { margin: 0 0 var(--space-3); font-size: var(--font-size-20); font-weight: var(--font-weight-semibold); }
