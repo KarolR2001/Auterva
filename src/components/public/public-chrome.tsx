@@ -1,4 +1,3 @@
-import { Menu, Phone } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -41,12 +40,12 @@ export function PublicPage({ brand, contact, range, children }:
           </Link>
           <nav aria-label="Główna nawigacja" id="main-navigation" className={styles.nav}>
             <a href={catalogHref} className={styles.navLink}>Pojazdy</a>
-            <LinkButton href={contactHref} className={styles.desktopOnly}>Skontaktuj się</LinkButton>
+            <LinkButton href={contactHref} className={`${styles.desktopOnly} ${styles.headerCta}`}>Skontaktuj się</LinkButton>
           </nav>
           <div className={`${styles.headerActions} ${styles.mobileOnly}`}>
-            <a href={contactHref} className={styles.navLink}>Kontakt</a>
+            <LinkButton href={contactHref} variant="secondary" className={styles.headerContact}>Kontakt</LinkButton>
             <details className={styles.menu}>
-              <summary className={styles.menuButton}><Menu aria-hidden="true" size={20} />Menu</summary>
+              <summary className={styles.menuButton}>Menu</summary>
               <nav aria-label="Menu" className={styles.menuPanel}>
                 <Link href="/" prefetch={false} className={styles.menuLink}>Strona główna</Link>
                 <a href={catalogHref} className={styles.menuLink}>Pojazdy</a>
@@ -60,17 +59,15 @@ export function PublicPage({ brand, contact, range, children }:
       <main id="main-content" className={styles.main}>{children}</main>
       <footer className={styles.footer}>
         <div className={`${styles.container} ${styles.footerGrid}`}>
-          <div>
-            <p className={styles.footerBrand}>{brand.name}</p>
-            {phone ? <p className={styles.footerText}><Phone aria-hidden="true" size={16} /> <a href={phone.href} className={styles.link}>{phone.value}</a></p> : null}
-          </div>
-          <nav aria-label="Stopka">
+          <p className={styles.footerBrand}>{brand.name}</p>
+          <nav aria-label="Stopka" className={styles.footerNavArea}>
             <ul className={styles.footerNav}>
-              <li><a href={catalogHref} className={styles.navLink}>Pojazdy</a></li>
-              <li><a href={contactHref} className={styles.navLink}>Kontakt</a></li>
-              <li><a href="/polityka-prywatnosci/" className={styles.navLink}>Polityka prywatności</a></li>
+              <li><a href={catalogHref} className={styles.footerLink}>Pojazdy</a></li>
+              <li><a href={contactHref} className={styles.footerLink}>Kontakt</a></li>
+              <li><a href="/polityka-prywatnosci/" className={styles.footerLink}>Polityka prywatności</a></li>
             </ul>
           </nav>
+          {phone ? <p className={styles.footerText}><a href={phone.href} className={styles.footerLink}>{phone.value}</a></p> : null}
           <p className={styles.footerCopy}>© {warsawYear()} {brand.name}</p>
         </div>
       </footer>

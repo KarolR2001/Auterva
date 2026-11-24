@@ -1,3 +1,5 @@
+import { MessageSquare, Route, ShieldCheck } from "lucide-react";
+
 import { PublicPage, LinkButton } from "./public-chrome";
 import { AvailabilityChecker } from "./catalog-filters";
 import { EmptyOffer } from "./state-page";
@@ -9,9 +11,9 @@ import { serializeJsonLd } from "@/modules/public-offer/seo";
 type Home = NonNullable<Awaited<ReturnType<typeof getPublicHome>>>;
 
 const benefits = [
-  { title: "Przejrzyste zasady", text: "Sprawdź dostępne terminy przed kontaktem i od razu wybierz dogodny zakres." },
-  { title: "Oferta w jednym miejscu", text: "Zobacz pojazdy, ich parametry i zdjęcia na stronie firmy." },
-  { title: "Kontakt z człowiekiem", text: "Doradzimy przy wyborze pojazdu i wspólnie ustalimy szczegóły wyjazdu." },
+  { title: "Przejrzyste zasady", text: "Sprawdź dostępne terminy przed kontaktem i od razu wybierz dogodny zakres.", Icon: ShieldCheck },
+  { title: "Oferta w jednym miejscu", text: "Zobacz pojazdy, ich parametry i zdjęcia na stronie firmy.", Icon: Route },
+  { title: "Kontakt z człowiekiem", text: "Doradzimy przy wyborze pojazdu i wspólnie ustalimy szczegóły wyjazdu.", Icon: MessageSquare },
 ];
 
 /** PUB-01 (HAS_VEHICLES) and PUB-01-02 (EMPTY) for one company; the state comes from the server read. */
@@ -42,8 +44,9 @@ export function PublicHome({ home, today }: { home: Home; today: string }) {
             <h1 id="home-title" className={styles.h1}>{company.heroText ?? company.name}</h1>
             {company.shortDescription ? <p className={styles.lead}>{company.shortDescription}</p> : null}
             <div className={styles.heroActions}>
-              <LinkButton href="/pojazdy/">Zobacz pojazdy</LinkButton>
-              <LinkButton href="#checker-title" variant="secondary">Sprawdź termin</LinkButton>
+              <LinkButton href="/pojazdy/" className={styles.heroButton}>Zobacz pojazdy</LinkButton>
+              {/* On a phone the checker follows right below, so the jump link would only repeat it (PUB-01-M). */}
+              <LinkButton href="#checker-title" variant="secondary" className={`${styles.heroButton} ${styles.desktopOnly}`}>Sprawdź termin</LinkButton>
             </div>
             <AvailabilityChecker today={today} />
           </div>
@@ -62,11 +65,13 @@ export function PublicHome({ home, today }: { home: Home; today: string }) {
           </div>
         </section>
       ) : null}
-      <section className={`${styles.section} ${styles.sectionAlt}`} aria-labelledby="benefits-title">
+      <section className={styles.section} aria-labelledby="benefits-title">
         <div className={styles.container}>
           <h2 id="benefits-title" className={styles.h2}>Spokojnie od wyboru do wyjazdu</h2>
           <ul className={`${styles.grid} ${styles.grid3}`}>
-            {benefits.map((benefit) => <li key={benefit.title} className={styles.benefit}><h3>{benefit.title}</h3><p>{benefit.text}</p></li>)}
+            {benefits.map(({ title, text, Icon }) => (
+              <li key={title} className={styles.benefit}><Icon aria-hidden="true" size={24} className={styles.benefitIcon} /><h3>{title}</h3><p>{text}</p></li>
+            ))}
           </ul>
         </div>
       </section>
@@ -77,8 +82,8 @@ export function PublicHome({ home, today }: { home: Home; today: string }) {
             <p className={styles.sectionLead}>Napisz lub zadzwoń. Pomagamy dobrać pojazd i wyjaśniamy warunki.</p>
           </div>
           <div className={styles.ctaActions}>
-            <LinkButton href="/kontakt/">Napisz do nas</LinkButton>
-            {phone ? <LinkButton href={phone.href} variant="secondary">Zadzwoń</LinkButton> : null}
+            <LinkButton href="/kontakt/" className={styles.heroButton}>Napisz do nas</LinkButton>
+            {phone ? <LinkButton href={phone.href} variant="secondary" className={styles.heroButton}>Zadzwoń</LinkButton> : null}
           </div>
         </div>
       </section>
