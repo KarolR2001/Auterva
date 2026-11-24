@@ -171,6 +171,17 @@ test("public home and catalog: empty offer, results, filters in the URL, Back, n
     await page.goto(`${origin}/pojazdy/nie-ma/`);
     await expect(page.getByRole("heading", { name: "Nie znaleziono tej strony" })).toBeVisible();
     await shoot(page, "pub-07-not-found");
+    // 9a. PUB-07 (#471): an address outside every public route also renders the company 404 page, not an empty answer.
+    const outside = await rawGet(port, host, "/nie-istnieje/");
+    expect(outside.status).toBe(404);
+    expect(outside.body).toContain("Nie znaleziono tej strony");
+    expect(outside.body).toContain("Firma Strony E2E");
+    // A private prefix on the public host stays the bare 404 and never reaches a page.
+    for (const path of ["/admin/nie-ma/", "/api/nie-ma/", "/firmy/"]) {
+      const bare = await rawGet(port, host, path);
+      expect(bare.status, path).toBe(404);
+      expect(bare.body, path).toBe("");
+    }
 
     // 9b. Panel and platform hosts keep the plain neutral 404: the public "unknown address" text would mislead there.
     for (const [panelHost, path] of [[adminHost, "/admin/nie-ma/"], [platformHost, "/firmy/nie-ma/"]]) {

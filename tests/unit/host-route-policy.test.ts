@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { routeAllowedForArea } from "../../src/modules/tenancy/host-route-policy";
+import { PUBLIC_NOT_FOUND_PATH, publicNotFoundFallback, routeAllowedForArea } from "../../src/modules/tenancy/host-route-policy";
 
 test.each([
   ["MARKETING", "/", true], ["MARKETING", "/robots.txt", true], ["MARKETING", "/sitemap.xml", true], ["COMPANY_ADMIN", "/sitemap.xml", false], ["MARKETING", "/admin/", false], ["MARKETING", "/api/auth/get-session", false],
@@ -40,4 +40,25 @@ test("the Web Vitals beacon is reachable from pages of every area and nothing el
   for (const area of ["MARKETING", "PLATFORM", "COMPANY_ADMIN", "COMPANY_PUBLIC"] as const) {
     expect(routeAllowedForArea(area, "/api/vitals/")).toBe(true);
   }
+});
+
+test("PUB-07: only an unknown page of a public company site falls back to the company 404 page", () => {
+  for (const path of ["/nie-istnieje/", "/nie-ma-takiej-strony", "/oferta/stara/", "/Admin/", "/_nie-znaleziono/"]) {
+    expect(publicNotFoundFallback("COMPANY_PUBLIC", "GET", path), path).toBe(true);
+    expect(publicNotFoundFallback("COMPANY_PUBLIC", "HEAD", path), path).toBe(true);
+    // Mutations, and every other area, keep the bare 404.
+    expect(publicNotFoundFallback("COMPANY_PUBLIC", "POST", path), `POST ${path}`).toBe(false);
+    for (const area of ["MARKETING", "PLATFORM", "COMPANY_ADMIN"] as const) expect(publicNotFoundFallback(area, "GET", path), `${area} ${path}`).toBe(false);
+  }
+  // API, panel, platform, PWA and internal prefixes never reach Next from a public host, not even as a 404 page.
+  for (const path of ["/api/", "/api/nie-ma/", "/api/admin/vehicles/", "/api/auth/get-session/", "/admin/", "/admin/nie-ma/", "/login/", "/mfa/",
+    "/reset-hasla/x/", "/firmy/", "/firmy/x/", "/wiadomosci/", "/konto/", "/sw.js", "/platform/x", "/company/x", "/site/x", "/_next/x",
+    "/.well-known/x", "/api/vitals/x"]) {
+    expect(publicNotFoundFallback("COMPANY_PUBLIC", "GET", path), path).toBe(false);
+  }
+  // Ambiguous or encoded paths are refused outright; allowed pages are served by their own route, not the fallback.
+  for (const path of ["//nie-ma", "/%2e%2e/admin", "/nie%2fma", "/a/../nie-ma", "/nie\\ma", "nie-ma", "", "/", "/pojazdy/x/", "/kontakt/"]) {
+    expect(publicNotFoundFallback("COMPANY_PUBLIC", "GET", path), path).toBe(false);
+  }
+  expect(PUBLIC_NOT_FOUND_PATH.startsWith("/_")).toBe(true);
 });
