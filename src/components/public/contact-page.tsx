@@ -74,7 +74,7 @@ export function ContactPage({ contact, brand, header, termsAvailable }: { contac
                   <div className={styles.channelActions}>
                     {channel.preferred
                       ? <LinkButton href={channel.href} variant="inverse" className={styles.channelButton}>{action}</LinkButton>
-                      : <a href={channel.href} className={styles.channelLink}>{action}<span aria-hidden="true"> →</span></a>}
+                      : <a href={channel.href} className={styles.channelLink}>{action}<span aria-hidden="true">{"\u00a0→"}</span></a>}
                     <CopyButton value={channel.value} label={`Kopiuj: ${label} ${channel.value}`} />
                   </div>
                 </li>
