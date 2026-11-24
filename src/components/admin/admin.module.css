@@ -222,8 +222,8 @@ select.pill { appearance: none; padding-right: var(--space-10);
   .cellActions .actions { justify-content: flex-end; }
   .cellActions .actionsCompact { flex-direction: row; }
 }
-/* Below ~380 px the actions get their own row so "Zmieniono: 3 dni temu" never runs into them. */
-@container (max-width: 379px) { .table td.cellChanged, .table td.cellActions { grid-column: 1 / -1; } .table td.cellActions { justify-self: start; } }
+/* Below ~340 px the actions get their own row so "Zmieniono: 3 dni temu" never runs into them; at 390 px (358 px card) they share it (ADM-05 M). */
+@container (max-width: 339px) { .table td.cellChanged, .table td.cellActions { grid-column: 1 / -1; } .table td.cellActions { justify-self: start; } }
 @container (min-width: 1080px) { .actions:not(.actionsWide) { flex-wrap: nowrap; white-space: nowrap; } }
 /* #298: .actionsWide (full set: arrows, Edytuj, Podgląd, Kalendarz, Więcej) never fits one line in the ~1120 px container, so it keeps wrapping; the former >=1240 px nowrap rule could never apply. */
 @container (min-width: 1040px) { .row:hover { background: var(--surface-subtle); } }

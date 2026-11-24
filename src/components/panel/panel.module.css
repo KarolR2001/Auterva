@@ -207,6 +207,8 @@
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
   color: var(--color-neutral-300);
+  font-size: var(--font-size-14);
+  line-height: var(--line-height-20);
 }
 
 .shellDesktopNav .shellNavLink:hover {
@@ -622,8 +624,8 @@
     padding: var(--space-4) var(--space-4) var(--space-8);
   }
 
+  /* ADM mobile: the pill keeps its 112 px width from 375 px; narrower phones let it shrink to its content. */
   .shellConnection {
-    min-width: 0;
     padding: 0 var(--space-3);
   }
 
@@ -901,4 +903,8 @@
   .serviceRows {
     gap: var(--space-4);
   }
+}
+
+@media (max-width: 374px) {
+  .shellConnection { min-width: 0; }
 }

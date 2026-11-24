@@ -60,7 +60,7 @@ textarea.control { min-height: 120px; resize: vertical; }
 .statusCard { display: grid; gap: var(--space-3); padding: var(--space-6); border-radius: var(--radius-lg); background: var(--surface-inverse); color: var(--text-inverse); }
 .statusEyebrow { margin: 0; font-size: var(--font-size-12); line-height: var(--line-height-16); font-weight: var(--font-weight-semibold); text-transform: uppercase; color: var(--color-neutral-300); }
 h4.statusEyebrow { margin-top: var(--space-5); }
-.statusTitle { margin: var(--space-2) 0 0; font-size: var(--font-size-24); line-height: var(--line-height-32); font-weight: var(--font-weight-semibold); }
+.statusTitle { margin: var(--space-2) 0 0; font-size: var(--font-size-20); line-height: var(--line-height-28); font-weight: var(--font-weight-semibold); }
 .statusLead, .statusMeta { margin: 0; font-size: var(--font-size-14); line-height: var(--line-height-20); color: var(--color-neutral-300); }
 .statusActions { display: grid; gap: var(--space-2); margin-top: var(--space-2); }
 .statusButton, .statusButtonQuiet { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: var(--button-height-md); padding: 0 var(--space-4);

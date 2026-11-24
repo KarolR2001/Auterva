@@ -40,6 +40,9 @@
 }
 .intro {
   margin: 0;
+  font-size: var(--font-size-15);
+  line-height: var(--line-height-24);
+  color: var(--text-secondary);
 }
 .form {
   display: grid;
