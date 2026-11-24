@@ -30,8 +30,9 @@ describe("logowanie na właściwym hoście", () => {
     const password = screen.getByLabelText("Hasło");
     expect(email).toHaveAttribute("autocomplete", "username");
     expect(password).toHaveAttribute("autocomplete", "current-password");
+    // No public registration (MVP 3.1); the reset link "Nie pamiętasz hasła? Zresetuj je" exists since the reset flow.
     expect(
-      screen.queryByRole("link", { name: /rejestracj|reset/i }),
+      screen.queryByRole("link", { name: /rejestracj/i }),
     ).toBeNull();
 
     await user.type(email, "admin@example.test");
@@ -658,7 +659,7 @@ describe("stany odzyskiwania i dostępności MFA (#132)", () => {
 describe("logowanie: reset i zmiana hasła", () => {
   it("link resetu prowadzi na właściwy host, a po zmianie hasła jest komunikat", () => {
     render(<LoginForm area="company" passwordChanged />);
-    expect(screen.getByRole("link", { name: "Nie pamiętasz hasła?" })).toHaveAttribute("href", "/admin/reset-hasla");
+    expect(screen.getByRole("link", { name: "Nie pamiętasz hasła? Zresetuj je" })).toHaveAttribute("href", "/admin/reset-hasla");
     expect(screen.getByText("Hasło zostało zmienione.")).toBeVisible();
     cleanup();
     render(<LoginForm area="platform" />);
