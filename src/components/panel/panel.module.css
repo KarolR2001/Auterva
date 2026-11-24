@@ -164,17 +164,7 @@
   color: var(--text-inverse);
 }
 
-/* WCAG 2.4.11 (#342): the fixed action bar of the vehicle form and calendar covers the bottom of the viewport, so the last sidebar
-   links get room to scroll above it (bar height plus the 64 px its bottom padding reserves below 1024 px). */
-:global(:root):has([data-fixed-action-bar]) .shellDesktopNav {
-  padding-bottom: calc(var(--space-5) + 96px);
-}
-
-@media (max-width: 1023px) {
-  :global(:root):has([data-fixed-action-bar]) .shellDesktopNav {
-    padding-bottom: calc(var(--space-5) + 168px);
-  }
-}
+/* The fixed action bars of the vehicle form and calendar start at the sidebar's edge (left: 240px), so they never cover its links. */
 
 .shellBrandBlock {
   display: grid;

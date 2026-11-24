@@ -1,51 +1,104 @@
 .page { max-width: 1120px; margin: 0 auto; padding: 0 0 calc(var(--space-12) * 2); container-type: inline-size; }
-.head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-4); }
-.title { margin: 0; font-size: var(--font-size-28); font-weight: var(--font-weight-bold); overflow-wrap: anywhere; }
+/* ADM-09 header: in-page path, "Kalendarz pojazdu" with the vehicle line, status chip, "Pojazd" and "Dodaj blokadę". */
+.crumbs ol { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: 0 0 var(--space-3); padding: 0; list-style: none; font-size: var(--font-size-14); line-height: var(--line-height-20); }
+.crumbs li + li::before { content: "/"; margin-right: var(--space-1); color: var(--text-secondary); }
+.crumbs a { color: var(--text-primary); text-decoration: none; }
+.crumbs a:hover { text-decoration: underline; }
+.crumbs a:focus-visible { outline: var(--border-width-active) solid var(--focus-ring); outline-offset: var(--focus-offset); }
+.head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-8); }
+.headText { display: grid; gap: var(--space-1); min-width: 0; }
+.title { margin: 0; font-size: var(--font-size-32); line-height: var(--line-height-40); font-weight: var(--font-weight-semibold); overflow-wrap: anywhere; }
 .title:focus { outline: none; }
-.headLinks { display: flex; flex-wrap: wrap; gap: var(--space-4); }
+.subtitle { margin: 0; font-size: var(--font-size-14); line-height: var(--line-height-20); color: var(--text-secondary); overflow-wrap: anywhere; }
+.headActions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); }
+.statusChip { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-width: 176px; min-height: 36px; padding: 0 var(--space-4); box-sizing: border-box;
+  font-size: var(--font-size-14); font-weight: var(--font-weight-medium); border: var(--border-width-hairline) dashed var(--border-strong); border-radius: var(--radius-full); }
+.statusChip[data-public] { border-style: solid; }
+.statusDot { width: 6px; height: 6px; border-radius: var(--radius-full); background: currentColor; }
+.headLink { display: inline-flex; align-items: center; justify-content: center; min-width: 112px; min-height: var(--touch-target-mobile); padding: 0 var(--space-4); box-sizing: border-box;
+  font-weight: var(--font-weight-semibold); color: var(--action-secondary-content); text-decoration: none; border: var(--border-width-hairline) solid var(--action-secondary-border); border-radius: var(--radius-md); }
+.headLink:hover { background: var(--action-secondary-hover); }
+.headLink:focus-visible { outline: var(--border-width-active) solid var(--focus-ring); outline-offset: var(--focus-offset); }
+@media (max-width: 1023px) { .headAdd { display: none; } }
+@media (max-width: 767px) { .title { font-size: var(--font-size-28); line-height: var(--line-height-36); } .statusChip { min-width: 0; } .head { margin-bottom: var(--space-6); } }
 .stack { display: grid; gap: var(--space-3); margin-bottom: var(--space-4); }
-.muted { margin: var(--space-1) 0 0; font-size: var(--font-size-14); color: var(--text-secondary); }
-.layout { display: grid; gap: var(--space-5); }
-@container (min-width: 760px) { .layout { grid-template-columns: minmax(0, 1.2fr) minmax(280px, 1fr); align-items: start; } }
+.muted { margin: var(--space-1) 0 0; font-size: var(--font-size-14); line-height: var(--line-height-20); color: var(--text-secondary); }
+/* One bordered card holds the month, the block list and the legend. */
+.card { display: grid; gap: var(--space-6); padding: var(--space-5); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-lg); background: var(--surface-default); }
+.layout { display: grid; gap: var(--space-6); }
+@container (min-width: 860px) { .layout { grid-template-columns: minmax(0, 472px) minmax(280px, 1fr); align-items: start; } }
 .calendar, .aside { min-width: 0; display: grid; gap: var(--space-3); align-content: start; }
 .toolbar { display: flex; align-items: center; gap: var(--space-2); }
-.monthTitle { flex: 1; margin: 0; text-align: center; font-size: var(--font-size-16); font-weight: var(--font-weight-semibold); }
-.iconButton { display: inline-flex; align-items: center; justify-content: center; width: var(--touch-target-mobile); height: var(--touch-target-mobile); padding: 0; cursor: pointer;
-  color: var(--text-primary); background: var(--surface-default); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-md); }
+.monthTitle { flex: 1; margin: 0; font-size: var(--font-size-18); line-height: var(--line-height-26); font-weight: var(--font-weight-semibold); }
+.iconButton { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; width: var(--touch-target-mobile); height: var(--touch-target-mobile); padding: 0; cursor: pointer;
+  color: var(--text-primary); background: var(--surface-default); border: var(--border-width-hairline) solid var(--border-subtle); border-radius: var(--radius-sm); }
 .iconButton:hover { background: var(--action-secondary-hover); }
-.iconButton:focus-visible, .dayButton:focus-visible, .linkButton:focus-visible { outline: var(--border-width-active) solid var(--focus-ring); outline-offset: var(--focus-offset); }
-.table { width: 100%; max-width: 480px; border-collapse: separate; border-spacing: 2px; table-layout: fixed; }
-.table th { padding: var(--space-1) 0; font-size: var(--font-size-12); font-weight: var(--font-weight-semibold); color: var(--text-secondary); }
-.day { height: 48px; padding: 0; text-align: center; vertical-align: middle; font-size: var(--font-size-14); font-weight: var(--font-weight-semibold); border-radius: var(--radius-sm); border: var(--border-width-hairline) solid transparent; }
-.dayFree { background: var(--status-success-surface); }
-.dayBlocked { background: var(--status-unavailable-surface); border: var(--border-width-hairline) dashed var(--status-unavailable-border); }
-.dayInactive { background: var(--surface-subtle); border: var(--border-width-hairline) dotted var(--border-default); color: var(--text-secondary); }
-.dayPast { color: var(--text-secondary); }
-.dayToday { outline: var(--border-width-active) solid var(--border-strong); outline-offset: -2px; }
-.daySelected { background: var(--surface-strong); color: var(--text-inverse); }
-.dayButton { all: unset; box-sizing: border-box; position: relative; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; min-height: 44px; cursor: pointer; border-radius: var(--radius-sm); }
-.dayIcon { position: absolute; top: 3px; right: 3px; display: inline-flex; }
-.legend { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); margin: 0; padding: 0; list-style: none; font-size: var(--font-size-14); }
+.iconButton:focus-visible, .dayButton:focus-visible, .linkButton:focus-visible, .textButton:focus-visible { outline: var(--border-width-active) solid var(--focus-ring); outline-offset: var(--focus-offset); }
+.textButton { display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--touch-target-mobile); padding: 0 var(--space-1); font: inherit; font-size: var(--font-size-14); font-weight: var(--font-weight-semibold);
+  color: var(--text-primary); background: transparent; border: 0; cursor: pointer; justify-self: start; }
+.textButton:hover { text-decoration: underline; }
+.todayLine { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--font-size-14); line-height: var(--line-height-20); color: var(--text-secondary); }
+.todayRing { width: 8px; height: 8px; flex: 0 0 auto; border: var(--border-width-hairline) solid currentColor; border-radius: var(--radius-full); }
+/* Day cells: 64 px with a border, the number on top and the state mark (•, R, S, B, I, –) below. */
+.table { width: 100%; max-width: 472px; border-collapse: separate; border-spacing: 4px; margin: 0 -4px; table-layout: fixed; }
+.table th { padding: var(--space-1) 0; font-size: var(--font-size-12); line-height: var(--line-height-16); font-weight: var(--font-weight-semibold); color: var(--text-secondary); }
+.day, .dayOther { height: 64px; padding: 0; text-align: center; vertical-align: middle; font-size: var(--font-size-16); font-weight: var(--font-weight-semibold); border-radius: var(--radius-sm);
+  border: var(--border-width-hairline) solid var(--color-neutral-300); background: var(--surface-default); }
+.dayOther { color: var(--text-secondary); border-style: dashed; vertical-align: top; padding-top: var(--space-3); font-weight: var(--font-weight-regular); }
+.dayFree { background: var(--surface-default); }
+.dayInactive { background: var(--surface-subtle); border-style: dotted; border-color: var(--border-default); color: var(--text-secondary); }
+.typeReserved { background: var(--text-primary); border-color: var(--text-primary); color: var(--text-inverse); }
+.typeService { background: var(--color-neutral-700); border-color: var(--color-neutral-700); color: var(--text-inverse); }
+.typeBlocked { background: var(--surface-default); border: var(--border-width-active) solid var(--text-primary); color: var(--text-primary); }
+.typeOther { background: var(--color-neutral-300); border-color: var(--color-neutral-500); color: var(--text-primary); }
+.dayPast { opacity: 0.72; }
+.dayToday { outline: var(--border-width-active) solid var(--border-strong); outline-offset: 2px; }
+.daySelected { box-shadow: inset 0 0 0 3px var(--focus-ring); }
+.dayButton { all: unset; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: space-between; width: 100%; height: 100%; min-height: 44px; padding: var(--space-2) 0 var(--space-1);
+  cursor: pointer; border-radius: var(--radius-sm); }
+.dayNumber { line-height: var(--line-height-24); }
+.dayMark { min-height: 16px; font-size: var(--font-size-12); line-height: var(--line-height-16); font-weight: var(--font-weight-semibold); }
+@container (max-width: 559px) {
+  .table { border-spacing: 3px; margin: 0 -3px; }
+  .day, .dayOther { height: 44px; font-size: var(--font-size-14); }
+  .dayButton { align-items: stretch; padding: var(--space-1) var(--space-1) 2px var(--space-2); }
+  .dayNumber { text-align: left; line-height: var(--line-height-20); }
+  .dayMark { text-align: right; font-size: var(--font-size-12); line-height: 14px; min-height: 14px; }
+  .dayOther { padding: var(--space-1) 0 0 var(--space-2); text-align: left; }
+  .card { padding: var(--space-4); }
+}
+.legend { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2) var(--space-8); margin: 0; padding: var(--space-2) 0 0; list-style: none; font-size: var(--font-size-14); }
 .legend li { display: inline-flex; align-items: center; gap: var(--space-2); }
-.mark { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: var(--radius-sm); }
+.mark { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; box-sizing: border-box; border-radius: var(--radius-xs);
+  font-size: var(--font-size-12); font-weight: var(--font-weight-semibold); border: var(--border-width-hairline) solid var(--border-default); }
+.mark.dayToday { outline-offset: 0; border-color: transparent; }
 .pickBar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); padding: var(--space-3); font-size: var(--font-size-14); background: var(--surface-subtle); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-md); }
-.asideHead { display: grid; gap: var(--space-3); }
-.h3 { margin: 0; font-size: var(--font-size-16); font-weight: var(--font-weight-semibold); }
-.list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-2); }
-.item { display: grid; gap: var(--space-2); padding: var(--space-3); background: var(--surface-default); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-md); }
+.h3 { margin: 0; font-size: var(--font-size-20); line-height: var(--line-height-28); font-weight: var(--font-weight-semibold); }
+/* Compact block cards with a 4 px accent in the type's colour, two per row where the panel is wide. */
+.list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-3); }
+@container (min-width: 1000px) { .list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.item { position: relative; display: grid; gap: var(--space-1); padding: var(--space-3) var(--space-4) var(--space-2) var(--space-6); background: var(--surface-default); color: var(--text-primary);
+  border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-md); }
+.item::before { content: ""; position: absolute; top: var(--space-2); bottom: var(--space-2); left: var(--space-2); width: 4px; border-radius: var(--radius-full); background: var(--text-primary); }
+.item.typeService::before { background: var(--color-neutral-700); }
+.item.typeOther::before { background: var(--color-neutral-500); }
+.item.typeBlocked::before { background: transparent; border: var(--border-width-hairline) solid var(--text-primary); box-sizing: border-box; }
 .itemMain { display: grid; gap: var(--space-1); min-width: 0; }
-.itemRange { overflow-wrap: anywhere; }
-.itemMeta { font-size: var(--font-size-14); color: var(--text-secondary); overflow-wrap: anywhere; }
-.itemActions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.typeBadge { display: inline-flex; align-items: center; gap: var(--space-1); width: fit-content; padding: var(--space-1) var(--space-2); font-size: var(--font-size-14); font-weight: var(--font-weight-semibold);
-  background: var(--status-unavailable-surface); border: var(--border-width-hairline) dashed var(--status-unavailable-border); border-radius: var(--radius-md); }
+.itemType { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--font-size-14); line-height: var(--line-height-20); font-weight: var(--font-weight-semibold); }
+.itemLetter { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; font-size: var(--font-size-12); border: var(--border-width-hairline) solid currentColor; border-radius: var(--radius-xs); }
+.itemRange { font-size: var(--font-size-12); line-height: var(--line-height-16); color: var(--text-secondary); overflow-wrap: anywhere; }
+.itemMeta { font-size: var(--font-size-12); line-height: var(--line-height-16); color: var(--text-secondary); overflow-wrap: anywhere; }
+.itemActions { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.asideAdd { margin-top: var(--space-2); }
+@media (max-width: 1023px) { .asideAdd { display: none; } }
 .historyBlock { display: grid; gap: var(--space-3); }
-.stickyBar { position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-sticky); padding: var(--space-3) var(--space-4); padding-bottom: calc(var(--space-3) + 64px + env(safe-area-inset-bottom, 0px));
+/* Below 1024 px "Dodaj blokadę" stays reachable in a bar next to the sidebar, or above the bottom navigation on a phone. */
+.stickyBar { position: fixed; left: 240px; right: 0; bottom: 0; z-index: var(--z-sticky); padding: var(--space-3) var(--space-4);
   background: var(--surface-default); border-top: var(--border-width-hairline) solid var(--border-default); }
+@media (max-width: 767px) { .stickyBar { left: 0; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); } }
 @media (min-width: 1024px) { .stickyBar { display: none; } }
 /* WCAG 2.4.11 (#342): keep focused controls above the fixed bar. */
 @media (max-width: 1023px) { :global(:root):global(:root):has(.stickyBar) { scroll-padding-bottom: 208px; } }
-@media (max-width: 1023px) { .asideHead > button { display: none; } }
 .form, .dialogStack { display: grid; gap: var(--space-4); }
 .dates { display: grid; gap: var(--space-4); }
 @media (min-width: 480px) { .dates { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
