@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarPlus, CircleAlert, CircleCheck, CircleOff, Plus, Wifi, WifiOff } from "lucide-react";
+import { Ban, CircleAlert, CircleCheck, Wifi, WifiOff } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Alert } from "@/components/ui/alert";
@@ -46,6 +46,11 @@ const dayMonth = (value: string) =>
 const plural = (n: number, one: string, few: string, many: string) =>
   n === 1 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many;
 const vehicles = (n: number) => `${n} ${plural(n, "pojazd", "pojazdy", "pojazdów")}`;
+/** "3 elementy wymagają uwagi" (collapsed data-quality card, ADM-04 M). */
+export const attentionText = (n: number) =>
+  `${n} ${plural(n, "element", "elementy", "elementów")} ${plural(n, "wymaga", "wymagają", "wymaga")} uwagi`;
+/** Blocks in 7 days are counted over the first page of the fleet calendar (100 vehicles); larger fleets get the caveat. */
+const CALENDAR_PAGE = 100;
 
 /** Inclusive length of a LocalDate range (one day is a valid range). */
 export function rangeDays(from: string, to: string) {
@@ -121,16 +126,16 @@ export function Dashboard({ context = companyContext, title }: { context?: Panel
   const vehiclesHref = `${context.hrefBase}/pojazdy/`;
   const known = quality && quality !== "error" ? quality : null;
   return (
-    <section className={styles.page} aria-labelledby="dash-title" aria-busy={view.state === "loading"}>
+    <section className={`${styles.page} ${styles.dashboard}`} aria-labelledby="dash-title" aria-busy={view.state === "loading"}>
       <title>{title}</title>
       <header className={styles.pageHead}>
         <div className={styles.headText}>
           <h2 id="dash-title" className={styles.title}>Dzień dobry</h2>
-          <p className={styles.lead}>Najważniejsze informacje o flocie i najbliższych blokadach.</p>
+          <p className={styles.lead}>Najważniejsze informacje o flocie<span className={styles.wideOnly}> i najbliższych blokadach</span>.</p>
         </div>
         <div className={styles.quick}>
-          {routes.vehicleCalendar && <a className={styles.secondaryLink} href={vehiclesHref}><CalendarPlus aria-hidden="true" size={20} />Dodaj blokadę</a>}
-          {routes.vehicleForm && <a className={styles.primaryLink} href={`${context.hrefBase}/pojazdy/nowy/`}><Plus aria-hidden="true" size={20} />Dodaj pojazd</a>}
+          {routes.vehicleCalendar && <a className={styles.secondaryLink} href={vehiclesHref}>Dodaj blokadę</a>}
+          {routes.vehicleForm && <a className={styles.primaryLink} href={`${context.hrefBase}/pojazdy/nowy/`}>Dodaj pojazd</a>}
         </div>
       </header>
       {service?.expiredNotice && <Alert tone="warning" title={service.expiredNotice} />}
@@ -146,14 +151,14 @@ export function Dashboard({ context = companyContext, title }: { context?: Panel
       {view.state === "ready" && view.data.stats.total > 0 && (
         <>
           <ul className={styles.stats} aria-label="Statystyki floty na dziś">
-            <Stat label="Aktywne pojazdy" value={view.data.stats.activeToday} note={`z ${view.data.stats.total} w ewidencji`} />
+            <Stat label="Aktywne pojazdy" short="Aktywne" value={view.data.stats.activeToday} note={`z ${view.data.stats.total} w ewidencji`} />
             <Stat label="Opublikowane" value={view.data.stats.published}
               note={known?.publishedNeedingAttention
                 ? `${known.publishedNeedingAttention} ${plural(known.publishedNeedingAttention, "wymaga", "wymagają", "wymaga")} uwagi` : undefined} />
             <Stat label="Niedostępne dziś" value={view.data.stats.unavailableToday} note="szczegóły w kalendarzu" />
-            <Stat label="Blokady w 7 dni" value={view.data.stats.blocksSoon} note={nearestNote(view.data.blocks, today)} />
+            <Stat label="Blokady w 7 dni" short="Blokady / 7 dni" value={view.data.stats.blocksSoon} note={nearestNote(view.data.blocks, today)} />
           </ul>
-          <p className={styles.meta}>Stan na dziś, {day(today)} (czas polski). Blokady w 7 dni liczone są dla pierwszych 100 pojazdów floty.</p>
+          {view.data.stats.total > CALENDAR_PAGE && <p className={styles.caption}>Stan na dziś, {day(today)} (czas polski). Blokady w 7 dni liczone są dla pierwszych {CALENDAR_PAGE} pojazdów floty.</p>}
           <div className={styles.columns}>
             <section aria-labelledby="blocks-title" className={styles.panelCard}>
               <div className={styles.cardHead}>
@@ -164,6 +169,7 @@ export function Dashboard({ context = companyContext, title }: { context?: Panel
                 ? <p className={styles.softEmpty}><CircleCheck aria-hidden="true" size={18} /> Brak blokad w najbliższych {HORIZON_DAYS} dniach.</p>
                 : <ul className={styles.blocks}>{view.data.blocks.map((block) => (
                   <li key={block.id} className={styles.blockCard}>
+                    <Ban className={styles.blockIconCompact} aria-hidden="true" size={24} />
                     <span className={styles.dateTile} aria-hidden="true">
                       <span className={styles.dateDay}>{block.from.slice(8, 10)}</span>
                       <span className={styles.dateMonth}>{MONTHS[Number(block.from.slice(5, 7)) - 1]}</span>
@@ -174,29 +180,38 @@ export function Dashboard({ context = companyContext, title }: { context?: Panel
                         : <strong>{block.vehicleName}</strong>}
                       <span className={styles.blockDates}>{rangeText(block.from, block.to)}</span>
                     </span>
-                    <span className={styles.badgeQuiet}><CircleOff aria-hidden="true" size={14} />Niedostępny</span>
+                    {/* Compact rows keep the Ban icon in front; the status word stays for screen readers (the heading names the list). */}
+                    <span className={styles.badgeQuiet}><Ban aria-hidden="true" size={22} />Niedostępny</span>
                   </li>))}</ul>}
             </section>
             <div className={styles.sideColumn}>
-              <section aria-labelledby="quality-title" className={styles.panelCard}>
-                <h2 id="quality-title" className={styles.h2}>Jakość danych</h2>
+              <section aria-labelledby="quality-title" className={`${styles.panelCard} ${styles.qualityCard}`}
+                data-warnings={known && known.noPrice + known.noCover > 0 ? "" : undefined}>
+                <div className={styles.qualityHead}>
+                  <CircleAlert className={styles.qualityIcon} aria-hidden="true" size={24} />
+                  <div className={styles.qualityTitle}>
+                    <h2 id="quality-title" className={styles.h2}>Jakość danych</h2>
+                    {known && known.noPrice + known.noCover > 0 && <p className={styles.qualitySummary}>{attentionText(known.noPrice + known.noCover)}</p>}
+                  </div>
+                  {known && known.noPrice + known.noCover > 0 && <a className={styles.qualityOpen} href={vehiclesHref}>Otwórz <span aria-hidden="true">→</span></a>}
+                </div>
                 {quality === null && <p className={styles.meta}>Sprawdzanie danych pojazdów…</p>}
                 {quality === "error" && <p className={styles.meta}>Nie udało się sprawdzić danych pojazdów.</p>}
                 {known && (known.noPrice === 0 && known.noCover === 0
                   ? <p className={styles.softEmpty}><CircleCheck aria-hidden="true" size={18} /> Wszystkie pojazdy mają cenę i zdjęcie główne.</p>
                   : <ul className={styles.warnings}>
                     {known.noPrice > 0 && <li><a href={vehiclesHref} className={styles.warning}>
-                      <strong><CircleAlert aria-hidden="true" size={18} />{vehicles(known.noPrice)} bez ceny</strong>
+                      <strong><CircleAlert aria-hidden="true" size={22} />{vehicles(known.noPrice)} bez ceny</strong>
                       <span>Uzupełnij dane przed publikacją.</span></a></li>}
                     {known.noCover > 0 && <li><a href={vehiclesHref} className={styles.warning}>
-                      <strong><CircleAlert aria-hidden="true" size={18} />{vehicles(known.noCover)} bez zdjęcia</strong>
+                      <strong><CircleAlert aria-hidden="true" size={22} />{vehicles(known.noCover)} bez zdjęcia</strong>
                       <span>Dodaj zdjęcie główne pojazdu.</span></a></li>}
                   </ul>)}
               </section>
               <section aria-labelledby="status-title" className={styles.panelCard}>
                 <h2 id="status-title" className={styles.h2}>Status</h2>
                 <ul className={styles.statusList}>
-                  <li>{online ? <Wifi aria-hidden="true" size={18} /> : <WifiOff aria-hidden="true" size={18} />}{online ? " Połączenie: online" : " Połączenie: offline. Zmiany nie zostaną zapisane"}</li>
+                  <li>{online ? <Wifi aria-hidden="true" size={18} /> : <WifiOff aria-hidden="true" size={18} />}<span>{online ? "Połączenie: online" : "Połączenie: offline. Zmiany nie zostaną zapisane"}</span></li>
                   {service && <li>{siteText(service)}</li>}
                   {service?.period.paidThrough && <li>Opłacono do {day(service.period.paidThrough)} włącznie</li>}
                 </ul>
@@ -209,12 +224,15 @@ export function Dashboard({ context = companyContext, title }: { context?: Panel
   );
 }
 
-function Stat({ label, value, note }: { label: string; value: number; note?: string }) {
+function Stat({ label, short, value, note }: { label: string; short?: string; value: number; note?: string }) {
   return (
     <li className={styles.stat}>
-      <span className={styles.statLabel}>{label}</span>
+      {/* ADM-04 M: compact cards show the short label and no note; only one label is ever rendered visible. */}
+      <span className={styles.statLabel}>
+        {short ? <><span className={styles.wideOnly}>{label}</span><span className={styles.narrowOnly}>{short}</span></> : label}
+      </span>
       <span className={styles.statValue}>{value}</span>
-      {note && <span className={styles.statNote}>{note}</span>}
+      {note && <span className={`${styles.statNote} ${styles.wideOnly}`}>{note}</span>}
     </li>
   );
 }
