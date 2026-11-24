@@ -206,10 +206,10 @@ describe("konto: MFA i wylogowanie", () => {
       .mockResolvedValueOnce(Response.json({ success: true }));
     const user = userEvent.setup();
     render(<AccountView area="platform" account={account} />);
-    await user.click(screen.getByRole("button", { name: "Wyloguj" }));
+    await user.click(screen.getByRole("button", { name: "Wyloguj się" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Sesja nadal jest aktywna");
     expect(replace).not.toHaveBeenCalled();
-    await user.click(screen.getByRole("button", { name: "Wyloguj" }));
+    await user.click(screen.getByRole("button", { name: "Wyloguj się" }));
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
     expect(url(request.mock.calls[1])).toBe("/api/auth/sign-out/");
     expect(screen.queryByText("ola@example.test")).toBeNull();
@@ -222,8 +222,21 @@ describe("konto: układ w powłoce panelu", () => {
     expect(screen.getByRole("navigation", { name: "Sekcje konta" })).toBeVisible();
     expect(screen.queryByRole("main")).toBeNull();
     expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
-    expect(screen.getByRole("heading", { level: 2, name: "Bezpieczeństwo" })).toBeVisible();
+    expect(screen.getByRole("heading", { level: 2, name: "Konto" })).toBeVisible();
+    expect(screen.getByRole("heading", { level: 2, name: "Zmiana hasła" })).toBeVisible();
+    expect(screen.getByRole("heading", { level: 3, name: "Uwierzytelnianie dwuskładnikowe" })).toBeVisible();
     expect(screen.getAllByRole("link", { name: "Aktywne sesje" })).toHaveLength(1);
+  });
+  it("karta profilu pokazuje inicjały, rolę i bieżącą sesję; zakładka sesji ma licznik bez zmiany nazwy", () => {
+    render(<AccountView area="company" account={account}
+      sessions={{ count: 3, current: { device: "Chrome, macOS", createdAt: "2026-09-24T06:12:00.000Z" } }} />);
+    expect(screen.getByRole("heading", { level: 2, name: account.name })).toBeVisible();
+    expect(screen.getByText("OT")).toBeInTheDocument();
+    expect(screen.getByText("Bieżąca sesja")).toBeVisible();
+    expect(screen.getByText("Chrome, macOS • aktywna teraz")).toBeVisible();
+    expect(screen.getByText("Utworzono 24.09.2026, 08:12")).toBeVisible();
+    const tab = screen.getByRole("link", { name: "Aktywne sesje" });
+    expect(tab).toHaveTextContent("Aktywne sesje • 3");
   });
   it("platforma nie ma zakładek, ale zachowuje wejście do sesji jako akcję drugorzędną", () => {
     render(<AccountView area="platform" account={{ ...account, role: "SUPERADMIN_AUTERVA" }} />);

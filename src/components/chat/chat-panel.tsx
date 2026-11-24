@@ -478,7 +478,8 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
   }, [messages]);
   return (
     <section className={styles.chat} data-embedded={embedded || undefined} data-gap-error={gap === "error" || undefined} aria-labelledby="chat-title">
-      <h2 id="chat-title" className={styles.srOnly}>Czat z {peerWith ?? peerLabel}</h2>
+      {/* TEN-11: visible title on the company page; the inbox pane names the company in its own heading. */}
+      <h2 id="chat-title" className={embedded ? styles.srOnly : styles.title}>Czat z {peerWith ?? peerLabel}</h2>
       <p className={styles.subtitle}>{subtitle ?? `${companyName} · kontakt z ${peerWith ?? peerLabel}`}</p>
       <div className={styles.status} role="status">
         {connection === "online" && <span><span className={styles.onlineDot} aria-hidden="true" />Online</span>}
@@ -567,7 +568,7 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
       <form className={styles.composer} onSubmit={(event) => { event.preventDefault(); submit(); }}>
         <label htmlFor="chat-composer" className={styles.srOnly}>Napisz wiadomość do {peerLabel}</label>
         <textarea
-          id="chat-composer" ref={composer} className={styles.textarea} rows={2} value={draft}
+          id="chat-composer" ref={composer} className={styles.textarea} rows={1} value={draft}
           placeholder="Napisz wiadomość…" aria-invalid={overLimit || undefined} aria-describedby="chat-composer-hint"
           onChange={(event) => onDraftChange(event.target.value)}
           onKeyDown={(event) => { if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); submit(); } }}
@@ -575,9 +576,12 @@ export function ChatPanel({ accountId, organizationId, conversationId: initialCo
         <p id="chat-composer-hint" className={styles.hint}>
           {overLimit ? "Wiadomość może mieć najwyżej 4 000 znaków."
             : nearLimit ? `Zostało ${MAX_CODE_POINTS - [...draft].length} znaków.`
-            : `Szkic ${draftOwner ?? companyName} · odbiorca: ${peerLabel}, zapisany na tym urządzeniu • Ctrl/⌘ + Enter wysyła • bez załączników`}
+            : <>
+              {`Szkic ${draftOwner ?? companyName} · odbiorca: ${peerLabel}`}
+              <span className={styles.srOnly}>, zapisany na tym urządzeniu. Ctrl/⌘ + Enter wysyła. Bez załączników.</span>
+            </>}
         </p>
-        <Button type="submit" icon={<Send size={16} aria-hidden="true" />}
+        <Button type="submit" className={styles.send} icon={<Send size={16} aria-hidden="true" />}
           disabled={!draft.trim() || overLimit || pending !== null}>
           Wyślij
         </Button>

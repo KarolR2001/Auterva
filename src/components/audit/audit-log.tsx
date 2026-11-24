@@ -6,6 +6,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { PageHeader } from "@/components/ui/page-header";
 import { TextInput } from "@/components/ui/text-input";
 import { actionLabel, actionLabels, actorLabel, actorRoleOptions, auditQuery, emptyAuditFilters, entityLabel, entityLabels, fieldLabel,
   formatValue, hasActiveFilters, roleLabels, shortId, summarize, type AuditEntryDto, type AuditFilters } from "@/modules/audit/view";
@@ -18,6 +19,21 @@ const dateTime = new Intl.DateTimeFormat("pl-PL", { timeZone: "Europe/Warsaw", d
   hour: "2-digit", minute: "2-digit", second: "2-digit" });
 /** Local time (Europe/Warsaw) of an instant the server stores and returns in UTC. */
 export const formatAuditTime = (iso: string) => dateTime.format(new Date(iso));
+
+/** "2026-09-18" → "18.09.2026"; anything else is shown as typed. */
+const polishDay = (day: string) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+  return match ? `${match[3]}.${match[2]}.${match[1]}` : day;
+};
+
+/** Filter range in Polish notation: "18–24.09.2026" within one month, otherwise full dates; empty range = all days. */
+export function rangeText(fromDay: string, toDay: string): string {
+  if (!fromDay && !toDay) return "Wszystkie dni";
+  if (!toDay) return `od ${polishDay(fromDay)}`;
+  if (!fromDay) return `do ${polishDay(toDay)}`;
+  if (fromDay.slice(0, 7) === toDay.slice(0, 7) && /^\d{4}-\d{2}-\d{2}$/.test(fromDay)) return `${fromDay.slice(8)}–${polishDay(toDay)}`;
+  return `${polishDay(fromDay)}–${polishDay(toDay)}`;
+}
 
 function errorText(status: number) {
   if (status === 401) return "Sesja wygasła. Zaloguj się ponownie.";
@@ -101,19 +117,29 @@ export function AuditLog({ apiBase, title }: { apiBase: string; title: string })
   }
   const set = (patch: Partial<AuditFilters>) => setDraft((current) => ({ ...current, ...patch }));
   const filtered = hasActiveFilters(applied);
-  const summaryText = filtered ? summarize(applied) : "Wszystkie zdarzenia";
+  const hasRange = Boolean(applied.fromDay || applied.toDay);
+  const others = summarize({ ...applied, fromDay: "", toDay: "" });
+  const summaryText = [hasRange ? rangeText(applied.fromDay, applied.toDay) : "", others || "Wszystkie zdarzenia"].filter(Boolean).join(" • ");
 
   return (
     <section className={styles.page} aria-label="Dziennik zmian" aria-busy={view.state === "loading"}>
       <title>{title}</title>
-      <header className={styles.head}>
-        <h2 ref={heading} tabIndex={-1} className={styles.h2}>Dziennik zmian</h2>
-        <p className={styles.lead}>Czas prezentowany lokalnie z danych zapisanych w UTC. Wpisy są tylko do odczytu.</p>
-      </header>
+      <PageHeader headingRef={heading} trail="Panel / Dziennik zmian" title="Dziennik zmian"
+        description="Czas prezentowany lokalnie z danych zapisanych w UTC." />
       <div className={styles.filterBar}>
+        {/* ADM-17: on wide screens the applied filters as four labelled values, on narrow ones one summary line. */}
+        <dl className={styles.filterValues}>
+          <div><dt>Zakres:</dt><dd>{rangeText(applied.fromDay, applied.toDay)}</dd></div>
+          <div><dt>Administrator:</dt><dd>{applied.actorRole ? roleLabels[applied.actorRole] ?? applied.actorRole : "Wszyscy"}</dd></div>
+          <div><dt>Akcja:</dt><dd>{applied.action ? actionLabel(applied.action) : "Wszystkie"}</dd></div>
+          <div><dt>Obiekt:</dt><dd>{applied.entityType ? entityLabel(applied.entityType) : "Wszystkie"}</dd></div>
+        </dl>
         <p className={styles.filterSummary}><Filter aria-hidden="true" size={16} /> <span>{summaryText}</span></p>
-        <Button variant="secondary" aria-expanded={filtersOpen} aria-controls={formId} className={styles.filterToggle}
-          onClick={() => setFiltersOpen((open) => !open)}>{filtersOpen ? "Ukryj filtry" : "Filtruj"}</Button>
+        <div className={styles.filterBarActions}>
+          <Button variant="primary" aria-expanded={filtersOpen} aria-controls={formId} className={styles.filterToggle}
+            onClick={() => setFiltersOpen((open) => !open)}>{filtersOpen ? "Ukryj filtry" : "Filtruj"}</Button>
+          {!filtersOpen && filtered && <Button variant="tertiary" onClick={clear}>Wyczyść</Button>}
+        </div>
       </div>
       <form id={formId} className={[styles.filters, filtersOpen ? styles.filtersOpen : ""].join(" ")} role="search" aria-label="Filtry dziennika zmian" onSubmit={submit} noValidate>
         <label className={styles.field}><span>Od dnia</span>
@@ -152,7 +178,7 @@ export function AuditLog({ apiBase, title }: { apiBase: string; title: string })
           <p>{filtered ? "Żaden wpis nie pasuje do wybranych filtrów." : "Zmiany wykonane w firmie pojawią się tutaj. Dziennik obejmuje ostatnie 12 miesięcy."}</p>
           {filtered && <Button variant="secondary" onClick={clear}>Wyczyść filtry</Button>}</div>)}
       {view.state === "ready" && entries.length > 0 && (
-        <>
+        <div className={styles.results}>
           <div className={styles.columns} aria-hidden="true">
             <span>Czas</span><span>Administrator</span><span>Akcja</span><span>Obiekt</span><span>Bezpieczne podsumowanie</span><span />
           </div>
@@ -165,7 +191,7 @@ export function AuditLog({ apiBase, title }: { apiBase: string; title: string })
             {cursor ? <Button variant="secondary" loading={more === "loading"} loadingLabel="Wczytywanie starszych wpisów" onClick={() => void loadMore()}>Pokaż starsze</Button>
               : <p className={styles.end}>To wszystkie wpisy z ostatnich 12 miesięcy.</p>}
           </div>
-        </>
+        </div>
       )}
     </section>
   );

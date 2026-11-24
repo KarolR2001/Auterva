@@ -78,11 +78,15 @@ test("change log: local time from UTC, filters, cursor, superadmin as themselves
     await expect(page.getByText("To wszystkie wpisy")).toBeVisible();
     await expect(list).not.toContainText("Usunięcie blokady");
 
+    // ADM-17: the applied filters are summarized; the full form opens behind "Filtruj" and closes after "Zastosuj".
+    const openFilters = () => page.getByRole("button", { name: "Filtruj", exact: true }).click();
+    await openFilters();
     await page.getByLabel("Akcja").selectOption("AUTH_LOGOUT");
     await page.getByRole("button", { name: "Zastosuj" }).click();
     await page.getByRole("button", { name: /Szczegóły/ }).click();
     await expect(page.locator("body")).not.toContainText(adminA);
     await page.getByRole("button", { name: "Wyczyść", exact: true }).click();
+    await openFilters();
     await page.getByLabel("Akcja").selectOption("PERIOD_CHANGED");
     await page.getByRole("button", { name: "Zastosuj" }).click();
     await expect(list.getByRole("listitem")).toHaveCount(1);
@@ -92,6 +96,7 @@ test("change log: local time from UTC, filters, cursor, superadmin as themselves
     await page.getByRole("button", { name: /Szczegóły/ }).click();
     await expect(page.getByText("Identyfikator żądania", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Wyczyść", exact: true }).click();
+    await openFilters();
     await page.getByLabel("Akcja").selectOption("SETTINGS_CHANGED");
     await page.getByRole("button", { name: "Zastosuj" }).click();
     await page.getByRole("button", { name: /Szczegóły/ }).click();
@@ -102,6 +107,7 @@ test("change log: local time from UTC, filters, cursor, superadmin as themselves
     await expect(page.locator("body")).not.toContainText("+48 600");
     await page.getByRole("button", { name: "Wyczyść", exact: true }).click();
     // Empty result and inverted range.
+    await openFilters();
     await page.getByLabel("Od dnia").fill("2026-02-10");
     await page.getByLabel("Do dnia (włącznie)").fill("2026-02-09");
     await page.getByRole("button", { name: "Zastosuj" }).click();
@@ -110,6 +116,7 @@ test("change log: local time from UTC, filters, cursor, superadmin as themselves
     await page.getByRole("button", { name: "Zastosuj" }).click();
     await expect(page.getByRole("heading", { name: "Brak wyników" })).toBeVisible();
     // Keyboard: the filter form is reachable and operable without a pointer.
+    await openFilters();
     await page.getByLabel("Od dnia").focus();
     await expect(page.getByLabel("Od dnia")).toBeFocused();
     // A foreign company id is never a filter: the API refuses unknown query keys.

@@ -13,6 +13,30 @@ export const sectionTitles: Record<SettingsSection, string> = {
   prawne: "Treści prawne",
 };
 
+/** Page header and section card copy of the read-only admin view (ADM-11–14): trail, title, lead, card heading. */
+export const sectionPages: Record<SettingsSection, { trail: string; title: string; lead: string; heading: string; description: string }> = {
+  dane: {
+    trail: "Dane firmy", title: "Ustawienia", lead: "Dane firmy widoczne w publicznym serwisie i kontakcie.",
+    heading: "Dane firmy", description: "Te dane zasilają stopkę, stronę kontaktową i metadane organizacji.",
+  },
+  kontakt: {
+    trail: "Kontakt", title: "Kanały kontaktu", lead: "Kolejność kanałów odpowiada publicznym akcjom kontaktowym.",
+    heading: "Kanały na stronie firmy", description: "Kanał domyślny jest pierwszą akcją kontaktu; kanał bez wartości jest nieaktywny.",
+  },
+  wyglad: {
+    trail: "Wygląd publiczny", title: "Wygląd publiczny", lead: "Logo, zdjęcia i tekst strony głównej firmy.",
+    heading: "Strona główna", description: "Kolory, fonty i ikony strony publicznej są stałe.",
+  },
+  prezentacja: {
+    trail: "Prezentacja i SEO", title: "Prezentacja i SEO", lead: "Widoczność cen, wyróżnienia i metadane publiczne.",
+    heading: "Prezentacja oferty", description: "Te ustawienia wpływają na stronę główną, listę pojazdów i wyniki wyszukiwania.",
+  },
+  prawne: {
+    trail: "Treści prawne", title: "Treści prawne", lead: "Polityka prywatności i regulamin strony firmy.",
+    heading: "Treści prawne", description: "Dokument, źródło publikacji i podgląd treści.",
+  },
+};
+
 export function parseSection(value: string | string[] | undefined): SettingsSection {
   const raw = Array.isArray(value) ? value[0] : value;
   return (settingsSections as readonly string[]).includes(raw ?? "") ? (raw as SettingsSection) : "dane";

@@ -1,0 +1,58 @@
+/* Shared page header of the panels (PageHeader in SPEC): trail, large title, one line of context and actions. */
+.header {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.text {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.trail {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-14);
+  line-height: var(--line-height-20);
+  overflow-wrap: anywhere;
+}
+/* Preflight resets heading size and weight, so the visual H1 is styled explicitly: 32/40 mobile, 40/48 desktop. */
+.title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-32);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-40);
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+.title:focus {
+  outline: none;
+}
+.title:focus-visible {
+  outline: var(--border-width-active) solid var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+.description {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-14);
+  line-height: var(--line-height-20);
+  overflow-wrap: anywhere;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+@media (min-width: 768px) {
+  .header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+  .title {
+    font-size: var(--font-size-40);
+    line-height: var(--line-height-48);
+  }
+}
