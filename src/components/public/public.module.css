@@ -147,10 +147,14 @@ details[open] > .toolbarButton { border-color: var(--border-strong); background:
 .stateActions { display: flex; flex-direction: column; gap: var(--space-3); width: 100%; }
 .stateLabel { font-size: var(--font-size-12); font-weight: var(--font-weight-medium); color: var(--text-secondary); text-transform: uppercase; }
 .stateActionsLabel { margin: var(--space-4) 0 0; font-size: var(--font-size-15); font-weight: var(--font-weight-semibold); color: var(--text-secondary); }
-/* PUB-07: large decorative code (aria-hidden), wide text column, "Możesz wrócić do:" above the actions. */
-.stateHero { max-width: 1000px; }
-.stateHero .code { color: var(--text-tertiary); }
+/* PUB-07: large decorative code (aria-hidden), wide text column, "Możesz wrócić do:" above the actions. The code stays
+   #737373: #a5a5a5 of the mockup gives 2.1:1 on #f2f2f2, below 3:1 for large text (RULES §6). */
+.stateHero { max-width: 1000px; gap: var(--space-5); }
+.stateHero .code { font-size: 64px; line-height: 1; color: var(--text-tertiary); }
 .stateHero .stateTitle { font-size: var(--font-size-32); line-height: var(--line-height-40); }
+.stateHero .stateText { font-size: var(--font-size-18); line-height: var(--line-height-26); max-width: 700px; }
+.stateHero .stateActionsLabel { margin-top: var(--space-6); }
+.stateHero .linkButton { min-height: 52px; }
 .notice { display: flex; gap: var(--space-3); padding: var(--space-4); margin-bottom: var(--space-4); border: var(--border-width-hairline) solid var(--status-warning-border);
   background: var(--status-warning-surface); color: var(--status-warning-text); border-radius: var(--radius-md); font-size: var(--font-size-14); }
 .pager { display: flex; justify-content: center; margin-top: var(--space-6); }
@@ -196,10 +200,14 @@ details[open] > .toolbarButton { border-color: var(--border-strong); background:
   .footerCopy { justify-self: end; }
   .card { padding: var(--space-6); }
   .stateCenter .stateActions { justify-content: center; }
-  .stateHero { padding-top: var(--space-20); }
-  .stateHero .code { font-size: calc(var(--font-size-56) * 2); line-height: 1; }
-  .stateHero .stateTitle { font-size: var(--font-size-40); line-height: var(--line-height-48); }
+  .stateHero { padding-top: var(--space-20); padding-bottom: var(--space-24); gap: var(--space-6); }
+  .stateHero .code { font-size: 120px; line-height: 1; margin-bottom: var(--space-4); }
+  .stateHero .stateTitle { font-size: 48px; line-height: 56px; }
   .stateHero .stateText { font-size: var(--font-size-20); line-height: var(--line-height-28); }
+  .stateHero .stateActionsLabel { margin-top: var(--space-8); }
+  .stateHero .stateActions { gap: var(--space-5); }
+  .stateHero .stateActions > :first-child { min-width: 220px; }
+  .stateHero .stateActions > :last-child { min-width: 260px; }
 }
 @media (min-width: 1024px) {
   .grid3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
