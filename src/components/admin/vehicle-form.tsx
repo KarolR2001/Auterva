@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, ChevronDown, ChevronUp, CircleAlert, CircleCheck, Circle, EyeOff, FileText, Plus, Trash2 } from "lucide-react";
+import { Archive, ArrowDown, ArrowUp, Check, CircleAlert, EyeOff, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cloneElement, useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 
@@ -31,9 +31,26 @@ const requirementLabels: Record<string, string> = {
 const fieldLabels: Record<string, string> = { ...requirementLabels, brand: "Marka", model: "Model", variant: "Wariant", year: "Rok",
   doors: "Liczba drzwi", transmission: "Skrzynia biegów", drive: "Napęd", fuel: "Paliwo", color: "Kolor", luggage: "Bagaż",
   price: "Cena", priceUnit: "Jednostka ceny", sortOrder: "Pozycja na liście", features: "Wyposażenie" };
-const statusIcon: Record<VehicleStatus, typeof CircleCheck> = { DRAFT: FileText, PUBLISHED: CircleCheck, UNPUBLISHED: EyeOff, ARCHIVED: Archive };
-
 const formatDate = (iso: string) => new Intl.DateTimeFormat("pl-PL", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Warsaw" }).format(new Date(iso));
+/** Sections that carry publication requirements; the others are tagged "Opcjonalne" (ADM-06/07 section tags). */
+const requiredSections = new Set<SectionId>(["basic", "text", "photos", "availability"]);
+const sectionLead: Partial<Record<SectionId, string>> = {
+  basic: "Nazwa, adres i kategoria są potrzebne do publikacji.",
+};
+const statusLead: Record<VehicleStatus, string> = {
+  DRAFT: "Szkic możesz zapisać w dowolnym momencie. Publikacja wymaga uzupełnienia listy wymagań.",
+  PUBLISHED: "Pojazd jest publiczny. Zmiany pojawią się po zapisaniu.",
+  UNPUBLISHED: "Pojazd jest ukryty w ofercie. Dane i historia są zachowane.",
+  ARCHIVED: "Pojazd jest zarchiwizowany i nie przyjmuje zmian.",
+};
+const savedAt = (iso: string) => {
+  const at = new Date(iso);
+  const day = (value: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Warsaw" }).format(value);
+  return day(at) === day(new Date())
+    ? new Intl.DateTimeFormat("pl-PL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Warsaw" }).format(at)
+    : formatDate(iso);
+};
+
 
 function Field({ id, label, optional, hint, error, children }: { id: string; label: string; optional?: boolean; hint?: string; error?: string;
   children: ReactElement<Record<string, unknown>> }) {
@@ -60,6 +77,7 @@ export function VehicleForm({ context = companyContext, vehicleId, title }: { co
   const [uncertain, setUncertain] = useState<Action | null>(null);
   const [conflict, setConflict] = useState(false);
   const [open, setOpen] = useState<Set<SectionId>>(new Set(["basic"]));
+  const [active, setActive] = useState<SectionId>("basic");
   const [dialog, setDialog] = useState<Dialogs>(null);
   const [dialogError, setDialogError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -307,9 +325,15 @@ export function VehicleForm({ context = companyContext, vehicleId, title }: { co
   const summaryFields = (summary ?? []).filter((field) => errors[field]);
   const errorCount = (id: SectionId) => Object.keys(errors).filter((field) => sectionOf(field) === id).length;
   const toggle = (id: SectionId) => setOpen((current) => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next; });
-  const jump = (id: SectionId) => { setOpen((current) => new Set([...current, id])); requestAnimationFrame(() => document.getElementById(`section-${id}-toggle`)?.focus()); };
+  const jump = (id: SectionId) => { setActive(id); setOpen((current) => new Set([...current, id])); requestAnimationFrame(() => document.getElementById(`section-${id}-toggle`)?.focus()); };
   const disabled = busy || archived;
-  const StatusIcon = statusIcon[status];
+  const sectionMissing = (id: SectionId) => Object.keys(missing).some((field) => sectionOf(field) === id);
+  const sectionTag = (id: SectionId) => !requiredSections.has(id) && !(id === "tech" && hasSeatsRule) ? "Opcjonalne"
+    : sectionMissing(id) ? (id === "photos" ? "Min. 1" : "Wymagane") : "Gotowe";
+  const requirementKeys = Object.keys(requirementLabels).filter((key) => key !== "seats" || hasSeatsRule);
+  const readyCount = requirementKeys.filter((key) => !(key in missing)).length;
+  const statusTitle = status === "DRAFT" ? (readyCount < requirementKeys.length ? "Niekompletny szkic" : "Szkic gotowy do publikacji") : statusLabels[status];
+  const number = (index: number) => String(index + 1).padStart(2, "0");
   const primaryLabel = !vehicleId ? "Zapisz szkic" : status === "DRAFT" ? "Zapisz szkic" : "Zapisz zmiany";
   const text = (name: keyof FormValues, label: string, options: { optional?: boolean; hint?: string; type?: string; inputMode?: "numeric" | "decimal"; maxLength?: number } = {}) => (
     <Field id={`vf-${name}`} label={label} optional={options.optional} hint={options.hint} error={errors[name]}>
@@ -322,9 +346,19 @@ export function VehicleForm({ context = companyContext, vehicleId, title }: { co
   return (
     <section className={styles.page} aria-busy={busy}>
       <title>{title}</title>
+      {/* ADM-06/07: "Dodaj pojazd" / "Edytuj pojazd" with the state line; the header holds the links of this vehicle. */}
       <header className={styles.head}>
-        <h2 className={styles.title}>{values.name.trim() || (vehicleId ? "Pojazd bez nazwy" : "Nowy pojazd")}</h2>
-        <a href={`${context.hrefBase}/pojazdy/`}>Wróć do listy pojazdów</a>
+        <div className={styles.headText}>
+          <h2 className={styles.title}>{vehicleId ? "Edytuj pojazd" : "Dodaj pojazd"}</h2>
+          <p className={styles.subtitle}>{vehicleId
+            ? [values.name.trim() || vehicle?.name || "Pojazd bez nazwy", statusLabels[status], vehicle ? `zapisano ${savedAt(vehicle.updatedAt)}` : null].filter(Boolean).join(" • ")
+            : "Nowy szkic • niezapisany"}</p>
+        </div>
+        <div className={styles.headActions}>
+          {vehicleId && !archived && context.previewBase && <a className={styles.headLink} href={`${context.previewBase}/pojazdy/${vehicleId}/`}>Podgląd<span className={styles.visuallyHidden}> pojazdu (tylko dla uprawnionych)</span></a>}
+          {vehicleId && !archived && routes.vehicleCalendar && <a className={styles.headLink} href={`${context.hrefBase}/pojazdy/${vehicleId}/kalendarz/`}>Kalendarz<span className={styles.visuallyHidden}> pojazdu</span></a>}
+          <a className={styles.headLink} href={`${context.hrefBase}/pojazdy/`}>Wróć do listy<span className={styles.visuallyHidden}> pojazdów</span></a>
+        </div>
       </header>
 
       <div className={styles.stack} aria-live="polite">
@@ -371,11 +405,12 @@ export function VehicleForm({ context = companyContext, vehicleId, title }: { co
 
       <div className={styles.layout}>
         <nav className={styles.nav} aria-label="Sekcje formularza">
+          <p className={styles.navTitle} aria-hidden="true">Sekcje</p>
           <ul className={styles.navList}>
-            {sections.map((section) => (
+            {sections.map((section, index) => (
               <li key={section.id}>
-                <button type="button" className={styles.navButton} onClick={() => jump(section.id)}>
-                  <span>{section.title}</span>
+                <button type="button" className={styles.navButton} aria-current={active === section.id ? "true" : undefined} onClick={() => jump(section.id)}>
+                  <span><span className={styles.number}>{number(index)}</span> {section.title}</span>
                   {errorCount(section.id) > 0 && <span className={styles.errorCount}><CircleAlert aria-hidden="true" size={16} />{errorCount(section.id)}<span className={styles.visuallyHidden}> błędów w sekcji</span></span>}
                 </button>
               </li>
@@ -384,19 +419,22 @@ export function VehicleForm({ context = companyContext, vehicleId, title }: { co
         </nav>
 
         <form className={styles.sections} noValidate onSubmit={(event) => { event.preventDefault(); void saveDraft(); }}>
-          {sections.map((section) => {
+          {sections.map((section, index) => {
             const isOpen = open.has(section.id);
             const count = errorCount(section.id);
             return (
-              <div key={section.id} className={styles.section}>
+              <div key={section.id} className={styles.section} data-open={isOpen || undefined}>
                 <h3 className={styles.sectionHead}>
                   <button type="button" id={`section-${section.id}-toggle`} className={styles.sectionToggle} aria-expanded={isOpen}
-                    aria-controls={`section-${section.id}`} onClick={() => toggle(section.id)}>
-                    <span>{section.title}{count > 0 && <span className={styles.errorCount}> · <CircleAlert aria-hidden="true" size={16} />{count} do poprawy</span>}</span>
-                    {isOpen ? <ChevronUp aria-hidden="true" size={20} /> : <ChevronDown aria-hidden="true" size={20} />}
+                    aria-controls={`section-${section.id}`} onClick={() => { setActive(section.id); toggle(section.id); }}>
+                    <span className={styles.sectionName}><span className={styles.number}>{number(index)}</span> {section.title}
+                      {count > 0 && <span className={styles.errorCount}> · <CircleAlert aria-hidden="true" size={16} />{count} do poprawy</span>}</span>
+                    <span className={styles.sectionTag}>{count > 0 || isOpen ? null : sectionTag(section.id)}
+                      {isOpen ? <ArrowUp aria-hidden="true" size={16} /> : <ArrowDown aria-hidden="true" size={16} />}</span>
                   </button>
                 </h3>
                 <div id={`section-${section.id}`} className={styles.sectionBody} hidden={!isOpen}>
+                  {sectionLead[section.id] && <p className={styles.sectionLead}>{sectionLead[section.id]}</p>}
                   {section.id === "basic" && <>
                     {text("name", "Nazwa pojazdu", { hint: "Szkic można zapisać bez nazwy; do publikacji nazwa jest wymagana." })}
                     <div className={styles.grid2}>
@@ -496,35 +534,40 @@ export function VehicleForm({ context = companyContext, vehicleId, title }: { co
           })}
         </form>
 
+        {/* Dark status card (ADM-06/07): state, what it means, the publication requirements and how many are ready. */}
         <aside className={styles.aside} aria-label="Status publikacji">
-          <div className={styles.card}>
-            <h3 className={styles.cardTitle}>Status</h3>
-            <p className={styles.badge}><StatusIcon aria-hidden="true" size={16} />{vehicleId ? statusLabels[status] : "Nowy szkic"}</p>
-            {vehicle && <p className={styles.hint}>Ostatnia zmiana: {formatDate(vehicle.updatedAt)}</p>}
-            {vehicleId && !archived && context.previewBase && <a href={`${context.previewBase}/pojazdy/${vehicleId}/`}>Podgląd pojazdu (tylko dla uprawnionych)</a>}
-            {vehicleId && !archived && routes.vehicleCalendar && <a href={`${context.hrefBase}/pojazdy/${vehicleId}/kalendarz/`}>Kalendarz pojazdu</a>}
-            {status === "PUBLISHED" && <Button variant="secondary" disabled={busy} icon={<EyeOff aria-hidden="true" size={18} />} onClick={() => { setDialogError(null); setDialog("unpublish"); }}>Ukryj</Button>}
-            {vehicleId && !archived && <Button variant="tertiary" disabled={busy} icon={<Archive aria-hidden="true" size={18} />} onClick={() => { setDialogError(null); setDialog("archive"); }}>Archiwizuj</Button>}
-          </div>
-          {status !== "ARCHIVED" && (
-            <div className={styles.card}>
-              <h3 className={styles.cardTitle}>Wymagania publikacji</h3>
+          <div className={styles.statusCard}>
+            <h3 className={styles.statusEyebrow}>Status</h3>
+            <p className={styles.statusTitle}>{statusTitle}</p>
+            <p className={styles.statusLead}>{statusLead[status]}</p>
+            {vehicle && <p className={styles.statusMeta}>Ostatnia zmiana: {formatDate(vehicle.updatedAt)}</p>}
+            {vehicleId && !archived && (
+              <div className={styles.statusActions}>
+                {status === "PUBLISHED" && <button type="button" className={styles.statusButton} disabled={busy} onClick={() => { setDialogError(null); setDialog("unpublish"); }}>
+                  <EyeOff aria-hidden="true" size={18} />Ukryj</button>}
+                <button type="button" className={styles.statusButtonQuiet} disabled={busy} onClick={() => { setDialogError(null); setDialog("archive"); }}>
+                  <Archive aria-hidden="true" size={18} />Archiwizuj</button>
+              </div>
+            )}
+            {status !== "ARCHIVED" && <>
+              <h4 className={styles.statusEyebrow}>Wymagania publikacji</h4>
               <ul className={styles.checklist}>
-                {Object.keys(requirementLabels).filter((key) => key !== "seats" || hasSeatsRule).map((key) => {
+                {requirementKeys.map((key) => {
                   const met = !(key in missing);
-                  const Icon = met ? CircleCheck : Circle;
-                  return <li key={key} className={`${styles.checkItem} ${met ? "" : styles.checkItemMissing}`}><Icon aria-hidden="true" size={16} />
+                  return <li key={key} className={`${styles.checkItem} ${met ? "" : styles.checkItemMissing}`}>
+                    {met ? <Check aria-hidden="true" size={18} /> : <span className={styles.checkRing} aria-hidden="true" />}
                     {requirementLabels[key]}<span className={styles.visuallyHidden}>{met ? ": spełnione" : ": brakuje"}</span></li>;
                 })}
               </ul>
-            </div>
-          )}
+              <p className={styles.statusCount}>{readyCount} z {requirementKeys.length} gotowe</p>
+            </>}
+          </div>
         </aside>
       </div>
 
       {!archived && (
         <div className={styles.actionBar} data-fixed-action-bar="">
-          <span className={styles.actionState} role="status">{busy ? "Zapisywanie…" : dirty ? "Niezapisane zmiany" : vehicleId ? "Zapisano" : ""}</span>
+          <span className={styles.actionState} role="status">{busy ? "Zapisywanie…" : dirty ? "Niezapisane zmiany" : vehicleId ? "Wszystkie zmiany zapisane" : "Brak niezapisanych zmian"}</span>
           <Button variant={status === "PUBLISHED" || !vehicleId ? "primary" : "secondary"} loading={busy} loadingLabel="Zapisywanie…" disabled={vehicleId ? !dirty : false} onClick={() => void saveDraft()}>
             {primaryLabel}
           </Button>

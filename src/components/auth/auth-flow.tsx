@@ -325,6 +325,7 @@ export function LoginForm({
             type="email"
             autoComplete="username"
             inputMode="email"
+            placeholder={area === "company" ? "admin@firma.pl" : undefined}
             {...form.register("email")}
           />
         </FormField>
@@ -353,6 +354,15 @@ export function LoginForm({
         <p className={styles.linkRow}>
           <Link href={area === "company" ? "/admin/reset-hasla" : "/reset-hasla"}>
             Nie pamiętasz hasła?
+            {/* ADM-01: "Nie pamiętasz hasła?  Zresetuj je →" is one link; the arrow stays out of its name. */}
+            {area === "company" && (
+              <>
+                {" "}
+                <span className={styles.resetCta}>
+                  Zresetuj je <span aria-hidden="true">→</span>
+                </span>
+              </>
+            )}
           </Link>
         </p>
       </SecretForm>

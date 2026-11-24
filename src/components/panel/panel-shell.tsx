@@ -5,6 +5,7 @@ import {
   Building2,
   Calendar,
   Car,
+  Circle,
   CircleUserRound,
   Download,
   Ellipsis,
@@ -18,7 +19,6 @@ import {
   ScrollText,
   Settings,
   User,
-  Wifi,
   WifiOff,
 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -427,7 +427,7 @@ function AvailablePanelShell({
         aria-current={current ? "page" : undefined}
         data-current={current || undefined}
       >
-        <Icon size={20} aria-hidden="true" />
+        <Icon size={24} aria-hidden="true" />
         <span>{item.label}</span>
         {/* WCAG 2.5.3 (#342): the visible badge is part of the name ("Czat Nowe"), so the label matches what is seen. */}
         {chat && " "}
@@ -491,7 +491,7 @@ function AvailablePanelShell({
             </nav>
             {area === "company" && (
               <span className={styles.shellConnection} data-online={pwa.online} aria-live="polite">
-                {pwa.online ? <Wifi size={16} aria-hidden="true" /> : <WifiOff size={16} aria-hidden="true" />}
+                {pwa.online ? <Circle className={styles.shellConnectionDot} size={6} fill="currentColor" strokeWidth={0} aria-hidden="true" /> : <WifiOff size={16} aria-hidden="true" />}
                 <span>{pwa.online ? "Online" : "Offline"}</span>
               </span>
             )}
@@ -574,6 +574,16 @@ function AvailablePanelShell({
             aria-haspopup="dialog"
             aria-expanded={menuVisible && menuSource === "more"}
             onClick={(event) => openMenu("mobile", event.currentTarget, "more")}
+            // TEN-04 M: pages reached only through "Więcej" (status, log, settings, account) mark it as the current tab;
+            // the fleet calendar belongs to "Pojazdy".
+            data-current={
+              area === "company" &&
+              !mobileItems.some((item) => isCurrent(currentPath, item.href)) &&
+              !isCurrent(currentPath, "/admin/kalendarz") &&
+              menuLinks.some((item) => isCurrent(currentPath, item.href))
+                ? true
+                : undefined
+            }
           >
             <Ellipsis size={20} aria-hidden="true" />
             <span>Więcej</span>

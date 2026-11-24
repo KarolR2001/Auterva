@@ -1,6 +1,6 @@
 "use client";
 
-import { Ban, CalendarCheck, CalendarPlus, ChevronLeft, ChevronRight, CircleEllipsis, Copy, History, Lock, Pencil, Trash2, Wrench, type LucideIcon } from "lucide-react";
+import { CalendarPlus, ChevronLeft, ChevronRight, Copy, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { addDays, longDate, monthDays, monthLabel, shiftMonth } from "@/modules/public-offer/presentation";
@@ -17,7 +17,7 @@ import {
   createBlock, deleteBlock, historyRange, readCalendar, updateBlock, upcomingRange,
   type BlockResult, type BlockTypeCode, type CalendarBlock, type CalendarRead, type OverlapConflict,
 } from "./calendar-api";
-import { companyContext, errorMessage, isUncertain, readVehicle, type PanelContext, type VehicleDetail } from "./fleet-api";
+import { companyContext, errorMessage, isUncertain, readVehicle, statusLabels, type PanelContext, type VehicleDetail } from "./fleet-api";
 import {
   blockTypeOrder, changedFields, clampMonth, createFields, dayLabel, dayView, emptyValues, monthOf, monthSpan, rangeText,
   saveErrorText, createCandidates, settleDelete, settleEdit, sameValues, sortBlocks, startsInPast, surroundingRange, typeLabel, validateValues, warsawDate,
@@ -26,11 +26,13 @@ import {
 import styles from "./vehicle-calendar.module.css";
 
 const weekdays = ["Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"];
-const typeIcon: Record<BlockTypeCode, LucideIcon> = { BLOCKED: Lock, RESERVED: CalendarCheck, MAINTENANCE: Wrench, OTHER: CircleEllipsis };
-const TypeIcon = ({ type, size = 16 }: { type: string; size?: number }) => {
-  const Icon = typeIcon[type as BlockTypeCode] ?? CircleEllipsis;
-  return <Icon aria-hidden="true" size={size} />;
-};
+/** ADM-09: every block type has a letter mark and its own fill (R dark, S graphite, B outlined, I light); labels stay the enum labels. */
+const typeLetter: Record<BlockTypeCode, string> = { RESERVED: "R", MAINTENANCE: "S", BLOCKED: "B", OTHER: "I" };
+const letterOf = (type: string) => typeLetter[type as BlockTypeCode] ?? "I";
+const typeClass = (type: string) => ({ RESERVED: styles.typeReserved, MAINTENANCE: styles.typeService, BLOCKED: styles.typeBlocked, OTHER: styles.typeOther } as Record<string, string>)[type] ?? styles.typeOther;
+/** "Blokady w listopadzie": month names in the locative case. */
+const monthIn = ["styczniu", "lutym", "marcu", "kwietniu", "maju", "czerwcu", "lipcu", "sierpniu", "wrześniu", "październiku", "listopadzie", "grudniu"];
+const shortDate = (date: string) => `${date.slice(8, 10)}.${date.slice(5, 7)}.${date.slice(0, 4)}`;
 
 type Load = { state: "loading" } | { state: "error"; code: string } | { state: "ready" };
 type Month = { status: "loading" } | { status: "error"; code: string } | { status: "ready"; read: CalendarRead };
@@ -446,16 +448,15 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
   const listItem = (block: CalendarBlock) => {
     const label = `${typeLabel(block.type)}, ${rangeText(block.from, block.to)}`;
     return (
-      <li key={block.id} className={styles.item}>
+      <li key={block.id} className={`${styles.item} ${typeClass(block.type)}`}>
         <div className={styles.itemMain}>
-          <span className={styles.typeBadge}><TypeIcon type={block.type} />{block.typeLabel || typeLabel(block.type)}</span>
-          <strong className={styles.itemRange}>{rangeText(block.from, block.to)}</strong>
-          {block.reference ? <span className={styles.itemMeta}>Nr: {block.reference}</span> : null}
+          <strong className={styles.itemType}><span className={styles.itemLetter} aria-hidden="true">{letterOf(block.type)}</span>{block.typeLabel || typeLabel(block.type)}</strong>
+          <span className={styles.itemRange}>{rangeText(block.from, block.to)}{block.reference ? ` • Nr: ${block.reference}` : ""}</span>
           {block.internalNote ? <span className={styles.itemMeta}>Ma prywatną notatkę</span> : null}
         </div>
         <div className={styles.itemActions}>
-          <Button variant="secondary" size="sm" icon={<Pencil aria-hidden="true" size={16} />} onClick={() => openEdit(block)} aria-label={`Edytuj blokadę: ${label}`}>Edytuj</Button>
-          <Button variant="tertiary" size="sm" icon={<Trash2 aria-hidden="true" size={16} />} onClick={() => openDelete(block)} aria-label={`Usuń blokadę: ${label}`}>Usuń</Button>
+          <button type="button" className={styles.textButton} onClick={() => openEdit(block)} aria-label={`Edytuj blokadę: ${label}`}>Edytuj</button>
+          <button type="button" className={styles.textButton} onClick={() => openDelete(block)} aria-label={`Usuń blokadę: ${label}`}>Usuń</button>
         </div>
       </li>
     );
@@ -467,14 +468,23 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
   return (
     <section className={styles.page} aria-busy={cal.status === "loading"}>
       <title>{title}</title>
+      {/* ADM-09: "Pojazdy / {name} / Kalendarz", the title with the vehicle line, then status, "Pojazd" and "Dodaj blokadę". */}
+      <nav className={styles.crumbs} aria-label="Ścieżka">
+        <ol>
+          <li><a href={`${context.hrefBase}/pojazdy/`}>Pojazdy</a></li>
+          <li><a href={`${context.hrefBase}/pojazdy/${vehicleId}/`}>{name}</a></li>
+          <li aria-current="page">Kalendarz</li>
+        </ol>
+      </nav>
       <header className={styles.head}>
-        <div>
-          <h2 className={styles.title} ref={heading} tabIndex={-1}>Kalendarz: {name}</h2>
-          <p className={styles.muted}>{activityText}</p>
+        <div className={styles.headText}>
+          <h2 className={styles.title} ref={heading} tabIndex={-1}>Kalendarz pojazdu<span className={styles.srOnly}>: {name}</span></h2>
+          <p className={styles.subtitle}>{name}{vehicle ? ` • ${statusLabels[vehicle.status]}` : ""}</p>
         </div>
-        <div className={styles.headLinks}>
-          <a href={`${context.hrefBase}/pojazdy/${vehicleId}/`}>Wróć do pojazdu</a>
-          <a href={`${context.hrefBase}/pojazdy/`}>Lista pojazdów</a>
+        <div className={styles.headActions}>
+          {vehicle && <span className={styles.statusChip} data-public={vehicle.status === "PUBLISHED" || undefined}><span className={styles.statusDot} aria-hidden="true" />{statusLabels[vehicle.status]}</span>}
+          <a className={styles.headLink} href={`${context.hrefBase}/pojazdy/${vehicleId}/`}>Pojazd<span className={styles.srOnly}> {name}</span></a>
+          {!archived && <Button className={styles.headAdd} onClick={() => openCreate(pick ? { from: pick, to: pick } : undefined)}>Dodaj blokadę</Button>}
         </div>
       </header>
 
@@ -484,14 +494,16 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
       </div>
       <div role="status" aria-live="polite" className={styles.srOnly} data-testid="calendar-announcer">{announcement}</div>
 
+      <div className={styles.card}>
       <div className={styles.layout}>
         <section aria-labelledby="bc-month-title" className={styles.calendar}>
           <div className={styles.toolbar}>
-            <button type="button" className={styles.iconButton} aria-label="Poprzedni miesiąc" onClick={() => shiftBy(-1)}><ChevronLeft aria-hidden="true" size={20} /></button>
+            <button type="button" className={`${styles.iconButton} ${styles.prevButton}`} aria-label="Poprzedni miesiąc" onClick={() => shiftBy(-1)}><ChevronLeft aria-hidden="true" size={20} /></button>
             <h3 id="bc-month-title" className={styles.monthTitle}>{monthLabel(month)}</h3>
+            {monthOf(today) !== month && <button type="button" className={styles.textButton} onClick={() => void loadMonth(monthOf(today))}>Dzisiaj</button>}
             <button type="button" className={styles.iconButton} aria-label="Następny miesiąc" onClick={() => shiftBy(1)}><ChevronRight aria-hidden="true" size={20} /></button>
-            <Button variant="secondary" size="sm" onClick={() => void loadMonth(monthOf(today))}>Dzisiaj</Button>
           </div>
+          <p className={styles.todayLine}><span className={styles.todayRing} aria-hidden="true" />Dziś: {shortDate(today)} • Pełne dni, koniec zakresu wliczony</p>
           {cal.status === "loading" ? <p className={styles.muted} role="status">Ładujemy stany dni…</p> : null}
           {cal.status === "error" ? (
             <Alert tone="error" title="Nie udało się wczytać kalendarza." action={{ label: "Spróbuj ponownie", onClick: () => void loadMonth(month) }}>
@@ -512,10 +524,14 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
               {rows.map((row, at) => (
                 <tr key={at}>
                   {row.map((cell, column) => {
-                    if (!cell) return <td key={column} />;
+                    if (!cell) {
+                      // Days of the neighbouring months only complete the grid (ADM-09); their state belongs to that month's view.
+                      const date = addDays(cells[0].date, at * 7 + column - cells[0].weekday);
+                      return <td key={column} className={styles.dayOther} aria-hidden="true"><span className={styles.dayNumber}>{Number(date.slice(8))}</span></td>;
+                    }
                     const view = dayView(cell.date, read);
                     const selected = pick === cell.date;
-                    const classes = [styles.day, view.kind === "blocked" ? styles.dayBlocked : view.kind === "free" ? styles.dayFree : view.kind === "inactive" ? styles.dayInactive : "",
+                    const classes = [styles.day, view.block ? typeClass(view.block.type) : view.kind === "free" ? styles.dayFree : view.kind === "inactive" ? styles.dayInactive : "",
                       cell.date < today && styles.dayPast, cell.date === today && styles.dayToday, selected && styles.daySelected].filter(Boolean).join(" ");
                     return (
                       <td key={column} className={classes} aria-current={cell.date === today ? "date" : undefined}>
@@ -523,8 +539,9 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
                           ref={(node) => { if (node) buttons.current.set(cell.date, node); else buttons.current.delete(cell.date); }}
                           aria-label={dayLabel(cell.date, view, today, longDate, selected)}
                           onFocus={() => setFocusDate(cell.date)} onKeyDown={(event) => onDayKey(event, cell.date)} onClick={() => onDay(cell.date)}>
-                          <span>{cell.day}</span>
-                          {view.block ? <span className={styles.dayIcon}><TypeIcon type={view.block.type} size={12} /></span> : view.kind === "inactive" ? <span className={styles.dayIcon}><Ban aria-hidden="true" size={12} /></span> : null}
+                          <span className={styles.dayNumber}>{cell.day}</span>
+                          {/* The mark is drawn by CSS with an empty alternative: the button's name already states the day and its state. */}
+                          <span className={styles.dayMark} data-mark={view.block ? letterOf(view.block.type) : view.kind === "free" ? "•" : view.kind === "inactive" ? "–" : ""} aria-hidden="true" />
                         </button>
                       </td>
                     );
@@ -533,29 +550,29 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
               ))}
             </tbody>
           </table>
-          <ul className={styles.legend} aria-label="Legenda kalendarza">
-            <li><span className={`${styles.mark} ${styles.dayFree}`} aria-hidden="true" />Wolny</li>
-            {blockTypeOrder.map((type) => <li key={type}><span className={`${styles.mark} ${styles.dayBlocked}`} aria-hidden="true"><TypeIcon type={type} size={12} /></span>{typeLabel(type)}</li>)}
-            <li><span className={`${styles.mark} ${styles.dayInactive}`} aria-hidden="true"><Ban size={12} /></span>Poza aktywnością pojazdu</li>
-            <li><span className={`${styles.mark} ${styles.dayToday}`} aria-hidden="true" />Dzisiaj</li>
-          </ul>
-          {monthBlocks.length === 0 && cal.status === "ready" ? <p className={styles.muted}>Brak blokad w tym miesiącu.</p> : null}
+          {cal.status === "ready" ? <p className={styles.muted}>{monthBlocks.length === 0 ? "Brak blokad w tym miesiącu." : `Blokady w ${monthIn[Number(month.slice(5, 7)) - 1]}: ${monthBlocks.length}.`} {activityText}</p> : null}
         </section>
 
         <aside className={styles.aside} aria-label="Blokady pojazdu">
-          <div className={styles.asideHead}>
-            <h3 className={styles.h3}>Nadchodzące blokady</h3>
-            {!archived && <Button icon={<CalendarPlus aria-hidden="true" size={18} />} onClick={() => openCreate(pick ? { from: pick, to: pick } : undefined)}>Dodaj blokadę</Button>}
-          </div>
+          <h3 className={styles.h3}>Nadchodzące blokady</h3>
           {renderListing(upcoming, "Brak blokad w najbliższych 12 miesiącach. Pojazd jest niedostępny tylko poza okresem aktywności.", () => void loadListing("upcoming"))}
           <p className={styles.muted}>Lista obejmuje najbliższe 12 miesięcy; dalsze terminy zobaczysz w kalendarzu miesiąca.</p>
           <div className={styles.historyBlock}>
             {history === null
-              ? <Button variant="tertiary" icon={<History aria-hidden="true" size={16} />} onClick={() => void loadListing("history")}>Pokaż wcześniejsze okresy</Button>
+              ? <button type="button" className={styles.textButton} onClick={() => void loadListing("history")}>Zobacz wcześniejsze okresy <span aria-hidden="true">→</span></button>
               : <><h3 className={styles.h3}>Wcześniejsze okresy</h3>{renderListing(history, "Brak blokad w ostatnich 12 miesiącach.", () => void loadListing("history"))}
-                <Button variant="tertiary" onClick={() => setHistory(null)}>Ukryj wcześniejsze okresy</Button></>}
+                <button type="button" className={styles.textButton} onClick={() => setHistory(null)}>Ukryj wcześniejsze okresy</button></>}
           </div>
+          {!archived && <Button className={styles.asideAdd} width="fill" onClick={() => openCreate(pick ? { from: pick, to: pick } : undefined)}>Dodaj blokadę</Button>}
         </aside>
+      </div>
+      {/* Legend under the calendar and the list, as on the board: letters and fills of the day cells. */}
+      <ul className={styles.legend} aria-label="Legenda kalendarza">
+        <li><span className={`${styles.mark} ${styles.dayFree}`} aria-hidden="true">•</span>Wolny</li>
+        {blockTypeOrder.map((type) => <li key={type}><span className={`${styles.mark} ${typeClass(type)}`} aria-hidden="true">{letterOf(type)}</span>{typeLabel(type)}</li>)}
+        <li><span className={`${styles.mark} ${styles.dayInactive}`} aria-hidden="true">–</span>Poza aktywnością pojazdu</li>
+        <li><span className={`${styles.mark} ${styles.dayToday}`} aria-hidden="true" />Dzisiaj</li>
+      </ul>
       </div>
 
       {!archived && (

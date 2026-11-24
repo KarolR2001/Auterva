@@ -1,22 +1,44 @@
-.page { max-width: 1120px; margin: 0 auto; padding: var(--space-5) var(--space-4) calc(var(--space-12) * 2); }
-.head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-4); }
-.title { margin: 0; font-size: var(--font-size-28); font-weight: var(--font-weight-bold); overflow-wrap: anywhere; }
-.layout { display: grid; gap: var(--space-5); }
-@media (min-width: 1024px) { .layout { grid-template-columns: 220px minmax(0, 1fr) 300px; align-items: start; } }
+.page { max-width: 1120px; margin: 0 auto; padding: 0 0 calc(var(--space-12) * 2); }
+/* ADM-06/07 header: "Dodaj pojazd" / "Edytuj pojazd" 36 px with the state line, links of the vehicle on the right. */
+.head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--space-4) var(--space-6); margin-bottom: var(--space-10); }
+.headText { display: grid; gap: var(--space-2); min-width: 0; }
+.title { margin: 0; font-size: 36px; line-height: var(--line-height-48); font-weight: var(--font-weight-bold); overflow-wrap: anywhere; }
+.subtitle { margin: 0; font-size: var(--font-size-14); line-height: var(--line-height-20); font-weight: var(--font-weight-medium); color: var(--text-secondary); overflow-wrap: anywhere; }
+.headActions { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.headLink { display: inline-flex; align-items: center; justify-content: center; min-width: 130px; min-height: var(--button-height-md); padding: 0 var(--space-6); font-weight: var(--font-weight-semibold);
+  color: var(--action-secondary-content); text-decoration: none; border: var(--border-width-hairline) solid var(--action-secondary-border); border-radius: var(--radius-md); }
+.headLink:hover { background: var(--action-secondary-hover); }
+.headLink:focus-visible { outline: var(--border-width-active) solid var(--focus-ring); outline-offset: var(--focus-offset); }
+@media (max-width: 767px) { .head { margin-bottom: var(--space-6); } .title { font-size: var(--font-size-32); line-height: var(--line-height-40); } .headLink { min-width: 0; padding: 0 var(--space-4); } }
+.layout { display: grid; gap: var(--space-6); }
+@media (min-width: 1024px) { .layout { grid-template-columns: 220px minmax(0, 1fr) 268px; align-items: start; } }
 .nav, .aside { display: grid; gap: var(--space-2); }
 @media (min-width: 1024px) { .nav, .aside { position: sticky; top: var(--space-4); } }
-.navList { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
-@media (min-width: 1024px) { .navList { flex-direction: column; flex-wrap: nowrap; } }
-.navButton { display: inline-flex; align-items: center; justify-content: space-between; gap: var(--space-2); width: 100%; min-height: var(--touch-target-mobile); padding: 0 var(--space-3);
-  font: inherit; color: var(--text-primary); background: var(--surface-default); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-md); cursor: pointer; text-align: left; }
-.navButton:hover { background: var(--action-secondary-hover); }
+/* Section navigation: one bordered card "SEKCJE" with numbered items and a 3 px bar on the current one; mobile uses the accordions. */
+.nav { align-content: start; padding: var(--space-6) var(--space-6) var(--space-8); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-lg); background: var(--surface-default); }
+@media (max-width: 1023px) { .nav { display: none; } }
+.navTitle { margin: 0 0 var(--space-3); font-size: var(--font-size-12); line-height: var(--line-height-16); font-weight: var(--font-weight-semibold); text-transform: uppercase; }
+.navList { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
+.navButton { position: relative; display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); width: 100%; min-height: var(--button-height-md); padding: 0;
+  font: inherit; font-size: var(--font-size-14); color: var(--text-secondary); background: transparent; border: 0; cursor: pointer; text-align: left; }
+.navButton:hover { color: var(--text-primary); text-decoration: underline; }
+.navButton[aria-current] { color: var(--text-primary); font-weight: var(--font-weight-semibold); }
+.navButton[aria-current]::before { content: ""; position: absolute; top: var(--space-2); bottom: var(--space-2); left: calc(-1 * var(--space-4)); width: 3px; border-radius: var(--radius-full); background: var(--text-primary); }
+.number { font-variant-numeric: tabular-nums; }
 .errorCount { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--font-size-14); font-weight: var(--font-weight-semibold); color: var(--status-error-content, var(--text-primary)); }
+/* Numbered sections: a closed one is a 52 px row with its tag ("Wymagane ↓"); the open one has a 24 px heading. */
 .sections { display: grid; gap: var(--space-3); min-width: 0; }
-.section { background: var(--surface-default); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-lg); }
+.section { background: var(--surface-default); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-md); }
+.section[data-open] { border-radius: var(--radius-lg); }
 .sectionHead { margin: 0; }
-.sectionToggle { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); width: 100%; min-height: var(--touch-target-mobile); padding: var(--space-3) var(--space-4);
-  font: inherit; font-size: var(--font-size-16); font-weight: var(--font-weight-semibold); color: var(--text-primary); background: transparent; border: 0; cursor: pointer; text-align: left; }
-.sectionBody { display: grid; gap: var(--space-4); padding: 0 var(--space-4) var(--space-4); }
+.sectionToggle { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); width: 100%; min-height: 52px; padding: var(--space-2) var(--space-5);
+  font: inherit; font-size: var(--font-size-16); line-height: var(--line-height-24); font-weight: var(--font-weight-semibold); color: var(--text-primary); background: transparent; border: 0; border-radius: inherit; cursor: pointer; text-align: left; }
+.section[data-open] .sectionToggle { padding: var(--space-6) var(--space-6) var(--space-1); font-size: var(--font-size-24); line-height: var(--line-height-32); }
+.sectionName { min-width: 0; }
+.sectionTag { display: inline-flex; flex: 0 0 auto; align-items: center; gap: var(--space-1); font-size: var(--font-size-12); line-height: var(--line-height-16); font-weight: var(--font-weight-medium); color: var(--text-secondary); }
+.sectionLead { margin: 0; font-size: var(--font-size-14); line-height: var(--line-height-20); color: var(--text-secondary); }
+.sectionBody { display: grid; gap: var(--space-5); padding: 0 var(--space-6) var(--space-8); }
+@media (max-width: 767px) { .sectionToggle { padding: var(--space-2) var(--space-4); } .section[data-open] .sectionToggle { padding: var(--space-5) var(--space-5) var(--space-1); font-size: var(--font-size-22); line-height: var(--line-height-28); } .sectionBody { padding: 0 var(--space-5) var(--space-6); } }
 .grid2 { display: grid; gap: var(--space-4); }
 @media (min-width: 480px) { .grid2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .field { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
@@ -34,25 +56,46 @@ textarea.control { min-height: 120px; resize: vertical; }
 @media (min-width: 480px) { .featureRow { grid-template-columns: 1fr 1fr auto; align-items: end; } }
 .check { display: flex; align-items: center; gap: var(--space-2); min-height: var(--touch-target-mobile); }
 .check input { width: 20px; height: 20px; }
-.card { padding: var(--space-4); background: var(--surface-default); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-lg); display: grid; gap: var(--space-3); }
-.cardTitle { margin: 0; font-size: var(--font-size-16); font-weight: var(--font-weight-semibold); }
-.badge { display: inline-flex; align-items: center; gap: var(--space-1); width: fit-content; padding: var(--space-1) var(--space-2); font-size: var(--font-size-14); font-weight: var(--font-weight-semibold);
-  border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-subtle); }
-.checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
-.checkItem { display: flex; align-items: flex-start; gap: var(--space-2); font-size: var(--font-size-14); }
-.checkItemMissing { font-weight: var(--font-weight-semibold); }
+/* Dark status card (#151515): eyebrow, state, lead, actions, requirement list and "N z M gotowe". */
+.statusCard { display: grid; gap: var(--space-3); padding: var(--space-6); border-radius: var(--radius-lg); background: var(--surface-inverse); color: var(--text-inverse); }
+.statusEyebrow { margin: 0; font-size: var(--font-size-12); line-height: var(--line-height-16); font-weight: var(--font-weight-semibold); text-transform: uppercase; color: var(--color-neutral-300); }
+h4.statusEyebrow { margin-top: var(--space-5); }
+.statusTitle { margin: var(--space-2) 0 0; font-size: var(--font-size-24); line-height: var(--line-height-32); font-weight: var(--font-weight-semibold); }
+.statusLead, .statusMeta { margin: 0; font-size: var(--font-size-14); line-height: var(--line-height-20); color: var(--color-neutral-300); }
+.statusActions { display: grid; gap: var(--space-2); margin-top: var(--space-2); }
+.statusButton, .statusButtonQuiet { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: var(--button-height-md); padding: 0 var(--space-4);
+  font: inherit; font-weight: var(--font-weight-semibold); border-radius: var(--radius-md); cursor: pointer; }
+.statusButton { color: var(--text-primary); background: var(--surface-default); border: var(--border-width-hairline) solid var(--surface-default); }
+.statusButton:hover:not(:disabled) { background: var(--color-neutral-300); }
+.statusButtonQuiet { color: var(--text-inverse); background: transparent; border: var(--border-width-hairline) solid var(--color-neutral-500); }
+.statusButtonQuiet:hover:not(:disabled) { background: var(--color-neutral-700); }
+.statusButton:disabled, .statusButtonQuiet:disabled { cursor: not-allowed; opacity: 0.6; }
+.statusButton:focus-visible, .statusButtonQuiet:focus-visible { outline: var(--border-width-active) solid var(--text-inverse); outline-offset: var(--focus-offset); }
+.checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
+.checkItem { display: flex; align-items: center; gap: var(--space-2); font-size: var(--font-size-14); line-height: var(--line-height-20); font-weight: var(--font-weight-medium); color: var(--color-neutral-300); }
+.checkItem svg { flex: 0 0 auto; color: var(--text-inverse); }
+.checkItemMissing { color: var(--text-inverse); font-weight: var(--font-weight-semibold); }
+.checkRing { flex: 0 0 auto; width: 8px; height: 8px; margin: 0 5px; border: var(--border-width-hairline) solid currentColor; border-radius: var(--radius-full); }
+.statusCount { margin: var(--space-4) 0 0; font-size: var(--font-size-14); line-height: var(--line-height-20); font-weight: var(--font-weight-semibold); }
 .photoList { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .photoList img { display: block; width: 96px; height: 64px; object-fit: cover; border-radius: var(--radius-sm); }
 .photoList li { position: relative; }
 .photoCover { position: absolute; left: 0; bottom: 0; padding: 0 var(--space-1); font-size: var(--font-size-12); background: var(--surface-default); border-radius: var(--radius-sm); }
-.actionBar { position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-sticky); display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end; align-items: center;
-  padding: var(--space-3) var(--space-4); background: var(--surface-default); border-top: var(--border-width-hairline) solid var(--border-default); }
-@media (max-width: 1023px) { .actionBar { padding-bottom: calc(var(--space-3) + 64px + env(safe-area-inset-bottom, 0px)); } }
+/* Fixed action bar next to the 240 px sidebar (ADM-06/07 D): state text on the left, buttons 160 px+ on the right.
+   On mobile it sits above the bottom navigation with two 50/50 buttons; the state stays for screen readers. */
+.actionBar { position: fixed; left: 240px; right: 0; bottom: 0; z-index: var(--z-sticky); display: flex; flex-wrap: wrap; gap: var(--space-3); justify-content: flex-end; align-items: center;
+  padding: var(--space-5) var(--space-8) var(--space-5) var(--space-8); background: var(--surface-default); border-top: var(--border-width-hairline) solid var(--border-default); }
+.actionBar > button { min-width: 160px; }
+@media (max-width: 767px) {
+  .actionBar { left: 0; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); padding: var(--space-4); }
+  .actionBar > button { min-width: 0; }
+  .actionBar .actionState { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+}
 /* WCAG 2.4.11 (#342): a focused field must not end up behind the fixed action bar (it grows when its buttons wrap). */
 :global(:root):has(.actionBar) { scroll-padding-bottom: 128px; }
 /* The doubled :root raises specificity above the shell rule (:root:has(.shellMobileNav), smaller clearance) without !important. */
 @media (max-width: 1023px) { :global(:root):global(:root):has(.actionBar) { scroll-padding-bottom: 208px; } }
-.actionState { margin-right: auto; font-size: var(--font-size-14); color: var(--text-secondary); }
+.actionState { margin-right: auto; font-size: var(--font-size-14); font-weight: var(--font-weight-medium); color: var(--text-secondary); }
 .summary { display: grid; gap: var(--space-2); }
 .summaryList { margin: 0; padding-left: var(--space-5); }
 .linkButton { padding: 0; font: inherit; text-decoration: underline; color: inherit; background: none; border: 0; cursor: pointer; }

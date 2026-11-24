@@ -76,7 +76,7 @@ describe("#66 ekran: loading, dane, pusty, błąd, kontekst firmy", () => {
     expect(Object.fromEntries(url.searchParams)).toEqual({ from: TODAY, to: "2026-11-23", page: "1", pageSize: "20" });
     const blockLink = within(region).getByRole("link", { name: /Mercedes Klasa V: Serwis 12–13\.11\.2026/ });
     expect(blockLink).toHaveAttribute("href", `/admin/pojazdy/${CAR}/kalendarz/?blok=b1&miesiac=2026-11`);
-    // #298: the empty row says it once, in the vehicle column, and draws no day lines.
+    // #298: the empty row says it once (in its timeline, ADM-10) and draws no day lines.
     expect(within(region).getAllByText("Brak blokad w wybranym zakresie")).toHaveLength(1);
     expect(screen.getByText("2 pojazdy · horyzont 14 dni · czas polski")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: /Kalendarz Volkswagen California/ })[0]).toHaveAttribute("href", `/admin/pojazdy/${EMPTY_CAR}/kalendarz/`);
@@ -103,6 +103,8 @@ describe("#66 ekran: loading, dane, pusty, błąd, kontekst firmy", () => {
     await user.click(await screen.findByRole("button", { name: "Następny miesiąc" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
     expect(new URL(String(fetchMock.mock.calls[2][0]), "http://x").searchParams.get("from")).toBe("2026-12-01");
+    // ADM-10: the status filter sits behind "Filtry • N".
+    await user.click(screen.getByRole("button", { name: /^Filtry • 0/ }));
     await user.selectOptions(await screen.findByLabelText("Status pojazdu"), "ARCHIVED");
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
     expect(new URL(String(fetchMock.mock.calls[3][0]), "http://x").searchParams.get("status")).toBe("ARCHIVED");

@@ -97,6 +97,8 @@ test("fleet calendar: company and superadmin reach the vehicle and the block, is
     await expect(page.getByTestId("fleet-range")).not.toHaveText(before ?? "");
     await expect(page.getByText("Brak blokad w wybranym zakresie").first()).toBeVisible();
     await page.getByRole("button", { name: "Dzisiaj" }).click();
+    // ADM-10: the status filter sits behind "Filtry • N".
+    await page.getByRole("button", { name: /^Filtry • 0/ }).click();
     await page.getByLabel("Status pojazdu").selectOption("ARCHIVED");
     await expect(page.getByRole("link", { name: "Auto Archiwalne", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Auto Alfa", exact: true })).toHaveCount(0);

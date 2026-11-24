@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, ArrowDown, ArrowUp, CalendarDays, CircleCheck, CircleOff, Eye, EyeOff, FileText, MoreHorizontal, Pencil, Plus, SlidersHorizontal, ArrowUpDown } from "lucide-react";
+import { Archive, ArrowDown, ArrowUp, ArrowUpDown, Check, Eye, EyeOff, MoreHorizontal, Plus } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Alert } from "@/components/ui/alert";
@@ -52,8 +52,30 @@ export function reorderPayload(fleet: FleetItem[], index: number, direction: -1 
     .filter((change) => before.get(change.id) !== change.sortOrder) };
 }
 
-function updated(value: string) {
-  return new Intl.DateTimeFormat("pl-PL", { dateStyle: "medium", timeZone: "Europe/Warsaw" }).format(new Date(value));
+const warsawDay = (value: Date) =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Warsaw", year: "numeric", month: "2-digit", day: "2-digit" }).format(value);
+
+/**
+ * "Ostatnia zmiana" as in ADM-05: "Dziś 09:12", "Wczoraj", "N dni temu" within a week, an exact date before that
+ * (calendar days in Europe/Warsaw). `short` is the mobile card wording after "Zmieniono:".
+ */
+export function changedText(value: string, now = new Date()): { long: string; short: string } {
+  const at = new Date(value);
+  const days = Math.round((Date.parse(warsawDay(now)) - Date.parse(warsawDay(at))) / 86_400_000);
+  if (days <= 0) {
+    const time = new Intl.DateTimeFormat("pl-PL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Warsaw" }).format(at);
+    return { long: `Dziś ${time}`, short: "dziś" };
+  }
+  if (days === 1) return { long: "Wczoraj", short: "wczoraj" };
+  if (days < 7) return { long: `${days} dni temu`, short: `${days} dni temu` };
+  const date = new Intl.DateTimeFormat("pl-PL", { dateStyle: "medium", timeZone: "Europe/Warsaw" }).format(at);
+  return { long: date, short: date };
+}
+
+/** "1–6 z 6 pojazdów" under the table (ADM-05 D). */
+export function rangeSummary(page: number, pageSize: number, shown: number, total: number) {
+  const first = (page - 1) * pageSize + 1;
+  return `${first}–${first + shown - 1} z ${total} ${total === 1 ? "pojazdu" : "pojazdów"}`;
 }
 
 export function VehicleList({ context = companyContext, title }: { context?: PanelContext; title: string }) {
@@ -244,16 +266,16 @@ export function VehicleList({ context = companyContext, title }: { context?: Pan
       </select></label>
   );
   const addLink = routes.vehicleForm && (
-    <a className={`${styles.primaryLink} ${styles.addLink}`} href={`${context.hrefBase}/pojazdy/nowy/`}><Plus aria-hidden="true" size={20} />{compact ? "Dodaj" : "Dodaj pojazd"}<span className={styles.visuallyHidden}>{compact ? " pojazd" : ""}</span></a>
+    <a className={`${styles.primaryLink} ${styles.addLink}`} href={`${context.hrefBase}/pojazdy/nowy/`}><Plus aria-hidden="true" size={16} />{compact ? "Dodaj" : "Dodaj pojazd"}<span className={styles.visuallyHidden}>{compact ? " pojazd" : ""}</span></a>
   );
 
   const onAction = (item: FleetItem, action: "unpublish" | "archive") => { setDialogError(null); setPending({ item, action }); };
 
   return (
-    <section ref={root} className={styles.page} aria-label="Lista pojazdów" aria-busy={view.state === "loading"}>
+    <section ref={root} className={`${styles.page} ${styles.fleetList}`} aria-label="Lista pojazdów" aria-busy={view.state === "loading"}>
       <title>{title}</title>
       <header className={styles.pageHead}>
-        <h2 ref={heading} tabIndex={-1} className={styles.h2}>Pojazdy</h2>
+        <h2 ref={heading} tabIndex={-1} className={styles.listTitle}>Pojazdy</h2>
         {compact && addLink}
         {page && page.statusCounts && <p className={styles.summary}>{statusSummary(page.statusCounts, compact)}</p>}
       </header>
@@ -262,8 +284,8 @@ export function VehicleList({ context = companyContext, title }: { context?: Pan
           onChange={(event) => setSearchText(event.target.value)} />
         {compact ? (
           <div className={styles.sheetButtons}>
-            <Button variant="secondary" onClick={() => setSheet("filters")}><SlidersHorizontal aria-hidden="true" size={18} />Filtry{filterCount ? ` (${filterCount})` : ""}</Button>
-            <Button variant="secondary" onClick={() => setSheet("sort")}><ArrowUpDown aria-hidden="true" size={18} />Sortuj{query.sort === "updatedDesc" ? " ↓" : query.sort === "updatedAsc" ? " ↑" : ""}</Button>
+            <button type="button" className={styles.sheetToggle} onClick={() => setSheet("filters")}>Filtry{filterCount ? ` (${filterCount})` : ""}</button>
+            <button type="button" className={styles.sheetToggle} onClick={() => setSheet("sort")}>Sortuj{query.sort === "updatedDesc" ? " ↓" : query.sort === "updatedAsc" ? " ↑" : ""}</button>
           </div>
         ) : <>{filterFields}{sortButton}{addLink}<span className={styles.rowBreak} />{todayFilters}</>}
       </form>
@@ -284,14 +306,16 @@ export function VehicleList({ context = companyContext, title }: { context?: Pan
           <Button variant="secondary" onClick={reset}>Wyczyść filtry</Button></div>)}
       {page && page.items.length > 0 && (
         <>
-          <p className={styles.count}>Pojazdy: {page.total}{canReorder ? ". Kolejność pojazdów zmienisz przyciskami „W górę” i „W dół”." : ""}</p>
+          {/* Not on the ADM-05 board: kept for screen readers, which reach the order buttons only through this hint. */}
+          <p className={styles.visuallyHidden}>Pojazdy: {page.total}{canReorder ? ". Kolejność pojazdów zmienisz przyciskami „W górę” i „W dół”." : ""}</p>
+          <div className={styles.tableCard}>
           <table className={styles.table} role="table" aria-label="Pojazdy">
             <thead className={styles.tableHead} role="rowgroup">
               <tr role="row">
                 <th scope="col" role="columnheader">Pojazd</th>
                 <th scope="col" role="columnheader">Kategoria</th>
                 <th scope="col" role="columnheader">Publikacja</th>
-                <th scope="col" role="columnheader">Dziś</th>
+                <th scope="col" role="columnheader">Dzisiaj</th>
                 <th scope="col" role="columnheader">Ostatnia zmiana</th>
                 <th scope="col" role="columnheader">Akcje</th>
               </tr>
@@ -304,10 +328,17 @@ export function VehicleList({ context = companyContext, title }: { context?: Pan
               ))}
             </tbody>
           </table>
+          </div>
           <nav className={styles.pager} aria-label="Strony listy">
-            <Button variant="secondary" disabled={query.page <= 1} onClick={() => setQuery({ ...query, page: query.page - 1 })}>Poprzednia</Button>
-            <span>Strona {page.page} z {Math.max(1, Math.ceil(page.total / page.pageSize))}</span>
-            <Button variant="secondary" disabled={page.page * page.pageSize >= page.total} onClick={() => setQuery({ ...query, page: query.page + 1 })}>Następna</Button>
+            <p className={styles.pagerRange}>{rangeSummary(page.page, page.pageSize, page.items.length, page.total)}</p>
+            <div className={styles.pagerLinks}>
+              <button type="button" className={styles.pagerLink} disabled={query.page <= 1} onClick={() => setQuery({ ...query, page: query.page - 1 })}>
+                <span aria-hidden="true">←</span> Poprzednia</button>
+              <span className={styles.pagerCurrent}><span className={styles.visuallyHidden}>Strona </span>{page.page}
+                <span className={styles.visuallyHidden}> z {Math.max(1, Math.ceil(page.total / page.pageSize))}</span></span>
+              <button type="button" className={styles.pagerLink} disabled={page.page * page.pageSize >= page.total} onClick={() => setQuery({ ...query, page: query.page + 1 })}>
+                Następna <span aria-hidden="true">→</span></button>
+            </div>
           </nav>
         </>
       )}
@@ -341,7 +372,7 @@ function VehicleRow({ item, index, first, last, context, reorder, compact, savin
   const previewInMenu = compact && !!context.previewBase && item.status !== "ARCHIVED";
   const name = item.name ?? "Pojazd bez nazwy";
   const base = `${context.hrefBase}/pojazdy/${item.id}`;
-  const Status = item.status === "PUBLISHED" ? CircleCheck : item.status === "DRAFT" ? FileText : item.status === "UNPUBLISHED" ? EyeOff : Archive;
+  const changed = changedText(item.updatedAt);
   // Arrows, Edytuj, Podgląd, Kalendarz and Więcej together need a wider column than the table has below ~1220 px.
   const wideActions = reorder && !!context.previewBase && item.status !== "ARCHIVED";
   const imageBase = `${context.apiBase}/vehicles/${item.id}/images`;
@@ -350,7 +381,7 @@ function VehicleRow({ item, index, first, last, context, reorder, compact, savin
     const Icon = direction === -1 ? ArrowUp : ArrowDown;
     const blocked = unavailable || saving;
     return (
-      <button type="button" className={styles.iconButton} data-focus={`${direction === -1 ? "up" : "down"}:${item.id}`} aria-disabled={blocked || undefined}
+      <button type="button" className={`${styles.iconButton} ${styles.moveButton}`} data-focus={`${direction === -1 ? "up" : "down"}:${item.id}`} aria-disabled={blocked || undefined}
         aria-label={`Przesuń „${name}” w ${direction === -1 ? "górę" : "dół"}`} onClick={() => { if (!blocked) onMove(index, direction); }}><Icon aria-hidden="true" size={20} /></button>
     );
   };
@@ -359,35 +390,45 @@ function VehicleRow({ item, index, first, last, context, reorder, compact, savin
       <td role="cell">
         <div className={styles.cellVehicle}>
         <div className={styles.thumb}>
-          {item.cover ? <img src={`${imageBase}/${item.cover.id}/thumb/`} alt={item.cover.alt} loading="lazy" width={96} height={64} />
+          {item.cover ? <img src={`${imageBase}/${item.cover.id}/thumb/`} alt={item.cover.alt} loading="lazy" width={72} height={48} />
             : <span className={styles.noPhoto}>Brak zdjęcia</span>}
         </div>
-        <h3 className={styles.rowTitle}>{routes.vehicleForm
-          ? <a href={`${base}/`} data-focus={`row:${item.id}`}>{name}</a>
-          : <span tabIndex={-1} data-focus={`row:${item.id}`}>{name}</span>}</h3>
+        <div className={styles.vehicleText}>
+          <h3 className={styles.rowTitle}>{routes.vehicleForm
+            ? <a href={`${base}/`} data-focus={`row:${item.id}`}>{name}</a>
+            : <span tabIndex={-1} data-focus={`row:${item.id}`}>{name}</span>}</h3>
+          {/* Mobile card (ADM-05 M): the category sits under the name; the table keeps its own column. */}
+          <span className={`${styles.cardOnly} ${styles.cardCategory}`}>{item.category?.name ?? "Bez kategorii"}</span>
+          {/* The order arrows (not on the board, kept for keyboard order) sit beside the photo so the card stays compact. */}
+          {reorder && compact && <div className={styles.moveRow}>{arrow(-1, first)}{arrow(1, last)}</div>}
+        </div>
         </div>
       </td>
-      <td className={styles.cellCategory} role="cell" data-label="Kategoria">{item.category?.name ?? "Bez kategorii"}</td>
-      <td role="cell" data-label="Publikacja"><span className={styles.badge}><Status aria-hidden="true" size={16} />{statusLabels[item.status]}</span></td>
-      <td role="cell" data-label="Dziś">
+      <td className={styles.cellCategory} role="cell">{item.category?.name ?? "Bez kategorii"}</td>
+      {/* Status is text plus a mark: a filled dot for published, a ring otherwise (ADM-05). */}
+      <td className={styles.cellPublication} role="cell"><span className={styles.statusText}>
+        <span className={styles.statusMark} data-filled={item.status === "PUBLISHED" || undefined} aria-hidden="true" />{statusLabels[item.status]}</span></td>
+      <td className={styles.cellToday} role="cell">
         {item.status === "PUBLISHED"
           ? (item.availableToday
-            ? <span className={styles.badge}><CircleCheck aria-hidden="true" size={16} />Dostępny dziś</span>
-            : <span className={`${styles.badge} ${styles.badgeOff}`}><CircleOff aria-hidden="true" size={16} />Niedostępny dziś</span>)
-          : <span className={styles.muted}>{item.status === "ARCHIVED" ? "—" : "— Niepubliczny"}</span>}
+            ? <span className={styles.todayText}><Check aria-hidden="true" size={20} />Dostępny<span className={styles.visuallyHidden}> dziś</span></span>
+            : <span className={styles.todayText}>— Niedostępny<span className={styles.visuallyHidden}> dziś</span></span>)
+          : <span className={styles.todayText}>{item.status === "ARCHIVED" ? "—" : "— Niepubliczny"}</span>}
       </td>
-      <td role="cell" data-label="Ostatnia zmiana">{updated(item.updatedAt)}</td>
-      <td role="cell"><div className={`${styles.actions} ${wideActions ? styles.actionsWide : ""} ${compact ? styles.actionsCompact : ""}`}>
-        {reorder && (compact ? <div className={styles.moveRow}>{arrow(-1, first)}{arrow(1, last)}</div> : <>{arrow(-1, first)}{arrow(1, last)}</>)}
+      <td className={styles.cellChanged} role="cell">
+        <span className={styles.tableOnly}>{changed.long}</span><span className={styles.cardOnly}>Zmieniono: {changed.short}</span>
+      </td>
+      <td className={styles.cellActions} role="cell"><div className={`${styles.actions} ${wideActions ? styles.actionsWide : ""} ${compact ? styles.actionsCompact : ""}`}>
+        {reorder && !compact && <>{arrow(-1, first)}{arrow(1, last)}</>}
         <div className={compact ? styles.textActions : styles.actionsInline}>
-        {routes.vehicleForm && <a className={compact ? styles.textAction : styles.actionLink} href={`${base}/`}>{!compact && <Pencil aria-hidden="true" size={18} />}Edytuj<span className={styles.visuallyHidden}> {name}</span></a>}
-        {!compact && context.previewBase && item.status !== "ARCHIVED" && <a className={styles.actionLink} href={`${context.previewBase}/pojazdy/${item.id}/`}><Eye aria-hidden="true" size={18} />Podgląd<span className={styles.visuallyHidden}> {name}</span></a>}
-        {routes.vehicleCalendar && <a className={compact ? styles.textAction : styles.actionLink} href={`${base}/kalendarz/`}>{!compact && <CalendarDays aria-hidden="true" size={18} />}{compact ? "Terminy" : "Kalendarz"}<span className={styles.visuallyHidden}> {name}</span></a>}
+        {routes.vehicleForm && <a className={compact ? styles.textAction : styles.actionLink} href={`${base}/`}>Edytuj<span className={styles.visuallyHidden}> {name}</span></a>}
+        {!compact && context.previewBase && item.status !== "ARCHIVED" && <a className={styles.actionLink} href={`${context.previewBase}/pojazdy/${item.id}/`}>Podgląd<span className={styles.visuallyHidden}> {name}</span></a>}
+        {routes.vehicleCalendar && <a className={compact ? styles.textAction : styles.actionLink} href={`${base}/kalendarz/`}>{compact ? "Terminy" : "Kalendarz"}<span className={styles.visuallyHidden}> {name}</span></a>}
         {(actions.length > 0 || previewInMenu) && (
           <div className={styles.menuWrap}
             onKeyDown={(event) => { if (event.key === "Escape" && open) { event.stopPropagation(); setOpen(false); trigger.current?.focus(); } }}
             onBlur={(event) => { if (open && !event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}>
-            <button ref={trigger} type="button" className={compact ? styles.textAction : styles.iconButton} data-focus={`menu:${item.id}`} aria-expanded={open} aria-controls={`menu-${item.id}`}
+            <button ref={trigger} type="button" className={compact ? styles.textAction : styles.moreButton} data-focus={`menu:${item.id}`} aria-expanded={open} aria-controls={`menu-${item.id}`}
               aria-label={`Więcej akcji dla „${name}”`} onClick={() => setOpen(!open)}>{compact ? "Więcej" : <MoreHorizontal aria-hidden="true" size={20} />}</button>
             {open && (
               <ul id={`menu-${item.id}`} className={styles.menu}>

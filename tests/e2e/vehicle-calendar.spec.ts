@@ -62,7 +62,7 @@ test("vehicle calendar: add, one day, overlap from two cards, version conflict, 
 
     // Empty state and the quick flow on a phone: day -> dates -> type -> save; the private fields stay private.
     await page.goto(url);
-    await expect(page.getByRole("heading", { name: "Kalendarz: Auto Kalendarzowe" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Kalendarz pojazdu: Auto Kalendarzowe" })).toBeVisible();
     await expect(page.getByText("Brak blokad w najbliższych 12 miesiącach", { exact: false })).toBeVisible();
     await addButton(page).click();
     await page.locator("#bc-from").fill(day(2));
@@ -183,7 +183,7 @@ test("vehicle calendar: add, one day, overlap from two cards, version conflict, 
     for (const width of [320, 390, 768, 1024, 1440, 1920]) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto(url);
-      await expect(page.getByRole("heading", { name: "Kalendarz: Auto Kalendarzowe" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Kalendarz pojazdu: Auto Kalendarzowe" })).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), `overflow at ${width}`).toBe(true);
     }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarCheck, CalendarDays, ChevronLeft, ChevronRight, CircleEllipsis, Layers, Lock, Plus, Wrench, type LucideIcon } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Layers } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { createLatest } from "@/modules/public-offer/availability-client";
@@ -11,7 +11,7 @@ import { Dialog } from "../ui/dialog";
 import { FormField } from "../ui/form-field";
 import { Select } from "../ui/select";
 import {
-  blockHref, blockLabel, fleetCalendarHref, blockShortRange, blocksCountText, FLEET_PAGE_SIZE, placeBlock, shiftWindow, todayText, vehicleHref,
+  blockHref, blockLabel, blockLetter, fleetCalendarHref, blockShortRange, blocksCountText, FLEET_PAGE_SIZE, placeBlock, shiftWindow, todayText, vehicleHref,
   vehiclesText, windowDates, windowOf, windowTitle, type FleetMode,
 } from "./fleet-calendar-model";
 import { BulkBlocks } from "./bulk-blocks";
@@ -22,11 +22,8 @@ import { warsawDate } from "./vehicle-calendar-model";
 import styles from "./fleet-calendar.module.css";
 
 const weekdays = ["Nd", "Pn", "Wt", "Śr", "Cz", "Pt", "So"];
-const typeIcon: Record<string, LucideIcon> = { BLOCKED: Lock, RESERVED: CalendarCheck, MAINTENANCE: Wrench, OTHER: CircleEllipsis };
-const BlockIcon = ({ type }: { type: string }) => {
-  const Icon = typeIcon[type] ?? CircleEllipsis;
-  return <Icon aria-hidden="true" size={16} />;
-};
+/** Accent colour of a block by type (ADM-10): R and B dark, S graphite, I grey. */
+const typeClass: Record<string, string> = { RESERVED: styles.typeReserved, MAINTENANCE: styles.typeService, BLOCKED: styles.typeBlocked, OTHER: styles.typeOther };
 const statusOptions: { value: VehicleStatus | ""; label: string }[] = [
   { value: "", label: "Wszystkie poza archiwalnymi" }, { value: "PUBLISHED", label: "Opublikowane" }, { value: "DRAFT", label: "Szkice" },
   { value: "UNPUBLISHED", label: "Wycofane" }, { value: "ARCHIVED", label: "Archiwalne" },
@@ -46,6 +43,7 @@ export function FleetCalendar({ context = companyContext, today: initialToday, t
   const [mode, setMode] = useState<FleetMode>("14");
   const [anchor, setAnchor] = useState(initialToday);
   const [status, setStatus] = useState<VehicleStatus | "">("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [view, setView] = useState<View>({ state: "loading" });
   const [reload, setReload] = useState(0);
@@ -162,35 +160,42 @@ export function FleetCalendar({ context = companyContext, today: initialToday, t
   return (
     <section className={styles.page} aria-busy={view.state === "loading"}>
       <title>{title}</title>
+      <nav className={styles.crumbs} aria-label="Ścieżka">
+        <ol><li>Kalendarz</li><li aria-current="page">Cała flota</li></ol>
+      </nav>
       <header className={styles.head}>
-        <div>
+        <div className={styles.headText}>
           <h2 className={styles.title} ref={heading} tabIndex={-1}>Kalendarz floty</h2>
           <p className={styles.sub}>{view.state === "ready" ? `${vehiclesText(total)} · ` : ""}{horizon} · czas polski</p>
         </div>
         <div className={styles.headActions}>
+          {/* "Filtry • N" (ADM-10) holds the vehicle status filter in a panel under the header. */}
+          <button type="button" className={styles.filtersButton} aria-expanded={filtersOpen} aria-controls="fleet-filters" onClick={() => setFiltersOpen((open) => !open)}>
+            Filtry • {status ? 1 : 0}<span className={styles.visuallyHidden}>{status ? " aktywny filtr" : " aktywnych filtrów"}</span></button>
           <Button id="fleet-bulk-open" variant="secondary" icon={<Layers aria-hidden="true" size={20} />} onClick={openBulk}>Blokada zbiorcza</Button>
-          <Button variant="primary" icon={<Plus aria-hidden="true" size={20} />} onClick={openQuick} disabled={view.state !== "ready" || quickChoices.length === 0}>Szybka blokada</Button>
+          <Button className={styles.quickButton} variant="primary" onClick={openQuick} disabled={view.state !== "ready" || quickChoices.length === 0}>Szybka blokada</Button>
         </div>
       </header>
+      <div id="fleet-filters" className={styles.filters} hidden={!filtersOpen}>
+        <FormField id="fleet-calendar-status" label="Status pojazdu">
+          <Select value={status} onChange={(event) => { setStatus(event.target.value as VehicleStatus | ""); setPage(1); }}>
+            {statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </Select>
+        </FormField>
+      </div>
       {copyError && <div className={styles.notice}><Alert tone="error" title="Nie można skopiować blokady." onDismiss={() => setCopyError(null)}>{copyError}</Alert></div>}
 
+      <div className={styles.frame}>
       <div className={styles.controls}>
         <div className={styles.nav} role="group" aria-label="Zakres kalendarza">
           <button type="button" className={styles.iconButton} onClick={() => move(-1)} aria-label={mode === "14" ? "Poprzednie 14 dni" : "Poprzedni miesiąc"}><ChevronLeft aria-hidden="true" size={20} /></button>
-          <button type="button" className={styles.iconButton} onClick={() => move(1)} aria-label={mode === "14" ? "Następne 14 dni" : "Następny miesiąc"}><ChevronRight aria-hidden="true" size={20} /></button>
+          <button type="button" className={`${styles.iconButton} ${styles.nextButton}`} onClick={() => move(1)} aria-label={mode === "14" ? "Następne 14 dni" : "Następny miesiąc"}><ChevronRight aria-hidden="true" size={20} /></button>
           <p className={styles.range} aria-live="polite" data-testid="fleet-range">{windowTitle(from, to)}</p>
         </div>
         <div className={styles.modes} role="group" aria-label="Szerokość widoku">
           <button type="button" className={styles.modeButton} onClick={goToday} disabled={anchor === today && mode === "14"}>Dzisiaj</button>
           <button type="button" className={styles.modeButton} aria-pressed={mode === "14"} onClick={() => changeMode("14")}>14 dni</button>
           <button type="button" className={styles.modeButton} aria-pressed={mode === "month"} onClick={() => changeMode("month")}>Miesiąc</button>
-        </div>
-        <div className={styles.filter}>
-          <FormField id="fleet-calendar-status" label="Status pojazdu">
-            <Select value={status} onChange={(event) => { setStatus(event.target.value as VehicleStatus | ""); setPage(1); }}>
-              {statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </Select>
-          </FormField>
         </div>
         <p className={styles.hint}>Czas polski · koniec zakresu wliczony</p>
       </div>
@@ -228,9 +233,10 @@ export function FleetCalendar({ context = companyContext, today: initialToday, t
                     <li key={item.vehicleId} className={styles.row}>
                       <div className={styles.name}>
                         <a className={styles.vehicleLink} href={vehicleHref(context.hrefBase, item.vehicleId)}>{label}</a>
-                        <span className={styles.meta}>{blocksCountText(item.blocks.length)}{item.status === "ARCHIVED" ? " · archiwalny" : ""}</span>
+                        <span className={styles.meta}>{item.blocks.length ? blocksCountText(item.blocks.length) : "Brak blokad w zakresie"}{item.status === "ARCHIVED" ? " · archiwalny" : ""}</span>
                       </div>
                       <div className={styles.track}>
+                        {item.blocks.length === 0 && <span className={styles.emptyTrack}>{blocksCountText(0)}</span>}
                         {/* #298: a fully available row without blocks draws no day lines; days outside activity still show. */}
                         {(item.blocks.length > 0 || item.days.some((day) => !day.available)) && item.days.map((day, index) => (
                           <div key={day.date} aria-hidden="true" style={{ gridColumn: index + 1 }}
@@ -240,11 +246,12 @@ export function FleetCalendar({ context = companyContext, today: initialToday, t
                           const place = placeBlock(block, from, to);
                           if (!place) return null;
                           return (
-                            <a key={block.id} className={styles.block} style={{ gridColumn: `${place.start} / span ${place.span}` }}
+                            <a key={block.id} className={`${styles.block} ${typeClass[block.type] ?? styles.typeOther}`} style={{ gridColumn: `${place.start} / span ${place.span}` }}
                               href={blockHref(context.hrefBase, item.vehicleId, block)}
                               aria-label={`${place.span > 1 ? `${block.typeLabel} ${blockShortRange(block)}, ` : ""}${label}: ${blockLabel(block)}. Otwórz blokadę w kalendarzu pojazdu`} title={blockLabel(block)}>
-                              <BlockIcon type={block.type} />
-                              {place.span > 1 && <span className={styles.blockText}><strong>{block.typeLabel}</strong>{" "}<span>{blockShortRange(block)}</span></span>}
+                              {place.span > 1
+                                ? <span className={styles.blockText}><strong>{block.typeLabel}</strong>{" "}<span>{blockShortRange(block)}</span></span>
+                                : <span className={styles.blockMini} data-letter={blockLetter(block.type)} data-day={dayNumber(block.from < from ? from : block.from)} aria-hidden="true" />}
                             </a>
                           );
                         })}
@@ -264,24 +271,21 @@ export function FleetCalendar({ context = companyContext, today: initialToday, t
               return (
                 <li key={item.vehicleId} className={styles.card}>
                   <h3 className={styles.cardTitle}>{label}</h3>
-                  <p className={styles.meta}>{blocksCountText(item.blocks.length)}{now ? ` · ${now}` : ""}{item.status === "ARCHIVED" ? " · archiwalny" : ""}</p>
-                  {item.blocks.length > 0 && (
-                    <ul className={styles.cardBlocks}>
-                      {item.blocks.map((block: FleetBlock) => (
-                        <li key={block.id}>
-                          <a className={styles.cardBlock} href={blockHref(context.hrefBase, item.vehicleId, block)} aria-label={`${label}: ${blockLabel(block)}. Otwórz blokadę`}>
-                            <BlockIcon type={block.type} /><strong>{block.typeLabel}</strong>{" "}<span>{blockShortRange(block)}</span>
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  <a className={styles.cardLink} href={vehicleHref(context.hrefBase, item.vehicleId)} aria-label={`Kalendarz ${label}`}><CalendarDays aria-hidden="true" size={18} />Kalendarz</a>
+                  {/* ADM-10 M: a text summary; every block in it stays a link to that block. */}
+                  <p className={styles.cardSummary}>
+                    {item.blocks.length === 0 ? blocksCountText(0) : item.blocks.map((block: FleetBlock, index) => (
+                      <span key={block.id}>{index > 0 && " · "}
+                        <a className={styles.cardBlock} href={blockHref(context.hrefBase, item.vehicleId, block)} aria-label={`${label}: ${blockLabel(block)}. Otwórz blokadę`}>
+                          {blockLabel(block)}</a></span>
+                    ))}
+                    {now ? ` · ${now}` : ""}{item.status === "ARCHIVED" ? " · archiwalny" : ""}
+                  </p>
+                  <a className={styles.cardLink} href={vehicleHref(context.hrefBase, item.vehicleId)} aria-label={`Kalendarz ${label}`}>Kalendarz</a>
                 </li>
               );
             })}
           </ul>
-          <p className={styles.hint}>Wybierz blokadę, aby zobaczyć szczegóły. Kropkowane dni to okres poza aktywnością pojazdu. Dziś: {longDate(today)}.</p>
+          <p className={styles.hint}>Wybierz blokadę, aby zobaczyć szczegóły. Litery w jednodniowych blokadach: R — zarezerwowane, S — serwis, B — zablokowane, I — inne. Kropkowane dni to okres poza aktywnością pojazdu. Dziś: {longDate(today)}.</p>
           {pages > 1 && (
             <nav className={styles.pager} aria-label="Strony floty">
               <Button variant="secondary" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>Poprzednia strona</Button>
@@ -291,6 +295,7 @@ export function FleetCalendar({ context = companyContext, today: initialToday, t
           )}
         </>
       )}
+      </div>
 
       <Dialog open={quickOpen} onOpenChange={setQuickOpen} type="form" title="Szybka blokada"
         description="Wybierz pojazd, a otworzymy jego kalendarz z formularzem nowej blokady."
