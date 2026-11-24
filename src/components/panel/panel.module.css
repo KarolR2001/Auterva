@@ -354,11 +354,7 @@
 }
 
 .shellConnectionDot {
-  width: 6px;
-  height: 6px;
   flex-shrink: 0;
-  border-radius: var(--radius-full);
-  background: currentColor;
 }
 
 .shellConnection[data-online="false"] {

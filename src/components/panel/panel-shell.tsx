@@ -5,6 +5,7 @@ import {
   Building2,
   Calendar,
   Car,
+  Circle,
   CircleUserRound,
   Download,
   Ellipsis,
@@ -490,7 +491,7 @@ function AvailablePanelShell({
             </nav>
             {area === "company" && (
               <span className={styles.shellConnection} data-online={pwa.online} aria-live="polite">
-                {pwa.online ? <span className={styles.shellConnectionDot} aria-hidden="true" /> : <WifiOff size={16} aria-hidden="true" />}
+                {pwa.online ? <Circle className={styles.shellConnectionDot} size={6} fill="currentColor" strokeWidth={0} aria-hidden="true" /> : <WifiOff size={16} aria-hidden="true" />}
                 <span>{pwa.online ? "Online" : "Offline"}</span>
               </span>
             )}
