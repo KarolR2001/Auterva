@@ -277,12 +277,12 @@ details[open] > .toolbarButton { border-color: var(--border-strong); background:
 .iconButtonOff { color: var(--text-tertiary); background: var(--surface-subtle); border-color: var(--border-subtle); cursor: default; }
 .calendarTable { width: 100%; max-width: 360px; border-collapse: separate; border-spacing: 2px; table-layout: fixed; }
 .calendarTable th { font-size: var(--font-size-12); font-weight: var(--font-weight-semibold); color: var(--text-secondary); padding: var(--space-1) 0; }
-/* PUB-03 calendar: 44×44 cells with a hairline frame (radius 8, gap 2); unavailable and past days are struck through, today has a ring and a dot. */
+/* PUB-03 calendar: 44×44 cells with a hairline frame (radius 8, gap 2); unavailable days are struck through with a dashed frame, past days stay plain grey (#251), today has a ring and a dot. */
 .day { height: 44px; text-align: center; vertical-align: middle; font-size: var(--font-size-14); font-weight: var(--font-weight-semibold); border-radius: var(--radius-sm);
   border: var(--border-width-hairline) solid var(--border-subtle); }
 .dayAvailable { background: var(--status-success-surface); border-color: var(--border-default); }
 .dayUnavailable { background: var(--status-unavailable-surface); border: var(--border-width-hairline) dashed var(--status-unavailable-border); text-decoration: line-through; }
-.dayPast { color: var(--text-secondary); text-decoration: line-through; background: transparent; font-weight: var(--font-weight-regular); }
+.dayPast { color: var(--text-secondary); text-decoration: none; background: transparent; font-weight: var(--font-weight-regular); }
 .dayOutside { color: var(--text-secondary); font-weight: var(--font-weight-regular); background: transparent; }
 .dayToday { outline: var(--border-width-active) solid var(--border-critical); outline-offset: -2px; }
 .dayToday .dayButton::after { content: ""; position: absolute; left: 50%; bottom: 5px; width: 4px; height: 4px; margin-left: -2px; border-radius: var(--radius-full); background: currentColor; }
