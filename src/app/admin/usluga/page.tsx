@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 export default async function ServicePage() {
   return CompanyPanelPage({
     currentPath: "/admin/usluga",
+    title: "Status usługi",
     children: <ServiceStatusCard />,
   });
 }

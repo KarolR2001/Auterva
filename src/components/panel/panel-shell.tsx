@@ -573,6 +573,16 @@ function AvailablePanelShell({
             aria-haspopup="dialog"
             aria-expanded={menuVisible && menuSource === "more"}
             onClick={(event) => openMenu("mobile", event.currentTarget, "more")}
+            // TEN-04 M: pages reached only through "Więcej" (status, log, settings, account) mark it as the current tab;
+            // the fleet calendar belongs to "Pojazdy".
+            data-current={
+              area === "company" &&
+              !mobileItems.some((item) => isCurrent(currentPath, item.href)) &&
+              !isCurrent(currentPath, "/admin/kalendarz") &&
+              menuLinks.some((item) => isCurrent(currentPath, item.href))
+                ? true
+                : undefined
+            }
           >
             <Ellipsis size={20} aria-hidden="true" />
             <span>Więcej</span>
