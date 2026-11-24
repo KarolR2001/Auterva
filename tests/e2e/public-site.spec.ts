@@ -130,7 +130,8 @@ test("public home and catalog: empty offer, results, filters in the URL, Back, n
     await expect(page.getByLabel("Kategoria")).toBeHidden();
     await page.getByLabel("Sortowanie").selectOption("name");
     await page.getByRole("button", { name: "Zastosuj" }).click();
-    await expect(page).toHaveURL(new RegExp(`/pojazdy/\\?category=${categories[1].code}&from=${day(3)}&to=${day(4)}&sort=name$`));
+    // The date fields come first in the toolbar (#471), so the query keeps that order; empty fields still never reach it.
+    await expect(page).toHaveURL(new RegExp(`/pojazdy/\\?from=${day(3)}&to=${day(4)}&category=${categories[1].code}&sort=name$`));
     await expect(page.getByRole("heading", { name: "Alfa Nomad" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Alfa Terra" })).toHaveCount(0);
     await page.goBack();

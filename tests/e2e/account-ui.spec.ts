@@ -271,7 +271,7 @@ test("superadmin: account on the platform host only, name saved, MFA actions wit
     await expect(page).toHaveURL(urlAt(origin, "/konto"));
     await expect(page.getByRole("heading", { level: 1, name: "Konto superadmina" })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Nawigacja panelu" }).getByRole("link", { name: "Firmy" })).toBeVisible();
-    await expect(page.getByText("Superadmin", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Superadmin", exact: true })).toBeVisible();
     await expect(page.getByText(account.email)).toBeVisible();
     await expect(page.getByRole("button", { name: /wyłącz/i })).toHaveCount(0);
     await noHorizontalOverflow(page);
