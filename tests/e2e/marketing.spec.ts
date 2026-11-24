@@ -32,7 +32,8 @@ test("MKT-01 onepage: server HTML, SEO, robots/sitemap, CSP and keyboard (#45)",
     expect(raw.status).toBe(200);
     expect(raw.text).toContain("<h1");
     expect(raw.text.match(/<h1[ >]/g)).toHaveLength(1);
-    expect(raw.text).toContain("Flota online. Terminy pod kontrolą.");
+    // The title breaks after its first sentence (#471): two spans, the same text.
+    expect(raw.text.replace(/<[^>]+>/g, "")).toContain("Flota online. Terminy pod kontrolą.");
     expect(raw.text).toContain("Kontakt jeszcze nieaktywny");
     expect(raw.text).toContain(`<link rel="canonical" href="http://${authority}/"`);
     expect(raw.text).toMatch(/<title>Auterva — strona i panel dla wypożyczalni pojazdów<\/title>/);
