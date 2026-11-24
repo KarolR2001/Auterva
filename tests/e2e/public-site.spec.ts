@@ -40,6 +40,8 @@ test("public home and catalog: empty offer, results, filters in the URL, Back, n
   const hostOther = `site-e2e-b-${other}.example.test`;
   const today = availabilityToday();
   const day = (offset: number) => new Date(sqlDate(today).getTime() + offset * 86_400_000).toISOString().slice(0, 10);
+  // The date fields show DD.MM.RRRR (#471); the URL keeps RRRR-MM-DD.
+  const shown = (offset: number) => day(offset).split("-").reverse().join(".");
   const now = new Date();
   const categories = [{ id: cat1, code: `e2e-a-${cat1.slice(0, 8)}`, name: "Miejski hatchback" }, { id: cat2, code: `e2e-b-${cat2.slice(0, 8)}`, name: "Kombi rodzinne" }];
   const errors: string[] = [];
@@ -107,7 +109,8 @@ test("public home and catalog: empty offer, results, filters in the URL, Back, n
     for (const secret of ["E2E-REF-SECRET", "E2E-NOTE-SECRET", "MAINTENANCE", "Szkic Ukryty", "Firma Inna E2E"]) expect(html).not.toContain(secret);
 
     // 3. Catalog: filters live in the URL; the date checker of the home carries the range to the cards.
-    await page.getByRole("textbox", { name: "Termin od — do" }).fill(`${day(3)} – ${day(4)}`);
+    await page.getByRole("textbox", { name: "Od", exact: true }).fill(shown(3));
+    await page.getByRole("textbox", { name: "Do", exact: true }).fill(shown(4));
     await page.getByRole("button", { name: "Sprawdź" }).click();
     await expect(page).toHaveURL(new RegExp(`/pojazdy/\\?from=${day(3)}&to=${day(4)}$`));
     await expect(page.getByRole("heading", { name: "Znajdź pojazd na swoją trasę" })).toBeVisible();
@@ -120,7 +123,11 @@ test("public home and catalog: empty offer, results, filters in the URL, Back, n
     await shoot(page, "pub-02-list");
 
     // 4. Combine a filter and a sort: the empty form fields never reach the URL and Back replays each step.
+    // Toolbar (#471): each control opens its own panel; only one is open, the closed ones still submit their fields.
+    await page.locator("summary").filter({ hasText: /^Filtry/ }).click();
     await page.getByLabel("Kategoria").selectOption({ label: "Kombi rodzinne" });
+    await page.locator("summary").filter({ hasText: /^Sortuj: polecane$/ }).click();
+    await expect(page.getByLabel("Kategoria")).toBeHidden();
     await page.getByLabel("Sortowanie").selectOption("name");
     await page.getByRole("button", { name: "Zastosuj" }).click();
     await expect(page).toHaveURL(new RegExp(`/pojazdy/\\?category=${categories[1].code}&from=${day(3)}&to=${day(4)}&sort=name$`));
@@ -132,12 +139,15 @@ test("public home and catalog: empty offer, results, filters in the URL, Back, n
     await page.goForward();
     await expect(page.getByLabel("Kategoria")).toHaveValue(categories[1].code);
 
-    // 4b. On a phone the filter panel starts collapsed (results first) and opens with its summary; wide screens open it.
+    await expect(page.locator("summary").filter({ hasText: /^Sortuj: nazwa a–z$/ })).toBeVisible();
+    await expect(page.locator("summary").filter({ hasText: /^Filtry \(1\)$/ })).toBeVisible();
+
+    // 4b. On a phone the filter panel starts collapsed (results first) and opens with its summary.
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`${origin}/pojazdy/`);
     await expect(page.getByRole("heading", { name: "Alfa Horizon" })).toBeVisible();
     await expect(page.getByLabel("Kategoria")).toBeHidden();
-    await page.getByText(/^Filtry i termin/).click();
+    await page.locator("summary").filter({ hasText: /^Filtry/ }).click();
     await expect(page.getByLabel("Kategoria")).toBeVisible();
     await page.setViewportSize({ width: 1280, height: 800 });
 
@@ -171,6 +181,17 @@ test("public home and catalog: empty offer, results, filters in the URL, Back, n
     await page.goto(`${origin}/pojazdy/nie-ma/`);
     await expect(page.getByRole("heading", { name: "Nie znaleziono tej strony" })).toBeVisible();
     await shoot(page, "pub-07-not-found");
+    // 9a. PUB-07 (#471): an address outside every public route also renders the company 404 page, not an empty answer.
+    const outside = await rawGet(port, host, "/nie-istnieje/");
+    expect(outside.status).toBe(404);
+    expect(outside.body).toContain("Nie znaleziono tej strony");
+    expect(outside.body).toContain("Firma Strony E2E");
+    // A private prefix on the public host stays the bare 404 and never reaches a page.
+    for (const path of ["/admin/nie-ma/", "/api/nie-ma/", "/firmy/"]) {
+      const bare = await rawGet(port, host, path);
+      expect(bare.status, path).toBe(404);
+      expect(bare.body, path).toBe("");
+    }
 
     // 9b. Panel and platform hosts keep the plain neutral 404: the public "unknown address" text would mislead there.
     for (const [panelHost, path] of [[adminHost, "/admin/nie-ma/"], [platformHost, "/firmy/nie-ma/"]]) {

@@ -1,4 +1,4 @@
-import { CalendarDays, Clock, Mail, MapPin, MessageCircle, Phone, Star } from "lucide-react";
+import { CalendarDays, Clock, MapPin, Phone, Star } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { LinkButton, PublicPage, type PublicBrand, type PublicContact } from "./public-chrome";
@@ -13,9 +13,9 @@ import { serializeJsonLd } from "@/modules/public-offer/seo";
 type Contact = NonNullable<Awaited<ReturnType<typeof getPublicContact>>>;
 
 const channelInfo = {
-  PHONE: { label: "Telefon", action: "Zadzwoń teraz", lead: "Zadzwoń", Icon: Phone },
-  WHATSAPP: { label: "WhatsApp", action: "Otwórz WhatsApp →", lead: "Napisz na WhatsApp", Icon: MessageCircle },
-  EMAIL: { label: "E-mail", action: "Napisz e-mail →", lead: "Napisz e-mail", Icon: Mail },
+  PHONE: { label: "Telefon", action: "Zadzwoń teraz", lead: "Zadzwoń", note: "Zadzwoń, jeśli chcesz od razu ustalić szczegóły." },
+  WHATSAPP: { label: "WhatsApp", action: "Otwórz WhatsApp", lead: "Napisz na WhatsApp", note: "Wyślij krótką wiadomość — możesz od razu podać pojazd i daty." },
+  EMAIL: { label: "E-mail", action: "Napisz e-mail", lead: "Napisz e-mail", note: "Napisz, jeśli wolisz zebrać szczegóły w jednej wiadomości." },
 } as const;
 
 function Block({ title, icon, children }: { title: string; icon?: ReactNode; children: ReactNode }) {
@@ -45,8 +45,8 @@ export function ContactPage({ contact, brand, header, termsAvailable }: { contac
           <h1 className={styles.title}>Porozmawiajmy o właściwym samochodzie</h1>
           <p className={styles.lead}>
             Skontaktuj się z {contact.name}. Podaj nazwę pojazdu oraz interesujący Cię termin — potwierdzimy aktualną dostępność.
-            Kontakt nie rezerwuje terminu, a ta strona nie zapisuje Twoich danych.
           </p>
+          <p className={styles.leadNote}>Kontakt nie rezerwuje terminu, a ta strona nie zapisuje Twoich danych.</p>
         </header>
 
         {message.vehicle || range ? (
@@ -70,16 +70,21 @@ export function ContactPage({ contact, brand, header, termsAvailable }: { contac
         {channels.length > 0 ? (
           <ul className={styles.channels} aria-label="Kanały kontaktu">
             {channels.map((channel) => {
-              const { label, action, lead, Icon } = channelInfo[channel.kind as keyof typeof channelInfo];
+              const { label, action, lead, note } = channelInfo[channel.kind as keyof typeof channelInfo];
               return (
                 <li key={channel.kind} className={channel.preferred ? `${styles.channel} ${styles.channelPreferred}` : styles.channel}>
-                  <p className={styles.channelHead}><Icon aria-hidden="true" size={20} /><span>{label}</span>
-                    {channel.preferred ? <span className={styles.badge}><Star aria-hidden="true" size={12} />Preferowany kanał</span> : null}
-                  </p>
-                  {channel.preferred ? <p className={styles.channelLead}>{lead} — odpowiadamy najszybciej</p> : null}
-                  <p className={styles.channelValue}>{channel.value}</p>
+                  <div className={styles.channelBody}>
+                    <p className={styles.channelLabel}>
+                      {channel.preferred ? <><Star aria-hidden="true" size={12} /><span>Preferowany kanał</span><span className={styles.srOnly}>: {label}</span></> : label}
+                    </p>
+                    {channel.preferred ? <p className={styles.channelLead}>{lead} — odpowiadamy najszybciej</p> : null}
+                    <p className={styles.channelValue}>{channel.value}</p>
+                    {channel.preferred ? null : <p className={styles.channelNote}>{note}</p>}
+                  </div>
                   <div className={styles.channelActions}>
-                    <LinkButton href={channel.href} variant={channel.preferred ? "inverse" : "secondary"}>{action}</LinkButton>
+                    {channel.preferred
+                      ? <LinkButton href={channel.href} variant="inverse" className={styles.channelButton}>{action}</LinkButton>
+                      : <a href={channel.href} className={styles.channelLink}>{action}<span aria-hidden="true"> →</span></a>}
                     <CopyButton value={channel.value} label={`Kopiuj: ${label} ${channel.value}`} />
                   </div>
                 </li>
@@ -95,10 +100,10 @@ export function ContactPage({ contact, brand, header, termsAvailable }: { contac
 
         {!message.vehicle && !range ? (
           <section className={styles.prepare} aria-labelledby="prepare-title">
-            <h2 id="prepare-title" className={styles.blockTitle}>Przygotuj do rozmowy</h2>
+            <h2 id="prepare-title" className={styles.prepareTitle}>Przygotuj do rozmowy</h2>
             <p className={styles.prepareItems}>Nazwę pojazdu • datę od–do</p>
-            <p className={styles.hint}>Kontakt nie jest rezerwacją. Dostępność potwierdzamy w rozmowie.</p>
-            <a href={catalogLink} className={styles.link}>Wybierz pojazd i termin w ofercie</a>
+            <p className={`${styles.hint} ${styles.prepareHint}`}>Kontakt nie jest rezerwacją. Dostępność potwierdzamy w rozmowie.{" "}
+              <a href={catalogLink} className={styles.inlineLink}>Wybierz pojazd i termin w ofercie</a></p>
           </section>
         ) : null}
 

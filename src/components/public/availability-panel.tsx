@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarCheck, Check, CircleSlash, LoaderCircle, TriangleAlert, X } from "lucide-react";
+import { CalendarCheck, Check, ChevronLeft, ChevronRight, CircleSlash, LoaderCircle, TriangleAlert } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { createLatest, NEAREST_HORIZON_DAYS, problemMessages, validateRange, type RangeProblem } from "@/modules/public-offer/availability-client";
@@ -222,8 +222,16 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
   }
 
   const cells = monthDays(month);
-  const flat: ({ date: string; day: number } | null)[] = [...Array<null>(cells[0].weekday).fill(null), ...cells.map(({ date }) => ({ date, day: Number(date.slice(8)) }))];
-  while (flat.length % 7 !== 0) flat.push(null);
+  // Days of the neighbouring months fill the first and last week (PUB-03 mockup); they are labels only, never choices.
+  const lead = cells[0].weekday;
+  const flat: { date: string; day: number; outside: boolean }[] = [
+    ...Array.from({ length: lead }, (_, at) => addDays(cells[0].date, at - lead)),
+    ...cells.map(({ date }) => date),
+  ].map((date) => ({ date, day: Number(date.slice(8)), outside: !date.startsWith(month) }));
+  while (flat.length % 7 !== 0) {
+    const date = addDays(flat[flat.length - 1].date, 1);
+    flat.push({ date, day: Number(date.slice(8)), outside: true });
+  }
   const rows = Array.from({ length: flat.length / 7 }, (_, at) => flat.slice(at * 7, at * 7 + 7));
   const ready = calendar.status === "ready" ? calendar.days : null;
   const stateOf = (date: string): DayState | "unknown" => (date < today ? "past" : !ready ? "unknown" : ready[date] === true ? "available" : "unavailable");
@@ -350,13 +358,13 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
         <div className={styles.calendarHead}>
           {month > minMonth
             ? <a href={monthHref(shiftMonth(month, -1))} className={styles.iconButton} aria-label="Poprzedni miesiąc"
-                onClick={(event) => { event.preventDefault(); void loadMonth(shiftMonth(month, -1)); }}>‹</a>
-            : <span className={styles.spacer} aria-hidden="true" />}
+                onClick={(event) => { event.preventDefault(); void loadMonth(shiftMonth(month, -1)); }}><ChevronLeft aria-hidden="true" size={20} /></a>
+            : <span className={`${styles.iconButton} ${styles.iconButtonOff}`} aria-hidden="true"><ChevronLeft size={20} /></span>}
           <h2 id="calendar-title" className={styles.calendarTitle}>{monthLabel(month)}</h2>
           {month < maxMonth
             ? <a href={monthHref(shiftMonth(month, 1))} className={styles.iconButton} aria-label="Następny miesiąc"
-                onClick={(event) => { event.preventDefault(); void loadMonth(shiftMonth(month, 1)); }}>›</a>
-            : <span className={styles.spacer} aria-hidden="true" />}
+                onClick={(event) => { event.preventDefault(); void loadMonth(shiftMonth(month, 1)); }}><ChevronRight aria-hidden="true" size={20} /></a>
+            : <span className={`${styles.iconButton} ${styles.iconButtonOff}`} aria-hidden="true"><ChevronRight size={20} /></span>}
         </div>
         <div role="status" aria-live="polite">
           {calendar.status === "loading" ? <p className={styles.small}>Ładujemy kalendarz…</p> : null}
@@ -379,7 +387,7 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
             {rows.map((row, at) => (
               <tr key={at}>
                 {row.map((cell, column) => {
-                  if (!cell) return <td key={column} />;
+                  if (cell.outside) return <td key={column} className={`${styles.day} ${styles.dayOutside}`}><span aria-hidden="true">{cell.day}</span></td>;
                   const state = stateOf(cell.date);
                   const selected = inRange(cell.date);
                   const classes = [styles.day, state === "available" ? styles.dayAvailable : state === "unavailable" ? styles.dayUnavailable : state === "past" ? styles.dayPast : "",
@@ -393,7 +401,7 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
                         <button type="button" className={styles.dayButton} aria-pressed={selected} tabIndex={cell.date === tabStop ? 0 : -1}
                           ref={(node) => { if (node) buttons.current.set(cell.date, node); else buttons.current.delete(cell.date); }}
                           aria-label={`${longDate(cell.date)}, ${state === "unknown" ? "stan nieznany" : dayText[state]}${cell.date === today ? ", dzisiaj" : ""}${selected ? ", wybrany zakres" : ""}`}
-                          onFocus={() => setFocusDate(cell.date)} onKeyDown={(event) => onDayKey(event, cell.date)} onClick={() => pick(cell.date)}>{cell.day}{state === "unavailable" ? <X aria-hidden="true" size={12} className={styles.dayIcon} /> : null}</button>
+                          onFocus={() => setFocusDate(cell.date)} onKeyDown={(event) => onDayKey(event, cell.date)} onClick={() => pick(cell.date)}>{cell.day}</button>
                       )}
                     </td>
                   );
@@ -403,10 +411,10 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
           </tbody>
         </table>
         <ul className={styles.legend} aria-label="Legenda kalendarza">
-          <li><span className={`${styles.legendMark} ${styles.dayAvailable}`} aria-hidden="true" />Dostępny</li>
-          <li><span className={`${styles.legendMark} ${styles.dayUnavailable}`} aria-hidden="true" />Niedostępny (przekreślony, z krzyżykiem)</li>
-          <li><span className={`${styles.legendMark} ${styles.dayToday}`} aria-hidden="true" />Dzisiaj</li>
-          <li><span className={`${styles.legendMark} ${styles.daySelected}`} aria-hidden="true" />Wybrany zakres</li>
+          <li><span className={`${styles.legendMark} ${styles.legendAvailable}`} aria-hidden="true" />Dostępny</li>
+          <li><span className={`${styles.legendMark} ${styles.legendUnavailable}`} aria-hidden="true" />Niedostępny (przekreślony)</li>
+          <li><span className={`${styles.legendMark} ${styles.legendToday}`} aria-hidden="true" />Dzisiaj</li>
+          <li><span className={`${styles.legendMark} ${styles.legendSelected}`} aria-hidden="true" />Wybrany zakres</li>
         </ul>
       </section>
     </div>

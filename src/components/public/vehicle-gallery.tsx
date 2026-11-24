@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Maximize2, X } from "lucide-react";
+import { Car, ChevronLeft, ChevronRight, Maximize2, X } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 
 import styles from "./public.module.css";
@@ -24,7 +24,16 @@ export function VehicleGallery({ images, name }: { images: GalleryImage[]; name:
     if (open && dialog && !dialog.open) dialog.showModal();
   }, [open]);
   const count = images.length;
-  if (count === 0) return null;
+  // No photo yet: the column keeps the gallery card with a neutral 3:2 placeholder instead of an empty gap (PUB-03).
+  if (count === 0) {
+    return (
+      <div className={styles.gallery}>
+        <div className={styles.galleryEmpty} role="img" aria-label={`${name}: brak zdjęć`}>
+          <Car aria-hidden="true" size={40} /><span aria-hidden="true">Zdjęcia pojawią się wkrótce</span>
+        </div>
+      </div>
+    );
+  }
   const current = images[index];
   const alt = (image: GalleryImage, position: number) => image.alt ?? `${name}, zdjęcie ${position + 1}`;
   const go = (delta: number) => setIndex((value) => (value + delta + count) % count);
@@ -48,13 +57,18 @@ export function VehicleGallery({ images, name }: { images: GalleryImage[]; name:
         <img key={current.id} src={current.urls.large} alt={alt(current, index)} width={current.width ?? undefined} height={current.height ?? undefined}
           className={styles.galleryImage} fetchPriority={index === 0 ? "high" : undefined} draggable={false} sizes="(min-width: 1024px) 60vw, 100vw" />
       </div>
+      {/* Phone: „1 / 4” and round 44 px buttons (previous, full screen, next); from 768 px the text counter and square arrows. */}
       <div className={styles.galleryBar}>
-        <p className={styles.galleryCounter} aria-live="polite">Zdjęcie {index + 1} z {count}</p>
+        <p className={styles.galleryCounter} aria-live="polite">
+          <span className={styles.wideOnly}>Zdjęcie {index + 1} z {count}</span>
+          <span className={styles.narrowOnly}>{index + 1} / {count}</span>
+        </p>
         {count > 1 ? (
-          <>
-            <button type="button" className={styles.iconButton} onClick={() => go(-1)} aria-label="Poprzednie zdjęcie"><ChevronLeft aria-hidden="true" size={20} /></button>
-            <button type="button" className={styles.iconButton} onClick={() => go(1)} aria-label="Następne zdjęcie"><ChevronRight aria-hidden="true" size={20} /></button>
-          </>
+          <button type="button" className={`${styles.iconButton} ${styles.galleryNav}`} onClick={() => go(-1)} aria-label="Poprzednie zdjęcie"><ChevronLeft aria-hidden="true" size={20} /></button>
+        ) : null}
+        <button type="button" className={`${styles.iconButton} ${styles.galleryNav} ${styles.narrowOnly}`} onClick={() => setOpen(true)} aria-label="Pełny ekran"><Maximize2 aria-hidden="true" size={18} /></button>
+        {count > 1 ? (
+          <button type="button" className={`${styles.iconButton} ${styles.galleryNav}`} onClick={() => go(1)} aria-label="Następne zdjęcie"><ChevronRight aria-hidden="true" size={20} /></button>
         ) : null}
       </div>
       {count > 1 ? (
@@ -71,7 +85,7 @@ export function VehicleGallery({ images, name }: { images: GalleryImage[]; name:
           ))}
         </ul>
       ) : null}
-      <button type="button" className={`${styles.linkButton} ${styles.linkButtonSecondary} ${styles.fill}`} onClick={() => setOpen(true)}>
+      <button type="button" className={`${styles.linkButton} ${styles.linkButtonSecondary} ${styles.fill} ${styles.wideOnly}`} onClick={() => setOpen(true)}>
         <Maximize2 aria-hidden="true" size={18} />Zobacz wszystkie zdjęcia
       </button>
       {open ? (

@@ -27,36 +27,71 @@ test("PUB-01 mobile places configured hero media before the title and date form"
   expect(image!.compareDocumentPosition(checker!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
-test("the one visible range field submits the same from/to GET contract", async () => {
+const enabledFields = (container: HTMLElement) => container.querySelectorAll("input:not([type='hidden']):not(:disabled)");
+const description = (element: HTMLElement) => (element.getAttribute("aria-describedby") ?? "").split(" ")
+  .map((id) => document.getElementById(id)?.textContent ?? "").join(" ");
+const wideScreen = (wide: boolean) => {
+  window.matchMedia = vi.fn(() => ({ matches: wide, addEventListener: vi.fn(), removeEventListener: vi.fn() })) as unknown as typeof window.matchMedia;
+};
+
+test("on a phone the one compact range field (DD.MM.RRRR) submits the same from/to GET contract", async () => {
+  wideScreen(false);
   const user = userEvent.setup();
   const { container } = render(<AvailabilityChecker today="2026-11-02" />);
   const range = screen.getByRole("textbox", { name: "Termin od — do" });
-  await user.type(range, "2026-11-05 – 2026-11-06");
-  expect(container.querySelectorAll("input:not([type='hidden'])")).toHaveLength(1);
+  await user.type(range, "05.11.2026 – 06.11.2026");
+  expect(enabledFields(container)).toHaveLength(1);
   expect((container.querySelector("input[name='from']") as HTMLInputElement).value).toBe("2026-11-05");
   expect((container.querySelector("input[name='to']") as HTMLInputElement).value).toBe("2026-11-06");
+  // The compact form of the mockup (start without the year) is understood as well.
+  await user.clear(range);
+  await user.type(range, "28.12 – 03.01.2027");
+  expect((container.querySelector("input[name='from']") as HTMLInputElement).value).toBe("2026-12-28");
+  expect((container.querySelector("input[name='to']") as HTMLInputElement).value).toBe("2027-01-03");
+  expect(description(range)).toMatch(/DD\.MM\.RRRR/);
 });
 
-test("the catalog restores an applied range in the same single field", () => {
-  window.matchMedia = vi.fn(() => ({ matches: false })) as unknown as typeof window.matchMedia;
+test("from 768 px two fields Od and Do (DD.MM.RRRR) submit the same from/to GET contract", async () => {
+  wideScreen(true);
+  const user = userEvent.setup();
+  const { container } = render(<AvailabilityChecker today="2026-11-02" />);
+  await user.type(screen.getByRole("textbox", { name: "Od" }), "05.11.2026");
+  await user.type(screen.getByRole("textbox", { name: "Do" }), "6.11.2026");
+  expect(enabledFields(container)).toHaveLength(2);
+  expect(description(screen.getByRole("textbox", { name: "Od" }))).toMatch(/DD\.MM\.RRRR/);
+  expect((container.querySelector("input[name='from']") as HTMLInputElement).value).toBe("2026-11-05");
+  expect((container.querySelector("input[name='to']") as HTMLInputElement).value).toBe("2026-11-06");
+  const to = screen.getByRole("textbox", { name: "Do" }) as HTMLInputElement;
+  await user.clear(to);
+  await user.type(to, "04.11.2026");
+  expect(to.validity.valid).toBe(false);
+  expect(to.validationMessage).toContain("poprzedzać");
+  await user.tab();
+  expect(description(to)).toContain("Data końcowa nie może poprzedzać początkowej.");
+});
+
+test("the catalog restores an applied range in the date fields", () => {
+  wideScreen(false);
   const result = { ok: true, applied: { from: "2026-11-05", to: "2026-11-06", sort: "recommended",
     category: null, seats: null, transmission: null }, filters: { categories: [], transmissions: [], seats: null,
     sorts: ["recommended"] } } as unknown as Parameters<typeof CatalogFilters>[0]["result"];
   const { container } = render(<CatalogFilters result={result} today="2026-11-02" />);
   expect((within(container).getByRole("textbox", { name: "Termin od — do", hidden: true }) as HTMLInputElement).value)
-    .toBe("2026-11-05 – 2026-11-06");
-  expect(container.querySelectorAll("input:not([type='hidden'])")).toHaveLength(1);
+    .toBe("05.11.2026 – 06.11.2026");
+  expect(enabledFields(container)).toHaveLength(1);
+  expect((within(container).getByRole("textbox", { name: "Od", hidden: true }) as HTMLInputElement).value).toBe("05.11.2026");
 });
 
 test("range field rejects a past start and a reversed range before navigation", async () => {
+  wideScreen(false);
   const user = userEvent.setup();
   render(<AvailabilityChecker today="2026-11-02" />);
   const range = screen.getByRole("textbox", { name: "Termin od — do" }) as HTMLInputElement;
-  await user.type(range, "2026-11-01 – 2026-11-03");
+  await user.type(range, "01.11.2026 – 03.11.2026");
   expect(range.validity.valid).toBe(false);
   expect(range.validationMessage).toContain("przeszłości");
   await user.clear(range);
-  await user.type(range, "2026-11-06 – 2026-11-05");
+  await user.type(range, "06.11.2026 – 05.11.2026");
   expect(range.validity.valid).toBe(false);
   expect(range.validationMessage).toContain("poprzedzać");
 });

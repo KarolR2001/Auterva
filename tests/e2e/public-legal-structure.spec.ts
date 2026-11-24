@@ -35,16 +35,16 @@ test("legal document: table of contents, anchors, keyboard, back link, widths", 
     await expect(page.getByText("Informacje prawne", { exact: true })).toBeVisible();
     const toc = page.getByRole("navigation", { name: "Spis treści" });
     await expect(toc.getByRole("link")).toHaveCount(10);
-    await expect(page.getByRole("heading", { level: 2, name: "2. Cele przetwarzania" })).toHaveAttribute("id", "sekcja-2");
+    await expect(page.getByRole("heading", { level: 2, name: "02 Cele przetwarzania" })).toHaveAttribute("id", "sekcja-2");
     await expect(page.locator("main b, main i")).toHaveCount(0);
     await expect(page.getByText("Wstęp <i>nie HTML</i>")).toBeVisible();
     await expect(page.getByText(/Ostatnia aktualizacja/)).toHaveCount(0); // no date field until #325
 
     // Keyboard: Tab to the TOC link, Enter moves to the section (hash) and the section is in view.
-    await toc.getByRole("link", { name: "2. Cele przetwarzania" }).focus();
+    await toc.getByRole("link", { name: "02 Cele przetwarzania" }).focus();
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/#sekcja-2$/);
-    await expect(page.getByRole("heading", { level: 2, name: "2. Cele przetwarzania" })).toBeInViewport();
+    await expect(page.getByRole("heading", { level: 2, name: "02 Cele przetwarzania" })).toBeInViewport();
 
     // No headings: no table of contents.
     await page.goto(`${origin("b")}/polityka-prywatnosci/`);

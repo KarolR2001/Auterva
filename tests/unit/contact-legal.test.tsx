@@ -24,7 +24,7 @@ describe("kontakt (PUB-04)", () => {
     render(<ContactPage contact={contact({})} brand={brand} header={[]} termsAvailable />);
     expect(screen.getByRole("heading", { level: 1, name: "Porozmawiajmy o właściwym samochodzie" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Zadzwoń teraz" })).toHaveAttribute("href", "tel:+48600000111");
-    expect(screen.getByRole("link", { name: "Napisz e-mail →" })).toHaveAttribute("href", "mailto:a@example.test?subject=Zapytanie");
+    expect(screen.getByRole("link", { name: "Napisz e-mail" })).toHaveAttribute("href", "mailto:a@example.test?subject=Zapytanie");
     expect(screen.getByText("Preferowany kanał")).toBeInTheDocument();
   });
 
@@ -99,8 +99,8 @@ describe("dokumenty firmy (PUB-05/06)", () => {
     const text = "Wstęp <i>x</i>\n\n## Dane\nTreść <b>1</b>\n\n## Cele\nTreść 2";
     const { container } = render(<LegalPage legal={legal({ status: "TEXT", text })} brand={brand} contact={[]} />);
     expect(screen.getByRole("navigation", { name: "Spis treści" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "1. Dane" })).toHaveAttribute("href", "#sekcja-1");
-    expect(screen.getByRole("heading", { level: 2, name: "2. Cele" })).toHaveAttribute("id", "sekcja-2");
+    expect(screen.getByRole("link", { name: "01 Dane" })).toHaveAttribute("href", "#sekcja-1");
+    expect(screen.getByRole("heading", { level: 2, name: "02 Cele" })).toHaveAttribute("id", "sekcja-2");
     expect(container.querySelector("main b, main i")).toBeNull();
     expect(screen.getByText("Treść <b>1</b>")).toBeInTheDocument();
     expect(screen.getByText("Informacje prawne")).toBeInTheDocument();
