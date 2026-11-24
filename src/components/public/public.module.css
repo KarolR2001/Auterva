@@ -72,13 +72,11 @@
 .rangeAction > * { flex: 1; }
 .rangeHint, .rangeError { grid-area: hint; margin: 0; font-size: var(--font-size-12); line-height: var(--line-height-16); color: var(--text-secondary); }
 .rangeError { grid-area: error; font-size: var(--font-size-14); line-height: var(--line-height-20); color: var(--text-error); font-weight: var(--font-weight-medium); }
-.wideOnly { display: none; }
 @media (min-width: 768px) {
   .rangeRow { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "from to" "hint hint" "error error"; column-gap: var(--space-2); }
   .rangeRow:has(.rangeAction) { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-areas: "from to action" "hint hint ." "error error ."; }
-  .rangeSingle, .narrowOnly { display: none; }
+  .rangeSingle { display: none; }
   .rangeFrom, .rangeTo { display: flex; }
-  .wideOnly { display: block; }
   .rangeAction { margin-top: 0; }
 }
 .filterBar { position: relative; margin-bottom: var(--space-6); }
@@ -220,9 +218,21 @@ details[open] > .toolbarButton { border-color: var(--border-strong); background:
 
 /* Vehicle detail (#42) */
 .detail { padding-block: var(--space-5) var(--space-12); }
-.back { display: inline-flex; align-items: center; min-height: var(--touch-target-mobile); margin-bottom: var(--space-2); }
+.back { display: inline-flex; align-items: center; min-height: var(--touch-target-mobile); margin-bottom: var(--space-2); font-size: var(--font-size-14);
+  color: var(--text-primary); text-decoration: none; border-radius: var(--radius-xs); }
+.back:hover { text-decoration: underline; text-underline-offset: 3px; }
+.back:focus-visible { outline: var(--border-width-active) solid var(--focus-ring); outline-offset: var(--focus-offset); }
 .detailGrid { display: grid; gap: var(--space-6); }
-.gallery { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; padding: var(--space-3); background: var(--surface-default); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-lg); }
+.gallery { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; padding: var(--space-3); background: var(--surface-subtle); border: var(--border-width-hairline) solid var(--border-subtle); border-radius: var(--radius-lg); }
+/* No photo yet: the card keeps its 3:2 frame with a neutral placeholder (PUB-03). */
+.galleryEmpty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-2); aspect-ratio: 3 / 2; border-radius: var(--radius-md);
+  color: var(--text-secondary); font-size: var(--font-size-14); background: var(--surface-default); border: var(--border-width-hairline) solid var(--border-subtle); }
+.iconButton.galleryNav { border-radius: var(--radius-full); background: var(--surface-inverse); color: var(--text-inverse); border-color: var(--surface-inverse); }
+.iconButton.galleryNav:hover { background: var(--surface-strong); }
+@media (min-width: 768px) {
+  .iconButton.galleryNav { border-radius: var(--radius-md); background: var(--surface-default); color: var(--text-primary); border-color: var(--border-default); }
+  .iconButton.galleryNav:hover { background: var(--action-secondary-hover); }
+}
 .galleryViewer { border-radius: var(--radius-lg); overflow: hidden; background: var(--surface-subtle); touch-action: pan-y pinch-zoom; }
 .galleryViewer:focus-visible { outline: var(--border-width-active) solid var(--focus-ring); outline-offset: var(--focus-offset); }
 .galleryImage { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; user-select: none; }
@@ -239,7 +249,8 @@ details[open] > .toolbarButton { border-color: var(--border-strong); background:
 .thumbLabel { position: absolute; left: var(--space-1); bottom: var(--space-1); padding: 0 var(--space-2); font-size: var(--font-size-12); line-height: var(--line-height-16); font-weight: var(--font-weight-semibold); color: var(--text-inverse); background: var(--surface-strong); border-radius: var(--radius-xs); }
 .thumbImage { display: block; width: 100%; height: 100%; object-fit: cover; }
 .lightboxImage { display: block; max-width: 100%; max-height: 70vh; margin: 0 auto; object-fit: contain; }
-.specs { display: flex; flex-wrap: wrap; gap: var(--space-2); list-style: none; margin: 0 0 var(--space-5); padding: 0; }
+.specs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); list-style: none; margin: 0 0 var(--space-5); padding: 0; }
+.specs .chip { justify-content: center; text-align: center; }
 .chip { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 44px; padding: 0 var(--space-3); font-size: var(--font-size-14);
   font-weight: var(--font-weight-semibold); background: var(--surface-default); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-full); overflow-wrap: anywhere; }
 .detailPrice { margin: 0 0 var(--space-4); font-size: var(--font-size-20); font-weight: var(--font-weight-semibold); }
@@ -253,30 +264,46 @@ details[open] > .toolbarButton { border-color: var(--border-strong); background:
 .detailBody { min-width: 0; }
 .calendar { min-width: 0; padding: var(--space-4); background: var(--surface-default); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-lg); }
 .calendarRange { margin: 0 0 var(--space-2); font-size: var(--font-size-14); color: var(--text-secondary); }
-.calendarHead { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-bottom: var(--space-2); }
-.calendarTitle { margin: 0; font-size: var(--font-size-16); font-weight: var(--font-weight-semibold); }
+.calendarHead { display: flex; align-items: center; gap: var(--space-2); max-width: 360px; margin-bottom: var(--space-2); }
+.calendarTitle { flex: 1; margin: 0; font-size: var(--font-size-16); font-weight: var(--font-weight-semibold); }
+.iconButtonOff { color: var(--text-tertiary); background: var(--surface-subtle); border-color: var(--border-subtle); cursor: default; }
 .calendarTable { width: 100%; max-width: 360px; border-collapse: separate; border-spacing: 2px; table-layout: fixed; }
 .calendarTable th { font-size: var(--font-size-12); font-weight: var(--font-weight-semibold); color: var(--text-secondary); padding: var(--space-1) 0; }
-.day { height: 44px; text-align: center; vertical-align: middle; font-size: var(--font-size-14); font-weight: var(--font-weight-semibold); border-radius: var(--radius-sm); }
-.dayAvailable { background: var(--status-success-surface); }
+/* PUB-03 calendar: 44×44 cells with a hairline frame (radius 8, gap 2); unavailable and past days are struck through, today has a ring and a dot. */
+.day { height: 44px; text-align: center; vertical-align: middle; font-size: var(--font-size-14); font-weight: var(--font-weight-semibold); border-radius: var(--radius-sm);
+  border: var(--border-width-hairline) solid var(--border-subtle); }
+.dayAvailable { background: var(--status-success-surface); border-color: var(--border-default); }
 .dayUnavailable { background: var(--status-unavailable-surface); border: var(--border-width-hairline) dashed var(--status-unavailable-border); text-decoration: line-through; }
-.dayPast { color: var(--text-secondary); text-decoration: none; background: transparent; }
-.dayToday { outline: var(--border-width-active) solid var(--border-strong); outline-offset: -2px; }
-.daySelected { background: var(--surface-strong); color: var(--text-inverse); }
+.dayPast { color: var(--text-secondary); text-decoration: line-through; background: transparent; font-weight: var(--font-weight-regular); }
+.dayOutside { color: var(--text-secondary); font-weight: var(--font-weight-regular); background: transparent; }
+.dayToday { outline: var(--border-width-active) solid var(--border-critical); outline-offset: -2px; }
+.dayToday .dayButton::after { content: ""; position: absolute; left: 50%; bottom: 5px; width: 4px; height: 4px; margin-left: -2px; border-radius: var(--radius-full); background: currentColor; }
+.daySelected { background: var(--surface-inverse); color: var(--text-inverse); border-color: var(--surface-inverse); }
 /* Unavailable day inside the chosen range: dashed inverse frame (3:1+ on the dark fill) and strike-through keep it distinct from an available one. */
 .daySelected.dayUnavailable { border-color: transparent; outline: var(--border-width-active) dashed var(--text-inverse); outline-offset: -4px; text-decoration: line-through; text-decoration-thickness: 2px; }
-.legend { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); list-style: none; margin: var(--space-3) 0 0; padding: 0; font-size: var(--font-size-14); }
-.legendMark { display: inline-block; width: 16px; height: 16px; margin-right: var(--space-2); vertical-align: -3px; border-radius: var(--radius-xs); border: var(--border-width-hairline) solid var(--border-default); }
+.legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3) var(--space-4); max-width: 360px; list-style: none; margin: var(--space-4) 0 0; padding: 0; font-size: var(--font-size-14); }
+.legend li { display: flex; align-items: center; gap: var(--space-2); }
+.legendMark { position: relative; flex: none; display: inline-block; width: 20px; height: 20px; border-radius: var(--radius-xs); border: var(--border-width-hairline) solid var(--border-default); }
+.legendAvailable { background: var(--status-success-surface); }
+.legendAvailable::after, .legendToday::after { content: ""; position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: var(--radius-full); background: var(--text-primary); }
+.legendToday::after { top: auto; bottom: 3px; margin-top: 0; }
+.legendUnavailable { background: var(--status-unavailable-surface); border-style: dashed; border-color: var(--status-unavailable-border); }
+.legendUnavailable::after { content: ""; position: absolute; left: 4px; right: 4px; top: 50%; height: 1px; margin-top: -0.5px; background: var(--text-primary); }
+.legendToday { border: var(--border-width-active) solid var(--border-critical); }
+.legendSelected { background: var(--surface-inverse); border-color: var(--surface-inverse); }
 .prose { margin: 0 0 var(--space-6); font-size: var(--font-size-16); line-height: var(--line-height-24); white-space: pre-line; overflow-wrap: anywhere; max-width: 70ch; }
 .h3 { margin: 0 0 var(--space-3); font-size: var(--font-size-22); line-height: var(--line-height-28); font-weight: var(--font-weight-semibold); }
-.features { display: grid; gap: var(--space-2); grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); list-style: none; margin: 0 0 var(--space-6); padding: 0; }
+.detailH2 { margin: 0 0 var(--space-4); font-size: var(--font-size-24); line-height: var(--line-height-32); font-weight: var(--font-weight-bold); overflow-wrap: anywhere; }
+.detailH3 { margin: 0 0 var(--space-3); font-size: var(--font-size-22); line-height: var(--line-height-28); font-weight: var(--font-weight-semibold); }
+.features { display: grid; gap: var(--space-3); grid-template-columns: repeat(2, minmax(0, 1fr)); list-style: none; margin: 0 0 var(--space-6); padding: 0; }
+.featureChip { justify-content: center; text-align: center; font-weight: var(--font-weight-medium); }
 .stickyAction { position: sticky; bottom: 0; z-index: var(--z-sticky); padding: var(--space-3) 0; background: var(--surface-canvas); border-top: var(--border-width-hairline) solid var(--border-subtle); }
 @media (min-width: 768px) {
   .stickyAction .fill { width: auto; }
   .stickyAction { position: static; border-top: 0; padding: 0; background: transparent; }
 }
 @media (min-width: 1024px) {
-  .detailGrid { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); grid-template-areas: "gallery info" "gallery calendar" "body ."; grid-template-rows: auto 1fr auto; align-items: start; column-gap: var(--space-8); row-gap: var(--space-6); }
+  .detailGrid { grid-template-columns: minmax(0, 1fr) 460px; grid-template-areas: "gallery info" "gallery calendar" "body ."; grid-template-rows: auto 1fr auto; align-items: start; column-gap: var(--space-8); row-gap: var(--space-6); }
   .gallery { grid-area: gallery; }
   .infoCol { grid-area: info; }
   .detailBody { grid-area: body; }
@@ -286,7 +313,12 @@ details[open] > .toolbarButton { border-color: var(--border-strong); background:
 @media (max-width: 767px) {
   .detail :is(a, button, input, [tabindex]) { scroll-margin-bottom: 96px; }
 }
-.spacer { display: inline-block; width: var(--touch-target-mobile); height: var(--touch-target-mobile); }
+@media (min-width: 768px) {
+  .specs { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
+  .detailH2 { font-size: var(--font-size-32); line-height: var(--line-height-40); margin-bottom: var(--space-5); }
+  .detailH3 { font-size: var(--font-size-24); line-height: var(--line-height-32); }
+  .detailBody .prose { margin-bottom: var(--space-10); }
+}
 .lightbox { margin: auto; width: min(960px, calc(100vw - var(--space-8))); max-height: calc(100vh - var(--space-8)); padding: var(--space-4); color: var(--text-primary);
   background: var(--surface-default); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); }
 .lightbox::backdrop { background: var(--surface-scrim); }
@@ -304,7 +336,6 @@ details[open] > .toolbarButton { border-color: var(--border-strong); background:
 
 /* #43: interactive calendar days and alternative vehicles */
 .dayButton { all: unset; box-sizing: border-box; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; min-height: 44px; cursor: pointer; border-radius: var(--radius-sm); position: relative; }
-.dayIcon { position: absolute; top: 3px; right: 3px; }
 .dayButton[aria-disabled="true"] { cursor: default; }
 .dayButton:focus-visible { outline: var(--border-width-active) solid var(--focus-ring); outline-offset: var(--focus-offset); }
 .alternatives { margin-top: var(--space-4); }
@@ -318,3 +349,7 @@ details[open] > .toolbarButton { border-color: var(--border-strong); background:
 .nearestTitle svg { flex: none; margin-top: 2px; }
 .altList { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
 button.link { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
+
+/* Layout switches without a display value of their own; last in the file so they win over component display rules. */
+@media (max-width: 767.98px) { .wideOnly { display: none; } }
+@media (min-width: 768px) { .narrowOnly { display: none; } }
