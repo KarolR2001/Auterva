@@ -5,8 +5,9 @@ import { denyPanel } from "@/components/panel/deny-panel";
 import { PanelShell } from "@/components/panel/panel-shell";
 import { SettingsNav } from "@/components/settings/settings-nav";
 import { SettingsReadonly } from "@/components/settings/settings-readonly";
-import { parseSection, type SettingsSnapshot } from "@/components/settings/settings-model";
+import { parseSection, sectionPages, type SettingsSnapshot } from "@/components/settings/settings-model";
 import settingsStyles from "@/components/settings/settings.module.css";
+import { PageHeader } from "@/components/ui/page-header";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getCompanySettings } from "@/modules/settings/read";
@@ -24,6 +25,7 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
   const snapshot = await getCompanySettings(prisma, actor.organizationId, "admin");
   if (!snapshot) notFound();
   const section = parseSection((await searchParams).sekcja);
+  const page = sectionPages[section];
   return (
     <PanelShell
       area="company"
@@ -32,9 +34,12 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
       title="Ustawienia"
       currentPath="/admin/ustawienia"
     >
-      <div className={settingsStyles.layout}>
-        <SettingsNav base="/admin/ustawienia" current={section} />
-        <SettingsReadonly snapshot={snapshot as unknown as SettingsSnapshot} section={section} />
+      <div className={settingsStyles.page}>
+        <PageHeader trail={`Ustawienia / ${page.trail}`} title={page.title} description={page.lead} />
+        <div className={settingsStyles.layout}>
+          <SettingsNav base="/admin/ustawienia" current={section} />
+          <SettingsReadonly snapshot={snapshot as unknown as SettingsSnapshot} section={section} />
+        </div>
       </div>
     </PanelShell>
   );

@@ -139,6 +139,9 @@ test("settings UI: superadmin saves a section, keeps data on conflict and valida
         for (const width of [320, 1440]) {
           await page.setViewportSize({ width, height: 900 });
           await page.goto(url);
+          // ADM-14 read-only view shows one document at a time; the switcher opens the terms.
+          const termsSwitch = page.getByRole("button", { name: "Regulamin", exact: true });
+          if (await termsSwitch.count()) await termsSwitch.click();
           await expect(page.getByRole("heading", { name: "Regulamin", exact: true })).toBeVisible();
           const overflow = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, view: window.innerWidth }));
           expect(overflow.scroll, `${label} ${length} znaków przy ${width}px`).toBeLessThanOrEqual(overflow.view);
