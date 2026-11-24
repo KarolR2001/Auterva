@@ -46,8 +46,6 @@
 .prepareTitle { margin: 0; font-size: var(--font-size-18); line-height: var(--line-height-26); font-weight: var(--font-weight-semibold); }
 .prepareHint { margin: 0; }
 .inlineLink { color: var(--text-link); text-decoration: underline; text-underline-offset: 3px; }
-.mapArt { display: flex; align-items: center; justify-content: center; height: 120px; margin: 0 0 var(--space-3); border: var(--border-width-hairline) solid var(--border-subtle);
-  border-radius: var(--radius-md); background: repeating-linear-gradient(0deg, transparent 0 23px, var(--border-subtle) 23px 24px), repeating-linear-gradient(90deg, var(--surface-subtle) 0 23px, var(--border-subtle) 23px 24px); color: var(--text-primary); }
 .copy { display: inline-flex; flex-direction: column; gap: var(--space-1); }
 .copyButton { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: var(--touch-target-mobile); padding: 0 var(--space-3);
   border: var(--border-width-hairline) solid var(--action-secondary-border); border-radius: var(--radius-md); background: transparent; color: var(--action-secondary-content);
@@ -56,8 +54,6 @@
 .copyStatus { font-size: var(--font-size-14); color: var(--text-primary); }
 .copyStatus:empty { display: none; }
 
-.blocks { display: grid; gap: var(--space-4); }
-.blockTitle { display: flex; align-items: center; gap: var(--space-2); margin: 0 0 var(--space-2); font-size: var(--font-size-18); line-height: var(--line-height-26); font-weight: var(--font-weight-semibold); }
 .pre { margin: 0; white-space: pre-line; overflow-wrap: anywhere; font-size: var(--font-size-16); line-height: var(--line-height-24); }
 .address { display: grid; margin: 0 0 var(--space-2); font-style: normal; font-size: var(--font-size-16); line-height: var(--line-height-24); overflow-wrap: anywhere; }
 .docs { display: flex; flex-wrap: wrap; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
@@ -122,3 +118,29 @@
   .channelActions .copyButton { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { .copyButton { transition: none; } }
+
+/* PUB-04 "Dane firmy": 32 px heading, labelled plain facts (12 px caps label, 18 px value) beside a dark map card
+   (~600×430 desktop) with an address overlay; the map is a decorative pattern, the link opens the real map. */
+.company { display: grid; gap: var(--space-6); margin: 0 0 var(--space-8); }
+.companyTitle { margin: 0; font-size: var(--font-size-28); line-height: var(--line-height-36); font-weight: var(--font-weight-bold); }
+.companyGrid { display: grid; gap: var(--space-8); }
+.facts { display: grid; align-content: start; gap: var(--space-6); margin: 0; }
+.facts > div { display: grid; gap: var(--space-2); }
+.factLabel { margin: 0; font-size: var(--font-size-12); line-height: var(--line-height-16); font-weight: var(--font-weight-semibold); text-transform: uppercase; color: var(--text-secondary); }
+.factValue { margin: 0; font-size: var(--font-size-18); line-height: var(--line-height-26); font-weight: var(--font-weight-medium); color: var(--text-primary); }
+.factValue .address { margin: 0; font-size: inherit; line-height: inherit; }
+.factText { margin: 0; font-size: var(--font-size-16); line-height: var(--line-height-24); }
+.mapCard { position: relative; display: grid; align-items: end; min-height: 280px; padding: var(--space-5); overflow: hidden; border-radius: var(--radius-xl); background: var(--color-neutral-700); }
+.mapCanvas { position: absolute; inset: 0; background:
+  linear-gradient(90deg, transparent 0 calc(50% - 15px), var(--color-neutral-500) calc(50% - 15px) calc(50% + 15px), transparent calc(50% + 15px)),
+  linear-gradient(0deg, transparent 0 calc(42% - 13px), var(--color-neutral-500) calc(42% - 13px) calc(42% + 13px), transparent calc(42% + 13px)),
+  linear-gradient(24deg, transparent 0 calc(70% - 12px), var(--color-neutral-500) calc(70% - 12px) calc(70% + 12px), transparent calc(70% + 12px)); }
+.mapPin { position: absolute; left: 50%; top: 42%; width: 64px; height: 64px; margin: -32px 0 0 -32px; border: 8px solid var(--surface-inverse); border-radius: 50%; background: var(--surface-default); }
+.mapOverlay { position: relative; display: grid; gap: var(--space-1); max-width: 300px; padding: var(--space-5); border-radius: var(--radius-lg); background: var(--surface-default); }
+.mapStreet { margin: 0; font-size: var(--font-size-20); line-height: var(--line-height-28); font-weight: var(--font-weight-semibold); overflow-wrap: anywhere; }
+.mapLink { justify-self: start; font-size: var(--font-size-14); font-weight: var(--font-weight-semibold); color: var(--text-link); text-decoration: none; }
+.mapLink:hover { text-decoration: underline; }
+@media (min-width: 1024px) {
+  .companyGrid { grid-template-columns: minmax(0, 1fr) minmax(0, 600px); gap: var(--space-8); }
+  .mapCard { min-height: 430px; padding: var(--space-6); }
+}

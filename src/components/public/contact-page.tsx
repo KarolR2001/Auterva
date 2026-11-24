@@ -1,5 +1,4 @@
-import { CalendarDays, Clock, MapPin, Phone, Star } from "lucide-react";
-import type { ReactNode } from "react";
+import { CalendarDays, Phone, Star } from "lucide-react";
 
 import { LinkButton, PublicPage, type PublicBrand, type PublicContact } from "./public-chrome";
 import { CopyButton } from "./copy-button";
@@ -17,15 +16,6 @@ const channelInfo = {
   WHATSAPP: { label: "WhatsApp", action: "Otwórz WhatsApp", lead: "Napisz na WhatsApp", note: "Wyślij krótką wiadomość — możesz od razu podać pojazd i daty." },
   EMAIL: { label: "E-mail", action: "Napisz e-mail", lead: "Napisz e-mail", note: "Napisz, jeśli wolisz zebrać szczegóły w jednej wiadomości." },
 } as const;
-
-function Block({ title, icon, children }: { title: string; icon?: ReactNode; children: ReactNode }) {
-  return (
-    <section className={styles.block}>
-      <h2 className={styles.blockTitle}>{icon}{title}</h2>
-      {children}
-    </section>
-  );
-}
 
 /** PUB-04. The page never records anything: the links open the visitor's own phone, WhatsApp or mail client. */
 export function ContactPage({ contact, brand, header, termsAvailable }: { contact: Contact; brand: PublicBrand; header: PublicContact; termsAvailable: boolean }) {
@@ -98,6 +88,34 @@ export function ContactPage({ contact, brand, header, termsAvailable }: { contac
           </StateBlock>
         )}
 
+        {/* PUB-04: "Dane firmy" — address and hours as plain labelled text beside a large map card with an address overlay. */}
+        <section className={styles.company} aria-labelledby="company-title">
+          <h2 id="company-title" className={styles.companyTitle}>Dane firmy</h2>
+          <div className={place.length > 0 ? styles.companyGrid : undefined}>
+            <dl className={styles.facts}>
+              {place.length > 0 ? (<div><dt className={styles.factLabel}>Adres</dt>
+                <dd className={styles.factValue}><address className={styles.address}>{place.map((line) => <span key={line}>{line}</span>)}</address></dd></div>) : null}
+              {hours ? (<div><dt className={styles.factLabel}>Godziny kontaktu</dt><dd className={`${styles.factValue} ${styles.pre}`}>{hours}</dd></div>) : null}
+              {availabilityNotice ? (<div><dt className={styles.factLabel}>Dostępność</dt><dd className={`${styles.factText} ${styles.pre}`}>{availabilityNotice}</dd></div>) : null}
+              <div><dt className={styles.factLabel}>Dokumenty</dt>
+                <dd className={styles.factText}><ul className={styles.docs}>
+                  <li><a href="/polityka-prywatnosci/" className={styles.link}>Polityka prywatności</a></li>
+                  {termsAvailable ? <li><a href="/regulamin/" className={styles.link}>Regulamin</a></li> : null}
+                </ul></dd></div>
+            </dl>
+            {place.length > 0 ? (
+              <div className={styles.mapCard}>
+                <div className={styles.mapCanvas} aria-hidden="true"><span className={styles.mapPin} /></div>
+                <div className={styles.mapOverlay}>
+                  <p className={styles.factLabel}>Adres</p>
+                  <p className={styles.mapStreet}>{place[0]}</p>
+                  {map ? <a href={map} className={styles.mapLink} rel="noopener noreferrer">Otwórz w mapach <span aria-hidden="true">→</span></a> : null}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </section>
+
         {!message.vehicle && !range ? (
           <section className={styles.prepare} aria-labelledby="prepare-title">
             <h2 id="prepare-title" className={styles.prepareTitle}>Przygotuj do rozmowy</h2>
@@ -106,24 +124,6 @@ export function ContactPage({ contact, brand, header, termsAvailable }: { contac
               <a href={catalogLink} className={styles.inlineLink}>Wybierz pojazd i termin w ofercie</a></p>
           </section>
         ) : null}
-
-        <div className={styles.blocks}>
-          {hours ? <Block title="Godziny kontaktu" icon={<Clock aria-hidden="true" size={20} />}><p className={styles.pre}>{hours}</p></Block> : null}
-          {place.length > 0 ? (
-            <Block title="Adres" icon={<MapPin aria-hidden="true" size={20} />}>
-              <div className={styles.mapArt} aria-hidden="true"><MapPin size={28} /></div>
-              <address className={styles.address}>{place.map((line) => <span key={line}>{line}</span>)}</address>
-              {map ? <a href={map} className={styles.link} rel="noopener noreferrer">Otwórz w mapach <span aria-hidden="true">→</span></a> : null}
-            </Block>
-          ) : null}
-          {availabilityNotice ? <Block title="Dostępność"><p className={styles.pre}>{availabilityNotice}</p></Block> : null}
-          <Block title="Dokumenty">
-            <ul className={styles.docs}>
-              <li><a href="/polityka-prywatnosci/" className={styles.link}>Polityka prywatności</a></li>
-              {termsAvailable ? <li><a href="/regulamin/" className={styles.link}>Regulamin</a></li> : null}
-            </ul>
-          </Block>
-        </div>
       </div>
       {jsonLd.map((json, index) => <script key={index} type="application/ld+json" dangerouslySetInnerHTML={{ __html: json }} />)}
     </PublicPage>
