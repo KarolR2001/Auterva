@@ -78,7 +78,7 @@ test("PUB-03 has no Od/Do fields or Sprawdź button and the legend has no past e
   expect(screen.queryByRole("button", { name: "Sprawdź" })).toBeNull();
   const legend = within(screen.getByRole("list", { name: "Legenda kalendarza" }));
   expect(legend.getAllByRole("listitem").map((item) => item.textContent)).toEqual(
-    ["Dostępny", "Niedostępny (przekreślony, z krzyżykiem)", "Dzisiaj", "Wybrany zakres"]);
+    ["Dostępny", "Niedostępny (przekreślony)", "Dzisiaj", "Wybrany zakres"]);
 });
 
 test("PUB-03 past days are aria-disabled, named \"miniony\" and cannot start a range (D-44)", async () => {

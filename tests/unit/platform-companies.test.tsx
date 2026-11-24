@@ -69,7 +69,7 @@ describe("etykiety okresu i widoczności", () => {
       period: { ...company().period, paidValid: false, paidThrough: null, trialGranted: true },
       publication: { visible: false, domainReady: true, unlockRequired: false, requiresPaid: false },
     });
-    expect(periodLabel(pending)).toBe("Trial jeszcze nie rozpoczęty");
+    expect(periodLabel(pending)).toBe("Okres próbny jeszcze nie rozpoczęty");
     expect(visibilityReason(pending)).toBe("Czeka na rejestrację administratora.");
   });
 
@@ -79,7 +79,7 @@ describe("etykiety okresu i widoczności", () => {
     expect(shorteningEffect(c, "2026-11-30", "2026-10-30")).toMatch(/kończy się 30\.11\.2026 włącznie/);
     expect(shorteningEffect(c, null, "2026-10-30")).toMatch(/natychmiast wyłączona/);
     const withTrial = company({ period: { ...c.period, trialValid: true } });
-    expect(shorteningEffect(withTrial, "2026-10-01", "2026-10-30")).toMatch(/do końca trialu/);
+    expect(shorteningEffect(withTrial, "2026-10-01", "2026-10-30")).toMatch(/do końca okresu próbnego/);
   });
 });
 
@@ -98,7 +98,7 @@ describe("lista firm", () => {
     expect(await screen.findByText("Gamma Car", { exact: false })).toBeVisible();
     expect(screen.getByText("Okres wygasł 16.10.2026")).toBeVisible();
     expect(screen.getByText("Opłacone").nextElementSibling).toHaveTextContent("1");
-    expect(screen.getByText("Aktywne triale").nextElementSibling).toHaveTextContent("0");
+    expect(screen.getByText("Aktywne okresy próbne").nextElementSibling).toHaveTextContent("0");
     expect(screen.getByRole("link", { name: "Otwórz firmę Alfa Campers" })).toHaveAttribute("href", `/firmy/${ID}`);
     expect(String(fetchMock.mock.calls[0][0])).toContain("includeArchived=false");
   });

@@ -1,15 +1,11 @@
 .account {
   display: grid;
-  gap: var(--space-6);
+  gap: var(--space-8);
   max-width: var(--content-admin-max);
   min-width: 0;
   color: var(--text-primary);
 }
-.lead {
-  margin: 0;
-  color: var(--text-secondary);
-  line-height: var(--line-height-24);
-}
+/* ADM-15/16 tabs: full-width track, equal tabs on mobile, fixed ~250 px tabs aligned left on desktop. */
 .tabs {
   display: flex;
   gap: var(--space-1);
@@ -27,13 +23,18 @@
   padding: 0 var(--space-4);
   border-radius: var(--radius-md);
   color: var(--text-primary);
+  font-size: var(--font-size-14);
   font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-20);
   text-decoration: none;
   white-space: nowrap;
 }
 .tab[aria-current="page"] {
   background: var(--surface-inverse);
   color: var(--text-inverse);
+}
+.tabCount {
+  white-space: pre;
 }
 .tab:focus-visible,
 .secondaryLink:focus-visible {
@@ -43,13 +44,7 @@
 .columns {
   display: grid;
   gap: var(--space-6);
-  align-items: start;
-}
-.divider {
-  width: 100%;
-  margin: var(--space-2) 0;
-  border: 0;
-  border-top: var(--border-width-hairline) solid var(--border-subtle);
+  align-items: stretch;
 }
 .secondaryLink {
   display: inline-flex;
@@ -66,25 +61,28 @@
 }
 .card {
   display: grid;
-  gap: var(--space-4);
+  align-content: start;
+  gap: var(--space-6);
   min-width: 0;
   padding: var(--space-6);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
+  border: var(--border-width-hairline) solid var(--border-default);
+  border-radius: var(--radius-xl);
 }
 .card h3 {
   margin: 0;
-  font-size: var(--font-size-18, 18px);
-  line-height: 24px;
+  font-size: var(--font-size-18);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-26);
 }
 .card h2 {
   margin: 0;
-  font-size: var(--font-size-20);
-  line-height: 28px;
+  font-size: var(--font-size-22);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-30);
 }
 .card p {
   margin: 0;
-  line-height: 1.4;
+  line-height: var(--line-height-24);
 }
 .form {
   display: grid;
@@ -93,28 +91,157 @@
 .form > button {
   justify-self: start;
 }
-.readOnly {
-  display: grid;
-  gap: var(--space-3);
-  margin: 0;
+.eyebrow {
+  color: var(--text-primary);
+  font-size: var(--font-size-12);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  line-height: var(--line-height-16);
+  text-transform: uppercase;
 }
-.readOnly div {
+
+/* ADM-15 profile card: 72 px avatar, name 24 px, e-mail, role, current session and a full-width logout at the bottom. */
+.profileCard {
+  display: flex;
+  flex-direction: column;
+}
+.profileHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4) var(--space-5);
+  min-width: 0;
+}
+.avatar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-full);
+  background: var(--surface-inverse);
+  color: var(--text-inverse);
+  font-size: var(--font-size-20);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-28);
+}
+.profileText {
   display: grid;
   gap: var(--space-1);
+  min-width: 0;
 }
-.readOnly dt {
-  font-size: var(--font-size-14);
-  font-weight: 600;
-}
-.readOnly dd {
-  margin: 0;
+.card .profileName {
+  font-size: var(--font-size-24);
+  line-height: var(--line-height-32);
   overflow-wrap: anywhere;
 }
-.warning {
-  padding: var(--space-4);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
-  font-weight: 600;
+.card .profileEmail {
+  color: var(--text-secondary);
+  font-size: var(--font-size-14);
+  line-height: var(--line-height-20);
+  overflow-wrap: anywhere;
+}
+.card .profileRole {
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-20);
+}
+.currentSession {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--font-size-14);
+}
+.card .currentSession p {
+  line-height: var(--line-height-20);
+}
+.logout {
+  width: 100%;
+  margin-top: auto;
+}
+
+/* ADM-15 password card: title 24 px with description, two-column fields from 768 px, compact criteria, MFA sub-card. */
+.securityCard {
+  border-color: transparent;
+  padding: 0;
+}
+.cardHead {
+  display: grid;
+  gap: var(--space-2);
+}
+.card .cardTitle {
+  font-size: var(--font-size-22);
+  line-height: var(--line-height-30);
+}
+.card .cardDescription {
+  color: var(--text-secondary);
+  font-size: var(--font-size-14);
+  line-height: var(--line-height-20);
+}
+.passwordGrid {
+  display: grid;
+  gap: var(--space-6);
+  min-width: 0;
+}
+.passwordGrid > * {
+  min-width: 0;
+}
+/* The shared strength meter (auth) shown as a compact checklist: no bar, criteria in one wrapping row. */
+.criteria {
+  align-self: start;
+  font-size: var(--font-size-14);
+}
+.criteria > div {
+  display: grid;
+  gap: var(--space-2);
+}
+.criteria div[aria-hidden="true"] {
+  display: none;
+}
+.criteria ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.criteria li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-14);
+  line-height: var(--line-height-20);
+}
+.criteria p {
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-20);
+}
+.form > .submit {
+  justify-self: stretch;
+}
+.mfaCard {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6);
+  border: var(--border-width-hairline) solid var(--border-default);
+  border-radius: var(--radius-xl);
+}
+.mfaHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+.card .mfaTitle {
+  font-size: var(--font-size-16);
+  line-height: var(--line-height-24);
+}
+.card .mfaText {
+  font-size: var(--font-size-14);
+  line-height: var(--line-height-20);
 }
 .pill {
   display: inline-flex;
@@ -122,31 +249,21 @@
   gap: var(--space-2);
   justify-self: start;
   padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--border-strong);
-  border-radius: 9999px;
-  background: var(--surface-subtle);
-  font-weight: 600;
+  border: var(--border-width-hairline) solid var(--border-strong);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-semibold);
+}
+.card .pill {
+  line-height: var(--line-height-20);
 }
 .actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
 }
-.linkButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: var(--space-3) var(--space-6);
-  border-radius: var(--radius-md);
-  background: var(--surface-inverse);
-  color: var(--text-inverse);
-  font-weight: 600;
-  text-decoration: none;
-}
 .notice {
   display: grid;
-  margin-bottom: var(--space-4);
 }
 @media (max-width: 479px) {
   .actions > *,
@@ -157,41 +274,175 @@
     justify-self: stretch;
   }
 }
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
+  .tab {
+    flex: 0 0 250px;
+  }
+  .card {
+    padding: var(--space-8);
+  }
+  .securityCard {
+    border-color: var(--border-default);
+    padding: var(--space-8);
+  }
+  .card h2,
+  .card .cardTitle {
+    font-size: var(--font-size-24);
+    line-height: var(--line-height-32);
+  }
+  .passwordGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-10);
+  }
+  .form > .submit {
+    justify-self: end;
+  }
+}
+@media (min-width: 1280px) {
   .columns {
-    grid-template-columns: minmax(280px, 1fr) minmax(0, 2fr);
+    grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
   }
 }
 
-.sessionList {
+/* ADM-16: current session as an inverse card, other devices as a two-column grid of cards. */
+.noticeRegion:empty {
+  /* Stays in the accessibility tree as a live region but takes no grid row or gap. */
+  position: absolute;
+}
+.noticeRegion:focus {
+  outline: none;
+}
+.currentCard {
   display: grid;
-  gap: var(--space-4);
-  margin: 0 0 var(--space-5);
-  padding: 0;
-  list-style: none;
+  gap: var(--space-5);
+  min-width: 0;
+  padding: var(--space-6) var(--space-8);
+  border-radius: var(--radius-xl);
+  background: var(--surface-inverse);
+  color: var(--text-inverse);
 }
-.sessionItem {
-  display: grid;
-  gap: var(--space-2);
-  padding: var(--space-4);
-  border: var(--border-width-hairline) solid var(--border-subtle);
-  border-radius: var(--radius-md);
-}
-.sessionItem[data-current] {
-  border-color: var(--border-strong);
-}
-.sessionTitle {
-  display: flex;
-  flex-wrap: wrap;
+.currentLabel {
+  display: inline-flex;
   align-items: center;
   gap: var(--space-2);
   margin: 0;
+  font-size: var(--font-size-12);
   font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  line-height: var(--line-height-16);
+  text-transform: uppercase;
+}
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: currentColor;
+}
+.currentGrid {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+}
+.currentGrid > div {
+  display: grid;
+  gap: var(--space-1);
+  align-content: start;
+  min-width: 0;
+}
+.currentGrid dt {
+  font-size: var(--font-size-14);
+  line-height: var(--line-height-20);
+}
+.currentGrid dd {
+  margin: 0;
+  font-size: var(--font-size-14);
+  line-height: var(--line-height-20);
+  overflow-wrap: anywhere;
+}
+.currentGrid .currentDevice {
+  font-size: var(--font-size-20);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-28);
+}
+.currentNote {
+  margin: 0;
+  font-size: var(--font-size-14);
+  line-height: var(--line-height-20);
+}
+.others {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+}
+.sectionTitle {
+  margin: 0;
+  font-size: var(--font-size-22);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-30);
+}
+.others p {
+  margin: 0;
+}
+.sessionGrid {
+  display: grid;
+  gap: var(--space-6);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sessionCard {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-6);
+  border: var(--border-width-hairline) solid var(--border-default);
+  border-radius: var(--radius-xl);
+}
+.sessionTitle {
+  margin: 0;
+  font-size: var(--font-size-18);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-26);
+  overflow-wrap: anywhere;
 }
 .sessionMeta {
   margin: 0;
   color: var(--text-secondary);
   font-size: var(--font-size-14);
+  line-height: var(--line-height-20);
+}
+.sessionEnd {
+  width: 100%;
+  margin-top: var(--space-3);
+}
+.endAll {
+  display: grid;
+  gap: var(--space-4);
+  align-items: center;
+}
+.warningBox {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+  border: var(--border-width-hairline) solid var(--border-default);
+  border-radius: var(--radius-xl);
+  font-size: var(--font-size-14);
+  line-height: var(--line-height-20);
+}
+.warningBox svg {
+  flex: none;
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 .methods {
   display: grid;
@@ -199,4 +450,20 @@
   margin: 0 0 var(--space-4);
   padding: 0;
   border: 0;
+}
+@media (min-width: 768px) {
+  .sessionGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .sectionTitle {
+    font-size: var(--font-size-24);
+    line-height: var(--line-height-32);
+  }
+  .currentGrid {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr);
+    align-items: end;
+  }
+  .endAll {
+    grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+  }
 }

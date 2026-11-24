@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CircleCheck } from "lucide-react";
+import { CircleCheck, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
@@ -21,11 +21,21 @@ import { Button } from "../ui/button";
 import { FormField } from "../ui/form-field";
 import { SecretForm } from "../ui/secret-form";
 import { PasswordInput } from "../ui/password-input";
+import { PageHeader } from "../ui/page-header";
 import { TextInput } from "../ui/text-input";
 import { AccountTabs } from "./account-tabs";
+import { formatWhen } from "./sessions-model";
 import styles from "./account.module.css";
 
 export type AccountData = { name: string; email: string; role: string };
+/** Own sessions as read on the server: the count for the tab and the current device for the profile card. */
+export type SessionsSummary = { count: number; current: { device: string | null; createdAt: string } | null };
+
+/** Up to two initials from the account name; none when the name has no letters (the avatar then shows an icon). */
+export function initialsOf(name: string): string {
+  return name.trim().split(/\s+/).map((word) => word.match(/\p{L}/u)?.[0] ?? "").filter(Boolean).slice(0, 2).join("")
+    .toLocaleUpperCase("pl-PL");
+}
 
 const nameSchema = z.object({
   name: z
@@ -85,9 +95,11 @@ export async function sessionAlive(): Promise<boolean | "unknown"> {
 export function AccountView({
   area,
   account,
+  sessions = null,
 }: {
   area: AuthArea;
   account: AccountData;
+  sessions?: SessionsSummary | null;
 }) {
   const where = paths(area);
   const [savedName, setSavedName] = useState(account.name);
@@ -166,14 +178,17 @@ export function AccountView({
     }
   };
 
+  const initials = initialsOf(savedName);
   return (
     <div className={styles.account} data-area={area}>
-      <p className={styles.lead}>
-        {area === "platform"
+      <PageHeader
+        trail="Konto / Profil i bezpieczeństwo"
+        title="Konto"
+        description={area === "platform"
           ? "Własne dane, hasło i obowiązkowe MFA platformy."
           : "Profil administratora, hasło, MFA i aktywne sesje."}
-      </p>
-      {area === "company" && <AccountTabs current="profile" />}
+      />
+      {area === "company" && <AccountTabs current="profile" sessionCount={sessions?.count ?? null} />}
       {logoutError && (
         <div className={styles.notice}>
           <Alert tone="error" title={logoutError} />
@@ -181,10 +196,22 @@ export function AccountView({
       )}
 
       <div className={styles.columns}>
-      <section className={styles.card} aria-labelledby="account-data">
-        <h2 id="account-data">Dane konta</h2>
+      <section className={`${styles.card} ${styles.profileCard}`} aria-labelledby="account-data">
+        <div className={styles.profileHead}>
+          <span className={styles.avatar} aria-hidden="true">
+            {initials || <UserRound size={32} />}
+          </span>
+          <div className={styles.profileText}>
+            <h2 id="account-data" className={styles.profileName}>{savedName}</h2>
+            <p className={styles.profileEmail}>{account.email}</p>
+          </div>
+        </div>
+        <p className={styles.profileRole}>
+          Rola: <span>{ROLE_LABEL[account.role] ?? account.role}</span>
+        </p>
         <SecretForm
           className={styles.form}
+          aria-label="Nazwa konta"
           aria-busy={profile.loading || undefined}
           onSubmit={nameForm.handleSubmit(({ name }) => {
             setNameSaved(false);
@@ -222,22 +249,13 @@ export function AccountView({
               })}
             />
           </FormField>
-          <dl className={styles.readOnly}>
-            <div>
-              <dt>Adres e-mail</dt>
-              <dd>{account.email}</dd>
-            </div>
-            <div>
-              <dt>Rola</dt>
-              <dd>{ROLE_LABEL[account.role] ?? account.role}</dd>
-            </div>
-          </dl>
           <ErrorNotice message={profile.error} cooldown={profile.cooldown} />
           {nameSaved && (
             <Alert tone="success" title={`Zapisano nazwę: ${savedName}`} />
           )}
           <Button
             type="submit"
+            variant="secondary"
             loading={profile.loading}
             loadingLabel="Zapisywanie…"
             disabled={profile.cooldown > 0}
@@ -245,19 +263,32 @@ export function AccountView({
             Zapisz nazwę
           </Button>
         </SecretForm>
+        {sessions?.current && (
+          <div className={styles.currentSession}>
+            <p className={styles.eyebrow}>Bieżąca sesja</p>
+            <p>{sessions.current.device ?? "Nieznane urządzenie"} • aktywna teraz</p>
+            <p className={styles.sessionMeta}>Utworzono {formatWhen(sessions.current.createdAt)}</p>
+          </div>
+        )}
         <Button
           variant="secondary"
+          className={styles.logout}
           loading={loggingOut}
           loadingLabel="Wylogowywanie…"
           onClick={logout}
         >
-          Wyloguj
+          Wyloguj się
         </Button>
       </section>
 
-      <section className={styles.card} aria-labelledby="account-security">
-        <h2 id="account-security">Bezpieczeństwo</h2>
-        <h3 id="account-password">Zmień hasło</h3>
+      <section className={`${styles.card} ${styles.securityCard}`} aria-labelledby="account-password">
+        <div className={styles.cardHead}>
+          <h2 id="account-password" className={styles.cardTitle}>Zmiana hasła</h2>
+          <p className={styles.cardDescription}>
+            Wymagamy aktualnego hasła. Po zmianie hasła wylogujemy Cię ze wszystkich urządzeń. Zalogujesz się nowym
+            hasłem i kodem MFA.
+          </p>
+        </div>
         <SecretForm
           className={styles.form}
           aria-labelledby="account-password"
@@ -291,50 +322,51 @@ export function AccountView({
             ),
           )}
         >
-          <p className={styles.warning}>
-            Po zmianie hasła wylogujemy Cię ze wszystkich urządzeń. Zalogujesz
-            się nowym hasłem i kodem MFA.
-          </p>
-          <PasswordInput
-            id="account-current"
-            label="Aktualne hasło"
-            autoComplete="current-password"
-            visibility={visibility}
-            onVisibilityChange={setVisibility}
-            disabled={change.loading}
-            error={passwordForm.formState.errors.current?.message}
-            {...passwordForm.register("current")}
-          />
-          <PasswordInput
-            id="account-new"
-            label="Nowe hasło"
-            autoComplete="new-password"
-            hint="12–256 znaków"
-            visibility={visibility}
-            onVisibilityChange={setVisibility}
-            disabled={change.loading}
-            aria-describedby="account-strength"
-            error={passwordForm.formState.errors.next?.message}
-            {...passwordForm.register("next")}
-          />
-          <PasswordStrength
-            id="account-strength"
-            level={strength.level} tooShort={strength.tooShort}
-            criteria={strength.criteria}
-          />
-          <PasswordInput
-            id="account-confirmation"
-            label="Potwierdź nowe hasło"
-            autoComplete="new-password"
-            visibility={visibility}
-            onVisibilityChange={setVisibility}
-            disabled={change.loading}
-            error={passwordForm.formState.errors.confirmation?.message}
-            {...passwordForm.register("confirmation")}
-          />
+          <div className={styles.passwordGrid}>
+            <PasswordInput
+              id="account-current"
+              label="Aktualne hasło"
+              autoComplete="current-password"
+              visibility={visibility}
+              onVisibilityChange={setVisibility}
+              disabled={change.loading}
+              error={passwordForm.formState.errors.current?.message}
+              {...passwordForm.register("current")}
+            />
+            <PasswordInput
+              id="account-new"
+              label="Nowe hasło"
+              autoComplete="new-password"
+              hint="12–256 znaków"
+              visibility={visibility}
+              onVisibilityChange={setVisibility}
+              disabled={change.loading}
+              aria-describedby="account-strength"
+              error={passwordForm.formState.errors.next?.message}
+              {...passwordForm.register("next")}
+            />
+            <PasswordInput
+              id="account-confirmation"
+              label="Potwierdź nowe hasło"
+              autoComplete="new-password"
+              visibility={visibility}
+              onVisibilityChange={setVisibility}
+              disabled={change.loading}
+              error={passwordForm.formState.errors.confirmation?.message}
+              {...passwordForm.register("confirmation")}
+            />
+            <div className={styles.criteria}>
+              <PasswordStrength
+                id="account-strength"
+                level={strength.level} tooShort={strength.tooShort}
+                criteria={strength.criteria}
+              />
+            </div>
+          </div>
           <ErrorNotice message={change.error} cooldown={change.cooldown} />
           <Button
             type="submit"
+            className={styles.submit}
             loading={change.loading}
             loadingLabel="Zmienianie hasła…"
             disabled={change.cooldown > 0}
@@ -343,43 +375,46 @@ export function AccountView({
           </Button>
         </SecretForm>
 
-        <hr className={styles.divider} />
-        <h3 id="account-mfa">Uwierzytelnianie MFA</h3>
-        <p className={styles.pill}>
-          <CircleCheck aria-hidden="true" size={16} />
-          <span>Włączone</span>
-        </p>
-        <p>
-          MFA jest obowiązkowe i nie można go wyłączyć. Kody odzyskania są
-          jednorazowe, a poprzedniej listy nie da się odczytać ponownie. Nowa
-          lista wymaga świeżego kodu z aplikacji lub kodu odzyskania oraz
-          hasła.
-        </p>
-        <div className={styles.actions}>
-          <Link
-            className={styles.secondaryLink}
-            href={`${where.mfa}?returnTo=${encodeURIComponent(where.account)}&recoverCodes=1`}
-          >
-            Wydaj nowe kody
-          </Link>
-          <Button
-            variant="secondary"
-            aria-expanded={manualOpen}
-            aria-controls="account-manual"
-            onClick={() => setManualOpen((open) => !open)}
-          >
-            Nie mam obu czynników
-          </Button>
-        </div>
-        {manualOpen && (
-          <div id="account-manual" className={styles.notice}>
-            <Alert tone="info" title="Odzyskanie wymaga ręcznej procedury właściciela.">
-              Bez aplikacji i kodów odzyskania nie ma samodzielnego obejścia.
-              Właściciel potwierdza tożsamość poza aplikacją, a dostęp
-              przywraca po zapisaniu osoby i podstawy w audycie.
-            </Alert>
+        <section className={styles.mfaCard} aria-labelledby="account-mfa">
+          <div className={styles.mfaHead}>
+            <h3 id="account-mfa" className={styles.mfaTitle}>Uwierzytelnianie dwuskładnikowe</h3>
+            <p className={styles.pill}>
+              <CircleCheck aria-hidden="true" size={16} />
+              <span>Włączone</span>
+            </p>
           </div>
-        )}
+          <p className={styles.mfaText}>
+            MFA jest obowiązkowe i nie można go wyłączyć. Kody odzyskania są
+            jednorazowe, a poprzedniej listy nie da się odczytać ponownie. Nowa
+            lista wymaga świeżego kodu z aplikacji lub kodu odzyskania oraz
+            hasła.
+          </p>
+          <div className={styles.actions}>
+            <Link
+              className={styles.secondaryLink}
+              href={`${where.mfa}?returnTo=${encodeURIComponent(where.account)}&recoverCodes=1`}
+            >
+              Wydaj nowe kody
+            </Link>
+            <Button
+              variant="secondary"
+              aria-expanded={manualOpen}
+              aria-controls="account-manual"
+              onClick={() => setManualOpen((open) => !open)}
+            >
+              Nie mam obu czynników
+            </Button>
+          </div>
+          {manualOpen && (
+            <div id="account-manual" className={styles.notice}>
+              <Alert tone="info" title="Odzyskanie wymaga ręcznej procedury właściciela.">
+                Bez aplikacji i kodów odzyskania nie ma samodzielnego obejścia.
+                Właściciel potwierdza tożsamość poza aplikacją, a dostęp
+                przywraca po zapisaniu osoby i podstawy w audycie.
+              </Alert>
+            </div>
+          )}
+        </section>
         {area === "platform" && (
           <Link className={styles.secondaryLink} href={`${where.account}/sesje/`} prefetch={false}>
             Aktywne sesje

@@ -39,7 +39,7 @@ async function lookupConflictFields(values: CompanyFormValues): Promise<FieldErr
   };
   const [bySlug, byEmail] = await Promise.all([find(v.slug), find(v.email)]);
   const errors: FieldErrors = {};
-  if (bySlug.some((item) => item.slug === v.slug)) errors.slug = "Ten slug jest zajęty. Wpisz inny.";
+  if (bySlug.some((item) => item.slug === v.slug)) errors.slug = "Ta nazwa w adresie jest zajęta. Wpisz inną.";
   if (byEmail.some((item) => item.account?.email.toLowerCase() === v.email))
     errors.adminEmail = "Ten e-mail ma już konto. Podaj inny adres.";
   return errors;
@@ -142,8 +142,8 @@ export function NewCompanyForm({ adminBaseDomain, publicBaseDomain }: Props) {
       } else if (outcome.kind === "conflict") {
         const found = await lookupConflictFields(current).catch((): FieldErrors => ({}));
         const resolved = Object.keys(found).length > 0 ? found : {
-          slug: "Ten slug lub e-mail jest już zajęty. Zmień jedno z pól.",
-          adminEmail: "Ten slug lub e-mail jest już zajęty. Zmień jedno z pól.",
+          slug: "Ta nazwa w adresie lub e-mail jest już zajęta. Zmień jedno z pól.",
+          adminEmail: "Ta nazwa w adresie lub e-mail jest już zajęta. Zmień jedno z pól.",
         };
         setErrors(resolved);
         setNotice({ tone: "error", title: `Nie zapisano. Popraw ${Object.keys(resolved).length === 1 ? "wskazane pole" : "wskazane pola"}.` });
@@ -245,7 +245,7 @@ export function NewCompanyForm({ adminBaseDomain, publicBaseDomain }: Props) {
           <legend>Adresy</legend>
           <p className={styles.hint}>Panel administratora i publiczna oferta mają osobne adresy. Własną domenę dodasz po zapisie, po weryfikacji DNS i TLS.</p>
           <div className={styles.fieldGrid}>
-          <FormField id={fieldIds.slug} label="Slug panelu" required error={errors.slug}
+          <FormField id={fieldIds.slug} label="Nazwa w adresie panelu" required error={errors.slug}
             hint="Krótka nazwa w adresie. Po zapisie nie zmienia się razem z nazwą firmy.">
             <TextInput value={values.slug} maxLength={40} placeholder="np. alfa" autoCapitalize="none" spellCheck={false}
               autoComplete="off" onChange={(event) => { slugManual.current = true; update({ slug: event.target.value }, "slug"); }} />
@@ -260,13 +260,13 @@ export function NewCompanyForm({ adminBaseDomain, publicBaseDomain }: Props) {
 
         <fieldset className={styles.section} disabled={saving} aria-describedby={`${formId}-period-hint`}>
           <legend>Okres usługi</legend>
-          <p id={`${formId}-period-hint`} className={styles.hint}>Opłacony okres albo jeden trial.</p>
+          <p id={`${formId}-period-hint`} className={styles.hint}>Opłacony okres albo jednorazowy okres próbny.</p>
           <div role="radiogroup" aria-label="Rodzaj okresu" className={styles.segments}>
             <label className={styles.segment}>
               <input id="company-period-trial" type="radio" name="periodKind" checked={values.periodKind === "trial"}
                 aria-describedby={errors.periodKind ? "company-period-error" : undefined}
                 onChange={() => update({ periodKind: "trial", paidThrough: "" }, "periodKind")} />
-              <span>Trial — 14 dni od rejestracji administratora</span>
+              <span>Okres próbny — 14 dni od rejestracji administratora</span>
             </label>
             <label className={styles.segment}>
               <input id="company-period-paid" type="radio" name="periodKind" checked={values.periodKind === "paid"}
@@ -278,11 +278,11 @@ export function NewCompanyForm({ adminBaseDomain, publicBaseDomain }: Props) {
           {errors.periodKind && <p id="company-period-error" className={styles.fieldError}>{errors.periodKind}</p>}
           {values.periodKind === "paid" && (
             <FormField id={fieldIds.paidThrough} label="Opłacono do dnia włącznie" required error={errors.paidThrough}
-              hint="Dzień kończy się o północy w strefie Europe/Warsaw.">
+              hint="Dzień kończy się o północy czasu polskiego.">
               <TextInput type="date" value={values.paidThrough} onChange={(event) => update({ paidThrough: event.target.value }, "paidThrough")} />
             </FormField>
           )}
-          <p className={styles.hint}>Trial nie startuje przy zapisie firmy, wysyłce ani ponowieniu — dopiero po rejestracji administratora.</p>
+          <p className={styles.hint}>Okres próbny nie startuje przy zapisie firmy, wysyłce ani ponowieniu — dopiero po rejestracji administratora.</p>
         </fieldset>
         </div>
 

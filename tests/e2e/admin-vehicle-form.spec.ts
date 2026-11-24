@@ -85,7 +85,7 @@ test("vehicle form: draft without data, publication gaps, publish, slug change, 
 
     // Changing the slug of a published vehicle asks for confirmation and records the redirect.
     await openSection("Dane podstawowe");
-    await page.getByLabel("Adres w witrynie (slug)").fill("bus-e2e-nowy");
+    await page.getByLabel("Nazwa w adresie").fill("bus-e2e-nowy");
     await page.getByRole("button", { name: "Zapisz zmiany" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Zmień adres i zapisz" }).click();
     await expect(page.getByText("Zapisano zmiany.")).toBeVisible();

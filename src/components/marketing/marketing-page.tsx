@@ -28,9 +28,24 @@ function CallLink({ contact, className, children }: { contact: Contact; classNam
   return <a className={className} href={contact.phone ? telHref(contact.phone) : "#kontakt"}>{children}</a>;
 }
 
+/** Brand sign „A” from design/assets/brand/auterva-symbol.svg (cropped to the glyph), next to the text wordmark. */
+function BrandSymbol() {
+  return (
+    <svg className={styles.brandSymbol} viewBox="12 12 24 24" width="24" height="24" aria-hidden="true" focusable="false">
+      <path fill="currentColor" fillRule="evenodd" d="M14 34 22.1 14h3.8L34 34h-4.6l-1.8-4.5h-7.2L18.6 34H14Zm10-13.9-2.1 5.7h4.2L24 20.1Z" />
+    </svg>
+  );
+}
+
 function Wordmark({ href }: { href?: string }) {
-  return href ? <a className={styles.wordmark} href={href} aria-label="Auterva — początek strony">AUTERVA</a>
-    : <span className={styles.wordmark}>AUTERVA</span>;
+  return href ? <a className={styles.wordmark} href={href} aria-label="Auterva — początek strony"><BrandSymbol />AUTERVA</a>
+    : <span className={styles.wordmark}><BrandSymbol />AUTERVA</span>;
+}
+
+/** MKT-01: the title breaks after the first sentence („Flota online.” / „Terminy pod kontrolą.”). */
+function HeroTitle({ text }: { text: string }) {
+  const [first, ...rest] = text.split(/(?<=\.)\s+/);
+  return <h1 className={styles.h1}><span className={styles.h1Line}>{first}</span>{rest.length ? <>{" "}<span className={styles.h1Line}>{rest.join(" ")}</span></> : null}</h1>;
 }
 
 function Section({ id, title, lead, tone, children }: { id: string; title: string; lead?: string; tone?: "dark"; children: ReactNode }) {
@@ -74,7 +89,7 @@ function SitePreview() {
         <div aria-hidden="true" className={styles.mockBar}><span /><span /><span /></div>
         <div aria-hidden="true" className={styles.mockSiteBody}>
           <div className={styles.mockImage}><DepotPicture /></div>
-          <p className={styles.mockTitle}>Wypożyczalnia DEMO</p>
+          <p className={styles.mockTitle}>Alfa Campers</p>
           <p className={styles.mockMeta}>Wybierz pojazd i sprawdź informacyjną dostępność.</p>
           <span className={styles.badge}><CircleCheck size={14} />Dostępny w wybranym terminie</span>
         </div>
@@ -138,10 +153,9 @@ export function MarketingPage({ contact }: { contact: Contact }) {
         <div id="top" className={styles.hero}>
           <div className={`${styles.container} ${styles.heroGrid}`}>
             <div className={styles.heroText}>
-              <p className={styles.eyebrow}>{heroCopy.eyebrow}</p>
-              <h1 className={styles.h1}>{heroCopy.title}</h1>
+              <HeroTitle text={heroCopy.title} />
               <p className={styles.lead}>{heroCopy.lead}</p>
-              <CallLink contact={contact} className={`${styles.cta} ${styles.ctaLarge}`}><Phone aria-hidden="true" size={20} />{heroCopy.cta}</CallLink>
+              <CallLink contact={contact} className={`${styles.cta} ${styles.ctaLarge}`}>{heroCopy.cta}</CallLink>
               <p className={styles.note}>{heroCopy.note}</p>
             </div>
             <HeroPreview />

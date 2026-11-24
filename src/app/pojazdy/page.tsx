@@ -54,7 +54,7 @@ export default async function CatalogPage({ searchParams }: Props) {
       <div className={styles.container}>
         <div className={styles.section}>
           <h1 className={styles.pageTitle}>Znajdź pojazd na swoją trasę</h1>
-          {result.state !== "EMPTY_OFFER" ? <p className={styles.sectionLead}>{pluralVehicles(result.total)} {filtered ? "w wynikach" : "w ofercie"}{applied.from ? ` · ${formatRangeLong(applied.from, applied.to!)}` : ""}</p> : null}
+          {result.state !== "EMPTY_OFFER" ? <p className={styles.pageLead}>{pluralVehicles(result.total)} {filtered ? "w wynikach" : "w ofercie"}{applied.from ? ` · ${formatRangeLong(applied.from, applied.to!)}` : ""}</p> : null}
           {problem ? <div role="alert" className={styles.notice}>{problem}</div> : null}
           {result.state === "EMPTY_OFFER" ? (
             <EmptyOffer contactHref={contactHref} level={2} />
@@ -75,7 +75,7 @@ export default async function CatalogPage({ searchParams }: Props) {
               ) : (
                 <>
                   <h2 className={styles.srOnly}>Lista pojazdów</h2>
-                  <ul className={`${styles.grid} ${styles.grid3}`}>
+                  <ul className={`${styles.grid} ${styles.grid3} ${styles.catalogGrid}`}>
                     {result.items.map((vehicle, index) => (
                       <li key={vehicle.slug}><VehicleCard vehicle={vehicle} range={range} headingLevel={3} priority={index === 0} /></li>
                     ))}

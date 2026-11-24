@@ -65,7 +65,7 @@ test("change log: local time from UTC, filters, cursor, superadmin as themselves
     await expect(page.getByRole("heading", { name: "Dziennik zmian", level: 2 })).toBeVisible();
     const list = page.getByRole("list", { name: "Wpisy dziennika zmian" });
     await expect(list.getByRole("listitem")).toHaveCount(30);
-    await expect(list).not.toContainText("Usunięcie blokady terminu");
+    await expect(list).not.toContainText("Usunięcie blokady");
     await expect(list).toContainText("Superadmin Autervy");
     // At 1440 px the header and every row are one column table (a container query cannot style its own container).
     const cells = await list.getByRole("listitem").first().locator("> div").evaluate((element) => ({
@@ -76,13 +76,17 @@ test("change log: local time from UTC, filters, cursor, superadmin as themselves
     await page.getByRole("button", { name: "Pokaż starsze" }).click();
     await expect(list.getByRole("listitem")).toHaveCount(32);
     await expect(page.getByText("To wszystkie wpisy")).toBeVisible();
-    await expect(list).not.toContainText("Usunięcie blokady terminu");
+    await expect(list).not.toContainText("Usunięcie blokady");
 
+    // ADM-17: the applied filters are summarized; the full form opens behind "Filtruj" and closes after "Zastosuj".
+    const openFilters = () => page.getByRole("button", { name: "Filtruj", exact: true }).click();
+    await openFilters();
     await page.getByLabel("Akcja").selectOption("AUTH_LOGOUT");
     await page.getByRole("button", { name: "Zastosuj" }).click();
     await page.getByRole("button", { name: /Szczegóły/ }).click();
     await expect(page.locator("body")).not.toContainText(adminA);
     await page.getByRole("button", { name: "Wyczyść", exact: true }).click();
+    await openFilters();
     await page.getByLabel("Akcja").selectOption("PERIOD_CHANGED");
     await page.getByRole("button", { name: "Zastosuj" }).click();
     await expect(list.getByRole("listitem")).toHaveCount(1);
@@ -92,6 +96,7 @@ test("change log: local time from UTC, filters, cursor, superadmin as themselves
     await page.getByRole("button", { name: /Szczegóły/ }).click();
     await expect(page.getByText("Identyfikator żądania", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Wyczyść", exact: true }).click();
+    await openFilters();
     await page.getByLabel("Akcja").selectOption("SETTINGS_CHANGED");
     await page.getByRole("button", { name: "Zastosuj" }).click();
     await page.getByRole("button", { name: /Szczegóły/ }).click();
@@ -102,6 +107,7 @@ test("change log: local time from UTC, filters, cursor, superadmin as themselves
     await expect(page.locator("body")).not.toContainText("+48 600");
     await page.getByRole("button", { name: "Wyczyść", exact: true }).click();
     // Empty result and inverted range.
+    await openFilters();
     await page.getByLabel("Od dnia").fill("2026-02-10");
     await page.getByLabel("Do dnia (włącznie)").fill("2026-02-09");
     await page.getByRole("button", { name: "Zastosuj" }).click();
@@ -110,6 +116,7 @@ test("change log: local time from UTC, filters, cursor, superadmin as themselves
     await page.getByRole("button", { name: "Zastosuj" }).click();
     await expect(page.getByRole("heading", { name: "Brak wyników" })).toBeVisible();
     // Keyboard: the filter form is reachable and operable without a pointer.
+    await openFilters();
     await page.getByLabel("Od dnia").focus();
     await expect(page.getByLabel("Od dnia")).toBeFocused();
     // A foreign company id is never a filter: the API refuses unknown query keys.
@@ -131,7 +138,7 @@ test("change log: local time from UTC, filters, cursor, superadmin as themselves
     const mobileList = mobile.getByRole("list", { name: "Wpisy dziennika zmian" });
     await expect(mobileList.getByRole("listitem")).toHaveCount(30);
     await expect(mobileList).toContainText("Superadmin Autervy");
-    await expect(mobileList).not.toContainText("Usunięcie blokady terminu");
+    await expect(mobileList).not.toContainText("Usunięcie blokady");
     // 320 px: no horizontal page scroll, the filter bar is a sheet toggled by a button.
     await mobile.setViewportSize({ width: 320, height: 700 });
     expect(await mobile.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
@@ -144,7 +151,7 @@ test("change log: local time from UTC, filters, cursor, superadmin as themselves
     // Another company's log comes from its own path.
     await mobile.goto(`${origin}/firmy/${orgB}/logi/`);
     await expect(mobile.getByRole("list", { name: "Wpisy dziennika zmian" }).getByRole("listitem")).toHaveCount(1);
-    await expect(mobile.getByRole("list", { name: "Wpisy dziennika zmian" })).toContainText("Usunięcie blokady terminu");
+    await expect(mobile.getByRole("list", { name: "Wpisy dziennika zmian" })).toContainText("Usunięcie blokady");
     // Unknown company: neutral 404.
     expect((await mobile.goto(`${origin}/firmy/${randomUUID()}/logi/`))?.status()).toBe(404);
   } finally {

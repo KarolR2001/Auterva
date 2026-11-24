@@ -7,7 +7,6 @@ import { denyPanel } from "@/components/panel/deny-panel";
 import { PurgeRunningNotice, purgeCompanyName, purgeNoticeState } from "@/components/platform/purge-running-notice";
 import { PanelShell } from "@/components/panel/panel-shell";
 import { SettingsNav } from "@/components/settings/settings-nav";
-import settingsStyles from "@/components/settings/settings.module.css";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireAuthorizedActor } from "@/modules/auth/authorization";
@@ -41,10 +40,12 @@ export default async function CompanyExternalCalendarPage({ params }: { params: 
       companyContext={{ id: organizationId, name }}
     >
       {purge ? <PurgeRunningNotice state={purge} /> : (
-        <div className={settingsStyles.layout}>
-          <SettingsNav base={base} current="kalendarz" />
-          <CalendarFeeds context={platformFeedContext(organizationId)} companyName={name} />
-        </div>
+        <CalendarFeeds
+          context={platformFeedContext(organizationId)}
+          companyName={name}
+          trail="Ustawienia firmy / Kalendarz zewnętrzny"
+          nav={<SettingsNav base={base} current="kalendarz" />}
+        />
       )}
     </PanelShell>
   );

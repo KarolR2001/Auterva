@@ -309,7 +309,7 @@ export function BulkBlocks({ context, mode, source, today, calendarHref, onClose
         onDiscard={() => { backState.current = "leaving"; setBackAsk(null); onClose(); }} />
       <h2 id="bulk-title" className={styles.title} ref={heading} tabIndex={-1}>{title}</h2>
       <p className={styles.sub}>{mode === "copy" ? "Skopiuj blokadę na inne pojazdy na te same daty. To nie jest rezerwacja terminu."
-        : `Do ${MAX_BULK_VEHICLES} pojazdów i jeden zakres dat (Europe/Warsaw, obie daty wliczone). Blokada nie jest rezerwacją terminu.`}</p>
+        : `Do ${MAX_BULK_VEHICLES} pojazdów i jeden zakres dat (czas polski, obie daty wliczone). Blokada nie jest rezerwacją terminu.`}</p>
 
       <div ref={banner} tabIndex={-1} className={styles.banner}>{bannerNode}</div>
       {summary.length > 0 && (

@@ -46,7 +46,7 @@ test("vehicle calendar: add, one day, overlap from two cards, version conflict, 
     const url = `${origin}/admin/pojazdy/${car}/kalendarz/`;
     const [page, second] = [await contexts[0].newPage(), await contexts[1].newPage()];
     const dialog = (target: Page) => target.getByRole("dialog");
-    const addButton = (target: Page) => target.getByRole("button", { name: "Dodaj okres niedostępności" }).last();
+    const addButton = (target: Page) => target.getByRole("button", { name: "Dodaj blokadę" }).last();
     const publicAvailable = async (from: string, to: string) => {
       const publicPage = await publicContext.newPage();
       try {
@@ -62,7 +62,7 @@ test("vehicle calendar: add, one day, overlap from two cards, version conflict, 
 
     // Empty state and the quick flow on a phone: day -> dates -> type -> save; the private fields stay private.
     await page.goto(url);
-    await expect(page.getByRole("heading", { name: "Kalendarz: Auto Kalendarzowe" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Kalendarz pojazdu: Auto Kalendarzowe" })).toBeVisible();
     await expect(page.getByText("Brak blokad w najbliższych 12 miesiącach", { exact: false })).toBeVisible();
     await addButton(page).click();
     await page.locator("#bc-from").fill(day(2));
@@ -70,7 +70,7 @@ test("vehicle calendar: add, one day, overlap from two cards, version conflict, 
     await page.locator("#bc-type").selectOption({ label: "Serwis" });
     await page.locator("#bc-reference").fill("CAL-REF-SECRET");
     await page.locator("#bc-internalNote").fill("CAL-NOTE-SECRET");
-    await dialog(page).getByRole("button", { name: "Dodaj blokadę" }).click();
+    await dialog(page).getByRole("button", { name: "Zapisz blokadę" }).click();
     await expect(page.getByText("Blokada została dodana.")).toBeVisible();
     await expect(page.getByText("Serwis").first()).toBeVisible();
     const stored = await db.availabilityBlock.findMany({ where: { vehicleId: car } });
@@ -90,7 +90,7 @@ test("vehicle calendar: add, one day, overlap from two cards, version conflict, 
     await second.locator("#bc-from").fill(day(2));
     await second.locator("#bc-to").fill(day(4));
     await second.locator("#bc-reference").fill("MOJ-NR");
-    await dialog(second).getByRole("button", { name: "Dodaj blokadę" }).click();
+    await dialog(second).getByRole("button", { name: "Zapisz blokadę" }).click();
     await expect(dialog(second).getByText("Termin nakłada się na istniejącą blokadę.")).toBeVisible();
     await expect(dialog(second).locator("#bc-reference")).toHaveValue("MOJ-NR");
     await expect(dialog(second).getByText("Serwis", { exact: false }).first()).toBeVisible();
@@ -110,7 +110,7 @@ test("vehicle calendar: add, one day, overlap from two cards, version conflict, 
       await card.locator("#bc-to").fill(day(12));
       await card.locator("#bc-reference").fill(`RACE-${index}`);
     }));
-    await Promise.all(racers.map((card) => dialog(card).getByRole("button", { name: "Dodaj blokadę" }).click()));
+    await Promise.all(racers.map((card) => dialog(card).getByRole("button", { name: "Zapisz blokadę" }).click()));
     await expect.poll(async () => db.availabilityBlock.count({ where: { vehicleId: car, from: sqlDate(day(10)) } })).toBe(1);
     await expect.poll(async () => (await Promise.all(racers.map(async (card) =>
       (await card.getByText("Termin nakłada się na istniejącą blokadę.").count()) + (await card.getByText("Blokada została dodana.").count())))).every((count) => count >= 1)).toBe(true);
@@ -155,7 +155,7 @@ test("vehicle calendar: add, one day, overlap from two cards, version conflict, 
     await second.locator("#bc-from").fill(day(-5));
     await second.locator("#bc-to").fill(day(-4));
     await expect(dialog(second).getByText("Termin zaczyna się w przeszłości.")).toBeVisible();
-    await dialog(second).getByRole("button", { name: "Dodaj blokadę" }).click();
+    await dialog(second).getByRole("button", { name: "Zapisz blokadę" }).click();
     await expect(dialog(second).getByText("Potwierdź zapis okresu z przeszłości.").first()).toBeVisible();
     await dialog(second).getByRole("button", { name: "Zamknij" }).click();
     await dialog(second).getByRole("button", { name: "Odrzuć wpisane dane" }).click();
@@ -183,7 +183,7 @@ test("vehicle calendar: add, one day, overlap from two cards, version conflict, 
     for (const width of [320, 390, 768, 1024, 1440, 1920]) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto(url);
-      await expect(page.getByRole("heading", { name: "Kalendarz: Auto Kalendarzowe" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Kalendarz pojazdu: Auto Kalendarzowe" })).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), `overflow at ${width}`).toBe(true);
     }
 
@@ -192,7 +192,7 @@ test("vehicle calendar: add, one day, overlap from two cards, version conflict, 
     await page.goto(url);
     await expect(page.getByRole("status", { name: "Ładowanie kalendarza pojazdu" })).toHaveCount(0);
     await expect(page.getByText("Pojazd jest zarchiwizowany.").first()).toBeVisible();
-    await expect(page.getByRole("button", { name: "Dodaj okres niedostępności" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Dodaj blokadę" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Usuń blokadę/ }).first()).toBeVisible();
 
     // Isolation: company B's admin never sees company A's vehicle calendar.

@@ -1,13 +1,15 @@
 "use client";
 
 import { Ban, Check, Circle, CircleCheck, Copy, Info, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import { useUnsavedChanges } from "../panel/unsaved-changes-guard";
 import { legacyCopy } from "../public/copy-button";
 import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
 import { Dialog } from "../ui/dialog";
+import { PageHeader } from "../ui/page-header";
+import settingsStyles from "../settings/settings.module.css";
 import { FormField } from "../ui/form-field";
 import { TextInput } from "../ui/text-input";
 import { createFeed, listFeeds, revokeFeed, rotateFeed, type FeedContext, type FeedResult } from "./feed-api";
@@ -38,13 +40,17 @@ type Props = {
   /** Superadmin view: the company whose addresses are shown (create and rotate stay with the company admin). */
   companyName?: string;
   now?: Date;
+  /** Settings section nav (ADM-22): the page header then spans the nav and the content, like the other settings. */
+  nav?: ReactNode;
+  /** Trail above the title, e.g. "Ustawienia / Kalendarz zewnętrzny". */
+  trail?: string;
 };
 
 /**
  * ADM-22 (#355): private iCal addresses of the company. The address exists only in the answer of create or rotate and
  * only in this component's state until it is closed; it never goes to the URL, storage, logs or server props.
  */
-export function CalendarFeeds({ context, companyName, now: fixedNow }: Props) {
+export function CalendarFeeds({ context, companyName, now: fixedNow, nav, trail }: Props) {
   const [phase, setPhase] = useState<"loading" | "error" | "ready">("loading");
   const [list, setList] = useState<FeedList | null>(null);
   const [view, setView] = useState<View>("list");
@@ -268,13 +274,9 @@ export function CalendarFeeds({ context, companyName, now: fixedNow }: Props) {
     : companyName ? `Adresy kalendarza firmy ${companyName}. Widok superadmina.`
     : "Prywatny adres kalendarza (iCal) dla Twojej aplikacji. Pokazuje tylko „Niedostępny”.";
 
-  return (
-    <div className={styles.screen}>
-      <header className={styles.header}>
-        <h2 ref={headingRef} tabIndex={-1}>{heading}</h2>
-        <p className={styles.lead}>{lead}</p>
-      </header>
-
+  const header = <PageHeader trail={trail} title={heading} description={lead} headingRef={headingRef} />;
+  const content = (
+    <>
       <div ref={noticeRef} tabIndex={-1} className={styles.notice} role="status" aria-live="polite">
         {notice && <Alert tone={notice.tone} title={notice.title} action={notice.action}>{notice.text}</Alert>}
       </div>
@@ -488,6 +490,24 @@ export function CalendarFeeds({ context, companyName, now: fixedNow }: Props) {
       >
         <Alert tone="warning" title="Tej operacji nie można cofnąć">Nowy adres utworzysz osobno.</Alert>
       </Dialog>
+    </>
+  );
+
+  if (!nav) {
+    return (
+      <div className={styles.screen}>
+        {header}
+        {content}
+      </div>
+    );
+  }
+  return (
+    <div className={settingsStyles.page}>
+      {header}
+      <div className={settingsStyles.layout}>
+        {nav}
+        <div className={styles.screen}>{content}</div>
+      </div>
     </div>
   );
 }

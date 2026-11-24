@@ -17,12 +17,13 @@ describe("MKT-01 onepage", () => {
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     for (const id of ["korzysci", "podglad", "jak-to-dziala", "faq", "kontakt"]) expect(document.getElementById(id)).not.toBeNull();
     const nav = screen.getByRole("navigation", { name: "Sekcje strony" });
-    expect(within(nav).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual(["#korzysci", "#podglad", "#jak-to-dziala", "#kontakt"]);
+    expect(within(nav).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual(["#podglad", "#jak-to-dziala", "#korzysci", "#kontakt"]);
   });
 
   it("bez prawdziwych danych kontakt jest nieaktywny: CTA prowadzi do sekcji, brak tel/mailto/wa.me", () => {
     const { container } = render(<MarketingPage contact={inactive} />);
-    expect(screen.getByText("Dane DEMO — kontakt nieaktywny")).toBeVisible();
+    expect(screen.getByText("Kontakt jeszcze nieaktywny")).toBeVisible();
+    expect(document.body.textContent).not.toMatch(/DEMO/);
     for (const link of screen.getAllByRole("link", { name: /Zadzwoń/ })) expect(link).toHaveAttribute("href", "#kontakt");
     expect(container.querySelector('a[href^="tel:"], a[href^="mailto:"], a[href*="wa.me"]')).toBeNull();
     expect(screen.getByText("Napisz na WhatsApp").closest("p")).toHaveTextContent("nieaktywne");

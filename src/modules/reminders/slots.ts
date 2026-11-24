@@ -105,9 +105,9 @@ export function reminderMessage(input: ReminderCopyInput): { subject: string; bo
       : days <= 0 ? `Dziś jest ostatni opłacony dzień usługi: ${when}.`
         : `Opłacony okres usługi kończy się ${phrase}. Ostatni opłacony dzień: ${when}.`;
   } else {
-    subject = expired ? "Trial Autervy już wygasł" : "Trial Autervy wkrótce się kończy";
-    body = expired ? `Trial już wygasł (${when}).`
-      : days <= 0 ? `Trial kończy się dziś: ${when}.` : `Trial kończy się ${when} (${phrase}).`;
+    subject = expired ? "Okres próbny Autervy już wygasł" : "Okres próbny Autervy wkrótce się kończy";
+    body = expired ? `Okres próbny już wygasł (${when}).`
+      : days <= 0 ? `Okres próbny kończy się dziś: ${when}.` : `Okres próbny kończy się ${when} (${phrase}).`;
   }
   const notes: string[] = [];
   if (expired) notes.push(EXPIRED_NOTICE);

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { addDays, blocksWithin, nearestBlocks, warsawToday } from "../../src/components/admin/dashboard";
+import { addDays, attentionText, blocksWithin, fleetQuality, nearestBlocks, nearestNote, rangeText, warsawToday } from "../../src/components/admin/dashboard";
 import { emptyQuery, errorMessage, isUncertain, queryFromSearch, readErrorMessage, rowActions, searchFromQuery, statusSummary } from "../../src/components/admin/fleet-api";
 import type { FleetItem } from "../../src/components/admin/fleet-api";
-import { filtersActive, REORDER_LIMIT, reorderPayload } from "../../src/components/admin/vehicle-list";
+import { changedText, filtersActive, rangeSummary, REORDER_LIMIT, reorderPayload } from "../../src/components/admin/vehicle-list";
 
 const item = (id: string, sortOrder: number, version = 0): FleetItem => ({ id, name: id, slug: id, status: "PUBLISHED", category: null,
   sortOrder, version, updatedAt: "2026-10-29T10:00:00.000Z", price: null, cover: null, activeToday: true, availableToday: true });
@@ -100,6 +100,26 @@ describe("#34 dashboard", () => {
     expect(blocks[0].vehicleName).toBe("Pojazd bez nazwy");
   });
 
+  it("names block ranges like ADM-04, inclusive and with one day valid", () => {
+    expect(rangeText("2026-09-25", "2026-09-27")).toBe("25–27 września • 3 dni");
+    expect(rangeText("2026-09-28", "2026-09-28")).toBe("28 września • 1 dzień");
+    expect(rangeText("2026-09-30", "2026-10-02")).toBe("30 września – 2 października • 3 dni");
+    expect(nearestNote([{ from: "2026-09-25" }], "2026-09-24")).toBe("najbliższa jutro");
+    expect(nearestNote([{ from: "2026-09-20" }], "2026-09-24")).toBe("najbliższa dziś");
+    expect(nearestNote([{ from: "2026-10-20" }], "2026-09-24")).toBeUndefined();
+    expect(nearestNote([], "2026-09-24")).toBeUndefined();
+  });
+
+  it("counts data-quality warnings without archived vehicles", () => {
+    const cover = { id: "c", alt: "Widok z boku" };
+    expect(fleetQuality([
+      { status: "PUBLISHED", price: null, cover },
+      { status: "PUBLISHED", price: "300", cover: null },
+      { status: "DRAFT", price: null, cover: null },
+      { status: "ARCHIVED", price: null, cover: null },
+    ])).toEqual({ noPrice: 2, noCover: 2, publishedNeedingAttention: 2 });
+  });
+
   it("keeps list filters in the address and falls back to defaults for malformed values (D-42)", () => {
     const category = "3f2b8c1e-5a4d-4e6f-9a1b-2c3d4e5f6a7b";
     const query = { ...emptyQuery, search: "van", status: "PUBLISHED" as const, categoryId: category,
@@ -117,5 +137,26 @@ describe("#34 dashboard", () => {
     // Compact (mobile) line like the mockup "6 pojazdów • 1 ukryty": published are implied, all-published fleet names them.
     expect(statusSummary({ all: 6, published: 5, draft: 0, unpublished: 1, archived: 0 }, true)).toBe("6 pojazdów • 1 ukryty");
     expect(statusSummary({ all: 3, published: 3, draft: 0, unpublished: 0, archived: 0 }, true)).toBe("3 pojazdy • 3 opublikowane");
+  });
+});
+
+describe("ADM-04/05: teksty z makiet", () => {
+  it("„Ostatnia zmiana” liczy dni kalendarzowe w Warszawie: dziś z godziną, wczoraj, N dni temu, potem data", () => {
+    const now = new Date("2026-11-24T10:00:00.000Z");
+    expect(changedText("2026-11-24T08:12:00.000Z", now)).toEqual({ long: "Dziś 09:12", short: "dziś" });
+    // 23:30 UTC on the 23rd is already the 24th in Warsaw.
+    expect(changedText("2026-11-23T23:30:00.000Z", now).short).toBe("dziś");
+    expect(changedText("2026-11-23T12:00:00.000Z", now)).toEqual({ long: "Wczoraj", short: "wczoraj" });
+    expect(changedText("2026-11-21T12:00:00.000Z", now).long).toBe("3 dni temu");
+    expect(changedText("2026-11-10T12:00:00.000Z", now).long).toBe("10 lis 2026");
+  });
+
+  it("zakres strony i liczba elementów jakości danych odmieniają się po polsku", () => {
+    expect(rangeSummary(1, 20, 6, 6)).toBe("1–6 z 6 pojazdów");
+    expect(rangeSummary(2, 20, 2, 22)).toBe("21–22 z 22 pojazdów");
+    expect(rangeSummary(1, 20, 1, 1)).toBe("1–1 z 1 pojazdu");
+    expect(attentionText(1)).toBe("1 element wymaga uwagi");
+    expect(attentionText(3)).toBe("3 elementy wymagają uwagi");
+    expect(attentionText(8)).toBe("8 elementów wymaga uwagi");
   });
 });

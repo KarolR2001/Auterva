@@ -52,14 +52,14 @@ describe("karta firmy i zaproszenie (#25)", () => {
     expect(screen.getAllByRole("button", { name: "Zapisz firmę" })).toHaveLength(1);
     expect(screen.getByRole("link", { name: "Anuluj" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Przed wysłaniem zaproszenia" })).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Trial/)).toBeInTheDocument();
-    expect(screen.getByText("Trial — 14 dni od rejestracji administratora")).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Okres próbny/)).toBeInTheDocument();
+    expect(screen.getByText("Okres próbny — 14 dni od rejestracji administratora")).toBeInTheDocument();
     expect(screen.queryByText(/336/)).toBeNull();
   });
 
   it("karta firmy opisuje trial jako 14 dni od rejestracji administratora (D-38)", () => {
     shell(<CompanyCard initial={base} justSaved={false} />);
-    expect(screen.getByText("Trial (14 dni od rejestracji administratora)")).toBeInTheDocument();
+    expect(screen.getByText("Okres próbny (14 dni od rejestracji administratora)")).toBeInTheDocument();
     expect(screen.queryByText(/336/)).toBeNull();
   });
 
@@ -205,7 +205,7 @@ describe("formularz nowej firmy w shellu (#25)", () => {
   const fill = async (user: ReturnType<typeof userEvent.setup>) => {
     await user.type(screen.getByLabelText(/Nazwa firmy/), "Alfa Campers");
     await user.type(screen.getByLabelText(/E-mail administratora/), "Admin@Alfa.pl");
-    await user.click(screen.getByLabelText(/^Trial/));
+    await user.click(screen.getByLabelText(/^Okres próbny/));
   };
 
   it("slug podąża za nazwą do ręcznej edycji, błędy walidacji wskazują pola", async () => {
@@ -215,11 +215,11 @@ describe("formularz nowej firmy w shellu (#25)", () => {
     expect(screen.getByText("Wpisz nazwę firmy.")).toBeInTheDocument();
     await waitFor(() => expect(screen.getByLabelText(/Nazwa firmy/)).toHaveFocus());
     await user.type(screen.getByLabelText(/Nazwa firmy/), "Łódź Rent");
-    expect(screen.getByLabelText(/Slug panelu/)).toHaveValue("lodz-rent");
-    await user.clear(screen.getByLabelText(/Slug panelu/));
-    await user.type(screen.getByLabelText(/Slug panelu/), "moj");
+    expect(screen.getByLabelText(/Nazwa w adresie panelu/)).toHaveValue("lodz-rent");
+    await user.clear(screen.getByLabelText(/Nazwa w adresie panelu/));
+    await user.type(screen.getByLabelText(/Nazwa w adresie panelu/), "moj");
     await user.type(screen.getByLabelText(/Nazwa firmy/), "2");
-    expect(screen.getByLabelText(/Slug panelu/)).toHaveValue("moj");
+    expect(screen.getByLabelText(/Nazwa w adresie panelu/)).toHaveValue("moj");
   });
 
   it("awaria wysyłki zachowuje dane i ponawia z tym samym kluczem; zapis przechodzi dalej bez ostrzeżenia", async () => {
@@ -253,7 +253,7 @@ describe("formularz nowej firmy w shellu (#25)", () => {
     shell(<NewCompanyForm adminBaseDomain="a.test" publicBaseDomain="p.test" />);
     await fill(user);
     await user.click(screen.getByRole("button", { name: "Zapisz firmę" }));
-    await waitFor(() => expect(screen.getAllByText(/zajęty/).length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getAllByText(/zajęt[ya]/).length).toBeGreaterThan(0));
     await user.click(screen.getByRole("link", { name: "Anuluj" }));
     expect(screen.getByRole("alertdialog", { name: "Niezapisane zmiany" })).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Zostań" }));

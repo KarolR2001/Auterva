@@ -134,7 +134,7 @@ describe("#39 kalendarz pojazdu", () => {
     expect(within(dialog).getByLabelText(/^Od/)).toHaveValue("2026-11-20");
     expect(within(dialog).getByLabelText(/^Do/)).toHaveValue("2026-11-20");
     await user.selectOptions(within(dialog).getByLabelText(/^Typ/), "MAINTENANCE");
-    await user.click(within(dialog).getByRole("button", { name: "Dodaj blokadę" }));
+    await user.click(within(dialog).getByRole("button", { name: "Zapisz blokadę" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     const post = server.calls.find((call) => call.method === "POST")!;
     expect(post.body).toEqual({ fields: { from: "2026-11-20", to: "2026-11-20", type: "MAINTENANCE" } });
@@ -163,12 +163,12 @@ describe("#39 kalendarz pojazdu", () => {
       fail: (call) => (call.method === "POST" ? reply(409, { code: "BLOCK_OVERLAP", conflict: { id: "ex", from: existing.from, to: existing.to, type: "MAINTENANCE", version: 7 } }) : null) };
     install(server); mount();
     await user.click(await day(/11 listopada 2026, wolny/));
-    await user.click(screen.getAllByRole("button", { name: "Dodaj okres niedostępności" })[0]!);
+    await user.click(screen.getAllByRole("button", { name: "Dodaj blokadę" })[0]!);
     const dialog = await screen.findByRole("dialog");
     await user.clear(within(dialog).getByLabelText(/^Do/));
     await user.type(within(dialog).getByLabelText(/^Do/), "2026-11-13");
     await user.type(within(dialog).getByLabelText(/Numer odniesienia/), "MOJ-NR");
-    await user.click(within(dialog).getByRole("button", { name: "Dodaj blokadę" }));
+    await user.click(within(dialog).getByRole("button", { name: "Zapisz blokadę" }));
     expect(await within(dialog).findByText("Termin nakłada się na istniejącą blokadę.")).toBeInTheDocument();
     expect(within(dialog).getByLabelText(/Numer odniesienia/)).toHaveValue("MOJ-NR");
     expect(within(dialog).getByLabelText(/^Do/)).toHaveValue("2026-11-13");
@@ -272,16 +272,16 @@ describe("#39 kalendarz pojazdu", () => {
     const user = userEvent.setup();
     const server: Server = { blocks: [], calls: [] };
     install(server); mount();
-    await user.click((await screen.findAllByRole("button", { name: "Dodaj okres niedostępności" }))[0]!);
+    await user.click((await screen.findAllByRole("button", { name: "Dodaj blokadę" }))[0]!);
     const dialog = await screen.findByRole("dialog");
     await user.type(within(dialog).getByLabelText(/^Od/), "2026-11-01");
     await user.type(within(dialog).getByLabelText(/^Do/), "2026-11-03");
     expect(await within(dialog).findByText("Termin zaczyna się w przeszłości.")).toBeInTheDocument();
-    await user.click(within(dialog).getByRole("button", { name: "Dodaj blokadę" }));
+    await user.click(within(dialog).getByRole("button", { name: "Zapisz blokadę" }));
     expect(await within(dialog).findByText("Potwierdź zapis okresu z przeszłości.")).toBeInTheDocument();
     expect(server.calls.some((call) => call.method === "POST")).toBe(false);
     await user.click(within(dialog).getByLabelText("Rozumiem, zapisz okres z przeszłości"));
-    await user.click(within(dialog).getByRole("button", { name: "Dodaj blokadę" }));
+    await user.click(within(dialog).getByRole("button", { name: "Zapisz blokadę" }));
     await waitFor(() => expect(server.calls.some((call) => call.method === "POST")).toBe(true));
   });
 
@@ -299,11 +299,11 @@ describe("#39 kalendarz pojazdu", () => {
       return null;
     };
     install(server); mount();
-    await user.click((await screen.findAllByRole("button", { name: "Dodaj okres niedostępności" }))[0]!);
+    await user.click((await screen.findAllByRole("button", { name: "Dodaj blokadę" }))[0]!);
     const dialog = await screen.findByRole("dialog");
     await user.type(within(dialog).getByLabelText(/^Od/), "2026-11-20");
     await user.type(within(dialog).getByLabelText(/^Do/), "2026-11-21");
-    await user.click(within(dialog).getByRole("button", { name: "Dodaj blokadę" }));
+    await user.click(within(dialog).getByRole("button", { name: "Zapisz blokadę" }));
     expect(await within(dialog).findByText("Nie wiemy, czy zmiana została zapisana.")).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Sprawdź stan" }));
     // A block of the same range is only a candidate: the user confirms it, nothing is claimed automatically.
@@ -321,15 +321,15 @@ describe("#39 kalendarz pojazdu", () => {
     let lose = true;
     server.fail = (call) => { if (call.method === "POST" && lose) { lose = false; throw new TypeError("network"); } return null; };
     install(server); mount();
-    await user.click((await screen.findAllByRole("button", { name: "Dodaj okres niedostępności" }))[0]!);
+    await user.click((await screen.findAllByRole("button", { name: "Dodaj blokadę" }))[0]!);
     const dialog = await screen.findByRole("dialog");
     await user.type(within(dialog).getByLabelText(/^Od/), "2026-11-20");
     await user.type(within(dialog).getByLabelText(/^Do/), "2026-11-21");
-    await user.click(within(dialog).getByRole("button", { name: "Dodaj blokadę" }));
+    await user.click(within(dialog).getByRole("button", { name: "Zapisz blokadę" }));
     await user.click(await within(dialog).findByRole("button", { name: "Sprawdź stan" }));
     expect(await within(dialog).findByText(/Zmiana nie została zapisana/)).toBeInTheDocument();
     expect(within(dialog).getByLabelText(/^Od/)).toHaveValue("2026-11-20");
-    await user.click(within(dialog).getByRole("button", { name: "Dodaj blokadę" }));
+    await user.click(within(dialog).getByRole("button", { name: "Zapisz blokadę" }));
     await waitFor(() => expect(server.calls.filter((call) => call.method === "POST")).toHaveLength(2));
   });
 
@@ -356,7 +356,7 @@ describe("#39 kalendarz pojazdu", () => {
     const server: Server = { blocks: [], calls: [] };
     server.fail = (call) => { if (call.method === "POST") throw new TypeError("network"); return null; };
     install(server); mount();
-    await user.click((await screen.findAllByRole("button", { name: "Dodaj okres niedostępności" }))[0]!);
+    await user.click((await screen.findAllByRole("button", { name: "Dodaj blokadę" }))[0]!);
     const dialog = await screen.findByRole("dialog");
     await user.type(within(dialog).getByLabelText(/^Od/), "2026-11-20");
     await user.type(within(dialog).getByLabelText(/^Do/), "2026-11-21");
@@ -412,7 +412,7 @@ describe("#39 kalendarz pojazdu", () => {
     expect(order.indexOf(links[0]!)).toBeLessThan(order.indexOf(within(dialog).getByRole("button", { name: "Zamknij" })));
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    await user.click(screen.getAllByRole("button", { name: "Dodaj okres niedostępności" })[0]!);
+    await user.click(screen.getAllByRole("button", { name: "Dodaj blokadę" })[0]!);
     expect(within(await screen.findByRole("dialog")).queryByRole("link", { name: "Kopiuj na inne auta" })).not.toBeInTheDocument();
   });
 
@@ -441,7 +441,7 @@ describe("#39 kalendarz pojazdu", () => {
     const server: Server = { blocks: [block()], calls: [] };
     install(server, { status: "ARCHIVED" }); mount();
     expect(await screen.findByText("Pojazd jest zarchiwizowany.")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Dodaj okres niedostępności" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Dodaj blokadę" })).toBeNull();
     expect(screen.getByRole("button", { name: /Usuń blokadę/ })).toBeInTheDocument();
   });
 });

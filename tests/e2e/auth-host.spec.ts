@@ -224,7 +224,7 @@ test("an open panel distinguishes network failure from server revocation", async
     );
     await page.goto(`${origin.origin}/admin/`);
     await firstCheck;
-    await expect(page.getByRole("heading", { name: "Panel", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Dzień dobry", exact: true })).toBeVisible();
 
     const sessionUrl = /\/api\/auth\/get-session\/?$/;
     const interrupt = (route: import("@playwright/test").Route) =>
@@ -234,19 +234,19 @@ test("an open panel distinguishes network failure from server revocation", async
     await expect(
       page.getByText("Nie udało się sprawdzić dostępu"),
     ).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Panel", exact: true })).toBeHidden();
+    await expect(page.getByRole("heading", { name: "Dzień dobry", exact: true })).toBeHidden();
     await expect(page.getByText("Sesja wygasła")).toHaveCount(0);
 
     await page.unroute(sessionUrl, interrupt);
     await page.getByRole("button", { name: "Spróbuj ponownie" }).click();
     // The dashboard heading comes from a client component on the dev server of this project; allow for a loaded machine.
-    await expect(page.getByRole("heading", { name: "Panel", exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("heading", { name: "Dzień dobry", exact: true })).toBeVisible({ timeout: 20_000 });
 
     await session.dispose();
     await expect(page.getByText("Sesja wygasła")).toBeVisible({
       timeout: 20_000,
     });
-    await expect(page.getByRole("heading", { name: "Panel", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Dzień dobry", exact: true })).toHaveCount(0);
   } finally {
     await session.dispose();
     await db.user.deleteMany({ where: { id: userId } });
@@ -279,7 +279,7 @@ test("a cold start of the company panel without a session lands on the login of 
   try {
     await page.goto(`${origin.origin}/admin/`);
     await expect(page).toHaveURL(/\/admin\/login\/?\?returnTo=%2Fadmin$/);
-    await expect(page.getByRole("heading", { name: "Panel", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Dzień dobry", exact: true })).toHaveCount(0);
   } finally {
     await db.hostMapping.deleteMany({ where: { hostname } });
     await db.organization.deleteMany({ where: { id: organizationId } });

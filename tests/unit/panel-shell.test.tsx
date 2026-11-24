@@ -70,8 +70,21 @@ describe("nawigacja panelu", () => {
     expect(within(crumbs).getByRole("heading", { level: 1, name: "Firma Alfa" })).toBeVisible();
     const sidebar = screen.getByRole("navigation", { name: "Nawigacja panelu" });
     const labels = within(sidebar).getAllByRole("link").map((link) => link.textContent);
-    expect(labels).toEqual(["Auterva", "Dashboard", "Pojazdy", "Kalendarz floty", "Czat z Autervą", "Ustawienia", "Konto"]);
+    expect(labels).toEqual(["Auterva", "Pulpit", "Pojazdy", "Czat z Autervą", "Ustawienia", "Konto"]);
+    expect(within(sidebar).getByText("Panel firmy")).toBeVisible();
     expect(screen.getByRole("button", { name: "Menu użytkownika" })).toBeVisible();
+  });
+
+  it("na kalendarzu floty oznacza Pojazdy jako bieżącą pozycję (ADM-10)", () => {
+    render(
+      <PanelShell area="company" accessState="allowed" title="Kalendarz floty" currentPath="/admin/kalendarz" onLogout={vi.fn()}>
+        <p>Treść</p>
+      </PanelShell>,
+    );
+    for (const name of ["Nawigacja panelu", "Nawigacja mobilna"]) {
+      const nav = screen.getByRole("navigation", { name });
+      expect(within(nav).getByRole("link", { name: "Pojazdy" })).toHaveAttribute("aria-current", "page");
+    }
   });
 
   it("utrzymuje aktora platformy i powrót do wybranej firmy bez pulpitu platformy", () => {
@@ -225,6 +238,10 @@ describe("nawigacja panelu", () => {
       within(menu).getByRole("link", { name: "Dziennik zmian" }),
     ).toHaveAttribute("href", "/admin/logi");
     expect(within(menu).queryByRole("link", { name: /sesje/i })).toBeNull();
+    // OVR-17: one order of the sheet, "Wyloguj" last.
+    expect(within(menu).getAllByRole("link").map((link) => link.textContent)).toEqual(
+      ["Kalendarz floty", "Dziennik zmian", "Status usługi", "Ustawienia", "Konto"]);
+    expect(within(menu).getAllByRole("button").map((button) => button.textContent)).toEqual(["Zamknij", "Wyloguj"]);
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(more).toHaveFocus();

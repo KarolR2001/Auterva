@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarClock, CircleCheck, CircleSlash, Globe, GlobeLock } from "lucide-react";
+import { Check, CircleSlash } from "lucide-react";
 import { createContext, useContext, useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 
 import type { ServiceStatusDto } from "@/modules/reminders/read";
@@ -106,17 +106,17 @@ export function ServiceReminder() {
   );
 }
 
-function periodLines(dto: ServiceStatusDto): { label: string; detail: string }[] {
+function periodLines(dto: ServiceStatusDto): string[] {
   const { period } = dto;
-  const lines: { label: string; detail: string }[] = [];
-  if (period.headline === "NOT_STARTED") return [{ label: "Okres usługi", detail: "Rozpocznie się po rejestracji administratora." }];
+  const lines: string[] = [];
+  if (period.headline === "NOT_STARTED") return ["Rozpocznie się po rejestracji administratora."];
   if (period.paidThrough) {
-    lines.push({ label: "Opłata", detail: period.paidValid ? `Opłacone do ${formatLocalDate(period.paidThrough)} włącznie` : `Opłata wygasła ${formatLocalDate(period.paidThrough)}` });
+    lines.push(period.paidValid ? `Opłacone do ${formatLocalDate(period.paidThrough)} włącznie` : `Opłata wygasła ${formatLocalDate(period.paidThrough)}`);
   }
   if (period.trialEndsAt) {
-    lines.push({ label: "Okres próbny", detail: period.trialValid ? `Okres próbny do ${formatLocalDate(period.trialEndsAt)} (to nie jest opłata)` : `Okres próbny zakończył się ${formatLocalDate(period.trialEndsAt)}` });
+    lines.push(period.trialValid ? `Okres próbny do ${formatLocalDate(period.trialEndsAt)} (to nie jest opłata)` : `Okres próbny zakończył się ${formatLocalDate(period.trialEndsAt)}`);
   }
-  if (!lines.length) lines.push({ label: "Okres usługi", detail: "Brak aktywnego okresu." });
+  if (!lines.length) lines.push("Brak aktywnego okresu.");
   return lines;
 }
 
@@ -129,42 +129,55 @@ const siteText: Record<ServiceStatusDto["site"]["state"], string> = {
   REGISTRATION_PENDING: "Strona publiczna będzie dostępna po rejestracji administratora.",
 };
 
-/** Read-only status card (TEN-04): the company never edits the period, trial, payment or host. */
+/**
+ * Read-only status page (TEN-04): page header with "Napisz do Autervy", then one 560 px card with the period, the
+ * public site and its address. The company never edits the period, trial, payment or host.
+ */
 export function ServiceStatusCard(): ReactNode {
   const { dto, refresh, publicHost } = useStatus();
   const visible = dto.site.publicVisible;
-  const SiteIcon = visible ? Globe : GlobeLock;
   const headline = { PAID: "Opłacony", TRIAL: "Okres próbny", EXPIRED: "Zakończony", NOT_STARTED: "Nie rozpoczął się" }[dto.period.headline];
   const active = dto.period.headline === "PAID" || dto.period.headline === "TRIAL";
   return (
-    <section className={styles.serviceCard} aria-labelledby="service-status-title" data-testid="service-status">
-      <div className={styles.serviceHead}>
-        <h2 id="service-status-title" className={styles.serviceTitle}>Status usługi</h2>
-        <span className={`${styles.chip} ${active ? styles.chipOk : styles.chipOff}`}>
-          {active ? <CircleCheck aria-hidden="true" size={16} /> : <CircleSlash aria-hidden="true" size={16} />}{headline}
-        </span>
-      </div>
-      {refresh === "failed" ? <p className={styles.serviceNote}>Dane mogą być nieaktualne. Ponawiamy odczyt.</p> : null}
-      <dl className={styles.serviceRows}>
-        {periodLines(dto).map((line) => (
-          <div key={line.label} className={styles.serviceRow}>
-            <dt className={styles.serviceLabel}><CalendarClock aria-hidden="true" size={16} />{line.label}</dt>
-            <dd className={styles.serviceValue}>{line.detail}</dd>
+    // The card below is the named region; the page wrapper is no second landmark with the same name (axe landmark-unique).
+    <div className={styles.servicePage} data-testid="service-status">
+      <header className={styles.serviceHeader}>
+        <h2 id="service-page-title" className={styles.servicePageTitle}>Status usługi</h2>
+        <a className={styles.linkButton} href="/admin/czat">Napisz do Autervy</a>
+      </header>
+      <section className={styles.serviceCard} aria-labelledby="service-status-title">
+        <h3 id="service-status-title" className={styles.serviceTitle}>Status usługi</h3>
+        <p className={styles.serviceLead}>Okres, widoczność i dostęp pozostają niezależne.</p>
+        {refresh === "failed" ? <p className={styles.serviceNote}>Dane mogą być nieaktualne. Ponawiamy odczyt.</p> : null}
+        <dl className={styles.serviceRows}>
+          <div className={styles.serviceRow}>
+            <dt className={styles.serviceLabel}>Okres usługi</dt>
+            <dd className={styles.serviceValue}>
+              <span className={`${styles.chip} ${active ? styles.chipOk : styles.chipOff}`}>
+                {active ? <Check aria-hidden="true" size={16} /> : <CircleSlash aria-hidden="true" size={16} />}{headline}
+              </span>
+              {periodLines(dto).map((line) => <span key={line} className={styles.serviceDetail}>{line}</span>)}
+            </dd>
           </div>
-        ))}
-        <div className={styles.serviceRow}>
-          <dt className={styles.serviceLabel}><SiteIcon aria-hidden="true" size={16} />Strona publiczna</dt>
-          <dd className={styles.serviceValue}>
-            <span className={`${styles.chip} ${visible ? styles.chipOk : styles.chipOff}`}>
-              {visible ? <CircleCheck aria-hidden="true" size={16} /> : <CircleSlash aria-hidden="true" size={16} />}{visible ? "Widoczna" : "Niewidoczna"}
-            </span>
-            <span className={styles.serviceDetail}>{siteText[dto.site.state]}</span>
-            {visible && publicHost ? <span className={styles.serviceDetail}>Adres: <a className={`${styles.textLink} ${styles.serviceHost}`} href={`https://${publicHost}/`}>{publicHost}</a></span> : null}
-          </dd>
-        </div>
-      </dl>
-      <p className={styles.serviceNote}>Okres usługi, okres próbny i adres zmienia wyłącznie Auterva.</p>
-      <div className={styles.serviceActions}><a className={styles.linkButton} href="/admin/czat">Napisz do Autervy</a></div>
-    </section>
+          <div className={styles.serviceRow}>
+            <dt className={styles.serviceLabel}>Strona publiczna</dt>
+            <dd className={styles.serviceValue}>
+              <span className={`${styles.chip} ${visible ? styles.chipOk : styles.chipOff}`}>
+                {visible ? <Check aria-hidden="true" size={20} /> : <CircleSlash aria-hidden="true" size={16} />}{visible ? "Widoczna" : "Niewidoczna"}
+              </span>
+              {visible ? null : <span className={styles.serviceDetail}>{siteText[dto.site.state]}</span>}
+            </dd>
+          </div>
+          {visible && publicHost ? (
+            <div className={styles.serviceRow}>
+              <dt className={styles.serviceLabel}>Adres publiczny</dt>
+              <dd className={`${styles.serviceValue} ${styles.serviceValueText}`}>
+                <a className={styles.serviceHost} href={`https://${publicHost}/`}>{publicHost}</a>
+              </dd>
+            </div>
+          ) : null}
+        </dl>
+      </section>
+    </div>
   );
 }

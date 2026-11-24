@@ -5,7 +5,9 @@ export type SessionDto = { id: string; createdAt: string; lastActiveAt: string; 
 export type EndTarget = { kind: "one"; session: SessionDto } | { kind: "others"; count: number };
 export type ProofMethod = "totp" | "recovery";
 
-const when = new Intl.DateTimeFormat("pl-PL", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Warsaw" });
+// ADM-16: numeric "24.09.2026, 08:12", always in Polish time (the audit stays in UTC on the server).
+const when = new Intl.DateTimeFormat("pl-PL", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit",
+  minute: "2-digit", hourCycle: "h23", timeZone: "Europe/Warsaw" });
 
 export const formatWhen = (iso: string) => when.format(new Date(iso));
 export const deviceLabel = (session: SessionDto) => session.device ?? "Nieznane urządzenie";

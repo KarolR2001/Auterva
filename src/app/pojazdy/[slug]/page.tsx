@@ -1,4 +1,3 @@
-import { Check } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 
@@ -71,7 +70,7 @@ export default async function VehiclePage({ params, searchParams }: Props) {
   return (
     <PublicPage brand={brand} contact={home.contact} range={range}>
       <div className={`${styles.container} ${styles.detail}`}>
-        <a href={backHref} className={`${styles.link} ${styles.back}`}>Powrót do listy pojazdów</a>
+        <a href={backHref} className={styles.back}>Powrót do listy pojazdów</a>
         <div className={styles.detailGrid}>
           <VehicleGallery images={vehicle.gallery} name={vehicle.name ?? "Pojazd"} />
           <AvailabilityPanel slug={slug} vehicleName={vehicle.name ?? "Pojazd"} today={today} minMonth={minMonth} maxMonth={maxMonth}
@@ -84,16 +83,16 @@ export default async function VehiclePage({ params, searchParams }: Props) {
           </AvailabilityPanel>
 
           <div className={styles.detailBody}>
-            {vehicle.description?.trim() ? (<><h2 className={styles.h3}>Opis pojazdu</h2><p className={styles.prose}>{vehicle.description}</p></>) : null}
+            {vehicle.description?.trim() ? (<><h2 className={styles.detailH2}>Opis pojazdu</h2><p className={styles.prose}>{vehicle.description}</p></>) : null}
             {features.length ? (
               <>
-                <h2 className={styles.h3}>Wyposażenie</h2>
+                <h2 className={styles.detailH2}>Wyposażenie</h2>
                 <ul className={styles.features}>{features.map((feature) => (
-                  <li key={feature.code} className={styles.chip}><Check aria-hidden="true" size={16} />{feature.value ? `${feature.code}: ${feature.value}` : feature.code}</li>
+                  <li key={feature.code} className={`${styles.chip} ${styles.featureChip}`}>{feature.value ? `${feature.code}: ${feature.value}` : feature.code}</li>
                 ))}</ul>
               </>
             ) : null}
-            <h2 className={styles.h3}>Warunki dodatkowe</h2>
+            <h2 className={styles.detailH3}>Warunki dodatkowe</h2>
             <p className={styles.prose}>Zapytaj o wymagane dokumenty, minimalny wiek kierowcy i warunki odbioru pojazdu.</p>
             {result.availabilityNotice?.trim() ? <p className={styles.prose}>{result.availabilityNotice}</p> : null}
             <p className={styles.small}>Dostępność jest informacyjna i nie stanowi rezerwacji terminu.</p>

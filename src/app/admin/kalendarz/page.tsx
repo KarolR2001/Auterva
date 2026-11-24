@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminFleetCalendarPage() {
   return CompanyPanelPage({
     currentPath: "/admin/kalendarz",
-    title: "Kalendarz floty",
+    title: "Kalendarz",
     children: ({ companyName }) => <FleetCalendar today={availabilityToday()} title={`Kalendarz floty · ${companyName}`} />,
   });
 }

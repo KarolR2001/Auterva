@@ -40,6 +40,9 @@
 }
 .intro {
   margin: 0;
+  font-size: var(--font-size-15);
+  line-height: var(--line-height-24);
+  color: var(--text-secondary);
 }
 .form {
   display: grid;
@@ -160,6 +163,23 @@
 .page[data-area="platform"][data-view="login"] .footer {
   margin-top: 76px;
 }
+/* ADM-01: eyebrow, reset link and footer in #424242; a 52 px submit with the reset row 20 px under it. */
+.page[data-area="company"][data-view="login"] .context,
+.page[data-area="company"][data-view="login"] .footer,
+.page[data-area="company"][data-view="login"] .linkRow a {
+  color: var(--text-secondary);
+}
+.page[data-area="company"][data-view="login"] .loginForm > button {
+  min-height: 52px;
+}
+.page[data-area="company"][data-view="login"] .loginForm > .linkRow {
+  margin-top: calc(var(--space-5) - var(--space-12));
+}
+.resetCta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
 @media (max-width: 767px) {
   .page[data-area="company"][data-view="login"] {
     padding-top: 28px;
@@ -183,9 +203,12 @@
   .page[data-area="company"][data-view="login"] .loginForm > button {
     margin-top: var(--space-8);
   }
+  .page[data-area="company"][data-view="login"] .loginForm > .linkRow {
+    margin-top: calc(var(--space-5) - 44px);
+  }
   .page[data-area="company"][data-view="login"] .footer {
-    /* 84 px to the ADM-01 board position, minus the 64 px taken by the reset link row. */
-    margin-top: 20px;
+    margin-top: var(--space-10);
+    font-size: var(--font-size-12);
   }
   .page[data-view="mfa"][data-step="challenge"] .context {
     display: none;
@@ -218,6 +241,9 @@
   .page[data-area="company"][data-view="login"] .card {
     margin-top: 60px;
     min-height: 660px;
+    padding-bottom: var(--space-5);
+    border-color: var(--color-neutral-300);
+    border-radius: var(--radius-xl);
   }
   .page[data-area="company"][data-view="login"] .card h1,
   .page[data-area="platform"][data-view="login"] .card h1 {

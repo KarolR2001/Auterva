@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "./lib/prisma";
 import { isCustomDomainHost, resolveAliasRedirect } from "./modules/domains/routing";
 import { parseHostAuthority, resolveHostMapping } from "./modules/tenancy/host-registry";
-import { routeAllowedForArea } from "./modules/tenancy/host-route-policy";
+import { publicNotFoundFallback, routeAllowedForArea } from "./modules/tenancy/host-route-policy";
 import { count5xx, countRequest, isDbUnavailableError, reportInternalError } from "./modules/observability/http-observe";
 import { logFailure } from "./modules/observability/log";
 import { randomUUID } from "node:crypto";
@@ -70,9 +70,13 @@ async function route(request: NextRequest) {
     return NextResponse.next({ request: { headers: probe } });
   }
   const mapping = authority && await resolveHostMapping(prisma, authority);
-  if (!mapping || !routeAllowedForArea(mapping.area, request.nextUrl.pathname)) {
-    return withErrorRequestId(new NextResponse(null, { status: 404, headers: { "Cache-Control": "no-store" } }));
-  }
+  if (!mapping) return refuse();
+  // PUB-07 (#471): an unknown page of a public company site goes on to Next, which has no route for it and renders the
+  // company 404 page (app/not-found.tsx) with status 404. publicNotFoundFallback admits only clean GET/HEAD paths outside
+  // every prefix of any area, the API and internal paths; tests/unit/host-route-policy.test.ts guards that every route in
+  // src/app and every file in public/ lies under such a prefix, so the path cannot reach another area's page or file.
+  if (!routeAllowedForArea(mapping.area, request.nextUrl.pathname)
+    && !publicNotFoundFallback(mapping.area, request.method, request.nextUrl.pathname)) return refuse();
   if (mapping.area === "COMPANY_PUBLIC" && mapping.canonicalTarget) {
     // The alias never serves the offer itself once a custom domain is active; the gate runs first.
     const target = request.method === "GET" || request.method === "HEAD"

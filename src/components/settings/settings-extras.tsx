@@ -2,6 +2,7 @@ import { CircleAlert, CircleCheck, Info } from "lucide-react";
 
 import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
+import { parseLegalText } from "@/modules/public-offer/legal-structure";
 import { hasContactChannel, isHttpsLink, legalStatus, type SettingsSnapshot } from "./settings-model";
 import styles from "./settings.module.css";
 
@@ -19,7 +20,8 @@ export function LegalStatus({ kind, text, url }: { kind: "privacy" | "terms"; te
         <Icon size={16} aria-hidden="true" />
         <span>Stan: {legalLabels[status]}</span>
       </p>
-      {status === "TEXT" && <p className={styles.preview}>{String(text)}</p>}
+      {status === "TEXT" && <p className={styles.status}>Tak zobaczą ten tekst klienci na stronie firmy.</p>}
+      {status === "TEXT" && <LegalPreview text={String(text)} />}
       {status === "TEXT" && (
         <p>Linia zaczynająca się od „## ” staje się numerowanym nagłówkiem sekcji i pozycją spisu treści strony publicznej.</p>
       )}
@@ -44,10 +46,26 @@ export function LegalStatus({ kind, text, url }: { kind: "privacy" | "terms"; te
   );
 }
 
+/** Rendered preview of a plain-text document (D-36): "## " lines become numbered headings, the rest paragraphs. */
+function LegalPreview({ text }: { text: string }) {
+  const { intro, sections } = parseLegalText(text);
+  return (
+    <div className={styles.preview}>
+      {intro.map((paragraph, index) => <p key={`intro-${index}`}>{paragraph}</p>)}
+      {sections.map((section) => (
+        <div key={section.id} className={styles.previewSection}>
+          <p className={styles.previewHeading}>{section.number}. {section.title}</p>
+          {section.paragraphs.map((paragraph, index) => <p key={index}>{paragraph}</p>)}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function LegalApprovalNotice() {
   return (
-    <Alert tone="warning" title="Treść wymaga zatwierdzenia prawnego">
-      Wpisuj wyłącznie zatwierdzone dokumenty firmy. Przykładowe teksty z fixture lub szkice nie nadają się do publikacji.
+    <Alert tone="warning" title="Treść robocza">
+      Treść wymaga akceptacji prawnej przed publikacją. Wpisuj wyłącznie zatwierdzone dokumenty firmy.
     </Alert>
   );
 }
@@ -61,13 +79,30 @@ export function ContactQualityWarning({ snapshot }: { snapshot: SettingsSnapshot
   );
 }
 
-export function SeoSnippet({ title, description, host }: { title: string; description: string; host: string | null }) {
+export function SeoSnippet({ title, description, host, social }: {
+  title: string;
+  description: string;
+  host: string | null;
+  /** ADM-13: optional social card under the search result (company name and hero text). */
+  social?: { name: string; text: string };
+}) {
   return (
     <section className={`${styles.panel} ${styles.seoCard}`} aria-label="Podgląd wyniku wyszukiwania">
-      <h3>Podgląd wyniku wyszukiwania</h3>
-      <p className={styles.seoTitle}>{title || "Tytuł SEO jest pusty — strona użyje nazwy firmy"}</p>
+      <p className={styles.eyebrow}>Podgląd wyszukiwarki</p>
       <p className={styles.seoUrl}>{host ?? "adres strony zostanie ustalony po aktywacji domeny"}</p>
-      <p>{description || "Opis SEO jest pusty — strona użyje krótkiego opisu firmy."}</p>
+      <p className={styles.seoTitle}>{title || "Tytuł SEO jest pusty — strona użyje nazwy firmy"}</p>
+      <p className={styles.seoDescription}>{description || "Opis SEO jest pusty — strona użyje krótkiego opisu firmy."}</p>
+      {social ? (
+        <figure className={styles.socialFigure}>
+          <div className={styles.socialCard}>
+            <p className={styles.socialName}>{social.name}</p>
+            {social.text ? <p className={styles.socialText}>{social.text}</p> : null}
+          </div>
+          <figcaption className={styles.hint}>Karta w mediach społecznościowych. Podgląd może ulec skróceniu zależnie od platformy.</figcaption>
+        </figure>
+      ) : (
+        <p className={styles.hint}>Podgląd może ulec skróceniu zależnie od platformy.</p>
+      )}
     </section>
   );
 }
@@ -83,7 +118,8 @@ export function PublicPreviewLinks({ snapshot, sections }: { snapshot: SettingsS
   return (
     <section className={styles.panel} aria-label="Podgląd publiczny">
       <h3>
-        <Info size={16} aria-hidden="true" /> Podgląd publiczny
+        <Info size={16} aria-hidden="true" />
+        Podgląd publiczny
       </h3>
       {host ? (
         <ul className={styles.previewLinks}>

@@ -49,7 +49,7 @@ test("built company panel: trial date is not a payment, expiry keeps the panel w
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(page.getByRole("navigation", { name: "Nawigacja panelu" })).toBeVisible();
     await page.goto(`${expired}/admin/`);
-    await expect(page.getByRole("heading", { name: "Panel", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Dzień dobry", exact: true })).toBeVisible();
   } finally {
     for (const item of seeded) {
       await item.dispose();

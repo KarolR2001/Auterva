@@ -215,12 +215,6 @@
 }
 
 /* #295: nagłówek strony i układ dwukolumnowy ekranów firmy (PLT-03, PLT-04) */
-.pageHeader { display: grid; gap: var(--space-4); }
-.pageHeaderText { display: grid; gap: var(--space-1); min-width: 0; }
-.pageTrail { margin: 0; color: var(--text-secondary); font-size: var(--font-size-14); line-height: var(--line-height-20); }
-.pageTitle { margin: 0; color: var(--text-primary); font-size: var(--font-size-32); line-height: var(--line-height-40); overflow-wrap: anywhere; }
-.pageSubtitle { margin: 0; color: var(--text-secondary); line-height: var(--line-height-24); overflow-wrap: anywhere; }
-.pageActions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
 .layout { display: grid; gap: var(--space-6); max-width: var(--content-admin-max, 1200px); }
 .layoutMain, .layoutAside { display: grid; gap: var(--space-5); align-content: start; min-width: 0; }
 .layout .section, .layout .panelCard { max-width: none; }
@@ -232,7 +226,6 @@
 @media (min-width: 768px) {
   .fieldGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
   .segments { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .pageHeader { grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
 }
 @media (min-width: 1024px) {
   .layout { grid-template-columns: minmax(0, 1fr) 320px; align-items: start; }

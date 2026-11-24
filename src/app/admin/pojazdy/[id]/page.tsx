@@ -11,7 +11,7 @@ export default async function AdminEditVehiclePage({ params }: { params: Promise
   return CompanyPanelPage({
     currentPath: `/admin/pojazdy/${id}`,
     requireVehicleId: id,
-    title: "Edycja pojazdu",
+    title: "Pojazdy",
     children: ({ companyName }) => <VehicleForm vehicleId={id} title={`Edycja pojazdu · ${companyName}`} />,
   });
 }

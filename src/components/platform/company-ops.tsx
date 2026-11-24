@@ -351,7 +351,7 @@ function PeriodSection({ company, base, reload }: SectionProps) {
           </dd>
         </div>
         <div className={styles.statusRow}>
-          <dt>Trial</dt>
+          <dt>Okres próbny</dt>
           <dd>
             {company.period.trialEndsAt
               ? `${company.period.trialValid ? "Trwa" : "Zakończony"}, do ${formatInstant(company.period.trialEndsAt)}`
@@ -377,7 +377,7 @@ function PeriodSection({ company, base, reload }: SectionProps) {
               ? "Trwa trwałe usunięcie danych firmy. Okresu usługi nie można już zmienić."
               : company.archivedAt
               ? "Firma jest zarchiwizowana. Najpierw ją przywróć, potem zmień okres."
-              : "Data końcowa jest wliczona. Strefa: Europe/Warsaw. Puste pole usuwa opłatę."
+              : "Data końcowa jest wliczona (czas polski). Puste pole usuwa opłatę."
           }
           error={fieldError}
         >
@@ -481,8 +481,8 @@ const DIALOG_COPY: Record<ArchiveKind, { title: (name: string) => string; descri
     description: "Przywrócenie oddaje wyłącznie logowanie administratora. Nie publikuje strony.",
     effects: [
       "Administrator zaloguje się od nowa z MFA; poprzednie sesje nie wracają.",
-      "Strona publiczna pozostaje wyłączona do osobnego odblokowania i ważnej opłaty. Sam trial nie wystarcza.",
-      "Okres usługi, trial i dane firmy nie zmieniają się.",
+      "Strona publiczna pozostaje wyłączona do osobnego odblokowania i ważnej opłaty. Sam okres próbny nie wystarcza.",
+      "Okres usługi, okres próbny i dane firmy nie zmieniają się.",
       "Jeśli usunięcie danych było zaplanowane, przywrócenie je anuluje. Po starcie usuwania przywrócenie nie jest możliwe.",
     ],
     action: "Przywróć",
@@ -591,7 +591,7 @@ function ArchiveSection({ company, base, reload }: SectionProps) {
         COMPANY_ALREADY_ARCHIVED: "Firma jest już zarchiwizowana.",
         COMPANY_NOT_ARCHIVED: "Firma nie jest zarchiwizowana.",
         COMPANY_PURGED: "Dane firmy zostały trwale usunięte 12 miesięcy po archiwizacji. Przywrócenie nie jest możliwe.",
-        PERIOD_PAYMENT_REQUIRED: "Odblokowanie wymaga ważnej opłaty. Sam trial nie wystarcza.",
+        PERIOD_PAYMENT_REQUIRED: "Odblokowanie wymaga ważnej opłaty. Sam okres próbny nie wystarcza.",
         PERIOD_ARCHIVED: "Firma jest zarchiwizowana.",
         PUBLIC_RESTORE_NOT_LOCKED: "Strona nie wymaga już odblokowania.",
         EVENT_KEY_CONFLICT: "Ta operacja została już zapisana. Odśwież kartę firmy.",
@@ -655,7 +655,7 @@ function ArchiveSection({ company, base, reload }: SectionProps) {
             <li>
               {company.period.paidValid
                 ? "Ważna opłata jest wpisana."
-                : "Wpisz ważną opłatę w okresie usługi. Sam trial nie wystarcza."}
+                : "Wpisz ważną opłatę w okresie usługi. Sam okres próbny nie wystarcza."}
             </li>
             <li>Odblokuj stronę publiczną przyciskiem poniżej.</li>
           </ol>

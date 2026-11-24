@@ -110,6 +110,13 @@ describe("shell panelu firmy a PWA", () => {
     Object.defineProperty(navigator, "onLine", { value: false, configurable: true });
     act(() => { window.dispatchEvent(new Event("offline")); });
     expect(screen.getByText("Offline").closest("[aria-live]")?.querySelector("svg")).not.toBeNull();
+    // ADM-18: the page stays, a status explains that saving is paused and nothing is sent later.
+    const notice = screen.getByRole("status", { name: "Brak połączenia" });
+    expect(notice).toHaveTextContent("Możesz przeglądać ostatnio wczytane dane, ale zapisywanie jest wstrzymane.");
+    expect(notice).toHaveTextContent("nie zostaną wysłane bez połączenia");
+    Object.defineProperty(navigator, "onLine", { value: true, configurable: true });
+    act(() => { window.dispatchEvent(new Event("online")); });
+    expect(screen.queryByRole("status", { name: "Brak połączenia" })).toBeNull();
   });
 
   it("przy brudnym formularzu aktualizacja czeka na zgodę w oknie niezapisanych zmian", async () => {

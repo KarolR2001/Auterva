@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminNewVehiclePage() {
   return CompanyPanelPage({
     currentPath: "/admin/pojazdy/nowy",
-    title: "Nowy pojazd",
+    title: "Pojazdy",
     children: ({ companyName }) => <VehicleForm title={`Nowy pojazd · ${companyName}`} />,
   });
 }

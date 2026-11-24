@@ -130,12 +130,12 @@ test("availability panel: calendar range, late answer dropped, error clears resu
     await page.goto(`${origin}/pojazdy/${slug}/?from=2026-13-45&to=${day(4)}`);
     await expect(page.getByRole("alert").filter({ hasText: "Nie rozpoznaliśmy daty" })).toBeVisible();
     // #251: past and unavailable days differ by more than the strike-through: past is plain grey text,
-    // unavailable keeps the strike-through and gets a cross icon.
+    // unavailable keeps the strike-through and (#471, PUB-03) a dashed frame instead of the former cross icon.
     await page.goto(`${origin}/pojazdy/${slug}/`);
     if (day(5).slice(0, 7) !== today.slice(0, 7)) await page.getByRole("link", { name: "Następny miesiąc" }).click();
     const unavailable = page.locator("#kalendarz button[aria-label*=', niedostępny']").first();
     await expect(unavailable).toBeVisible();
-    await expect(unavailable.locator("svg")).toHaveCount(1);
+    expect(await unavailable.locator("xpath=..").evaluate((node) => getComputedStyle(node).borderTopStyle)).toBe("dashed");
     expect(await unavailable.locator("xpath=..").evaluate((node) => getComputedStyle(node).textDecorationLine)).toContain("line-through");
     await page.goto(`${origin}/pojazdy/${slug}/`);
     // D-44: past days stay unselectable (aria-disabled, "miniony" in the name) without a legend entry of their own.

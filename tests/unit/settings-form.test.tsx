@@ -120,7 +120,7 @@ describe("formularz ustawień (superadmin)", () => {
 
   it("sekcja prawna: polityka bez treści i linku jest ostrzeżeniem, regulamin opcjonalny, jest uwaga o zatwierdzeniu", () => {
     render(<SettingsForm snapshot={snapshot} section="prawne" />);
-    expect(screen.getByText("Treść wymaga zatwierdzenia prawnego")).toBeInTheDocument();
+    expect(screen.getByText("Treść robocza")).toBeInTheDocument();
     expect(screen.getByText(/Polityka prywatności jest wymagana/)).toBeInTheDocument();
     expect(screen.getByText("Regulamin jest opcjonalny; brak nie blokuje strony.")).toBeInTheDocument();
   });

@@ -58,8 +58,12 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
     const stats = page.getByRole("list", { name: "Statystyki floty na dziś" });
     await expect(stats.getByRole("listitem").filter({ hasText: "Opublikowane" })).toContainText("2");
     await expect(stats.getByRole("listitem").filter({ hasText: "Niedostępne dziś" })).toContainText("1");
-    await expect(stats.getByRole("listitem").filter({ hasText: "Dostępne dziś" }).first()).toContainText("1");
+    // ADM-04: four stat cards, no separate "Dostępne dziś".
+    await expect(stats.getByRole("listitem")).toHaveCount(4);
     await expect(stats.getByRole("listitem").filter({ hasText: "Blokady w 7 dni" })).toContainText("1");
+    await expect(stats.getByRole("listitem").filter({ hasText: "Blokady w 7 dni" })).toContainText("najbliższa dziś");
+    await expect(page.getByRole("link", { name: "Zobacz kalendarz" })).toHaveAttribute("href", "/admin/kalendarz/");
+    await expect(page.getByRole("heading", { name: "Jakość danych" })).toBeVisible();
     await expect(stats.getByRole("listitem").filter({ hasText: "Aktywne pojazdy" })).toContainText("z 3 w ewidencji");
     // Since #39 the block names the vehicle and links to its calendar.
     await expect(page.getByText("Alfa Trzecia")).toBeVisible();
@@ -70,7 +74,7 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
     // List: rows in public order, statuses with text, availability today as text.
     await page.goto(`${base}/admin/pojazdy/`);
     const table = page.getByRole("table", { name: "Pojazdy" });
-    await expect(table.getByRole("columnheader")).toHaveText(["Pojazd", "Kategoria", "Publikacja", "Dziś", "Ostatnia zmiana", "Akcje"]);
+    await expect(table.getByRole("columnheader")).toHaveText(["Pojazd", "Kategoria", "Publikacja", "Dzisiaj", "Ostatnia zmiana", "Akcje"]);
     const rows = page.locator("tbody tr");
     await expect(rows).toHaveCount(3);
     await expect(page.getByRole("heading", { level: 3 })).toHaveText(["Alfa Pierwsza", "Beta Szkic", "Alfa Trzecia"]);

@@ -62,11 +62,11 @@ describe("status usługi w panelu firmy", () => {
     const fresh = status({ periodVersion: 2, period: { headline: "PAID", paidThrough: "2026-12-31", paidValid: true } });
     const next: ServiceStatusDto = fresh;
     vi.stubGlobal("fetch", sessionOk((url) => url.includes("service-period") ? new Response(JSON.stringify(next), { status: 200 }) : null));
-    mount(status({ reminders: [{ id: "r", offsetDays: 1, effectiveEndsAt: "x", source: "TRIAL", deliveredAt: "x", message: "Trial kończy się jutro." }] }));
-    expect(screen.getByText("Trial kończy się jutro.")).toBeInTheDocument();
+    mount(status({ reminders: [{ id: "r", offsetDays: 1, effectiveEndsAt: "x", source: "TRIAL", deliveredAt: "x", message: "Okres próbny kończy się jutro." }] }));
+    expect(screen.getByText("Okres próbny kończy się jutro.")).toBeInTheDocument();
     const input = screen.getByRole("textbox", { name: "Nazwa pojazdu" });
     await act(async () => { input.focus(); window.dispatchEvent(new Event("focus")); });
-    await waitFor(() => expect(screen.queryByText("Trial kończy się jutro.")).toBeNull());
+    await waitFor(() => expect(screen.queryByText("Okres próbny kończy się jutro.")).toBeNull());
     expect(screen.getByTestId("service-status")).toHaveTextContent("Opłacone do 31.12.2026 włącznie");
     expect(screen.getByTestId("service-status")).toHaveTextContent("Opłacony");
     expect(screen.getByRole("textbox", { name: "Nazwa pojazdu" })).toBe(input);
@@ -74,10 +74,10 @@ describe("status usługi w panelu firmy", () => {
 
   it("błąd odświeżenia usuwa przypomnienie i nie blokuje panelu", async () => {
     vi.stubGlobal("fetch", sessionOk((url) => url.includes("service-period") ? new Response("{}", { status: 500 }) : null));
-    mount(status({ reminders: [{ id: "r", offsetDays: 7, effectiveEndsAt: "x", source: "TRIAL", deliveredAt: "x", message: "Trial kończy się za 7 dni." }] }));
+    mount(status({ reminders: [{ id: "r", offsetDays: 7, effectiveEndsAt: "x", source: "TRIAL", deliveredAt: "x", message: "Okres próbny kończy się za 7 dni." }] }));
     await act(async () => { window.dispatchEvent(new Event("focus")); });
     await waitFor(() => expect(screen.getByText("Nie udało się odświeżyć statusu usługi")).toBeInTheDocument());
-    expect(screen.queryByText("Trial kończy się za 7 dni.")).toBeNull();
+    expect(screen.queryByText("Okres próbny kończy się za 7 dni.")).toBeNull();
     expect(screen.getByRole("textbox", { name: "Nazwa pojazdu" })).toBeEnabled();
   });
 });
