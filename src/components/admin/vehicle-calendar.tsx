@@ -478,7 +478,7 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
       </nav>
       <header className={styles.head}>
         <div className={styles.headText}>
-          <h2 className={styles.title} ref={heading} tabIndex={-1}>Kalendarz pojazdu<span className={styles.srOnly}>: {name}</span></h2>
+          <h2 className={styles.title} ref={heading} tabIndex={-1} aria-label={`Kalendarz pojazdu: ${name}`}>Kalendarz pojazdu</h2>
           <p className={styles.subtitle}>{name}{vehicle ? ` • ${statusLabels[vehicle.status]}` : ""}</p>
         </div>
         <div className={styles.headActions}>
