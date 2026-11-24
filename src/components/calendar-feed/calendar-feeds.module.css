@@ -5,24 +5,6 @@
   max-width: var(--content-admin-max);
   color: var(--text-primary);
 }
-.header {
-  display: grid;
-  gap: var(--space-2);
-}
-.header h2 {
-  margin: 0;
-  font-size: var(--font-size-32);
-  line-height: var(--line-height-40);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: -0.01em;
-}
-.header h2:focus {
-  outline: none;
-}
-.header h2:focus-visible {
-  outline: var(--border-width-active) solid var(--focus-ring);
-  outline-offset: var(--focus-offset);
-}
 .lead,
 .hint {
   margin: 0;
@@ -193,7 +175,8 @@ form.card {
 }
 .info p {
   margin: 0;
-  line-height: var(--line-height-24);
+  font-size: var(--font-size-14);
+  line-height: var(--line-height-20);
 }
 .list {
   display: grid;

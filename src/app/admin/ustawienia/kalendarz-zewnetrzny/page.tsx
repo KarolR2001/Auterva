@@ -6,7 +6,6 @@ import { adminFeedContext } from "@/components/calendar-feed/feed-api";
 import { denyPanel } from "@/components/panel/deny-panel";
 import { PanelShell } from "@/components/panel/panel-shell";
 import { SettingsNav } from "@/components/settings/settings-nav";
-import settingsStyles from "@/components/settings/settings.module.css";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireRequestContext, resolveRequestArea } from "@/modules/tenancy/request-context";
@@ -29,10 +28,11 @@ export default async function AdminExternalCalendarPage() {
       title="Ustawienia"
       currentPath="/admin/ustawienia/kalendarz-zewnetrzny"
     >
-      <div className={settingsStyles.layout}>
-        <SettingsNav base="/admin/ustawienia" current="kalendarz" />
-        <CalendarFeeds context={adminFeedContext} />
-      </div>
+      <CalendarFeeds
+        context={adminFeedContext}
+        trail="Ustawienia / Kalendarz zewnętrzny"
+        nav={<SettingsNav base="/admin/ustawienia" current="kalendarz" />}
+      />
     </PanelShell>
   );
 }
