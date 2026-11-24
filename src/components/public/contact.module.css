@@ -1,9 +1,11 @@
 /* Contact and legal pages of the public company site (#44). Tokens only; no dark mode; 4 px grid. */
-.container { width: 100%; max-width: var(--content-public-max); margin: 0 auto; padding: var(--space-8) var(--space-4) var(--space-12); }
-.hero { margin-bottom: var(--space-6); }
+.container { width: 100%; max-width: calc(1200px + 2 * var(--space-8)); margin: 0 auto; padding: var(--space-8) var(--space-4) var(--space-12); }
+.hero { margin-bottom: var(--space-8); }
+.srOnly { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 .eyebrow { margin: 0 0 var(--space-2); font-size: var(--font-size-12); line-height: var(--line-height-16); font-weight: var(--font-weight-semibold); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-secondary); }
-.title { margin: 0 0 var(--space-3); font-size: var(--font-size-32); line-height: var(--line-height-40); font-weight: var(--font-weight-bold); overflow-wrap: anywhere; }
-.lead { margin: 0; max-width: 64ch; font-size: var(--font-size-16); line-height: var(--line-height-24); color: var(--text-secondary); }
+.title { margin: 0 0 var(--space-4); max-width: 760px; font-size: var(--font-size-32); line-height: var(--line-height-40); font-weight: var(--font-weight-bold); overflow-wrap: anywhere; text-wrap: balance; }
+.lead { margin: 0; max-width: 880px; font-size: var(--font-size-18); line-height: var(--line-height-26); color: var(--text-secondary); }
+.leadNote { margin: var(--space-2) 0 0; font-size: var(--font-size-14); line-height: var(--line-height-20); color: var(--text-secondary); }
 .hint { margin: var(--space-2) 0; font-size: var(--font-size-14); line-height: var(--line-height-20); color: var(--text-secondary); }
 .link, .docLink { color: var(--text-link); text-decoration: underline; text-underline-offset: 3px; display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--touch-target-mobile); }
 .link:focus-visible, .docLink:focus-visible, .copyButton:focus-visible { outline: var(--border-width-active) solid var(--focus-ring); outline-offset: var(--focus-offset); }
@@ -14,23 +16,36 @@
 .contextList { display: grid; gap: var(--space-1); margin: 0 0 var(--space-2); padding: 0; list-style: none; font-size: var(--font-size-16); }
 .message { margin: var(--space-2) 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--surface-subtle); font-size: var(--font-size-15); line-height: var(--line-height-24); overflow-wrap: anywhere; }
 
-.channels { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); margin: 0 0 var(--space-6); padding: 0; list-style: none; }
-.channelHead { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: 0 0 var(--space-2); font-size: var(--font-size-14); font-weight: var(--font-weight-semibold); color: var(--text-secondary); }
-.channelValue { margin: 0 0 var(--space-3); font-size: var(--font-size-20); line-height: var(--line-height-28); font-weight: var(--font-weight-semibold); overflow-wrap: anywhere; }
-.channelActions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.channels { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); margin: 0 0 var(--space-8); padding: 0; list-style: none; }
+.channel { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-5) var(--space-6); border-color: var(--border-default); }
+.channelBody { min-width: 0; }
+/* PUB-04: caps label 12 px, value 24/28 px bold, one sentence and a text link „… →”; „Kopiuj” stays (SPEC 9.4). */
+.channelLabel { display: flex; align-items: center; gap: var(--space-1); margin: 0 0 var(--space-3); font-size: var(--font-size-12); line-height: var(--line-height-16);
+  font-weight: var(--font-weight-semibold); letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-secondary); }
+.channelValue { margin: 0 0 var(--space-2); font-size: var(--font-size-24); line-height: var(--line-height-32); font-weight: var(--font-weight-bold); overflow-wrap: anywhere; }
+.channelNote { margin: 0; font-size: var(--font-size-16); line-height: var(--line-height-24); color: var(--text-secondary); }
+.channelActions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-4); }
+.channelLink { display: inline-flex; align-items: center; min-height: var(--touch-target-mobile); color: var(--text-primary); font-size: var(--font-size-16);
+  font-weight: var(--font-weight-semibold); text-decoration: none; border-radius: var(--radius-xs); }
+.channelLink:hover { text-decoration: underline; text-underline-offset: 3px; }
+.channelLink:focus-visible, .inlineLink:focus-visible { outline: var(--border-width-active) solid var(--focus-ring); outline-offset: var(--focus-offset); }
+.channelButton { min-width: 228px; }
 .badge { display: inline-flex; align-items: center; gap: var(--space-1); padding: var(--space-1) var(--space-2); border: var(--border-width-hairline) solid var(--status-success-border);
   border-radius: var(--radius-full); background: var(--status-success-surface); color: var(--status-success-text); font-size: var(--font-size-12); line-height: var(--line-height-16); font-weight: var(--font-weight-medium); }
 
 .channelPreferred { grid-column: 1 / -1; border-color: var(--surface-inverse); background: var(--surface-inverse); color: var(--text-inverse); }
-.channelPreferred .channelHead { color: var(--text-inverse); }
+.channelPreferred .channelLabel { color: var(--text-inverse); }
 .channelPreferred .badge { border-color: var(--text-inverse); background: transparent; color: var(--text-inverse); }
-.channelLead { margin: 0 0 var(--space-1); font-size: var(--font-size-24); line-height: var(--line-height-32); font-weight: var(--font-weight-bold); }
+.channelLead { margin: 0 0 var(--space-3); font-size: var(--font-size-24); line-height: var(--line-height-32); font-weight: var(--font-weight-semibold); }
 .channelPreferred .copyButton { border-color: var(--text-inverse); color: var(--text-inverse); }
 .channelPreferred .copyButton:hover { background: var(--color-neutral-700); }
 .channelPreferred .copyButton:focus-visible, .channelPreferred a:focus-visible { outline-color: var(--text-inverse); }
 .channelPreferred .copyStatus { color: var(--text-inverse); }
-.prepareItems { margin: 0; font-size: var(--font-size-16); line-height: var(--line-height-24); }
-.prepare { margin: 0 0 var(--space-6); padding: var(--space-4); border: var(--border-width-hairline) dashed var(--border-default); border-radius: var(--radius-lg); }
+.prepareItems { margin: 0; font-size: var(--font-size-16); line-height: var(--line-height-24); color: var(--text-secondary); }
+.prepare { display: grid; gap: var(--space-2); margin: 0 0 var(--space-8); padding: var(--space-5) var(--space-6); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-lg); }
+.prepareTitle { margin: 0; font-size: var(--font-size-18); line-height: var(--line-height-26); font-weight: var(--font-weight-semibold); }
+.prepareHint { margin: 0; }
+.inlineLink { color: var(--text-link); text-decoration: underline; text-underline-offset: 3px; }
 .mapArt { display: flex; align-items: center; justify-content: center; height: 120px; margin: 0 0 var(--space-3); border: var(--border-width-hairline) solid var(--border-subtle);
   border-radius: var(--radius-md); background: repeating-linear-gradient(0deg, transparent 0 23px, var(--border-subtle) 23px 24px), repeating-linear-gradient(90deg, var(--surface-subtle) 0 23px, var(--border-subtle) 23px 24px); color: var(--text-primary); }
 .copy { display: inline-flex; flex-direction: column; gap: var(--space-1); }
@@ -59,13 +74,25 @@
 
 @media (min-width: 768px) {
   .container { padding: var(--space-12) var(--space-8) var(--space-16); }
-  .title { font-size: var(--font-size-40); line-height: var(--line-height-48); }
-  .channels { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .container { padding-top: var(--space-12); }
+  .title { font-size: var(--font-size-56); line-height: var(--line-height-64); }
+  .lead { font-size: var(--font-size-20); line-height: var(--line-height-28); }
+  .hero { margin-bottom: var(--space-12); }
+  .channels { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-8); }
+  .channelValue { font-size: var(--font-size-28); line-height: var(--line-height-36); }
+  .channel { padding: var(--space-6) var(--space-8); }
+  .channelPreferred { flex-direction: row; align-items: center; justify-content: space-between; gap: var(--space-8); padding: var(--space-8) var(--space-10); }
+  .channelPreferred .channelValue { font-size: var(--font-size-32); line-height: var(--line-height-40); margin: 0; }
+  .channelPreferred .channelLead { font-size: var(--font-size-28); line-height: var(--line-height-36); }
+  .channelPreferred .channelActions { flex: none; }
+  .prepare { grid-template-columns: minmax(0, 280px) minmax(0, 1fr); column-gap: var(--space-8); align-items: baseline; }
+  .prepareHint { grid-column: 1 / -1; }
   .blocks { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
 }
 @media (max-width: 767px) {
   .channelActions { flex-direction: column; align-items: stretch; }
-  .channelActions > a { width: 100%; }
+  .channelPreferred .channelActions > a { width: 100%; }
+  .channelActions > .channelLink { align-self: flex-start; }
   .channelActions .copy { align-items: stretch; }
   .channelActions .copyButton { width: 100%; }
 }
