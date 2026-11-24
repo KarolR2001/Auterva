@@ -1,4 +1,4 @@
-import { addDays, formatRangeLong, formatRangeShort, monthDays, shiftMonth } from "@/modules/public-offer/presentation";
+import { addDays, formatRangeShort, monthDays, shiftMonth } from "@/modules/public-offer/presentation";
 import type { FleetBlock } from "./fleet-api";
 import { monthOf, monthSpan, typeLabel } from "./vehicle-calendar-model";
 
@@ -39,7 +39,17 @@ export function placeBlock(block: { from: string; to: string }, from: string, to
   return { start: offset(first) + 1, span: offset(last) - offset(first) + 1 };
 }
 
-export const windowTitle = (from: string, to: string) => formatRangeLong(from, to);
+const monthsShort = ["sty", "lut", "mar", "kwi", "maj", "cze", "lip", "sie", "wrz", "paź", "lis", "gru"];
+/** "5–18 paź 2026", "23 lis – 6 gru 2026", "28 gru 2026 – 10 sty 2027" (ADM-10 range label). */
+export function windowTitle(from: string, to: string): string {
+  const [fy, fm, fd] = from.split("-").map(Number);
+  const [ty, tm, td] = to.split("-").map(Number);
+  if (from === to) return `${fd} ${monthsShort[fm - 1]} ${fy}`;
+  if (fy !== ty) return `${fd} ${monthsShort[fm - 1]} ${fy} – ${td} ${monthsShort[tm - 1]} ${ty}`;
+  return fm === tm ? `${fd}–${td} ${monthsShort[tm - 1]} ${ty}` : `${fd} ${monthsShort[fm - 1]} – ${td} ${monthsShort[tm - 1]} ${ty}`;
+}
+/** Mobile card line (ADM-10 M): "Serwis 25–27.11" for each block; the summary ends with today's state. */
+export const blockLetter = (type: string) => ({ RESERVED: "R", MAINTENANCE: "S", BLOCKED: "B", OTHER: "I" } as Record<string, string>)[type] ?? "I";
 export const blockLabel = (block: FleetBlock) => `${block.typeLabel || typeLabel(block.type)} ${formatRangeShort(block.from, block.to)}`;
 export const blockShortRange = (block: FleetBlock) => {
   const [, fm, fd] = block.from.split("-").map(Number);
