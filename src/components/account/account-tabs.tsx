@@ -9,7 +9,11 @@ const tabs = [
 
 // ADM-15 tabs are two routes of the same account (ADM-16 keeps its own page and contract), so the active tab is
 // the current page, not client state; leaving a tab goes through the shell's unsaved-changes guard like any link.
-export function AccountTabs({ current }: { current: (typeof tabs)[number]["id"] }) {
+// The session count ("• 3") is a visual aid; the link keeps the plain name "Aktywne sesje".
+export function AccountTabs({ current, sessionCount = null }: {
+  current: (typeof tabs)[number]["id"];
+  sessionCount?: number | null;
+}) {
   return (
     <nav aria-label="Sekcje konta" className={styles.tabs}>
       {tabs.map((tab) => (
@@ -21,6 +25,9 @@ export function AccountTabs({ current }: { current: (typeof tabs)[number]["id"] 
           aria-current={tab.id === current ? "page" : undefined}
         >
           {tab.label}
+          {tab.id === "sessions" && sessionCount !== null ? (
+            <span className={styles.tabCount} aria-hidden="true"> • {sessionCount}</span>
+          ) : null}
         </Link>
       ))}
     </nav>
