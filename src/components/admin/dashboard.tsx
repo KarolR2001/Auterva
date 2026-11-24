@@ -163,7 +163,8 @@ export function Dashboard({ context = companyContext, title }: { context?: Panel
             <section aria-labelledby="blocks-title" className={styles.panelCard}>
               <div className={styles.cardHead}>
                 <h2 id="blocks-title" className={styles.h2}>Najbliższe blokady</h2>
-                <a className={styles.cardLink} href={`${context.hrefBase}/kalendarz/`}>Zobacz kalendarz <span aria-hidden="true">→</span></a>
+                <a className={styles.cardLink} href={`${context.hrefBase}/kalendarz/`}>
+                  <span className={styles.wideOnly}>Zobacz kalendarz</span><span className={styles.narrowOnly}>Kalendarz</span> <span aria-hidden="true">→</span></a>
               </div>
               {view.data.blocks.length === 0
                 ? <p className={styles.softEmpty}><CircleCheck aria-hidden="true" size={18} /> Brak blokad w najbliższych {HORIZON_DAYS} dniach.</p>

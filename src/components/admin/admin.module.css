@@ -14,18 +14,32 @@
 .toolbar { display: grid; gap: var(--space-3); grid-template-columns: 1fr; margin-bottom: var(--space-4); }
 /* Layout follows the width of the content area (the panel sidebar takes 240 px), not the viewport. */
 /* Desktop toolbar (mockup ADM-05 D): one row of compact pills, search takes the free width, nothing wraps until the container is narrow. */
-@container (min-width: 640px) { .toolbar { display: flex; flex-wrap: wrap; align-items: center; padding: var(--space-4); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-lg); } /* Zero flex-basis: the row breaks on the minimum widths only, so long option names never push "Dodaj pojazd" to a new row (1024-1920 px). */ .searchInput { flex: 2 1 0; min-width: 72px; } .toolbar .pill { flex: 1 1 0; min-width: 120px; max-width: 180px; text-overflow: ellipsis; } .toolbar .sortButton { flex: 0 0 auto; } .addLink { flex: 0 0 auto; margin-left: auto; white-space: nowrap; } }
+@container (min-width: 640px) { .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); margin-bottom: var(--space-8); padding: var(--space-5); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-lg); } /* Zero flex-basis: the row breaks on the minimum widths only, so long option names never push "Dodaj pojazd" to a new row (1024-1920 px). */ .searchInput { flex: 2 1 0; min-width: 72px; } .toolbar .pill { flex: 1 1 0; min-width: 120px; max-width: 160px; text-overflow: ellipsis; } .toolbar .sortButton { flex: 0 0 auto; } .addLink { flex: 0 1 264px; margin-left: auto; white-space: nowrap; } }
 /* ADM-05 on a narrow desktop (about 1024-1200 px): the sort button shows the short visible label "Zmiana" (its accessible name stays the full "Ostatnia zmiana, sortowanie: ...") so the closed Publikacja and Kategoria fields keep at least 120 px and stay readable. */
 .sortShort { display: none; }
 @container (min-width: 640px) and (max-width: 899px) { .sortLong { display: none; } .sortShort { display: inline; } }
 .rowBreak { flex-basis: 100%; height: 0; }
-.pill { width: auto; min-width: 0; font-weight: var(--font-weight-medium); }
+/* ADM-05 D pills: "Publikacja ↓" in 14 px semibold; the native chevron is replaced by the same Lucide arrow the sort button uses. */
+.pill { width: auto; min-width: 0; font-size: var(--font-size-14); font-weight: var(--font-weight-semibold); border-radius: var(--radius-sm); }
+select.pill { appearance: none; padding-right: var(--space-10);
+  background: var(--surface-default) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23151515' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5v14'/%3E%3Cpath d='m19 12-7 7-7-7'/%3E%3C/svg%3E") no-repeat right var(--space-3) center; }
+.toolbar .searchInput { border-radius: var(--radius-sm); font-size: var(--font-size-14); }
 .sortButton { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); cursor: pointer; white-space: nowrap; }
 .sortButton:hover { background: var(--action-secondary-hover); }
 .sortButton:focus-visible { outline: var(--border-width-active) solid var(--focus-ring); outline-offset: var(--focus-offset); }
-.sheetButtons { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+.sheetButtons { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+/* ADM-05 M: "Filtry (2)" and "Sortuj ↓" look like fields: text to the left, 14 px semibold, no icons. */
+.sheetToggle { display: flex; align-items: center; min-height: var(--button-height-md); padding: 0 var(--space-4); font: inherit; font-size: var(--font-size-14); font-weight: var(--font-weight-semibold);
+  color: var(--text-primary); background: var(--surface-default); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-md); cursor: pointer; text-align: left; }
+.sheetToggle:hover { background: var(--action-secondary-hover); }
+.sheetToggle:focus-visible { outline: var(--border-width-active) solid var(--focus-ring); outline-offset: var(--focus-offset); }
 .sheetFields { display: grid; gap: var(--space-3); }
-.summary { flex-basis: 100%; margin: 0; font-size: var(--font-size-16); color: var(--text-secondary); }
+.summary { flex-basis: 100%; margin: 0; font-size: var(--font-size-16); line-height: var(--line-height-24); color: var(--text-secondary); }
+/* ADM-05: "Pojazdy" 36 px bold (32 px on the mobile card list), the counts right under it. */
+.fleetList .pageHead { gap: var(--space-1) var(--space-3); margin-bottom: var(--space-8); }
+.listTitle { margin: 0; font-size: 36px; line-height: var(--line-height-48); font-weight: var(--font-weight-bold); }
+.listTitle:focus-visible { outline: var(--border-width-active) solid var(--focus-ring); outline-offset: var(--focus-offset); }
+@container (max-width: 639px) { .listTitle { font-size: var(--font-size-32); line-height: var(--line-height-40); } .fleetList .summary { font-size: var(--font-size-14); line-height: var(--line-height-20); } .fleetList .pageHead { margin-bottom: var(--space-8); } .fleetList .toolbar { gap: var(--space-4); margin-bottom: var(--space-8); } }
 .actionsInline { display: contents; }
 /* Compact card (mockup ADM-05 M): the text actions "Edytuj · Terminy · Więcej" stay on one line, order arrows get their own row. */
 .actionsCompact { flex-direction: column; align-items: stretch; gap: var(--space-1); }
@@ -40,10 +54,10 @@
   border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-md); }
 .notice { margin-bottom: var(--space-3); }
 .count { margin: 0 0 var(--space-3); font-size: var(--font-size-14); color: var(--text-secondary); }
-.thumb { width: 96px; height: 64px; border-radius: var(--radius-sm); overflow: hidden; background: var(--surface-subtle); }
+.thumb { flex: 0 0 auto; width: 72px; height: 48px; border-radius: var(--radius-sm); overflow: hidden; background: var(--surface-subtle); }
 .thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .noPhoto { display: flex; align-items: center; justify-content: center; height: 100%; padding: var(--space-1); font-size: var(--font-size-12); text-align: center; color: var(--text-secondary); }
-.rowTitle { margin: 0; font-size: var(--font-size-16); font-weight: var(--font-weight-semibold); overflow-wrap: anywhere; }
+.rowTitle { margin: 0; font-size: var(--font-size-14); line-height: var(--line-height-20); font-weight: var(--font-weight-semibold); overflow-wrap: anywhere; }
 .rowTitle a { color: inherit; }
 .meta { margin: var(--space-1) 0 0; font-size: var(--font-size-14); color: var(--text-secondary); }
 .badge { display: inline-flex; align-items: center; gap: var(--space-1); padding: var(--space-1) var(--space-2); font-size: var(--font-size-14); font-weight: var(--font-weight-semibold);
@@ -76,7 +90,7 @@
 .stat { display: flex; flex-direction: column; gap: var(--space-2); min-height: 132px; box-sizing: border-box; padding: var(--space-5); background: var(--surface-default); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-lg); }
 .statLabel { font-size: var(--font-size-12); line-height: var(--line-height-16); font-weight: var(--font-weight-medium); }
 .statValue { font-size: var(--font-size-32); line-height: var(--line-height-40); font-weight: var(--font-weight-bold); }
-.statNote { margin-top: var(--space-1); font-size: var(--font-size-14); line-height: var(--line-height-20); color: var(--text-secondary); }
+.statNote { font-size: var(--font-size-14); line-height: var(--line-height-20); color: var(--text-secondary); }
 .caption { margin: var(--space-3) 0 0; font-size: var(--font-size-12); line-height: var(--line-height-16); color: var(--text-secondary); }
 .columns { display: grid; gap: var(--space-6); margin-top: var(--space-8); align-items: start; }
 @container (min-width: 800px) { .columns { grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr); } }
@@ -130,7 +144,9 @@
   .panelCard { padding: var(--space-4); }
   .blockCard { min-height: 0; gap: var(--space-3); padding: var(--space-3) var(--space-4); }
   .blockIconCompact { display: block; }
-  .dateTile { display: flex; gap: var(--space-1); min-width: 0; font-size: var(--font-size-12); }
+  .dateTile { display: flex; gap: var(--space-1); min-width: 48px; font-size: var(--font-size-12); }
+  .cardHead { flex-wrap: nowrap; }
+  .panelCard .cardHead .h2 { font-size: var(--font-size-22); line-height: var(--line-height-28); }
   .dateDay, .dateMonth { font-size: var(--font-size-12); line-height: var(--line-height-16); font-weight: var(--font-weight-medium); }
   .blockText { gap: 0; }
   .blockDates { font-size: var(--font-size-12); line-height: var(--line-height-16); }
@@ -144,21 +160,63 @@
 }
 .visuallyHidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
+/* ADM-05 D: the table sits in a bordered card; 12 px uppercase headers, 76 px rows, statuses and actions as text. */
+.tableCard { padding: var(--space-5); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-lg); background: var(--surface-default); }
 .table { width: 100%; border-collapse: collapse; background: var(--surface-default); }
-.table th, .table td { padding: var(--space-3); text-align: left; vertical-align: middle; border-bottom: var(--border-width-hairline) solid var(--border-default); font-size: var(--font-size-14); }
-.table th { font-weight: var(--font-weight-semibold); }
-.cellVehicle { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
-.actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.table th, .table td { padding: var(--space-3) var(--space-2); text-align: left; vertical-align: middle; border-bottom: var(--border-width-hairline) solid var(--border-default); font-size: var(--font-size-14); line-height: var(--line-height-20); }
+.table th { padding-top: var(--space-2); padding-bottom: var(--space-5); color: var(--text-secondary); font-size: var(--font-size-12); line-height: var(--line-height-16); font-weight: var(--font-weight-semibold); text-transform: uppercase; white-space: nowrap; }
+.table td { height: 76px; box-sizing: border-box; }
+.cellVehicle { display: flex; align-items: center; gap: var(--space-4); min-width: 0; }
+.vehicleText { display: grid; gap: var(--space-1); min-width: 0; }
+.table .rowTitle { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.statusText, .todayText { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: var(--font-weight-semibold); white-space: nowrap; }
+.statusMark { flex: 0 0 auto; width: 6px; height: 6px; box-sizing: border-box; border: var(--border-width-hairline) solid currentColor; border-radius: var(--radius-full); }
+.statusMark[data-filled] { background: currentColor; }
+.todayText { font-weight: var(--font-weight-medium); }
+.cellChanged { white-space: nowrap; }
+.cardOnly { display: none; }
+.cardCategory { color: var(--text-secondary); font-size: var(--font-size-14); line-height: var(--line-height-20); }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); }
+.actionLink { min-height: var(--touch-target-mobile); padding: 0 var(--space-1); border: 0; background: transparent; color: var(--text-primary); font-size: var(--font-size-14); }
+.actionLink:hover { background: transparent; text-decoration: underline; }
+.moreButton { display: inline-flex; align-items: center; justify-content: center; width: var(--button-height-sm); height: var(--touch-target-mobile); padding: 0; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-primary); cursor: pointer; }
+.moreButton:hover { background: var(--action-secondary-hover); }
+.moreButton:focus-visible { outline: var(--border-width-active) solid var(--focus-ring); outline-offset: var(--focus-offset); }
+/* Order arrows stay (D-42, keyboard order) but read as quiet icon buttons next to the text actions. */
+.moveButton { width: var(--button-height-sm); border-color: transparent; background: transparent; }
 .muted { color: var(--text-secondary); }
 .iconButton[aria-disabled="true"] { color: var(--text-disabled); cursor: not-allowed; }
 .rowTitle span:focus-visible, .h2:focus-visible { outline: var(--border-width-active) solid var(--focus-ring); outline-offset: var(--focus-offset); }
+/* Pager (ADM-05 D): "1–6 z 6 pojazdów" on the left, "← Poprzednia  1  Następna →" as text controls on the right. */
+.pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3) var(--space-6); margin-top: var(--space-6); }
+.pagerRange { margin: 0; font-size: var(--font-size-14); line-height: var(--line-height-20); color: var(--text-secondary); }
+.pagerLinks { display: flex; align-items: center; gap: var(--space-8); margin-left: auto; }
+.pagerLink { display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--touch-target-mobile); padding: 0 var(--space-1); font: inherit; font-size: var(--font-size-14); font-weight: var(--font-weight-medium); color: var(--text-primary); background: transparent; border: 0; cursor: pointer; }
+.pagerLink:hover:not(:disabled) { text-decoration: underline; }
+.pagerLink:disabled { color: var(--text-disabled); cursor: not-allowed; }
+.pagerLink:focus-visible { outline: var(--border-width-active) solid var(--focus-ring); outline-offset: var(--focus-offset); }
+.pagerCurrent { font-size: var(--font-size-14); font-weight: var(--font-weight-semibold); }
+/* Cards (ADM-05 M, also on a narrow desktop): photo 112 x 84 with name and category, then publication | today, then
+   "Zmieniono: …" | actions; the order arrows (when available) get the last row. */
 @container (max-width: 1039px) {
+  .tableCard { padding: 0; border: 0; background: transparent; }
   .table, .table tbody, .table tr, .table td { display: block; }
+  .table { background: transparent; }
   .tableHead { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
-  .table tbody { display: grid; gap: var(--space-3); }
-  .row { display: grid; gap: var(--space-2); padding: var(--space-3); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-lg); }
-  .table td { padding: 0; border: 0; }
-  .table td[data-label]::before { content: attr(data-label) ": "; font-weight: var(--font-weight-semibold); }
+  .table tbody { display: grid; gap: var(--space-4); }
+  .row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: var(--space-4) var(--space-4); padding: var(--space-4); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-lg); background: var(--surface-default); }
+  .table td { height: auto; padding: 0; border: 0; }
+  .table td:first-child { grid-column: 1 / -1; }
+  .cellVehicle { align-items: flex-start; }
+  .row .thumb { width: 112px; height: 84px; }
+  .table .rowTitle { max-width: none; font-size: var(--font-size-18); line-height: var(--line-height-24); white-space: normal; }
+  .vehicleText { gap: var(--space-4); padding-top: var(--space-1); }
+  .table .cellCategory, .tableOnly { display: none; }
+  .cardOnly { display: inline; }
+  .cardCategory { display: block; }
+  .cellChanged { color: var(--text-secondary); white-space: normal; }
+  .cellActions .actions { justify-content: flex-end; }
+  .cellActions .actionsCompact { flex-direction: column; align-items: flex-end; }
 }
 @container (min-width: 1080px) { .actions:not(.actionsWide) { flex-wrap: nowrap; white-space: nowrap; } }
 /* #298: .actionsWide (full set: arrows, Edytuj, Podgląd, Kalendarz, Więcej) never fits one line in the ~1120 px container, so it keeps wrapping; the former >=1240 px nowrap rule could never apply. */

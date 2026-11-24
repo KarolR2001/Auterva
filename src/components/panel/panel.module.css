@@ -179,7 +179,6 @@
 .shellBrandBlock {
   display: grid;
   gap: var(--space-1);
-  padding-top: var(--space-1);
 }
 
 /* ADM-04 D: "AUTERVA" 20 px bold without tracking; "PANEL FIRMY" right below, the first nav item 8 px under it. */
