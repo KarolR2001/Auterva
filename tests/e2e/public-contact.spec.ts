@@ -78,7 +78,7 @@ test("contact with vehicle and dates, copy, missing channel, documents per compa
     expect(mail.searchParams.get("body")).toContain(day(5));
     await expect(page.getByText("Preferowany kanał")).toBeVisible();
     await expect(page.getByText("Pn–Pt 9:00–17:00")).toBeVisible();
-    await expect(page.getByText("ul. Testowa 1")).toBeVisible();
+    await expect(page.locator("address").getByText("ul. Testowa 1")).toBeVisible();
     await expect(page.getByRole("link", { name: "Otwórz w mapach" })).toHaveAttribute("href", /openstreetmap\.org\/\?mlat=52\.2297&mlon=21\.0122/);
     await shoot("pub-04-contact");
 

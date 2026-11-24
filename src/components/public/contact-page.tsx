@@ -107,8 +107,9 @@ export function ContactPage({ contact, brand, header, termsAvailable }: { contac
               <div className={styles.mapCard}>
                 <div className={styles.mapCanvas} aria-hidden="true"><span className={styles.mapPin} /></div>
                 <div className={styles.mapOverlay}>
-                  <p className={styles.factLabel}>Adres</p>
-                  <p className={styles.mapStreet}>{place[0]}</p>
+                  {/* The full address is read in "Dane firmy"; the overlay repeats it visually only. */}
+                  <p className={styles.factLabel} aria-hidden="true">Adres</p>
+                  <p className={styles.mapStreet} aria-hidden="true">{place[0]}</p>
                   {map ? <a href={map} className={styles.mapLink} rel="noopener noreferrer">Otwórz w mapach <span aria-hidden="true">→</span></a> : null}
                 </div>
               </div>
