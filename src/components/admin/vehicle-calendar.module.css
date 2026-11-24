@@ -59,6 +59,7 @@
   cursor: pointer; border-radius: var(--radius-sm); }
 .dayNumber { line-height: var(--line-height-24); }
 .dayMark { min-height: 16px; font-size: var(--font-size-12); line-height: var(--line-height-16); font-weight: var(--font-weight-semibold); }
+.dayMark::before { content: attr(data-mark) / ""; }
 @container (max-width: 559px) {
   .table { border-spacing: 3px; margin: 0 -3px; }
   .day, .dayOther { height: 44px; font-size: var(--font-size-14); }

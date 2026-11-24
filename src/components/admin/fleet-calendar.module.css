@@ -100,6 +100,10 @@
 .blockText { display: grid; gap: var(--space-1); min-width: 0; font-size: var(--font-size-12); line-height: var(--line-height-16); }
 .blockText strong { font-size: var(--font-size-14); line-height: var(--line-height-20); font-weight: var(--font-weight-semibold); }
 .blockText strong, .blockText span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* One-day block: letter and day drawn by CSS with an empty alternative; the link's name carries the type and the date. */
+.blockMini { display: grid; gap: var(--space-1); font-size: var(--font-size-12); line-height: var(--line-height-16); }
+.blockMini::before { content: attr(data-letter) / ""; font-size: var(--font-size-14); line-height: var(--line-height-20); font-weight: var(--font-weight-semibold); }
+.blockMini::after { content: attr(data-day) / ""; }
 .pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); }
 @container (max-width: 359px) { .headActions svg { display: none; } .range { font-size: var(--font-size-16); } }
 @media (prefers-reduced-motion: reduce) { .gridWrap { scroll-behavior: auto; } }

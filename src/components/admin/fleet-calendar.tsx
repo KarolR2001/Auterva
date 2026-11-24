@@ -251,7 +251,7 @@ export function FleetCalendar({ context = companyContext, today: initialToday, t
                               aria-label={`${place.span > 1 ? `${block.typeLabel} ${blockShortRange(block)}, ` : ""}${label}: ${blockLabel(block)}. Otwórz blokadę w kalendarzu pojazdu`} title={blockLabel(block)}>
                               {place.span > 1
                                 ? <span className={styles.blockText}><strong>{block.typeLabel}</strong>{" "}<span>{blockShortRange(block)}</span></span>
-                                : <span className={styles.blockText} aria-hidden="true"><strong>{blockLetter(block.type)}</strong><span>{dayNumber(block.from < from ? from : block.from)}</span></span>}
+                                : <span className={styles.blockMini} data-letter={blockLetter(block.type)} data-day={dayNumber(block.from < from ? from : block.from)} aria-hidden="true" />}
                             </a>
                           );
                         })}
@@ -276,7 +276,7 @@ export function FleetCalendar({ context = companyContext, today: initialToday, t
                     {item.blocks.length === 0 ? blocksCountText(0) : item.blocks.map((block: FleetBlock, index) => (
                       <span key={block.id}>{index > 0 && " · "}
                         <a className={styles.cardBlock} href={blockHref(context.hrefBase, item.vehicleId, block)} aria-label={`${label}: ${blockLabel(block)}. Otwórz blokadę`}>
-                          {block.typeLabel} {blockShortRange(block)}</a></span>
+                          {blockLabel(block)}</a></span>
                     ))}
                     {now ? ` · ${now}` : ""}{item.status === "ARCHIVED" ? " · archiwalny" : ""}
                   </p>

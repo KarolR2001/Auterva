@@ -193,7 +193,7 @@ select.pill { appearance: none; padding-right: var(--space-10);
 /* Pager (ADM-05 D): "1–6 z 6 pojazdów" on the left, "← Poprzednia  1  Następna →" as text controls on the right. */
 .pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3) var(--space-6); margin-top: var(--space-6); }
 .pagerRange { margin: 0; font-size: var(--font-size-14); line-height: var(--line-height-20); color: var(--text-secondary); }
-.pagerLinks { display: flex; align-items: center; gap: var(--space-8); margin-left: auto; }
+.pagerLinks { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-8); margin-left: auto; }
 .pagerLink { display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--touch-target-mobile); padding: 0 var(--space-1); font: inherit; font-size: var(--font-size-14); font-weight: var(--font-weight-medium); color: var(--text-primary); background: transparent; border: 0; cursor: pointer; }
 .pagerLink:hover:not(:disabled) { text-decoration: underline; }
 .pagerLink:disabled { color: var(--text-disabled); cursor: not-allowed; }

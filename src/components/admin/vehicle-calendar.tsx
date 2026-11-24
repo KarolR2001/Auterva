@@ -540,7 +540,8 @@ export function VehicleCalendar({ context = companyContext, vehicleId, today: in
                           aria-label={dayLabel(cell.date, view, today, longDate, selected)}
                           onFocus={() => setFocusDate(cell.date)} onKeyDown={(event) => onDayKey(event, cell.date)} onClick={() => onDay(cell.date)}>
                           <span className={styles.dayNumber}>{cell.day}</span>
-                          <span className={styles.dayMark} aria-hidden="true">{view.block ? letterOf(view.block.type) : view.kind === "free" ? "•" : view.kind === "inactive" ? "–" : ""}</span>
+                          {/* The mark is drawn by CSS with an empty alternative: the button's name already states the day and its state. */}
+                          <span className={styles.dayMark} data-mark={view.block ? letterOf(view.block.type) : view.kind === "free" ? "•" : view.kind === "inactive" ? "–" : ""} aria-hidden="true" />
                         </button>
                       </td>
                     );

@@ -139,7 +139,8 @@ export function ServiceStatusCard(): ReactNode {
   const headline = { PAID: "Opłacony", TRIAL: "Okres próbny", EXPIRED: "Zakończony", NOT_STARTED: "Nie rozpoczął się" }[dto.period.headline];
   const active = dto.period.headline === "PAID" || dto.period.headline === "TRIAL";
   return (
-    <section className={styles.servicePage} aria-labelledby="service-page-title" data-testid="service-status">
+    // The card below is the named region; the page wrapper is no second landmark with the same name (axe landmark-unique).
+    <div className={styles.servicePage} data-testid="service-status">
       <header className={styles.serviceHeader}>
         <h2 id="service-page-title" className={styles.servicePageTitle}>Status usługi</h2>
         <a className={styles.linkButton} href="/admin/czat">Napisz do Autervy</a>
@@ -177,6 +178,6 @@ export function ServiceStatusCard(): ReactNode {
           ) : null}
         </dl>
       </section>
-    </section>
+    </div>
   );
 }
