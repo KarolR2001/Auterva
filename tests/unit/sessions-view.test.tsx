@@ -62,7 +62,7 @@ describe("ekran sesji konta (#73)", () => {
   it("pokazuje bieżącą sesję bez akcji kończenia, bez IP, stan pusty gdy brak innych", async () => {
     mockApi({ lists: [[s("1", { current: true })]] });
     render(<SessionsView area="company" />);
-    await waitFor(() => expect(screen.getByText("Ta sesja")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Bieżąca sesja" })).toBeInTheDocument());
     expect(screen.getByText("Brak innych aktywnych sesji.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Zakończ/ })).toBeNull();
     expect(screen.getByText(/Bieżącą sesję kończy/)).toBeInTheDocument();

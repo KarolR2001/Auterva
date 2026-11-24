@@ -1,6 +1,6 @@
 "use client";
 
-import { MonitorSmartphone } from "lucide-react";
+import { TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -9,6 +9,7 @@ import { postAuth } from "../auth/auth-flow";
 import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
 import { FormField } from "../ui/form-field";
+import { PageHeader } from "../ui/page-header";
 import { TextInput } from "../ui/text-input";
 import { sessionAlive } from "./account-view";
 import {
@@ -166,18 +167,23 @@ export function SessionsView({ area }: { area: AuthArea }) {
   const others = otherSessions(sessions);
   const description = target ? targetDescription(target) : null;
 
+  const current = sessions.find((session) => session.current) ?? null;
+
   return (
     <div className={styles.account} data-area={area}>
-      <p className={styles.lead}>
-        Widzisz wyłącznie sesje własnego konta. Adres IP i dane przeglądarki poza nazwą urządzenia nie są pokazywane.
-      </p>
+      <PageHeader
+        trail="Konto / Aktywne sesje"
+        title="Aktywne sesje"
+        description={`Urządzenia zalogowane do konta ${area === "company" ? "administratora" : "superadmina"}. Widzisz wyłącznie sesje własnego konta; adres IP i dane przeglądarki poza nazwą urządzenia nie są pokazywane.`}
+        actions={phase === "ready" ? <Button variant="tertiary" onClick={() => void refresh()}>Odśwież listę</Button> : null}
+      />
       {area === "company" ? (
-        <AccountTabs current="sessions" />
+        <AccountTabs current="sessions" sessionCount={phase === "ready" ? sessions.length : null} />
       ) : (
         <Link className={styles.secondaryLink} href={account} prefetch={false}>Wróć do konta</Link>
       )}
 
-      <div ref={noticeRegion} tabIndex={-1} role="status" aria-live="polite">
+      <div ref={noticeRegion} tabIndex={-1} role="status" aria-live="polite" className={styles.noticeRegion}>
         {notice && <Alert tone={notice.tone} title={notice.title}>{notice.text}</Alert>}
       </div>
 
@@ -188,38 +194,64 @@ export function SessionsView({ area }: { area: AuthArea }) {
         </Alert>
       )}
 
+      {phase === "ready" && current && (
+        <section className={styles.currentCard} aria-labelledby="sessions-current">
+          <h2 id="sessions-current" className={styles.currentLabel}>
+            <span className={styles.dot} aria-hidden="true" />
+            Bieżąca sesja
+          </h2>
+          <dl className={styles.currentGrid}>
+            <div>
+              <dt className={styles.srOnly}>Urządzenie</dt>
+              <dd className={styles.currentDevice}>{deviceLabel(current)}</dd>
+            </div>
+            <div>
+              <dt>Ostatnia aktywność</dt>
+              <dd>teraz</dd>
+            </div>
+            <div>
+              <dt>Utworzono</dt>
+              <dd>{formatWhen(current.createdAt)}</dd>
+            </div>
+          </dl>
+          <p className={styles.currentNote}>Bieżącą sesję kończy „Wyloguj się”, nie ta lista.</p>
+        </section>
+      )}
+
       {phase === "ready" && (
-        <section className={styles.card} aria-labelledby="sessions-list">
-          <h2 id="sessions-list">Sesje konta ({sessions.length})</h2>
-          <ul className={styles.sessionList}>
-            {sessions.map((session) => (
-              <li key={session.id} className={styles.sessionItem} data-current={session.current || undefined}>
-                <p className={styles.sessionTitle}>
-                  <MonitorSmartphone aria-hidden="true" size={20} />
-                  <span>{deviceLabel(session)}</span>
-                  {session.current && <span className={styles.pill}>Ta sesja</span>}
-                </p>
-                <p className={styles.sessionMeta}>Rozpoczęta: {formatWhen(session.createdAt)} • Ostatnia aktywność: {formatWhen(session.lastActiveAt)}</p>
-                {session.current ? (
-                  <p className={styles.sessionMeta}>Bieżącą sesję kończy „Wyloguj”, nie ta lista.</p>
-                ) : (
-                  <Button variant="secondary" size="sm" onClick={(event) => open({ kind: "one", session }, event.currentTarget)}
-                    aria-label={`Zakończ sesję: ${deviceLabel(session)}, ostatnia aktywność ${formatWhen(session.lastActiveAt)}`}>
-                    Zakończ sesję
-                  </Button>
-                )}
-              </li>
-            ))}
-          </ul>
+        <section className={styles.others} aria-labelledby="sessions-others">
+          <h2 id="sessions-others" className={styles.sectionTitle}>Inne urządzenia</h2>
           {others.length === 0 ? (
             <p>Brak innych aktywnych sesji.</p>
           ) : (
-            <Button variant="destructive" onClick={(event) => open({ kind: "others", count: others.length }, event.currentTarget)}>
-              Zakończ pozostałe sesje ({others.length})
-            </Button>
+            <ul className={styles.sessionGrid}>
+              {others.map((session) => (
+                <li key={session.id} className={styles.sessionCard}>
+                  <p className={styles.sessionTitle}>{deviceLabel(session)}</p>
+                  <p className={styles.sessionMeta}>Ostatnia aktywność: {formatWhen(session.lastActiveAt)}</p>
+                  <p className={styles.sessionMeta}>Utworzono {formatWhen(session.createdAt)}</p>
+                  <Button variant="secondary" className={styles.sessionEnd}
+                    onClick={(event) => open({ kind: "one", session }, event.currentTarget)}
+                    aria-label={`Zakończ sesję: ${deviceLabel(session)}, ostatnia aktywność ${formatWhen(session.lastActiveAt)}`}>
+                    Zakończ sesję
+                  </Button>
+                </li>
+              ))}
+            </ul>
           )}
-          <Button variant="tertiary" onClick={() => void refresh()}>Odśwież listę</Button>
         </section>
+      )}
+
+      {phase === "ready" && others.length > 0 && (
+        <div className={styles.endAll}>
+          <Button variant="secondary" onClick={(event) => open({ kind: "others", count: others.length }, event.currentTarget)}>
+            Zakończ wszystkie pozostałe sesje ({others.length})
+          </Button>
+          <p className={styles.warningBox}>
+            <TriangleAlert aria-hidden="true" size={20} />
+            <span>Zakończenie sesji wymaga kodu z aplikacji lub kodu odzyskania. Bieżąca sesja pozostanie aktywna.</span>
+          </p>
+        </div>
       )}
 
       {target && description && (
