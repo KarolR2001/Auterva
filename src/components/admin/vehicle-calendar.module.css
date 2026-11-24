@@ -122,3 +122,8 @@
 @media (max-width: 480px) { .copyLinkHeader { display: none; } .copyLinkBody { display: inline-flex; } }
 .copyLink:hover { background: var(--action-secondary-hover); }
 .copyLink:focus-visible { outline: var(--border-width-active) solid var(--focus-ring); outline-offset: var(--focus-offset); }
+
+/* ADM-09 M: the month label sits on the left and both arrows together on the right (focus order stays prev → next). */
+@media (max-width: 767px) {
+  .toolbar .monthTitle { order: -1; }
+}

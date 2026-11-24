@@ -58,12 +58,13 @@
 .address { display: grid; margin: 0 0 var(--space-2); font-style: normal; font-size: var(--font-size-16); line-height: var(--line-height-24); overflow-wrap: anywhere; }
 .docs { display: flex; flex-wrap: wrap; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
 
-.legal { max-width: 1104px; }
+/* PUB-05/06 D: the document block is 1000 px wide and centred (x 220–1220 at 1440 px): 220 px contents + 760 px text. */
+.legal { max-width: 1000px; }
 .legal .hero { margin: var(--space-4) 0 var(--space-8); }
 .legal .title { margin-bottom: var(--space-3); }
 .legalMeta { margin: var(--space-6) 0 0; font-size: var(--font-size-14); line-height: var(--line-height-20); font-weight: var(--font-weight-medium); color: var(--text-secondary); }
 .legalColumns { display: grid; gap: var(--space-6); }
-.legalText { min-width: 0; max-width: 680px; overflow-wrap: anywhere; font-size: var(--font-size-16); line-height: var(--line-height-26); color: var(--text-secondary); }
+.legalText { min-width: 0; max-width: 760px; overflow-wrap: anywhere; font-size: var(--font-size-16); line-height: var(--line-height-26); color: var(--text-secondary); }
 .legalParagraph { margin: 0 0 var(--space-4); white-space: pre-wrap; }
 /* PUB-05/06: „01 Tytuł” 22/28 px bold with a hairline between sections. */
 .legalSection { padding: var(--space-6) 0 var(--space-2); border-top: var(--border-width-hairline) solid var(--border-subtle); scroll-margin-top: var(--space-6); }
@@ -101,7 +102,7 @@
   .blocks { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
   .legal .title { font-size: 48px; line-height: 56px; }
   .legal .lead { font-size: var(--font-size-20); line-height: var(--line-height-28); }
-  .legalColumns { grid-template-columns: 220px minmax(0, 1fr); column-gap: var(--space-16); }
+  .legalColumns { grid-template-columns: 220px minmax(0, 760px); column-gap: var(--space-5); }
   .toc { position: sticky; top: var(--space-6); padding: var(--space-5); }
   .tocHeading { display: block; }
   .tocSummary { display: none; }
