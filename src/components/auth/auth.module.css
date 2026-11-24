@@ -170,7 +170,7 @@
   min-height: 52px;
 }
 .page[data-area="company"][data-view="login"] .loginForm > .linkRow {
-  margin-top: calc(var(--space-5) - var(--space-6));
+  margin-top: calc(var(--space-5) - var(--space-12));
 }
 .resetCta {
   display: inline-flex;

@@ -740,7 +740,7 @@
 /* TEN-04: read-only service status page: header with the chat button, one 560 px card, label | 196 px value column. */
 .servicePage {
   display: grid;
-  gap: var(--space-10);
+  gap: var(--space-16);
   overflow-wrap: anywhere;
 }
 
@@ -897,6 +897,10 @@
 
 @media (max-width: 767px) {
   .servicePage {
+    gap: var(--space-6);
+  }
+
+  .serviceHeader {
     gap: var(--space-6);
   }
 
