@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "./lib/prisma";
 import { isCustomDomainHost, resolveAliasRedirect } from "./modules/domains/routing";
 import { parseHostAuthority, resolveHostMapping } from "./modules/tenancy/host-registry";
-import { PUBLIC_NOT_FOUND_PATH, publicNotFoundFallback, routeAllowedForArea } from "./modules/tenancy/host-route-policy";
+import { publicNotFoundFallback, routeAllowedForArea } from "./modules/tenancy/host-route-policy";
 import { count5xx, countRequest, isDbUnavailableError, reportInternalError } from "./modules/observability/http-observe";
 import { logFailure } from "./modules/observability/log";
 import { randomUUID } from "node:crypto";
@@ -71,11 +71,12 @@ async function route(request: NextRequest) {
   }
   const mapping = authority && await resolveHostMapping(prisma, authority);
   if (!mapping) return refuse();
-  // PUB-07 (#471): an unknown page of a public company site gets the company 404 page instead of an empty answer.
-  // The request is rewritten to a fixed private path that no route serves, never forwarded as typed, so it cannot
-  // reach a page, handler or public/ file of any area; API, panel, platform and internal prefixes stay a bare 404.
-  const unknownPublicPage = !routeAllowedForArea(mapping.area, request.nextUrl.pathname);
-  if (unknownPublicPage && !publicNotFoundFallback(mapping.area, request.method, request.nextUrl.pathname)) return refuse();
+  // PUB-07 (#471): an unknown page of a public company site goes on to Next, which has no route for it and renders the
+  // company 404 page (app/not-found.tsx) with status 404. publicNotFoundFallback admits only clean GET/HEAD paths outside
+  // every prefix of any area, the API and internal paths; tests/unit/host-route-policy.test.ts guards that every route in
+  // src/app and every file in public/ lies under such a prefix, so the path cannot reach another area's page or file.
+  if (!routeAllowedForArea(mapping.area, request.nextUrl.pathname)
+    && !publicNotFoundFallback(mapping.area, request.method, request.nextUrl.pathname)) return refuse();
   if (mapping.area === "COMPANY_PUBLIC" && mapping.canonicalTarget) {
     // The alias never serves the offer itself once a custom domain is active; the gate runs first.
     const target = request.method === "GET" || request.method === "HEAD"
@@ -98,9 +99,7 @@ async function route(request: NextRequest) {
   const csp = isDocumentPath(request.nextUrl.pathname)
     ? documentCsp(newNonce(), authority, process.env.NODE_ENV === "development") : null;
   if (csp) headers.set("Content-Security-Policy", csp);
-  const response = unknownPublicPage
-    ? NextResponse.rewrite(new URL(PUBLIC_NOT_FOUND_PATH, request.url), { request: { headers } })
-    : NextResponse.next({ request: { headers } });
+  const response = NextResponse.next({ request: { headers } });
   if (csp) response.headers.set("Content-Security-Policy", csp);
   // Panels, the platform and every API response stay out of search indexes (#40); public pages set their own robots.
   // Exception (D-25, #154): the two public image variants of a company host are indexable; the handler answers 404 for a disabled company.

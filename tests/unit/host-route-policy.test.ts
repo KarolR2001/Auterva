@@ -1,5 +1,6 @@
+import { readdirSync } from "node:fs";
 import { expect, test } from "vitest";
-import { PUBLIC_NOT_FOUND_PATH, publicNotFoundFallback, routeAllowedForArea } from "../../src/modules/tenancy/host-route-policy";
+import { publicNotFoundFallback, reservedPrefixes, routeAllowedForArea } from "../../src/modules/tenancy/host-route-policy";
 
 test.each([
   ["MARKETING", "/", true], ["MARKETING", "/robots.txt", true], ["MARKETING", "/sitemap.xml", true], ["COMPANY_ADMIN", "/sitemap.xml", false], ["MARKETING", "/admin/", false], ["MARKETING", "/api/auth/get-session", false],
@@ -60,5 +61,21 @@ test("PUB-07: only an unknown page of a public company site falls back to the co
   for (const path of ["//nie-ma", "/%2e%2e/admin", "/nie%2fma", "/a/../nie-ma", "/nie\\ma", "nie-ma", "", "/", "/pojazdy/x/", "/kontakt/"]) {
     expect(publicNotFoundFallback("COMPANY_PUBLIC", "GET", path), path).toBe(false);
   }
-  expect(PUBLIC_NOT_FOUND_PATH.startsWith("/_")).toBe(true);
+});
+
+test("PUB-07 guard: every route in src/app and every file in public/ is covered, so the fallback never reaches one", () => {
+  // The fallback lets an unknown public path through to Next. It is safe only while no route or static file sits outside
+  // the public allowlist and the reserved prefixes; a new top-level route must be added to an area in host-route-policy.
+  const routeEntries = readdirSync("src/app", { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() || /^(robots\.txt|sitemap\.xml|.+\.(?:ts|tsx))$/.test(entry.name))
+    .map((entry) => entry.name)
+    .filter((name) => !/^(layout|page|error|not-found|global-error|loading|template|default)\.tsx$|^globals\.css$|^sw\.ts$/.test(name))
+    .map((name) => `/${name.replace(/\.(ts|tsx)$/, "")}`);
+  const publicFiles = readdirSync("public", { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile()).map((entry) => `/${`${entry.parentPath}/${entry.name}`.replace(/^public\/?/, "")}`);
+  for (const path of [...routeEntries, ...publicFiles]) {
+    const covered = routeAllowedForArea("COMPANY_PUBLIC", path) || reservedPrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+    expect(covered, path).toBe(true);
+    expect(publicNotFoundFallback("COMPANY_PUBLIC", "GET", path), path).toBe(false);
+  }
 });

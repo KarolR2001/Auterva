@@ -1,8 +1,9 @@
 import { NextRequest } from "next/server";
 import { expect, test, vi } from "vitest";
 
-// PUB-07 (#471): on a public company host an unknown page is rewritten to one fixed private path, so Next renders
-// app/not-found.tsx with 404. The typed path itself never reaches a route; private areas and the API keep a bare 404.
+// PUB-07 (#471): on a public company host an unknown page goes on to Next, which has no route for it and renders
+// app/not-found.tsx with 404 (no proxy rewrite: its internal request would come back with the listener's host and be
+// refused). Private areas, the API and internal prefixes keep a bare 404.
 const mappings = vi.hoisted(() => ({
   "firma.example.test": { hostname: "firma.example.test", area: "COMPANY_PUBLIC", organizationId: "org-1", canonicalTarget: null },
   "auterva.example.test": { hostname: "auterva.example.test", area: "MARKETING", organizationId: null, canonicalTarget: null },
@@ -16,10 +17,11 @@ import { proxy } from "../../src/proxy";
 const send = (host: string, path: string, method = "GET") => proxy(new NextRequest(`http://${host}${path}`, { method, headers: { host } }));
 const rewrite = (response: Response) => response.headers.get("x-middleware-rewrite");
 
-test("an unknown public page is rewritten to the fixed not-found path with the document CSP", async () => {
+test("an unknown public page goes on to Next unchanged, with the document CSP", async () => {
   for (const method of ["GET", "HEAD"]) {
     const response = await send("firma.example.test", "/nie-istnieje/", method);
-    expect(new URL(rewrite(response)!).pathname).toBe("/_nie-znaleziono/");
+    expect(rewrite(response)).toBeNull();
+    expect(response.headers.get("x-middleware-next")).toBe("1");
     expect(response.headers.get("content-security-policy")).toMatch(/script-src 'self' 'nonce-/);
   }
 });
