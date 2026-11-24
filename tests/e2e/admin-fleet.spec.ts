@@ -74,7 +74,7 @@ test("fleet list and dashboard: empty states, filters, keyboard order, hide and 
     // List: rows in public order, statuses with text, availability today as text.
     await page.goto(`${base}/admin/pojazdy/`);
     const table = page.getByRole("table", { name: "Pojazdy" });
-    await expect(table.getByRole("columnheader")).toHaveText(["Pojazd", "Kategoria", "Publikacja", "Dziś", "Ostatnia zmiana", "Akcje"]);
+    await expect(table.getByRole("columnheader")).toHaveText(["Pojazd", "Kategoria", "Publikacja", "Dzisiaj", "Ostatnia zmiana", "Akcje"]);
     const rows = page.locator("tbody tr");
     await expect(rows).toHaveCount(3);
     await expect(page.getByRole("heading", { level: 3 })).toHaveText(["Alfa Pierwsza", "Beta Szkic", "Alfa Trzecia"]);

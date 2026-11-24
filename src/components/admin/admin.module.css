@@ -14,13 +14,15 @@
 .toolbar { display: grid; gap: var(--space-3); grid-template-columns: 1fr; margin-bottom: var(--space-4); }
 /* Layout follows the width of the content area (the panel sidebar takes 240 px), not the viewport. */
 /* Desktop toolbar (mockup ADM-05 D): one row of compact pills, search takes the free width, nothing wraps until the container is narrow. */
-@container (min-width: 640px) { .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); margin-bottom: var(--space-8); padding: var(--space-5); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-lg); } /* Zero flex-basis: the row breaks on the minimum widths only, so long option names never push "Dodaj pojazd" to a new row (1024-1920 px). */ .searchInput { flex: 2 1 0; min-width: 72px; } .toolbar .pill { flex: 1 1 0; min-width: 120px; max-width: 160px; text-overflow: ellipsis; } .toolbar .sortButton { flex: 0 0 auto; } .addLink { flex: 0 1 264px; margin-left: auto; white-space: nowrap; } }
+@container (min-width: 640px) { .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-4); margin-bottom: var(--space-8); padding: var(--space-5); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-lg); } /* Zero flex-basis: the row breaks on the minimum widths only, so long option names never push "Dodaj pojazd" to a new row (1024-1920 px). */ .searchInput { flex: 2 1 0; min-width: 72px; } .toolbar .pill { flex: 1 1 0; min-width: 120px; max-width: 160px; text-overflow: ellipsis; } .toolbar .sortButton { flex: 0 0 auto; max-width: none; } .rowBreak ~ .pill { flex: 0 0 auto; max-width: 220px; } .addLink { flex: 0 0 auto; margin-left: auto; white-space: nowrap; } }
+/* The 264 px "Dodaj pojazd" of the board only where the row has room for it; a flex basis also decides where the row breaks. */
+@container (min-width: 860px) { .addLink { flex: 0 1 264px; } }
 /* ADM-05 on a narrow desktop (about 1024-1200 px): the sort button shows the short visible label "Zmiana" (its accessible name stays the full "Ostatnia zmiana, sortowanie: ...") so the closed Publikacja and Kategoria fields keep at least 120 px and stay readable. */
 .sortShort { display: none; }
 @container (min-width: 640px) and (max-width: 899px) { .sortLong { display: none; } .sortShort { display: inline; } }
 .rowBreak { flex-basis: 100%; height: 0; }
 /* ADM-05 D pills: "Publikacja ↓" in 14 px semibold; the native chevron is replaced by the same Lucide arrow the sort button uses. */
-.pill { width: auto; min-width: 0; font-size: var(--font-size-14); font-weight: var(--font-weight-semibold); border-radius: var(--radius-sm); }
+.toolbar .pill { width: auto; font-size: var(--font-size-14); font-weight: var(--font-weight-semibold); border-radius: var(--radius-sm); }
 select.pill { appearance: none; padding-right: var(--space-10);
   background: var(--surface-default) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23151515' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5v14'/%3E%3Cpath d='m19 12-7 7-7-7'/%3E%3C/svg%3E") no-repeat right var(--space-3) center; }
 .toolbar .searchInput { border-radius: var(--radius-sm); font-size: var(--font-size-14); }
@@ -44,11 +46,12 @@ select.pill { appearance: none; padding-right: var(--space-10);
 /* Compact card (mockup ADM-05 M): the text actions "Edytuj · Terminy · Więcej" stay on one line, order arrows get their own row. */
 .actionsCompact { flex-direction: column; align-items: stretch; gap: var(--space-1); }
 .moveRow { display: flex; justify-content: flex-start; gap: var(--space-2); }
-.textActions { display: flex; flex-wrap: nowrap; justify-content: flex-start; align-items: center; gap: var(--space-2); }
-.textAction { display: inline-flex; align-items: center; min-height: var(--touch-target-mobile); padding: 0 var(--space-1); font: inherit; font-weight: var(--font-weight-semibold); color: var(--text-primary); background: transparent; border: 0; text-decoration: none; cursor: pointer; }
+.textActions { display: flex; flex-wrap: nowrap; justify-content: flex-start; align-items: center; gap: var(--space-1); }
+.textAction { display: inline-flex; align-items: center; min-height: var(--touch-target-mobile); padding: 0; font: inherit; font-size: var(--font-size-14); font-weight: var(--font-weight-semibold); color: var(--text-primary); background: transparent; border: 0; text-decoration: none; cursor: pointer; }
 .textAction:hover { text-decoration: underline; }
 .textAction:focus-visible { outline: var(--border-width-active) solid var(--focus-ring); outline-offset: var(--focus-offset); }
-.textActions > * + *::before { content: "·"; content: "·" / ""; margin-right: var(--space-2); font-weight: var(--font-weight-semibold); }
+.textActions > * + *::before { content: "·"; content: "·" / ""; margin-right: var(--space-1); font-weight: var(--font-weight-semibold); }
+.textActions > .menuWrap { display: inline-flex; align-items: center; }
 .field { display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--font-size-14); font-weight: var(--font-weight-medium); }
 .select { min-height: var(--button-height-md); padding: 0 var(--space-3); font: inherit; color: var(--text-primary); background: var(--surface-default);
   border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-md); }
@@ -169,7 +172,7 @@ select.pill { appearance: none; padding-right: var(--space-10);
 .cellVehicle { display: flex; align-items: center; gap: var(--space-4); min-width: 0; }
 .vehicleText { display: grid; gap: var(--space-1); min-width: 0; }
 .table .rowTitle { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.statusText, .todayText { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: var(--font-weight-semibold); white-space: nowrap; }
+.statusText, .todayText { display: flex; align-items: center; gap: var(--space-2); font-weight: var(--font-weight-semibold); white-space: nowrap; }
 .statusMark { flex: 0 0 auto; width: 6px; height: 6px; box-sizing: border-box; border: var(--border-width-hairline) solid currentColor; border-radius: var(--radius-full); }
 .statusMark[data-filled] { background: currentColor; }
 .todayText { font-weight: var(--font-weight-medium); }
@@ -204,20 +207,23 @@ select.pill { appearance: none; padding-right: var(--space-10);
   .table { background: transparent; }
   .tableHead { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
   .table tbody { display: grid; gap: var(--space-4); }
-  .row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: var(--space-4) var(--space-4); padding: var(--space-4); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-lg); background: var(--surface-default); }
+  .table .row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: var(--space-4) var(--space-4); padding: var(--space-4); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-lg); background: var(--surface-default); }
   .table td { height: auto; padding: 0; border: 0; }
   .table td:first-child { grid-column: 1 / -1; }
   .cellVehicle { align-items: flex-start; }
   .row .thumb { width: 112px; height: 84px; }
   .table .rowTitle { max-width: none; font-size: var(--font-size-18); line-height: var(--line-height-24); white-space: normal; }
-  .vehicleText { gap: var(--space-4); padding-top: var(--space-1); }
+  .vehicleText { gap: var(--space-2); padding-top: var(--space-1); }
   .table .cellCategory, .tableOnly { display: none; }
   .cardOnly { display: inline; }
   .cardCategory { display: block; }
   .cellChanged { color: var(--text-secondary); white-space: normal; }
+  .cellActions { justify-self: end; min-width: max-content; }
   .cellActions .actions { justify-content: flex-end; }
-  .cellActions .actionsCompact { flex-direction: column; align-items: flex-end; }
+  .cellActions .actionsCompact { flex-direction: row; }
 }
+/* Below ~380 px the actions get their own row so "Zmieniono: 3 dni temu" never runs into them. */
+@container (max-width: 379px) { .table td.cellChanged, .table td.cellActions { grid-column: 1 / -1; } .table td.cellActions { justify-self: start; } }
 @container (min-width: 1080px) { .actions:not(.actionsWide) { flex-wrap: nowrap; white-space: nowrap; } }
 /* #298: .actionsWide (full set: arrows, Edytuj, Podgląd, Kalendarz, Więcej) never fits one line in the ~1120 px container, so it keeps wrapping; the former >=1240 px nowrap rule could never apply. */
 @container (min-width: 1040px) { .row:hover { background: var(--surface-subtle); } }
