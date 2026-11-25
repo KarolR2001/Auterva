@@ -438,8 +438,24 @@
 }
 
 .shellContext a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   color: var(--text-link);
   text-underline-offset: 3px;
+}
+
+.shellContext p {
+  margin: 0;
+}
+
+.shellContextTitle {
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.shellContextNote {
+  font-size: var(--font-size-14);
 }
 
 /* Content starts 40 px after the 240 px sidebar and 32 px under the top bar (ADM-04 D); page wrappers add no inline padding. */
@@ -515,6 +531,67 @@
 .shellMenuItems {
   display: grid;
   gap: var(--space-1);
+}
+
+/* PLT-UM (#473): the superadmin's identity row above the links: 48 px avatar "SA", name and the current-session line. */
+.shellInitials {
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-20);
+}
+
+.shellMenuIdentity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+  padding: var(--space-4) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+}
+
+.shellMenuAvatar {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: var(--action-primary-default);
+  color: var(--action-primary-content);
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-semibold);
+}
+
+.shellMenuIdentityText {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.shellMenuIdentityName {
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-20);
+}
+
+.shellMenuIdentitySession {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--text-primary);
+  font-size: var(--font-size-12);
+  line-height: var(--line-height-16);
+}
+
+.shellMenuHandle {
+  display: block;
+  width: 40px;
+  height: 4px;
+  margin: calc(-1 * var(--space-3)) auto var(--space-4);
+  border-radius: var(--radius-full);
+  background: var(--border-strong);
 }
 
 .shellMenuItems a,
@@ -616,8 +693,47 @@
     padding: var(--space-3) var(--space-4);
   }
 
+  /* F11-03 M: the company context is a card under the top bar: title, one line about the actor, and a full-width
+     "Wróć do karty firmy" button; the company name in the link stays for assistive technology (it is in the title). */
   .shellContext {
-    padding: var(--space-3) var(--space-4);
+    display: grid;
+    gap: var(--space-2);
+    margin: var(--space-4) var(--space-4) 0;
+    padding: var(--space-5);
+    border: var(--border-width-hairline) solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    background: var(--surface-default);
+  }
+
+  .shellContextTitle {
+    font-size: var(--font-size-18);
+    line-height: var(--line-height-26);
+  }
+
+  .shellContextNote {
+    font-size: var(--font-size-16);
+    line-height: var(--line-height-24);
+  }
+
+  .shellContext a {
+    min-height: var(--button-height-md);
+    margin-top: var(--space-2);
+    padding: 0 var(--space-4);
+    border-radius: var(--radius-md);
+    background: var(--surface-inverse);
+    color: var(--text-inverse);
+    font-size: var(--font-size-14);
+    font-weight: var(--font-weight-semibold);
+    text-decoration: none;
+  }
+
+  .shellContextName {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   .shellMain {

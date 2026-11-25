@@ -1,10 +1,11 @@
 "use client";
 
-import { Archive, Building2, Trash2, CalendarCheck, CalendarX, CircleAlert, CircleCheck, CircleSlash, MessageCircle, Plus } from "lucide-react";
+import { Archive, Building2, Trash2, CalendarCheck, CalendarX, CircleAlert, CircleCheck, CircleSlash, MessageCircle, Plus, Search } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "../ui/button";
+import { PageHeader } from "../ui/page-header";
 import { TextInput } from "../ui/text-input";
 import {
   formatInstantDate,
@@ -70,17 +71,20 @@ export function CompanyListView() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.listHeader}>
-        <p className={styles.opsLead}>Zarządzaj firmami i dostępem do usługi.</p>
-        <div className={styles.actionsRow}>
-          <Link className={styles.linkButtonSecondary} href="/wiadomosci/" prefetch={false}>
+      {/* PLT-01: page title, one line of context and the main actions; on phones "Wiadomości" lives in the bottom navigation. */}
+      <PageHeader
+        title="Firmy"
+        description="Zarządzaj firmami i dostępem do usługi."
+        className={styles.listHeader}
+        actions={<>
+          <Link className={`${styles.linkButtonSecondary} ${styles.desktopOnly}`} href="/wiadomosci/" prefetch={false}>
             <MessageCircle size={20} aria-hidden="true" /> Wiadomości
           </Link>
-          <Link className={styles.linkButton} href="/firmy/nowa/" prefetch={false}>
+          <Link className={`${styles.linkButton} ${styles.addCompany}`} href="/firmy/nowa/" prefetch={false}>
             <Plus size={20} aria-hidden="true" /> Dodaj firmę
           </Link>
-        </div>
-      </div>
+        </>}
+      />
       <section aria-label="Podsumowanie okresów" className={styles.kpis}>
         <div className={styles.kpi}>
           <span className={styles.kpiLabel}>Opłacone</span>
@@ -98,17 +102,21 @@ export function CompanyListView() {
       <p className={styles.opsHint}>Liczniki obejmują całą platformę, bez firm zarchiwizowanych.</p>
 
       <form className={styles.toolbar} role="search" onSubmit={(event) => event.preventDefault()}>
-        <label className={styles.searchLabel} htmlFor="company-search">
+        <label className={styles.srOnly} htmlFor="company-search">
           Szukaj firmy, hosta lub e-maila
         </label>
-        <TextInput
-          id="company-search"
-          type="search"
-          autoComplete="off"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Nazwa, adres lub e-mail administratora"
-        />
+        {/* PLT-01: the label is the placeholder-sized prompt next to a Lucide magnifier; the field keeps its accessible name. */}
+        <div className={styles.searchField}>
+          <Search size={20} aria-hidden="true" />
+          <TextInput
+            id="company-search"
+            type="search"
+            autoComplete="off"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Szukaj firmy, hosta lub e-maila"
+          />
+        </div>
         <label className={styles.checkRow}>
           <input
             type="checkbox"
@@ -258,24 +266,24 @@ function CompanyRow({ company }: { company: PlatformCompany }) {
         <span className={styles.hostLine}>Panel: {panelHost?.hostname ?? "brak"}</span>
         <span className={styles.hostLine}>Strona: {publicHost?.hostname ?? "brak"}</span>
       </th>
-      <td data-label="Okres usługi">
+      <td data-label="Okres usługi" className={styles.cellPeriod}>
         <span className={`${styles.chip} ${periodOk ? styles.chipOk : styles.chipOff}`}>
           {periodOk ? <CalendarCheck size={16} aria-hidden="true" /> : <CalendarX size={16} aria-hidden="true" />}
           <span>{periodLabel(company)}</span>
         </span>
       </td>
-      <td data-label="Widoczność">
+      <td data-label="Widoczność" className={styles.cellFact}>
         <span className={`${styles.chip} ${visible ? styles.chipOk : styles.chipOff}`}>
           {visible ? <CircleCheck size={16} aria-hidden="true" /> : <CircleSlash size={16} aria-hidden="true" />}
           <span>{visible ? "Widoczna" : "Wyłączona"}</span>
         </span>
         {!visible && <span className={styles.detail}>{visibilityReason(company)}</span>}
       </td>
-      <td data-label="Rejestracja">{company.registration.status === "REGISTERED" ? "Zakończona" : "Oczekuje"}</td>
-      <td data-label="Akcje">
+      <td data-label="Rejestracja" className={styles.cellFact}>{company.registration.status === "REGISTERED" ? "Zakończona" : "Oczekuje"}</td>
+      <td data-label="Akcje" className={styles.cellActions}>
         <div className={styles.rowActions}>
           <a
-            className={styles.openLink}
+            className={`${styles.openLink} ${styles.openPrimary}`}
             href={`/firmy/${encodeURIComponent(company.organizationId)}`}
             aria-label={`Otwórz firmę ${company.name}`}
           >

@@ -9,9 +9,9 @@ import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
 import { CompanyDiagnostics } from "./company-diagnostics";
 import { CompanyDomain } from "./company-domain";
-import { ArchiveSection, CompanyStatus, PeriodSection, PurgePanel, companyHostLine } from "./company-ops";
+import { ArchiveSection, CompanyStatus, PeriodSection, PurgePanel, companyHosts } from "./company-ops";
 import { PlatformPageHeader } from "./page-header";
-import { PURGED_COMPANY_LABEL, purgeState, type CompanyCardData } from "./platform-api";
+import { formatLocalDate, PURGED_COMPANY_LABEL, purgeState, type CompanyCardData } from "./platform-api";
 import {
   canIssueInvitation, canRevokeInvitation, classifyInvitationError, invitationView, isConfigurationRefusal,
   type InvitationDto, type InvitationView,
@@ -181,15 +181,17 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
   return (
     <div className={styles.page}>
       <PlatformPageHeader
+        className={styles.cardHeader}
         trail={`Firmy / ${company.name}`}
         title={company.name ?? "Firma"}
-        subtitle={<>{companyHostLine(company)}<br />Działasz jako superadmin w kontekście firmy {company.name}. Nie przejmujesz konta administratora.</>}
+        // PLT-03: panel and public address on their own lines, then the actor context; on phones the actions fill the width.
+        subtitle={<>Panel: {companyHosts(company).panel}<br />Strona: {companyHosts(company).site}<br />Działasz jako superadmin w kontekście firmy {company.name}. Nie przejmujesz konta administratora.</>}
         actions={frozen ? undefined : <>
           {(company.conversationId || !archived) && (
             <Link className={styles.openLink} href={`/wiadomosci/?firma=${encodeURIComponent(company.organizationId)}`} prefetch={false}>
               {company.conversationId ? "Wiadomości" : "Napisz do firmy"}</Link>
           )}
-          <Link className={styles.linkButton} href={`/firmy/${encodeURIComponent(company.organizationId)}/pojazdy/`} prefetch={false}>Zarządzaj flotą</Link>
+          <Link className={`${styles.linkButton} ${styles.headerPrimary}`} href={`/firmy/${encodeURIComponent(company.organizationId)}/pojazdy/`} prefetch={false}>Zarządzaj flotą</Link>
         </>}
       />
       <div ref={status} tabIndex={-1} className={styles.summary}>
@@ -214,7 +216,7 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
           <div><dt>Nazwa w adresie</dt><dd>{company.slug}</dd></div>
           <div><dt>Konto administratora (nie publiczny e-mail firmy)</dt><dd>{company.account?.email ?? "—"}</dd></div>
           <div><dt>Rejestracja administratora</dt><dd>{registered ? "Zarejestrowany" : "Oczekuje na zaproszenie"}</dd></div>
-          <div><dt>Okres usługi</dt><dd>{company.period.paidThrough ? `Opłacony do ${company.period.paidThrough} włącznie` : company.period.trialGranted ? "Okres próbny (14 dni od rejestracji administratora)" : "—"}</dd></div>
+          <div><dt>Okres usługi</dt><dd>{company.period.paidThrough ? `Opłacony do ${formatLocalDate(company.period.paidThrough)} włącznie` : company.period.trialGranted ? "Okres próbny (14 dni od rejestracji administratora)" : "—"}</dd></div>
           <div><dt>Strona publiczna</dt><dd>{company.publication.visible ? "Opublikowana" : "Nieopublikowana — działa po rejestracji administratora, przy ważnym okresie i gotowym adresie"}</dd></div>
           {company.hosts.map((host) => (
             <div key={host.hostname}><dt>{host.area === "COMPANY_ADMIN" ? "Adres panelu" : host.area === "COMPANY_PUBLIC" ? "Adres publiczny" : host.area}</dt>

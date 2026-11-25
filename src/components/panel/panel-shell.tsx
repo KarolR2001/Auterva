@@ -2,10 +2,12 @@
 
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
+  ArrowLeft,
   Building2,
   Calendar,
   Car,
   Circle,
+  CircleCheck,
   CircleUserRound,
   Download,
   Ellipsis,
@@ -514,15 +516,26 @@ function AvailablePanelShell({
                 )
               }
             >
-              <CircleUserRound size={20} aria-hidden="true" />
+              {/* PLT-01/PLT-09: the superadmin's avatar carries the initials "SA"; the company panel keeps its icon (#471). */}
+              {area === "platform" ? (
+                <span className={styles.shellInitials} aria-hidden="true">SA</span>
+              ) : (
+                <CircleUserRound size={20} aria-hidden="true" />
+              )}
             </button>
           </header>
           {area === "platform" && companyContext && (
             // A named region keeps the bar inside a landmark (axe "region", #342).
             <section className={styles.shellContext} aria-label="Kontekst firmy">
-              <span>Firma: {companyContext.name}</span>
+              {/* F11-03/F11-06/F11-09: whose company this is, that the superadmin acts as themselves, and the way back. */}
+              <p className={styles.shellContextTitle}>Zarządzasz firmą: {companyContext.name}</p>
+              <p className={styles.shellContextNote}>Superadmin Autervy · zmiany z Twoim podpisem w historii</p>
               <a href={`/firmy/${encodeURIComponent(companyContext.id)}`}>
-                Wróć do karty firmy {companyContext.name}
+                <ArrowLeft size={16} aria-hidden="true" />
+                <span>
+                  Wróć do karty firmy{" "}
+                  <span className={styles.shellContextName}>{companyContext.name}</span>
+                </span>
               </a>
             </section>
           )}
@@ -603,11 +616,13 @@ function AvailablePanelShell({
             }
           }}
         >
+          {/* PLT-UM: the superadmin's sheet starts with a drag-handle cue (decorative; it is closed with "Zamknij" or Escape). */}
+          {area === "platform" && menuMode === "mobile" && <span className={styles.shellMenuHandle} aria-hidden="true" />}
           <div className={styles.shellMenuHead}>
             <DialogPrimitive.Title className={styles.shellMenuTitle}>
               {menuMode === "mobile" ? (
                 <>
-                  {"Więcej "}
+                  {area === "platform" && menuSource === "avatar" ? "Profil " : "Więcej "}
                   <span className={styles.shellVisuallyHidden}>
                     {area === "company" ? "— menu administratora" : "— menu superadmina"}
                   </span>
@@ -623,6 +638,19 @@ function AvailablePanelShell({
               Zamknij
             </DialogPrimitive.Close>
           </div>
+          {area === "platform" && (
+            // PLT-UM: who is signed in here — the superadmin's own identity and this session; text plus an icon, no link.
+            <div className={styles.shellMenuIdentity}>
+              <span className={styles.shellMenuAvatar} aria-hidden="true">SA</span>
+              <span className={styles.shellMenuIdentityText}>
+                <span className={styles.shellMenuIdentityName}>Superadmin</span>
+                <span className={styles.shellMenuIdentitySession}>
+                  <CircleCheck size={20} aria-hidden="true" />
+                  Bieżąca sesja
+                </span>
+              </span>
+            </div>
+          )}
           <div className={styles.shellMenuItems}>
             {menuLinks.map((item) => {
               const Icon = item.icon;
