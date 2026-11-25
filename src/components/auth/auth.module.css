@@ -353,3 +353,113 @@
   outline: 2px solid var(--border-strong);
   outline-offset: 3px;
 }
+/* F02-04 / F02-07 / F02-07A (390 px): mark + word mark, 48 px outlined "Wróć do logowania", invitee on two lines. */
+.brandMarked {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-16);
+  line-height: var(--line-height-24);
+  letter-spacing: 0.02em;
+}
+.brandMark {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+.page[data-area="company"] .loginLink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--button-height-md);
+  padding-block: 0;
+  border-color: var(--border-strong);
+  font-size: var(--font-size-15);
+  line-height: var(--line-height-20);
+}
+.invitee {
+  display: grid;
+  margin: 0 0 var(--space-6);
+  font-size: var(--font-size-16);
+  font-weight: 500;
+  line-height: var(--line-height-24);
+  overflow-wrap: anywhere;
+}
+.validity {
+  margin: 0;
+  font-size: var(--font-size-14);
+  line-height: var(--line-height-20);
+  color: var(--text-secondary);
+}
+.manualKey {
+  margin: 0;
+  font-size: var(--font-size-14);
+  line-height: var(--line-height-20);
+}
+.manualKey .secret {
+  margin-top: var(--space-6);
+  font-size: var(--font-size-18);
+  font-weight: 600;
+  line-height: var(--line-height-24);
+}
+.page[data-view="activation"] .footer {
+  margin-top: var(--space-6);
+}
+.page[data-view="activation"] .footer .loginLink {
+  margin-top: 0;
+}
+@media (max-width: 767px) {
+  .page[data-view="activation"],
+  .page[data-area="company"][data-view="mfa"] {
+    padding-top: var(--space-12);
+  }
+  .brandMarked {
+    padding-inline-start: var(--space-2);
+  }
+  .page[data-view="activation"] .form {
+    margin-top: var(--space-6);
+  }
+  .page[data-area="company"][data-view="mfa"] .footer {
+    margin-top: var(--space-6);
+    font-size: var(--font-size-12);
+    line-height: var(--line-height-16);
+    color: var(--text-secondary);
+  }
+  /* F02-07A: lead 16 px under the title, the code field 24 px under the lead, a 52 px submit. */
+  .page[data-area="company"][data-view="mfa"][data-step="challenge"] .card h1 {
+    margin-bottom: var(--space-4);
+  }
+  .page[data-area="company"][data-view="mfa"][data-step="challenge"] .form {
+    margin-top: var(--space-6);
+  }
+  .page[data-area="company"][data-view="mfa"] .form > button[type="submit"] {
+    min-height: 52px;
+  }
+  /* F02-07: the QR symbol (with its quiet zone) spans about 230 px of the 342 px column. */
+  .page[data-area="company"] .qr {
+    width: 232px;
+  }
+  .page[data-area="company"][data-step="setup"] .setup {
+    gap: var(--space-6);
+  }
+  .page[data-area="company"][data-step="setup"] .setup .qr {
+    margin-block: var(--space-6);
+  }
+}
+/* F02-07G: one framed list, 16 px inside, codes 28 px apart; the list sits 32 px from the lead and the button. */
+.page[data-area="company"][data-step="codes"] .codesBox {
+  padding: var(--space-4);
+}
+.page[data-area="company"][data-step="codes"] .codesTitle {
+  margin-bottom: var(--space-2);
+  color: var(--text-secondary);
+}
+.page[data-area="company"][data-step="codes"] .codes {
+  gap: var(--space-1);
+}
+@media (max-width: 767px) {
+  .page[data-area="company"][data-step="codes"] .form {
+    gap: var(--space-8);
+  }
+}

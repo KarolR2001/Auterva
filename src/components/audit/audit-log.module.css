@@ -64,3 +64,20 @@
   .label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .list { margin-top: var(--space-1); }
 }
+/* F11-09 / ADM-17 M: a phone card reads "time • who", the action as its title, the object and summary under it,
+   "Szczegóły" at the bottom right. The labels stay for screen readers; DOM order is unchanged. */
+@container (max-width: 639px) {
+  .cells { grid-template-columns: auto minmax(0, 1fr); column-gap: var(--space-1); row-gap: var(--space-2); padding: var(--space-5); }
+  .cells > .cell { grid-column: 1 / -1; }
+  .time { font-size: var(--font-size-12); line-height: var(--line-height-16); }
+  .cells > .cell:nth-child(2) { grid-column: 2; font-size: var(--font-size-12); line-height: var(--line-height-16); font-weight: var(--font-weight-semibold); }
+  .cells > .cell:nth-child(2)::before { content: "• " / ""; }
+  .cells > .cell:nth-child(2) .label,
+  .cells > .cell:nth-child(3) .label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .cells > .cell:nth-child(3) { font-size: var(--font-size-18); line-height: var(--line-height-24); }
+  .cells > .cell:nth-child(3) strong { font-weight: var(--font-weight-semibold); }
+  .cells > .cell:nth-child(4),
+  .cells > .cell:nth-child(5) { font-size: var(--font-size-12); line-height: var(--line-height-16); color: var(--text-secondary); }
+  .cells > .cell:nth-child(4) .muted { font-size: inherit; }
+  .toggle { grid-column: 1 / -1; justify-self: end; margin-right: calc(-1 * var(--space-2)); font-size: var(--font-size-14); }
+}

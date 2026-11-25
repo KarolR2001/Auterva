@@ -4,7 +4,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ActivationFlow } from "../../src/components/auth/activation-flow";
+import { ActivationFlow, expiryText } from "../../src/components/auth/activation-flow";
 
 const token = "a".repeat(43);
 const invitation = () => Response.json({ name: "Alfa Rent", recipientEmail: "a@example.test" });
@@ -102,3 +102,22 @@ describe("aktywacja konta: wskaźnik siły hasła (DS-AUT-004)", () => {
   });
 });
 
+
+describe("aktywacja konta: termin linku (F02-04)", () => {
+  it("pokazuje termin ważności w czasie polskim, a bez terminu z API nie zgaduje go", async () => {
+    expect(expiryText("2026-10-23T14:30:00.000Z")).toBe("23.10.2026, 16:30");
+    expect(expiryText("2026-12-01T23:15:00.000Z")).toBe("02.12.2026, 00:15");
+    expect(expiryText("nie-data")).toBeNull();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
+      Response.json({ name: "Alfa Rent", recipientEmail: "a@example.test", expiresAt: "2026-10-23T14:30:00.000Z" }));
+    render(<ActivationFlow token={token} />);
+    expect(await screen.findByText("Link ważny do 23.10.2026, 16:30. Użyjesz go tylko raz.")).toBeVisible();
+    expect(screen.getByText("Alfa Rent")).toBeVisible();
+    expect(screen.getByText("a@example.test")).toBeVisible();
+    cleanup();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => invitation());
+    render(<ActivationFlow token={token} />);
+    await screen.findByRole("heading", { name: "Aktywuj konto" });
+    expect(screen.queryByText(/Link ważny do/)).toBeNull();
+  });
+});

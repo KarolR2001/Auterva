@@ -3,6 +3,27 @@ import type { ReactNode } from "react";
 import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
 import styles from "./panel.module.css";
+import stateStyles from "./panel-states.module.css";
+
+/**
+ * F08-03: the non-blocking notice after every period has ended. The body is the exact D-11 text from the server;
+ * the company gets a full-width way to the chat right under it. Fleet, forms and chat keep working.
+ */
+export function ExpiredNotice({ area, notice }: { area: "company" | "platform"; notice?: string | null }) {
+  return (
+    <div className={stateStyles.expired}>
+      <Alert tone="info" title="Twoja strona publiczna jest wyłączona">
+        {notice ??
+          "Panel i zapisane formularze pozostają dostępne. Publiczna strona firmy jest wstrzymana do odnowienia usługi."}
+      </Alert>
+      {area === "company" && (
+        <a className={stateStyles.expiredAction} href="/admin/czat">
+          Przejdź do czatu z Autervą
+        </a>
+      )}
+    </div>
+  );
+}
 
 export type PanelAccessState =
   | "allowed"
@@ -25,20 +46,7 @@ export function PanelAccess({ state, area, expiredNotice, children }: PanelAcces
   if (state === "allowed" || state === "service-expired") {
     return (
       <>
-        {state === "service-expired" && (
-          <Alert tone="warning" title="Usługa wygasła">
-            {expiredNotice ??
-              "Panel i zapisane formularze pozostają dostępne. Publiczna strona firmy jest wstrzymana do odnowienia usługi."}
-            {area === "company" && (
-              <>
-                {" "}
-                <a className={styles.textLink} href="/admin/czat">
-                  Przejdź do czatu z Autervą
-                </a>
-              </>
-            )}
-          </Alert>
-        )}
+        {state === "service-expired" && <ExpiredNotice area={area} notice={expiredNotice} />}
         {children}
       </>
     );
