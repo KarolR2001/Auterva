@@ -27,6 +27,25 @@ test("PUB-01 mobile places configured hero media before the title and date form"
   expect(image!.compareDocumentPosition(checker!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
+test("FLOW-MVP-02 M/09: the empty offer keeps the company hero, announces the offer and lists the contact channels", () => {
+  const home = {
+    offerState: "EMPTY", company: { name: "Alfa Campers", heroText: "Podróż zaczyna się od dobrego auta.", shortDescription: "Kampery i auta na wyjazdy.",
+      logo: null, hero: null },
+    contact: [{ kind: "PHONE", value: "+48 600 100 200", href: "tel:+48600100200", preferred: true },
+      { kind: "WHATSAPP", value: "+48 600 100 200", href: "https://wa.me/48600100200", preferred: false },
+      { kind: "EMAIL", value: "kontakt@alfa.example", href: "mailto:kontakt@alfa.example", preferred: false }],
+    featured: [], availabilityNotice: null, seo: { jsonLd: [] },
+  } as unknown as Parameters<typeof PublicHome>[0]["home"];
+  render(<PublicHome home={home} today="2026-11-02" />);
+  expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Podróż zaczyna się od dobrego auta.");
+  expect(screen.getByRole("heading", { level: 2, name: "Nasza oferta pojawi się wkrótce" })).toBeTruthy();
+  const channels = within(screen.getByRole("list", { name: "Kanały kontaktu" })).getAllByRole("link");
+  expect(channels.map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
+    ["Zadzwoń: +48 600 100 200", "tel:+48600100200"], ["Napisz na WhatsApp", "https://wa.me/48600100200"], ["kontakt@alfa.example", "mailto:kontakt@alfa.example"]]);
+  expect(screen.queryByText(/zł/)).toBeNull();
+  expect(screen.queryByRole("form")).toBeNull();
+});
+
 const enabledFields = (container: HTMLElement) => container.querySelectorAll("input:not([type='hidden']):not(:disabled)");
 const description = (element: HTMLElement) => (element.getAttribute("aria-describedby") ?? "").split(" ")
   .map((id) => document.getElementById(id)?.textContent ?? "").join(" ");

@@ -20,8 +20,19 @@ export function StateBlock({ icon, code, title, children, actions, actionsLabel,
   );
 }
 
-/** PUB-01-02: active company, nothing published yet. The first published vehicle replaces it with no other step. */
-export function EmptyOffer({ contactHref, level = 1 }: { contactHref: string; level?: 1 | 2 }) {
+/**
+ * PUB-01-02: active company, nothing published yet. The first published vehicle replaces it with no other step.
+ * `home` is the centred block under the company hero (FLOW-MVP-02 M/09); the catalog keeps the block with the icon.
+ */
+export function EmptyOffer({ contactHref, level = 1, variant = "page" }: { contactHref: string; level?: 1 | 2; variant?: "page" | "home" }) {
+  if (variant === "home") {
+    return (
+      <StateBlock level={level} center headingId="empty-title" title="Nasza oferta pojawi się wkrótce"
+        actions={<LinkButton href={contactHref} variant="secondary" className={styles.emptyAction}>Kontakt</LinkButton>}>
+        Przygotowujemy pojazdy do publikacji. Wróć tu ponownie lub skontaktuj się z nami.
+      </StateBlock>
+    );
+  }
   return (
     <StateBlock level={level} icon={<Clock size={24} />} title="Nasza oferta pojawi się wkrótce"
       actions={<LinkButton href={contactHref} variant="secondary">Kontakt</LinkButton>}>
@@ -40,12 +51,23 @@ export function NotFoundBlock() {
   );
 }
 
-/** PUB-09: the public site is off. No company, reason, period or contact data (C-N057). */
+/**
+ * PUB-09: the public site is off. No company, reason, period or contact data (C-N057). On a phone (FLOW-MVP-08 M/02)
+ * the text is left-aligned in the middle of the screen with the Auterva mark below; from 768 px the centred block with the icon.
+ */
 export function SiteUnavailable() {
   return (
-    <StateBlock center icon={<Link2Off size={24} />} title="Ta strona jest obecnie niedostępna" label="Brak publicznej oferty i danych firmy">
-      Spróbuj ponownie później lub skontaktuj się z firmą innym znanym Ci kanałem.
-    </StateBlock>
+    <section className={`${styles.state} ${styles.stateCenter} ${styles.stateClosed}`} aria-labelledby="state-title">
+      <span className={`${styles.stateIcon} ${styles.wideOnly}`} aria-hidden="true"><Link2Off size={24} /></span>
+      <h1 id="state-title" className={styles.stateTitle}>Ta strona jest obecnie niedostępna</h1>
+      <p className={styles.stateText}>Spróbuj ponownie później lub skontaktuj się z firmą innym znanym Ci kanałem.</p>
+      <p className={`${styles.stateLabel} ${styles.wideOnly}`}>Brak publicznej oferty i danych firmy</p>
+      <p className={`${styles.closedMark} ${styles.narrowOnly}`}>
+        <svg viewBox="12 12 24 24" width="24" height="24" aria-hidden="true" focusable="false">
+          <path fill="currentColor" fillRule="evenodd" d="M14 34 22.1 14h3.8L34 34h-4.6l-1.8-4.5h-7.2L18.6 34H14Zm10-13.9-2.1 5.7h4.2L24 20.1Z" />
+        </svg>AUTERVA
+      </p>
+    </section>
   );
 }
 

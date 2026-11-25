@@ -25,9 +25,35 @@ export function PublicHome({ home, today }: { home: Home; today: string }) {
   const jsonLd = home.seo.jsonLd.map((entry) => serializeJsonLd(entry));
 
   if (home.offerState === "EMPTY") {
+    // FLOW-MVP-02 M/09: before the first published vehicle the home keeps the company's own hero, announces the offer
+    // and leaves the contact channels; no vehicle, price or availability is invented.
+    const channelLabel = (kind: string, value: string) => (kind === "PHONE" ? `Zadzwoń: ${value}` : kind === "WHATSAPP" ? "Napisz na WhatsApp" : value);
     return (
       <PublicPage brand={brand} contact={contact}>
-        <EmptyOffer contactHref="/kontakt/" />
+        <section className={styles.emptyHero} aria-labelledby="home-title">
+          <div className={styles.container}>
+            {company.heroText ? <p className={styles.emptyEyebrow}>{company.name}</p> : null}
+            <h1 id="home-title" className={styles.h1}>{company.heroText ?? company.name}</h1>
+            {company.shortDescription ? <p className={styles.lead}>{company.shortDescription}</p> : null}
+            {company.hero
+              // eslint-disable-next-line @next/next/no-img-element -- public media variants are served by our own API route
+              ? <img src={company.hero.urls.large} alt={company.hero.alt ?? ""} width={company.hero.width ?? undefined} height={company.hero.height ?? undefined} className={`${styles.heroMedia} ${styles.emptyHeroMedia}`} fetchPriority="high" decoding="async" />
+              : null}
+          </div>
+        </section>
+        <div className={styles.container}><EmptyOffer contactHref="/kontakt/" level={2} variant="home" /></div>
+        {contact.length > 0 ? (
+          <section className={styles.emptyContact} aria-labelledby="contact-title">
+            <div className={styles.container}>
+              <h2 id="contact-title" className={styles.emptyContactTitle}>Porozmawiajmy o Twoim wyjeździe</h2>
+              <ul className={styles.emptyChannels} aria-label="Kanały kontaktu">
+                {contact.map((channel, index) => (
+                  <li key={channel.kind}><LinkButton href={channel.href} variant={index === 0 ? "primary" : "secondary"} fill>{channelLabel(channel.kind, channel.value)}</LinkButton></li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        ) : null}
         {jsonLd.map((json, index) => <script key={index} type="application/ld+json" dangerouslySetInnerHTML={{ __html: json }} />)}
       </PublicPage>
     );
