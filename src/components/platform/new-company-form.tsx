@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 
 import { navigation, useUnsavedChanges } from "../panel/unsaved-changes-guard";
 import { Alert } from "../ui/alert";
@@ -14,6 +14,16 @@ import {
   toCreateBody, validateCompanyForm, type CompanyField, type CompanyFormValues, type FieldErrors,
 } from "@/modules/organizations/new-company-form";
 import styles from "./platform.module.css";
+
+/** F02-01 M: on phones "Zapisz firmę" and "Anuluj" close the form; above 767 px they stay in the page header. One copy is rendered. */
+const PHONE = "(max-width: 767px)";
+function subscribePhone(onChange: () => void) {
+  if (typeof window.matchMedia !== "function") return () => {};
+  const query = window.matchMedia(PHONE);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
+const isPhone = () => typeof window.matchMedia === "function" && window.matchMedia(PHONE).matches;
 
 type Props = { adminBaseDomain: string | null; publicBaseDomain: string | null };
 type Status = "idle" | "saving" | "failed" | "uncertain";
@@ -173,6 +183,9 @@ export function NewCompanyForm({ adminBaseDomain, publicBaseDomain }: Props) {
   const slug = values.slug.trim().toLowerCase();
   const slugPreview = (base: string | null) => (base && slug ? `${slug}.${base}` : "—");
   const retry = status === "uncertain";
+  const actionsAtEnd = useSyncExternalStore(subscribePhone, isPhone, () => false);
+  const cancel = <Link className={styles.openLink} href="/firmy/" prefetch={false}>Anuluj</Link>;
+  const save = <Button type="submit" form={formId} loading={saving} loadingLabel="Zapisywanie firmy">{retry ? "Ponów zapis" : "Zapisz firmę"}</Button>;
 
   return (
     <div className={styles.page}>
@@ -180,10 +193,7 @@ export function NewCompanyForm({ adminBaseDomain, publicBaseDomain }: Props) {
         trail="Firmy / Dodaj firmę"
         title="Dodaj firmę"
         subtitle="Przygotuj stronę i dostęp dla nowej wypożyczalni. Zapis firmy nie wysyła zaproszenia ani nie publikuje strony."
-        actions={<>
-          <Link className={styles.openLink} href="/firmy/" prefetch={false}>Anuluj</Link>
-          <Button type="submit" form={formId} loading={saving} loadingLabel="Zapisywanie firmy">{retry ? "Ponów zapis" : "Zapisz firmę"}</Button>
-        </>}
+        actions={actionsAtEnd ? undefined : <>{cancel}{save}</>}
       />
       <form id={formId} className={styles.layout} noValidate onSubmit={onSubmit} aria-label="Dodaj firmę" aria-busy={saving || undefined}>
         <div className={styles.layoutMain}>
@@ -297,6 +307,7 @@ export function NewCompanyForm({ adminBaseDomain, publicBaseDomain }: Props) {
             </dl>
           </section>
         </div>
+        {actionsAtEnd && <div className={styles.formEndActions}>{save}{cancel}</div>}
       </form>
     </div>
   );
