@@ -2,6 +2,7 @@
 
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
+  ArrowLeft,
   Building2,
   Calendar,
   Car,
@@ -526,9 +527,15 @@ function AvailablePanelShell({
           {area === "platform" && companyContext && (
             // A named region keeps the bar inside a landmark (axe "region", #342).
             <section className={styles.shellContext} aria-label="Kontekst firmy">
-              <span>Firma: {companyContext.name}</span>
+              {/* F11-03/F11-06/F11-09: whose company this is, that the superadmin acts as themselves, and the way back. */}
+              <p className={styles.shellContextTitle}>Zarządzasz firmą: {companyContext.name}</p>
+              <p className={styles.shellContextNote}>Superadmin Autervy · zmiany z Twoim podpisem w historii</p>
               <a href={`/firmy/${encodeURIComponent(companyContext.id)}`}>
-                Wróć do karty firmy {companyContext.name}
+                <ArrowLeft size={16} aria-hidden="true" />
+                <span>
+                  Wróć do karty firmy{" "}
+                  <span className={styles.shellContextName}>{companyContext.name}</span>
+                </span>
               </a>
             </section>
           )}
