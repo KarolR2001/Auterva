@@ -13,6 +13,7 @@ import { SecretForm } from "../ui/secret-form";
 import { PasswordInput } from "../ui/password-input";
 import { TextInput } from "../ui/text-input";
 import { safeReturnTo, type AuthArea } from "./auth-destination";
+import { AuthBrand } from "./auth-brand";
 import { MfaQr } from "./mfa-qr";
 import styles from "./auth.module.css";
 
@@ -212,7 +213,8 @@ export function AuthFrame({
 }) {
   return (
     <main className={styles.page} data-area={area} data-view={view} data-step={step}>
-      <p className={styles.brand}>{area === "platform" ? "A AUTERVA" : "AUTERVA"}</p>
+      {/* F02-07/F02-07A: the company MFA flow carries the mark; the company login keeps the ADM-01 word mark. */}
+      {area === "company" && view === "mfa" ? <AuthBrand /> : <p className={styles.brand}>{area === "platform" ? "A AUTERVA" : "AUTERVA"}</p>}
       <section className={styles.card} aria-labelledby="auth-title">
         {context && <p className={styles.context}>{context}</p>}
         <h1 id="auth-title" tabIndex={-1}>
@@ -647,9 +649,9 @@ export function MfaFlow({
         >
           {step === "setup" && (
             <div className={styles.setup}>
-              <p className={styles.intro}>Zeskanuj kod w aplikacji uwierzytelniającej, a następnie wpisz otrzymany kod.</p>
+              <p className={styles.intro}>Zeskanuj kod w aplikacji uwierzytelniającej, a następnie wpisz otrzymany kod. To zabezpieczenie będzie potrzebne przy logowaniu.</p>
               {totpUri && <MfaQr uri={totpUri} />}
-              <p className={styles.intro}>Nie możesz zeskanować kodu? Wpisz klucz ręcznie:
+              <p className={styles.manualKey}>Nie możesz zeskanować kodu? Wpisz klucz ręcznie:
                 <code className={styles.secret}>{secret.replace(/(.{4})(?=.)/g, "$1 ")}</code>
               </p>
             </div>
