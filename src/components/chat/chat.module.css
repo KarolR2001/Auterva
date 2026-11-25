@@ -328,3 +328,11 @@
     min-height: calc(var(--space-16) * 2);
   }
 }
+
+/* PLT-09C (#473): in the superadmin inbox on phones the bubbles leave a 24 px offset, so the company's messages read from the
+   left edge and Auterva's from the right one. The company panel chat (not embedded) is unchanged. */
+@media (max-width: 767px) {
+  .chat[data-embedded] .message {
+    max-width: min(calc(100% - var(--space-6)), 360px);
+  }
+}

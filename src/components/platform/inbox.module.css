@@ -74,6 +74,53 @@
   outline-offset: var(--focus-offset);
 }
 
+/* PLT-09L: a 44 px round avatar with the company's initials, then name and time, the preview and the tags in the second column. */
+.row {
+  grid-template-columns: 44px minmax(0, 1fr);
+  column-gap: var(--space-4);
+  align-items: start;
+  padding: var(--space-4);
+}
+
+.row > :not(.avatar) {
+  grid-column: 2;
+}
+
+.avatar {
+  display: inline-flex;
+  grid-row: 1 / span 3;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: var(--surface-inverse);
+  color: var(--text-inverse);
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-20);
+}
+
+.listHeader {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.listTitle {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-24);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-32);
+}
+
+.listLead {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-14);
+  line-height: var(--line-height-20);
+}
+
 .rowTop {
   display: flex;
   align-items: baseline;
@@ -88,8 +135,9 @@
 
 .rowTime {
   flex: none;
-  color: var(--text-secondary);
-  font-size: var(--font-size-14);
+  color: var(--text-primary);
+  font-size: var(--font-size-12);
+  font-weight: var(--font-weight-semibold);
 }
 
 .preview {
@@ -250,8 +298,12 @@
     white-space: nowrap;
   }
 
+  /* PLT-09C: the company name is the 24 px title of the conversation. */
   .convTitle {
     grid-column: 1 / -1;
+    font-size: var(--font-size-24);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-32);
   }
 
   /* Archived badge: its own row under the name. */
@@ -262,6 +314,16 @@
 }
 
 @media (min-width: 1024px) {
+  /* The split view keeps the list heading for assistive technology only; the shell title already names the page. */
+  .listHeader {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
   .inbox {
     grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
     height: calc(100dvh - 160px);
