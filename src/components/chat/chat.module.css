@@ -328,3 +328,11 @@
     min-height: calc(var(--space-16) * 2);
   }
 }
+
+/* F06-02 / TEN-11 M: on a phone the page title is 24 px. */
+@media (max-width: 767px) {
+  .title {
+    font-size: var(--font-size-24);
+    line-height: var(--line-height-32);
+  }
+}
