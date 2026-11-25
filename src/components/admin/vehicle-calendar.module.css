@@ -127,3 +127,10 @@
 @media (max-width: 767px) {
   .toolbar .monthTitle { order: -1; }
 }
+/* F11-06 / ADM-09 M: no action row under the title (status is in the vehicle line, the path links to the vehicle,
+   "Dodaj blokadę" is the bar above the navigation) and bare month arrows with a 44 px target. */
+@media (max-width: 767px) {
+  .headActions { display: none; }
+  .toolbar .iconButton { background: transparent; border-color: transparent; }
+  .toolbar .iconButton:hover { background: var(--action-secondary-hover); }
+}
