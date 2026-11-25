@@ -42,7 +42,11 @@ describe("status usługi w panelu firmy", () => {
     vi.stubGlobal("fetch", sessionOk(() => null));
     mount(status());
     const card = screen.getByTestId("service-status");
-    expect(card).toHaveTextContent("Okres próbny do 13.11.2026 (to nie jest opłata)");
+    // F03-06: the 336 h trial with start and end in Polish time, never called a payment.
+    expect(card).toHaveTextContent("Od 30.10.2026, 00:00");
+    expect(card).toHaveTextContent("Do 13.11.2026, 00:00");
+    expect(card).toHaveTextContent("czas polski · 14 dni (okres próbny to nie jest opłata)");
+    expect(card).toHaveTextContent("Konto administratoraAktywne");
     expect(card).not.toHaveTextContent(/opłacone do/i);
     expect(screen.getByRole("link", { name: "firma.example.test" })).toHaveAttribute("href", "https://firma.example.test/");
     expect(card).not.toHaveTextContent(/zmień|edytuj/i);

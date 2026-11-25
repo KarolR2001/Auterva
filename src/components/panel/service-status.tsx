@@ -4,6 +4,7 @@ import { Check, CircleSlash } from "lucide-react";
 import { createContext, useContext, useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 
 import type { ServiceStatusDto } from "@/modules/reminders/read";
+import { TRIAL_MS } from "@/modules/service-period/state";
 
 import { Alert } from "../ui/alert";
 import { PanelShell } from "./panel-shell";
@@ -22,6 +23,13 @@ export function formatLocalDate(value: string): string {
     : new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Warsaw", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(value));
   const [year, month, day] = iso.split("-");
   return `${day}.${month}.${year}`;
+}
+
+/** "16.10.2026, 16:30" in Europe/Warsaw (F03-06: the trial is an instant, not a calendar day). */
+export function formatLocalDateTime(value: string | Date): string {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("pl-PL", { timeZone: "Europe/Warsaw", day: "2-digit", month: "2-digit",
+    year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date(value)).map((part) => [part.type, part.value]));
+  return `${parts.day}.${parts.month}.${parts.year}, ${parts.hour}:${parts.minute}`;
 }
 
 function isStatus(body: unknown): body is ServiceStatusDto {
@@ -114,7 +122,12 @@ function periodLines(dto: ServiceStatusDto): string[] {
     lines.push(period.paidValid ? `Opłacone do ${formatLocalDate(period.paidThrough)} włącznie` : `Opłata wygasła ${formatLocalDate(period.paidThrough)}`);
   }
   if (period.trialEndsAt) {
-    lines.push(period.trialValid ? `Okres próbny do ${formatLocalDate(period.trialEndsAt)} (to nie jest opłata)` : `Okres próbny zakończył się ${formatLocalDate(period.trialEndsAt)}`);
+    // F03-06: start and end with the time; the one-time trial always lasts 336 h, so its start is the end minus that.
+    if (period.trialValid) {
+      const end = new Date(period.trialEndsAt);
+      lines.push(`Od ${formatLocalDateTime(new Date(end.getTime() - TRIAL_MS))}`, `Do ${formatLocalDateTime(end)}`,
+        `czas polski · ${TRIAL_MS / 86_400_000} dni (okres próbny to nie jest opłata)`);
+    } else lines.push(`Okres próbny zakończył się ${formatLocalDate(period.trialEndsAt)}`);
   }
   if (!lines.length) lines.push("Brak aktywnego okresu.");
   return lines;
@@ -166,6 +179,13 @@ export function ServiceStatusCard(): ReactNode {
                 {visible ? <Check aria-hidden="true" size={20} /> : <CircleSlash aria-hidden="true" size={16} />}{visible ? "Widoczna" : "Niewidoczna"}
               </span>
               {visible ? null : <span className={styles.serviceDetail}>{siteText[dto.site.state]}</span>}
+            </dd>
+          </div>
+          {/* F03-06: the panel opens only for an active administrator account (archiving ends the session). */}
+          <div className={styles.serviceRow}>
+            <dt className={styles.serviceLabel}>Konto administratora</dt>
+            <dd className={styles.serviceValue}>
+              <span className={`${styles.chip} ${styles.chipOk}`}><Check aria-hidden="true" size={16} />Aktywne</span>
             </dd>
           </div>
           {visible && publicHost ? (

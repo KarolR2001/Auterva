@@ -31,8 +31,8 @@ test("built company panel: trial date is not a payment, expiry keeps the panel w
     const active = await seed(new Date(Date.now() - 2 * DAY));
     await page.goto(`${active}/admin/usluga/`);
     const card = page.getByTestId("service-status");
-    await expect(card).toContainText("Okres próbny do");
-    await expect(card).toContainText("to nie jest opłata");
+    await expect(card).toContainText(/Do \d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}/);
+    await expect(card).toContainText("czas polski · 14 dni (okres próbny to nie jest opłata)");
     await expect(card).not.toContainText(/opłacone do/i);
     await expect(card.getByRole("link", { name: "Napisz do Autervy" })).toHaveAttribute("href", "/admin/czat");
     await expect(page.getByText("Usługa wygasła")).toHaveCount(0);
