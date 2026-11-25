@@ -57,16 +57,16 @@ export function VehicleGallery({ images, name }: { images: GalleryImage[]; name:
         <img key={current.id} src={current.urls.large} alt={alt(current, index)} width={current.width ?? undefined} height={current.height ?? undefined}
           className={styles.galleryImage} fetchPriority={index === 0 ? "high" : undefined} draggable={false} sizes="(min-width: 1024px) 60vw, 100vw" />
       </div>
-      {/* Phone: „1 / 4” and round 44 px buttons (previous, full screen, next); from 768 px the text counter and square arrows. */}
+      {/* Phone (FLOW-MVP-04 M/13): ‹ „1 / 2” „Powiększ” ›; from 768 px the text counter and the arrows on the right. */}
       <div className={styles.galleryBar}>
         <p className={styles.galleryCounter} aria-live="polite">
           <span className={styles.wideOnly}>Zdjęcie {index + 1} z {count}</span>
           <span className={styles.narrowOnly}>{index + 1} / {count}</span>
         </p>
         {count > 1 ? (
-          <button type="button" className={`${styles.iconButton} ${styles.galleryNav}`} onClick={() => go(-1)} aria-label="Poprzednie zdjęcie"><ChevronLeft aria-hidden="true" size={20} /></button>
+          <button type="button" className={`${styles.iconButton} ${styles.galleryNav} ${styles.galleryPrev}`} onClick={() => go(-1)} aria-label="Poprzednie zdjęcie"><ChevronLeft aria-hidden="true" size={20} /></button>
         ) : null}
-        <button type="button" className={`${styles.iconButton} ${styles.galleryNav} ${styles.narrowOnly}`} onClick={() => setOpen(true)} aria-label="Pełny ekran"><Maximize2 aria-hidden="true" size={18} /></button>
+        <button type="button" className={`${styles.linkButton} ${styles.linkButtonSecondary} ${styles.galleryZoom} ${styles.narrowOnly}`} onClick={() => setOpen(true)}>Powiększ</button>
         {count > 1 ? (
           <button type="button" className={`${styles.iconButton} ${styles.galleryNav}`} onClick={() => go(1)} aria-label="Następne zdjęcie"><ChevronRight aria-hidden="true" size={20} /></button>
         ) : null}

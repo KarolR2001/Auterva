@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { availabilityToday, sqlDate } from "../../src/modules/availability/dates";
+import { formatRangeCompact } from "../../src/components/public/range-text";
 import { formatRangeShort } from "../../src/modules/public-offer/presentation";
 import { pickDay, pickRange } from "./public-calendar-helpers";
 
@@ -48,7 +49,7 @@ test("availability panel: calendar range, late answer dropped, error clears resu
     await expect(page.getByText("Wybrano początek")).toBeVisible();
     await pickDay(page, day(2));
     await expect(result.getByText("Pojazd jest dostępny")).toBeVisible();
-    await expect(page.getByTestId("calendar-range")).toHaveText(`Wybrany zakres: ${formatRangeShort(day(1), day(2))} · 2 dni`);
+    await expect(page.getByTestId("calendar-range")).toHaveText(`Wybrano ${formatRangeCompact(day(1), day(2))} · 2 dni włącznie`);
     expect(new URL(page.url()).searchParams.get("from")).toBe(day(1));
     expect(new URL(page.url()).searchParams.get("to")).toBe(day(2));
     await expect(page.getByRole("link", { name: "Skontaktuj się", exact: true }).last())
@@ -58,7 +59,7 @@ test("availability panel: calendar range, late answer dropped, error clears resu
     await pickDay(page, day(4));
     await expect(result.getByText("Pojazd jest dostępny")).toHaveCount(0); // choosing a new start withdraws the earlier result
     await pickDay(page, day(5));
-    await expect(result.getByText("Pojazd jest niedostępny w tym terminie")).toBeVisible();
+    await expect(result.getByText("Pojazd nie jest dostępny w całym wybranym terminie")).toBeVisible();
     const alternatives = page.getByTestId("alternatives");
     await expect(alternatives.getByRole("link", { name: "Auto Wolne" })).toHaveAttribute("href", `/pojazdy/${freeSlug}/?from=${day(4)}&to=${day(5)}`);
     await expect(alternatives.getByRole("link", { name: "Auto Zajete" })).toHaveCount(0);
@@ -80,11 +81,11 @@ test("availability panel: calendar range, late answer dropped, error clears resu
     await pickRange(page, day(1), day(2)); // slow, would say available
     await expect(result.getByText("Sprawdzamy dostępność")).toBeVisible();
     await pickRange(page, day(5), day(6)); // fast, unavailable
-    await expect(result.getByText("Pojazd jest niedostępny w tym terminie")).toBeVisible();
+    await expect(result.getByText("Pojazd nie jest dostępny w całym wybranym terminie")).toBeVisible();
     expect(hold).not.toBeNull();
     hold!();
     await page.waitForTimeout(300);
-    await expect(result.getByText("Pojazd jest niedostępny w tym terminie")).toBeVisible();
+    await expect(result.getByText("Pojazd nie jest dostępny w całym wybranym terminie")).toBeVisible();
     await expect(result.getByText("Pojazd jest dostępny")).toHaveCount(0);
     await page.unroute("**/api/public/availability/check");
 
@@ -118,7 +119,7 @@ test("availability panel: calendar range, late answer dropped, error clears resu
     await page.unroute("**/api/public/vehicles/*/calendar*");
     const plain = await (await browser.newContext({ javaScriptEnabled: false })).newPage();
     await plain.goto(`${origin}/pojazdy/${slug}/?from=${day(5)}&to=${day(6)}`);
-    await expect(plain.getByText("Pojazd jest niedostępny w tym terminie")).toBeVisible();
+    await expect(plain.getByText("Pojazd nie jest dostępny w całym wybranym terminie")).toBeVisible();
     await plain.close();
     // A past start from the URL is explained.
     await page.goto(`${origin}/pojazdy/${slug}/?from=${day(-3)}&to=${day(2)}`);
@@ -227,7 +228,7 @@ test("availability alternatives: a fleet larger than one catalog page still find
     // Every car but the last (outside the first catalog page of 12) is blocked for the whole range.
     await db.availabilityBlock.createMany({ data: ids.slice(0, 14).map((id) => ({ organizationId: org, vehicleId: id, from: sqlDate(day(2)), to: sqlDate(day(4)), type: "MAINTENANCE" })) });
     await page.goto(`http://${host}:${port}/pojazdy/f0-${ids[0]}/?from=${day(2)}&to=${day(4)}`);
-    await expect(page.getByText("Pojazd jest niedostępny w tym terminie")).toBeVisible();
+    await expect(page.getByText("Pojazd nie jest dostępny w całym wybranym terminie")).toBeVisible();
     const alternatives = page.getByTestId("alternatives");
     await expect(alternatives.getByRole("link", { name: "Auto 14" })).toBeVisible();
     await expect(alternatives.getByText("Żadne inne auto")).toHaveCount(0);
@@ -279,24 +280,24 @@ test("availability: range by keyboard only (no date fields), one day, URL range 
     await expect(page.locator("#kalendarz table button:focus")).toHaveCount(1);
     await page.keyboard.press("Space");
     await expect(result.getByText("Pojazd jest dostępny")).toBeVisible();
-    await expect(page.getByTestId("calendar-range")).toHaveText(`Wybrany zakres: ${formatRangeShort(day(1), day(3))} · 3 dni`);
+    await expect(page.getByTestId("calendar-range")).toHaveText(`Wybrano ${formatRangeCompact(day(1), day(3))} · 3 dni włącznie`);
     await expect(page.getByRole("link", { name: "Skontaktuj się", exact: true }).last())
       .toHaveAttribute("href", `/kontakt/?vehicle=${slug}&from=${day(1)}&to=${day(3)}`);
 
     // One day: the same day twice, and the explicit action.
     await pickDay(page, day(2));
     await pickDay(page, day(2));
-    await expect(page.getByTestId("calendar-range")).toHaveText(`Wybrany zakres: ${formatRangeShort(day(2), day(2))} · 1 dzień`);
+    await expect(page.getByTestId("calendar-range")).toHaveText(`Wybrano ${formatRangeCompact(day(2), day(2))} · 1 dzień włącznie`);
     await pickDay(page, day(4));
     await page.getByRole("button", { name: "Tylko ten dzień" }).click();
-    await expect(page.getByTestId("calendar-range")).toHaveText(`Wybrany zakres: ${formatRangeShort(day(4), day(4))} · 1 dzień`);
+    await expect(page.getByTestId("calendar-range")).toHaveText(`Wybrano ${formatRangeCompact(day(4), day(4))} · 1 dzień włącznie`);
 
     // The range lives in the URL: reload and the link from the catalog restore it, with the result.
     await page.reload();
-    await expect(page.getByTestId("calendar-range")).toHaveText(`Wybrany zakres: ${formatRangeShort(day(4), day(4))} · 1 dzień`);
+    await expect(page.getByTestId("calendar-range")).toHaveText(`Wybrano ${formatRangeCompact(day(4), day(4))} · 1 dzień włącznie`);
     await page.goto(`${origin}/pojazdy/${slug}/?from=${day(2)}&to=${day(3)}`);
     await expect(result.getByText("Pojazd jest dostępny")).toBeVisible();
-    await expect(page.getByTestId("calendar-range")).toHaveText(`Wybrany zakres: ${formatRangeShort(day(2), day(3))} · 2 dni`);
+    await expect(page.getByTestId("calendar-range")).toHaveText(`Wybrano ${formatRangeCompact(day(2), day(3))} · 2 dni włącznie`);
     await expect(page.getByLabel("Od", { exact: true })).toHaveCount(0);
   } finally {
     await db.vehicle.deleteMany({ where: { organizationId: org } });
@@ -340,7 +341,7 @@ test("availability nearest term (D-32): available shows no section; unavailable 
     await expect(nearest).toHaveCount(0);
 
     await pickRange(page, day(3), day(5));
-    await expect(result.getByText("Pojazd jest niedostępny w tym terminie")).toBeVisible();
+    await expect(result.getByText("Pojazd nie jest dostępny w całym wybranym terminie")).toBeVisible();
     await expect(nearest).toContainText(`Najbliższy wolny termin: ${formatRangeShort(day(5), day(7))}`);
     await expect(nearest).toContainText("3 dni · koniec wliczony. To informacja, nie rezerwacja.");
     const html = await page.content();
@@ -352,14 +353,14 @@ test("availability nearest term (D-32): available shows no section; unavailable 
     await page.keyboard.press("Enter");
     await expect(result.getByText("Pojazd jest dostępny")).toBeVisible();
     await expect(nearest).toHaveCount(0);
-    await expect(page.getByTestId("calendar-range")).toHaveText(`Wybrany zakres: ${formatRangeShort(day(5), day(7))} · 3 dni`);
+    await expect(page.getByTestId("calendar-range")).toHaveText(`Wybrano ${formatRangeCompact(day(5), day(7))} · 3 dni włącznie`);
     expect(new URL(page.url()).searchParams.get("from")).toBe(day(5));
     expect(new URL(page.url()).searchParams.get("to")).toBe(day(7));
 
     // API error: the unavailable verdict stays, no term is invented.
     await page.route("**/api/public/availability/next", (route) => route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ code: "INTERNAL" }) }));
     await pickRange(page, day(3), day(5));
-    await expect(result.getByText("Pojazd jest niedostępny w tym terminie")).toBeVisible();
+    await expect(result.getByText("Pojazd nie jest dostępny w całym wybranym terminie")).toBeVisible();
     await expect(nearest).toHaveCount(0);
     await expect(page.getByText(/Najbliższy wolny termin/)).toHaveCount(0);
     await page.unroute("**/api/public/availability/next");

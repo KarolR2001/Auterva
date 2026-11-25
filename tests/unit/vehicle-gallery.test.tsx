@@ -43,7 +43,7 @@ test("PUB-03 panel renders the header children and the calendar card with the ch
     </AvailabilityPanel>,
   );
   expect(screen.getByRole("heading", { level: 1, name: "Atlas" })).toBeTruthy();
-  expect(screen.getByTestId("calendar-range").textContent).toBe("Wybrany zakres: 20–22.11.2026 · 3 dni");
+  expect(screen.getByTestId("calendar-range").textContent).toBe("Wybrano 20–22.11 · 3 dni włącznie");
   expect(screen.getByRole("heading", { name: "Listopad 2026" })).toBeTruthy();
 });
 
@@ -100,15 +100,15 @@ test("PUB-03 range by keyboard: Enter starts, Space ends; the same day twice is 
   expect(screen.getByText(/Wybrano początek/)).toBeTruthy();
   await user.keyboard("{ArrowRight}{ArrowRight}");
   await user.keyboard(" ");
-  expect(await screen.findByText("Pojazd jest dostępny")).toBeTruthy();
-  expect(screen.getByTestId("calendar-range").textContent).toBe("Wybrany zakres: 12–14.11.2026 · 3 dni");
+  expect(await screen.findByText("Pojazd jest dostępny w wybranym terminie")).toBeTruthy();
+  expect(screen.getByTestId("calendar-range").textContent).toBe("Wybrano 12–14.11 · 3 dni włącznie");
   await user.click(dayButton(15));
-  expect(screen.queryByText("Pojazd jest dostępny")).toBeNull(); // a new start withdraws the old result
+  expect(screen.queryByText("Pojazd jest dostępny w wybranym terminie")).toBeNull(); // a new start withdraws the old result
   await user.click(dayButton(15));
-  expect(await screen.findByText("Pojazd jest dostępny")).toBeTruthy();
-  expect(screen.getByTestId("calendar-range").textContent).toMatch(/· 1 dzień$/);
+  expect(await screen.findByText("Pojazd jest dostępny w wybranym terminie")).toBeTruthy();
+  expect(screen.getByTestId("calendar-range").textContent).toMatch(/· 1 dzień włącznie$/);
   await user.click(screen.getByRole("button", { name: "Wyczyść termin" }));
   expect(screen.queryByTestId("calendar-range")).toBeNull();
-  expect(screen.queryByText("Pojazd jest dostępny")).toBeNull();
+  expect(screen.queryByText("Pojazd jest dostępny w wybranym terminie")).toBeNull();
   vi.unstubAllGlobals();
 });
