@@ -11,7 +11,7 @@ import { CompanyDiagnostics } from "./company-diagnostics";
 import { CompanyDomain } from "./company-domain";
 import { ArchiveSection, CompanyStatus, PeriodSection, PurgePanel, companyHosts } from "./company-ops";
 import { PlatformPageHeader } from "./page-header";
-import { PURGED_COMPANY_LABEL, purgeState, type CompanyCardData } from "./platform-api";
+import { formatLocalDate, PURGED_COMPANY_LABEL, purgeState, type CompanyCardData } from "./platform-api";
 import {
   canIssueInvitation, canRevokeInvitation, classifyInvitationError, invitationView, isConfigurationRefusal,
   type InvitationDto, type InvitationView,
@@ -216,7 +216,7 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
           <div><dt>Nazwa w adresie</dt><dd>{company.slug}</dd></div>
           <div><dt>Konto administratora (nie publiczny e-mail firmy)</dt><dd>{company.account?.email ?? "—"}</dd></div>
           <div><dt>Rejestracja administratora</dt><dd>{registered ? "Zarejestrowany" : "Oczekuje na zaproszenie"}</dd></div>
-          <div><dt>Okres usługi</dt><dd>{company.period.paidThrough ? `Opłacony do ${company.period.paidThrough} włącznie` : company.period.trialGranted ? "Okres próbny (14 dni od rejestracji administratora)" : "—"}</dd></div>
+          <div><dt>Okres usługi</dt><dd>{company.period.paidThrough ? `Opłacony do ${formatLocalDate(company.period.paidThrough)} włącznie` : company.period.trialGranted ? "Okres próbny (14 dni od rejestracji administratora)" : "—"}</dd></div>
           <div><dt>Strona publiczna</dt><dd>{company.publication.visible ? "Opublikowana" : "Nieopublikowana — działa po rejestracji administratora, przy ważnym okresie i gotowym adresie"}</dd></div>
           {company.hosts.map((host) => (
             <div key={host.hostname}><dt>{host.area === "COMPANY_ADMIN" ? "Adres panelu" : host.area === "COMPANY_PUBLIC" ? "Adres publiczny" : host.area}</dt>
