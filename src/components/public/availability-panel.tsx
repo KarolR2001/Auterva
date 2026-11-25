@@ -1,13 +1,15 @@
 "use client";
 
-import { CalendarCheck, Check, ChevronLeft, ChevronRight, CircleSlash, LoaderCircle, TriangleAlert } from "lucide-react";
+import { CalendarCheck, ChevronLeft, ChevronRight, CircleCheck, CircleSlash, LoaderCircle, TriangleAlert } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { createLatest, NEAREST_HORIZON_DAYS, problemMessages, validateRange, type RangeProblem } from "@/modules/public-offer/availability-client";
 import { addDays, calendarRange, catalogHref, catalogPath, contactHref, formatRangeShort, longDate, monthDays, monthLabel, pluralDays, shiftMonth, type DayState } from "@/modules/public-offer/presentation";
 
 import { rangeEvent } from "./contact-cta";
+import { ContactLink, ContactSheet, type SheetChannel } from "./contact-sheet";
 import { LinkButton } from "./public-chrome";
+import { formatRangeCompact, formatRangeFull } from "./range-text";
 import styles from "./public.module.css";
 
 const weekdays = ["Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"];
@@ -34,6 +36,8 @@ type Props = {
   initial: PanelInitial; others: { slug: string; name: string }[];
   /** False when the candidates are only part of the fleet (or the catalog failed): "none available" must not be claimed. */
   othersComplete: boolean;
+  /** Public contact channels of the company for the contact sheet (OVR-04); empty keeps the plain links to /kontakt/. */
+  contact?: SheetChannel[];
   /** Server-rendered header of the info column (title, price, parameters); the result panel follows it, the calendar card is its own grid area. */
   children?: ReactNode;
 };
@@ -60,7 +64,7 @@ function invalidProblem(initial: { from: string | null; to: string | null; inval
   return checked.ok ? "INVALID" : checked.problem;
 }
 
-export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth, initial, others, othersComplete, children }: Props) {
+export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth, initial, others, othersComplete, contact = [], children }: Props) {
   const initialRange = initial.from && initial.to ? validateRange(initial.from, initial.to, today) : null;
   const [from, setFrom] = useState(initial.from ?? "");
   const [to, setTo] = useState(initial.to ?? "");
@@ -224,14 +228,14 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
   const cells = monthDays(month);
   // Days of the neighbouring months fill the first and last week (PUB-03 mockup); they are labels only, never choices.
   const lead = cells[0].weekday;
+  const cell = (date: string) => ({ date, day: Number(date.slice(8)), outside: !date.startsWith(month) });
   const flat: { date: string; day: number; outside: boolean }[] = [
     ...Array.from({ length: lead }, (_, at) => addDays(cells[0].date, at - lead)),
     ...cells.map(({ date }) => date),
-  ].map((date) => ({ date, day: Number(date.slice(8)), outside: !date.startsWith(month) }));
-  while (flat.length % 7 !== 0) {
-    const date = addDays(flat[flat.length - 1].date, 1);
-    flat.push({ date, day: Number(date.slice(8)), outside: true });
-  }
+  ].map(cell);
+  while (flat.length % 7 !== 0) flat.push(cell(addDays(flat[flat.length - 1].date, 1)));
+  // FLOW-MVP-05: a neighbouring month's day reads "28/09"; the note under the card names those months.
+  const neighbours = [...new Set(flat.filter((day) => day.outside).map((day) => `/${day.date.slice(5, 7)}`))];
   const rows = Array.from({ length: flat.length / 7 }, (_, at) => flat.slice(at * 7, at * 7 + 7));
   const ready = calendar.status === "ready" ? calendar.days : null;
   const stateOf = (date: string): DayState | "unknown" => (date < today ? "past" : !ready ? "unknown" : ready[date] === true ? "available" : "unavailable");
@@ -272,27 +276,29 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
   const result = check.status === "done" || check.status === "loading" || check.status === "error" ? check.range : null;
   const alternativesRange = check.status === "done" && !check.available ? check.range : null;
 
+  const unavailableResult = check.status === "done" && !check.available;
+  const idleNote = check.status === "idle" && !pickingEnd && calendar.status !== "loading";
+
   return (
     <div className={styles.panelRoot}>
       <div className={styles.infoCol}>
       {children}
       <section className={styles.result} aria-labelledby="check-title">
-        <h2 id="check-title" className={styles.panelTitle}>Sprawdź termin</h2>
+        <h2 id="check-title" className={`${styles.panelTitle} ${styles.narrowSr}`}>Sprawdź termin</h2>
         {check.status === "invalid" ? <div role="alert" className={styles.notice}><TriangleAlert aria-hidden="true" size={18} />{check.message}</div> : null}
         <div role="status" aria-live="polite" data-testid="availability-result" ref={resultRef} tabIndex={-1} className={styles.resultLive}>
-          {check.status === "idle" ? <p className={styles.small}>Wybierz w kalendarzu dzień początku i dzień końca terminu (ten sam dzień dwa razy to jeden dzień). Dostępność jest informacyjna i nie stanowi rezerwacji terminu.</p> : null}
           {check.status === "loading" ? <p className={styles.small}><LoaderCircle aria-hidden="true" size={16} /> Sprawdzamy dostępność: {formatRangeShort(check.range.from, check.range.to)}…</p> : null}
           {check.status === "done" ? (
             <>
-              <span className={`${styles.badge} ${check.available ? styles.badgeAvailable : styles.badgeUnavailable}`}>
-                {check.available ? <Check aria-hidden="true" size={14} /> : <CircleSlash aria-hidden="true" size={14} />}
-                {check.available ? "Dostępny" : "Niedostępny"}
-              </span>
-              <p className={styles.resultTitle}>{check.available ? "Pojazd jest dostępny" : "Pojazd jest niedostępny w tym terminie"}</p>
-              <p className={styles.small}>{vehicleName} · {formatRangeShort(check.range.from, check.range.to)} ({pluralDays(check.range.days)})</p>
-              <p className={styles.small}>{check.available ? "Potwierdź dostępność i szczegóły wynajmu w wypożyczalni."
-                : "Zmień termin albo skontaktuj się z firmą, aby poznać alternatywę."}</p>
-              <p className={styles.small}>Informacja o dostępności nie jest rezerwacją terminu.</p>
+              {/* FLOW-MVP-05 M/04 and M/04c: the verdict is the icon and the sentence; the reason of a block never appears. */}
+              <p className={styles.resultTitle}>
+                {check.available ? <CircleCheck aria-hidden="true" size={24} /> : <CircleSlash aria-hidden="true" size={24} />}
+                <span>{check.available ? "Pojazd jest dostępny w wybranym terminie" : "Pojazd nie jest dostępny w całym wybranym terminie"}</span>
+              </p>
+              <p className={styles.resultMeta}><span>{vehicleName}</span>{" "}
+                <span>{formatRangeFull(check.range.from, check.range.to)} · {pluralDays(check.range.days)}</span></p>
+              <p className={styles.resultNote}>{check.available ? "Dostępność ma charakter informacyjny i wymaga potwierdzenia przez właściciela."
+                : "Zmień termin lub zobacz pojazdy dostępne dla wybranych dat."}</p>
             </>
           ) : null}
           {check.status === "done" && !check.available && nearest.status !== "idle" && nearest.status !== "hidden" ? (
@@ -322,11 +328,28 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
               <button type="button" className={styles.link} onClick={() => void runCheck(check.range.from, check.range.to)}>Spróbuj ponownie</button></span>
           </div>
         ) : null}
+        {/* FLOW-MVP-04 M/13: before a range is chosen the card offers a plain inquiry about the vehicle. */}
+        {check.status === "idle" ? (
+          <div className={styles.resultIdle}>
+            <p className={styles.resultIdleTitle}>Porozmawiaj o swoim wyjeździe</p>
+            <ContactLink href={contactHref(slug, { from: null, to: null })} range={null}
+              className={`${styles.linkButton} ${styles.linkButtonPrimary} ${styles.fill}`}>Skontaktuj się</ContactLink>
+            <p className={styles.resultNote}>Termin i warunki ustalisz z wypożyczalnią. Wysłanie zapytania nie jest rezerwacją.</p>
+          </div>
+        ) : null}
         {result && check.status !== "loading" ? (
-          <div className={styles.stateActions}>
-            <LinkButton href={contactHref(slug, result)}>{check.status === "done" && !check.available ? "Skontaktuj się po alternatywę" : "Skontaktuj się"}</LinkButton>
-            {check.status === "done" && !check.available ? <LinkButton href="#kalendarz" variant="secondary">Zmień termin</LinkButton> : null}
-            {check.status === "done" && !check.available ? <LinkButton href={catalogHref({ from: check.range.from, to: check.range.to })} variant="secondary">Zobacz pojazdy dostępne w tym terminie</LinkButton> : null}
+          <div className={styles.resultActions}>
+            {unavailableResult ? (
+              <>
+                <LinkButton href="#kalendarz" variant="strong" fill>Zmień termin</LinkButton>
+                <LinkButton href={catalogHref({ from: result.from, to: result.to })} variant="secondary" fill>Zobacz dostępne pojazdy</LinkButton>
+                <ContactLink href={contactHref(slug, result)} range={{ from: result.from, to: result.to }} alternative
+                  className={`${styles.linkButton} ${styles.linkButtonSecondary} ${styles.fill}`}>Skontaktuj się po alternatywę</ContactLink>
+              </>
+            ) : (
+              <ContactLink href={contactHref(slug, result)} range={{ from: result.from, to: result.to }}
+                className={`${styles.linkButton} ${styles.linkButtonPrimary} ${styles.fill}`}>Skontaktuj się</ContactLink>
+            )}
           </div>
         ) : null}
         {alternativesRange ? (
@@ -354,69 +377,77 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
       </section>
       </div>
 
-      <section className={styles.calendar} id="kalendarz" aria-labelledby="calendar-title" aria-busy={calendar.status === "loading"}>
-        <div className={styles.calendarHead}>
-          {month > minMonth
-            ? <a href={monthHref(shiftMonth(month, -1))} className={styles.iconButton} aria-label="Poprzedni miesiąc"
-                onClick={(event) => { event.preventDefault(); void loadMonth(shiftMonth(month, -1)); }}><ChevronLeft aria-hidden="true" size={20} /></a>
-            : <span className={`${styles.iconButton} ${styles.iconButtonOff}`} aria-hidden="true"><ChevronLeft size={20} /></span>}
-          <h2 id="calendar-title" className={styles.calendarTitle}>{monthLabel(month)}</h2>
-          {month < maxMonth
-            ? <a href={monthHref(shiftMonth(month, 1))} className={styles.iconButton} aria-label="Następny miesiąc"
-                onClick={(event) => { event.preventDefault(); void loadMonth(shiftMonth(month, 1)); }}><ChevronRight aria-hidden="true" size={20} /></a>
-            : <span className={`${styles.iconButton} ${styles.iconButtonOff}`} aria-hidden="true"><ChevronRight size={20} /></span>}
-        </div>
-        <div role="status" aria-live="polite">
-          {calendar.status === "loading" ? <p className={styles.small}>Ładujemy kalendarz…</p> : null}
-          {pickingEnd ? <p className={styles.small}>Wybrano początek: {longDate(from)}. Wybierz dzień końca terminu.</p> : null}
-        </div>
-        {pickingEnd || from ? (
-          <div className={styles.stateActions}>
-            {pickingEnd ? <button type="button" className={`${styles.linkButton} ${styles.linkButtonSecondary}`} onClick={() => pick(from)}>Tylko ten dzień</button> : null}
-            <button type="button" className={`${styles.linkButton} ${styles.linkButtonSecondary}`} onClick={() => edit("", "", false)}>Wyczyść termin</button>
+      <section className={styles.calendar} id="kalendarz" aria-labelledby="calendar-heading" aria-busy={calendar.status === "loading"}>
+        <h2 id="calendar-heading" className={styles.calendarHeading}>Dostępność pojazdu</h2>
+        <div className={styles.calendarCard}>
+          <div className={styles.calendarHead}>
+            {month > minMonth
+              ? <a href={monthHref(shiftMonth(month, -1))} className={styles.iconButton} aria-label="Poprzedni miesiąc"
+                  onClick={(event) => { event.preventDefault(); void loadMonth(shiftMonth(month, -1)); }}><ChevronLeft aria-hidden="true" size={20} /></a>
+              : <span className={`${styles.iconButton} ${styles.iconButtonOff}`} aria-hidden="true"><ChevronLeft size={20} /></span>}
+            <h3 id="calendar-title" className={styles.calendarTitle}>{monthLabel(month)}</h3>
+            {month < maxMonth
+              ? <a href={monthHref(shiftMonth(month, 1))} className={styles.iconButton} aria-label="Następny miesiąc"
+                  onClick={(event) => { event.preventDefault(); void loadMonth(shiftMonth(month, 1)); }}><ChevronRight aria-hidden="true" size={20} /></a>
+              : <span className={`${styles.iconButton} ${styles.iconButtonOff}`} aria-hidden="true"><ChevronRight size={20} /></span>}
           </div>
-        ) : null}
-        {check.status === "done" ? <p className={styles.calendarRange} data-testid="calendar-range">Wybrany zakres: {formatRangeShort(check.range.from, check.range.to)} · {pluralDays(check.range.days)}</p> : null}
-        {calendar.status === "error" ? <div role="alert" className={styles.notice}><TriangleAlert aria-hidden="true" size={18} />
-          <span>Nie udało się wczytać kalendarza. Stany dni nie są aktualne.{" "}
-            <button type="button" className={styles.link} onClick={() => void loadMonth(month)}>Spróbuj ponownie</button></span></div> : null}
-        <table className={styles.calendarTable}>
-          <caption className={styles.srOnly}>Dostępność pojazdu w miesiącu: {monthLabel(month)}. Wybierz dzień początku i końca terminu. Informacja nie jest rezerwacją terminu.</caption>
-          <thead><tr>{weekdays.map((name) => <th key={name} scope="col">{name}</th>)}</tr></thead>
-          <tbody>
-            {rows.map((row, at) => (
-              <tr key={at}>
-                {row.map((cell, column) => {
-                  if (cell.outside) return <td key={column} className={`${styles.day} ${styles.dayOutside}`}><span aria-hidden="true">{cell.day}</span></td>;
-                  const state = stateOf(cell.date);
-                  const selected = inRange(cell.date);
-                  const classes = [styles.day, state === "available" ? styles.dayAvailable : state === "unavailable" ? styles.dayUnavailable : state === "past" ? styles.dayPast : "",
-                    cell.date === today && styles.dayToday, selected && styles.daySelected].filter(Boolean).join(" ");
-                  return (
-                    <td key={column} className={classes} aria-current={cell.date === today ? "date" : undefined}>
-                      {state === "past" ? (
-                        <button type="button" className={styles.dayButton} aria-disabled="true" tabIndex={-1}
-                          aria-label={`${longDate(cell.date)}, ${dayText.past}`}>{cell.day}</button>
-                      ) : (
-                        <button type="button" className={styles.dayButton} aria-pressed={selected} tabIndex={cell.date === tabStop ? 0 : -1}
-                          ref={(node) => { if (node) buttons.current.set(cell.date, node); else buttons.current.delete(cell.date); }}
-                          aria-label={`${longDate(cell.date)}, ${state === "unknown" ? "stan nieznany" : dayText[state]}${cell.date === today ? ", dzisiaj" : ""}${selected ? ", wybrany zakres" : ""}`}
-                          onFocus={() => setFocusDate(cell.date)} onKeyDown={(event) => onDayKey(event, cell.date)} onClick={() => pick(cell.date)}>{cell.day}</button>
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <ul className={styles.legend} aria-label="Legenda kalendarza">
-          <li><span className={`${styles.legendMark} ${styles.legendAvailable}`} aria-hidden="true" />Dostępny</li>
-          <li><span className={`${styles.legendMark} ${styles.legendUnavailable}`} aria-hidden="true" />Niedostępny (przekreślony)</li>
-          <li><span className={`${styles.legendMark} ${styles.legendToday}`} aria-hidden="true" />Dzisiaj</li>
-          <li><span className={`${styles.legendMark} ${styles.legendSelected}`} aria-hidden="true" />Wybrany zakres</li>
-        </ul>
+          <div role="status" aria-live="polite" className={styles.calendarStatus}>
+            {calendar.status === "loading" ? <p>Ładujemy kalendarz…</p> : null}
+            {pickingEnd ? <p>Wybrano początek: {longDate(from)}. Wybierz dzień końca terminu.</p> : null}
+            {idleNote ? <p>Wybierz datę rozpoczęcia i zakończenia</p> : null}
+          </div>
+          {check.status === "done" ? <p className={styles.calendarRange} data-testid="calendar-range">Wybrano {formatRangeCompact(check.range.from, check.range.to)} · {pluralDays(check.range.days)} włącznie</p> : null}
+          {pickingEnd || from ? (
+            <div className={styles.calendarActions}>
+              {pickingEnd ? <button type="button" className={`${styles.linkButton} ${styles.linkButtonSecondary}`} onClick={() => pick(from)}>Tylko ten dzień</button> : null}
+              <button type="button" className={`${styles.linkButton} ${styles.linkButtonSecondary}`} onClick={() => edit("", "", false)}>Wyczyść termin</button>
+            </div>
+          ) : null}
+          {calendar.status === "error" ? <div role="alert" className={styles.notice}><TriangleAlert aria-hidden="true" size={18} />
+            <span>Nie udało się wczytać kalendarza. Stany dni nie są aktualne.{" "}
+              <button type="button" className={styles.link} onClick={() => void loadMonth(month)}>Spróbuj ponownie</button></span></div> : null}
+          <table className={styles.calendarTable}>
+            <caption className={styles.srOnly}>Dostępność pojazdu w miesiącu: {monthLabel(month)}. Wybierz dzień początku i końca terminu. Informacja nie jest rezerwacją terminu.</caption>
+            <thead><tr>{weekdays.map((name) => <th key={name} scope="col">{name}</th>)}</tr></thead>
+            <tbody>
+              {rows.map((row, at) => (
+                <tr key={at}>
+                  {row.map((cell, column) => {
+                    if (cell.outside) return <td key={column} className={`${styles.day} ${styles.dayOutside}`}><span aria-hidden="true">{cell.day}/{cell.date.slice(5, 7)}</span></td>;
+                    const state = stateOf(cell.date);
+                    const selected = inRange(cell.date);
+                    const end = selected && (cell.date === from || cell.date === to);
+                    const classes = [styles.day, state === "available" ? styles.dayAvailable : state === "unavailable" ? styles.dayUnavailable : state === "past" ? styles.dayPast : "",
+                      cell.date === today && styles.dayToday, selected && styles.daySelected, end && styles.dayRangeEnd].filter(Boolean).join(" ");
+                    return (
+                      <td key={column} className={classes} aria-current={cell.date === today ? "date" : undefined}>
+                        {state === "past" ? (
+                          <button type="button" className={styles.dayButton} aria-disabled="true" tabIndex={-1}
+                            aria-label={`${longDate(cell.date)}, ${dayText.past}`}>{cell.day}</button>
+                        ) : (
+                          <button type="button" className={styles.dayButton} aria-pressed={selected} tabIndex={cell.date === tabStop ? 0 : -1}
+                            ref={(node) => { if (node) buttons.current.set(cell.date, node); else buttons.current.delete(cell.date); }}
+                            aria-label={`${longDate(cell.date)}, ${state === "unknown" ? "stan nieznany" : dayText[state]}${cell.date === today ? ", dzisiaj" : ""}${selected ? ", wybrany zakres" : ""}`}
+                            onFocus={() => setFocusDate(cell.date)} onKeyDown={(event) => onDayKey(event, cell.date)} onClick={() => pick(cell.date)}>{cell.day}</button>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <ul className={styles.legend} aria-label="Legenda kalendarza">
+            <li><span className={`${styles.legendMark} ${styles.legendAvailable}`} aria-hidden="true" />Dostępny</li>
+            <li><span className={`${styles.legendMark} ${styles.legendUnavailable}`} aria-hidden="true" />Niedostępny (przekreślony)</li>
+            <li><span className={`${styles.legendMark} ${styles.legendToday}`} aria-hidden="true" />Dzisiaj</li>
+            <li><span className={`${styles.legendMark} ${styles.legendSelected}`} aria-hidden="true" />Wybrany zakres</li>
+          </ul>
+        </div>
+        <p className={styles.calendarNote}>Sprawdź termin w kalendarzu. Dostępność ma charakter informacyjny. Dni bez ramki minęły.
+          {neighbours.length ? ` Daty z ${neighbours.join(" i ")} należą do ${neighbours.length > 1 ? "sąsiednich miesięcy" : "sąsiedniego miesiąca"}.` : ""}</p>
       </section>
+      <ContactSheet vehicleName={vehicleName} channels={contact} />
     </div>
   );
 }
