@@ -253,6 +253,17 @@
   .companyTable .openPrimary { border-color: var(--action-primary-default); background: var(--action-primary-default); color: var(--action-primary-content); font-weight: var(--font-weight-medium); }
 }
 
+/* PLT-03 M (#473): section titles in semibold; on phones the card's actions fill the width with the primary one first and
+   the sections get 24 px of inner padding. */
+.sectionTitle, .section h2, .subTitle { font-weight: var(--font-weight-semibold); }
+@media (max-width: 767px) {
+  .cardHeader > div:last-child:not(:first-child) { display: grid; }
+  .headerPrimary { order: -1; }
+  .cardHeader .openLink { width: auto; }
+  .layout .panelCard, .layout .section { padding: var(--space-6); }
+  .layout .actionsRow > button, .layout .actionsRow > .openLink, .layout .actions > button { width: 100%; }
+}
+
 /* #295: nagłówek strony i układ dwukolumnowy ekranów firmy (PLT-03, PLT-04) */
 .layout { display: grid; gap: var(--space-6); max-width: var(--content-admin-max, 1200px); }
 .layoutMain, .layoutAside { display: grid; gap: var(--space-5); align-content: start; min-width: 0; }

@@ -9,7 +9,7 @@ import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
 import { CompanyDiagnostics } from "./company-diagnostics";
 import { CompanyDomain } from "./company-domain";
-import { ArchiveSection, CompanyStatus, PeriodSection, PurgePanel, companyHostLine } from "./company-ops";
+import { ArchiveSection, CompanyStatus, PeriodSection, PurgePanel, companyHosts } from "./company-ops";
 import { PlatformPageHeader } from "./page-header";
 import { PURGED_COMPANY_LABEL, purgeState, type CompanyCardData } from "./platform-api";
 import {
@@ -181,15 +181,17 @@ export function CompanyCard({ initial, justSaved }: { initial: CompanyCardDto; j
   return (
     <div className={styles.page}>
       <PlatformPageHeader
+        className={styles.cardHeader}
         trail={`Firmy / ${company.name}`}
         title={company.name ?? "Firma"}
-        subtitle={<>{companyHostLine(company)}<br />Działasz jako superadmin w kontekście firmy {company.name}. Nie przejmujesz konta administratora.</>}
+        // PLT-03: panel and public address on their own lines, then the actor context; on phones the actions fill the width.
+        subtitle={<>Panel: {companyHosts(company).panel}<br />Strona: {companyHosts(company).site}<br />Działasz jako superadmin w kontekście firmy {company.name}. Nie przejmujesz konta administratora.</>}
         actions={frozen ? undefined : <>
           {(company.conversationId || !archived) && (
             <Link className={styles.openLink} href={`/wiadomosci/?firma=${encodeURIComponent(company.organizationId)}`} prefetch={false}>
               {company.conversationId ? "Wiadomości" : "Napisz do firmy"}</Link>
           )}
-          <Link className={styles.linkButton} href={`/firmy/${encodeURIComponent(company.organizationId)}/pojazdy/`} prefetch={false}>Zarządzaj flotą</Link>
+          <Link className={`${styles.linkButton} ${styles.headerPrimary}`} href={`/firmy/${encodeURIComponent(company.organizationId)}/pojazdy/`} prefetch={false}>Zarządzaj flotą</Link>
         </>}
       />
       <div ref={status} tabIndex={-1} className={styles.summary}>
