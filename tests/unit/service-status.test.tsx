@@ -60,6 +60,24 @@ describe("status usługi w panelu firmy", () => {
     expect(screen.getByText(/Publiczna oferta jest obecnie wyłączona/)).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: /czat/i })[0]).toHaveAttribute("href", "/admin/czat");
     expect(screen.getByRole("textbox", { name: "Nazwa pojazdu" })).toBeEnabled();
+    const card = screen.getByTestId("service-status");
+    expect(card).toHaveTextContent("Okres zakończony");
+    expect(card).toHaveTextContent("Okres próbny zakończył się 13.11.2026, 00:00 (czas polski).");
+    expect(card).toHaveTextContent("Konto i flota pozostają dostępne.");
+    expect(card).toHaveTextContent("Strona publicznaWyłączona");
+    // F08-03: one notice, inside the page content (under the top bar), with a full-width way to the chat.
+    expect(screen.getAllByText("Twoja strona publiczna jest wyłączona")).toHaveLength(1);
+    expect(screen.getByRole("main")).toContainElement(screen.getByText("Twoja strona publiczna jest wyłączona"));
+    expect(screen.getByRole("link", { name: "Przejdź do czatu z Autervą" })).toHaveAttribute("href", "/admin/czat");
+  });
+
+  it("nieudane odświeżenie po wygaśnięciu nie chowa komunikatu D-11", async () => {
+    vi.stubGlobal("fetch", sessionOk((url) => url.includes("service-period") ? new Response("{}", { status: 500 }) : null));
+    mount(status({ period: { headline: "EXPIRED", trialValid: false }, site: { state: "PERIOD_EXPIRED", publicVisible: false },
+      expiredNotice: "Konto aktywne. Publiczna oferta jest obecnie wyłączona. Skontaktuj się z Autervą w sprawie uruchomienia okresu usługi." }));
+    await act(async () => { window.dispatchEvent(new Event("focus")); });
+    await waitFor(() => expect(screen.getByText("Nie udało się odświeżyć statusu usługi")).toBeInTheDocument());
+    expect(screen.getByText(/Publiczna oferta jest obecnie wyłączona/)).toBeInTheDocument();
   });
 
   it("po przedłużeniu zastępuje stare przypomnienie danymi z serwera bez utraty formularza", async () => {

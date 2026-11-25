@@ -1,0 +1,27 @@
+/* F08-03: notice card, then a full-width outlined way to the chat 16 px under it. */
+.expired {
+  display: grid;
+  gap: var(--space-4);
+}
+.expiredAction {
+  display: flex;
+  min-height: var(--button-height-md);
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--button-padding-x-md);
+  border: var(--border-width-hairline) solid var(--action-secondary-border);
+  border-radius: var(--radius-md);
+  color: var(--action-secondary-content);
+  font-size: var(--font-size-15);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-20);
+  text-align: center;
+  text-decoration: none;
+}
+.expiredAction:hover {
+  background: var(--action-secondary-hover);
+}
+.expiredAction:focus-visible {
+  outline: var(--border-width-active) solid var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}

@@ -8,6 +8,7 @@ import { TRIAL_MS } from "@/modules/service-period/state";
 
 import { Alert } from "../ui/alert";
 import { PanelShell } from "./panel-shell";
+import { ExpiredNotice } from "./panel-states";
 import styles from "./panel.module.css";
 
 const REFRESH_MS = 60_000;
@@ -84,7 +85,8 @@ export function ServiceStatusProvider({ initial, publicHost, children, ...shell 
 
   return (
     <ServiceStatusContext.Provider value={{ dto, refresh, publicHost }}>
-      <PanelShell {...shell} accessState={dto.expiredNotice ? "service-expired" : "allowed"} expiredNotice={dto.expiredNotice}>
+      {/* F08-03: the expired notice is page content under the top bar (ServiceReminder), not a strip above the shell. */}
+      <PanelShell {...shell} accessState="allowed">
         <ServiceReminder />
         {children}
       </PanelShell>
@@ -98,14 +100,17 @@ function useStatus(): Value {
   return value;
 }
 
-/** Non-blocking reminder: a status region above the page, never a dialog or an overlay. */
+/** Non-blocking reminder or expired notice: a status region above the page, never a dialog or an overlay. */
 export function ServiceReminder() {
   const { dto, refresh } = useStatus();
+  // The expired notice follows the last good read; a failed refresh only drops the (period-bound) reminders.
+  const expired = dto.expiredNotice ? <ExpiredNotice area="company" notice={dto.expiredNotice} /> : null;
   if (refresh === "failed") {
-    return <Alert tone="info" title="Nie udało się odświeżyć statusu usługi">Panel działa dalej. Przypomnienie pojawi się po kolejnym odczycie.</Alert>;
+    return <>{expired}<Alert tone="info" title="Nie udało się odświeżyć statusu usługi">Panel działa dalej. Przypomnienie pojawi się po kolejnym odczycie.</Alert></>;
   }
+  if (expired) return expired;
   const reminder = dto.reminders.at(-1);
-  if (!reminder || dto.expiredNotice) return null;
+  if (!reminder) return null;
   return (
     <Alert tone={reminder.offsetDays === 0 ? "warning" : "info"} title="Przypomnienie o okresie usługi">
       {reminder.message}{" "}
@@ -119,7 +124,8 @@ function periodLines(dto: ServiceStatusDto): string[] {
   const lines: string[] = [];
   if (period.headline === "NOT_STARTED") return ["Rozpocznie się po rejestracji administratora."];
   if (period.paidThrough) {
-    lines.push(period.paidValid ? `Opłacone do ${formatLocalDate(period.paidThrough)} włącznie` : `Opłata wygasła ${formatLocalDate(period.paidThrough)}`);
+    lines.push(period.paidValid ? `Opłacone do ${formatLocalDate(period.paidThrough)} włącznie`
+      : `Opłacony okres zakończył się ${formatLocalDate(period.paidThrough)} z końcem dnia.`);
   }
   if (period.trialEndsAt) {
     // F03-06: start and end with the time; the one-time trial always lasts 336 h, so its start is the end minus that.
@@ -127,9 +133,11 @@ function periodLines(dto: ServiceStatusDto): string[] {
       const end = new Date(period.trialEndsAt);
       lines.push(`Od ${formatLocalDateTime(new Date(end.getTime() - TRIAL_MS))}`, `Do ${formatLocalDateTime(end)}`,
         `czas polski · ${TRIAL_MS / 86_400_000} dni (okres próbny to nie jest opłata)`);
-    } else lines.push(`Okres próbny zakończył się ${formatLocalDate(period.trialEndsAt)}`);
+    } else lines.push(`Okres próbny zakończył się ${formatLocalDateTime(period.trialEndsAt)} (czas polski).`);
   }
   if (!lines.length) lines.push("Brak aktywnego okresu.");
+  // F08-03 / D-11: the end of the period never takes the panel away.
+  if (period.headline === "EXPIRED") lines.push("Konto i flota pozostają dostępne.");
   return lines;
 }
 
@@ -149,7 +157,7 @@ const siteText: Record<ServiceStatusDto["site"]["state"], string> = {
 export function ServiceStatusCard(): ReactNode {
   const { dto, refresh, publicHost } = useStatus();
   const visible = dto.site.publicVisible;
-  const headline = { PAID: "Opłacony", TRIAL: "Okres próbny", EXPIRED: "Zakończony", NOT_STARTED: "Nie rozpoczął się" }[dto.period.headline];
+  const headline = { PAID: "Opłacony", TRIAL: "Okres próbny", EXPIRED: "Okres zakończony", NOT_STARTED: "Nie rozpoczął się" }[dto.period.headline];
   const active = dto.period.headline === "PAID" || dto.period.headline === "TRIAL";
   return (
     // The card below is the named region; the page wrapper is no second landmark with the same name (axe landmark-unique).
@@ -176,7 +184,7 @@ export function ServiceStatusCard(): ReactNode {
             <dt className={styles.serviceLabel}>Strona publiczna</dt>
             <dd className={styles.serviceValue}>
               <span className={`${styles.chip} ${visible ? styles.chipOk : styles.chipOff}`}>
-                {visible ? <Check aria-hidden="true" size={20} /> : <CircleSlash aria-hidden="true" size={16} />}{visible ? "Widoczna" : "Niewidoczna"}
+                {visible ? <Check aria-hidden="true" size={20} /> : <CircleSlash aria-hidden="true" size={16} />}{visible ? "Widoczna" : dto.site.state === "PERIOD_EXPIRED" ? "Wyłączona" : "Niewidoczna"}
               </span>
               {visible ? null : <span className={styles.serviceDetail}>{siteText[dto.site.state]}</span>}
             </dd>
