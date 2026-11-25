@@ -234,6 +234,9 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
     ...cells.map(({ date }) => date),
   ].map(cell);
   while (flat.length % 7 !== 0) flat.push(cell(addDays(flat[flat.length - 1].date, 1)));
+  // On a phone the grid always shows six weeks (FLOW-MVP-05 M/04), so the card keeps its height between months.
+  const shownWeeks = flat.length / 7;
+  while (flat.length < 42) flat.push(cell(addDays(flat[flat.length - 1].date, 1)));
   // FLOW-MVP-05: a neighbouring month's day reads "28/09"; the note under the card names those months.
   const neighbours = [...new Set(flat.filter((day) => day.outside).map((day) => `/${day.date.slice(5, 7)}`))];
   const rows = Array.from({ length: flat.length / 7 }, (_, at) => flat.slice(at * 7, at * 7 + 7));
@@ -411,7 +414,7 @@ export function AvailabilityPanel({ slug, vehicleName, today, minMonth, maxMonth
             <thead><tr>{weekdays.map((name) => <th key={name} scope="col">{name}</th>)}</tr></thead>
             <tbody>
               {rows.map((row, at) => (
-                <tr key={at}>
+                <tr key={at} className={at >= shownWeeks ? styles.weekPad : undefined}>
                   {row.map((cell, column) => {
                     if (cell.outside) return <td key={column} className={`${styles.day} ${styles.dayOutside}`}><span aria-hidden="true">{cell.day}/{cell.date.slice(5, 7)}</span></td>;
                     const state = stateOf(cell.date);

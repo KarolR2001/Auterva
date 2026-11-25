@@ -402,7 +402,7 @@ button.link { background: none; border: 0; padding: 0; font: inherit; cursor: po
 .sheetVehicle { margin: 0 0 var(--space-3); font-size: var(--font-size-20); line-height: var(--line-height-28); font-weight: var(--font-weight-semibold); overflow-wrap: anywhere; }
 .sheetRange { margin: 0; font-size: var(--font-size-16); line-height: var(--line-height-24); color: var(--text-secondary); }
 .sheetChannels { display: grid; gap: var(--space-3); margin: var(--space-10) 0 var(--space-6); padding: 0; list-style: none; }
-.sheetChannel { display: flex; align-items: center; gap: var(--space-4); min-height: 64px; padding: var(--space-3) var(--space-4); color: var(--text-primary); text-decoration: none;
+.sheetChannel { display: flex; align-items: center; gap: var(--space-4); min-height: 60px; padding: var(--space-2) var(--space-4); color: var(--text-primary); text-decoration: none;
   background: var(--surface-default); border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-md); }
 .sheetChannel:hover { background: var(--action-secondary-hover); }
 .sheetChannelPreferred, .sheetChannelPreferred:hover { color: var(--text-inverse); background: var(--surface-inverse); border-color: var(--surface-inverse); }
@@ -423,10 +423,14 @@ button.link { background: none; border: 0; padding: 0; font: inherit; cursor: po
     border: var(--border-width-hairline) solid var(--border-subtle); border-radius: var(--radius-md); }
   .back:hover { text-decoration: none; background: var(--action-secondary-hover); }
   .gallery { padding: var(--space-4); }
-  .galleryBar { justify-content: flex-start; gap: var(--space-3); }
+  .galleryBar { order: 1; justify-content: flex-start; gap: var(--space-3); }
   .galleryPrev { order: -1; }
   .galleryCounter { margin: 0; }
   .galleryZoom { min-width: 136px; margin-inline: auto; }
+  .thumbs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .alternatives .h3 { font-size: var(--font-size-16); line-height: var(--line-height-24); }
+  /* An unavailable day inside the chosen range: no fill, a #151515 dashed frame and the strike-through (FLOW-MVP-05 M/04c). */
+  .daySelected.dayUnavailable { background: transparent; color: var(--text-primary); border-color: transparent; outline: var(--border-width-active) dashed var(--border-critical); outline-offset: -2px; }
   .detailGrid { gap: var(--space-6); }
   .detailPrice { order: 1; margin: var(--space-2) 0 var(--space-6); font-size: var(--font-size-22); line-height: var(--line-height-28); font-weight: var(--font-weight-bold); }
   .detailHead .lead { margin: 0; color: var(--text-primary); }
@@ -449,6 +453,7 @@ button.link { background: none; border: 0; padding: 0; font: inherit; cursor: po
   .features li + li::before { content: " · "; white-space: pre; }
 }
 @media (min-width: 768px) {
+  .weekPad { display: none; }
   .calendarHeading, .calendarNote { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
   .calendar { position: relative; }
   .sheetChannels { margin-top: var(--space-8); }
@@ -464,7 +469,7 @@ button.link { background: none; border: 0; padding: 0; font: inherit; cursor: po
 .emptyHero .h1 { margin-bottom: var(--space-6); }
 .emptyHero .lead { color: var(--text-primary); line-height: var(--line-height-26); margin-bottom: var(--space-8); }
 .emptyHeroMedia { aspect-ratio: 2 / 1; border-radius: var(--radius-xl); }
-.emptyHero + .container .state { max-width: 720px; gap: var(--space-4); padding-block: var(--space-8) var(--space-10); }
+.emptyHero + .container .state { max-width: 720px; gap: var(--space-4); padding: var(--space-8) 0 var(--space-10); }
 .emptyHero + .container .stateTitle { font-size: var(--font-size-22); line-height: var(--line-height-28); font-weight: var(--font-weight-semibold); }
 .emptyHero + .container .stateText { line-height: var(--line-height-24); }
 .emptyHero + .container .stateActions { justify-content: center; align-items: center; margin-top: var(--space-2); }
