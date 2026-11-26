@@ -38,7 +38,8 @@ Ostatnia aktualizacja: 26.11.2026, na podstawie odczytu pliku Scenariusze Mobile
    - zaktualizuj sekcje 2–5: stan, datę, plik i PR/SHA;
    - przy nowym pliku lub nowej stronie uzupełnij `screen-occurrences.json`;
    - jedna runda to jedna linia w sekcji 5.
-8. **Plik Scenariusze Desktop nie ma jeszcze spisu wystąpień.** Przed pierwszą poprawką odczytaj listę plansz strony 15, przypisz każdej `screen` tak samo jak dla Mobile i zapisz wynik w JSON.
+8. **Nagłówek i dolne menu zmieniasz wyłącznie w komponencie wzorca** na planszy „00 — Wzorce mobilne (komponenty)” w danym pliku. Instancji nie odłączaj. Na nowej planszy wstaw instancję i nadpisz tylko tytuł. Ta sama zmiana musi trafić do wzorców w każdym pliku, który je ma (sekcja 2, pierwszy wiersz).
+9. **Plik Scenariusze Desktop nie ma jeszcze spisu wystąpień.** Przed pierwszą poprawką odczytaj listę plansz strony 15, przypisz każdej `screen` tak samo jak dla Mobile i zapisz wynik w JSON.
 
 Oznaczenia: **tak** — zrobione i obejrzane na renderze; **nie** — do zrobienia; **?** — nie sprawdzono; **n/d** — nie dotyczy.
 
@@ -46,6 +47,7 @@ Oznaczenia: **tak** — zrobione i obejrzane na renderze; **nie** — do zrobien
 
 | Wzorzec | Ustalenie | Ekrany | Sc. Mobile | Sc. Desktop | Aplikacja |
 |---|---|---|---|---|---|
+| Komponenty wzorców (nagłówek i dolne menu) | Tylko instancje komponentów z planszy „00 — Wzorce mobilne (komponenty)” w danym pliku: 3 nagłówki (firma online, firma offline, superadmin), 5 menu firmy (Start, Pojazdy, Czat, Więcej, Start + nowa wiadomość), 3 menu superadmina. Tytuł strony to nadpisanie tekstu w instancji. | **nie** | tak, 26.11 (189 instancji na 96 planszach) | n/d | n/d |
 | Nagłówek mobilny panelu firmy | Po lewej tytuł strony (16/600). Po prawej chip „● Online” (offline: ikona WifiOff, „Offline”, ramka 2 px) i awatar 40 px z ikoną CircleUserRound zamiast inicjałów. Linia tylko na dole. Wzorcem jest aplikacja (`panel-shell.tsx`). | **nie**: mały szary tytuł sekcji, awatar „AN” | tak, 25.11 (97 plansz) | n/d (pasek boczny) | tak |
 | Nagłówek mobilny superadmina | Tytuł strony i awatar „SA”, bez chipa | n/d | tak, 25.11 | „SA” ujednolicone 23.11 | tak |
 | Tytuły stron (np. „Flota · Alfa Campers”) | Takie same jak w aplikacji, lista w sekcji 6 | **nie** | tak, 25.11 | ? | tak |
@@ -133,6 +135,7 @@ Kody wystąpień w Scenariuszach Mobile (`F06-02` = `FLOW-MVP-06 / M / 02`). ID 
 | 23–24.11 | Aplikacja | Dopasowanie do Ekranów; CI 9/9, e2e 105/105 przy `d4d073e` | PR #472, porównanie `Auterva-qa/471` |
 | 25.11 | Aplikacja | Dopasowanie do **starych** plansz Sc. Mobile (przed poprawkami z 25–26.11) | PR #474 `7361d978` |
 | 25–26.11 | Sc. Mobile | Wzorce z sekcji 2; Flex na planszach absolutnych; D-44; 0 błędów w skanie 179 plansz | porównanie `Auterva-qa/473/mockup.html` |
+| 26.11 | Sc. Mobile | Nagłówki i menu jako instancje 11 komponentów wzorców (189 instancji). Kanoniczna PLT-03 dostała menu superadmina zamiast starego 4-pozycyjnego z „Pulpit”. | plansza `00 — Wzorce mobilne (komponenty)` |
 
 Wniosek z 26.11: PR #474 dopasowano do kopii scenariuszy, zanim poprawiono wzorce. Plik Ekrany nie dostał wzorców poprawionych w Scenariuszach. Ten sam ekran był więc poprawiany dwa razy i według dwóch różnych wzorów. Stąd zasady 2–4 i sekcja 2.
 
@@ -158,7 +161,9 @@ Tytuły stron w aplikacji (wzorzec dla makiet):
 
 **Problem.** Po podziale pliku instancje w plikach Ekrany i Scenariusze wskazują własne, zamrożone kopie komponentów. Zmiana w pliku System do nich nie dociera. Nagłówki i menu w Sc. Mobile są teraz kopiami odłączonymi od komponentu (95 + 97). Każda zmiana wzorca wymaga więc ręcznej poprawki we wszystkich trzech plikach.
 
-**Propozycja:**
+**Decyzja 26.11 (właściciel: „najprościej i najwydajniej”):** wzorce są lokalnymi komponentami w każdym pliku. Wtyczka MCP nie daje dostępu do komponentów biblioteki „System” z innego pliku (podłączona biblioteka zwraca 0 komponentów), a kształtów nie da się przenieść między plikami przez API. Plik Mobile ma je od 26.11, plik Ekrany jest następny. Biblioteka współdzielona zostaje opcją na później.
+
+**Pierwotna propozycja:**
 1. W pliku System zrobić komponenty wzorców z sekcji 2:
    - `MobileHeader` (firma online/offline, superadmin);
    - `BottomNav` (firma: 4 aktywne pozycje; superadmin: 3);
