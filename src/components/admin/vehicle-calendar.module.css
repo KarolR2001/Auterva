@@ -20,7 +20,8 @@
 .headLink:hover { background: var(--action-secondary-hover); }
 .headLink:focus-visible { outline: var(--border-width-active) solid var(--focus-ring); outline-offset: var(--focus-offset); }
 @media (max-width: 1023px) { .headAdd { display: none; } }
-@media (max-width: 767px) { .title { font-size: var(--font-size-28); line-height: var(--line-height-36); } .statusChip { min-width: 0; } .head { margin-bottom: var(--space-6); } }
+/* F11-06 / ADM-09 M (#473, corrected board): the page title is 32/700 like every page title. */
+@media (max-width: 767px) { .title { font-size: var(--font-size-32); line-height: var(--line-height-40); font-weight: var(--font-weight-bold); } .statusChip { min-width: 0; } .head { margin-bottom: var(--space-6); } }
 .stack { display: grid; gap: var(--space-3); margin-bottom: var(--space-4); }
 .muted { margin: var(--space-1) 0 0; font-size: var(--font-size-14); line-height: var(--line-height-20); color: var(--text-secondary); }
 /* One bordered card holds the month, the block list and the legend. */

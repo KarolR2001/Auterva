@@ -1017,6 +1017,34 @@
     width: 100%;
   }
 
+  /* F03-06 / F08-03 (#473, corrected boards): the page title is 32/700, the chat button is outlined, the pills are as wide
+     as their text and the period lines read at 16 px. */
+  .servicePageTitle {
+    font-size: var(--font-size-32);
+    line-height: var(--line-height-40);
+    font-weight: var(--font-weight-bold);
+  }
+
+  .serviceHeader .linkButton {
+    border: var(--border-width-hairline) solid var(--action-secondary-border);
+    background: transparent;
+    color: var(--text-primary);
+  }
+
+  .serviceHeader .linkButton:hover {
+    background: var(--action-secondary-hover);
+  }
+
+  .chip {
+    width: auto;
+    padding: 0 var(--space-4);
+  }
+
+  .serviceDetail {
+    font-size: var(--font-size-16);
+    line-height: var(--line-height-24);
+  }
+
   .serviceCard {
     padding: var(--space-5);
   }
