@@ -163,6 +163,14 @@ test("vehicle detail: gallery by mouse and keyboard, availability result, calend
     const free = page.locator("td:has(button[aria-label*=', dostępny, wybrany zakres'])").first();
     await expect(blocked).toHaveCSS("outline-style", "dashed");
     await expect(blocked).toHaveCSS("text-decoration-line", "line-through");
+    // The calendar shows the month of the range's end; when the range starts in the month before (e.g. 30.11–02.12), its
+    // available first day is a neighbouring-month cell without a button there, so that day is checked in its own month.
+    if (day(4).slice(0, 7) !== day(6).slice(0, 7)) {
+      const title = page.locator("#calendar-title");
+      const shown = ((await title.textContent()) ?? "").trim();
+      await page.getByRole("link", { name: "Poprzedni miesiąc" }).click();
+      await expect(title).not.toHaveText(shown);
+    }
     await expect(free).toHaveCSS("outline-style", "none");
     await expect(free).toHaveCSS("text-decoration-line", "none");
     const html = (await rawGet(port, host, `/pojazdy/${slug}/?from=${day(4)}&to=${day(6)}`)).body;

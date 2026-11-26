@@ -139,7 +139,7 @@ test("fleet calendar: company and superadmin reach the vehicle and the block, is
     const sRegion = sPage.getByRole("region", { name: /przewijany poziomo/ });
     await expect(sRegion.getByRole("link", { name: "Auto Alfa", exact: true })).toBeVisible();
     await expect(sPage.getByText("Obce Auto")).toHaveCount(0);
-    await expect(sPage.getByText(`Firma: Firma Kalendarza Floty A ${tag}`)).toBeVisible();
+    await expect(sPage.getByText(`Zarządzasz firmą: Firma Kalendarza Floty A ${tag}`)).toBeVisible();
     expect(await sPage.content()).not.toMatch(/FLEETCAL-REF-SECRET|FLEETCAL-NOTE-SECRET/);
     await sRegion.getByRole("link", { name: /Auto Alfa: Serwis/ }).click();
     await expect(sPage).toHaveURL(new RegExp(`/firmy/${orgA}/pojazdy/${carAlfa}/kalendarz/\\?blok=${blockMaint}`));
