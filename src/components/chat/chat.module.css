@@ -246,6 +246,12 @@
   font: inherit;
 }
 
+/* The field's focus uses the token ring, not the browser's blue outline (outside the palette). */
+.textarea:focus-visible {
+  outline: var(--border-width-active) solid var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
 .hint {
   margin: 0;
   color: var(--text-secondary);
@@ -329,17 +335,30 @@
   }
 }
 
-/* F06-02 / TEN-11 M: on a phone the page title is 24 px. */
+/* F06-02 / TEN-11 M and PLT-09C (#473, corrected boards): on a phone the page title is 32/700 like every page title and the
+   bubbles leave a 24 px offset, so the peer's messages read from the left edge and the own ones from the right one (company
+   panel and superadmin inbox alike). In the company panel the draft hint stands above the field and "Wyślij" (F06-02). The
+   superadmin inbox keeps it below: there the hint carries a company name of up to 120 characters, and above the field it
+   would push the field under the bottom navigation at 320x568 (#435). */
 @media (max-width: 767px) {
   .title {
-    font-size: var(--font-size-24);
-    line-height: var(--line-height-32);
+    font-weight: var(--font-weight-bold);
   }
-}
-/* PLT-09C (#473): in the superadmin inbox on phones the bubbles leave a 24 px offset, so the company's messages read from the
-   left edge and Auterva's from the right one. The company panel chat (not embedded) is unchanged. */
-@media (max-width: 767px) {
-  .chat[data-embedded] .message {
+
+  .message {
     max-width: min(calc(100% - var(--space-6)), 360px);
+  }
+
+  .chat:not([data-embedded]) .composer .hint {
+    grid-row: 1;
+  }
+
+  .chat:not([data-embedded]) .composer .textarea {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .chat:not([data-embedded]) .composer .send {
+    grid-row: 2;
   }
 }
