@@ -214,7 +214,7 @@
   .cellCompany { min-width: 0; overflow-wrap: anywhere; }
 }
 
-/* PLT-01 M (#473): below the table breakpoint every company is a card: name, 12 px hosts, the period as a full-width pill,
+/* PLT-01 M (#473): below the table breakpoint every company is a card: name, 12 px hosts, the period as a pill as wide as its text,
    a divider, "Widoczność"/"Rejestracja" as label | value rows and "Otwórz firmę" (primary) next to "Czat". */
 .desktopOnly { display: none; }
 @media (min-width: 768px) { .desktopOnly { display: inline-flex; } }
@@ -236,7 +236,7 @@
   .companyTable .companyName svg { display: none; }
   .companyTable .cellCompany .hostLine { font-size: var(--font-size-12); line-height: var(--line-height-20); }
   .companyTable .cellCompany .badgeArchived, .companyTable .cellCompany .badgePurged { margin: var(--space-1) 0; }
-  .companyTable .cellPeriod { justify-items: stretch; margin-top: var(--space-5); padding-bottom: var(--space-3); border-bottom: var(--border-width-hairline) solid var(--border-default); }
+  .companyTable .cellPeriod { justify-items: start; margin-top: var(--space-5); padding-bottom: var(--space-3); border-bottom: var(--border-width-hairline) solid var(--border-default); }
   .companyTable .cellPeriod::before { display: none; }
   .companyTable .cellPeriod .chip { min-height: 36px; padding: var(--space-1) var(--space-4); font-size: var(--font-size-12); font-weight: var(--font-weight-semibold); line-height: var(--line-height-16); }
   .companyTable .cellFact { grid-template-columns: 100px minmax(0, 1fr); align-items: center; column-gap: var(--space-2); min-height: 40px; font-size: var(--font-size-14); font-weight: var(--font-weight-medium); }

@@ -2,7 +2,8 @@
 .page { display: grid; gap: var(--space-8); min-width: 0; max-width: var(--content-admin-max); padding-bottom: var(--space-12); container-type: inline-size; }
 .page > * { min-width: 0; }
 .h3 { margin: 0 0 var(--space-2); font-size: var(--font-size-20); font-weight: var(--font-weight-semibold); }
-.filterBar { display: grid; gap: var(--space-4); padding: var(--space-4);
+/* F11-09 / ADM-17 M (#473, corrected board): the summary and "Filtruj" share one row on phones too. */
+.filterBar { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-4); padding: var(--space-4);
   border: var(--border-width-hairline) solid var(--border-default); border-radius: var(--radius-xl); }
 .filterValues { display: none; margin: 0; }
 .filterValues div { display: flex; flex-wrap: wrap; gap: var(--space-1); min-width: 0; font-size: var(--font-size-14); line-height: var(--line-height-20); font-weight: var(--font-weight-semibold); }
