@@ -114,6 +114,15 @@
   line-height: var(--line-height-32);
 }
 
+/* PLT-09L (corrected board): on a phone the list heading is the 32/700 page title. */
+@media (max-width: 767px) {
+  .listTitle {
+    font-size: var(--font-size-32);
+    font-weight: var(--font-weight-bold);
+    line-height: var(--line-height-40);
+  }
+}
+
 .listLead {
   margin: 0;
   color: var(--text-secondary);
@@ -298,12 +307,15 @@
     white-space: nowrap;
   }
 
-  /* PLT-09C: the company name is the 24 px title of the conversation. */
+  /* PLT-09C (corrected board): the company name is the 32/700 page title of the conversation. At this size it keeps one
+     line (ellipsis), so the history and the composer still fit above the navigation at 320x568 (#435); the element and the
+     composer hint below carry the whole name. */
   .convTitle {
     grid-column: 1 / -1;
-    font-size: var(--font-size-24);
-    font-weight: var(--font-weight-semibold);
-    line-height: var(--line-height-32);
+    font-size: var(--font-size-32);
+    font-weight: var(--font-weight-bold);
+    line-height: var(--line-height-40);
+    -webkit-line-clamp: 1;
   }
 
   /* Archived badge: its own row under the name. */
