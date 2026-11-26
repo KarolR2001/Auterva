@@ -67,7 +67,9 @@ test("public home and catalog: empty offer, results, filters in the URL, Back, n
 
     // 1. Active company, nothing published: the "coming soon" state, in the home and the catalog; no invented cars.
     await page.goto(`${origin}/`);
-    await expect(page.getByRole("heading", { level: 1, name: "Nasza oferta pojawi się wkrótce" })).toBeVisible();
+    // FLOW-MVP-02 M/09: the company's hero stays the page heading, the announcement is its own section.
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+    await expect(page.getByRole("heading", { level: 2, name: "Nasza oferta pojawi się wkrótce" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Kontakt" }).last()).toBeVisible();
     await expect(page.getByText("0 zł")).toHaveCount(0);
     await page.goto(`${origin}/pojazdy/`);

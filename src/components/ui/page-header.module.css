@@ -56,3 +56,9 @@
     line-height: var(--line-height-48);
   }
 }
+/* #473 (corrected mobile boards): on a phone every page title is 32/700. */
+@media (max-width: 767px) {
+  .title {
+    font-weight: var(--font-weight-bold);
+  }
+}

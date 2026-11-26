@@ -1,3 +1,4 @@
+import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 
@@ -5,6 +6,7 @@ import { ContactCta } from "@/components/public/contact-cta";
 import { AvailabilityPanel } from "@/components/public/availability-panel";
 import { PublicPage } from "@/components/public/public-chrome";
 import { VehicleGallery } from "@/components/public/vehicle-gallery";
+import { pluralSeats } from "@/components/public/range-text";
 import styles from "@/components/public/public.module.css";
 import { loadAvailability, loadCalendar, loadCatalog, loadHome, loadVehicle, readRange, requestHost, todayWarsaw } from "@/modules/public-offer/page-data";
 import { calendarRange, catalogHref, formatPrice, parseMonth, shiftMonth } from "@/modules/public-offer/presentation";
@@ -66,20 +68,31 @@ export default async function VehiclePage({ params, searchParams }: Props) {
   const backHref = catalogHref({ from: range.from, to: range.to });
   const hasPrice = vehicle.price !== null;
   const features = vehicle.features.filter((feature) => feature.code.trim());
+  // FLOW-MVP-04 M/13: one line under the title on a phone (the chips stay from 768 px) and the labelled parameters below the text.
+  const meta = [vehicle.category?.name, vehicle.seats ? pluralSeats(vehicle.seats) : null, vehicle.transmission].filter((value): value is string => Boolean(value));
+  const fuelDrive = [vehicle.fuel, vehicle.drive].filter(Boolean).join(" / ");
+  const parameters = ([["Marka", vehicle.brand], ["Model", vehicle.model], ["Rok produkcji", vehicle.year ? String(vehicle.year) : null],
+    ["Miejsca", vehicle.seats ? String(vehicle.seats) : null], ["Drzwi", vehicle.doors ? String(vehicle.doors) : null], ["Skrzynia", vehicle.transmission],
+    ["Paliwo / napęd", fuelDrive || null], ["Kategoria", vehicle.category?.name], ["Kolor", vehicle.color], ["Bagażnik", vehicle.luggage]] as [string, string | null | undefined][])
+    .filter((entry): entry is [string, string] => Boolean(entry[1]));
 
   return (
     <PublicPage brand={brand} contact={home.contact} range={range}>
       <div className={`${styles.container} ${styles.detail}`}>
-        <a href={backHref} className={styles.back}>Powrót do listy pojazdów</a>
+        <a href={backHref} className={styles.back}><ArrowLeft aria-hidden="true" size={20} className={styles.narrowOnly} />
+          <span className={styles.wideOnly}>Powrót do listy pojazdów</span><span className={styles.narrowOnly}>Wróć do pojazdów</span></a>
         <div className={styles.detailGrid}>
           <VehicleGallery images={vehicle.gallery} name={vehicle.name ?? "Pojazd"} />
           <AvailabilityPanel slug={slug} vehicleName={vehicle.name ?? "Pojazd"} today={today} minMonth={minMonth} maxMonth={maxMonth}
-            others={others} othersComplete={othersComplete} initial={{ from: range.from ?? (picked.kind === "INVALID" ? first(raw.from) ?? null : null), to: range.to ?? (picked.kind === "INVALID" ? first(raw.to) ?? null : null), invalid: picked.kind === "INVALID" ? picked.reason : null,
+            others={others} othersComplete={othersComplete} contact={home.contact} initial={{ from: range.from ?? (picked.kind === "INVALID" ? first(raw.from) ?? null : null), to: range.to ?? (picked.kind === "INVALID" ? first(raw.to) ?? null : null), invalid: picked.kind === "INVALID" ? picked.reason : null,
               available: availability?.available ?? null, month, days: Object.fromEntries(calendar.days.map((day) => [day.date, day.available])) }}>
-            <h1 className={styles.pageTitle}>{vehicle.name ?? "Pojazd"}</h1>
-            <p className={styles.detailPrice}>{hasPrice ? formatPrice(vehicle.price) : "Cena na zapytanie"}</p>
-            {specs.length ? <ul className={styles.specs} aria-label="Najważniejsze parametry">{specs.map((spec) => <li key={spec} className={styles.chip}>{spec}</li>)}</ul> : null}
-            {vehicle.shortDescription?.trim() ? <p className={styles.lead} data-testid="short-description">{vehicle.shortDescription}</p> : null}
+            <div className={styles.detailHead}>
+              <h1 className={styles.pageTitle}>{vehicle.name ?? "Pojazd"}</h1>
+              <p className={styles.detailPrice}>{hasPrice ? formatPrice(vehicle.price) : "Cena na zapytanie"}</p>
+              {specs.length ? <ul className={`${styles.specs} ${styles.wideOnly}`} aria-label="Najważniejsze parametry">{specs.map((spec) => <li key={spec} className={styles.chip}>{spec}</li>)}</ul> : null}
+              {meta.length ? <p className={`${styles.detailMeta} ${styles.narrowOnly}`}>{meta.join(" · ")}</p> : null}
+              {vehicle.shortDescription?.trim() ? <p className={styles.lead} data-testid="short-description">{vehicle.shortDescription}</p> : null}
+            </div>
           </AvailabilityPanel>
 
           <div className={styles.detailBody}>
@@ -91,6 +104,14 @@ export default async function VehiclePage({ params, searchParams }: Props) {
                   <li key={feature.code} className={`${styles.chip} ${styles.featureChip}`}>{feature.value ? `${feature.code}: ${feature.value}` : feature.code}</li>
                 ))}</ul>
               </>
+            ) : null}
+            {parameters.length ? (
+              <section className={`${styles.parameters} ${styles.narrowOnly}`} aria-labelledby="parameters-title">
+                <h2 id="parameters-title" className={styles.parametersTitle}>Parametry pojazdu</h2>
+                <dl className={styles.parameterList}>{parameters.map(([label, value]) => (
+                  <div key={label}><dt>{label}</dt><dd>{value}</dd></div>
+                ))}</dl>
+              </section>
             ) : null}
             <h2 className={styles.detailH3}>Warunki dodatkowe</h2>
             <p className={styles.prose}>Zapytaj o wymagane dokumenty, minimalny wiek kierowcy i warunki odbioru pojazdu.</p>

@@ -100,9 +100,10 @@ test("ADM-01 mobile keeps the login landmarks aligned with the 390×844 board", 
     for (const [name, element, expectedTop] of landmarks) {
       const box = await element.boundingBox();
       expect(box, `${name} is visible`).not.toBeNull();
+      // #473: one 16 px page margin on phones (corrected mobile boards, REJESTR_MAKIET section 2).
       if (name === "brand" || name === "context" || name === "title") {
-        expect(box!.x, `${name} left edge`).toBe(24);
-        expect(box!.width, `${name} width`).toBe(342);
+        expect(box!.x, `${name} left edge`).toBe(16);
+        expect(box!.width, `${name} width`).toBe(358);
       }
       expect(Math.abs(box!.y - expectedTop), `${name} top: ${box!.y}`).toBeLessThanOrEqual(name === "submit" ? 2 : 8);
     }

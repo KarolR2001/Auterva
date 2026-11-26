@@ -1,5 +1,5 @@
 const WARSAW = "Europe/Warsaw";
-const TRIAL_MS = 336 * 60 * 60_000;
+export const TRIAL_MS = 336 * 60 * 60_000;
 const offsetFormat = new Intl.DateTimeFormat("en-US", { timeZone: WARSAW, timeZoneName: "shortOffset" });
 
 function validInstant(value: Date | null): value is Date {

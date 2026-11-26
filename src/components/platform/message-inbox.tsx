@@ -32,6 +32,12 @@ function rowTime(iso: string) {
   return warsawDay.format(at) === warsawDay.format(new Date()) ? hour.format(at) : date.format(at);
 }
 
+/** PLT-09: a company's initials in the round avatar of its row (first letters of the first two words). */
+function initials(name: string) {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  return words.slice(0, 2).map((word) => Array.from(word)[0] ?? "").join("").toLocaleUpperCase("pl-PL") || "?";
+}
+
 const inboxUrl = (organizationId: string | null) => (organizationId ? `/wiadomosci/?firma=${encodeURIComponent(organizationId)}` : "/wiadomosci/");
 
 function asSelection(row: InboxRow): InboxSelection {
@@ -234,7 +240,11 @@ export function MessageInbox({ accountId, initialSelected }: Props) {
   return (
     <div className={styles.inbox} data-view={selected ? "conversation" : "list"}>
       <section className={styles.listPane} aria-labelledby="inbox-list-title">
-        <h2 id="inbox-list-title" className={platform.srOnly}>Rozmowy z firmami</h2>
+        {/* PLT-09L: below the split view the list opens with the page title and one line of context. */}
+        <div className={styles.listHeader}>
+          <h2 id="inbox-list-title" className={styles.listTitle}>Wiadomości firm</h2>
+          <p className={styles.listLead}>Wybierz firmę, aby otworzyć rozmowę.</p>
+        </div>
         <div className={styles.toolbar}>
           <label className={platform.checkRow}>
             <input type="checkbox" checked={includeArchived} onChange={(event) => changeFilter(event.target.checked)} />
@@ -269,6 +279,7 @@ export function MessageInbox({ accountId, initialSelected }: Props) {
                     ref={(node) => { if (node) rowButtons.current.set(row.organizationId, node); else rowButtons.current.delete(row.organizationId); }}
                     onClick={() => open(asSelection(row))}
                   >
+                    <span className={styles.avatar} aria-hidden="true">{initials(row.organizationName)}</span>
                     <span className={styles.rowTop}>
                       <span className={styles.rowName}>{row.organizationName}</span>
                       <time className={styles.rowTime} dateTime={row.activityAt}>{rowTime(row.activityAt)}</time>

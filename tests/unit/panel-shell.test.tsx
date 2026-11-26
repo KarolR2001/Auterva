@@ -438,7 +438,7 @@ describe("nawigacja panelu", () => {
     expect(screen.getByRole("textbox", { name: "Nazwa pojazdu" })).toHaveValue(
       "Mercedes V",
     );
-    expect(screen.getByRole("status")).toHaveTextContent("Usługa wygasła");
+    expect(screen.getByRole("status")).toHaveTextContent("Twoja strona publiczna jest wyłączona");
     rerender(
       <PanelShell {...props} accessState="allowed">
         {form}

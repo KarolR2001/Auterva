@@ -91,13 +91,14 @@ function StatusRow({ label, ok, value, detail }: { label: string; ok: boolean; v
 }
 
 /** Context, independent status rows and the superadmin entries into the company. */
-export function companyHostLine(company: CompanyCardData) {
+/** Panel host and the public address the visitors see (an active own domain, otherwise the provider alias). */
+export function companyHosts(company: CompanyCardData) {
   const panel = company.hosts.find((host) => host.area === "COMPANY_ADMIN");
   const alias = company.hosts.find((host) => host.area === "COMPANY_PUBLIC" && host.kind === "PROVIDER");
   const customActive = company.hosts.find(
     (host) => host.area === "COMPANY_PUBLIC" && host.kind === "CUSTOM" && host.status === "ACTIVE",
   );
-  return `Panel: ${panel?.hostname ?? "brak"} · Strona: ${customActive?.hostname ?? alias?.hostname ?? "brak"}`;
+  return { panel: panel?.hostname ?? "brak", site: customActive?.hostname ?? alias?.hostname ?? "brak" };
 }
 
 export function CompanyStatus({ company }: { company: CompanyCardData }) {

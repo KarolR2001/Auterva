@@ -10,6 +10,7 @@ import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
 import { PasswordInput } from "../ui/password-input";
 import { SecretForm } from "../ui/secret-form";
+import { AuthBrand } from "./auth-brand";
 import { evaluatePassword } from "./password-policy";
 import { PasswordStrength } from "./password-strength";
 import styles from "./auth.module.css";
@@ -22,7 +23,7 @@ const schema = z
   .refine((values) => values.password === values.confirm, { path: ["confirm"], message: "Hasła muszą być identyczne" });
 type Values = z.infer<typeof schema>;
 
-type Invitation = { name: string; recipientEmail: string };
+type Invitation = { name: string; recipientEmail: string; expiresAt: string | null };
 type SiteState = "READY" | "DOMAIN_PENDING" | "PERIOD_EXPIRED" | "RESTORE_LOCKED";
 type Phase =
   | { kind: "loading" }
@@ -48,10 +49,19 @@ export function siteMessage(state: string | null): { title: string; text: string
   }
 }
 
+/** "23.10.2026, 16:30" in Polish time; the server keeps the instant in UTC. */
+export function expiryText(value: string): string | null {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return null;
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("pl-PL", { timeZone: "Europe/Warsaw", day: "2-digit", month: "2-digit",
+    year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(date).map((part) => [part.type, part.value]));
+  return `${parts.day}.${parts.month}.${parts.year}, ${parts.hour}:${parts.minute}`;
+}
+
 const LOADING_TITLE = "Sprawdzamy zaproszenie";
 const UNCERTAIN_TEXT = "Aktywacja mogła się zakończyć. Ponów ją tym samym hasłem: serwer zwróci zapisany wynik i nie utworzy drugiego konta. Hasła są zablokowane do czasu potwierdzenia.";
 
-function Frame({ title, context = "Zaproszenie do firmy", children }: { title: string; context?: string; children: React.ReactNode }) {
+function Frame({ title, context = "Zaproszenie do firmy", children }: { title: string; context?: string | null; children: React.ReactNode }) {
   const heading = useRef<HTMLHeadingElement>(null);
   const previous = useRef(title);
   useEffect(() => {
@@ -63,9 +73,9 @@ function Frame({ title, context = "Zaproszenie do firmy", children }: { title: s
   }, [title]);
   return (
     <main className={styles.page} data-area="company" data-view="activation">
-      <p className={styles.brand}>AUTERVA</p>
+      <AuthBrand />
       <section className={styles.card} aria-labelledby="auth-title">
-        <p className={styles.context}>{context}</p>
+        {context && <p className={styles.context}>{context}</p>}
         <h1 id="auth-title" tabIndex={-1} ref={heading}>{title}</h1>
         {children}
       </section>
@@ -84,7 +94,8 @@ async function loadInvitation(path: string): Promise<Phase> {
     const response = await fetch(path, { cache: "no-store", credentials: "same-origin", signal: controller.signal });
     const data = await response.json().catch(() => ({})) as Record<string, unknown>;
     if (response.ok && typeof data.name === "string" && typeof data.recipientEmail === "string")
-      return { kind: "ready", invitation: { name: data.name, recipientEmail: data.recipientEmail } };
+      return { kind: "ready", invitation: { name: data.name, recipientEmail: data.recipientEmail,
+        expiresAt: typeof data.expiresAt === "string" ? data.expiresAt : null } };
     if (response.status === 404) return { kind: "invalid" };
     if (response.status === 429) return { kind: "limited", seconds: Math.max(1, Number(response.headers.get("Retry-After")) || 60) };
     return { kind: "unavailable" };
@@ -199,9 +210,12 @@ export function ActivationFlow({ token }: { token: string }) {
     );
   }
   const strength = evaluatePassword(password ?? "");
+  const expiry = phase.invitation.expiresAt ? expiryText(phase.invitation.expiresAt) : null;
   return (
-    <Frame title="Aktywuj konto">
-      <p className={styles.intro}>{phase.invitation.name} • {phase.invitation.recipientEmail}. Ustaw hasło do panelu. Otwarcie linku nie aktywuje konta; zrobi to dopiero przycisk poniżej.</p>
+    // F02-04: no eyebrow; company and recipient on their own lines, then what the button does.
+    <Frame title="Aktywuj konto" context={null}>
+      <p className={styles.invitee}><span>{phase.invitation.name}</span><span>{phase.invitation.recipientEmail}</span></p>
+      <p className={styles.intro}>Ustaw hasło do panelu swojej firmy. Otwarcie linku nie aktywuje konta; zrobi to dopiero przycisk poniżej.</p>
       <SecretForm className={styles.form} onSubmit={onSubmit}>
         <PasswordInput id="activation-password" label="Nowe hasło" autoComplete="new-password" placeholder="Wpisz nowe hasło"
           hint="12–256 znaków" aria-describedby="activation-strength" visibility={visibility} onVisibilityChange={setVisibility}
@@ -210,6 +224,7 @@ export function ActivationFlow({ token }: { token: string }) {
         <PasswordInput id="activation-confirm" label="Powtórz hasło" autoComplete="new-password" placeholder="Wpisz hasło ponownie"
           hint="Oba hasła muszą być identyczne." visibility={visibility} onVisibilityChange={setVisibility}
           error={form.formState.errors.confirm?.message} readOnly={uncertain} {...form.register("confirm")} />
+        {expiry && <p className={styles.validity}>Link ważny do {expiry}. Użyjesz go tylko raz.</p>}
         {error && <Alert tone="error" title={error.title}>{[error.text, cooldown > 0 ? `Ponów za ${cooldown} s.` : null].filter(Boolean).join(" ")}</Alert>}
         <Button type="submit" width="fill" loading={loading} loadingLabel="Aktywowanie…" disabled={cooldown > 0}>
           {cooldown > 0 ? "Ponów po limicie" : uncertain ? "Ponów aktywację" : "Aktywuj konto"}

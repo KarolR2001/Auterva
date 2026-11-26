@@ -3,7 +3,7 @@ import { request as httpRequest } from "node:http";
 import { expect, test } from "@playwright/test";
 import { createPrismaClient } from "../../src/lib/prisma";
 import { availabilityToday, sqlDate } from "../../src/modules/availability/dates";
-import { formatRangeShort } from "../../src/modules/public-offer/presentation";
+import { formatRangeCompact } from "../../src/components/public/range-text";
 import { pickRange } from "./public-calendar-helpers";
 
 // #42: public vehicle detail as a visitor sees it (gallery, availability check, calendar, optional data).
@@ -141,14 +141,14 @@ test("vehicle detail: gallery by mouse and keyboard, availability result, calend
     await page.setViewportSize({ width: 1440, height: 1024 });
     await pickRange(page, day(1), day(2));
     await expect(page.getByText("Pojazd jest dostępny")).toBeVisible();
-    await expect(page.getByTestId("calendar-range")).toHaveText(`Wybrany zakres: ${formatRangeShort(day(1), day(2))} · 2 dni`);
+    await expect(page.getByTestId("calendar-range")).toHaveText(`Wybrano ${formatRangeCompact(day(1), day(2))} · 2 dni włącznie`);
     await expect(page.getByRole("link", { name: "Skontaktuj się", exact: true }).last())
       .toHaveAttribute("href", `/kontakt/?vehicle=${slug}&from=${day(1)}&to=${day(2)}`);
     await pickRange(page, day(4), day(6));
-    await expect(page.getByText("Pojazd jest niedostępny w tym terminie")).toBeVisible();
+    await expect(page.getByText("Pojazd nie jest dostępny w całym wybranym terminie")).toBeVisible();
     await expect(page.getByRole("link", { name: "Skontaktuj się po alternatywę" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Zmień termin" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Zobacz pojazdy dostępne w tym terminie" }))
+    await expect(page.getByRole("link", { name: "Zobacz dostępne pojazdy", exact: true }))
       .toHaveAttribute("href", `/pojazdy/?from=${day(4)}&to=${day(6)}`);
     if (process.env.PUB_SHOTS) {
       for (const [label, width, height] of [["m", 390, 844], ["d", 1440, 1024]] as const) {
@@ -163,6 +163,14 @@ test("vehicle detail: gallery by mouse and keyboard, availability result, calend
     const free = page.locator("td:has(button[aria-label*=', dostępny, wybrany zakres'])").first();
     await expect(blocked).toHaveCSS("outline-style", "dashed");
     await expect(blocked).toHaveCSS("text-decoration-line", "line-through");
+    // The calendar shows the month of the range's end; when the range starts in the month before (e.g. 30.11–02.12), its
+    // available first day is a neighbouring-month cell without a button there, so that day is checked in its own month.
+    if (day(4).slice(0, 7) !== day(6).slice(0, 7)) {
+      const title = page.locator("#calendar-title");
+      const shown = ((await title.textContent()) ?? "").trim();
+      await page.getByRole("link", { name: "Poprzedni miesiąc" }).click();
+      await expect(title).not.toHaveText(shown);
+    }
     await expect(free).toHaveCSS("outline-style", "none");
     await expect(free).toHaveCSS("text-decoration-line", "none");
     const html = (await rawGet(port, host, `/pojazdy/${slug}/?from=${day(4)}&to=${day(6)}`)).body;

@@ -57,7 +57,7 @@ describe("stany dostępu panelu", () => {
     expect(screen.getByRole("textbox", { name: "Nazwa pojazdu" })).toHaveValue(
       "Auterva V01",
     );
-    expect(screen.getByRole("status")).toHaveTextContent("Usługa wygasła");
+    expect(screen.getByRole("status")).toHaveTextContent("Twoja strona publiczna jest wyłączona");
     expect(screen.queryByRole("link", { name: /logowania/i })).toBeNull();
   });
 

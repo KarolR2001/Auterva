@@ -31,16 +31,16 @@ test("built company panel: trial date is not a payment, expiry keeps the panel w
     const active = await seed(new Date(Date.now() - 2 * DAY));
     await page.goto(`${active}/admin/usluga/`);
     const card = page.getByTestId("service-status");
-    await expect(card).toContainText("Okres próbny do");
-    await expect(card).toContainText("to nie jest opłata");
+    await expect(card).toContainText(/Do \d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}/);
+    await expect(card).toContainText("czas polski · 14 dni (okres próbny to nie jest opłata)");
     await expect(card).not.toContainText(/opłacone do/i);
     await expect(card.getByRole("link", { name: "Napisz do Autervy" })).toHaveAttribute("href", "/admin/czat");
-    await expect(page.getByText("Usługa wygasła")).toHaveCount(0);
+    await expect(page.getByText("Twoja strona publiczna jest wyłączona")).toHaveCount(0);
 
     // The trial has ended: the panel keeps working, shows the exact notice and a way to the chat.
     const expired = await seed(new Date(Date.now() - 20 * DAY));
     await page.goto(`${expired}/admin/usluga/`);
-    await expect(page.getByText("Usługa wygasła")).toBeVisible();
+    await expect(page.getByText("Twoja strona publiczna jest wyłączona")).toBeVisible();
     await expect(page.getByText(/Publiczna oferta jest obecnie wyłączona/)).toBeVisible();
     await expect(page.getByRole("link", { name: "Przejdź do czatu z Autervą" })).toHaveAttribute("href", "/admin/czat");
     // The chat route exists (#52): the link leads to a page, not a 404.

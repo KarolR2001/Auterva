@@ -23,3 +23,5 @@
 .facts dd { margin: 0; overflow-wrap: anywhere; }
 .list { margin: 0; padding-left: var(--space-5); overflow-wrap: anywhere; }
 .links { display: flex; flex-wrap: wrap; gap: var(--space-4); margin: 0; }
+/* #473 (corrected F04-10): on a phone the preview keeps the shell's single 16 px page margin instead of adding its own. */
+@media (max-width: 767px) { .page { padding-inline: 0; } }

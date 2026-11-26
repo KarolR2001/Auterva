@@ -125,7 +125,7 @@ export function AuditLog({ apiBase, title }: { apiBase: string; title: string })
     <section className={styles.page} aria-label="Dziennik zmian" aria-busy={view.state === "loading"}>
       <title>{title}</title>
       <PageHeader headingRef={heading} trail="Panel / Dziennik zmian" title="Dziennik zmian"
-        description="Czas prezentowany lokalnie z danych zapisanych w UTC." />
+        description="Czas polski; zapis zdarzeń pozostaje w UTC." />
       <div className={styles.filterBar}>
         {/* ADM-17: on wide screens the applied filters as four labelled values, on narrow ones one summary line. */}
         <dl className={styles.filterValues}>

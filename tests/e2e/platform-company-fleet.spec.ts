@@ -70,7 +70,7 @@ test("company fleet by the superadmin: card -> fleet -> form -> photos -> calend
     await expect(page).toHaveURL(new RegExp(`/firmy/${orgA}/pojazdy/?$`));
     await expect(page.getByText("Auto Alfa").first()).toBeVisible();
     await expect(page.getByText("Auto Beta")).toHaveCount(0);
-    await expect(page.getByText(`Firma: Firma Floty A ${tag}`)).toBeVisible();
+    await expect(page.getByText(`Zarządzasz firmą: Firma Floty A ${tag}`)).toBeVisible();
     await noOverflow("fleet list");
     // D-42: the superadmin list has the same summary; at 390 px filters and sort open in sheets.
     await expect(page.getByText(/^\d+ pojazd/).first()).toBeVisible();

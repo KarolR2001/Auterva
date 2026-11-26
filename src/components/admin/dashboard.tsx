@@ -138,7 +138,8 @@ export function Dashboard({ context = companyContext, title }: { context?: Panel
           {routes.vehicleForm && <a className={styles.primaryLink} href={`${context.hrefBase}/pojazdy/nowy/`}>Dodaj pojazd</a>}
         </div>
       </header>
-      {service?.expiredNotice && <Alert tone="warning" title={service.expiredNotice} />}
+      {/* In the company panel the frame above the page already shows the expired notice (F08-03). */}
+      {service?.expiredNotice && context !== companyContext && <Alert tone="warning" title={service.expiredNotice} />}
       {view.state === "loading" && <div className={styles.skeleton} role="status" aria-label="Ładowanie panelu"><span /><span /><span /></div>}
       {view.state === "error" && <Alert tone="error" title="Nie udało się wczytać panelu"
         action={{ label: "Spróbuj ponownie", onClick: () => { setView({ state: "loading" }); setQuality(null); setReload((value) => value + 1); } }}>{readErrorMessage(view.code)}</Alert>}
