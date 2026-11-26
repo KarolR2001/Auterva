@@ -38,7 +38,7 @@ Ostatnia aktualizacja: 26.11.2026, na podstawie odczytu pliku Scenariusze Mobile
    - zaktualizuj sekcje 2–5: stan, datę, plik i PR/SHA;
    - przy nowym pliku lub nowej stronie uzupełnij `screen-occurrences.json`;
    - jedna runda to jedna linia w sekcji 5.
-8. **Nagłówek i dolne menu zmieniasz wyłącznie w komponencie wzorca** na planszy „00 — Wzorce mobilne (komponenty)” w danym pliku. Instancji nie odłączaj. Na nowej planszy wstaw instancję i nadpisz tylko tytuł. Ta sama zmiana musi trafić do wzorców w każdym pliku, który je ma (sekcja 2, pierwszy wiersz).
+8. **Nagłówek, dolne menu, pasek boczny i nagłówek strony zmieniasz wyłącznie w komponentach pliku System** (strona 01). System jest opublikowany jako biblioteka współdzielona. W pozostałych plikach przyjmij aktualizację biblioteki („Aktualizuj”) i nie odłączaj instancji. Na nowej planszy wstaw instancję z biblioteki System, wybierz wariant (role, viewport, active) i nadpisz tylko tytuł.
 9. **Plik Scenariusze Desktop nie ma jeszcze spisu wystąpień.** Przed pierwszą poprawką odczytaj listę plansz strony 15, przypisz każdej `screen` tak samo jak dla Mobile i zapisz wynik w JSON.
 
 Oznaczenia: **tak** — zrobione i obejrzane na renderze; **nie** — do zrobienia; **?** — nie sprawdzono; **n/d** — nie dotyczy.
@@ -47,7 +47,7 @@ Oznaczenia: **tak** — zrobione i obejrzane na renderze; **nie** — do zrobien
 
 | Wzorzec | Ustalenie | Ekrany | Sc. Mobile | Sc. Desktop | Aplikacja |
 |---|---|---|---|---|---|
-| Komponenty wzorców (nagłówek i dolne menu) | Tylko instancje komponentów z planszy „00 — Wzorce mobilne (komponenty)” w danym pliku: 3 nagłówki (firma online, firma offline, superadmin), 5 menu firmy (Start, Pojazdy, Czat, Więcej, Start + nowa wiadomość), 3 menu superadmina. Tytuł strony to nadpisanie tekstu w instancji. | **nie** | tak, 26.11 (189 instancji na 96 planszach) | n/d | n/d |
+| Komponenty wzorców w pliku **System** (jedyne źródło, biblioteka współdzielona od 26.11) | `AdminTopbar` (viewport × status × role: firma online/offline/update, superadmin „SA”; desktop „Panel / {tytuł}”, mobile sam tytuł; bez wyszukiwarki), `AdminBottomNavigation` (active × notification × role: Start/Pojazdy/Czat/Więcej, Firmy/Wiadomości/Więcej, kropka), `AdminSidebar` (role × active: Pulpit, Pojazdy, Czat z Autervą, Ustawienia, Konto / Firmy, Wiadomości, Konto), `PageHeader` (tytuł 32/700 mobile, 40/600 desktop, opis 14). Wzór: `src/components/panel/panel-shell.tsx`, `panel.module.css`, `ui/page-header.module.css`. Plansze używają tylko instancji z biblioteki System; tytuł to nadpisanie `Topbar / Title`. | **nie** (instancje osierocone, do przepięcia) | tymczasowe lokalne wzorce (189 instancji) — do przepięcia na System | **nie** (instancje osierocone) | n/d |
 | Nagłówek mobilny panelu firmy | Po lewej tytuł strony (16/600). Po prawej chip „● Online” (offline: ikona WifiOff, „Offline”, ramka 2 px) i awatar 40 px z ikoną CircleUserRound zamiast inicjałów. Linia tylko na dole. Wzorcem jest aplikacja (`panel-shell.tsx`). | **nie**: mały szary tytuł sekcji, awatar „AN” | tak, 25.11 (97 plansz) | n/d (pasek boczny) | tak |
 | Nagłówek mobilny superadmina | Tytuł strony i awatar „SA”, bez chipa | n/d | tak, 25.11 | „SA” ujednolicone 23.11 | tak, #474 `4b13c72c` (inicjały w CSS, axe) |
 | Tytuły stron (np. „Flota · Alfa Campers”) | Takie same jak w aplikacji, lista w sekcji 6 | **nie** | tak, 25.11 | ? | tak |
@@ -158,7 +158,12 @@ Tytuły stron w aplikacji (wzorzec dla makiet):
 
 **Problem.** Po podziale pliku instancje w plikach Ekrany i Scenariusze wskazują własne, zamrożone kopie komponentów. Zmiana w pliku System do nich nie dociera. Nagłówki i menu w Sc. Mobile są teraz kopiami odłączonymi od komponentu (95 + 97). Każda zmiana wzorca wymaga więc ręcznej poprawki we wszystkich trzech plikach.
 
-**Decyzja 26.11 (właściciel: „najprościej i najwydajniej”):** wzorce są lokalnymi komponentami w każdym pliku. Wtyczka MCP nie daje dostępu do komponentów biblioteki „System” z innego pliku (podłączona biblioteka zwraca 0 komponentów), a kształtów nie da się przenieść między plikami przez API. Plik Mobile ma je od 26.11, plik Ekrany jest następny. Biblioteka współdzielona zostaje opcją na później.
+**Decyzja 26.11 (właściciel): jedno źródło w pliku System.**
+- Spis plików wykazał, że komponenty chrome (`AdminTopbar`, `AdminBottomNavigation`, `AdminSidebar`, `PageHeader`, `PublicHeader`, `PublicFooter`) od początku są w Systemie.
+- Instancje w Ekranach i Sc. Desktop mają te same ID komponentów, ale wskazują osieroconą kopię we własnym pliku, bez głównej wersji. Dlatego poprawki trafiały do kopii.
+- System opublikowano jako bibliotekę, a komponenty zaktualizowano do wzoru z aplikacji z zachowaniem ID.
+- Pliki podłączają System (`library.connectLibrary`) i przepinają instancje (`swapComponent`). Tytuł i aktywną pozycję trzeba odczytać przed podmianą i nadać po niej.
+- Lokalne wzorce w Sc. Mobile są tymczasowe; do usunięcia po przepięciu.
 
 **Pierwotna propozycja:**
 1. W pliku System zrobić komponenty wzorców z sekcji 2:
