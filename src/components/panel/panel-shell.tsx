@@ -516,9 +516,10 @@ function AvailablePanelShell({
                 )
               }
             >
-              {/* PLT-01/PLT-09: the superadmin's avatar carries the initials "SA"; the company panel keeps its icon (#471). */}
+              {/* PLT-01/PLT-09: the superadmin's avatar carries the initials "SA"; the company panel keeps its icon (#471). The
+                  initials are drawn by CSS, so the button's visible text does not contradict its name (axe label-content-name-mismatch). */}
               {area === "platform" ? (
-                <span className={styles.shellInitials} aria-hidden="true">SA</span>
+                <span className={styles.shellInitials} aria-hidden="true" />
               ) : (
                 <CircleUserRound size={20} aria-hidden="true" />
               )}

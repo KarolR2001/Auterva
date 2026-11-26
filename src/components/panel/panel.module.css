@@ -540,6 +540,11 @@
   line-height: var(--line-height-20);
 }
 
+/* Decorative initials of the superadmin avatar; the alternative text is empty (the button is named "Profil superadmina"). */
+.shellInitials::before {
+  content: "SA" / "";
+}
+
 .shellMenuIdentity {
   display: flex;
   align-items: center;
