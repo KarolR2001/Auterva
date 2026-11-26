@@ -49,19 +49,19 @@ Oznaczenia: **tak** — zrobione i obejrzane na renderze; **nie** — do zrobien
 |---|---|---|---|---|---|
 | Komponenty wzorców (nagłówek i dolne menu) | Tylko instancje komponentów z planszy „00 — Wzorce mobilne (komponenty)” w danym pliku: 3 nagłówki (firma online, firma offline, superadmin), 5 menu firmy (Start, Pojazdy, Czat, Więcej, Start + nowa wiadomość), 3 menu superadmina. Tytuł strony to nadpisanie tekstu w instancji. | **nie** | tak, 26.11 (189 instancji na 96 planszach) | n/d | n/d |
 | Nagłówek mobilny panelu firmy | Po lewej tytuł strony (16/600). Po prawej chip „● Online” (offline: ikona WifiOff, „Offline”, ramka 2 px) i awatar 40 px z ikoną CircleUserRound zamiast inicjałów. Linia tylko na dole. Wzorcem jest aplikacja (`panel-shell.tsx`). | **nie**: mały szary tytuł sekcji, awatar „AN” | tak, 25.11 (97 plansz) | n/d (pasek boczny) | tak |
-| Nagłówek mobilny superadmina | Tytuł strony i awatar „SA”, bez chipa | n/d | tak, 25.11 | „SA” ujednolicone 23.11 | tak |
+| Nagłówek mobilny superadmina | Tytuł strony i awatar „SA”, bez chipa | n/d | tak, 25.11 | „SA” ujednolicone 23.11 | tak, #474 `4b13c72c` (inicjały w CSS, axe) |
 | Tytuły stron (np. „Flota · Alfa Campers”) | Takie same jak w aplikacji, lista w sekcji 6 | **nie** | tak, 25.11 | ? | tak |
 | Dolne menu panelu firmy | Start \| Pojazdy \| Czat \| Więcej; ikony Lucide; aktywna pozycja w ciemnym kafelku; nieprzeczytane jako kropka 8 px przy „Czat” | tak, 23.11 | tak, 25.11 (95 plansz) | n/d | tak, #472 |
 | Dolne menu superadmina | Firmy \| Wiadomości \| Więcej | n/d | tak, 25.11 | n/d | tak |
 | Arkusz „Więcej” (OVR-17) | Kalendarz floty, Dziennik zmian, Status usługi, Ustawienia, Konto, Zainstaluj aplikację, Wyloguj | tak, 23.11 | ? | ? | tak, #472 |
 | Menu „Profil” superadmina (PLT-UM) | Arkusz z uchwytem i wierszem tożsamości SA | n/d | tak | ? | tak, #474 |
-| Siatka strony mobile | Margines 16 px; tytuł strony 32/700; 16 px między nagłówkiem a treścią | **nie**: część ma 24 px, np. ADM-05 | tak, 26.11 | n/d | ? |
+| Siatka strony mobile | Margines 16 px; tytuł strony 32/700; 16 px między nagłówkiem a treścią | **nie**: część ma 24 px, np. ADM-05 | tak, 26.11 | n/d | tak, #474 `ee27a485`, `fbed5c63`, `4ba1611b` |
 | Karta kontekstu superadmina | „Zarządzasz firmą: …”, linia o aktorze, „← Wróć do karty firmy” | n/d | tak | ? | tak, #474 |
 | Status | Tekst oraz ikona lub ramka; pigułka szeroka według treści | tak, 23.11 (~120) | tak, 25.11 (63) | ? | tak |
 | Ikony | Lucide zamiast znaków (‹ › ! ✓ × ⊘, litery w pasku) | tak, 23.11 | tak, 26.11 | ? | tak |
-| Czat: tytuł i pole wiadomości | Tytuł 32/700; pole i „Wyślij” po prawej, w karcie | tytuł tak; pole ? | tak, 26.11 | ? | **nie**: tytuł 24 px na telefonie (`ddbc8fbb`, według starej F06-02) |
+| Czat: tytuł i pole wiadomości | Tytuł 32/700; pole i „Wyślij” po prawej, w karcie | tytuł tak; pole ? | tak, 26.11 | ? | tak, #474 `fdc48bd4` (32/700; podpowiedź nad polem w panelu firmy, w skrzynce pod polem — #435) |
 | Kalendarz miesiąca w panelu | Siatka 7 kolumn mieści się w karcie (7 × 43 px przy 390 px); strzałki miesiąca bez ramki | tak | tak, 26.11 | ? | tak, #474 `047d320e` |
-| Logowanie i MFA | Logo do lewej, Flex, margines 16 px, przyciski z ramką jak F02-07A | ? | tak, 26.11 (20 ekranów) | ? | tak, #474 `4c19ff8c` |
+| Logowanie i MFA | Logo do lewej, Flex, margines 16 px, przyciski z ramką jak F02-07A | ? | tak, 26.11 (20 ekranów) | ? | tak, #474 `4c19ff8c`, `fbed5c63` (16 px; PLT-08 ze znakiem) |
 | Strona pojazdu (PUB-03): termin | D-44: bez pól „Od/Do”, termin tylko w kalendarzu | ? (PUB-03 M ma inną galerię i kartę wyniku) | tak, 26.11 | ? | tak |
 | Dane przykładowe | Administratorka „Anna Nowak”; superadmin „SA”; bez prawdziwych nazwisk | tak, 23.11 | tak | tak, 23.11 | tak |
 | Nazwy | Pulpit, Okres próbny, Nazwa w adresie, czas polski, Dodaj blokadę, Dziennik zmian | tak, 23.11 | tak, 23.11 | tak, 23.11 | tak, #472 |
@@ -76,29 +76,29 @@ Kody wystąpień w Scenariuszach Mobile (`F06-02` = `FLOW-MVP-06 / M / 02`). ID 
 | ACC-04 Aktywacja | `auth/activation-flow.tsx` | F02-04…05B (6), F03-02, F12-02, F12-02A | Mobile 26.11 | #474 `4c19ff8c` | — |
 | ACC-07 MFA i kody | `auth/auth-flow.tsx` | F02-07…07J1 (17), F03-05; PLT-10 M ×11 | Mobile 26.11 | #474 | Ekrany ? |
 | ADM-04 Pulpit | `admin/dashboard.tsx` | F02-08, F09-06 | Ekrany 23.11; Mobile 26.11 | #472 | nagłówek Ekranów |
-| ADM-05 Lista pojazdów | `admin/vehicle-list.tsx`, `platform/company-fleet.tsx` | F11-03 | Ekrany 23.11; Mobile 26.11 | #472, #474 `9098c87c` | Ekrany: margines 24 px, nagłówek |
+| ADM-05 Lista pojazdów | `admin/vehicle-list.tsx`, `platform/company-fleet.tsx` | F11-03 | Ekrany 23.11; Mobile 26.11 | #472, #474 `9098c87c` | Ekrany: margines 24 px, nagłówek; aplikacja: pasek „Flota firmy” zamiast „Flota · {nazwa}” |
 | ADM-06 Dodaj pojazd | `admin/vehicle-form.tsx` | F04-03 | Mobile: F04-03 przebudowany 26.11, układ płaski | #472 (ADM-06, sekcje) | sekcja 4: F04-03 ≠ ADM-06 |
 | ADM-07 Edycja i zdjęcia | `admin/vehicle-form.tsx`, `admin/vehicle-photos.tsx` | F04-04…12 (10), F08-04, F08-05, F11-04, F11-05 | Mobile 26.11 | #472, #474 `ac8007f1` | — |
-| ADM-08 Podgląd pojazdu | brak dla administratora (jest `platform/company-preview.tsx`) | F04-10 | Mobile 26.11 (D-44) | **brak ekranu** | osobne issue |
-| ADM-09 Kalendarz pojazdu | `admin/vehicle-calendar.tsx` | F11-06, F11-07D2, F11-08 | Ekrany 23.11; Mobile 26.11 | #472, #474 `047d320e` | panel „Wybrana blokada” (sekcja 4) |
+| ADM-08 Podgląd pojazdu | brak dla administratora (jest `platform/company-preview.tsx`) | F04-10 | Mobile 26.11 (D-44) | **brak ekranu**; podgląd SA `4ba1611b` | osobne issue |
+| ADM-09 Kalendarz pojazdu | `admin/vehicle-calendar.tsx` | F11-06, F11-07D2, F11-08 | Ekrany 23.11; Mobile 26.11 | #472, #474 `047d320e`, `ee27a485` | panel „Wybrana blokada” (sekcja 4) |
 | OVR-06/07/08 Blokada | `admin/vehicle-calendar.tsx` | F11-07, F11-07C1–C3, F11-07D1 | Ekrany 23.11 (dialogi); Mobile 26.11 | #472 | — |
 | ADM-10 Kalendarz floty | `admin/fleet-calendar.tsx` | — | Ekrany 23.11 | #472 | przełącznik na telefonie (sekcja 4) |
 | ADM-11–14 Ustawienia | `settings/*` | — | **nie**: wariant tylko do odczytu (D-01) | #472 (odczyt) | przebudowa makiet |
 | ADM-15/16 Konto, sesje | `account/*` | — | Ekrany 23.11 | #472 | — |
-| ADM-17 Dziennik zmian | `audit/audit-log.tsx` | F11-09, F11-07D3 | Ekrany 23.11; Mobile 26.11 | #472, #474 `2a88dd8f` | teksty ADM-17 w Ekranach |
+| ADM-17 Dziennik zmian | `audit/audit-log.tsx` | F11-09, F11-07D3 | Ekrany 23.11; Mobile 26.11 | #472, #474 `2a88dd8f`, `4ba1611b` | teksty ADM-17 w Ekranach |
 | ADM-18 Offline | `public/admin/offline.html`, `panel/panel-shell.tsx` | — | Ekrany 23.11 („Offline”) | #472 | — |
-| TEN-04 Status usługi | `panel/service-status.tsx` | F03-06, F07-03, F08-01, F08-03, F08-03B | Mobile 26.11 | #472, #474 `74e1b8b7`, `80503760` | — |
-| TEN-11 Czat firmy | `chat/chat-panel.tsx` | F06-01…03, F06-07, F06-08, F08-06 (11) | Ekrany 23.11; Mobile 26.11 | #472, #474 `ddbc8fbb` | tytuł 24 → 32 px; podtytuł różni się między plikami |
-| PLT-01-02 Lista firm | `platform/company-list.tsx` | kanon, F10-03, F10-04, F11-01 | Mobile 26.11 | #474 `940c2e9a` | — |
+| TEN-04 Status usługi | `panel/service-status.tsx` | F03-06, F07-03, F08-01, F08-03, F08-03B | Mobile 26.11 | #472, #474 `74e1b8b7`, `80503760`, `ee27a485` | tytuł karty i miejsce przycisku czatu (F03-06) |
+| TEN-11 Czat firmy | `chat/chat-panel.tsx` | F06-01…03, F06-07, F06-08, F08-06 (11) | Ekrany 23.11; Mobile 26.11 | #472, #474 `fdc48bd4` | podtytuł różni się między plikami (Ekrany) |
+| PLT-01-02 Lista firm | `platform/company-list.tsx` | kanon, F10-03, F10-04, F11-01 | Mobile 26.11 | #474 `940c2e9a`, `4ba1611b` | — |
 | PLT-03 Karta firmy | `platform/company-card.tsx`, `company-ops.tsx`, `company-domain.tsx`, `company-diagnostics.tsx` | kanon + 6 stanów diag; F03-01/03, F07-01…02, F08-07, F09-01…03E, F10-01…08, F11-02, F11-10, F12-01, F12-04…07 (31) | Mobile 26.11 | #474 `9ccbcadc`, `865ac7e1` | karta bez edycji danych (sekcja 4) |
 | PLT-04 Dodaj firmę | `platform/new-company-form.tsx` | F02-01…03C (9) | Mobile 26.11 | #474 `130f1132` | — |
-| PLT-08 Logowanie SA | `auth/auth-flow.tsx` | kanon | Mobile 26.11 | #474 | — |
-| PLT-09 Wiadomości | `platform/message-inbox.tsx`, `chat/chat-panel.tsx` | kanon ×2, F06-04…06 (6) | Mobile 26.11 | #474 `4390bc89` | bez wyszukiwania i „Online” (sekcja 4) |
-| PLT-10 Konto SA | `account/*` | kanon + 11 wariantów MFA | Mobile 26.11 | #474 | — |
+| PLT-08 Logowanie SA | `auth/auth-flow.tsx` | kanon | Mobile 26.11 | #474 `fbed5c63` | „Pokaż” jako ikona oka (spójnie z F02-04) |
+| PLT-09 Wiadomości | `platform/message-inbox.tsx`, `chat/chat-panel.tsx` | kanon ×2, F06-04…06 (6) | Mobile 26.11 | #474 `4390bc89`, `ec1e16d6`, `fdc48bd4` | bez wyszukiwania i „Online” (sekcja 4); podpowiedź pod polem (#435) |
+| PLT-10 Konto SA | `account/*` | kanon + 11 wariantów MFA | Mobile 26.11 | #474 | tytuł „Konto”, układ ADM-15 (#471) |
 | PUB-01 Strona główna | `public/public-home.tsx` | F08-08, F09-05, F12-08 | Ekrany 23.11 | #472 | — |
 | PUB-01-02 pusta oferta | `public/public-home.tsx` | F02-09, F12-03 | Mobile 26.11 | #474 `bfd20747` | — |
 | PUB-03 Strona pojazdu | `app/pojazdy/[slug]/page.tsx`, `public/availability-panel.tsx`, `public/vehicle-gallery.tsx` | F04-13, F04-13a/b, F05-04…04d (5) | Mobile 26.11 (D-44); Ekrany: inna galeria i karta wyniku | #472, #474 `f139ba22`, `0c9b36e1` | ujednolicić PUB-03 w Ekranach z F05-04 |
-| OVR-03 Wybór terminu | `public/availability-panel.tsx` | F05-01…03c (6) | Mobile 26.11 (bez pól dat) | #474 | — |
+| OVR-03 Wybór terminu | `public/availability-panel.tsx` | F05-01…03c (6) | Mobile 26.11 (bez pól dat) | #474 | aplikacja: kalendarz w treści strony zamiast nakładki |
 | OVR-04 Kontakt | `public/contact-sheet.tsx` | F05-05, F05-05b, kontakt bez dat | Mobile 26.11 | #474 (`<dialog>`) | — |
 | PUB-09 Strona wyłączona | `public/state-page.tsx` | F08-02 | Mobile 26.11 | #474 `bfd20747` | — |
 | OVR-13 Niezapisane zmiany | `panel/unsaved-changes-dialog.tsx` | F02-OVR-13, FLOW09 odrzuć | ? | istnieje | — |
@@ -135,6 +135,7 @@ Kody wystąpień w Scenariuszach Mobile (`F06-02` = `FLOW-MVP-06 / M / 02`). ID 
 | 23–24.11 | Aplikacja | Dopasowanie do Ekranów; CI 9/9, e2e 105/105 przy `d4d073e` | PR #472, porównanie `Auterva-qa/471` |
 | 25.11 | Aplikacja | Dopasowanie do **starych** plansz Sc. Mobile (przed poprawkami z 25–26.11) | PR #474 `7361d978` |
 | 25–26.11 | Sc. Mobile | Wzorce z sekcji 2; Flex na planszach absolutnych; D-44; 0 błędów w skanie 179 plansz | porównanie `Auterva-qa/473/mockup.html` |
+| 26.11 | Aplikacja | Dopasowanie do poprawionych plansz Sc. Mobile; CI lokalne exit 0, e2e 105/105 przy `b76fee75` | PR #474, porównanie `Auterva-qa/473/cmp-v3` |
 | 26.11 | Sc. Mobile | Nagłówki i menu jako instancje 11 komponentów wzorców (189 instancji). Kanoniczna PLT-03 dostała menu superadmina zamiast starego 4-pozycyjnego z „Pulpit”. | plansza `00 — Wzorce mobilne (komponenty)` |
 
 Wniosek z 26.11: PR #474 dopasowano do kopii scenariuszy, zanim poprawiono wzorce. Plik Ekrany nie dostał wzorców poprawionych w Scenariuszach. Ten sam ekran był więc poprawiany dwa razy i według dwóch różnych wzorów. Stąd zasady 2–4 i sekcja 2.
@@ -142,11 +143,7 @@ Wniosek z 26.11: PR #474 dopasowano do kopii scenariuszy, zanim poprawiono wzorc
 ## 6. Kolejka
 
 1. **Ekrany:** przenieść z sekcji 2 nagłówek, tytuły i siatkę 16 px na plansze M. Ujednolicić PUB-03 M z F05-04. Zrobić warianty ADM-11–14 tylko do odczytu. Poprawić teksty ADM-17 i TEN-11.
-2. **Aplikacja, PR #474:**
-   - tytuł czatu 32 px;
-   - porównanie z poprawionymi makietami z `Auterva-qa/473/penpot-fixed`;
-   - 13 testów e2e do naprawy;
-   - lokalne CI.
+2. **Aplikacja, PR #474:** dopasowanie zrobione 26.11 (`b76fee75`, CI zielone). Zostały CR i QA, a drobne różnice są w kolumnie „Otwarte” w sekcji 3.
 3. **Sc. Desktop:** spis plansz do `screen-occurrences.json`, potem przegląd wzorców z sekcji 2.
 4. **Wspólne komponenty:** decyzja właściciela (sekcja 7).
 5. Commit `design/traceability.json`, `design/README.md`, `docs/plans/penpot-podzial-plikow.md` oraz tego rejestru.
