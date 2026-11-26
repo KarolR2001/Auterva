@@ -213,8 +213,9 @@ export function AuthFrame({
 }) {
   return (
     <main className={styles.page} data-area={area} data-view={view} data-step={step}>
-      {/* F02-07/F02-07A: the company MFA flow carries the mark; the company login keeps the ADM-01 word mark. */}
-      {area === "company" && view === "mfa" ? <AuthBrand /> : <p className={styles.brand}>{area === "platform" ? "A AUTERVA" : "AUTERVA"}</p>}
+      {/* F02-07/F02-07A and PLT-08: the company MFA flow and the superadmin screens carry the mark (the old "A AUTERVA" text
+          read the letter aloud); the company login keeps the ADM-01 word mark. */}
+      {(area === "company" && view === "mfa") || area === "platform" ? <AuthBrand /> : <p className={styles.brand}>AUTERVA</p>}
       <section className={styles.card} aria-labelledby="auth-title">
         {context && <p className={styles.context}>{context}</p>}
         <h1 id="auth-title" tabIndex={-1}>
@@ -327,7 +328,7 @@ export function LoginForm({
             type="email"
             autoComplete="username"
             inputMode="email"
-            placeholder={area === "company" ? "admin@firma.pl" : undefined}
+            placeholder={area === "company" ? "admin@firma.pl" : "adres@firma.pl"}
             {...form.register("email")}
           />
         </FormField>

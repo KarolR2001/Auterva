@@ -463,3 +463,72 @@
     gap: var(--space-8);
   }
 }
+/* #473, corrected mobile boards (PLT-08, F02-04, F02-07, F02-07A, F02-07G): one 16 px page margin, the mark + word mark at the
+   left edge, and the superadmin login on the same rhythm as the company screens (fields at full width, 8 px under the eyebrow
+   and the title, a plain underlined reset link and a 12 px footer). */
+@media (max-width: 767px) {
+  .page {
+    padding-inline: var(--space-4);
+  }
+  .brandMarked {
+    padding-inline-start: 0;
+  }
+  .page[data-area="platform"] .brand {
+    text-align: start;
+  }
+  .page[data-area="platform"][data-view="login"] {
+    padding-top: var(--space-8);
+  }
+  .page[data-area="platform"][data-view="login"] .context {
+    margin-bottom: var(--space-2);
+    color: var(--text-secondary);
+    font-weight: var(--font-weight-semibold);
+  }
+  .page[data-area="platform"][data-view="login"] .card h1 {
+    margin-bottom: var(--space-2);
+  }
+  .page[data-area="platform"][data-view="login"] .intro {
+    font-size: var(--font-size-14);
+    line-height: var(--line-height-20);
+  }
+  .page[data-area="platform"] .loginForm {
+    margin-top: var(--space-6);
+    gap: var(--space-5);
+  }
+  .page[data-area="platform"] .loginForm > div:nth-of-type(-n + 2) {
+    margin-inline: 0;
+  }
+  .page[data-area="platform"] .loginForm > button {
+    margin-top: var(--space-1);
+  }
+  .page[data-area="platform"] .loginForm > .linkRow {
+    margin-top: var(--space-4);
+  }
+  .page[data-area="platform"][data-view="login"] .linkRow a {
+    font-weight: var(--font-weight-regular);
+    text-decoration: underline;
+  }
+  .page[data-area="platform"][data-view="login"] .footer {
+    margin-top: var(--space-8);
+    color: var(--text-secondary);
+    font-size: var(--font-size-12);
+    font-weight: var(--font-weight-regular);
+    line-height: var(--line-height-16);
+  }
+  /* F02-07G: the eyebrow, the title and the lead (the first line of the form) 8 px apart; the list 24 px under the lead. */
+  .page[data-area="company"][data-step="codes"] .context {
+    margin-bottom: var(--space-2);
+  }
+  .page[data-area="company"][data-step="codes"] .card h1 {
+    margin-bottom: var(--space-2);
+  }
+  .page[data-area="company"][data-step="codes"] .form {
+    margin-top: 0;
+    gap: var(--space-6);
+  }
+}
+@media (min-width: 768px) {
+  .page[data-area="platform"] .brandMarked {
+    justify-content: center;
+  }
+}
