@@ -39,7 +39,7 @@ Ostatnia aktualizacja: 27.11.2026: chrome we wszystkich trzech plikach (Ekrany s
    - przy nowym pliku lub nowej stronie uzupełnij `screen-occurrences.json`;
    - jedna runda to jedna linia w sekcji 5.
 8. **Nagłówek, dolne menu, pasek boczny i nagłówek strony zmieniasz wyłącznie w komponentach pliku System** (strona 01). System jest opublikowany jako biblioteka współdzielona. W pozostałych plikach przyjmij aktualizację biblioteki („Aktualizuj”) i nie odłączaj instancji. Na nowej planszy wstaw instancję z biblioteki System, wybierz wariant (role, viewport, active) i nadpisz tylko tytuł.
-9. **Plik Scenariusze Desktop nie ma jeszcze spisu wystąpień.** Przed pierwszą poprawką odczytaj listę plansz strony 15, przypisz każdej `screen` tak samo jak dla Mobile i zapisz wynik w JSON.
+9. **Spis wystąpień Scenariuszy Desktop jest w JSON od 27.11** (193 plansze strony 15, przypisane z odpowiedników Mobile). Nowe plansze dopisuj w tej samej zmianie.
 
 Oznaczenia: **tak** — zrobione i obejrzane na renderze; **nie** — do zrobienia; **?** — nie sprawdzono; **n/d** — nie dotyczy.
 
@@ -69,7 +69,7 @@ Oznaczenia: **tak** — zrobione i obejrzane na renderze; **nie** — do zrobien
 
 ## 3. Ekrany: gdzie są i w jakim stanie
 
-Kody wystąpień w Scenariuszach Mobile (`F06-02` = `FLOW-MVP-06 / M / 02`). ID plansz są w `design/screen-occurrences.json`. Dla Scenariuszy Desktop odczytu jeszcze nie ma.
+Kody wystąpień w Scenariuszach Mobile (`F06-02` = `FLOW-MVP-06 / M / 02`). ID plansz są w `design/screen-occurrences.json`; Scenariusze Desktop mają te same kody z `D` (spis od 27.11).
 
 | Ekran | Kod aplikacji | Wystąpienia w Sc. Mobile | Makieta | Aplikacja | Otwarte |
 |---|---|---|---|---|---|
@@ -148,6 +148,7 @@ Kody wystąpień w Scenariuszach Mobile (`F06-02` = `FLOW-MVP-06 / M / 02`). ID 
 | 27.11 | Ekrany | ADM-11–14 M i D przebudowane na podgląd tylko do odczytu według `settings-readonly.tsx` (D-01): Alert z Systemu, bez pól, przycisku „Zapisz” i statusu zapisu; dane Alfa Campers zamiast „Auterva”. Decyzja właściciela 27.11: „teraz, w tej rundzie”. | render 8 plansz |
 | 27.11 | System | `BlockForm` nowy wariant `scenario=version-conflict` (M/D): edycja z ostrzeżeniem „Blokada została zmieniona przez kogoś innego.”, „Aktualnie na serwerze: …” i „Wczytaj aktualną wersję” (`vehicle-calendar.tsx`, #383/#396) | render M i D |
 | 27.11 | Sc. Mobile | Superadmin w kalendarzu Alfa Campers: F11-07 edycja, 07C1 konflikt wersji, 07C2 (dawne porównanie notatek — w aplikacji „Wczytaj aktualną wersję” scala pola, więc to zwykła edycja po wczytaniu), 07D1 usunięcie jako arkusz przy dolnej krawędzi — instancje `BlockForm` z Systemu, opis z „Mercedes Klasa V Long”, połączenia prototypu przeniesione; 07D1 dostało „Anuluj” → F11-07 i „Usuń blokadę” → 07D2 | render 07C1, 07D1 |
+| 27.11 | Sc. Desktop | Spis 193 plansz w `screen-occurrences.json` (146 z kodu kroku odpowiednika Mobile, reszta z nazwy). FLOW-MVP-11 07C1/07C2 przypisane do OVR-07, a 07C3 do ADM-09 (także w Mobile) — po decyzji o formularzu blokady to okno edycji i kalendarz, nie osobne okno konfliktu | odczyt nazw plansz strony 15 |
 | 27.11 | Sc. Desktop | Superadmin FLOW-MVP-11 D: 07 edycja, 07C1 konflikt wersji, 07C2 edycja po wczytaniu, 07D1 usunięcie — instancje `BlockForm` z Systemu wyśrodkowane na planszy 1440×1024 (jak `ui/dialog.tsx`), połączenia prototypu przeniesione, 07D1: „Anuluj” → 07, „Usuń blokadę” → 07D2. Adres `karol@alfa.example` na 9 planszach (FLOW-MVP-02/03/10/12) zamieniony na `anna@alfa.example` | render 07C1 |
 | 27.11 | Ekrany | OVR-06/07/08 i OVR-07 delete-confirm (10 nakładek M/D) jako instancje `BlockForm` z Systemu pod starymi ID; plansze potwierdzenia odłączone od starego `Dialog`; połączenia prototypu z przycisków odtworzone („Zamknij”, „Dodaj blokadę” → konflikt, „Usuń blokadę” → potwierdzenie, „Zapisz zmiany” → ADM-09 saved, „Kopiuj na inne auta” → ADM-10 bulk-copy, „Przejdź do istniejącego wpisu” → OVR-07, „Zmień daty” → zamknięcie) | render OVR-06 M, OVR-07 delete M, OVR-08 D; brak nakładania plansz |
 | 27.11 | System | `BlockForm` (12 wariantów: dodawanie, edycja, szybka blokada, zapisywanie, konflikt, usunięcie × M/D) przebudowany według `vehicle-calendar.tsx`, `fleet-calendar.tsx` i `ui/dialog.tsx` (decyzja w sekcji 4): okno 640 px / arkusz 390 px, pola `FormField` z Systemu. Nowe warianty w Systemie: `TextInput` type=select/date/textarea (wypełnione i wyłączone, ikony Lucide chevron-down i calendar), `FormField` support=none, `Button` destructive/tertiary sm, `Alert` warning action=buttons. Prawdziwe imię i adres w danych przykładowych Systemu (`BlockDetailsPanel`, `AuditDetails`, `AccountSummary`, `MenuTrigger`) zamienione na „Anna Nowak” / „Anna DEMO”, „AN”, `anna.nowak@example.test` | render 6 wariantów, odczyt pozycji wszystkich 12 |
@@ -183,7 +184,7 @@ Wniosek z 26.11: PR #474 dopasowano do kopii scenariuszy, zanim poprawiono wzorc
    - Odstęp między `PageHeader` a zakładkami/treścią na ADM-11–16 to 37 px; sprawdzić z aplikacją (gap sekcji).
    - Pozostałe instancje w Ekranach (~620: `Button`, `FormField`, „Variant Set”, `Dialog`, `StatusBadge`, `AdminMoreMenu` …) nadal wskazują osierocone kopie. Przepinać dopiero po zmianie danego komponentu w Systemie, bo podmiana kasuje nadpisane teksty.
 2. **Aplikacja, PR #474:** dopasowanie zrobione 26.11 (`b76fee75`, CI zielone). Zostały CR i QA, a drobne różnice są w kolumnie „Otwarte” w sekcji 3.
-3. **Sc. Desktop:** krawędzie treści wyrównane 27.11 do 280–1400 px (178 elementów na planszach absolutnych; 7 kontenerów Flex: margines 40 i elementy na pełną szerokość; PLT-01-02: wiersz Gamma Car wstawiony pod Beta Van). Czat firmy FLOW-MVP-06 D (8 plansz): kolumna 760 px od 280 (było 320) i tytuł 32/600 jak `chat.module.css` — zrobione 27.11. Zostaje: wnętrza komponentów z układem absolutnym, spis plansz do `screen-occurrences.json`. Uwaga: plik jest ciężki — eksport dużych plansz przekracza limit, a partie > 15 zmian usypiają kartę.
+3. **Sc. Desktop:** krawędzie treści wyrównane 27.11 do 280–1400 px (178 elementów na planszach absolutnych; 7 kontenerów Flex: margines 40 i elementy na pełną szerokość; PLT-01-02: wiersz Gamma Car wstawiony pod Beta Van). Czat firmy FLOW-MVP-06 D (8 plansz): kolumna 760 px od 280 (było 320) i tytuł 32/600 jak `chat.module.css` — zrobione 27.11. Zostaje: wnętrza komponentów z układem absolutnym. Spis plansz w `screen-occurrences.json` zrobiony 27.11. Uwaga: plik jest ciężki — eksport dużych plansz przekracza limit, a partie > 15 zmian usypiają kartę.
 4. Osobne issue dla ADM-08.
 5. **Blokada:** System, Ekrany, Sc. Mobile i Sc. Desktop zrobione 27.11. `BlockDetailsPanel` w Systemie nie ma odpowiednika w aplikacji (decyzja w sekcji 4) — do usunięcia albo oznaczenia jako nieaktualny po sprawdzeniu, że nic go nie używa.
 

@@ -637,7 +637,7 @@
      "id": "4e2ad814-13be-80ec-8008-ccb090a58ef4",
      "name": "FLOW-MVP-11 / M / 07C3 — Zachowana aktualna wersja drugiej osoby",
      "role": "stan",
-     "screen": "OVR-08"
+     "screen": "ADM-09"
     },
     {
      "id": "4e2ad814-13be-80ec-8008-ccacb3f8ec4b",
@@ -673,13 +673,13 @@
      "id": "4e2ad814-13be-80ec-8008-ccb08ff0a319",
      "name": "FLOW-MVP-11 / M / 07C1 — Konflikt równoczesnej edycji",
      "role": "stan",
-     "screen": "OVR-08"
+     "screen": "OVR-07"
     },
     {
      "id": "4e2ad814-13be-80ec-8008-ccb09058ab33",
      "name": "FLOW-MVP-11 / M / 07C2 — Porównanie aktualnej i własnej notatki",
      "role": "stan",
-     "screen": "OVR-08"
+     "screen": "OVR-07"
     },
     {
      "id": "4e2ad814-13be-80ec-8008-ccb08ea0c51c",
@@ -1196,9 +1196,1168 @@
   "scenariuszeDesktop": {
    "fileId": "3db45ae8-1dfd-81ce-8008-fd641392cefa",
    "pageId": "fb4e1683-f05f-8095-8008-c755dff4dae6",
-   "readAt": null,
-   "boards": [],
-   "todo": "Odczytać listę plansz strony 15 przy pierwszej pracy na tym pliku i przypisać screen tą samą metodą."
+   "readAt": "2026-11-27",
+   "mappingMethod": "przypisanie z odpowiednika w Scenariuszach Mobile (ten sam kod kroku albo ta sama nazwa z M zamiast D); przy edycji potwierdź treść planszy",
+   "boards": [
+    {
+     "id": "fb4e1683-f05f-8095-8008-c759e3b05202",
+     "name": "PLT-01-02 / Dashboard and companies / Desktop / state=default",
+     "role": "kanoniczna",
+     "screen": "PLT-01-02"
+    },
+    {
+     "id": "315aa115-0a58-807f-8008-dbc2af057cc6",
+     "name": "PLT-10 / D / Konto superadmina / state=default",
+     "role": "kanoniczna",
+     "screen": "PLT-10"
+    },
+    {
+     "id": "13bc279e-8183-8047-8008-dd212c1cfb26",
+     "name": "Restore #103 DS-rebuild / D / PLT-10",
+     "role": "historyczna",
+     "screen": null
+    },
+    {
+     "id": "864f85f5-29a0-8019-8008-dbdf67f36d9c",
+     "name": "Restore #103 re-CR / D / PLT-10",
+     "role": "historyczna",
+     "screen": null
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cca6fe926c30",
+     "name": "FLOW-MVP-10 / D / 04 — Pokaż zarchiwizowane",
+     "role": "stan",
+     "screen": "PLT-01-02"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccad37f3cc3d",
+     "name": "FLOW-MVP-11 / D / 01 — Wybór firmy Alfa Campers",
+     "role": "stan",
+     "screen": "PLT-01-02"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cca6fe793616",
+     "name": "FLOW-MVP-10 / D / 03 — Lista bez zarchiwizowanej firmy",
+     "role": "stan",
+     "screen": "PLT-01-02"
+    },
+    {
+     "id": "fb4e1683-f05f-8095-8008-c75b5b2ee55c",
+     "name": "PLT-08 / Superadmin login / Desktop / state=default",
+     "role": "kanoniczna",
+     "screen": "PLT-08"
+    },
+    {
+     "id": "fb4e1683-f05f-8095-8008-c75e49caf56f",
+     "name": "PLT-01-02 / State matrix / Desktop",
+     "role": "macierz",
+     "screen": "PLT-01-02"
+    },
+    {
+     "id": "fb4e1683-f05f-8095-8008-c760ae83b531",
+     "name": "PLT-03 / Company details / Desktop / state=active",
+     "role": "kanoniczna",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cca6fe3600a5",
+     "name": "FLOW-MVP-10 / D / 08 — Superadmin odblokował stronę",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cca6fdee2335",
+     "name": "FLOW-MVP-10 / D / 07 — Przywrócona, publiczna strona nadal wyłączona",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cca6fda1333d",
+     "name": "FLOW-MVP-10 / D / 05 — Firma w archiwum, dane zachowane",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cca6fd6a7cdc",
+     "name": "FLOW-MVP-10 / D / 01 — Firma przed archiwizacją",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccad381bdda1",
+     "name": "FLOW-MVP-11 / D / 02 — Karta firmy i zarządzanie",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccb47ad54924",
+     "name": "FLOW-MVP-09 / D / 02 — Zmiana treści i plików publicznych",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccb59a5a37e2",
+     "name": "FLOW-MVP-09 / D / 03E — Błąd zapisu i ponowienie",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccb5808238a3",
+     "name": "FLOW-MVP-09 / D / 02U — Błędny plik logo, dane zachowane",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccb47b75c2a5",
+     "name": "FLOW-MVP-09 / D / 03 — Zapisane nowe treści publiczne",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccb47a87f822",
+     "name": "FLOW-MVP-09 / D / 01 — Zapisane treści publiczne firmy",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccadc80b0a41",
+     "name": "FLOW-MVP-11 / D / 10 — Powrót do karty firmy",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cca0c84276df",
+     "name": "FLOW-MVP-07 / D / 01B — Błąd zapisu, dane zachowane",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cca0c8118208",
+     "name": "FLOW-MVP-07 / D / 02 — Zapisany nowy okres",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cca311b806e8",
+     "name": "FLOW-MVP-08 / D / 07 — Superadmin przedłuża okres",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cca0c7e1dd56",
+     "name": "FLOW-MVP-07 / D / 01 — Nowy okres, zmiany niezapisane",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cc8fe11d16ba",
+     "name": "FLOW-MVP-02 / D / 02 / Firma zapisana — zaproszenie niewysłane",
+     "role": "stan",
+     "screen": "PLT-04"
+    },
+    {
+     "id": "efe3ac9b-6991-807f-8008-cf1d3bb6b245",
+     "name": "FLOW-MVP-02 / D / 02A — Wysyłanie zaproszenia",
+     "role": "stan",
+     "screen": "PLT-04"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cc90124ec8d8",
+     "name": "FLOW-MVP-02 / D / 03 / Zaproszenie wysłane",
+     "role": "stan",
+     "screen": "PLT-04"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cc9f04984ff4",
+     "name": "FLOW-MVP-03 / D / 01 — Trial oczekuje na rejestrację",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cc8fff9637ac",
+     "name": "FLOW-MVP-02 / D / 03B / Błąd wysyłki — firma zachowana",
+     "role": "stan",
+     "screen": "PLT-04"
+    },
+    {
+     "id": "fb4e1683-f05f-8095-8008-c761d7543613",
+     "name": "FLOW-MVP-02 / D / 01B — Walidacja firmy",
+     "role": "stan",
+     "screen": "PLT-04"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cc8f9fd519c5",
+     "name": "FLOW-MVP-02 / D / 01 / Dodaj firmę",
+     "role": "stan",
+     "screen": "PLT-04"
+    },
+    {
+     "id": "fb4e1683-f05f-8095-8008-c772c96f234e",
+     "name": "PLT-09 / Messages / Desktop / state=split-view",
+     "role": "kanoniczna",
+     "screen": "PLT-09"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccbb4388f681",
+     "name": "FLOW-MVP-06 / D / 05A — Powrót przywraca szkic Alfy",
+     "role": "stan",
+     "screen": "PLT-09"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccbb4060f386",
+     "name": "FLOW-MVP-06 / D / 05B — Zmiana rozmowy na Betę",
+     "role": "stan",
+     "screen": "PLT-09"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccbb3e275ff0",
+     "name": "FLOW-MVP-06 / D / 05L — Szkic Alfy zachowany na liście",
+     "role": "stan",
+     "screen": "PLT-09"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccbb3bf8e4f9",
+     "name": "FLOW-MVP-06 / D / 06 — Odpowiedź zapisana",
+     "role": "stan",
+     "screen": "PLT-09"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccbb39d16c52",
+     "name": "FLOW-MVP-06 / D / 05 — Odpowiedź superadmina do Alfy",
+     "role": "stan",
+     "screen": "PLT-09"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccbb379ffd34",
+     "name": "FLOW-MVP-06 / D / 04 — Lista rozmów superadmina",
+     "role": "stan",
+     "screen": "PLT-09"
+    },
+    {
+     "id": "fb4e1683-f05f-8095-8008-c7764f271d6e",
+     "name": "PLT-03 to ADM-05 / Nested company management / Desktop",
+     "role": "kanoniczna",
+     "screen": "PLT-03-to-ADM"
+    },
+    {
+     "id": "fb4e1683-f05f-8095-8008-c77acb14bbe5",
+     "name": "FLOW-MVP-02 / D / 01D — Błąd zapisu, dane zachowane",
+     "role": "stan",
+     "screen": "PLT-04"
+    },
+    {
+     "id": "96538b9c-ee73-800d-8008-cf10e237dfe3",
+     "name": "FLOW-MVP-02 / D / 01C — Zapisywanie firmy",
+     "role": "stan",
+     "screen": "PLT-04"
+    },
+    {
+     "id": "fb4e1683-f05f-8095-8008-c77c599be3bb",
+     "name": "PLT-03 to ADM-* / Nested operations matrix / Desktop",
+     "role": "macierz",
+     "screen": "PLT-03-to-ADM"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cc90366244c0",
+     "name": "FLOW-MVP-02 / D / Opis scenariusza — nie UI",
+     "role": "opis",
+     "screen": null
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cc9546a01790",
+     "name": "FLOW-MVP-02 / D / 04 — Aktywacja konta",
+     "role": "stan",
+     "screen": "ACC-04"
+    },
+    {
+     "id": "f625007f-d8bc-808b-8008-ccd67aa37865",
+     "name": "FLOW-MVP-12 / D / 02 — Rejestracja administratora",
+     "role": "stan",
+     "screen": "ACC-04"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cc9f04d63807",
+     "name": "FLOW-MVP-03 / D / 02 — Rejestracja uruchamia trial",
+     "role": "stan",
+     "screen": "ACC-04"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cc955492ea7b",
+     "name": "FLOW-MVP-02 / D / 04D — Walidacja hasła",
+     "role": "stan",
+     "screen": "ACC-04"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cc95548024d7",
+     "name": "FLOW-MVP-02 / D / 05B — Konto aktywne, routing w toku",
+     "role": "stan",
+     "screen": "ACC-04"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cc9554747c6c",
+     "name": "FLOW-MVP-02 / D / 04C — Błąd sieci, retry",
+     "role": "stan",
+     "screen": "ACC-04"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cc95546474e8",
+     "name": "FLOW-MVP-02 / D / 04B — Link nieaktywny",
+     "role": "stan",
+     "screen": "ACC-04"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cc95544b6ca9",
+     "name": "FLOW-MVP-02 / D / 05 — Konto aktywne, strona dostępna",
+     "role": "stan",
+     "screen": "ACC-04"
+    },
+    {
+     "id": "f625007f-d8bc-808b-8008-ccd69a25f9f5",
+     "name": "FLOW-MVP-12 / D / 02A — Konto aktywne i strona uruchomiona",
+     "role": "stan",
+     "screen": "ACC-04"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cc9f04e32062",
+     "name": "FLOW-MVP-03 / D / 03 — Trial rozpoczęty",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cc95a23676ad",
+     "name": "FLOW-MVP-02 / D / 06 — Logowanie do firmy",
+     "role": "stan",
+     "screen": "ADM-01"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cca92198bb4a",
+     "name": "FLOW-MVP-10 / D / 05B — Logowanie do zarchiwizowanej firmy",
+     "role": "stan",
+     "screen": "ADM-01"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cc9f9f7be5a6",
+     "name": "FLOW-MVP-03 / D / 04 — Wspólne logowanie",
+     "role": "stan",
+     "screen": "ADM-01"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cc95e2b4b5f4",
+     "name": "FLOW-MVP-02 / D / 07 — Pierwsza konfiguracja MFA",
+     "role": "stan",
+     "screen": "ACC-07"
+    },
+    {
+     "id": "864f85f5-29a0-8019-8008-dbdf97b559a4",
+     "name": "PLT-10 / D / Seven / platform",
+     "role": "stan",
+     "screen": "PLT-10"
+    },
+    {
+     "id": "6fcb18ec-9ca6-803d-8008-dbc51fed7a9d",
+     "name": "Restore #132 QA / D / 07",
+     "role": "historyczna",
+     "screen": null
+    },
+    {
+     "id": "89433e5c-4f5c-80ad-8008-d9828ebb77b1",
+     "name": "RESTORE #132 / desktop 07 before CTA correction",
+     "role": "historyczna",
+     "screen": null
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cc9f9f862e0d",
+     "name": "FLOW-MVP-03 / D / 05 — Wspólne MFA",
+     "role": "stan",
+     "screen": "ACC-07"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cc96bbba80bb",
+     "name": "FLOW-MVP-02 / D / 07C — Odzyskanie dostępu do MFA",
+     "role": "stan",
+     "screen": "ACC-07"
+    },
+    {
+     "id": "864f85f5-29a0-8019-8008-dbdf8b40da10",
+     "name": "PLT-10 / D / C / platform",
+     "role": "stan",
+     "screen": "PLT-10"
+    },
+    {
+     "id": "6d6f6e41-30b6-80d5-8008-dbcaaf1c8f79",
+     "name": "Restore #132 re-CR / D / 07C",
+     "role": "historyczna",
+     "screen": null
+    },
+    {
+     "id": "6fcb18ec-9ca6-803d-8008-dbc51f965c8e",
+     "name": "Restore #132 QA / D / 07C",
+     "role": "historyczna",
+     "screen": null
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cc95e2db8769",
+     "name": "FLOW-MVP-02 / D / 07B — Nieprawidłowy kod MFA",
+     "role": "stan",
+     "screen": "ACC-07"
+    },
+    {
+     "id": "6d6f6e41-30b6-80d5-8008-dbcbbfc2ae15",
+     "name": "Restore #132 re-CR / D / 07B",
+     "role": "historyczna",
+     "screen": null
+    },
+    {
+     "id": "6fcb18ec-9ca6-803d-8008-dbc51fc9bdc4",
+     "name": "Restore #132 QA / D / 07B",
+     "role": "historyczna",
+     "screen": null
+    },
+    {
+     "id": "2f81c084-f559-80fe-8008-dbb95a36748f",
+     "name": "FLOW-MVP-02 / D / 07A — Weryfikacja kodem MFA",
+     "role": "stan",
+     "screen": "ACC-07"
+    },
+    {
+     "id": "89433e5c-4f5c-80ad-8008-d9852ee48871",
+     "name": "RESTORE #132 / desktop 07B before recovery link",
+     "role": "historyczna",
+     "screen": null
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cc9750a70b0f",
+     "name": "FLOW-MVP-02 / D / 08 — Panel firmy, pusta flota",
+     "role": "stan",
+     "screen": "ADM-04"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cc9a3fc439bd",
+     "name": "FLOW-MVP-02 / D / 09 — Publiczna zapowiedź oferty",
+     "role": "stan",
+     "screen": "PUB-01-02-empty-offer"
+    },
+    {
+     "id": "efe3ac9b-6991-807f-8008-cf18a4fb3a62",
+     "name": "FLOW-MVP-02 / D / 01E — Chroniony podgląd nowej firmy",
+     "role": "stan",
+     "screen": "PLT-03-preview"
+    },
+    {
+     "id": "f625007f-d8bc-808b-8008-ccd67c87cb70",
+     "name": "FLOW-MVP-12 / D / 08 — Ta sama oferta po aktywacji domeny własnej",
+     "role": "stan",
+     "screen": "PUB-01"
+    },
+    {
+     "id": "f625007f-d8bc-808b-8008-ccd67ba1926b",
+     "name": "FLOW-MVP-12 / D / 03 — Zapowiedź oferty pod adresem Autervy",
+     "role": "stan",
+     "screen": "PUB-01-02-empty-offer"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cc9f1a0250c1",
+     "name": "FLOW-MVP-03 / D / 06 — Okres próbny w panelu firmy",
+     "role": "stan",
+     "screen": "TEN-04"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cca0c8749118",
+     "name": "FLOW-MVP-07 / D / 03 — Nowy okres w panelu firmy",
+     "role": "stan",
+     "screen": "TEN-04"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cca2cdbf81e8",
+     "name": "FLOW-MVP-08 / D / 03 — Pełny panel po końcu opłaty",
+     "role": "stan",
+     "screen": "TEN-04"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cca3f00a50dd",
+     "name": "FLOW-MVP-08 / D / 03B — Koniec jednorazowego trialu",
+     "role": "stan",
+     "screen": "TEN-04"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cca2ccff5e27",
+     "name": "FLOW-MVP-08 / D / 01 — Ostatni opłacony dzień",
+     "role": "stan",
+     "screen": "TEN-04"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cc9f1d7c6e82",
+     "name": "FLOW-MVP-03 / D / Opis scenariusza — nie UI",
+     "role": "opis",
+     "screen": null
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cca13fa7f38e",
+     "name": "FLOW-MVP-07 / D / Opis scenariusza — nie UI",
+     "role": "opis",
+     "screen": null
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cca2cd1443a1",
+     "name": "FLOW-MVP-08 / D / 02 — Publiczna strona wyłączona",
+     "role": "stan",
+     "screen": "PUB-09"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cca2cdcb0f0f",
+     "name": "FLOW-MVP-08 / D / 04 — Edycja pojazdu nadal dostępna",
+     "role": "stan",
+     "screen": "ADM-07"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cca312001753",
+     "name": "FLOW-MVP-08 / D / 05 — Zmiany pojazdu zapisane mimo wyłączonej strony",
+     "role": "stan",
+     "screen": "ADM-07"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cca30e35b8a0",
+     "name": "FLOW-MVP-08 / D / 06 — Czat po końcu okresu",
+     "role": "stan",
+     "screen": "TEN-11"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cca374a8a438",
+     "name": "FLOW-MVP-08 / D / 08 — Automatyczny powrót publicznej oferty",
+     "role": "stan",
+     "screen": "PUB-01"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cca3f037f3a1",
+     "name": "FLOW-MVP-08 / D / Opis scenariusza — nie UI",
+     "role": "opis",
+     "screen": null
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cca771a5aeec",
+     "name": "FLOW-MVP-10 / D / 02 — Potwierdź archiwizację",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "815aac05-0acd-80ab-8008-d03e063d996f",
+     "name": "FLOW-MVP-10 / D / 02A — Archiwizacja w toku",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cca922218d68",
+     "name": "FLOW-MVP-10 / D / 02B — Niepotwierdzona archiwizacja, retry",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cca772397d76",
+     "name": "FLOW-MVP-10 / D / 06 — Potwierdź przywrócenie",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "815aac05-0acd-80ab-8008-d03e0699b486",
+     "name": "FLOW-MVP-10 / D / 06B — Niepotwierdzone przywrócenie, retry",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "815aac05-0acd-80ab-8008-d03e06731082",
+     "name": "FLOW-MVP-10 / D / 06A — Przywracanie w toku",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cca7c67e893c",
+     "name": "FLOW-MVP-10 / D / Opis scenariusza — nie UI",
+     "role": "opis",
+     "screen": null
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-cca9665845c8",
+     "name": "FLOW-MVP-10 / Gałęzie D — bezpieczeństwo i retry",
+     "role": "opis",
+     "screen": null
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccad384c3515",
+     "name": "FLOW-MVP-11 / D / 03 — Pełna flota wybranej firmy",
+     "role": "stan",
+     "screen": "ADM-05"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccad555f495d",
+     "name": "FLOW-MVP-11 / D / 04 — Edycja pojazdu jako superadmin",
+     "role": "stan",
+     "screen": "ADM-07"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccadae217f5c",
+     "name": "FLOW-MVP-11 / D / 05 — Pojazd zapisany przez superadmina",
+     "role": "stan",
+     "screen": "ADM-07"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccad6681c0cc",
+     "name": "FLOW-MVP-11 / D / 06 — Prywatny kalendarz pojazdu",
+     "role": "stan",
+     "screen": "ADM-09"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccb0293ea0f7",
+     "name": "FLOW-MVP-11 / D / 07C3 — Zachowana aktualna wersja drugiej osoby",
+     "role": "stan",
+     "screen": "ADM-09"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccadaea24494",
+     "name": "FLOW-MVP-11 / D / 08 — Zapis prywatnej blokady",
+     "role": "stan",
+     "screen": "ADM-09"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccafdfc2ac65",
+     "name": "FLOW-MVP-11 / D / 07D2 — Blokada usunięta i dostępność przeliczona",
+     "role": "stan",
+     "screen": "ADM-09"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccadb6e67453",
+     "name": "FLOW-MVP-11 / D / 09 — Historia zmian z aktorem superadmina",
+     "role": "stan",
+     "screen": "ADM-17"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccafe0182bf8",
+     "name": "FLOW-MVP-11 / D / 07D3 — Audyt usunięcia blokady",
+     "role": "stan",
+     "screen": "ADM-17"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccaddcca956f",
+     "name": "FLOW-MVP-11 / D / 07 — Edycja prywatnej blokady",
+     "role": "stan",
+     "screen": "OVR-07"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccafe03970ec",
+     "name": "FLOW-MVP-11 / D / 07C1 — Konflikt równoczesnej edycji",
+     "role": "stan",
+     "screen": "OVR-07"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccb028cfad5b",
+     "name": "FLOW-MVP-11 / D / 07C2 — Porównanie aktualnej i własnej notatki",
+     "role": "stan",
+     "screen": "OVR-07"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccafde9a85c6",
+     "name": "FLOW-MVP-11 / D / 07D1 — Potwierdzenie usunięcia blokady",
+     "role": "stan",
+     "screen": "OVR-07"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccb494bec2c3",
+     "name": "FLOW-MVP-09 / D / 04 — Podgląd publicznej strony firmy",
+     "role": "stan",
+     "screen": "PLT-03-preview"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccb4cc827d00",
+     "name": "FLOW-MVP-09 / D / 05 — Nowa zawartość na publicznym adresie",
+     "role": "stan",
+     "screen": "PUB-01"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccb4e4d9c711",
+     "name": "FLOW-MVP-09 / D / 06 — Panel firmy zachowuje swój wygląd",
+     "role": "stan",
+     "screen": "ADM-04"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccbb460c3322",
+     "name": "FLOW-MVP-06 / D / 07 — Nowa odpowiedź w panelu firmy",
+     "role": "stan",
+     "screen": "TEN-11"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccbb45dd3aa9",
+     "name": "FLOW-MVP-06 / D / 01 — Wejście do czatu z panelu firmy",
+     "role": "stan",
+     "screen": "TEN-11"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccbad303ca62",
+     "name": "FLOW-MVP-06 / D / 02 — Szkic wiadomości do Autervy",
+     "role": "stan",
+     "screen": "TEN-11"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccbaddc0925b",
+     "name": "FLOW-MVP-06 / D / 03 — Wiadomość zapisana, Auterva pisze",
+     "role": "stan",
+     "screen": "TEN-11"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccbae88dbcd5",
+     "name": "FLOW-MVP-06 / D / 08 — Odpowiedź pokazana i odczytana",
+     "role": "stan",
+     "screen": "TEN-11"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccbaf42843ce",
+     "name": "FLOW-MVP-06 / D / 02S — Wysyłanie bez przedwczesnego sukcesu",
+     "role": "stan",
+     "screen": "TEN-11"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccbb00ce481e",
+     "name": "FLOW-MVP-06 / D / 02E — Niepotwierdzona wysyłka i retry",
+     "role": "stan",
+     "screen": "TEN-11"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccbb0d80c2f4",
+     "name": "FLOW-MVP-06 / D / 02O — Brak sieci, zachowany szkic",
+     "role": "stan",
+     "screen": "TEN-11"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccbb1a532797",
+     "name": "FLOW-MVP-06 / D / 02N — Początek rozmowy",
+     "role": "stan",
+     "screen": "TEN-11"
+    },
+    {
+     "id": "4e2ad814-13be-80ec-8008-ccbb288124c0",
+     "name": "FLOW-MVP-06 / D / 02H — Błąd pobrania historii",
+     "role": "stan",
+     "screen": "TEN-11"
+    },
+    {
+     "id": "f625007f-d8bc-808b-8008-ccd613878dd4",
+     "name": "FLOW-MVP-12 / D / 01 — Publiczny adres Autervy przygotowany",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "f625007f-d8bc-808b-8008-ccd65b70d06d",
+     "name": "FLOW-MVP-12 / D / 05C — TLS niegotowy — ponowienie",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "f625007f-d8bc-808b-8008-ccd65a42e777",
+     "name": "FLOW-MVP-12 / D / 05B — Niezgodny DNS — ponowienie",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "f625007f-d8bc-808b-8008-ccd65922d276",
+     "name": "FLOW-MVP-12 / D / 04B — Domena zajęta — dane zachowane",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "f625007f-d8bc-808b-8008-ccd658056618",
+     "name": "FLOW-MVP-12 / D / 07 — Domena aktywna i przekierowanie",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "f625007f-d8bc-808b-8008-ccd656ec206a",
+     "name": "FLOW-MVP-12 / D / 06 — Domena gotowa do aktywacji",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "f625007f-d8bc-808b-8008-ccd655de7109",
+     "name": "FLOW-MVP-12 / D / 05 — DNS i TLS w trakcie sprawdzania",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "f625007f-d8bc-808b-8008-ccd654c1c40c",
+     "name": "FLOW-MVP-12 / D / 04 — Domena klienta wpisana",
+     "role": "stan",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "f625007f-d8bc-808b-8008-ccdc884f6172",
+     "name": "FLOW-MVP-04 / D / 03 — Dodaj pojazd — pełny formularz",
+     "role": "stan",
+     "screen": "ADM-06"
+    },
+    {
+     "id": "f625007f-d8bc-808b-8008-cce22770a40a",
+     "name": "FLOW-MVP-04 / D / 05 — Publikacja zatrzymana — brak zdjęcia głównego",
+     "role": "stan",
+     "screen": "ADM-07"
+    },
+    {
+     "id": "f625007f-d8bc-808b-8008-cce22521e19c",
+     "name": "FLOW-MVP-04 / D / 04 — Szkic zapisany bez zdjęcia",
+     "role": "stan",
+     "screen": "ADM-07"
+    },
+    {
+     "id": "f625007f-d8bc-808b-8008-cceca63a982c",
+     "name": "FLOW-MVP-04 / D / 09 — Zdjęcia gotowe — wybór głównego",
+     "role": "stan",
+     "screen": "ADM-07"
+    },
+    {
+     "id": "f625007f-d8bc-808b-8008-ccfa39c7a9fd",
+     "name": "FLOW-MVP-04 / D / 11b — Nie udało się opublikować — dane zachowane",
+     "role": "stan",
+     "screen": "ADM-07"
+    },
+    {
+     "id": "f625007f-d8bc-808b-8008-ccfa398cc009",
+     "name": "FLOW-MVP-04 / D / 12 — Pojazd opublikowany",
+     "role": "stan",
+     "screen": "ADM-07"
+    },
+    {
+     "id": "f625007f-d8bc-808b-8008-ccfa39515a02",
+     "name": "FLOW-MVP-04 / D / 11 — Potwierdź publikację",
+     "role": "stan",
+     "screen": "ADM-07"
+    },
+    {
+     "id": "f625007f-d8bc-808b-8008-cceceb47bdbc",
+     "name": "FLOW-MVP-04 / D / 07 — Zdjęcia — błąd jednego pliku",
+     "role": "stan",
+     "screen": "ADM-07"
+    },
+    {
+     "id": "f625007f-d8bc-808b-8008-cced28df7ab5",
+     "name": "FLOW-MVP-04 / D / 06 — Zdjęcia — wysyłanie",
+     "role": "stan",
+     "screen": "ADM-07"
+    },
+    {
+     "id": "f625007f-d8bc-808b-8008-cced371af403",
+     "name": "FLOW-MVP-04 / D / 08 — Zdjęcia — ponowienie pliku",
+     "role": "stan",
+     "screen": "ADM-07"
+    },
+    {
+     "id": "f625007f-d8bc-808b-8008-ccede4a61d96",
+     "name": "FLOW-MVP-04 / D / 07a — Kolejka zakończona — jedno zdjęcie zapisane",
+     "role": "stan",
+     "screen": "ADM-07"
+    },
+    {
+     "id": "f625007f-d8bc-808b-8008-ccf4206f9c20",
+     "name": "REFERENCE / Prototype only / System file picker / D",
+     "role": "referencja",
+     "screen": null
+    },
+    {
+     "id": "f625007f-d8bc-808b-8008-cd009f22f663",
+     "name": "FLOW-MVP-04 / D / 13 — Publiczna oferta pojazdu",
+     "role": "stan",
+     "screen": "PUB-03"
+    },
+    {
+     "id": "92853b41-7b46-8088-8008-cd18dccfecae",
+     "name": "FLOW-MVP-05 / D / 04 — Pojazd dostępny / 20–22.10.2026",
+     "role": "stan",
+     "screen": "PUB-03"
+    },
+    {
+     "id": "92853b41-7b46-8088-8008-cd2535c031e5",
+     "name": "FLOW-MVP-05 / D / 04d — Dostępny jeden dzień",
+     "role": "stan",
+     "screen": "PUB-03"
+    },
+    {
+     "id": "92853b41-7b46-8088-8008-cd1fdf9d557a",
+     "name": "FLOW-MVP-05 / D / 04c — Pojazd niedostępny",
+     "role": "stan",
+     "screen": "PUB-03"
+    },
+    {
+     "id": "92853b41-7b46-8088-8008-cd1fdca839e6",
+     "name": "FLOW-MVP-05 / D / 04b — Błąd sprawdzania",
+     "role": "stan",
+     "screen": "PUB-03"
+    },
+    {
+     "id": "92853b41-7b46-8088-8008-cd1fd99f3120",
+     "name": "FLOW-MVP-05 / D / 04a — Sprawdzanie dostępności",
+     "role": "stan",
+     "screen": "PUB-03"
+    },
+    {
+     "id": "f625007f-d8bc-808b-8008-cd024769659f",
+     "name": "FLOW-MVP-04 / D / 10 — Chroniony podgląd pojazdu",
+     "role": "stan",
+     "screen": "ADM-08"
+    },
+    {
+     "id": "92853b41-7b46-8088-8008-cd0d5fe6ecb3",
+     "name": "FLOW-MVP-04 / D / 13a — Galeria / 1 z 2",
+     "role": "stan",
+     "screen": "PUB-03"
+    },
+    {
+     "id": "92853b41-7b46-8088-8008-cd0da7cc317f",
+     "name": "FLOW-MVP-04 / D / 13b — Galeria / 2 z 2",
+     "role": "stan",
+     "screen": "PUB-03"
+    },
+    {
+     "id": "92853b41-7b46-8088-8008-cd13e70ccb03",
+     "name": "overlay / FLOW-MVP-05 / Kontakt bez wybranych dat / D",
+     "role": "nakładka",
+     "screen": "OVR-04"
+    },
+    {
+     "id": "92853b41-7b46-8088-8008-cd19059b495b",
+     "name": "overlay / FLOW-MVP-05 / D / 05 — Kontakt / 20–22.10.2026",
+     "role": "nakładka",
+     "screen": "OVR-04"
+    },
+    {
+     "id": "92853b41-7b46-8088-8008-cd253a5aaca3",
+     "name": "overlay / FLOW-MVP-05 / D / 05b — Kontakt z terminem jednodniowym",
+     "role": "nakładka",
+     "screen": "OVR-04"
+    },
+    {
+     "id": "92853b41-7b46-8088-8008-cd176d0953fb",
+     "name": "overlay / FLOW-MVP-05 / D / 01 — Wybierz początek",
+     "role": "nakładka",
+     "screen": "OVR-03"
+    },
+    {
+     "id": "92853b41-7b46-8088-8008-cd17fd215439",
+     "name": "overlay / FLOW-MVP-05 / D / 03 — Zakres gotowy",
+     "role": "nakładka",
+     "screen": "OVR-03"
+    },
+    {
+     "id": "92853b41-7b46-8088-8008-cd202d756f71",
+     "name": "overlay / FLOW-MVP-05 / D / 03b — Zmień niedostępny termin",
+     "role": "nakładka",
+     "screen": "OVR-03"
+    },
+    {
+     "id": "92853b41-7b46-8088-8008-cd25307005e8",
+     "name": "overlay / FLOW-MVP-05 / D / 03c — Poprawiony termin jednodniowy",
+     "role": "nakładka",
+     "screen": "OVR-03"
+    },
+    {
+     "id": "92853b41-7b46-8088-8008-cd17fcdfc24c",
+     "name": "overlay / FLOW-MVP-05 / D / 02 — Wybierz koniec",
+     "role": "nakładka",
+     "screen": "OVR-03"
+    },
+    {
+     "id": "96538b9c-ee73-800d-8008-cf06de8f59a7",
+     "name": "overlay / FLOW-MVP-02 / D / OVR-13 — Niezapisana firma",
+     "role": "nakładka",
+     "screen": "OVR-13"
+    },
+    {
+     "id": "21844a91-7e37-808f-8008-cf7557e73011",
+     "name": "overlay / FLOW09 / D / Odrzuć edycję firmy",
+     "role": "nakładka",
+     "screen": "OVR-13"
+    },
+    {
+     "id": "efe3ac9b-6991-807f-8008-cf1d3beb540c",
+     "name": "overlay / FLOW-MVP-02 / D / 03C — Potwierdź nowe zaproszenie",
+     "role": "nakładka",
+     "screen": "PLT-04"
+    },
+    {
+     "id": "89433e5c-4f5c-80ad-8008-d90d3f63bcb7",
+     "name": "PLT / UserMenu / Desktop / open",
+     "role": "kanoniczna",
+     "screen": "PLT-UM"
+    },
+    {
+     "id": "2e56f6bf-6ab4-8076-8008-dbd31784a28f",
+     "name": "Restore #103 / D / UserMenu",
+     "role": "historyczna",
+     "screen": null
+    },
+    {
+     "id": "89433e5c-4f5c-80ad-8008-d979bfb8c22a",
+     "name": "FLOW-MVP-02 / D / 07D — Kod odzyskania",
+     "role": "stan",
+     "screen": "ACC-07"
+    },
+    {
+     "id": "864f85f5-29a0-8019-8008-dbdf8b75f0c5",
+     "name": "PLT-10 / D / D / platform",
+     "role": "stan",
+     "screen": "PLT-10"
+    },
+    {
+     "id": "89433e5c-4f5c-80ad-8008-d97a4ec58f20",
+     "name": "FLOW-MVP-02 / D / 07J1 — Weryfikacja wygasła",
+     "role": "stan",
+     "screen": "ACC-07"
+    },
+    {
+     "id": "864f85f5-29a0-8019-8008-dbdf7b82bfc7",
+     "name": "PLT-10 / D / J1 / platform",
+     "role": "stan",
+     "screen": "PLT-10"
+    },
+    {
+     "id": "89433e5c-4f5c-80ad-8008-d97a4e735e8b",
+     "name": "FLOW-MVP-02 / D / 07J — Hasło przed wydaniem kodów",
+     "role": "stan",
+     "screen": "ACC-07"
+    },
+    {
+     "id": "864f85f5-29a0-8019-8008-dbdf7b59e9a0",
+     "name": "PLT-10 / D / J / platform",
+     "role": "stan",
+     "screen": "PLT-10"
+    },
+    {
+     "id": "89433e5c-4f5c-80ad-8008-d97a4e1d6e10",
+     "name": "FLOW-MVP-02 / D / 07I — Świeży czynnik przed nową listą",
+     "role": "stan",
+     "screen": "ACC-07"
+    },
+    {
+     "id": "864f85f5-29a0-8019-8008-dbdf7b325dfe",
+     "name": "PLT-10 / D / I / platform",
+     "role": "stan",
+     "screen": "PLT-10"
+    },
+    {
+     "id": "89433e5c-4f5c-80ad-8008-d97a2d96c553",
+     "name": "FLOW-MVP-02 / D / 07H — Niepewny wynik MFA",
+     "role": "stan",
+     "screen": "ACC-07"
+    },
+    {
+     "id": "2f81c084-f559-80fe-8008-dbb9bba8e2fa",
+     "name": "FLOW-MVP-02 / D / 07H2 — Brak sesji, zachowany zamiar",
+     "role": "stan",
+     "screen": "ACC-07"
+    },
+    {
+     "id": "2f81c084-f559-80fe-8008-dbb9bb564dda",
+     "name": "FLOW-MVP-02 / D / 07H1 — Błąd odczytu sesji",
+     "role": "stan",
+     "screen": "ACC-07"
+    },
+    {
+     "id": "2f81c084-f559-80fe-8008-dbb9b0e9f554",
+     "name": "FLOW-MVP-02 / D / 07H0 — Wyniki odczytu (symulacja prototypu)",
+     "role": "stan",
+     "screen": "ACC-07"
+    },
+    {
+     "id": "89433e5c-4f5c-80ad-8008-d97a2d574f37",
+     "name": "FLOW-MVP-02 / D / 07G — Jednorazowe kody odzyskania",
+     "role": "stan",
+     "screen": "ACC-07"
+    },
+    {
+     "id": "864f85f5-29a0-8019-8008-dbdf7bc136dc",
+     "name": "PLT-10 / D / G / platform",
+     "role": "stan",
+     "screen": "PLT-10"
+    },
+    {
+     "id": "89433e5c-4f5c-80ad-8008-d97a2cff22b7",
+     "name": "FLOW-MVP-02 / D / 07E — Hasło po kodzie odzyskania",
+     "role": "stan",
+     "screen": "ACC-07"
+    },
+    {
+     "id": "864f85f5-29a0-8019-8008-dbdf9779d0df",
+     "name": "PLT-10 / D / E / platform",
+     "role": "stan",
+     "screen": "PLT-10"
+    },
+    {
+     "id": "89433e5c-4f5c-80ad-8008-d97a09c1c3e0",
+     "name": "FLOW-MVP-02 / D / 07D3 — Limit prób kodu odzyskania",
+     "role": "stan",
+     "screen": "ACC-07"
+    },
+    {
+     "id": "864f85f5-29a0-8019-8008-dbdf974962bc",
+     "name": "PLT-10 / D / D3 / platform",
+     "role": "stan",
+     "screen": "PLT-10"
+    },
+    {
+     "id": "89433e5c-4f5c-80ad-8008-d97a0987eb1c",
+     "name": "FLOW-MVP-02 / D / 07D2 — Sprawdzanie kodu odzyskania",
+     "role": "stan",
+     "screen": "ACC-07"
+    },
+    {
+     "id": "864f85f5-29a0-8019-8008-dbdf8bcc60f2",
+     "name": "PLT-10 / D / D2 / platform",
+     "role": "stan",
+     "screen": "PLT-10"
+    },
+    {
+     "id": "89433e5c-4f5c-80ad-8008-d97a095fc6e2",
+     "name": "FLOW-MVP-02 / D / 07D1 — Niepoprawny kod odzyskania",
+     "role": "stan",
+     "screen": "ACC-07"
+    },
+    {
+     "id": "864f85f5-29a0-8019-8008-dbdf8b9c7639",
+     "name": "PLT-10 / D / D1 / platform",
+     "role": "stan",
+     "screen": "PLT-10"
+    },
+    {
+     "id": "342ca6e3-588e-80dd-8008-eeef8586ee6e",
+     "name": "PLT-03 / Company details / Desktop / state=diag-ok",
+     "role": "kanoniczna",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "342ca6e3-588e-80dd-8008-eef1d100de1b",
+     "name": "PLT-03 / Company details / Desktop / state=diag-no-data",
+     "role": "kanoniczna",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "342ca6e3-588e-80dd-8008-eef1bc7d7194",
+     "name": "PLT-03 / Company details / Desktop / state=diag-uncertain",
+     "role": "kanoniczna",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "342ca6e3-588e-80dd-8008-eef18a02c294",
+     "name": "PLT-03 / Company details / Desktop / state=diag-checking",
+     "role": "kanoniczna",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "342ca6e3-588e-80dd-8008-eef170b8c2d8",
+     "name": "PLT-03 / Company details / Desktop / state=diag-error",
+     "role": "kanoniczna",
+     "screen": "PLT-03"
+    },
+    {
+     "id": "342ca6e3-588e-80dd-8008-eef0c2232155",
+     "name": "PLT-03 / Company details / Desktop / state=diag-warning",
+     "role": "kanoniczna",
+     "screen": "PLT-03"
+    }
+   ]
   }
  }
 }
