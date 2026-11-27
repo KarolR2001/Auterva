@@ -7,7 +7,7 @@ Inne pliki:
 - `design/screen-occurrences.json` — w których planszach i plikach powtarza się dany ekran.
 - `design/AGENTS.md` — zasady pracy z Penpotem.
 
-Ostatnia aktualizacja: 27.11.2026: chrome Ekranów (strona 03) i Sc. Desktop przepięty na bibliotekę System.
+Ostatnia aktualizacja: 27.11.2026: chrome we wszystkich trzech plikach (Ekrany strona 03, Sc. Mobile, Sc. Desktop) to instancje biblioteki System.
 
 ## 1. Zasady (obowiązują każdego agenta)
 
@@ -47,7 +47,7 @@ Oznaczenia: **tak** — zrobione i obejrzane na renderze; **nie** — do zrobien
 
 | Wzorzec | Ustalenie | Ekrany | Sc. Mobile | Sc. Desktop | Aplikacja |
 |---|---|---|---|---|---|
-| Komponenty wzorców w pliku **System** (jedyne źródło, biblioteka współdzielona od 26.11) | `AdminTopbar` (viewport × status × role: firma online/offline/update, superadmin „SA”; desktop „Panel / {tytuł}”, mobile sam tytuł; bez wyszukiwarki), `AdminBottomNavigation` (active × notification × role: Start/Pojazdy/Czat/Więcej, Firmy/Wiadomości/Więcej, kropka), `AdminSidebar` (role × active: Pulpit, Pojazdy, Czat z Autervą, Ustawienia, Konto / Firmy, Wiadomości, Konto), `PageHeader` (tytuł 32/700 mobile, 40/600 desktop, opis 14). Wzór: `src/components/panel/panel-shell.tsx`, `panel.module.css`, `ui/page-header.module.css`. Plansze używają tylko instancji z biblioteki System; tytuł to nadpisanie `Topbar / Title`. | strona 03: **tak, 27.11** (100 `AdminTopbar`, 51 `AdminBottomNavigation`, 51 `AdminSidebar` zamiast odłączonych kopii, 2 `PageHeader`); strona 02 (`PublicHeader`, `PublicFooter`): **nie**, najpierw aktualizacja komponentów w Systemie | tymczasowe lokalne wzorce (189 instancji) — do przepięcia na System | **tak, 27.11** (91 `AdminTopbar`, 106 `AdminSidebar`, 62 `PageHeader` z zachowanymi tekstami; nagłówek dodany na 7 planszach superadmina) | n/d |
+| Komponenty wzorców w pliku **System** (jedyne źródło, biblioteka współdzielona od 26.11) | `AdminTopbar` (viewport × status × role: firma online/offline/update, superadmin „SA”; desktop „Panel / {tytuł}”, mobile sam tytuł; bez wyszukiwarki), `AdminBottomNavigation` (active × notification × role: Start/Pojazdy/Czat/Więcej, Firmy/Wiadomości/Więcej, kropka), `AdminSidebar` (role × active: Pulpit, Pojazdy, Czat z Autervą, Ustawienia, Konto / Firmy, Wiadomości, Konto), `PageHeader` (tytuł 32/700 mobile, 40/600 desktop, opis 14). Wzór: `src/components/panel/panel-shell.tsx`, `panel.module.css`, `ui/page-header.module.css`. Plansze używają tylko instancji z biblioteki System; tytuł to nadpisanie `Topbar / Title`. | strona 03: **tak, 27.11** (100 `AdminTopbar`, 51 `AdminBottomNavigation`, 51 `AdminSidebar` zamiast odłączonych kopii, 2 `PageHeader`); strona 02 (`PublicHeader`, `PublicFooter`): **nie**, najpierw aktualizacja komponentów w Systemie | **tak, 27.11** (97 `AdminTopbar`, 93 `AdminBottomNavigation`; lokalne wzorce i plansza `00 — Wzorce mobilne` usunięte) | **tak, 27.11** (91 `AdminTopbar`, 106 `AdminSidebar`, 62 `PageHeader` z zachowanymi tekstami; nagłówek dodany na 7 planszach superadmina) | n/d |
 | Nagłówek mobilny panelu firmy | Po lewej tytuł strony (16/600). Po prawej chip „● Online” (offline: ikona WifiOff, „Offline”, ramka 2 px) i awatar 40 px z ikoną CircleUserRound zamiast inicjałów. Linia tylko na dole. Wzorcem jest aplikacja (`panel-shell.tsx`). | tak, 27.11 (instancje System) | tak, 25.11 (97 plansz) | n/d (pasek boczny) | tak |
 | Nagłówek mobilny superadmina | Tytuł strony i awatar „SA”, bez chipa | n/d | tak, 25.11 | „SA” ujednolicone 23.11 | tak, #474 `4b13c72c` (inicjały w CSS, axe) |
 | Tytuły stron (np. „Flota · Alfa Campers”) | Takie same jak w aplikacji, lista w sekcji 6. Tytuł w nagłówku to tytuł powłoki (`PanelShell title`), np. „Flota firmy”, „Edycja pojazdu”, „Kalendarz pojazdu”, „Dziennik zmian firmy”, nazwa firmy na karcie; tytuł z nazwą firmy jest w PageHeader | nagłówek tak, 27.11; PageHeader **nie** | tak, 25.11 | nagłówek tak, 27.11; PageHeader ? | tak |
@@ -138,6 +138,7 @@ Kody wystąpień w Scenariuszach Mobile (`F06-02` = `FLOW-MVP-06 / M / 02`). ID 
 | 26.11 | Aplikacja | Dopasowanie do poprawionych plansz Sc. Mobile; CI lokalne exit 0, e2e 105/105 przy `b76fee75` | PR #474, porównanie `Auterva-qa/473/cmp-v3` |
 | 26.11 | Sc. Mobile | Nagłówki i menu jako instancje 11 komponentów wzorców (189 instancji). Kanoniczna PLT-03 dostała menu superadmina zamiast starego 4-pozycyjnego z „Pulpit”. | plansza `00 — Wzorce mobilne (komponenty)` |
 | 26.11 | System | `AdminTopbar` (8 wariantów), `AdminBottomNavigation` (14), `AdminSidebar` (8), `PageHeader` według aplikacji; System opublikowany jako biblioteka | strona 01 Systemu |
+| 27.11 | Sc. Mobile | Podłączony System; 189 instancji lokalnych wzorców i 1 osierocony nagłówek (FLOW-MVP-11/07D1, tło nakładki) przepięte z zachowanym tytułem; „Start + nowa wiadomość” → wariant z kropką. Usunięte 8 ukrytych starych menu (FLOW-MVP-02) i plansza `00 — Wzorce mobilne` z 11 komponentami lokalnymi. | render PLT-01-02, FLOW-MVP-06/01, FLOW-MVP-08/03 |
 | 27.11 | Sc. Desktop | Podłączony System; 259 instancji przepiętych (91 nagłówków, 106 sidebarów, 62 PageHeader; teksty PageHeader przywrócone po ścieżce warstw). Superadmin: wariant `platform`, tytuły powłoki z aplikacji; panel firmy: Pulpit, Pojazdy, Status usługi (bez aktywnej pozycji), Czat z Autervą. Usunięte: 8 zdublowanych sidebarów (FLOW-MVP-02), 6 nakładek „Czat z Autervą” (FLOW-MVP-06). 16 sidebarów wydłużonych do wysokości planszy. Nagłówek dodany na PLT-01-02, PLT-10 (×3), FLOW-MVP-10/03, 10/04, 11/01 (treść niżej o 72 px). | render FLOW-MVP-02/01, 04/05, 06/02O, 10/04, 11/06, PLT-10 |
 | 27.11 | Ekrany, strona 03 | Podłączony System; 153 instancje chrome przepięte (`swapComponent`) z zachowanym tytułem, 51 odłączonych sidebarów zastąpionych instancjami. Tytuły mobile = tytuł desktopu („Panel administracyjny” → „Treść”, „Wiadomości” → „Czat z Autervą”). ADM-22 superadmin-context: wariant `platform`, tytuł „Ustawienia firmy”. Aktywna pozycja menu według aplikacji (ADM-18–21 i A-02 → Pojazdy). Usunięte duplikaty menu (ADM-09/10 ×11, TEN-11 M i D). | render ADM-04 D, ADM-05 M, ADM-10 M, ADM-17 D, ADM-18 M, ADM-22 M/D, TEN-11 M |
 
@@ -149,10 +150,9 @@ Wniosek z 26.11: PR #474 dopasowano do kopii scenariuszy, zanim poprawiono wzorc
    - `AdminSidebar` nie ma wariantu bez aktywnej pozycji: ADM-17 D, TEN-04 D i 5 plansz „Status usługi” w Sc. Desktop mają nadpisany wygląd pozycji „Pulpit”. Dodać w Systemie `active=none` i przepiąć te plansze.
    - **Do naprawy:** 2 instancje `PageHeader` (warianty compact, desktop i mobile) na stronie 03 Ekranów straciły nadpisane teksty przy podmianie 27.11. Odtworzyć tytuł, opis i okruszki z treści planszy.
    - Pozostałe instancje w Ekranach (~620: `Button`, `FormField`, „Variant Set”, `Dialog`, `StatusBadge`, `AdminMoreMenu` …) nadal wskazują osierocone kopie. Przepinać dopiero po zmianie danego komponentu w Systemie, bo podmiana kasuje nadpisane teksty.
-2. **Sc. Mobile:** podłączyć System i przepiąć chrome tak jak w Ekranach i Sc. Desktop (zamiast lokalnych wzorców), potem usunąć planszę `00 — Wzorce mobilne`.
-3. **Aplikacja, PR #474:** dopasowanie zrobione 26.11 (`b76fee75`, CI zielone). Zostały CR i QA, a drobne różnice są w kolumnie „Otwarte” w sekcji 3.
-4. **Sc. Desktop:** spis plansz do `screen-occurrences.json`, potem przegląd wzorców z sekcji 2.
-5. Osobne issue dla ADM-08.
+2. **Aplikacja, PR #474:** dopasowanie zrobione 26.11 (`b76fee75`, CI zielone). Zostały CR i QA, a drobne różnice są w kolumnie „Otwarte” w sekcji 3.
+3. **Sc. Desktop:** spis plansz do `screen-occurrences.json`, potem przegląd wzorców z sekcji 2.
+4. Osobne issue dla ADM-08.
 
 Tytuły stron w aplikacji (wzorzec dla makiet):
 - stałe: Firmy, Dodaj firmę, Wiadomości, Czat z Autervą, Ustawienia, Ustawienia firmy, Status usługi, Pulpit;
@@ -168,7 +168,7 @@ Tytuły stron w aplikacji (wzorzec dla makiet):
 - Instancje w Ekranach i Sc. Desktop mają te same ID komponentów, ale wskazują osieroconą kopię we własnym pliku, bez głównej wersji. Dlatego poprawki trafiały do kopii.
 - System opublikowano jako bibliotekę, a komponenty zaktualizowano do wzoru z aplikacji z zachowaniem ID.
 - Pliki podłączają System (`library.connectLibrary`) i przepinają instancje (`swapComponent`). Tytuł i aktywną pozycję trzeba odczytać przed podmianą i nadać po niej.
-- Lokalne wzorce w Sc. Mobile są tymczasowe; do usunięcia po przepięciu.
+- Lokalne wzorce w Sc. Mobile usunięte 27.11 po przepięciu na System.
 - `swapComponent` kasuje nadpisania. Tytuł nagłówka ustaw ponownie; w innych komponentach (np. `PageHeader`) zapisz teksty i widoczność warstw po ścieżce nazw przed podmianą i nadaj je po niej.
 - Podmieniaj partiami po ≤ 20 instancji z krótką przerwą. 27.11 partia ~70 przekroczyła limit czasu wtyczki, a odświeżenie karty skasowało niezapisane ~80 podmian.
 
