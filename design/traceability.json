@@ -5834,6 +5834,7 @@
       "id": "DS-AVL-020",
       "kind": "component",
       "name": "BlockDetailsPanel",
+      "removed": "2026-11-27: usunięty z Penpota (System) — aplikacja otwiera edycję blokady bez osobnego panelu podglądu; decyzja właściciela 27.11.2026, brak w aplikacji; zob. design/REJESTR_MAKIET.md",
       "source": {
         "path": "docs/design/SPEC.md",
         "section": "6.8. Komponenty dostępności pojazdu i kalendarzy"
@@ -7505,6 +7506,7 @@
       "id": "DS-FRM-008",
       "kind": "component",
       "name": "Combobox",
+      "removed": "2026-11-27: usunięty z Penpota (System) — aplikacja używa zwykłego Select; decyzja właściciela 27.11.2026, brak w aplikacji; zob. design/REJESTR_MAKIET.md",
       "source": {
         "path": "docs/design/SPEC.md",
         "section": "6.4. Pola formularzy i kontrolki"
@@ -9931,15 +9933,13 @@
         "FR-ADM-071"
       ],
       "originalPriority": "UNSPECIFIED",
-      "variantsSpec": "desktop search snippet, social",
-      "statesSpec": "truncation preview",
+      "variantsSpec": "search snippet (social usunięty 2026-11-27)",
+      "statesSpec": "default, empty (tekst zastępczy z settings-extras.tsx)",
       "penpot": {
         "pageId": "a4abf4c9-2e1f-80fd-8008-afc9717972ba",
         "boardIds": [
           "9425204d-c5c4-807f-8008-b695866abaff",
-          "9425204d-c5c4-807f-8008-b6958abacf71",
-          "9425204d-c5c4-807f-8008-b6958eb0cfb1",
-          "9425204d-c5c4-807f-8008-b695950273de"
+          "9425204d-c5c4-807f-8008-b6958abacf71"
         ],
         "componentId": "9425204d-c5c4-807f-8008-b6968035ba83"
       },

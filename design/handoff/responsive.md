@@ -246,7 +246,7 @@ Katalog aliasu `1e066793-8858-8051-8008-cf32e1096c33` pokazuje realną listę ka
 - 768 px: komponent ma 680 px; od 1024 px maksymalnie 760 px;
 - embed na desktopie jest opcjonalny, a consent-required nie ładuje mapy; brak mapy nie zmienia układu ContactDataList.
 
-`DS-FRM-008 Combobox` zmienia warstwę, nie model wyboru:
+`DS-FRM-008 Combobox` (usunięty z Penpota 27.11.2026 — historyczne) zmienia warstwę, nie model wyboru:
 
 - 320–430 px: kontrolka wypełnia kolumnę, a otwarta lista jest modalnym sheetem / pełnym ekranem; cele opcji mają co najmniej 44 px;
 - od 768 px: lista jest popoverem zakotwiczonym w polu i ma maks. 400 px;

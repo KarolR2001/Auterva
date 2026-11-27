@@ -637,7 +637,7 @@ Każdy komponent musi mieć wariant mobilny i desktopowy, jeżeli sposób prezen
 | `DS-FRM-005` | `Textarea` | short, long, autosize, markdown | min 120 px | 120–320 px | counter, error, disabled |
 | `DS-FRM-006` | `NumberInput` | integer, currency, year, order | native keypad | compact | min/max, step, error |
 | `DS-FRM-007` | `Select` | single, native fallback | bottom sheet/native | popover | open, selected, error, disabled |
-| `DS-FRM-008` | `Combobox` | searchable single | full-screen/sheet list | popover list | typing, loading, empty, selected |
+| `DS-FRM-008` | `Combobox` (usunięty 27.11.2026 — brak w aplikacji) | searchable single | full-screen/sheet list | popover list | typing, loading, empty, selected |
 | `DS-FRM-009` | `MultiSelect` | chips, checkbox list | sheet | popover | selected, max reached, empty |
 | `DS-FRM-010` | `Checkbox` | unchecked, checked, indeterminate | 44 px target | 40 px target | hover, focus, disabled, error |
 | `DS-FRM-011` | `RadioGroup` | vertical, cards, inline | vertical/cards | inline/cards | selected, focus, disabled |
@@ -756,7 +756,7 @@ Każdy komponent musi mieć wariant mobilny i desktopowy, jeżeli sposób prezen
 | `DS-AVL-017` | `FleetCalendarMobileList` | by vehicle, by date | podstawowy | optional | expand vehicle, quick block |
 | `DS-AVL-018` | `CalendarToolbar` | prev/next, today, month, range | compact | full | disabled at horizon |
 | `DS-AVL-019` | `DateRangePreset` | today, weekend, next week, custom | chips | buttons/menu | selected |
-| `DS-AVL-020` | `BlockDetailsPanel` | view, edit | sheet | side panel | delete, edit, audit metadata |
+| `DS-AVL-020` | `BlockDetailsPanel` (usunięty 27.11.2026 — edycja otwiera się bez panelu podglądu) | view, edit | sheet | side panel | delete, edit, audit metadata |
 
 ### 6.9. Kontakt
 
@@ -806,7 +806,7 @@ Każdy komponent musi mieć wariant mobilny i desktopowy, jeżeli sposób prezen
 | `DS-SET-003` | `ContactChannelEditor` | phone/email/WhatsApp/custom | cards | rows/cards | add, reorder, default, remove |
 | `DS-SET-004` | `PresentationSettingsForm` | pricing, featured count, disclaimer | accordion | section | dependent fields |
 | `DS-SET-005` | `SEOFields` | default title/description | stack | 2 columns + preview | character limits, preview |
-| `DS-SET-006` | `SEOPreview` | desktop search snippet, social | card | card | truncation preview |
+| `DS-SET-006` | `SEOPreview` | search snippet (social usunięty 27.11.2026) | card | card | default, empty |
 | `DS-SET-007` | `LegalContentEditor` | privacy, terms, link/content | tabs | split view | draft, preview, validation |
 | `DS-SET-008` | `AuditFilters` | date, actor, action, entity | filter sheet | filter bar | applied, clear |
 | `DS-SET-009` | `AuditDetails` | safe diff/summary | accordion/sheet | expandable row/dialog | redacted secrets |
@@ -2539,7 +2539,7 @@ Dla każdego komponentu w Storybooku lub równoważnej dokumentacji powinny istn
 | `FR-ADM-020`–`FR-ADM-022` | `ADM-05` | DataTable, VehicleRowAdmin, VehicleCardAdmin, FilterBar, reorder controls |
 | `FR-ADM-030`–`FR-ADM-035` | `ADM-06`, `ADM-07`, `ADM-08` | VehicleForm, FormSection, SlugField, ValidationSummary, FormActions, preview banner |
 | `FR-ADM-040`–`FR-ADM-046` | `ADM-06`, `ADM-07`, `OVR-12` | FileDropzone, UploadQueue, ReorderableGallery, ImageAltEditor, CoverMarker, ConfirmDialog |
-| `FR-ADM-050`–`FR-ADM-054` | `ADM-09`, `OVR-06`, `OVR-07` | AdminVehicleCalendar, BlockEvent, BlockForm, BlockDetailsPanel |
+| `FR-ADM-050`–`FR-ADM-054` | `ADM-09`, `OVR-06`, `OVR-07` | AdminVehicleCalendar, BlockEvent, BlockForm |
 | `FR-ADM-055` | `OVR-08` | ConflictPanel, BlockConflictCard |
 | `FR-ADM-056` | `ADM-04`, `ADM-09`, `OVR-06` | QuickBlockFlow, mobile sticky action |
 | `FR-ADM-057` | `ADM-10` | FleetCalendarGrid, FleetCalendarMobileList |
