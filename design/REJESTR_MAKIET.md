@@ -84,7 +84,7 @@ Kody wystąpień w Scenariuszach Mobile (`F06-02` = `FLOW-MVP-06 / M / 02`). ID 
 | ADM-09 Kalendarz pojazdu | `admin/vehicle-calendar.tsx` | F11-06, F11-07D2, F11-08 | Ekrany 23.11; Mobile 26.11 | #472, #474 `047d320e`, `ee27a485` | panel „Wybrana blokada” (sekcja 4) |
 | OVR-06/07/08 Blokada | `admin/vehicle-calendar.tsx` | F11-07, F11-07C1–C3, F11-07D1 | Ekrany 23.11 (dialogi); Mobile 26.11 | #472 | — |
 | ADM-10 Kalendarz floty | `admin/fleet-calendar.tsx` | — | Ekrany 23.11 | #472 | przełącznik na telefonie (sekcja 4) |
-| ADM-11–14 Ustawienia | `settings/*` | — | **nie**: wariant tylko do odczytu (D-01) | #472 (odczyt) | przebudowa makiet |
+| ADM-11–14 Ustawienia | `settings/settings-readonly.tsx`, `legal-documents.tsx`, `settings-extras.tsx` | — | M: **tylko do odczytu, 27.11** (Alert z Systemu, karta sekcji, lista etykieta/wartość, kanały, SEO, dokumenty prawne, panel „Podgląd publiczny”; dane Alfa Campers); D: **nie** | #472 (odczyt) | D; zakładka „Wygląd” w `SettingsNavigation` (System) |
 | ADM-15/16 Konto, sesje | `account/*` | — | Ekrany 23.11 | #472 | — |
 | ADM-17 Dziennik zmian | `audit/audit-log.tsx` | F11-09, F11-07D3 | Ekrany 23.11; Mobile 26.11 | #472, #474 `2a88dd8f`, `4ba1611b` | teksty ADM-17 w Ekranach |
 | ADM-18 Offline | `public/admin/offline.html`, `panel/panel-shell.tsx` | — | Ekrany 23.11 („Offline”) | #472 | — |
