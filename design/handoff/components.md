@@ -3343,6 +3343,8 @@ type RichDescriptionFieldProps = {
 
 ## DS-FRM-026 — FormSection
 
+> **Stan od 27.11.2026:** w Penpocie wszystkie `presentation` mają jedną anatomię z aplikacji (`admin/vehicle-form.tsx`): rozwijana karta z nagłówkiem, licznikiem „N do poprawy” i chevronem; `status=complete` oznacza sekcję zwiniętą. Statusy „Kompletna”/„Do uzupełnienia” są historyczne.
+
 - Penpot Variant Set: `7cf0d39f-ce5c-80f6-8008-cf2c7649114c`.
 - Library component head: `9425204d-c5c4-807f-8008-b167363eb815`.
 
