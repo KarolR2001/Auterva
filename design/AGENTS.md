@@ -9,9 +9,10 @@
 
 ## Praca z Penpotem
 
-- Przed odczytem/zapisem uruchom połączenie i sprawdź dostępne narzędzia oraz aktualną sygnaturę API. Użyj zainstalowanego skilla `penpot-mcp`; projektowy PRD/SPEC ma pierwszeństwo przed domyślną estetyką skilla.
+- Przed odczytem/zapisem uruchom połączenie i sprawdź dostępne narzędzia oraz aktualną sygnaturę API. Użyj zainstalowanego skilla `maestro-dogn-mcp`; projektowy PRD/SPEC ma pierwszeństwo przed domyślną estetyką skilla.
 - Potwierdź file/page/board/component ID. Snapshot z 22.10.2026 jest indeksem; przed porównaniem FE/QA odczytaj aktualny plik. Znane braki i odłożone prototypy są w `traceability.json`.
 - Jeden agent zapisuje do Penpota. Rozdziel przełączenie strony i kontrolny odczyt od zapisu. Przed usunięciem lub zmianą fundamentów sprawdź zakres upoważnienia i zapewnij odtwarzalną kopię.
+- Przed każdą zmianą makiety lub UI przeczytaj `design/REJESTR_MAKIET.md`. Nie powtarzaj pozycji oznaczonych jako zrobione. Ten sam ekran występuje w kilku plikach: plansza kanoniczna jest w Ekranach (ADM/PUB/OVR/ACC/TEN/MKT) albo w planszach `PLT-…` Scenariuszy, a `FLOW-MVP-*` to jej kopie w stanach scenariusza (lista w `design/screen-occurrences.json`). Najpierw zmień wzorzec i planszę kanoniczną, potem wszystkie wystąpienia we wszystkich plikach, potem aplikację. Kopii nie poprawiaj w oderwaniu od wzorca. W tej samej zmianie zaktualizuj rejestr, a dla nowych plansz także JSON.
 - Sprawdź istnienie przed tworzeniem. Po timeout odczytaj stan przed ponowieniem. Pracuj małymi partiami; zachowuj realne instancje, edytowalne teksty oraz Flex/Grid.
 - Po zmianie odczytaj strukturę i obejrzyj render. Brak renderu oznacza niewykonany przegląd wizualny. Nie deklaruj focus trap, czytnika ani zapisu serwera na podstawie statycznej makiety.
 

@@ -1,5 +1,5 @@
 ---
-name: penpot-mcp
+name: maestro-dogn-mcp
 version: "1.5.3"
 category: design
 tags: [penpot, mcp, design-system, prototyping, design-to-code, tokens, interactions]
@@ -16,7 +16,7 @@ description: >
   workflows — design, code, audit, prototyping, or setup.
 ---
 
-# Penpot MCP Skill
+# Maestro Dogn MCP Skill
 
 AI-agent workflows for creating, auditing, and maintaining production-grade design projects and design systems — including flows, interactions, animations, tokens, and visual effects — in Penpot via the official MCP Server.
 
@@ -66,12 +66,15 @@ npx @penpot/mcp@beta     # for beta/test environments
 
 ### Client Config Snippets
 
-**Claude Code** (`.claude/settings.json`):
+**Claude Code** (`.mcp.json` at the project root; set `MAESTRO_DOGN_MCP_KEY` in the shell before launching Claude Code):
 
 ```json
 {
   "mcpServers": {
-    "penpot": { "transport": "http", "url": "REMOTE_OR_LOCAL_URL" }
+    "maestro-dogn": {
+      "type": "http",
+      "url": "https://design.penpot.app/mcp/stream?userToken=${MAESTRO_DOGN_MCP_KEY}"
+    }
   }
 }
 ```
@@ -79,7 +82,7 @@ npx @penpot/mcp@beta     # for beta/test environments
 **Cursor**:
 
 ```json
-{ "mcpServers": { "penpot": { "url": "REMOTE_OR_LOCAL_URL", "type": "http" } } }
+{ "mcpServers": { "maestro-dogn": { "url": "REMOTE_OR_LOCAL_URL", "type": "http" } } }
 ```
 
 **VS Code / Copilot** (`settings.json`):
@@ -87,7 +90,7 @@ npx @penpot/mcp@beta     # for beta/test environments
 ```json
 {
   "mcp.servers": {
-    "penpot": { "transport": "http", "url": "REMOTE_OR_LOCAL_URL" }
+    "maestro-dogn": { "transport": "http", "url": "REMOTE_OR_LOCAL_URL" }
   }
 }
 ```
@@ -97,7 +100,7 @@ npx @penpot/mcp@beta     # for beta/test environments
 ```json
 {
   "servers": {
-    "penpot": { "url": "REMOTE_OR_LOCAL_URL", "transport": { "type": "http" } }
+    "maestro-dogn": { "url": "REMOTE_OR_LOCAL_URL", "transport": { "type": "http" } }
   }
 }
 ```
@@ -125,12 +128,12 @@ npx -y mcp-remote http://localhost:4401/sse --allow-http
 | Tool                  | Mode       | Description                                                         |
 | --------------------- | ---------- | ------------------------------------------------------------------- |
 | `high_level_overview` | Both       | Read overall file structure, pages, layers, components              |
-| `penpot_api_info`     | Both       | Query Penpot plugin API documentation                               |
-| `execute_code`        | Both       | Run JavaScript in Penpot plugin context — primary read/write tool   |
-| `export_shape`        | Both       | Export shape as PNG/SVG (remote: limited; may fail with HTTP error) |
-| `import_image`        | Local only | Import image from local file path into design                       |
+| `penpot_api_info`     | Both       | Query the plugin API documentation                                  |
+| `execute_code`        | Both       | Run JavaScript in the design plugin context — primary read/write tool |
+| `export_shape`        | Both       | Export a shape as PNG/SVG; remote export may fail with an HTTP error |
+| `import_image`        | Local only | Import an image from a local file path                               |
 
-> Remote MCP cannot import images from local paths. `export_shape` may fail with HTTP errors — always verify structurally via API rather than relying on export success.
+Remote MCP cannot import images from local paths. Verify exports rather than relying on them for structural checks.
 
 ### Check connection first (always)
 
@@ -222,7 +225,7 @@ CONSTRAINTS:
   - Always use idempotency helpers (ensureColor, ensureTypography, etc.)
   - Never switch page and write in the same call
   - Never invent font weights not confirmed installed for this family
-  - Verify structurally after each batch — do not rely on export_shape
+  - Verify structurally after each batch — do not rely on `export_shape`
   - Store shared data in storage global for cross-call access
 QUALITY CRITERIA: [how you'll know it's done]
 ```
@@ -232,7 +235,7 @@ QUALITY CRITERIA: [how you'll know it's done]
 - "Do not invent colors not in the token set."
 - "Do not use font weights not confirmed installed for this font family."
 - "Do not switch page and write in the same execute_code call."
-- "Do not rely on export_shape for verification — use structural API checks."
+- "Do not rely on `export_shape` for verification — use structural API checks."
 - "Do not create duplicate colors/typographies — always check before creating."
 
 ### Iteration pattern
@@ -418,7 +421,7 @@ and a drop shadow. Describe the values you'll use before applying."
 | Write ops immediate — no undo via MCP     | Plan + describe before applying                                |
 | Large batches time out silently           | Max ~10 ops per call; verify after each                        |
 | Page switch is async                      | Never switch page and write in same call                       |
-| `export_shape` may fail with HTTP error   | Verify structurally via API; export is best-effort             |
+| `export_shape` may fail with an HTTP error | Verify structurally through the API; export is best-effort      |
 | Remote MCP can't read local file system   | Use local MCP for `import_image`                               |
 | Only one active MCP tab                   | Close other Penpot tabs before running agents                  |
 | `Error: Already connected to a transport` | Close other MCP clients; use `/sse` fallback if `/mcp` conflicts |

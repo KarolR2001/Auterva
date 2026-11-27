@@ -17,7 +17,7 @@
 
 ## Instrukcje obszarowe i skille
 
-- UI i Penpot: `design/AGENTS.md`, `src/AGENTS.md`, `src/components/AGENTS.md`; odpowiednio `penpot-mcp`, `shadcn`, `vercel-composition-patterns`, `vercel-react-best-practices`.
+- UI i Penpot: `design/AGENTS.md`, `src/AGENTS.md`, `src/components/AGENTS.md`; odpowiednio `maestro-dogn-mcp`, `shadcn`, `vercel-composition-patterns`, `vercel-react-best-practices`.
 - Backend: `src/AGENTS.md`; auth dodatkowo `src/modules/auth/AGENTS.md`, dostępność `src/modules/availability/AGENTS.md`, baza `prisma/AGENTS.md`.
 - QA: `tests/AGENTS.md`, `design/AGENTS.md`; odpowiednio `playwright-cli`, `systematic-debugging`, `verification-before-completion` i `test-driven-development`.
 - Skille są w `.agents/skills/`, pochodzenie w `skills-lock.json`. Zachowaj je w repozytorium. Ładuj tylko skille potrzebne do zadania; nie istnieje lokalny skill `auterva-delivery`.
@@ -40,6 +40,7 @@
 - Paleta #151515, #424242, #737373, #a5a5a5, #f2f2f2 i dozwolone alfa; Inter Variable, Lucide, siatka 4 px, bez dark mode. Używaj semantycznych tokenów.
 - Status wymaga tekstu oraz ikony/obramowania; #737373 na #f2f2f2 nie służy do zwykłego tekstu.
 - Mobile zapewnia pełne funkcje paneli. Makiety referencyjne: 390 i 1440 px; testy także 320, 768, 1024 i 1920 px.
+- Stan poprawek makiet i dopasowania UI prowadzi [rejestr makiet](design/REJESTR_MAKIET.md). Wystąpienia tego samego ekranu w plikach Penpota są w `design/screen-occurrences.json`. Przed pracą sprawdź, co już zrobiono. Zmieniaj wzorzec i planszę kanoniczną przed kopiami w scenariuszach, a rejestr aktualizuj w tej samej zmianie.
 - Powiąż wymaganie → ekran/stan Penpota → kod → test w `design/traceability.json` i issue. Brakujące lub zmienione ID sprawdź w Penpocie; nie zgaduj.
 - QA porównuje aplikację i aktualną makietę; eksport ekranu nie dowodzi działania klawiatury, czytnika ani API. Dowody zapisuj w PR/artefaktach CI, nie jako wielki dziennik w repozytorium.
 - Rzeczywisty odbiór VoiceOver jest odroczony do końca implementacji w #97 (P3). W bieżących PR oznacz go `DEFERRED` z linkiem do #97, nigdy `PASS`; sam brak tej próby nie blokuje CR, QA ani merge. Klawiatura, fokus, semantyka, kontrast, zoom i reduced motion pozostają bieżącymi bramkami. Nowe problemy czytnika zapisuj jako osobne P3 issue do końcowego odbioru.

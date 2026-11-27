@@ -1118,7 +1118,7 @@ Poniższy indeks obejmuje rzeczywiste boardy nazwane `FLOW-MVP-*` na stronach 14
 | `DS-AVL-017 / FleetCalendarMobileList` | `92bfc32e-2dd6-801a-8008-be6af7e658fc` |
 | `DS-AVL-018 / CalendarToolbar` | `92bfc32e-2dd6-801a-8008-be5d06fdd34b` |
 | `DS-AVL-019 / DateRangePreset` | `92bfc32e-2dd6-801a-8008-be6f4ec51ee5` |
-| `DS-AVL-020 / BlockDetailsPanel` | `92bfc32e-2dd6-801a-8008-be74c9834673` |
+| `DS-AVL-020 / BlockDetailsPanel` (usunięty 27.11.2026) | `92bfc32e-2dd6-801a-8008-be74c9834673` |
 | `DS-CNT-001 / ContactCTA` | `92bfc32e-2dd6-801a-8008-be7c1a59c523` |
 | `DS-CNT-002 / ContactSheet` | `92bfc32e-2dd6-801a-8008-be91c1d0b33b` |
 | `DS-CNT-003 / ContactChannelButton` | `92bfc32e-2dd6-801a-8008-be8324ccd584` |
@@ -1166,7 +1166,7 @@ Poniższy indeks obejmuje rzeczywiste boardy nazwane `FLOW-MVP-*` na stronach 14
 | `DS-FRM-005 / Textarea / Variant Set` | `368ee0a4-28c8-80cb-8008-b82a461e6ede` |
 | `DS-FRM-006 / NumberInput / Variant Set` | `368ee0a4-28c8-80cb-8008-b82c35580fb8` |
 | `DS-FRM-007 / Select / Variant Set` | `a4abf4c9-2e1f-80fd-8008-b03c6f63f436` |
-| `DS-FRM-008 / Combobox / Variant Set` | `92bfc32e-2dd6-801a-8008-becd14800250` |
+| `DS-FRM-008 / Combobox / Variant Set` (usunięty 27.11.2026) | `92bfc32e-2dd6-801a-8008-becd14800250` |
 | `DS-FRM-010 / Checkbox / Variant Set` | `a4abf4c9-2e1f-80fd-8008-b00114c5e90a` |
 | `DS-FRM-011 / RadioGroup / Variant Set` | `a4abf4c9-2e1f-80fd-8008-b04298d3f2af` |
 | `DS-FRM-012 / Switch / Variant Set` | `a4abf4c9-2e1f-80fd-8008-b037e840b961` |

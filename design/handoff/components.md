@@ -3343,6 +3343,8 @@ type RichDescriptionFieldProps = {
 
 ## DS-FRM-026 — FormSection
 
+> **Stan od 27.11.2026:** w Penpocie wszystkie `presentation` mają jedną anatomię z aplikacji (`admin/vehicle-form.tsx`): rozwijana karta z nagłówkiem, licznikiem „N do poprawy” i chevronem; `status=complete` oznacza sekcję zwiniętą. Statusy „Kompletna”/„Do uzupełnienia” są historyczne.
+
 - Penpot Variant Set: `7cf0d39f-ce5c-80f6-8008-cf2c7649114c`.
 - Library component head: `9425204d-c5c4-807f-8008-b167363eb815`.
 
@@ -4697,6 +4699,8 @@ type PresentationSettingsFormProps = {
 
 ## DS-SET-005 — SEOFields
 
+> **Stan od 27.11.2026:** komponent odpowiada sekcji „Prezentacja i SEO” z `settings/settings-form.tsx` (pola z „(opcjonalne)”, bez liczników znaków, `limit` = podsumowanie „Popraw zaznaczone pola” i „Najwyżej 120 znaków.”, instancja `SEOPreview`, „Podgląd publiczny”, „Zapisz zmiany”). Punkty poniżej o `CharacterCounter` i `UnsavedIndicator` są historyczne.
+
 Kontrakt: projekt i kontrakt komponentu; zapis ustawień, generowanie metadanych i rzeczywisty rendering preview wymagają testów implementacji.
 
 - Źródła Penpot: mobile/default `9425204d-c5c4-807f-8008-b5c5d144f7fb`, mobile/limit `9425204d-c5c4-807f-8008-b5c5d21707c3`, desktop/default `9425204d-c5c4-807f-8008-b5c5d3343504`, desktop/limit `9425204d-c5c4-807f-8008-b5c5d45ec41b`.
@@ -4707,6 +4711,8 @@ Kontrakt: projekt i kontrakt komponentu; zapis ustawień, generowanie metadanych
 - Statyczny Penpot potwierdza 4/4 kombinacje, brak `variantError`, dozwoloną paletę i brak przepełnień.
 
 ## DS-SET-006 — SEOPreview
+
+> **Stan od 27.11.2026:** tylko `type=search` (`state=default|empty`) jako karta „Podgląd wyniku wyszukiwania” z `settings/settings-extras.tsx`; warianty `social` usunięte (brak w aplikacji), `truncated` zastąpiony `empty` z tekstami zastępczymi aplikacji. Punkty poniżej opisujące social i obcięcie są historyczne.
 
 Kontrakt: projekt i kontrakt komponentu; generowanie metadanych, limity platform oraz rzeczywisty rendering wymagają testów implementacji.
 
@@ -5061,6 +5067,8 @@ type DateRangePresetProps = {
 
 ## DS-AVL-020 — BlockDetailsPanel
 
+> **Usunięty z Penpota 27.11.2026** (decyzja właściciela): aplikacja (`admin/vehicle-calendar.tsx`) otwiera edycję blokady bez osobnego panelu podglądu. Poniższy kontrakt jest historyczny — nie implementować.
+
 Kontrakt: prywatny panel szczegółów i wejście do edycji blokady. Autoryzacja, focus trap, zapis audytu, konflikt współbieżny i odświeżenie cache pozostają odpowiedzialnością runtime.
 
 - Catalog board: `1e066793-8858-8051-8008-cf320ddcb084`.
@@ -5382,6 +5390,8 @@ type CardProps = {
 ```
 
 ## DS-FRM-008 — Combobox
+
+> **Usunięty z Penpota 27.11.2026** (decyzja właściciela): aplikacja używa zwykłego `Select`. Poniższy kontrakt jest historyczny — nie implementować.
 
 To jedna rodzina searchable single-select; nie dodaje trasy, ekranu ani drugiego mechanizmu wyboru obok istniejącego `Select`.
 

@@ -26,7 +26,7 @@
         "references/penpot-api-patterns.md": "4c761a1721d02f02d8bf8ef6ef09c00c57320454b1d127d3435e1f89fd51173e",
         "references/prototyping-workflows.md": "bdfea653a51182a457289f8239f8415b0e2e2eb39caa0007f90b0e0fbf2f05f4"
       },
-      "name": "penpot-mcp",
+      "name": "maestro-dogn-mcp",
       "requestedRepository": "ar27111994/penpot-mcp",
       "resolvedCommit": null
     },

@@ -28,7 +28,7 @@ Concrete JavaScript for `execute_code`, critical gotchas, font/typography constr
 ## 1. Always Check Connection First
 
 ```text
-Call: mcp__penpot__penpot_api_info  (or high_level_overview)
+Call: mcp__maestro_dogn__penpot_api_info  (or high_level_overview)
 ```
 
 - Succeeds → server running. Skip setup. Proceed to task.
@@ -39,7 +39,7 @@ Call: mcp__penpot__penpot_api_info  (or high_level_overview)
 
 ## 2. Core API Reference
 
-All code runs via `mcp__penpot__execute_code`.
+All code runs via `mcp__maestro_dogn__execute_code`.
 
 ### Read operations
 

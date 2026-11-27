@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "purpose": "Mapowanie wymagań i projektu oraz ścieżek implementacji/testów; nie raport wyników kontroli aplikacji.",
   "implementationRefs": [
     {
@@ -2941,41 +2941,71 @@
   ],
   "penpot": {
     "fileId": "b564c72c-f31f-81ec-8008-af198a313438",
-    "fileName": "Nowy plik 2",
-    "snapshotDate": "2026-10-22",
+    "fileName": "Auterva — System",
+    "snapshotDate": "2026-11-23",
+    "files": [
+      {
+        "name": "Auterva — System",
+        "fileId": "b564c72c-f31f-81ec-8008-af198a313438",
+        "role": "komponenty, tokeny i dokument startowy (strony 00, 01)"
+      },
+      {
+        "name": "Auterva — Ekrany",
+        "fileId": "7d3e61e0-34c6-81f6-8008-fd63750adb37",
+        "role": "strony publiczne i panel firmy (strony 02, 03)"
+      },
+      {
+        "name": "Auterva — Scenariusze Mobile",
+        "fileId": "e7ca6b81-c0d3-8029-8008-fd63c3e8ce4a",
+        "role": "scenariusze mobilne i opisy (strony 14, 16)"
+      },
+      {
+        "name": "Auterva — Scenariusze Desktop",
+        "fileId": "3db45ae8-1dfd-81ce-8008-fd641392cefa",
+        "role": "scenariusze desktopowe (strona 15)"
+      }
+    ],
     "pages": [
       {
         "name": "00 — Start i przekazanie",
-        "id": "b564c72c-f31f-81ec-8008-af198a313439"
+        "id": "b564c72c-f31f-81ec-8008-af198a313439",
+        "fileId": "b564c72c-f31f-81ec-8008-af198a313438"
       },
       {
         "name": "01 — System projektu",
-        "id": "a4abf4c9-2e1f-80fd-8008-afc9717972ba"
+        "id": "a4abf4c9-2e1f-80fd-8008-afc9717972ba",
+        "fileId": "b564c72c-f31f-81ec-8008-af198a313438"
       },
       {
         "name": "02 — Strony publiczne / Auterva i firma · M+D",
-        "id": "269b07ba-69e5-8066-8008-c84a9b898bc0"
+        "id": "269b07ba-69e5-8066-8008-c84a9b898bc0",
+        "fileId": "7d3e61e0-34c6-81f6-8008-fd63750adb37"
       },
       {
         "name": "03 — Panel firmy · M+D",
-        "id": "a4abf4c9-2e1f-80fd-8008-afc9717d55df"
+        "id": "a4abf4c9-2e1f-80fd-8008-afc9717d55df",
+        "fileId": "7d3e61e0-34c6-81f6-8008-fd63750adb37"
       },
       {
         "name": "14 — Scenarios / MVP / Mobile",
-        "id": "fb4e1683-f05f-8095-8008-c755dff0027c"
+        "id": "fb4e1683-f05f-8095-8008-c755dff0027c",
+        "fileId": "e7ca6b81-c0d3-8029-8008-fd63c3e8ce4a"
       },
       {
         "name": "15 — Scenarios / MVP / Desktop",
-        "id": "fb4e1683-f05f-8095-8008-c755dff4dae6"
+        "id": "fb4e1683-f05f-8095-8008-c755dff4dae6",
+        "fileId": "3db45ae8-1dfd-81ce-8008-fd641392cefa"
       },
       {
         "name": "16 — Reference / Scenario descriptions",
-        "id": "fb4e1683-f05f-8095-8008-c755dff64a17"
+        "id": "fb4e1683-f05f-8095-8008-c755dff64a17",
+        "fileId": "e7ca6b81-c0d3-8029-8008-fd63c3e8ce4a"
       }
     ]
   },
+
   "conventions": {
-    "fileId": "Wszystkie odwołania Penpot dziedziczą penpot.fileId.",
+    "fileId": "Plik zawierający stronę wskazuje penpot.pages[].fileId; ID stron, boardów i komponentów nie zmieniły się przy podziale z 23.11.2026. penpot.fileId to plik System (biblioteka komponentów i tokenów).",
     "catalog": "180 pozycji SPEC obejmuje komponenty, aliasy i kompozycje; nie oznacza 180 niezależnych komponentów React.",
     "originalPriority": "Priorytet historycznego katalogu; obowiązują decyzje PRD 3.1, m.in. obowiązkowe MFA.",
     "missingValues": "Brak pola oznacza brak mapowania lub brak zastosowania; nie domyślne potwierdzenie.",
@@ -5804,6 +5834,7 @@
       "id": "DS-AVL-020",
       "kind": "component",
       "name": "BlockDetailsPanel",
+      "removed": "2026-11-27: usunięty z Penpota (System) — aplikacja otwiera edycję blokady bez osobnego panelu podglądu; decyzja właściciela 27.11.2026, brak w aplikacji; zob. design/REJESTR_MAKIET.md",
       "source": {
         "path": "docs/design/SPEC.md",
         "section": "6.8. Komponenty dostępności pojazdu i kalendarzy"
@@ -7475,6 +7506,7 @@
       "id": "DS-FRM-008",
       "kind": "component",
       "name": "Combobox",
+      "removed": "2026-11-27: usunięty z Penpota (System) — aplikacja używa zwykłego Select; decyzja właściciela 27.11.2026, brak w aplikacji; zob. design/REJESTR_MAKIET.md",
       "source": {
         "path": "docs/design/SPEC.md",
         "section": "6.4. Pola formularzy i kontrolki"
@@ -9901,15 +9933,13 @@
         "FR-ADM-071"
       ],
       "originalPriority": "UNSPECIFIED",
-      "variantsSpec": "desktop search snippet, social",
-      "statesSpec": "truncation preview",
+      "variantsSpec": "search snippet (social usunięty 2026-11-27)",
+      "statesSpec": "default, empty (tekst zastępczy z settings-extras.tsx)",
       "penpot": {
         "pageId": "a4abf4c9-2e1f-80fd-8008-afc9717972ba",
         "boardIds": [
           "9425204d-c5c4-807f-8008-b695866abaff",
-          "9425204d-c5c4-807f-8008-b6958abacf71",
-          "9425204d-c5c4-807f-8008-b6958eb0cfb1",
-          "9425204d-c5c4-807f-8008-b695950273de"
+          "9425204d-c5c4-807f-8008-b6958abacf71"
         ],
         "componentId": "9425204d-c5c4-807f-8008-b6968035ba83"
       },
